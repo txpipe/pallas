@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+    "pallas-multiplexer",
+    "pallas-machines",
+    "pallas-handshake",
+    "pallas-blockfetch",
+    "pallas",
+]

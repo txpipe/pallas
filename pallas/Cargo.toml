@@ -1,0 +1,17 @@
+[package]
+name = "pallas"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+license = "Apache-2.0"
+authors = [
+    "Santiago Carmuega <santiago@carmuega.me>"
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pallas-multiplexer = { path = "../pallas-multiplexer/" }
+pallas-machines = { path = "../pallas-machines/" }
+pallas-handshake = { path = "../pallas-handshake/" }
+pallas-blockfetch = { path = "../pallas-blockfetch/" }
