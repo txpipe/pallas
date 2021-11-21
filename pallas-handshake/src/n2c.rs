@@ -1,9 +1,10 @@
 use core::panic;
 use std::collections::HashMap;
 
+use itertools::Merge;
 use pallas_machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput,
-    PayloadDecoder, PayloadEncoder,
+    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
+    PayloadEncoder,
 };
 
 use crate::common::{NetworkMagic, RefuseReason, VersionNumber};
@@ -42,13 +43,10 @@ impl VersionTable {
 }
 
 #[derive(Debug, Clone)]
-pub struct VersionData (NetworkMagic,);
+pub struct VersionData(NetworkMagic);
 
 impl EncodePayload for VersionData {
-    fn encode_payload(
-        &self,
-        e: &mut PayloadEncoder,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
         e.u64(self.0)?;
 
         Ok(())
@@ -56,9 +54,7 @@ impl EncodePayload for VersionData {
 }
 
 impl DecodePayload for VersionData {
-    fn decode_payload(
-        d: &mut PayloadDecoder,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
         let network_magic = d.u64()?;
 
         Ok(Self(network_magic))
@@ -73,10 +69,7 @@ pub enum Message {
 }
 
 impl EncodePayload for Message {
-    fn encode_payload(
-        &self,
-        e: &mut PayloadEncoder,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Message::Propose(version_table) => {
                 e.array(2)?.u16(0)?;
@@ -98,24 +91,22 @@ impl EncodePayload for Message {
 }
 
 impl DecodePayload for Message {
-    fn decode_payload(
-        d: &mut PayloadDecoder,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
         d.array()?;
 
-        let msg = match d.u16()? {
+        match d.u16()? {
             0 => todo!(),
             1 => {
                 let version_number = d.u64()?;
                 let version_data = VersionData::decode_payload(d)?;
-
-                Message::Accept(version_number, version_data)
+                Ok(Message::Accept(version_number, version_data))
             }
-            2 => todo!(),
-            x => return Err(Box::new(MachineError::BadLabel(x))),
-        };
-
-        Ok(msg)
+            2 => {
+                let reason = RefuseReason::decode_payload(d)?;
+                Ok(Message::Refuse(reason))
+            }
+            x => Err(Box::new(MachineError::BadLabel(x))),
+        }
     }
 }
 
@@ -165,10 +156,7 @@ impl Agent for Client {
         }
     }
 
-    fn send_next(
-        self,
-        tx: &impl MachineOutput,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn send_next(self, tx: &impl MachineOutput) -> Result<Self, Box<dyn std::error::Error>> {
         match self.state {
             State::Propose => {
                 tx.send_msg(&Message::Propose(self.version_table.clone()))?;
@@ -182,10 +170,7 @@ impl Agent for Client {
         }
     }
 
-    fn receive_next(
-        self,
-        msg: Self::Message,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn receive_next(self, msg: Self::Message) -> Result<Self, Box<dyn std::error::Error>> {
         match (self.state, msg) {
             (State::Confirm, Message::Accept(version, data)) => Ok(Self {
                 state: State::Done,

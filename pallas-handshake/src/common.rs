@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use pallas_machines::{DecodePayload, EncodePayload, PayloadEncoder};
+use pallas_machines::{DecodePayload, EncodePayload, MachineError, PayloadEncoder};
 use std::{collections::HashMap, fmt::Debug};
 
 pub const TESTNET_MAGIC: u64 = 1097911063;
@@ -17,10 +17,7 @@ impl<T> EncodePayload for VersionTable<T>
 where
     T: Debug + Clone + EncodePayload + DecodePayload,
 {
-    fn encode_payload(
-        &self,
-        e: &mut PayloadEncoder,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
         e.map(self.values.len() as u64)?;
 
         for key in self.values.keys().sorted() {
@@ -44,10 +41,7 @@ pub enum RefuseReason {
 }
 
 impl EncodePayload for RefuseReason {
-    fn encode_payload(
-        &self,
-        e: &mut PayloadEncoder,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             RefuseReason::VersionMismatch(versions) => {
                 e.array(2)?;
@@ -69,12 +63,41 @@ impl EncodePayload for RefuseReason {
             }
             RefuseReason::Refused(version, msg) => {
                 e.array(3)?;
-                e.u16(1)?;
+                e.u16(2)?;
                 e.u64(*version)?;
                 e.str(msg)?;
 
                 Ok(())
             }
+        }
+    }
+}
+
+impl DecodePayload for RefuseReason {
+    fn decode_payload(
+        d: &mut pallas_machines::PayloadDecoder,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        d.array()?;
+
+        match d.u16()? {
+            0 => {
+                let versions = d.array_iter::<u64>()?;
+                let versions = versions.try_collect()?;
+                Ok(RefuseReason::VersionMismatch(versions))
+            }
+            1 => {
+                let version = d.u64()?;
+                let msg = d.str()?;
+
+                Ok(RefuseReason::HandshakeDecodeError(version, msg.to_string()))
+            }
+            2 => {
+                let version = d.u64()?;
+                let msg = d.str()?;
+
+                Ok(RefuseReason::Refused(version, msg.to_string()))
+            }
+            x => Err(Box::new(MachineError::BadLabel(x))),
         }
     }
 }
