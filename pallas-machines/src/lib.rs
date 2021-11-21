@@ -8,14 +8,22 @@ use std::sync::mpsc::{Receiver, Sender};
 #[derive(Debug)]
 pub enum MachineError {
     BadLabel(u16),
+    UnexpectedCbor(&'static str),
+    InvalidMsgForState,
 }
 
 impl Display for MachineError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MachineError::BadLabel(label) => {
-                write!(f, "unknown message label [{}]", label)
+                write!(f, "unknown message label: {}", label)
             }
+            MachineError::UnexpectedCbor(msg) => {
+                write!(f, "unexpected cbor: {}", msg)
+            },
+            MachineError::InvalidMsgForState => {
+                write!(f, "received invalid message for current state")
+            },
         }
     }
 }
