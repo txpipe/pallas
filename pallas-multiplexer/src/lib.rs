@@ -52,22 +52,24 @@ impl Bearer for TcpStream {
 
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error> {
         let mut header = [0u8; 8];
-
+        
         self.read_exact(&mut header)?;
 
-        let length = NetworkEndian::read_u16(&header[6..]) as usize;
-        let mut payload = vec![0u8; length];
-        self.read_exact(&mut payload)?;
+        if log_enabled!(log::Level::Trace) {
+            trace!("read segment header: {:?}", hex::encode(&header));
+        }
 
+        let length = NetworkEndian::read_u16(&header[6..]) as usize;
         let id = NetworkEndian::read_u16(&mut header[4..6]) as usize ^ 0x8000;
         let ts = NetworkEndian::read_u32(&mut header[0..4]);
 
+        debug!("parsed inbound msg, protocol id: {}, ts: {}, payload length: {}", id, ts, length);
+
+        let mut payload = vec![0u8; length];
+        self.read_exact(&mut payload)?;
+
         if log_enabled!(log::Level::Trace) {
-            trace!(
-                "received segment, header: {:?}, payload length: {}",
-                hex::encode(&header),
-                payload.len()
-            );
+            trace!("read segment payload: {:?}", hex::encode(&payload));
         }
 
         Ok((id as u16, ts, payload))
@@ -157,10 +159,7 @@ where
                             debug!("successful tx to egress protocol");
                         }
                     },
-                    None => warn!(
-                        "received segment for protocol id not being demuxed {}",
-                        id
-                    ),
+                    None => warn!("received segment for protocol id not being demuxed {}", id),
                 }
             }
         }
@@ -189,8 +188,7 @@ impl Multiplexer {
                 let (demux_tx, demux_rx) = mpsc::channel::<Payload>();
                 let (mux_tx, mux_rx) = mpsc::channel::<Payload>();
 
-                let protocol_handle: ChannelProtocolHandle =
-                    (*id, demux_rx, mux_tx);
+                let protocol_handle: ChannelProtocolHandle = (*id, demux_rx, mux_tx);
                 let ingress_handle: ChannelIngressHandle = (*id, mux_rx);
                 let egress_handle: ChannelEgressHandle = (*id, demux_tx);
 
@@ -198,11 +196,9 @@ impl Multiplexer {
             })
             .collect::<Vec<_>>();
 
-        let (protocol_handles, multiplex_handles): (Vec<_>, Vec<_>) =
-            handles.into_iter().unzip();
+        let (protocol_handles, multiplex_handles): (Vec<_>, Vec<_>) = handles.into_iter().unzip();
 
-        let (ingress, egress): (Vec<_>, Vec<_>) =
-            multiplex_handles.into_iter().unzip();
+        let (ingress, egress): (Vec<_>, Vec<_>) = multiplex_handles.into_iter().unzip();
 
         let mut tx_bearer = bearer.clone();
         thread::spawn(move || tx_loop(&mut tx_bearer, ingress));
