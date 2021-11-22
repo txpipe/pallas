@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use log::{debug, log_enabled, trace, warn};
-use minicbor::encode;
+
 use pallas_machines::{
     Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
     PayloadEncoder, Transition,

@@ -19,14 +19,14 @@ fn main() {
     bearer.set_nodelay(true).unwrap();
     bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
 
-    let mut handles = Multiplexer::new(bearer, &vec![0, 4, 5]).unwrap();
+    let mut muxer = Multiplexer::try_setup(bearer, &vec![0, 4, 5]).unwrap();
     
-    let (_, rx, tx) = handles.remove(0);
+    let (rx, tx) = muxer.use_channel(0);
     let versions = VersionTable::v1_and_above(MAINNET_MAGIC);
     let last = run_agent(Client::initial(versions), rx, &tx).unwrap();
     println!("last hanshake state: {:?}", last);
 
-    let (_, ts_rx, ts_tx) = handles.remove(0);
+    let (ts_rx, ts_tx) = muxer.use_channel(4);
     let ts = NaiveProvider::initial(vec![]);
     let ts = run_agent(ts, ts_rx, &ts_tx).unwrap();
     println!("last tx-submission state: {:?}", ts);
@@ -36,7 +36,7 @@ fn main() {
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
     )];
 
-    let (_, cs_rx, cs_tx) = handles.remove(0);
+    let (cs_rx, cs_tx) = muxer.use_channel(5);
     let cs = Consumer::initial(known_points);
     let cs = run_agent(cs, cs_rx, &cs_tx).unwrap();
     println!("{:?}", cs);

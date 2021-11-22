@@ -1,9 +1,10 @@
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     io::{Read, Write},
     net::TcpStream,
     sync::mpsc::{self, Receiver, Sender, TryRecvError},
-    thread,
+    thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
@@ -52,7 +53,7 @@ impl Bearer for TcpStream {
 
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error> {
         let mut header = [0u8; 8];
-        
+
         self.read_exact(&mut header)?;
 
         if log_enabled!(log::Level::Trace) {
@@ -63,7 +64,10 @@ impl Bearer for TcpStream {
         let id = NetworkEndian::read_u16(&mut header[4..6]) as usize ^ 0x8000;
         let ts = NetworkEndian::read_u32(&mut header[0..4]);
 
-        debug!("parsed inbound msg, protocol id: {}, ts: {}, payload length: {}", id, ts, length);
+        debug!(
+            "parsed inbound msg, protocol id: {}, ts: {}, payload length: {}",
+            id, ts, length
+        );
 
         let mut payload = vec![0u8; length];
         self.read_exact(&mut payload)?;
@@ -166,19 +170,21 @@ where
     }
 }
 
-type ChannelProtocolHandle = (u16, Receiver<Payload>, Sender<Payload>);
+type ChannelProtocolIO = (Receiver<Payload>, Sender<Payload>);
+type ChannelProtocolHandle = (u16, ChannelProtocolIO);
 type ChannelIngressHandle = (u16, Receiver<Payload>);
 type ChannelEgressHandle = (u16, Sender<Payload>);
 type MuxIngress = Vec<ChannelIngressHandle>;
 type DemuxerEgress = Vec<ChannelEgressHandle>;
 
-pub struct Multiplexer {}
+pub struct Multiplexer {
+    tx_thread: JoinHandle<()>,
+    rx_thread: JoinHandle<()>,
+    io_handles: HashMap<u16, ChannelProtocolIO>,
+}
 
 impl Multiplexer {
-    pub fn new<TBearer>(
-        bearer: TBearer,
-        protocols: &[u16],
-    ) -> Result<Vec<ChannelProtocolHandle>, Error>
+    pub fn try_setup<TBearer>(bearer: TBearer, protocols: &[u16]) -> Result<Multiplexer, Error>
     where
         TBearer: Bearer + 'static,
     {
@@ -188,7 +194,8 @@ impl Multiplexer {
                 let (demux_tx, demux_rx) = mpsc::channel::<Payload>();
                 let (mux_tx, mux_rx) = mpsc::channel::<Payload>();
 
-                let protocol_handle: ChannelProtocolHandle = (*id, demux_rx, mux_tx);
+                let protocol_io = (demux_rx, mux_tx);
+                let protocol_handle: ChannelProtocolHandle = (*id, protocol_io);
                 let ingress_handle: ChannelIngressHandle = (*id, mux_rx);
                 let egress_handle: ChannelEgressHandle = (*id, demux_tx);
 
@@ -201,11 +208,29 @@ impl Multiplexer {
         let (ingress, egress): (Vec<_>, Vec<_>) = multiplex_handles.into_iter().unzip();
 
         let mut tx_bearer = bearer.clone();
-        thread::spawn(move || tx_loop(&mut tx_bearer, ingress));
+        let tx_thread = thread::spawn(move || tx_loop(&mut tx_bearer, ingress));
 
         let mut rx_bearer = bearer.clone();
-        thread::spawn(move || rx_loop(&mut rx_bearer, egress));
+        let rx_thread = thread::spawn(move || rx_loop(&mut rx_bearer, egress));
 
-        Ok(protocol_handles)
+        let io_handles: HashMap<u16, ChannelProtocolIO> = protocol_handles.into_iter().collect();
+
+        Ok(Multiplexer {
+            io_handles,
+            tx_thread,
+            rx_thread,
+        })
+    }
+
+    pub fn use_channel(&mut self, protocol_id: u16) -> ChannelProtocolIO {
+        self
+            .io_handles
+            .remove(&protocol_id)
+            .unwrap()
+    }
+
+    pub fn join(self) {
+        self.tx_thread.join().unwrap();
+        self.rx_thread.join().unwrap();
     }
 }

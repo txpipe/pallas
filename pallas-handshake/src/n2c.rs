@@ -1,7 +1,6 @@
 use core::panic;
 use std::collections::HashMap;
 
-use itertools::Merge;
 use pallas_machines::{
     Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
     PayloadEncoder,

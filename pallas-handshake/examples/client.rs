@@ -10,15 +10,14 @@ fn main() {
     env_logger::init();
 
     //let bearer = TcpStream::connect("localhost:6000").unwrap();
-    let bearer =
-        TcpStream::connect("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
+    let bearer = TcpStream::connect("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
 
     bearer.set_nodelay(true).unwrap();
     bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
 
-    let mut handles = Multiplexer::new(bearer, &vec![0]).unwrap();
-    let (_, rx, tx) = handles.remove(0);
+    let mut muxer = Multiplexer::try_setup(bearer, &vec![0]).unwrap();
 
+    let (rx, tx) = muxer.use_channel(0);
     let versions = VersionTable::v1_and_above(MAINNET_MAGIC);
     let last = run_agent(Client::initial(versions), rx, &tx).unwrap();
 

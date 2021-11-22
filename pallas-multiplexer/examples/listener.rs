@@ -2,21 +2,25 @@ use std::{net::TcpListener, thread, time::Duration};
 
 use pallas_multiplexer::Multiplexer;
 
+const PROTOCOLS: [u16; 2] = [0x8002u16, 0x8003u16];
+
 fn main() {
     env_logger::init();
 
     let server = TcpListener::bind("0.0.0.0:3001").unwrap();
     let (bearer, _) = server.accept().unwrap();
 
-    let handles =
-        Multiplexer::new(bearer, &vec![0x8002u16, 0x8003u16][..]).unwrap();
+    let mut muxer = Multiplexer::try_setup(bearer, &PROTOCOLS).unwrap();
 
-    for handle in handles {
+    for protocol in PROTOCOLS {
+        let handle = muxer.use_channel(protocol);
+        
         thread::spawn(move || {
-            let (id, rx, tx) = handle;
+            let (rx, _tx) = handle;
+
             loop {
                 let payload = rx.recv().unwrap();
-                println!("id:{}, length:{}", id, payload.len());
+                println!("id:{}, length:{}", protocol, payload.len());
             }
         });
     }
