@@ -1,4 +1,4 @@
-use std::{net::TcpListener, thread, time::Duration};
+use std::{net::TcpListener, os::unix::net::UnixListener, thread, time::Duration};
 
 use pallas_multiplexer::Multiplexer;
 
@@ -7,7 +7,8 @@ const PROTOCOLS: [u16; 2] = [0x8002u16, 0x8003u16];
 fn main() {
     env_logger::init();
 
-    let server = TcpListener::bind("0.0.0.0:3001").unwrap();
+    //let server = TcpListener::bind("0.0.0.0:3001").unwrap();
+    let server = UnixListener::bind("/tmp/pallas").unwrap();
     let (bearer, _) = server.accept().unwrap();
 
     let mut muxer = Multiplexer::try_setup(bearer, &PROTOCOLS).unwrap();

@@ -1,15 +1,15 @@
+mod bearers;
+
 use std::{
-    borrow::Borrow,
     collections::HashMap,
     io::{Read, Write},
-    net::TcpStream,
     sync::mpsc::{self, Receiver, Sender, TryRecvError},
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
-use byteorder::{ByteOrder, NetworkEndian, WriteBytesExt};
-use log::{debug, error, log_enabled, trace, warn};
+
+use log::{debug, error, warn};
 
 pub trait Bearer: Read + Write + Send + Sync + Sized {
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error>;
@@ -22,66 +22,6 @@ pub trait Bearer: Read + Write + Send + Sync + Sized {
     ) -> Result<(), std::io::Error>;
 
     fn clone(&self) -> Self;
-}
-
-impl Bearer for TcpStream {
-    fn write_segment(
-        &mut self,
-        clock: Instant,
-        protocol_id: u16,
-        payload: &[u8],
-    ) -> Result<(), std::io::Error> {
-        let mut msg = Vec::new();
-        msg.write_u32::<NetworkEndian>(clock.elapsed().as_micros() as u32)?;
-        msg.write_u16::<NetworkEndian>(protocol_id)?;
-        msg.write_u16::<NetworkEndian>(payload.len() as u16)?;
-
-        if log_enabled!(log::Level::Trace) {
-            trace!(
-                "sending segment, header {:?}, payload length: {}",
-                hex::encode(&msg),
-                payload.len()
-            );
-        }
-
-        msg.write(&payload[..]).unwrap();
-
-        self.write(&msg)?;
-
-        self.flush()
-    }
-
-    fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error> {
-        let mut header = [0u8; 8];
-
-        self.read_exact(&mut header)?;
-
-        if log_enabled!(log::Level::Trace) {
-            trace!("read segment header: {:?}", hex::encode(&header));
-        }
-
-        let length = NetworkEndian::read_u16(&header[6..]) as usize;
-        let id = NetworkEndian::read_u16(&mut header[4..6]) as usize ^ 0x8000;
-        let ts = NetworkEndian::read_u32(&mut header[0..4]);
-
-        debug!(
-            "parsed inbound msg, protocol id: {}, ts: {}, payload length: {}",
-            id, ts, length
-        );
-
-        let mut payload = vec![0u8; length];
-        self.read_exact(&mut payload)?;
-
-        if log_enabled!(log::Level::Trace) {
-            trace!("read segment payload: {:?}", hex::encode(&payload));
-        }
-
-        Ok((id as u16, ts, payload))
-    }
-
-    fn clone(&self) -> Self {
-        self.try_clone().unwrap()
-    }
 }
 
 const MAX_SEGMENT_PAYLOAD_LENGTH: usize = 65535;

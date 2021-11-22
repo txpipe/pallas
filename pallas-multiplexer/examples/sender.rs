@@ -1,4 +1,4 @@
-use std::{net::TcpStream, thread, time::Duration};
+use std::{net::TcpStream, os::unix::net::UnixStream, thread, time::Duration};
 
 use pallas_multiplexer::Multiplexer;
 
@@ -7,7 +7,8 @@ const PROTOCOLS: [u16; 2] = [0x0002u16, 0x0003u16];
 fn main() {
     env_logger::init();
 
-    let bearer = TcpStream::connect("127.0.0.1:3001").unwrap();
+    //let bearer = TcpStream::connect("127.0.0.1:3001").unwrap();
+    let bearer = UnixStream::connect("/tmp/pallas").unwrap();
     let mut muxer = Multiplexer::try_setup(bearer, &PROTOCOLS).unwrap();
 
     for protocol in PROTOCOLS {
