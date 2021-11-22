@@ -9,6 +9,9 @@ pub use pallas_machines as machines;
 pub use pallas_handshake as handshake;
 
 #[doc(inline)]
+pub use pallas_chainsync as chainsync;
+
+#[doc(inline)]
 pub use pallas_blockfetch as blockfetch;
 
 #[doc(inline)]

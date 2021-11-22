@@ -14,5 +14,6 @@ authors = [
 pallas-multiplexer = { path = "../pallas-multiplexer/" }
 pallas-machines = { path = "../pallas-machines/" }
 pallas-handshake = { path = "../pallas-handshake/" }
+pallas-chainsync = { path = "../pallas-chainsync/" }
 pallas-blockfetch = { path = "../pallas-blockfetch/" }
 pallas-txsubmission = { path = "../pallas-txsubmission/" }
