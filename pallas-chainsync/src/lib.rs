@@ -154,13 +154,7 @@ impl DecodePayload for Message {
                 Ok(Message::RollBackward(point, tip))
             }
             4 => {
-                let points_len = d
-                    .array()?
-                    .ok_or(MachineError::UnexpectedCbor("unbounded points array"))?;
-                let mut points = Vec::with_capacity(points_len as usize);
-                for i in 0..(points_len - 1) {
-                    points[i as usize] = Point::decode_payload(d)?;
-                }
+                let points = Vec::<Point>::decode_payload(d)?;
                 Ok(Message::FindIntersect(points))
             }
             5 => {
