@@ -1,5 +1,5 @@
 use log::{debug, trace, warn};
-use minicbor::{Decoder, Encoder};
+use minicbor::{Decoder, Encode, Encoder};
 use pallas_multiplexer::Payload;
 use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
@@ -20,10 +20,10 @@ impl Display for MachineError {
             }
             MachineError::UnexpectedCbor(msg) => {
                 write!(f, "unexpected cbor: {}", msg)
-            },
+            }
             MachineError::InvalidMsgForState => {
                 write!(f, "received invalid message for current state")
-            },
+            }
         }
     }
 }
@@ -35,15 +35,10 @@ pub type PayloadEncoder<'a> = Encoder<&'a mut Vec<u8>>;
 pub type PayloadDecoder<'a> = Decoder<'a>;
 
 pub trait EncodePayload {
-    fn encode_payload(
-        &self,
-        e: &mut PayloadEncoder,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-pub fn to_payload(
-    data: &dyn EncodePayload,
-) -> Result<Payload, Box<dyn std::error::Error>> {
+pub fn to_payload(data: &dyn EncodePayload) -> Result<Payload, Box<dyn std::error::Error>> {
     let mut payload = Vec::new();
     let mut encoder = minicbor::encode::Encoder::new(&mut payload);
     data.encode_payload(&mut encoder)?;
@@ -51,44 +46,48 @@ pub fn to_payload(
     Ok(payload)
 }
 
-pub struct Message<D>
+
+impl<D> EncodePayload for Vec<D>
 where
     D: EncodePayload,
 {
-    pub label: u32,
-    pub data: D,
-}
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+        e.array(self.len() as u64)?;
 
-impl<D> EncodePayload for Message<D>
-where
-    D: EncodePayload,
-{
-    fn encode_payload(
-        &self,
-        e: &mut PayloadEncoder,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: map concrete error to W::Error somehow?
-        // or just implement custom error struct
-        let data = to_payload(&self.data).unwrap();
-
-        e.array(2)?.u32(self.label)?.bytes(&data)?;
+        for item in self {
+            item.encode_payload(e)?;
+        }
 
         Ok(())
     }
 }
 
+impl<D> DecodePayload for Vec<D>
+where
+    D: DecodePayload,
+{
+    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+        let len = d.array()?.ok_or(MachineError::UnexpectedCbor(
+            "expecting definite-length array",
+        ))? as usize;
+
+        let mut output = Vec::<D>::with_capacity(len);
+
+        for i in 0..(len - 1) {
+            output[i] = D::decode_payload(d)?;
+        }
+
+        Ok(output)
+        
+    }
+}
+
 pub trait MachineOutput {
-    fn send_msg(
-        &self,
-        data: &impl EncodePayload,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn send_msg(&self, data: &impl EncodePayload) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 impl MachineOutput for Sender<Payload> {
-    fn send_msg(
-        &self,
-        data: &impl EncodePayload,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn send_msg(&self, data: &impl EncodePayload) -> Result<(), Box<dyn std::error::Error>> {
         let payload = to_payload(data.borrow())?;
         self.send(payload)?;
 
@@ -97,9 +96,7 @@ impl MachineOutput for Sender<Payload> {
 }
 
 pub trait DecodePayload: Sized {
-    fn decode_payload(
-        d: &mut PayloadDecoder,
-    ) -> Result<Self, Box<dyn std::error::Error>>;
+    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>>;
 }
 
 pub struct PayloadDeconstructor {
