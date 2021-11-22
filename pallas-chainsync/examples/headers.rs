@@ -10,7 +10,6 @@ use pallas_multiplexer::Multiplexer;
 fn main() {
     env_logger::init();
 
-    //let bearer = TcpStream::connect("localhost:6000").unwrap();
     let bearer = TcpStream::connect("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
 
     bearer.set_nodelay(true).unwrap();
