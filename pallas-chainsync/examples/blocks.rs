@@ -1,4 +1,4 @@
-use pallas_chainsync::{Consumer, Point};
+use pallas_chainsync::{ClientConsumer, Point};
 use pallas_handshake::n2c::{Client, VersionTable};
 use pallas_handshake::MAINNET_MAGIC;
 use pallas_machines::run_agent;
@@ -8,6 +8,8 @@ use std::os::unix::net::UnixStream;
 fn main() {
     env_logger::init();
 
+    // we connect to the unix socket of the local node. Make sure you have the right
+    // path for your environment
     let bearer = UnixStream::connect("/tmp/node.socket").unwrap();
 
     let mut muxer = Multiplexer::try_setup(bearer, &vec![0, 4, 5]).unwrap();
@@ -24,7 +26,7 @@ fn main() {
     )];
 
     let (cs_rx, cs_tx) = muxer.use_channel(5);
-    let cs = Consumer::initial(known_points);
+    let cs = ClientConsumer::initial(known_points);
     let cs = run_agent(cs, cs_rx, &cs_tx).unwrap();
     println!("{:?}", cs);
 }
