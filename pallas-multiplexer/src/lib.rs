@@ -8,7 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-
 use log::{debug, error, warn};
 
 pub trait Bearer: Read + Write + Send + Sync + Sized {
@@ -163,10 +162,7 @@ impl Multiplexer {
     }
 
     pub fn use_channel(&mut self, protocol_id: u16) -> ChannelProtocolIO {
-        self
-            .io_handles
-            .remove(&protocol_id)
-            .unwrap()
+        self.io_handles.remove(&protocol_id).unwrap()
     }
 
     pub fn join(self) {
