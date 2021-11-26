@@ -7,5 +7,6 @@ members = [
     "pallas-blockfetch",
     "pallas-chainsync",
     "pallas-txsubmission",
+    "pallas-alonzo",
     "pallas",
 ]
