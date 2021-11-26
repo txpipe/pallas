@@ -17,3 +17,4 @@ pallas-handshake = { path = "../pallas-handshake/" }
 pallas-chainsync = { path = "../pallas-chainsync/" }
 pallas-blockfetch = { path = "../pallas-blockfetch/" }
 pallas-txsubmission = { path = "../pallas-txsubmission/" }
+pallas-alonzo = { path = "../pallas-alonzo/" }
