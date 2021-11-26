@@ -35,49 +35,49 @@ pub struct VrfCert(#[n(0)] ByteVec, #[n(1)] ByteVec);
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct HeaderBody {
     #[n(0)]
-    block_number: u64,
+    pub block_number: u64,
 
     #[n(1)]
-    slot: u64,
+    pub slot: u64,
 
     #[n(2)]
-    prev_hash: ByteVec,
+    pub prev_hash: ByteVec,
 
     #[n(3)]
-    issuer_vkey: ByteVec,
+    pub issuer_vkey: ByteVec,
 
     #[n(4)]
-    vrf_vkey: ByteVec,
+    pub vrf_vkey: ByteVec,
 
     #[n(5)]
-    nonce_vrf: VrfCert,
+    pub nonce_vrf: VrfCert,
 
     #[n(6)]
-    leader_vrf: VrfCert,
+    pub leader_vrf: VrfCert,
 
     #[n(7)]
-    block_body_size: u64,
+    pub block_body_size: u64,
 
     #[n(8)]
-    block_body_hash: ByteVec,
+    pub block_body_hash: ByteVec,
 
     #[n(9)]
-    operational_cert: ByteVec,
+    pub operational_cert: ByteVec,
 
     #[n(10)]
-    unknown_0: u64,
+    pub unknown_0: u64,
 
     #[n(11)]
-    unknown_1: u64,
+    pub unknown_1: u64,
 
     #[n(12)]
-    unknown_2: ByteVec,
+    pub unknown_2: ByteVec,
 
     #[n(13)]
-    protocol_version_major: u64,
+    pub protocol_version_major: u64,
 
     #[n(14)]
-    protocol_version_minor: u64,
+    pub protocol_version_minor: u64,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
@@ -86,10 +86,10 @@ pub struct KesSignature {}
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct Header {
     #[n(0)]
-    header_body: HeaderBody,
+    pub header_body: HeaderBody,
 
     #[n(1)]
-    body_signature: ByteVec,
+    pub body_signature: ByteVec,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
