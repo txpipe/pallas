@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use pallas_machines::{DecodePayload, EncodePayload, MachineError, PayloadEncoder};
+use pallas_machines::{CodecError, DecodePayload, EncodePayload, PayloadEncoder};
 use std::{collections::HashMap, fmt::Debug};
 
 pub const TESTNET_MAGIC: u64 = 1097911063;
@@ -97,7 +97,7 @@ impl DecodePayload for RefuseReason {
 
                 Ok(RefuseReason::Refused(version, msg.to_string()))
             }
-            x => Err(Box::new(MachineError::BadLabel(x))),
+            x => Err(Box::new(CodecError::BadLabel(x))),
         }
     }
 }

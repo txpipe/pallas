@@ -4,7 +4,7 @@ use log::{debug, log_enabled, trace};
 
 use minicbor::data::Tag;
 use pallas_machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
+    Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
     PayloadEncoder, Transition,
 };
 
@@ -63,10 +63,10 @@ impl DecodePayload for WrappedHeader {
 }
 
 #[derive(Debug)]
-pub struct BlockBody(Vec<u8>);
+pub struct BlockBody(pub Vec<u8>);
 
 impl EncodePayload for BlockBody {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode_payload(&self, _e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
         todo!()
     }
 }
@@ -116,7 +116,7 @@ pub enum State {
 #[derive(Debug)]
 pub enum Message<C>
 where
-    C: EncodePayload + DecodePayload,
+    C: EncodePayload + DecodePayload + Sized,
 {
     RequestNext,
     AwaitReply,
@@ -216,32 +216,58 @@ where
                 Ok(Message::IntersectNotFound(tip))
             }
             7 => Ok(Message::Done),
-            x => Err(Box::new(MachineError::BadLabel(x))),
+            x => Err(Box::new(CodecError::BadLabel(x))),
         }
     }
 }
 
+/// An abstraction of a component in charge of block persistence
+pub trait Storage<C> {
+    fn save_block(&self, content: &C) -> Result<(), Box<dyn std::error::Error>>;
+}
+
 #[derive(Debug)]
-pub struct Consumer<C> {
+pub struct NoopStorage {}
+
+impl<C> Storage<C> for NoopStorage
+where
+    C: Debug,
+{
+    fn save_block(&self, content: &C) -> Result<(), Box<dyn std::error::Error>> {
+        log::warn!("asked to save block {:?}", content);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct Consumer<C, S>
+where
+    S: Storage<C>,
+{
     pub state: State,
     pub known_points: Vec<Point>,
     pub cursor: Option<Point>,
     pub tip: Option<Tip>,
 
+    storage: S,
+
     // as recommended here: https://doc.rust-lang.org/error-index.html#E0207
     _phantom: Option<C>,
 }
 
-impl<C> Consumer<C>
+impl<C, S> Consumer<C, S>
 where
     C: EncodePayload + DecodePayload + Debug,
+    S: Storage<C>,
 {
-    pub fn initial(known_points: Vec<Point>) -> Self {
+    pub fn initial(known_points: Vec<Point>, storage: S) -> Self {
         Self {
             state: State::Idle,
             cursor: None,
             tip: None,
             known_points,
+            storage,
+
             _phantom: None,
         }
     }
@@ -294,8 +320,11 @@ where
         debug!("rolling forward");
 
         if log_enabled!(log::Level::Trace) {
-            trace!("header: {:?}", content);
+            trace!("content: {:?}", content);
         }
+
+        debug!("saving block");
+        self.storage.save_block(&content)?;
 
         Ok(Self {
             tip: Some(tip),
@@ -314,11 +343,21 @@ where
             ..self
         })
     }
+
+    fn on_await_reply(self) -> Transition<Self> {
+        debug!("reached tip, await reply");
+
+        Ok(Self {
+            state: State::MustReply,
+            ..self
+        })
+    }
 }
 
-impl<C> Agent for Consumer<C>
+impl<C, S> Agent for Consumer<C, S>
 where
-    C: EncodePayload + DecodePayload + Debug,
+    C: EncodePayload + DecodePayload + Debug + 'static,
+    S: Storage<C>,
 {
     type Message = Message<C>;
 
@@ -354,6 +393,7 @@ where
             (State::CanAwait, Message::RollBackward(point, tip)) => {
                 self.on_roll_backward(point, tip)
             }
+            (State::CanAwait, Message::AwaitReply) => self.on_await_reply(),
             (State::MustReply, Message::RollForward(header, tip)) => {
                 self.on_roll_forward(header, tip)
             }
@@ -364,11 +404,11 @@ where
                 self.on_intersect_found(point, tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            _ => Err(Box::new(MachineError::InvalidMsgForState)),
+            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
         }
     }
 }
 
-pub type NodeConsumer = Consumer<WrappedHeader>;
+pub type NodeConsumer<S> = Consumer<WrappedHeader, S>;
 
-pub type ClientConsumer = Consumer<BlockBody>;
+pub type ClientConsumer<S> = Consumer<BlockBody, S>;

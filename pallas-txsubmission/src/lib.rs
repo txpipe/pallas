@@ -3,10 +3,7 @@ use std::fmt::Debug;
 use itertools::Itertools;
 use log::debug;
 
-use pallas_machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
-    PayloadEncoder, Transition,
-};
+use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder, PayloadEncoder, Transition};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -134,7 +131,7 @@ impl DecodePayload for Message {
                 todo!()
             }
             4 => Ok(Message::Done),
-            x => Err(Box::new(MachineError::BadLabel(x))),
+            x => Err(Box::new(CodecError::BadLabel(x))),
         }
     }
 }
@@ -294,7 +291,7 @@ impl Agent for NaiveProvider {
                 ..self
             }),
             (State::Idle, Message::RequestTxs(ids)) => self.on_txs_request(ids),
-            _ => Err(Box::new(MachineError::InvalidMsgForState)),
+            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
         }
     }
 }

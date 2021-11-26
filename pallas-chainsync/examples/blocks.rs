@@ -1,4 +1,4 @@
-use pallas_chainsync::{ClientConsumer, Point};
+use pallas_chainsync::{ClientConsumer, NoopStorage, Point};
 use pallas_handshake::n2c::{Client, VersionTable};
 use pallas_handshake::MAINNET_MAGIC;
 use pallas_machines::run_agent;
@@ -26,7 +26,7 @@ fn main() {
     )];
 
     let (cs_rx, cs_tx) = muxer.use_channel(5);
-    let cs = ClientConsumer::initial(known_points);
+    let cs = ClientConsumer::initial(known_points, NoopStorage {  });
     let cs = run_agent(cs, cs_rx, &cs_tx).unwrap();
     println!("{:?}", cs);
 }

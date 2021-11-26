@@ -1,10 +1,7 @@
 use core::panic;
 use std::collections::HashMap;
 
-use pallas_machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
-    PayloadEncoder,
-};
+use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder};
 
 use crate::common::{NetworkMagic, RefuseReason, VersionNumber};
 
@@ -104,7 +101,7 @@ impl DecodePayload for Message {
                 let reason = RefuseReason::decode_payload(d)?;
                 Ok(Message::Refuse(reason))
             }
-            x => Err(Box::new(MachineError::BadLabel(x))),
+            x => Err(Box::new(CodecError::BadLabel(x))),
         }
     }
 }

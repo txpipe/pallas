@@ -1,8 +1,5 @@
 use log::info;
-use pallas_machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput,
-    PayloadDecoder, PayloadEncoder, Transition,
-};
+use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder, Transition};
 
 #[derive(Clone, Debug)]
 pub struct Point(pub u64, pub Vec<u8>);
@@ -110,7 +107,7 @@ impl DecodePayload for Message {
                 })
             }
             5 => Ok(Message::BatchDone),
-            x => Err(Box::new(MachineError::BadLabel(x))),
+            x => Err(Box::new(CodecError::BadLabel(x))),
         }
     }
 }
