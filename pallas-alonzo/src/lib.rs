@@ -1,3 +1,7 @@
+//! Ledger primitives and cbor codec for the Alonzo era
+//!
+//! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
+
 use log::{log_enabled, warn};
 use minicbor::{bytes::ByteVec, data::Tag, Decode, Encode};
 use minicbor_derive::{Decode, Encode};
@@ -378,8 +382,10 @@ impl minicbor::encode::Encode for Certificate {
 #[derive(Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cbor(index_only)]
 pub enum NetworkId {
-    #[n(0)] One,
-    #[n(1)] Two,
+    #[n(0)]
+    One,
+    #[n(1)]
+    Two,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
@@ -576,8 +582,10 @@ where
 
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct ExUnits {
-    #[n(0)] mem: u32,
-    #[n(1)] steps: u32,
+    #[n(0)]
+    mem: u32,
+    #[n(1)]
+    steps: u32,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
