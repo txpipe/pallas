@@ -1,7 +1,7 @@
 mod payload;
 
 use log::{debug, trace, warn};
-use pallas_multiplexer::Payload;
+use pallas_multiplexer::{Channel, Payload};
 use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
 use std::sync::mpsc::{Receiver, Sender};
@@ -89,9 +89,10 @@ pub trait Agent: Sized {
 
 pub fn run_agent<T: Agent + Debug>(
     agent: T,
-    rx: Receiver<Payload>,
-    output: &impl MachineOutput,
+    channel: Channel,
 ) -> Result<T, Box<dyn std::error::Error>> {
+    let Channel(tx, rx) = channel;
+
     let mut input = PayloadDeconstructor {
         rx,
         remaining: Vec::new(),
@@ -104,7 +105,7 @@ pub fn run_agent<T: Agent + Debug>(
 
         match agent.has_agency() {
             true => {
-                agent = agent.send_next(output)?;
+                agent = agent.send_next(&tx)?;
             }
             false => {
                 let msg = input.consume_next_message::<T::Message>()?;

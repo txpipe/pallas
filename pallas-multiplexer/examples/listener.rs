@@ -1,6 +1,6 @@
 use std::{net::TcpListener, os::unix::net::UnixListener, thread, time::Duration};
 
-use pallas_multiplexer::Multiplexer;
+use pallas_multiplexer::{Channel, Multiplexer};
 
 const PROTOCOLS: [u16; 2] = [0x8002u16, 0x8003u16];
 
@@ -11,13 +11,13 @@ fn main() {
     let server = UnixListener::bind("/tmp/pallas").unwrap();
     let (bearer, _) = server.accept().unwrap();
 
-    let mut muxer = Multiplexer::try_setup(bearer, &PROTOCOLS).unwrap();
+    let mut muxer = Multiplexer::setup(bearer, &PROTOCOLS).unwrap();
 
     for protocol in PROTOCOLS {
         let handle = muxer.use_channel(protocol);
         
         thread::spawn(move || {
-            let (rx, _tx) = handle;
+            let Channel(_, rx) = handle;
 
             loop {
                 let payload = rx.recv().unwrap();

@@ -12,11 +12,11 @@ fn main() {
     // path for your environment
     let bearer = UnixStream::connect("/tmp/node.socket").unwrap();
 
-    let mut muxer = Multiplexer::try_setup(bearer, &vec![0, 4, 5]).unwrap();
+    let mut muxer = Multiplexer::setup(bearer, &vec![0, 4, 5]).unwrap();
 
-    let (rx, tx) = muxer.use_channel(0);
+    let hs_channel = muxer.use_channel(0);
     let versions = VersionTable::v1_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), rx, &tx).unwrap();
+    let last = run_agent(Client::initial(versions), hs_channel).unwrap();
     println!("last hanshake state: {:?}", last);
 
     // some random known-point in the chain to use as starting point for the sync
@@ -25,8 +25,8 @@ fn main() {
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
     )];
 
-    let (cs_rx, cs_tx) = muxer.use_channel(5);
+    let cs_channel = muxer.use_channel(5);
     let cs = ClientConsumer::initial(known_points, NoopStorage {  });
-    let cs = run_agent(cs, cs_rx, &cs_tx).unwrap();
+    let cs = run_agent(cs, cs_channel).unwrap();
     println!("{:?}", cs);
 }

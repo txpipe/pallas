@@ -85,15 +85,15 @@ fn main() {
     // path for your environment
     let bearer = UnixStream::connect("/tmp/node.socket").unwrap();
 
-    let mut muxer = Multiplexer::try_setup(bearer, &vec![0, 7]).unwrap();
+    let mut muxer = Multiplexer::setup(bearer, &vec![0, 7]).unwrap();
 
-    let (rx, tx) = muxer.use_channel(0);
+    let hs_channel = muxer.use_channel(0);
     let versions = VersionTable::only_v10(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), rx, &tx).unwrap();
+    let last = run_agent(Client::initial(versions), hs_channel).unwrap();
     println!("last hanshake state: {:?}", last);
 
-    let (cs_rx, cs_tx) = muxer.use_channel(7);
+    let ls_channel = muxer.use_channel(7);
     let cs = OneShotClient::<ShelleyQuery>::initial(None, Request::GetChainPoint);
-    let cs = run_agent(cs, cs_rx, &cs_tx).unwrap();
+    let cs = run_agent(cs, ls_channel).unwrap();
     println!("{:?}", cs);
 }

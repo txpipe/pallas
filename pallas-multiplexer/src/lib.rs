@@ -109,8 +109,9 @@ where
     }
 }
 
-type ChannelProtocolIO = (Receiver<Payload>, Sender<Payload>);
-type ChannelProtocolHandle = (u16, ChannelProtocolIO);
+pub struct Channel(pub Sender<Payload>, pub Receiver<Payload>);
+
+type ChannelProtocolHandle = (u16, Channel);
 type ChannelIngressHandle = (u16, Receiver<Payload>);
 type ChannelEgressHandle = (u16, Sender<Payload>);
 type MuxIngress = Vec<ChannelIngressHandle>;
@@ -119,11 +120,11 @@ type DemuxerEgress = Vec<ChannelEgressHandle>;
 pub struct Multiplexer {
     tx_thread: JoinHandle<()>,
     rx_thread: JoinHandle<()>,
-    io_handles: HashMap<u16, ChannelProtocolIO>,
+    io_handles: HashMap<u16, Channel>,
 }
 
 impl Multiplexer {
-    pub fn try_setup<TBearer>(bearer: TBearer, protocols: &[u16]) -> Result<Multiplexer, Error>
+    pub fn setup<TBearer>(bearer: TBearer, protocols: &[u16]) -> Result<Multiplexer, Error>
     where
         TBearer: Bearer + 'static,
     {
@@ -133,8 +134,9 @@ impl Multiplexer {
                 let (demux_tx, demux_rx) = mpsc::channel::<Payload>();
                 let (mux_tx, mux_rx) = mpsc::channel::<Payload>();
 
-                let protocol_io = (demux_rx, mux_tx);
-                let protocol_handle: ChannelProtocolHandle = (*id, protocol_io);
+                let channel = Channel(mux_tx, demux_rx);
+
+                let protocol_handle: ChannelProtocolHandle = (*id, channel);
                 let ingress_handle: ChannelIngressHandle = (*id, mux_rx);
                 let egress_handle: ChannelEgressHandle = (*id, demux_tx);
 
@@ -152,7 +154,7 @@ impl Multiplexer {
         let mut rx_bearer = bearer.clone();
         let rx_thread = thread::spawn(move || rx_loop(&mut rx_bearer, egress));
 
-        let io_handles: HashMap<u16, ChannelProtocolIO> = protocol_handles.into_iter().collect();
+        let io_handles: HashMap<u16, Channel> = protocol_handles.into_iter().collect();
 
         Ok(Multiplexer {
             io_handles,
@@ -161,7 +163,7 @@ impl Multiplexer {
         })
     }
 
-    pub fn use_channel(&mut self, protocol_id: u16) -> ChannelProtocolIO {
+    pub fn use_channel(&mut self, protocol_id: u16) -> Channel {
         self.io_handles.remove(&protocol_id).unwrap()
     }
 
