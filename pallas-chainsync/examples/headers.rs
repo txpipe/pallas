@@ -1,7 +1,8 @@
 use net2::TcpStreamExt;
+use pallas_machines::primitives::Point;
 use std::net::TcpStream;
 
-use pallas_chainsync::{ClientConsumer, NoopStorage, Point};
+use pallas_chainsync::{ClientConsumer, NoopStorage};
 use pallas_handshake::n2n::{Client, VersionTable};
 use pallas_handshake::MAINNET_MAGIC;
 use pallas_machines::run_agent;

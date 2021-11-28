@@ -1,12 +1,10 @@
 use minicbor::data::Cbor;
-use pallas_localstate::{OneShotClient, Point, Query};
+use pallas_localstate::{OneShotClient, Query};
 use pallas_handshake::n2c::{Client, VersionTable};
 use pallas_handshake::{MAINNET_MAGIC};
 use pallas_machines::{DecodePayload, EncodePayload, run_agent};
 use pallas_multiplexer::Multiplexer;
-use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
-use net2::*;
 
 #[derive(Debug, Clone)]
 struct BlockQuery {}

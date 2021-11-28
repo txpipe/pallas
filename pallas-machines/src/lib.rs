@@ -1,12 +1,14 @@
-mod payload;
+mod payloads;
+pub mod primitives;
+mod codec;
 
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use pallas_multiplexer::{Channel, Payload};
 use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Sender};
 
-pub use payload::*;
+pub use payloads::*;
 
 #[derive(Debug)]
 pub enum MachineError<State, Msg>

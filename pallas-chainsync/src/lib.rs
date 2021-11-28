@@ -3,39 +3,7 @@ use std::fmt::Debug;
 use log::{debug, log_enabled, trace};
 
 use minicbor::data::Tag;
-use pallas_machines::{
-    Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
-    PayloadEncoder, Transition,
-};
-
-#[derive(Clone)]
-pub struct Point(pub u64, pub Vec<u8>);
-
-impl Debug for Point {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Point")
-            .field(&self.0)
-            .field(&hex::encode(&self.1))
-            .finish()
-    }
-}
-
-impl EncodePayload for Point {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
-        e.array(2)?.u64(self.0)?.bytes(&self.1)?;
-        Ok(())
-    }
-}
-
-impl DecodePayload for Point {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
-        d.array()?;
-        let slot = d.u64()?;
-        let hash = d.bytes()?;
-
-        Ok(Point(slot, Vec::from(hash)))
-    }
-}
+use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder, PayloadEncoder, Transition, primitives::Point};
 
 #[derive(Debug)]
 pub struct WrappedHeader(u64, Vec<u8>);

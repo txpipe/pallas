@@ -1,6 +1,7 @@
-use pallas_chainsync::{ClientConsumer, NoopStorage, Point};
+use pallas_chainsync::{ClientConsumer, NoopStorage};
 use pallas_handshake::n2c::{Client, VersionTable};
 use pallas_handshake::MAINNET_MAGIC;
+use pallas_machines::primitives::Point;
 use pallas_machines::run_agent;
 use pallas_multiplexer::Multiplexer;
 use std::os::unix::net::UnixStream;

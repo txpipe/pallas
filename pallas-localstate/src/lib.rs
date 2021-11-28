@@ -4,21 +4,7 @@ use std::fmt::Debug;
 
 use log::debug;
 
-use pallas_machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
-};
-
-#[derive(Clone)]
-pub struct Point(pub u64, pub Vec<u8>);
-
-impl Debug for Point {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Point")
-            .field(&self.0)
-            .field(&hex::encode(&self.1))
-            .finish()
-    }
-}
+use pallas_machines::{Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition, primitives::Point};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
