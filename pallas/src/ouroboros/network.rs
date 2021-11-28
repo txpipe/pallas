@@ -16,3 +16,6 @@ pub use pallas_blockfetch as blockfetch;
 
 #[doc(inline)]
 pub use pallas_txsubmission as txsubmission;
+
+#[doc(inline)]
+pub use pallas_localstate as localstate;

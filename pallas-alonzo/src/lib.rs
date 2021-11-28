@@ -2,8 +2,8 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
-use log::{log_enabled, warn};
-use minicbor::{bytes::ByteVec, data::Tag, Decode, Encode};
+use log::warn;
+use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
 use std::collections::{BTreeMap, HashMap};
 

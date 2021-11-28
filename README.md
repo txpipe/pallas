@@ -25,6 +25,7 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 | [pallas-handshake](/pallas-handshake)       | Implementation of the Ouroboros network handshake mini-protocol                  |
 | [pallas-blockfetch](/pallas-blockfetch)     | Implementation of the Ouroboros network blockfetch mini-protocol                 |
 | [pallas-chainsync](/pallas-chainsync)       | Implementation of the Ouroboros network chainsync mini-protocol                  |
+| [pallas-localstate](/pallas-localstate)     | Implementation of the Ouroboros network local state query mini-protocol          |
 | [pallas-txsubmission](/pallas-txsubmission) | Implementation of the Ouroboros network txsubmission mini-protocol               |
 
 ### Ouroboros Consensus
