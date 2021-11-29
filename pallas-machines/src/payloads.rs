@@ -27,7 +27,7 @@ impl<'a> PayloadEncoder<'a> {
     }
 }
 
-pub struct PayloadDecoder<'a>(Decoder<'a>);
+pub struct PayloadDecoder<'a>(pub Decoder<'a>);
 
 impl<'a> Deref for PayloadDecoder<'a> {
     type Target = Decoder<'a>;

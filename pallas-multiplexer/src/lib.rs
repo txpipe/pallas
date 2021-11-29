@@ -1,14 +1,8 @@
 mod bearers;
 
-use std::{
-    collections::HashMap,
-    io::{Read, Write},
-    sync::mpsc::{self, Receiver, Sender, TryRecvError},
-    thread::{self, JoinHandle},
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, io::{Read, Write}, sync::mpsc::{self, Receiver, Sender, TryRecvError}, thread::{self, JoinHandle}, time::{Duration, Instant}};
 
-use log::{debug, error, warn};
+use log::{debug, error, trace, warn};
 
 pub trait Bearer: Read + Write + Send + Sync + Sized {
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error>;
@@ -26,9 +20,6 @@ pub trait Bearer: Read + Write + Send + Sync + Sized {
 const MAX_SEGMENT_PAYLOAD_LENGTH: usize = 65535;
 
 pub type Payload = Vec<u8>;
-
-#[derive(Debug)]
-pub struct Error {}
 
 fn tx_round<TBearer>(
     bearer: &mut TBearer,
@@ -52,7 +43,7 @@ where
             }
             Err(TryRecvError::Disconnected) => {
                 //TODO: remove handle from list
-                warn!("protocol handle disconnected");
+                trace!("protocol handle {} disconnected", id);
             }
             Err(TryRecvError::Empty) => (),
         };
@@ -124,7 +115,7 @@ pub struct Multiplexer {
 }
 
 impl Multiplexer {
-    pub fn setup<TBearer>(bearer: TBearer, protocols: &[u16]) -> Result<Multiplexer, Error>
+    pub fn setup<TBearer>(bearer: TBearer, protocols: &[u16]) -> Result<Multiplexer, Box<dyn std::error::Error>>
     where
         TBearer: Bearer + 'static,
     {

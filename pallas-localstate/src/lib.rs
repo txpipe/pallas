@@ -1,3 +1,4 @@
+pub mod queries;
 mod codec;
 
 use std::fmt::Debug;

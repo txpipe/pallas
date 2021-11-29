@@ -1,80 +1,11 @@
 use minicbor::data::Cbor;
-use pallas_localstate::{OneShotClient, Query};
+use pallas_localstate::queries::RequestV10;
+use pallas_localstate::{OneShotClient, queries::QueryV10};
 use pallas_handshake::n2c::{Client, VersionTable};
 use pallas_handshake::{MAINNET_MAGIC};
 use pallas_machines::{DecodePayload, EncodePayload, run_agent};
 use pallas_multiplexer::Multiplexer;
 use std::os::unix::net::UnixStream;
-
-#[derive(Debug, Clone)]
-struct BlockQuery {}
-
-#[derive(Debug, Clone)]
-enum Request {
-    BlockQuery(BlockQuery),
-    GetSystemStart,
-    GetChainBlockNo,
-    GetChainPoint,
-}
-
-
-impl EncodePayload for Request {
-    fn encode_payload(&self, e: &mut pallas_machines::PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
-        match self {
-            Request::BlockQuery(block_query) => {
-                e.u16(0)?;
-                e.array(0)?;
-                Ok(())
-            }
-            Request::GetSystemStart => {
-                e.u16(1)?;
-                Ok(())
-            }
-            Request::GetChainBlockNo => {
-                e.u16(2)?;
-                Ok(())
-            }
-            Request::GetChainPoint => {
-                e.u16(3)?;
-                Ok(())
-            }
-        }
-    }
-}
-
-impl DecodePayload for Request {
-    fn decode_payload(d: &mut pallas_machines::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone)]
-enum Response {
-    Generic(Vec<u8>),
-}
-
-impl EncodePayload for Response {
-    fn encode_payload(&self, e: &mut pallas_machines::PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
-    }
-}
-
-impl DecodePayload for Response {
-    fn decode_payload(d: &mut pallas_machines::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
-        let cbor: Cbor = d.decode()?;
-        let slice = cbor.as_ref();
-        let vec = slice.to_vec();
-        Ok(Response::Generic(vec))
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ShelleyQuery {}
-
-impl Query for ShelleyQuery {
-    type Request = Request;
-    type Response = Response;
-}
 
 fn main() {
     env_logger::init();
@@ -91,7 +22,8 @@ fn main() {
     println!("last hanshake state: {:?}", last);
 
     let ls_channel = muxer.use_channel(7);
-    let cs = OneShotClient::<ShelleyQuery>::initial(None, Request::GetChainPoint);
+
+    let cs = OneShotClient::<QueryV10>::initial(None, RequestV10::GetChainPoint);
     let cs = run_agent(cs, ls_channel).unwrap();
     println!("{:?}", cs);
 }
