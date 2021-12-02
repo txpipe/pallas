@@ -1,24 +1,25 @@
 [package]
 name = "pallas-blockfetch"
+description = "Implementation of the Ouroboros network blockfetch mini-protocol"
 version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-blockfetch/0.1.0/pallas_blockfetch/"
 license = "Apache-2.0"
+readme = "README.md"
 authors = [
     "Santiago Carmuega <santiago@carmuega.me>"
 ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-pallas-multiplexer = { path = "../pallas-multiplexer/" }
-pallas-machines = { path = "../pallas-machines/" }
-minicbor = { version="0.11.4", features=["half"] }
-minicbor-io = "0.6.0"
+pallas-multiplexer = { version = "0.1.1", path = "../pallas-multiplexer/" }
+pallas-machines = { version = "0.1.0", path = "../pallas-machines/" }
+minicbor = { version="0.11.4", features=["half", "std"] }
 log = "0.4.14"
 
 [dev-dependencies]
 net2 = "0.2.37"
 env_logger = "0.9.0"
-pallas-handshake = { path = "../pallas-handshake/" }
+pallas-handshake = { version = "0.1.0", path = "../pallas-handshake/" }
 hex = "0.4.3"

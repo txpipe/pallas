@@ -1,14 +1,16 @@
 [package]
 name = "pallas-multiplexer"
-version = "0.1.0"
+description = "Multithreaded Ouroboros multiplexer implementation using mpsc channels"
+version = "0.1.1"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-multiplexer/0.1.0/pallas_multiplexer/"
 license = "Apache-2.0"
+readme = "README.md"
 authors = [
     "Santiago Carmuega <santiago@carmuega.me>"
 ]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 log = "0.4.14"
