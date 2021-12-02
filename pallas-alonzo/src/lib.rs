@@ -117,7 +117,7 @@ pub type Mint = Multiasset<i64>;
 
 pub type Coin = u64;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Coin(Coin),
     Multiasset(Coin, Multiasset<u64>),

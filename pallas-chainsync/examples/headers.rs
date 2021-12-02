@@ -2,7 +2,7 @@ use net2::TcpStreamExt;
 use pallas_machines::primitives::Point;
 use std::net::TcpStream;
 
-use pallas_chainsync::{ClientConsumer, NoopStorage};
+use pallas_chainsync::{ClientConsumer, NoopObserver};
 use pallas_handshake::n2n::{Client, VersionTable};
 use pallas_handshake::MAINNET_MAGIC;
 use pallas_machines::run_agent;
@@ -29,7 +29,7 @@ fn main() {
 
     let cs_channel = muxer.use_channel(2);
 
-    let cs = ClientConsumer::initial(known_points, NoopStorage {});
+    let cs = ClientConsumer::initial(known_points, NoopObserver {});
     let cs = run_agent(cs, cs_channel).unwrap();
 
     println!("{:?}", cs);
