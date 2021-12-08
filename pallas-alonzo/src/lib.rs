@@ -3,9 +3,9 @@
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
 use log::warn;
-use minicbor::{bytes::ByteVec, data::Tag};
+use minicbor::{bytes::ByteVec, data::Tag, Decode};
 use minicbor_derive::{Decode, Encode};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
@@ -15,6 +15,7 @@ impl<'b, const N: usize> minicbor::Decode<'b> for SkipCbor<N> {
         {
             let probe = d.probe();
             warn!("skipped cbor value {}: {:?}", N, probe.datatype()?);
+            println!("skipped cbor value {}: {:?}", N, probe.datatype()?);
         }
 
         d.skip()?;
@@ -33,10 +34,10 @@ impl<const N: usize> minicbor::Encode for SkipCbor<N> {
 
 pub type SomeSkipCbor = SkipCbor<0>;
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct VrfCert(#[n(0)] ByteVec, #[n(1)] ByteVec);
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
     pub block_number: u64,
@@ -87,7 +88,7 @@ pub struct HeaderBody {
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct KesSignature {}
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Header {
     #[n(0)]
     pub header_body: HeaderBody,
@@ -111,7 +112,7 @@ pub type PolicyId = ScriptHash;
 
 pub type AssetName = ByteVec;
 
-pub type Multiasset<A> = HashMap<PolicyId, HashMap<AssetName, A>>;
+pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
 
@@ -146,7 +147,19 @@ impl minicbor::encode::Encode for Value {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        // TODO: check how to deal with uint variants (u32 vs u64)
+        match self {
+            Value::Coin(coin) => {
+                e.encode(coin)?;
+            }
+            Value::Multiasset(coin, other) => {
+                e.array(2)?;
+                e.encode(coin)?;
+                e.encode(other)?;
+            }
+        };
+
+        Ok(())
     }
 }
 
@@ -208,7 +221,32 @@ impl minicbor::encode::Encode for Relay {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            Relay::SingleHostAddr(a, b, c) => {
+                e.array(4)?;
+                e.encode(0)?;
+                e.encode(a)?;
+                e.encode(b)?;
+                e.encode(c)?;
+
+                Ok(())
+            }
+            Relay::SingleHostName(a, b) => {
+                e.array(3)?;
+                e.encode(1)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            Relay::MultiHostName(a) => {
+                e.array(2)?;
+                e.encode(2)?;
+                e.encode(a)?;
+
+                Ok(())
+            }
+        }
     }
 }
 
@@ -249,7 +287,13 @@ impl minicbor::encode::Encode for RationalNumber {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        // TODO: check if this is the correct tag
+        e.tag(Tag::Unassigned(30))?;
+        e.array(2)?;
+        e.encode(self.numerator)?;
+        e.encode(self.denominator)?;
+
+        Ok(())
     }
 }
 
@@ -281,7 +325,22 @@ impl minicbor::encode::Encode for StakeCredential {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            StakeCredential::AddrKeyhash(a) => {
+                e.array(2)?;
+                e.encode(0)?;
+                e.encode(a)?;
+
+                Ok(())
+            }
+            StakeCredential::Scripthash(a) => {
+                e.array(2)?;
+                e.encode(0)?;
+                e.encode(a)?;
+
+                Ok(())
+            }
+        }
     }
 }
 
@@ -375,7 +434,80 @@ impl minicbor::encode::Encode for Certificate {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            Certificate::StakeRegistration(a) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode(a)?;
+
+                Ok(())
+            }
+            Certificate::StakeDeregistration(a) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode(a)?;
+
+                Ok(())
+            }
+            Certificate::StakeDelegation(a, b) => {
+                e.array(3)?;
+                e.u16(2)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            Certificate::PoolRegistration {
+                operator,
+                vrf_keyhash,
+                pledge,
+                cost,
+                margin,
+                reward_account,
+                pool_owners,
+                relays,
+                pool_metadata,
+            } => {
+                e.array(10)?;
+                e.u16(3)?;
+
+                e.encode(operator)?;
+                e.encode(vrf_keyhash)?;
+                e.encode(pledge)?;
+                e.encode(cost)?;
+                e.encode(margin)?;
+                e.encode(reward_account)?;
+                e.encode(pool_owners)?;
+                e.encode(relays)?;
+                e.encode(pool_metadata)?;
+
+                Ok(())
+            }
+            Certificate::PoolRetirement(a, b) => {
+                e.array(3)?;
+                e.u16(4)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            Certificate::GenesisKeyDelegation(a, b, c) => {
+                e.array(4)?;
+                e.u16(5)?;
+                e.encode(a)?;
+                e.encode(b)?;
+                e.encode(c)?;
+
+                Ok(())
+            }
+            Certificate::MoveInstantaneousRewardsCert(a) => {
+                e.array(3)?;
+                e.u16(6)?;
+                e.encode(a)?;
+
+                Ok(())
+            }
+        }
     }
 }
 
@@ -388,7 +520,7 @@ pub enum NetworkId {
     Two,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Decode, Debug, PartialEq)]
 #[cbor(map)]
 pub struct TransactionBody {
     #[n(0)]
@@ -434,6 +566,96 @@ pub struct TransactionBody {
     pub network_id: Option<NetworkId>,
 }
 
+// Can't derive encode for TransactionBody because it seems to require a very
+// particular order for each key in the map
+impl minicbor::encode::Encode for TransactionBody {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        let map_size = 3
+            + self.ttl.map_or(0, |_| 1)
+            + self.certificates.as_ref().map_or(0, |_| 1)
+            + self.withdrawals.as_ref().map_or(0, |_| 1)
+            + self.update.as_ref().map_or(0, |_| 1)
+            + self.auxiliary_data_hash.as_deref().map_or(0, |_| 1)
+            + self.validity_interval_start.map_or(0, |_| 1)
+            + self.mint.as_ref().map_or(0, |_| 1)
+            + self.script_data_hash.as_deref().map_or(0, |_| 1)
+            + self.collateral.as_deref().map_or(0, |_| 1)
+            + self.required_signers.as_deref().map_or(0, |_| 1)
+            + self.network_id.as_ref().map_or(0, |_| 1);
+
+        e.map(map_size)?;
+
+        e.encode(0)?;
+        e.encode(&self.inputs)?;
+
+        if let Some(x) = &self.collateral {
+            e.encode(13)?;
+            e.encode(x)?;
+        }
+
+        e.encode(1)?;
+        e.encode(&self.outputs)?;
+
+        e.encode(2)?;
+        e.encode(&self.fee)?;
+
+        if let Some(x) = &self.ttl {
+            e.encode(3)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.certificates {
+            e.encode(4)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.withdrawals {
+            e.encode(5)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.update {
+            e.encode(6)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.validity_interval_start {
+            e.encode(8)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.required_signers {
+            e.encode(14)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.script_data_hash {
+            e.encode(11)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.network_id {
+            e.encode(15)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.auxiliary_data_hash {
+            e.encode(7)?;
+            e.encode(x)?;
+        }
+
+        if let Some(x) = &self.mint {
+            e.encode(9)?;
+            e.encode(x)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct VKeyWitness {
     #[n(0)]
@@ -477,7 +699,37 @@ impl minicbor::encode::Encode for NativeScript {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        e.array(2)?;
+
+        match self {
+            NativeScript::ScriptPubkey(v) => {
+                e.encode(0)?;
+                e.encode(v)?;
+            }
+            NativeScript::ScriptAll(v) => {
+                e.encode(1)?;
+                e.encode(v)?;
+            }
+            NativeScript::ScriptAny(v) => {
+                e.encode(2)?;
+                e.encode(v)?;
+            }
+            NativeScript::ScriptNOfK(a, b) => {
+                e.encode(3)?;
+                e.encode(a)?;
+                e.encode(b)?;
+            }
+            NativeScript::InvalidBefore(v) => {
+                e.encode(4)?;
+                e.encode(v)?;
+            }
+            NativeScript::InvalidHereafter(v) => {
+                e.encode(5)?;
+                e.encode(v)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -490,6 +742,7 @@ pub enum PlutusData {
     BitInt(u64),
     BoundedBytes(ByteVec),
     Array(Vec<PlutusData>),
+    ArrayIndef(IndefVec<PlutusData>),
 }
 
 impl<'b> minicbor::decode::Decode<'b> for PlutusData {
@@ -509,7 +762,7 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
             minicbor::data::Type::U64 => Ok(PlutusData::BitInt(d.decode()?)),
             minicbor::data::Type::Bytes => Ok(PlutusData::BoundedBytes(d.decode()?)),
             minicbor::data::Type::Array => Ok(PlutusData::Array(d.decode()?)),
-            minicbor::data::Type::ArrayIndef => Ok(PlutusData::Array(d.decode()?)),
+            minicbor::data::Type::ArrayIndef => Ok(PlutusData::ArrayIndef(d.decode()?)),
             _ => Err(minicbor::decode::Error::Message(
                 "bad cbor data type for plutus data",
             )),
@@ -522,7 +775,69 @@ impl minicbor::encode::Encode for PlutusData {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            PlutusData::Constr(a) => {
+                e.encode(a)?;
+                Ok(())
+            }
+            PlutusData::Map(a) => {
+                e.encode(a)?;
+                Ok(())
+            }
+            PlutusData::BitInt(a) => {
+                e.encode(a)?;
+                Ok(())
+            }
+            PlutusData::BoundedBytes(a) => {
+                e.encode(a)?;
+                Ok(())
+            }
+            PlutusData::Array(a) => {
+                e.encode(a)?;
+                Ok(())
+            }
+            PlutusData::ArrayIndef(a) => {
+                e.encode(a)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+/// A struct that forces encode / decode using indef arrays
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IndefVec<A>(Vec<A>);
+
+impl<'b, A> minicbor::decode::Decode<'b> for IndefVec<A>
+where
+    A: minicbor::decode::Decode<'b>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let values: Vec<A> = d.decode()?;
+
+        Ok(IndefVec(values))
+    }
+}
+
+impl<A> minicbor::encode::Encode for IndefVec<A>
+where
+    A: minicbor::encode::Encode,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        if self.0.len() > 0 {
+            e.begin_array()?;
+            for v in &self.0 {
+                e.encode(v)?;
+            }
+            e.end()?;
+        } else {
+            e.array(0)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -530,7 +845,7 @@ impl minicbor::encode::Encode for PlutusData {
 pub struct Constr<A> {
     pub tag: u64,
     pub prefix: Option<u32>,
-    pub values: Vec<A>,
+    pub values: IndefVec<A>,
 }
 
 impl<'b, A> minicbor::decode::Decode<'b> for Constr<A>
@@ -576,7 +891,22 @@ where
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        e.tag(Tag::Unassigned(self.tag))?;
+
+        match self.tag {
+            102 => {
+                e.array(2)?;
+                e.encode(self.prefix)?;
+                e.encode(&self.values)?;
+
+                Ok(())
+            }
+            _ => {
+                e.encode(&self.values)?;
+
+                Ok(())
+            }
+        }
     }
 }
 
@@ -604,16 +934,38 @@ pub enum RedeemerTag {
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct Redeemer {
     #[n(0)]
-    tag: RedeemerTag,
+    pub tag: RedeemerTag,
 
     #[n(1)]
-    index: u32,
+    pub index: u32,
 
     #[n(2)]
-    data: PlutusData,
+    pub data: PlutusData,
 
     #[n(3)]
-    ex_units: ExUnits,
+    pub ex_units: ExUnits,
+}
+
+/* bootstrap_witness =
+[ public_key : $vkey
+, signature  : $signature
+, chain_code : bytes .size 32
+, attributes : bytes
+] */
+
+#[derive(Encode, Decode, Debug, PartialEq)]
+pub struct BootstrapWitness {
+    #[n(0)]
+    pub public_key: ByteVec,
+
+    #[n(1)]
+    pub signature: ByteVec,
+
+    #[n(2)]
+    pub chain_code: ByteVec,
+
+    #[n(3)]
+    pub attributes: ByteVec,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
@@ -626,7 +978,7 @@ pub struct TransactionWitnessSet {
     pub native_script: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Vec<SkipCbor<32>>>,
+    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
     pub plutus_script: Option<Vec<PlutusScript>>,
@@ -655,7 +1007,7 @@ pub enum Metadatum {
     Bytes(ByteVec),
     Text(String),
     Array(Vec<Metadatum>),
-    Map(BTreeMap<Metadatum, Metadatum>),
+    Map(Metadata),
 }
 
 impl<'b> minicbor::Decode<'b> for Metadatum {
@@ -709,11 +1061,59 @@ impl minicbor::Encode for Metadatum {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            Metadatum::Int(a) => {
+                e.encode(a)?;
+            }
+            Metadatum::Bytes(a) => {
+                e.encode(a)?;
+            }
+            Metadatum::Text(a) => {
+                e.encode(a)?;
+            }
+            Metadatum::Array(a) => {
+                e.encode(a)?;
+            }
+            Metadatum::Map(a) => {
+                e.encode(a)?;
+            }
+        };
+
+        Ok(())
     }
 }
 
-pub type Metadata = BTreeMap<Metadatum, Metadatum>;
+/// Custom struct to handle nested metadata maps
+///
+/// Since the ordering of the entires requires a particular order to maintain
+/// canonicalization for isomorphic decoding / encoding operators, we use a Vec
+/// as the underlaying struct for storage of the items (as opposed to a BTreeMap
+/// or HashMap).
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Metadata(Vec<(Metadatum, Metadatum)>);
+
+impl<'b> minicbor::decode::Decode<'b> for Metadata {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let items: Result<Vec<_>, _> = d.map_iter::<Metadatum, Metadatum>()?.collect();
+        let items = items?;
+        Ok(Metadata(items))
+    }
+}
+
+impl minicbor::encode::Encode for Metadata {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.map(self.0.len() as u64)?;
+        for (k, v) in &self.0 {
+            k.encode(e)?;
+            v.encode(e)?;
+        }
+
+        Ok(())
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum AuxiliaryData {
@@ -754,7 +1154,26 @@ impl minicbor::Encode for AuxiliaryData {
         &self,
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            AuxiliaryData::Shelley(m) => {
+                e.encode(m)?;
+            }
+            AuxiliaryData::ShelleyMa {
+                transaction_metadata,
+                auxiliary_scripts,
+            } => {
+                e.array(2)?;
+                e.encode(transaction_metadata)?;
+                e.encode(auxiliary_scripts)?;
+            }
+            AuxiliaryData::Alonzo(v) => {
+                // TODO: check if this is the correct tag
+                e.tag(Tag::Unassigned(259))?;
+                e.encode(v)?;
+            }
+        };
+
+        Ok(())
     }
 }
 
@@ -772,37 +1191,22 @@ pub struct Block {
     pub transaction_witness_sets: Vec<TransactionWitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: HashMap<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
     pub invalid_transactions: Vec<TransactionIndex>,
 }
 
-impl TryFrom<&[u8]> for Block {
-    type Error = minicbor::decode::Error;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        // Hack to unwrap root array on top of the block. Can't find spec explaining
-        // what this value means.
-        let (_unknown, block): (u16, Block) = minicbor::decode(value)?;
-        Ok(block)
-    }
-}
-
-impl TryFrom<&[u8]> for Header {
-    type Error = minicbor::decode::Error;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        minicbor::decode(value)
-    }
-}
+#[derive(Encode, Decode, Debug)]
+pub struct BlockWrapper(#[n(0)] u16, #[n(1)] Block);
 
 #[cfg(test)]
 mod tests {
-    use crate::{Block, Header};
+    use crate::BlockWrapper;
+    use minicbor::{self, to_vec};
 
     #[test]
-    fn block_decode_works() {
+    fn block_isomorphic_decoding_encoding() {
         let test_blocks = vec![
             include_str!("test_data/test1.block"),
             include_str!("test_data/test2.block"),
@@ -815,9 +1219,11 @@ mod tests {
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
-            println!("decoding test block {}", idx + 1);
-            let bytes = hex::decode(block_str).unwrap();
-            Block::try_from(&bytes[..]).unwrap();
+            //println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+            let block: BlockWrapper = minicbor::decode(&bytes[..]).expect(&format!("error decoding cbor for file {}", idx));
+            let bytes2 = to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+            assert_eq!(bytes, bytes2);
         }
     }
 }
