@@ -29,7 +29,7 @@ pub fn hash_plutus_data(data: &PlutusData) -> Result<Hash32, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::BlockWrapper;
+    use crate::{BlockWrapper, Fragment};
 
     use super::hash_transaction;
 
@@ -40,7 +40,7 @@ mod tests {
         let block_str = include_str!("test_data/test1.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
-        let block_model: BlockWrapper = minicbor::decode(&block_bytes[..])
+        let block_model = BlockWrapper::decode_fragment(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
 
         let valid_hashes = vec![

@@ -5,7 +5,7 @@
 use log::warn;
 use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Deref};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
@@ -1092,6 +1092,14 @@ impl minicbor::Encode for Metadatum {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Metadata(Vec<(Metadatum, Metadatum)>);
 
+impl Deref for Metadata {
+    type Target = Vec<(Metadatum, Metadatum)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<'b> minicbor::decode::Decode<'b> for Metadata {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
         let items: Result<Vec<_>, _> = d.map_iter::<Metadatum, Metadatum>()?.collect();
@@ -1202,7 +1210,7 @@ pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
 
 #[cfg(test)]
 mod tests {
-    use crate::BlockWrapper;
+    use crate::{BlockWrapper, Fragment};
     use minicbor::{self, to_vec};
 
     #[test]
@@ -1221,7 +1229,7 @@ mod tests {
         for (idx, block_str) in test_blocks.iter().enumerate() {
             //println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
-            let block: BlockWrapper = minicbor::decode(&bytes[..])
+            let block = BlockWrapper::decode_fragment(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
             let bytes2 =
                 to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
