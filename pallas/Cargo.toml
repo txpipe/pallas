@@ -1,7 +1,7 @@
 [package]
 name = "pallas"
 description = "Rust-native building blocks for the Cardano blockchain ecosystem."
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -20,4 +20,4 @@ pallas-chainsync = { version = "0.1.0", path = "../pallas-chainsync/" }
 pallas-blockfetch = { version = "0.1.0", path = "../pallas-blockfetch/" }
 pallas-localstate = { version = "0.1.0", path = "../pallas-localstate/" }
 pallas-txsubmission = { version = "0.1.0", path = "../pallas-txsubmission/" }
-pallas-alonzo = { version = "0.1.0", path = "../pallas-alonzo/" }
+pallas-alonzo = { version = "0.2.0", path = "../pallas-alonzo/", features=["crypto"] }
