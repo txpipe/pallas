@@ -1,11 +1,11 @@
 [package]
 name = "pallas"
 description = "Rust-native building blocks for the Cardano blockchain ecosystem."
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
-documentation = "https://docs.rs/pallas/0.1.0/pallas/"
+documentation = "https://docs.rs/pallas/0.2.1/pallas/"
 license = "Apache-2.0"
 readme = "../README.md"
 authors = [
@@ -13,11 +13,11 @@ authors = [
 ]
 
 [dependencies]
-pallas-multiplexer = { version = "0.1.1", path = "../pallas-multiplexer/" }
-pallas-machines = { version = "0.1.0", path = "../pallas-machines/" }
-pallas-handshake = { version = "0.1.0", path = "../pallas-handshake/" }
-pallas-chainsync = { version = "0.1.0", path = "../pallas-chainsync/" }
-pallas-blockfetch = { version = "0.1.0", path = "../pallas-blockfetch/" }
-pallas-localstate = { version = "0.1.0", path = "../pallas-localstate/" }
-pallas-txsubmission = { version = "0.1.0", path = "../pallas-txsubmission/" }
-pallas-alonzo = { version = "0.2.1", path = "../pallas-alonzo/", features=["crypto"] }
+pallas-multiplexer = { version = "0.3.0", path = "../pallas-multiplexer/" }
+pallas-machines = { version = "0.3.0", path = "../pallas-machines/" }
+pallas-handshake = { version = "0.3.0", path = "../pallas-handshake/" }
+pallas-chainsync = { version = "0.3.0", path = "../pallas-chainsync/" }
+pallas-blockfetch = { version = "0.3.0", path = "../pallas-blockfetch/" }
+pallas-localstate = { version = "0.3.0", path = "../pallas-localstate/" }
+pallas-txsubmission = { version = "0.3.0", path = "../pallas-txsubmission/" }
+pallas-alonzo = { version = "0.3.0", path = "../pallas-alonzo/", features=["crypto"] }
