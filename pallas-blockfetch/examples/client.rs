@@ -3,8 +3,7 @@ use pallas_machines::primitives::Point;
 use std::net::TcpStream;
 
 use pallas_blockfetch::BlockFetchClient;
-use pallas_handshake::n2n::{Client, VersionTable};
-use pallas_handshake::MAINNET_MAGIC;
+use pallas_handshake::{MAINNET_MAGIC, n2n::{Client, VersionTable}};
 use pallas_machines::run_agent;
 use pallas_multiplexer::Multiplexer;
 
@@ -19,9 +18,9 @@ fn main() {
 
     let mut muxer = Multiplexer::setup(bearer, &vec![0, 3]).unwrap();
 
-    let hs_channel = muxer.use_channel(0);
+    let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), hs_channel).unwrap();
+    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
     println!("{:?}", last);
 
     let range = (
@@ -37,8 +36,8 @@ fn main() {
         ),
     );
 
-    let bf_channel = muxer.use_channel(3);
+    let mut bf_channel = muxer.use_channel(3);
     let bf = BlockFetchClient::initial(range);
-    let bf_last = run_agent(bf, bf_channel);
+    let bf_last = run_agent(bf, &mut bf_channel);
     println!("{:?}", bf_last);
 }

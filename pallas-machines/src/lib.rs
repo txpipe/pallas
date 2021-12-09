@@ -91,7 +91,7 @@ pub trait Agent: Sized {
 
 pub fn run_agent<T: Agent + Debug>(
     agent: T,
-    channel: Channel,
+    channel: &mut Channel,
 ) -> Result<T, Box<dyn std::error::Error>> {
     let Channel(tx, rx) = channel;
 
@@ -107,7 +107,7 @@ pub fn run_agent<T: Agent + Debug>(
 
         match agent.has_agency() {
             true => {
-                agent = agent.send_next(&tx)?;
+                agent = agent.send_next(tx)?;
             }
             false => {
                 let msg = input.consume_next_message::<T::Message>()?;

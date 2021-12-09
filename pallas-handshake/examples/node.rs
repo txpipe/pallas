@@ -17,10 +17,10 @@ fn main() {
     bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
 
     let mut muxer = Multiplexer::setup(bearer, &vec![0]).unwrap();
-    let channel = muxer.use_channel(0);
+    let mut channel = muxer.use_channel(0);
 
     let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), channel).unwrap();
+    let last = run_agent(Client::initial(versions), &mut channel).unwrap();
 
     println!("{:?}", last);
 }

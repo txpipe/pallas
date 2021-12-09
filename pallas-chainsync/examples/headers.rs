@@ -16,10 +16,10 @@ fn main() {
     bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
 
     let mut muxer = Multiplexer::setup(bearer, &vec![0, 2]).unwrap();
-    let hs_channel = muxer.use_channel(0);
+    let mut hs_channel = muxer.use_channel(0);
 
     let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), hs_channel).unwrap();
+    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
     println!("{:?}", last);
 
     let known_points = vec![Point(
@@ -27,10 +27,10 @@ fn main() {
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
     )];
 
-    let cs_channel = muxer.use_channel(2);
+    let mut cs_channel = muxer.use_channel(2);
 
     let cs = ClientConsumer::initial(known_points, NoopObserver {});
-    let cs = run_agent(cs, cs_channel).unwrap();
+    let cs = run_agent(cs, &mut cs_channel).unwrap();
 
     println!("{:?}", cs);
 }

@@ -17,9 +17,9 @@ fn main() {
 
     let mut muxer = Multiplexer::setup(bearer, &vec![0]).unwrap();
 
-    let hs_channel = muxer.use_channel(0);
+    let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::v1_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), hs_channel).unwrap();
+    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
 
     println!("{:?}", last);
 }

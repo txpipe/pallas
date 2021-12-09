@@ -112,12 +112,12 @@ impl<T: DecodePayload> DecodePayload for Option<T> {
     }
 }
 
-pub struct PayloadDeconstructor {
-    pub(crate) rx: Receiver<Payload>,
+pub struct PayloadDeconstructor<'a> {
+    pub(crate) rx: &'a mut Receiver<Payload>,
     pub(crate) remaining: Vec<u8>,
 }
 
-impl PayloadDeconstructor {
+impl<'a> PayloadDeconstructor<'a> {
     pub fn consume_next_message<T: DecodePayload>(
         &mut self,
     ) -> Result<T, Box<dyn std::error::Error>> {

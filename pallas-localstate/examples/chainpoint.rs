@@ -16,14 +16,14 @@ fn main() {
 
     let mut muxer = Multiplexer::setup(bearer, &vec![0, 7]).unwrap();
 
-    let hs_channel = muxer.use_channel(0);
+    let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::only_v10(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), hs_channel).unwrap();
+    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
     println!("last hanshake state: {:?}", last);
 
-    let ls_channel = muxer.use_channel(7);
+    let mut ls_channel = muxer.use_channel(7);
 
     let cs = OneShotClient::<QueryV10>::initial(None, RequestV10::GetChainPoint);
-    let cs = run_agent(cs, ls_channel).unwrap();
+    let cs = run_agent(cs, &mut ls_channel).unwrap();
     println!("{:?}", cs);
 }
