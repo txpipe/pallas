@@ -141,9 +141,9 @@ pub enum Output {
 
 #[derive(Debug)]
 pub struct Client {
-    state: State,
-    output: Output,
-    version_table: VersionTable,
+    pub state: State,
+    pub output: Output,
+    pub version_table: VersionTable,
 }
 
 impl Client {
