@@ -1,11 +1,11 @@
 [package]
 name = "pallas-machines"
 description = "A framework for implementing state machines for Ouroboros network mini-protocols"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
-documentation = "https://docs.rs/pallas-machines/0.1.0/pallas_machines/"
+documentation = "https://docs.rs/pallas-machines"
 license = "Apache-2.0"
 readme = "README.md"
 authors = [
@@ -13,7 +13,7 @@ authors = [
 ]
 
 [dependencies]
-pallas-multiplexer = { version = "0.1.1",  path = "../pallas-multiplexer/" }
+pallas-multiplexer = { version = "0.3.0",  path = "../pallas-multiplexer/" }
 minicbor = { version="0.11.4", features=["half", "std"] }
 log = "0.4.14"
 hex = "0.4.3"

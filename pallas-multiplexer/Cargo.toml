@@ -1,11 +1,11 @@
 [package]
 name = "pallas-multiplexer"
 description = "Multithreaded Ouroboros multiplexer implementation using mpsc channels"
-version = "0.1.1"
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
-documentation = "https://docs.rs/pallas-multiplexer/0.1.0/pallas_multiplexer/"
+documentation = "https://docs.rs/pallas-multiplexer"
 license = "Apache-2.0"
 readme = "README.md"
 authors = [

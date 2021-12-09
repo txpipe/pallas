@@ -1,11 +1,11 @@
 [package]
 name = "pallas-alonzo"
 description = "Ledger primitives and cbor codec for the Alonzo era"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
-documentation = "https://docs.rs/pallas-alonzo/0.1.0/pallas_alonzo/"
+documentation = "https://docs.rs/pallas-alonzo"
 license = "Apache-2.0"
 readme = "README.md"
 authors = [
