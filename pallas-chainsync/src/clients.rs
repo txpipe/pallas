@@ -9,9 +9,20 @@ use pallas_machines::{
 use crate::{BlockBody, Message, State, Tip, WrappedHeader};
 
 /// An observer of chain-sync events sent by the state-machine
-pub trait Observer<C> where C: Debug {
-    fn on_block(&self, cursor: &Option<Point>, content: &C) -> Result<(), Box<dyn std::error::Error>> {
-        log::debug!("asked to save block content {:?} at cursor {:?}", content, cursor);
+pub trait Observer<C>
+where
+    C: Debug,
+{
+    fn on_block(
+        &self,
+        cursor: &Option<Point>,
+        content: &C,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        log::debug!(
+            "asked to save block content {:?} at cursor {:?}",
+            content,
+            cursor
+        );
         Ok(())
     }
 

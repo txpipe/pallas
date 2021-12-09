@@ -2,8 +2,11 @@ use net2::TcpStreamExt;
 use pallas_machines::primitives::Point;
 use std::net::TcpStream;
 
-use pallas_blockfetch::BlockFetchClient;
-use pallas_handshake::{MAINNET_MAGIC, n2n::{Client, VersionTable}};
+use pallas_blockfetch::{BatchClient, NoopObserver};
+use pallas_handshake::{
+    n2n::{Client, VersionTable},
+    MAINNET_MAGIC,
+};
 use pallas_machines::run_agent;
 use pallas_multiplexer::Multiplexer;
 
@@ -37,7 +40,7 @@ fn main() {
     );
 
     let mut bf_channel = muxer.use_channel(3);
-    let bf = BlockFetchClient::initial(range);
+    let bf = BatchClient::initial(range, NoopObserver {});
     let bf_last = run_agent(bf, &mut bf_channel);
     println!("{:?}", bf_last);
 }

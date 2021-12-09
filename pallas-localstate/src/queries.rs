@@ -1,5 +1,5 @@
-use minicbor::{Decoder, data::Cbor};
-use pallas_machines::{DecodePayload, EncodePayload, PayloadDecoder, primitives::Point};
+use minicbor::{data::Cbor, Decoder};
+use pallas_machines::{primitives::Point, DecodePayload, EncodePayload, PayloadDecoder};
 
 use super::Query;
 
@@ -20,10 +20,8 @@ impl EncodePayload for RequestV10 {
         e: &mut pallas_machines::PayloadEncoder,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match self {
-            Self::BlockQuery(block_query) => {
-                e.u16(0)?;
-                e.array(0)?;
-                Ok(())
+            Self::BlockQuery(..) => {
+                todo!()
             }
             Self::GetSystemStart => {
                 e.u16(1)?;
@@ -43,7 +41,7 @@ impl EncodePayload for RequestV10 {
 
 impl DecodePayload for RequestV10 {
     fn decode_payload(
-        d: &mut pallas_machines::PayloadDecoder,
+        _d: &mut pallas_machines::PayloadDecoder,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         todo!()
     }
@@ -55,7 +53,7 @@ pub struct GenericResponse(Vec<u8>);
 impl EncodePayload for GenericResponse {
     fn encode_payload(
         &self,
-        e: &mut pallas_machines::PayloadEncoder,
+        _e: &mut pallas_machines::PayloadEncoder,
     ) -> Result<(), Box<dyn std::error::Error>> {
         todo!()
     }

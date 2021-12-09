@@ -1,11 +1,13 @@
-pub mod queries;
 mod codec;
+pub mod queries;
 
 use std::fmt::Debug;
 
 use log::debug;
 
-use pallas_machines::{Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition, primitives::Point};
+use pallas_machines::{
+    primitives::Point, Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {

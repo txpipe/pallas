@@ -1,6 +1,12 @@
 mod bearers;
 
-use std::{collections::HashMap, io::{Read, Write}, sync::mpsc::{self, Receiver, Sender, TryRecvError}, thread::{self, JoinHandle}, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    sync::mpsc::{self, Receiver, Sender, TryRecvError},
+    thread::{self, JoinHandle},
+    time::{Duration, Instant},
+};
 
 use log::{debug, error, trace, warn};
 
@@ -115,7 +121,10 @@ pub struct Multiplexer {
 }
 
 impl Multiplexer {
-    pub fn setup<TBearer>(bearer: TBearer, protocols: &[u16]) -> Result<Multiplexer, Box<dyn std::error::Error>>
+    pub fn setup<TBearer>(
+        bearer: TBearer,
+        protocols: &[u16],
+    ) -> Result<Multiplexer, Box<dyn std::error::Error>>
     where
         TBearer: Bearer + 'static,
     {

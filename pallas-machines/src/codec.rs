@@ -1,5 +1,5 @@
-use super::primitives::*;
 use super::payloads::*;
+use super::primitives::*;
 
 impl EncodePayload for Point {
     fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {

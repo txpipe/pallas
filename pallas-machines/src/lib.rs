@@ -1,12 +1,12 @@
+mod codec;
 mod payloads;
 pub mod primitives;
-mod codec;
 
 use log::{debug, trace};
 use pallas_multiplexer::{Channel, Payload};
 use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::Sender;
 
 pub use payloads::*;
 

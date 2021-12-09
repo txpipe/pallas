@@ -1,7 +1,9 @@
 use core::panic;
 use std::collections::HashMap;
 
-use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder};
+use pallas_machines::{
+    Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder,
+};
 
 use crate::common::{RefuseReason, VersionNumber};
 

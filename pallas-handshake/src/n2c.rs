@@ -1,7 +1,9 @@
 use core::panic;
 use std::collections::HashMap;
 
-use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder};
+use pallas_machines::{
+    Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder,
+};
 
 use crate::common::{NetworkMagic, RefuseReason, VersionNumber};
 
@@ -39,11 +41,9 @@ impl VersionTable {
     }
 
     pub fn only_v10(network_magic: u64) -> VersionTable {
-        let values = vec![
-            (PROTOCOL_V10, VersionData(network_magic)),
-        ]
-        .into_iter()
-        .collect::<HashMap<u64, VersionData>>();
+        let values = vec![(PROTOCOL_V10, VersionData(network_magic))]
+            .into_iter()
+            .collect::<HashMap<u64, VersionData>>();
 
         VersionTable { values }
     }

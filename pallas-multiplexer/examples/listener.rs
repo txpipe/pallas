@@ -1,4 +1,4 @@
-use std::{net::TcpListener, os::unix::net::UnixListener, thread, time::Duration};
+use std::{os::unix::net::UnixListener, thread, time::Duration};
 
 use pallas_multiplexer::{Channel, Multiplexer};
 
@@ -15,7 +15,7 @@ fn main() {
 
     for protocol in PROTOCOLS {
         let handle = muxer.use_channel(protocol);
-        
+
         thread::spawn(move || {
             let Channel(_, rx) = handle;
 

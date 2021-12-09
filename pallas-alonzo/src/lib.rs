@@ -1,5 +1,5 @@
-mod model;
 mod framework;
+mod model;
 
 pub use framework::*;
 pub use model::*;

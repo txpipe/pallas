@@ -1,5 +1,8 @@
 use pallas_chainsync::{ClientConsumer, NoopObserver};
-use pallas_handshake::{MAINNET_MAGIC, n2c::{Client, VersionTable}};
+use pallas_handshake::{
+    n2c::{Client, VersionTable},
+    MAINNET_MAGIC,
+};
 use pallas_machines::primitives::Point;
 use pallas_machines::run_agent;
 use pallas_multiplexer::Multiplexer;

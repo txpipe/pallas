@@ -94,18 +94,25 @@ pub trait Observer {
     }
 }
 
+#[derive(Debug)]
 pub struct NoopObserver {}
 
 impl Observer for NoopObserver {}
 
 #[derive(Debug)]
-pub struct BatchClient<O> where O: Observer {
+pub struct BatchClient<O>
+where
+    O: Observer,
+{
     pub state: State,
     pub range: (Point, Point),
     pub observer: O,
 }
 
-impl<O> BatchClient<O> where O: Observer {
+impl<O> BatchClient<O>
+where
+    O: Observer,
+{
     pub fn initial(range: (Point, Point), observer: O) -> Self {
         Self {
             state: State::Idle,
@@ -128,7 +135,10 @@ impl<O> BatchClient<O> where O: Observer {
     }
 }
 
-impl<O> Agent for BatchClient<O> where O: Observer {
+impl<O> Agent for BatchClient<O>
+where
+    O: Observer,
+{
     type Message = Message;
 
     fn is_done(&self) -> bool {
@@ -176,13 +186,19 @@ impl<O> Agent for BatchClient<O> where O: Observer {
 }
 
 #[derive(Debug)]
-pub struct OnDemandClient<O> where O: Observer {
+pub struct OnDemandClient<O>
+where
+    O: Observer,
+{
     pub state: State,
     pub requests: Receiver<Point>,
     pub observer: O,
 }
 
-impl<O> OnDemandClient<O> where O: Observer {
+impl<O> OnDemandClient<O>
+where
+    O: Observer,
+{
     pub fn initial(requests: Receiver<Point>, observer: O) -> Self {
         Self {
             state: State::Idle,
@@ -207,7 +223,10 @@ impl<O> OnDemandClient<O> where O: Observer {
     }
 }
 
-impl<O> Agent for OnDemandClient<O> where O: Observer {
+impl<O> Agent for OnDemandClient<O>
+where
+    O: Observer,
+{
     type Message = Message;
 
     // we're never done because we react to external work requests.

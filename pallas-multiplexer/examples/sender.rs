@@ -1,4 +1,4 @@
-use std::{net::TcpStream, os::unix::net::UnixStream, thread, time::Duration};
+use std::{os::unix::net::UnixStream, thread, time::Duration};
 
 use pallas_multiplexer::{Channel, Multiplexer};
 
@@ -20,9 +20,7 @@ fn main() {
             loop {
                 let payload = vec![1; 65545];
                 tx.send(payload).unwrap();
-                thread::sleep(Duration::from_millis(
-                    50u64 + (protocol as u64 * 10u64),
-                ));
+                thread::sleep(Duration::from_millis(50u64 + (protocol as u64 * 10u64)));
             }
         });
     }

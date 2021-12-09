@@ -3,7 +3,10 @@ use std::fmt::Debug;
 use itertools::Itertools;
 use log::debug;
 
-use pallas_machines::{Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder, PayloadEncoder, Transition};
+use pallas_machines::{
+    Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
+    PayloadEncoder, Transition,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -238,14 +241,8 @@ impl NaiveProvider {
         })
     }
 
-    fn on_txs_request(
-        self,
-        requested_txs: Vec<TxId>,
-    ) -> Transition<Self> {
-        debug!(
-            "new txs request {:?}",
-            requested_txs,
-        );
+    fn on_txs_request(self, requested_txs: Vec<TxId>) -> Transition<Self> {
+        debug!("new txs request {:?}", requested_txs,);
 
         Ok(Self {
             state: State::Idle,

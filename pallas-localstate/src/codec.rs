@@ -21,7 +21,9 @@ impl DecodePayload for AcquireFailure {
         match code {
             0 => Ok(AcquireFailure::PointTooOld),
             1 => Ok(AcquireFailure::PointNotInChain),
-            _ => Err(Box::new(CodecError::UnexpectedCbor("can't infer acquire failure from variant id"))),
+            _ => Err(Box::new(CodecError::UnexpectedCbor(
+                "can't infer acquire failure from variant id",
+            ))),
         }
     }
 }

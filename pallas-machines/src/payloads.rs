@@ -2,8 +2,11 @@ use super::*;
 
 use log::{debug, warn};
 use minicbor::{Decoder, Encoder};
-use std::{ops::{Deref, DerefMut}, sync::mpsc::Receiver};
 use pallas_multiplexer::Payload;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::mpsc::Receiver,
+};
 
 pub struct PayloadEncoder<'a>(Encoder<&'a mut Vec<u8>>);
 
@@ -22,7 +25,10 @@ impl<'a> DerefMut for PayloadEncoder<'a> {
 }
 
 impl<'a> PayloadEncoder<'a> {
-    pub fn encode_payload<T: EncodePayload>(&mut self, t: &T)->Result<(), Box<dyn std::error::Error>> {
+    pub fn encode_payload<T: EncodePayload>(
+        &mut self,
+        t: &T,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         t.encode_payload(self)
     }
 }
@@ -94,7 +100,6 @@ where
         Ok(output)
     }
 }
-
 
 pub trait DecodePayload: Sized {
     fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>>;

@@ -1,9 +1,8 @@
-use minicbor::data::Cbor;
-use pallas_localstate::queries::RequestV10;
-use pallas_localstate::{OneShotClient, queries::QueryV10};
 use pallas_handshake::n2c::{Client, VersionTable};
-use pallas_handshake::{MAINNET_MAGIC};
-use pallas_machines::{DecodePayload, EncodePayload, run_agent};
+use pallas_handshake::MAINNET_MAGIC;
+use pallas_localstate::queries::RequestV10;
+use pallas_localstate::{queries::QueryV10, OneShotClient};
+use pallas_machines::run_agent;
 use pallas_multiplexer::Multiplexer;
 use std::os::unix::net::UnixStream;
 

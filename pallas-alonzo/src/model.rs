@@ -26,7 +26,7 @@ impl<'b, const N: usize> minicbor::Decode<'b> for SkipCbor<N> {
 impl<const N: usize> minicbor::Encode for SkipCbor<N> {
     fn encode<W: minicbor::encode::Write>(
         &self,
-        e: &mut minicbor::Encoder<W>,
+        _e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         todo!()
     }
