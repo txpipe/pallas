@@ -183,7 +183,99 @@ pub type Epoch = u64;
 pub type Genesishash = SkipCbor<5>;
 pub type GenesisDelegateHash = SkipCbor<6>;
 pub type VrfKeyhash = Hash32;
-pub type MoveInstantaneousReward = SkipCbor<8>;
+
+/* move_instantaneous_reward = [ 0 / 1, { * stake_credential => delta_coin } / coin ]
+; The first field determines where the funds are drawn from.
+; 0 denotes the reserves, 1 denotes the treasury.
+; If the second field is a map, funds are moved to stake credentials,
+; otherwise the funds are given to the other accounting pot.
+ */
+
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum InstantaneousRewardSource {
+    Reserves,
+    Treasury,
+}
+
+impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardSource {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let variant = d.u32()?;
+
+        match variant {
+            0 => Ok(Self::Reserves),
+            1 => Ok(Self::Treasury),
+            _ => Err(minicbor::decode::Error::Message("invalid funds variant")),
+        }
+    }
+}
+
+impl minicbor::encode::Encode for InstantaneousRewardSource {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        let variant = match self {
+            Self::Reserves => 0,
+            Self::Treasury => 1,
+        };
+
+        e.u32(variant)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum InstantaneousRewardTarget {
+    StakeCredentials(BTreeMap<StakeCredential, i64>),
+    OtherAccountingPot(Coin),
+}
+
+impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardTarget {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let datatype = d.datatype()?;
+
+        match datatype {
+            minicbor::data::Type::Map => {
+                let a = d.decode()?;
+                Ok(Self::StakeCredentials(a))
+            }
+            _ => {
+                let a = d.decode()?;
+                Ok(Self::OtherAccountingPot(a))
+            }
+        }
+    }
+}
+
+impl minicbor::encode::Encode for InstantaneousRewardTarget {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            InstantaneousRewardTarget::StakeCredentials(a) => {
+                a.encode(e)?;
+                Ok(())
+            }
+            InstantaneousRewardTarget::OtherAccountingPot(a) => {
+                a.encode(e)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd)]
+#[cbor]
+pub struct MoveInstantaneousReward {
+    #[n(0)]
+    pub source: InstantaneousRewardSource,
+
+    #[n(1)]
+    pub target: InstantaneousRewardTarget,
+}
+
 pub type Margin = SkipCbor<9>;
 pub type RewardAccount = ByteVec;
 pub type PoolOwners = SkipCbor<11>;
@@ -299,7 +391,7 @@ impl minicbor::encode::Encode for RationalNumber {
 
 pub type UnitInterval = RationalNumber;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum StakeCredential {
     AddrKeyhash(AddrKeyhash),
     Scripthash(Scripthash),
