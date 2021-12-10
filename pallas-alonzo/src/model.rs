@@ -179,7 +179,7 @@ pub type Hash28 = ByteVec;
 pub type Hash32 = ByteVec;
 
 pub type PoolKeyhash = Hash28;
-pub type Epoch = i64;
+pub type Epoch = u64;
 pub type Genesishash = SkipCbor<5>;
 pub type GenesisDelegateHash = SkipCbor<6>;
 pub type VrfKeyhash = Hash32;
