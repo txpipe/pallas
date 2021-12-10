@@ -35,7 +35,7 @@ impl<const N: usize> minicbor::Encode for SkipCbor<N> {
 pub type SomeSkipCbor = SkipCbor<0>;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct VrfCert(#[n(0)] ByteVec, #[n(1)] ByteVec);
+pub struct VrfCert(#[n(0)] pub ByteVec, #[n(1)] pub ByteVec);
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct HeaderBody {
@@ -255,10 +255,10 @@ pub type PoolMetadataHash = Hash32;
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct PoolMetadata {
     #[n(0)]
-    url: String,
+    pub url: String,
 
     #[n(1)]
-    hash: PoolMetadataHash,
+    pub hash: PoolMetadataHash,
 }
 
 pub type AddrKeyhash = Hash28;
@@ -266,8 +266,8 @@ pub type Scripthash = Hash28;
 
 #[derive(Debug, PartialEq)]
 pub struct RationalNumber {
-    numerator: i64,
-    denominator: u64,
+    pub numerator: i64,
+    pub denominator: u64,
 }
 
 impl<'b> minicbor::decode::Decode<'b> for RationalNumber {
@@ -806,7 +806,7 @@ impl minicbor::encode::Encode for PlutusData {
 
 /// A struct that forces encode / decode using indef arrays
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IndefVec<A>(Vec<A>);
+pub struct IndefVec<A>(pub Vec<A>);
 
 impl<'b, A> minicbor::decode::Decode<'b> for IndefVec<A>
 where
@@ -913,9 +913,9 @@ where
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct ExUnits {
     #[n(0)]
-    mem: u32,
+    pub mem: u32,
     #[n(1)]
-    steps: u32,
+    pub steps: u32,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
@@ -1090,7 +1090,7 @@ impl minicbor::Encode for Metadatum {
 /// as the underlaying struct for storage of the items (as opposed to a BTreeMap
 /// or HashMap).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Metadata(Vec<(Metadatum, Metadatum)>);
+pub struct Metadata(pub Vec<(Metadatum, Metadatum)>);
 
 impl Deref for Metadata {
     type Target = Vec<(Metadatum, Metadatum)>;
