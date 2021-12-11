@@ -1,7 +1,7 @@
 [package]
 name = "pallas-blockfetch"
 description = "Implementation of the Ouroboros network blockfetch mini-protocol"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
