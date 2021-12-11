@@ -1,6 +1,6 @@
 use std::sync::mpsc::Receiver;
 
-use log::info;
+use log::{debug, info};
 use pallas_machines::{
     primitives::Point, Agent, CodecError, DecodePayload, EncodePayload, MachineOutput,
     PayloadDecoder, PayloadEncoder, Transition,
@@ -88,8 +88,20 @@ impl DecodePayload for Message {
 }
 
 pub trait Observer {
-    fn on_block(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
-        log::debug!("block fetched {:?}", body);
+    fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+        log::debug!("block received, sice: {}", body.len());
+        Ok(())
+    }
+
+    fn on_block_range_requested(
+        &self,
+        range: &(Point, Point),
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        log::debug!(
+            "block range requested, from: {:?}, to: {:?}",
+            range.0,
+            range.1
+        );
         Ok(())
     }
 }
@@ -128,10 +140,20 @@ where
 
         tx.send_msg(&msg)?;
 
+        self.observer.on_block_range_requested(&self.range)?;
+
         Ok(Self {
             state: State::Busy,
             ..self
         })
+    }
+
+    fn on_block(self, body: Vec<u8>) -> Transition<Self> {
+        debug!("received block body, size {}", body.len());
+
+        self.observer.on_block_received(body)?;
+
+        Ok(self)
     }
 }
 
@@ -171,11 +193,7 @@ where
                 state: State::Done,
                 ..self
             }),
-            (State::Streaming, Message::Block { body }) => {
-                info!("received block body of size {}", body.len());
-                self.observer.on_block(body)?;
-                Ok(self)
-            }
+            (State::Streaming, Message::Block { body }) => self.on_block(body),
             (State::Streaming, Message::BatchDone) => Ok(Self {
                 state: State::Done,
                 ..self
@@ -221,6 +239,14 @@ where
             ..self
         })
     }
+
+    fn on_block(self, body: Vec<u8>) -> Transition<Self> {
+        debug!("received block body, size {}", body.len());
+
+        self.observer.on_block_received(body)?;
+
+        Ok(self)
+    }
 }
 
 impl<O> Agent for OnDemandClient<O>
@@ -261,11 +287,7 @@ where
                 state: State::Idle,
                 ..self
             }),
-            (State::Streaming, Message::Block { body }) => {
-                info!("received block body of size {}", body.len());
-                self.observer.on_block(body)?;
-                Ok(self)
-            }
+            (State::Streaming, Message::Block { body }) => self.on_block(body),
             (State::Streaming, Message::BatchDone) => Ok(Self {
                 state: State::Idle,
                 ..self
