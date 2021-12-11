@@ -19,7 +19,7 @@ The following diagram provides an overview of the components involved:
 
 ![Multiplexer Diagram](docs/diagram.png)
 
-## Example Usage
+## Usage
 
 The following code provides a very rough example of how to setup a client that connects to a node and spawns two concurrent threads running independently, both communication over the same bearer using _Pallas_ multiplexer.
 
@@ -69,6 +69,20 @@ thread::spawn(move || {
 });
 ```
 
-For a working example of a two peers communicating (a sender and a listener), check the [examples folder](examples).
+## Run Examples
+
+For a working example of a two peers communicating (a sender and a listener), check the [examples folder](examples). To run the examples, open two different terminals and run a different peer in each one:
+
+```sh
+# on terminal 1, start the listener
+RUST_LOG=info cargo run --example listener
+```
+
+```sh
+# on terminal 2, start the sender
+RUST_LOG=info cargo run --example sender
+```
+
+## Real World Usage
 
 For a more complex, real-world example, check the [Oura](https://github.com/txpipe/oura) repo, it provides a full-blown client tool designed to live-stream block data from a local or remote node.
