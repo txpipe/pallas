@@ -111,7 +111,7 @@ pub struct Channel(pub Sender<Payload>, pub Receiver<Payload>);
 type ChannelProtocolHandle = (u16, Channel);
 type ChannelIngressHandle = (u16, Receiver<Payload>);
 type ChannelEgressHandle = (u16, Sender<Payload>);
-type MuxIngress = Vec<ChannelIngressHandle>;
+type MuxIngress<'a> = &'a [ChannelIngressHandle];
 type DemuxerEgress = Vec<ChannelEgressHandle>;
 
 pub struct Multiplexer {
@@ -141,15 +141,14 @@ impl Multiplexer {
                 let egress_handle: ChannelEgressHandle = (*id, demux_tx);
 
                 (protocol_handle, (ingress_handle, egress_handle))
-            })
-            .collect::<Vec<_>>();
+            });
 
         let (protocol_handles, multiplex_handles): (Vec<_>, Vec<_>) = handles.into_iter().unzip();
 
         let (ingress, egress): (Vec<_>, Vec<_>) = multiplex_handles.into_iter().unzip();
 
         let mut tx_bearer = bearer.clone();
-        let tx_thread = thread::spawn(move || tx_loop(&mut tx_bearer, ingress));
+        let tx_thread = thread::spawn(move || tx_loop(&mut tx_bearer, ingress.as_slice()));
 
         let mut rx_bearer = bearer.clone();
         let rx_thread = thread::spawn(move || rx_loop(&mut rx_bearer, egress));

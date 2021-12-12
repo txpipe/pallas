@@ -25,9 +25,9 @@ fn write_segment(
         );
     }
 
-    msg.write(&payload[..]).unwrap();
+    msg.write_all(payload)?;
 
-    writer.write(&msg)?;
+    writer.write_all(&msg)?;
     writer.flush()
 }
 
@@ -41,8 +41,8 @@ fn read_segment(reader: &mut impl Read) -> Result<(u16, u32, Payload), std::io::
     }
 
     let length = NetworkEndian::read_u16(&header[6..]) as usize;
-    let id = NetworkEndian::read_u16(&mut header[4..6]) as usize ^ 0x8000;
-    let ts = NetworkEndian::read_u32(&mut header[0..4]);
+    let id = NetworkEndian::read_u16(&header[4..6]) as usize ^ 0x8000;
+    let ts = NetworkEndian::read_u32(&header[0..4]);
 
     debug!(
         "parsed inbound msg, protocol id: {}, ts: {}, payload length: {}",
