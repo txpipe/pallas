@@ -7,6 +7,8 @@ use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
 use std::{collections::BTreeMap, ops::Deref};
 
+use crate::utils::KeyValuePairs;
+
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
 
@@ -112,7 +114,7 @@ pub type PolicyId = ScriptHash;
 
 pub type AssetName = ByteVec;
 
-pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
+pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
 
@@ -827,11 +829,78 @@ impl minicbor::encode::Encode for NativeScript {
 
 pub type PlutusScript = ByteVec;
 
+/*
+big_int = int / big_uint / big_nint ; New
+big_uint = #6.2(bounded_bytes) ; New
+big_nint = #6.3(bounded_bytes) ; New
+ */
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BigInt {
+    Int(i64),
+    BigUInt(ByteVec),
+    BigNInt(ByteVec),
+}
+
+impl<'b> minicbor::decode::Decode<'b> for BigInt {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let datatype = d.datatype()?;
+
+        match datatype {
+            minicbor::data::Type::U8
+            | minicbor::data::Type::U16
+            | minicbor::data::Type::U32
+            | minicbor::data::Type::U64
+            | minicbor::data::Type::I8
+            | minicbor::data::Type::I16
+            | minicbor::data::Type::I32
+            | minicbor::data::Type::I64 => Ok(Self::Int(d.decode()?)),
+            minicbor::data::Type::Tag => {
+                let tag = d.tag()?;
+
+                match tag {
+                    minicbor::data::Tag::PosBignum => Ok(Self::BigUInt(d.decode()?)),
+                    minicbor::data::Tag::NegBignum => Ok(Self::BigNInt(d.decode()?)),
+                    _ => Err(minicbor::decode::Error::Message(
+                        "invalid cbor tag for big int",
+                    )),
+                }
+            }
+            _ => Err(minicbor::decode::Error::Message(
+                "invalid cbor data type for big int",
+            )),
+        }
+    }
+}
+
+impl minicbor::encode::Encode for BigInt {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            BigInt::Int(x) => {
+                e.encode(x)?;
+            }
+            BigInt::BigUInt(x) => {
+                e.tag(Tag::PosBignum)?;
+                e.encode(x)?;
+            }
+            BigInt::BigNInt(x) => {
+                e.tag(Tag::NegBignum)?;
+                e.encode(x)?;
+            }
+        };
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(BTreeMap<PlutusData, PlutusData>),
-    BitInt(u64),
+    BigInt(BigInt),
     BoundedBytes(ByteVec),
     Array(Vec<PlutusData>),
     ArrayIndef(IndefVec<PlutusData>),
@@ -842,19 +911,31 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
         let type_ = d.datatype()?;
 
         match type_ {
-            minicbor::data::Type::Tag => Ok(PlutusData::Constr(d.decode()?)),
-            minicbor::data::Type::Map => Ok(PlutusData::Map(d.decode()?)),
-            minicbor::data::Type::I8 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::I16 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::I32 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::I64 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::U8 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::U16 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::U32 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::U64 => Ok(PlutusData::BitInt(d.decode()?)),
-            minicbor::data::Type::Bytes => Ok(PlutusData::BoundedBytes(d.decode()?)),
-            minicbor::data::Type::Array => Ok(PlutusData::Array(d.decode()?)),
-            minicbor::data::Type::ArrayIndef => Ok(PlutusData::ArrayIndef(d.decode()?)),
+            minicbor::data::Type::Tag => {
+                let mut probe = d.probe();
+                let tag = probe.tag()?;
+
+                match tag {
+                    Tag::Unassigned(121..=127 | 1280..=1400 | 102) => Ok(Self::Constr(d.decode()?)),
+                    Tag::PosBignum | Tag::NegBignum => Ok(Self::BigInt(d.decode()?)),
+                    _ => Err(minicbor::decode::Error::Message(
+                        "unknown tag for plutus data tag",
+                    )),
+                }
+            }
+            minicbor::data::Type::U8
+            | minicbor::data::Type::U16
+            | minicbor::data::Type::U32
+            | minicbor::data::Type::U64
+            | minicbor::data::Type::I8
+            | minicbor::data::Type::I16
+            | minicbor::data::Type::I32
+            | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode()?)),
+            minicbor::data::Type::Map => Ok(Self::Map(d.decode()?)),
+            minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode()?)),
+            minicbor::data::Type::Array => Ok(Self::Array(d.decode()?)),
+            minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode()?)),
+
             _ => Err(minicbor::decode::Error::Message(
                 "bad cbor data type for plutus data",
             )),
@@ -868,31 +949,27 @@ impl minicbor::encode::Encode for PlutusData {
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            PlutusData::Constr(a) => {
+            Self::Constr(a) => {
                 e.encode(a)?;
-                Ok(())
             }
-            PlutusData::Map(a) => {
+            Self::Map(a) => {
                 e.encode(a)?;
-                Ok(())
             }
-            PlutusData::BitInt(a) => {
+            Self::BigInt(a) => {
                 e.encode(a)?;
-                Ok(())
             }
-            PlutusData::BoundedBytes(a) => {
+            Self::BoundedBytes(a) => {
                 e.encode(a)?;
-                Ok(())
             }
-            PlutusData::Array(a) => {
+            Self::Array(a) => {
                 e.encode(a)?;
-                Ok(())
             }
-            PlutusData::ArrayIndef(a) => {
+            Self::ArrayIndef(a) => {
                 e.encode(a)?;
-                Ok(())
             }
         }
+
+        Ok(())
     }
 }
 
@@ -937,7 +1014,7 @@ where
 pub struct Constr<A> {
     pub tag: u64,
     pub prefix: Option<u32>,
-    pub values: IndefVec<A>,
+    pub values: Vec<A>,
 }
 
 impl<'b, A> minicbor::decode::Decode<'b> for Constr<A>
@@ -949,7 +1026,7 @@ where
 
         match tag {
             Tag::Unassigned(x) => match x {
-                121 | 122 | 123 | 124 | 125 | 126 | 127 => Ok(Constr {
+                121..=127 | 1280..=1400 => Ok(Constr {
                     tag: x,
                     values: d.decode()?,
                     prefix: None,
@@ -1175,45 +1252,7 @@ impl minicbor::Encode for Metadatum {
     }
 }
 
-/// Custom struct to handle nested metadata maps
-///
-/// Since the ordering of the entires requires a particular order to maintain
-/// canonicalization for isomorphic decoding / encoding operators, we use a Vec
-/// as the underlaying struct for storage of the items (as opposed to a BTreeMap
-/// or HashMap).
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Metadata(pub Vec<(Metadatum, Metadatum)>);
-
-impl Deref for Metadata {
-    type Target = Vec<(Metadatum, Metadatum)>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'b> minicbor::decode::Decode<'b> for Metadata {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        let items: Result<Vec<_>, _> = d.map_iter::<Metadatum, Metadatum>()?.collect();
-        let items = items?;
-        Ok(Metadata(items))
-    }
-}
-
-impl minicbor::encode::Encode for Metadata {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.map(self.0.len() as u64)?;
-        for (k, v) in &self.0 {
-            k.encode(e)?;
-            v.encode(e)?;
-        }
-
-        Ok(())
-    }
-}
+pub type Metadata = KeyValuePairs<Metadatum, Metadatum>;
 
 #[derive(Debug, PartialEq)]
 pub enum AuxiliaryData {
@@ -1316,6 +1355,7 @@ mod tests {
             include_str!("test_data/test6.block"),
             include_str!("test_data/test7.block"),
             include_str!("test_data/test8.block"),
+            include_str!("test_data/test9.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
