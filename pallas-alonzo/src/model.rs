@@ -5,9 +5,9 @@
 use log::warn;
 use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Deref};
 
-use crate::utils::KeyValuePairs;
+use crate::utils::{KeyValuePairs, MaybeIndefArray};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
@@ -616,22 +616,21 @@ pub enum NetworkId {
 
 #[derive(Debug, PartialEq)]
 pub enum TransactionBodyComponent {
-    Inputs(Vec<TransactionInput>),
-    Outputs(Vec<TransactionOutput>),
+    Inputs(MaybeIndefArray<TransactionInput>),
+    Outputs(MaybeIndefArray<TransactionOutput>),
     Fee(u64),
-    Ttl(Option<u64>),
-    Certificates(Option<Vec<Certificate>>),
-    Withdrawals(Option<BTreeMap<RewardAccount, Coin>>),
+    Ttl(u64),
+    Certificates(Vec<Certificate>),
+    Withdrawals(KeyValuePairs<RewardAccount, Coin>),
     Update(Option<SkipCbor<22>>),
-    AuxiliaryDataHash(Option<ByteVec>),
-    ValidityIntervalStart(Option<u64>),
-    Mint(Option<Multiasset<i64>>),
-    ScriptDataHash(Option<Hash32>),
-    Collateral(Option<Vec<TransactionInput>>),
-    RequiredSigners(Option<Vec<AddrKeyhash>>),
-    NetworkId(Option<NetworkId>),
+    AuxiliaryDataHash(ByteVec),
+    ValidityIntervalStart(u64),
+    Mint(Multiasset<i64>),
+    ScriptDataHash(Hash32),
+    Collateral(MaybeIndefArray<TransactionInput>),
+    RequiredSigners(MaybeIndefArray<AddrKeyhash>),
+    NetworkId(NetworkId),
 }
-
 impl<'b> minicbor::decode::Decode<'b> for TransactionBodyComponent {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
         let key: u32 = d.decode()?;
@@ -731,6 +730,14 @@ impl minicbor::encode::Encode for TransactionBodyComponent {
 #[derive(Debug, PartialEq)]
 pub struct TransactionBody(Vec<TransactionBodyComponent>);
 
+impl Deref for TransactionBody {
+    type Target = Vec<TransactionBodyComponent>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<'b> minicbor::decode::Decode<'b> for TransactionBody {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
         let len = d.map()?.unwrap_or_default();
@@ -767,9 +774,9 @@ pub struct VKeyWitness {
 #[derive(Debug, PartialEq)]
 pub enum NativeScript {
     ScriptPubkey(AddrKeyhash),
-    ScriptAll(Vec<NativeScript>),
-    ScriptAny(Vec<NativeScript>),
-    ScriptNOfK(u32, Vec<NativeScript>),
+    ScriptAll(MaybeIndefArray<NativeScript>),
+    ScriptAny(MaybeIndefArray<NativeScript>),
+    ScriptNOfK(u32, MaybeIndefArray<NativeScript>),
     InvalidBefore(u64),
     InvalidHereafter(u64),
 }
@@ -904,11 +911,11 @@ impl minicbor::encode::Encode for BigInt {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
-    Map(BTreeMap<PlutusData, PlutusData>),
+    Map(KeyValuePairs<PlutusData, PlutusData>),
     BigInt(BigInt),
     BoundedBytes(ByteVec),
-    Array(Vec<PlutusData>),
-    ArrayIndef(IndefVec<PlutusData>),
+    Array(MaybeIndefArray<PlutusData>),
+    ArrayIndef(MaybeIndefArray<PlutusData>),
 }
 
 impl<'b> minicbor::decode::Decode<'b> for PlutusData {
@@ -938,6 +945,7 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
             | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode()?)),
             minicbor::data::Type::Map => Ok(Self::Map(d.decode()?)),
             minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode()?)),
+            minicbor::data::Type::BytesIndef => Ok(Self::BoundedBytes(d.decode()?)),
             minicbor::data::Type::Array => Ok(Self::Array(d.decode()?)),
             minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode()?)),
 
@@ -978,48 +986,11 @@ impl minicbor::encode::Encode for PlutusData {
     }
 }
 
-/// A struct that forces encode / decode using indef arrays
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IndefVec<A>(pub Vec<A>);
-
-impl<'b, A> minicbor::decode::Decode<'b> for IndefVec<A>
-where
-    A: minicbor::decode::Decode<'b>,
-{
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        let values: Vec<A> = d.decode()?;
-
-        Ok(IndefVec(values))
-    }
-}
-
-impl<A> minicbor::encode::Encode for IndefVec<A>
-where
-    A: minicbor::encode::Encode,
-{
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        if self.0.is_empty() {
-            e.begin_array()?;
-            for v in &self.0 {
-                e.encode(v)?;
-            }
-            e.end()?;
-        } else {
-            e.array(0)?;
-        }
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Constr<A> {
     pub tag: u64,
     pub prefix: Option<u32>,
-    pub values: IndefVec<A>,
+    pub values: MaybeIndefArray<A>,
 }
 
 impl<'b, A> minicbor::decode::Decode<'b> for Constr<A>
@@ -1146,22 +1117,22 @@ pub struct BootstrapWitness {
 #[cbor(map)]
 pub struct TransactionWitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<Vec<VKeyWitness>>,
+    pub vkeywitness: Option<MaybeIndefArray<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<MaybeIndefArray<NativeScript>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
+    pub bootstrap_witness: Option<MaybeIndefArray<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_script: Option<Vec<PlutusScript>>,
+    pub plutus_script: Option<MaybeIndefArray<PlutusScript>>,
 
     #[n(4)]
-    pub plutus_data: Option<Vec<PlutusData>>,
+    pub plutus_data: Option<MaybeIndefArray<PlutusData>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<MaybeIndefArray<Redeemer>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
@@ -1170,7 +1141,7 @@ pub struct AlonzoAuxiliaryData {
     #[n(0)]
     pub metadata: Option<Metadata>,
     #[n(1)]
-    pub native_scripts: Option<Vec<NativeScript>>,
+    pub native_scripts: Option<MaybeIndefArray<NativeScript>>,
     #[n(2)]
     pub plutus_scripts: Option<PlutusScript>,
 }
@@ -1180,7 +1151,7 @@ pub enum Metadatum {
     Int(i64),
     Bytes(ByteVec),
     Text(String),
-    Array(Vec<Metadatum>),
+    Array(MaybeIndefArray<Metadatum>),
     Map(Metadata),
 }
 
@@ -1329,16 +1300,16 @@ pub struct Block {
     pub header: Header,
 
     #[n(1)]
-    pub transaction_bodies: Vec<TransactionBody>,
+    pub transaction_bodies: MaybeIndefArray<TransactionBody>,
 
     #[n(2)]
-    pub transaction_witness_sets: Vec<TransactionWitnessSet>,
+    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
-    pub invalid_transactions: Vec<TransactionIndex>,
+    pub invalid_transactions: MaybeIndefArray<TransactionIndex>,
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -1360,8 +1331,7 @@ mod tests {
             include_str!("test_data/test6.block"),
             include_str!("test_data/test7.block"),
             include_str!("test_data/test8.block"),
-            // indef arrays giving trouble, re-encoding doesn't match
-            //include_str!("test_data/test9.block"),
+            include_str!("test_data/test9.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
@@ -1371,6 +1341,7 @@ mod tests {
                 .expect(&format!("error decoding cbor for file {}", idx));
             let bytes2 =
                 to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+
             assert_eq!(bytes, bytes2);
         }
     }
