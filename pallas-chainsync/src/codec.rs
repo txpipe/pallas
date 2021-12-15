@@ -1,47 +1,8 @@
-use minicbor::data::Tag;
-
 use pallas_machines::{
     primitives::Point, CodecError, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder,
 };
 
-use crate::{BlockBody, Message, Tip, WrappedHeader};
-
-impl EncodePayload for WrappedHeader {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
-        e.array(2)?;
-        e.u64(self.0)?;
-        e.tag(Tag::Cbor)?;
-        e.bytes(&self.1)?;
-
-        Ok(())
-    }
-}
-
-impl DecodePayload for WrappedHeader {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
-        d.array()?;
-        let unknown = d.u64()?; // WTF is this value?
-        d.tag()?;
-        let bytes = Vec::from(d.bytes()?);
-
-        Ok(WrappedHeader(unknown, bytes))
-    }
-}
-
-impl EncodePayload for BlockBody {
-    fn encode_payload(&self, _e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
-    }
-}
-
-impl DecodePayload for BlockBody {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
-        d.tag()?;
-        let bytes = Vec::from(d.bytes()?);
-
-        Ok(BlockBody(bytes))
-    }
-}
+use crate::{Message, Tip};
 
 impl EncodePayload for Tip {
     fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {

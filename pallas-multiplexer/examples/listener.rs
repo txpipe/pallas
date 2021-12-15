@@ -25,7 +25,11 @@ fn main() {
 
             loop {
                 let payload = rx.recv().unwrap();
-                info!("got message within thread, id:{}, length:{}", protocol, payload.len());
+                info!(
+                    "got message within thread, id:{}, length:{}",
+                    protocol,
+                    payload.len()
+                );
             }
         });
     }

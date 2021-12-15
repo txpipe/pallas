@@ -128,20 +128,18 @@ impl Multiplexer {
     where
         TBearer: Bearer + 'static,
     {
-        let handles = protocols
-            .iter()
-            .map(|id| {
-                let (demux_tx, demux_rx) = mpsc::channel::<Payload>();
-                let (mux_tx, mux_rx) = mpsc::channel::<Payload>();
+        let handles = protocols.iter().map(|id| {
+            let (demux_tx, demux_rx) = mpsc::channel::<Payload>();
+            let (mux_tx, mux_rx) = mpsc::channel::<Payload>();
 
-                let channel = Channel(mux_tx, demux_rx);
+            let channel = Channel(mux_tx, demux_rx);
 
-                let protocol_handle: ChannelProtocolHandle = (*id, channel);
-                let ingress_handle: ChannelIngressHandle = (*id, mux_rx);
-                let egress_handle: ChannelEgressHandle = (*id, demux_tx);
+            let protocol_handle: ChannelProtocolHandle = (*id, channel);
+            let ingress_handle: ChannelIngressHandle = (*id, mux_rx);
+            let egress_handle: ChannelEgressHandle = (*id, demux_tx);
 
-                (protocol_handle, (ingress_handle, egress_handle))
-            });
+            (protocol_handle, (ingress_handle, egress_handle))
+        });
 
         let (protocol_handles, multiplex_handles): (Vec<_>, Vec<_>) = handles.into_iter().unzip();
 

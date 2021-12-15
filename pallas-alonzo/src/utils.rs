@@ -71,7 +71,7 @@ where
                     k.encode(e)?;
                     v.encode(e)?;
                 }
-                
+
                 e.end()?;
             }
         }
@@ -92,8 +92,8 @@ impl<A> Deref for MaybeIndefArray<A> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            MaybeIndefArray::Def(x) => &x,
-            MaybeIndefArray::Indef(x) => &x,
+            MaybeIndefArray::Def(x) => x,
+            MaybeIndefArray::Indef(x) => x,
         }
     }
 }

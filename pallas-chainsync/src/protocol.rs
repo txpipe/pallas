@@ -3,12 +3,6 @@ use std::fmt::Debug;
 use pallas_machines::{primitives::Point, DecodePayload, EncodePayload};
 
 #[derive(Debug)]
-pub struct WrappedHeader(pub u64, pub Vec<u8>);
-
-#[derive(Debug)]
-pub struct BlockBody(pub Vec<u8>);
-
-#[derive(Debug)]
 pub struct Tip(pub Point, pub u64);
 
 #[derive(Debug, PartialEq, Clone)]

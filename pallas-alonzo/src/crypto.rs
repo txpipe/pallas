@@ -1,4 +1,4 @@
-use crate::{AuxiliaryData, PlutusData, TransactionBody};
+use crate::{AuxiliaryData, Header, PlutusData, TransactionBody};
 use cryptoxide::blake2b::Blake2b;
 use minicbor::{to_vec, Encode};
 
@@ -13,6 +13,10 @@ fn hash_cbor_encodable(data: &impl Encode) -> Result<Hash32, Error> {
     let mut hash = [0; 32];
     Blake2b::blake2b(&mut hash, &bytes[..], &[]);
     Ok(hash)
+}
+
+pub fn hash_block_header(data: &Header) -> Result<Hash32, Error> {
+    hash_cbor_encodable(data)
 }
 
 pub fn hash_auxiliary_data(data: &AuxiliaryData) -> Result<Hash32, Error> {

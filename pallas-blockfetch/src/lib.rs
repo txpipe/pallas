@@ -1,6 +1,6 @@
 use std::sync::mpsc::Receiver;
 
-use log::{debug, info};
+use log::debug;
 use pallas_machines::{
     primitives::Point, Agent, CodecError, DecodePayload, EncodePayload, MachineOutput,
     PayloadDecoder, PayloadEncoder, Transition,
@@ -47,7 +47,7 @@ impl EncodePayload for Message {
             }
             Message::Block { body } => {
                 e.array(2)?.u16(4)?;
-                e.bytes(&body)?;
+                e.bytes(body)?;
                 Ok(())
             }
             Message::BatchDone => {

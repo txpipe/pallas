@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 use log::{debug, log_enabled, trace};
 
@@ -6,7 +6,13 @@ use pallas_machines::{
     primitives::Point, Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
 };
 
-use crate::{BlockBody, Message, State, Tip, WrappedHeader};
+use crate::{Message, State, Tip};
+
+/// A trait to deal with polymorphic payloads in the ChainSync protocol
+/// (WrappedHeader vs BlockBody)
+pub trait BlockLike: EncodePayload + DecodePayload + Debug {
+    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>>;
+}
 
 /// An observer of chain-sync events sent by the state-machine
 pub trait Observer<C>
@@ -69,7 +75,7 @@ where
 
 impl<C, O> Consumer<C, O>
 where
-    C: EncodePayload + DecodePayload + Debug,
+    C: BlockLike + EncodePayload + DecodePayload + Debug,
     O: Observer<C>,
 {
     pub fn initial(known_points: Vec<Point>, observer: O) -> Self {
@@ -133,6 +139,8 @@ where
     fn on_roll_forward(self, content: C, tip: Tip) -> Transition<Self> {
         debug!("rolling forward");
 
+        let point = content.block_point()?;
+
         if log_enabled!(log::Level::Trace) {
             trace!("content: {:?}", content);
         }
@@ -141,6 +149,7 @@ where
         self.observer.on_block(&self.cursor, &content)?;
 
         Ok(Self {
+            cursor: Some(point),
             tip: Some(tip),
             state: State::Idle,
             ..self
@@ -176,7 +185,7 @@ where
 
 impl<C, O> Agent for Consumer<C, O>
 where
-    C: EncodePayload + DecodePayload + Debug + 'static,
+    C: BlockLike + EncodePayload + DecodePayload + Debug + 'static,
     O: Observer<C>,
 {
     type Message = Message<C>;
@@ -229,10 +238,6 @@ where
     }
 }
 
-pub type NodeConsumer<S> = Consumer<WrappedHeader, S>;
-
-pub type ClientConsumer<S> = Consumer<BlockBody, S>;
-
 #[derive(Debug)]
 pub struct TipFinder {
     pub state: State,
@@ -250,7 +255,7 @@ impl TipFinder {
     }
 
     fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::<WrappedHeader>::FindIntersect(vec![self.wellknown_point.clone()]);
+        let msg = Message::<NoopContent>::FindIntersect(vec![self.wellknown_point.clone()]);
 
         tx.send_msg(&msg)?;
 
@@ -281,8 +286,34 @@ impl TipFinder {
     }
 }
 
+#[derive(Debug)]
+pub struct NoopContent {}
+
+impl EncodePayload for NoopContent {
+    fn encode_payload(
+        &self,
+        _e: &mut pallas_machines::PayloadEncoder,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        todo!()
+    }
+}
+
+impl DecodePayload for NoopContent {
+    fn decode_payload(
+        _d: &mut pallas_machines::PayloadDecoder,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        todo!()
+    }
+}
+
+impl BlockLike for NoopContent {
+    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>> {
+        todo!()
+    }
+}
+
 impl Agent for TipFinder {
-    type Message = Message<WrappedHeader>;
+    type Message = Message<NoopContent>;
 
     fn is_done(&self) -> bool {
         self.state == State::Done

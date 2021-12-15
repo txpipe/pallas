@@ -126,7 +126,7 @@ impl<'a> PayloadDeconstructor<'a> {
     pub fn consume_next_message<T: DecodePayload>(
         &mut self,
     ) -> Result<T, Box<dyn std::error::Error>> {
-        if self.remaining.len() == 0 {
+        if self.remaining.is_empty() {
             debug!("no remaining payload, fetching next segment");
             let payload = self.rx.recv()?;
             self.remaining.extend(payload);

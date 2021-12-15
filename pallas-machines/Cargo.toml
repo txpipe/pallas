@@ -14,6 +14,6 @@ authors = [
 
 [dependencies]
 pallas-multiplexer = { version = "0.3.0",  path = "../pallas-multiplexer/" }
-minicbor = { version="0.11.4", features=["half", "std"] }
+minicbor = { version="0.12", features=["half", "std"] }
 log = "0.4.14"
 hex = "0.4.3"

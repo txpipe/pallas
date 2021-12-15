@@ -1,12 +1,46 @@
+use minicbor::data::Tag;
 use net2::TcpStreamExt;
+use pallas_alonzo::{crypto, Fragment, Header};
 use pallas_machines::primitives::Point;
 use std::net::TcpStream;
 
-use pallas_chainsync::{ClientConsumer, NoopObserver};
+use pallas_chainsync::{BlockLike, Consumer, NoopObserver};
 use pallas_handshake::n2n::{Client, VersionTable};
 use pallas_handshake::MAINNET_MAGIC;
-use pallas_machines::run_agent;
+use pallas_machines::{run_agent, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder};
 use pallas_multiplexer::Multiplexer;
+
+#[derive(Debug)]
+pub struct Content(u32, Header);
+
+impl EncodePayload for Content {
+    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+        e.array(2)?;
+        e.u32(self.0)?;
+        e.tag(Tag::Cbor)?;
+        e.bytes(&self.1.encode_fragment()?)?;
+
+        Ok(())
+    }
+}
+
+impl DecodePayload for Content {
+    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+        d.array()?;
+        let unknown = d.u32()?; // WTF is this value?
+        d.tag()?;
+        let bytes = d.bytes()?;
+        let header = Header::decode_fragment(bytes)?;
+        Ok(Content(unknown, header))
+    }
+}
+
+impl BlockLike for Content {
+    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>> {
+        let hash = crypto::hash_block_header(&self.1)?;
+        Ok(Point(self.1.header_body.slot, Vec::from(hash)))
+    }
+}
 
 fn main() {
     env_logger::init();
@@ -29,7 +63,7 @@ fn main() {
 
     let mut cs_channel = muxer.use_channel(2);
 
-    let cs = ClientConsumer::initial(known_points, NoopObserver {});
+    let cs = Consumer::<Content, _>::initial(known_points, NoopObserver {});
     let cs = run_agent(cs, &mut cs_channel).unwrap();
 
     println!("{:?}", cs);
