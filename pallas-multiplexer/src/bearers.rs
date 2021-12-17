@@ -1,6 +1,7 @@
 use byteorder::{ByteOrder, NetworkEndian, WriteBytesExt};
 use log::{debug, log_enabled, trace};
 use std::io::{Read, Write};
+#[cfg(target_family = "unix")]
 use std::os::unix::net::UnixStream;
 use std::{net::TcpStream, time::Instant};
 
@@ -78,6 +79,7 @@ impl Bearer for TcpStream {
     }
 }
 
+#[cfg(target_family = "unix")]
 impl Bearer for UnixStream {
     fn clone(&self) -> Self {
         self.try_clone().unwrap()
