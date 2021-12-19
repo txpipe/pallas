@@ -1,7 +1,7 @@
 [package]
 name = "pallas-handshake"
 description = "Implementation of the Ouroboros network handshake mini-protocol"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
