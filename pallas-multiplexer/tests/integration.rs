@@ -1,5 +1,5 @@
 use std::{
-    net::{TcpListener, TcpStream, SocketAddrV4, Ipv4Addr},
+    net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
     thread::{self, JoinHandle},
 };
 
