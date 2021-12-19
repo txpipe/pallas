@@ -62,7 +62,7 @@ fn read_segment(reader: &mut impl Read) -> Result<(u16, u32, Payload), std::io::
 
 impl Bearer for TcpStream {
     fn clone(&self) -> Self {
-        self.try_clone().unwrap()
+        self.try_clone().expect("error cloning tcp stream")
     }
 
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error> {
@@ -82,7 +82,7 @@ impl Bearer for TcpStream {
 #[cfg(target_family = "unix")]
 impl Bearer for UnixStream {
     fn clone(&self) -> Self {
-        self.try_clone().unwrap()
+        self.try_clone().expect("error cloning unix stream")
     }
 
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error> {

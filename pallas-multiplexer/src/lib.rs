@@ -161,11 +161,13 @@ impl Multiplexer {
     }
 
     pub fn use_channel(&mut self, protocol_id: u16) -> Channel {
-        self.io_handles.remove(&protocol_id).unwrap()
+        self.io_handles
+            .remove(&protocol_id)
+            .expect("requested channel not found in multiplexer")
     }
 
     pub fn join(self) {
-        self.tx_thread.join().unwrap();
-        self.rx_thread.join().unwrap();
+        self.tx_thread.join().expect("error joining tx loop thread");
+        self.rx_thread.join().expect("error joining rx loop thread");
     }
 }
