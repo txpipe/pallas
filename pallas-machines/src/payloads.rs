@@ -93,6 +93,7 @@ where
 
         let mut output = Vec::<D>::with_capacity(len);
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..(len - 1) {
             output[i] = D::decode_payload(d)?;
         }
