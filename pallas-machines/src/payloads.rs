@@ -1,6 +1,6 @@
 use super::*;
 
-use log::{debug, warn};
+use log::debug;
 use minicbor::{Decoder, Encoder};
 use pallas_multiplexer::Payload;
 use std::{
@@ -142,9 +142,8 @@ impl<'a> PayloadDeconstructor<'a> {
                 debug!("consumed {} from payload buffer", new_pos);
                 Ok(t)
             }
-            Err(err) => {
-                //TODO: we need to filter this only for correct errors
-                warn!("{:?}", err);
+            Err(_err) => {
+                //TODO: we need to match EndOfInput kind of errors
 
                 debug!("payload incomplete, fetching next segment");
                 let payload = self.rx.recv()?;
