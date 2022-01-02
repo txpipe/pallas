@@ -10,7 +10,7 @@ use rand::{distributions::Uniform, Rng};
 fn setup_passive_muxer<const P: u16>() -> JoinHandle<Multiplexer> {
     thread::spawn(|| {
         let server = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P)).unwrap();
-        info!("listening for connections on port 3001");
+        info!("listening for connections on port {}", P);
         let (bearer, _) = server.accept().unwrap();
         Multiplexer::setup(bearer, &[0x8003u16]).unwrap()
     })
@@ -30,8 +30,13 @@ fn random_payload(size: usize) -> Vec<u8> {
 
 #[test]
 fn one_way_small_payload_is_consistent() {
-    let passive = setup_passive_muxer::<3001>();
-    let active = setup_active_muxer::<3001>();
+    let passive = setup_passive_muxer::<50201>();
+
+    // HACK: a small sleep seems to be required for Github actions runner to
+    // formally expose the port
+    thread::sleep(std::time::Duration::from_secs(1));
+
+    let active = setup_active_muxer::<50201>();
 
     let mut active_muxer = active.join().unwrap();
     let mut passive_muxer = passive.join().unwrap();
@@ -47,8 +52,13 @@ fn one_way_small_payload_is_consistent() {
 
 #[test]
 fn one_way_small_sequence_of_payloads_are_consistent() {
-    let passive = setup_passive_muxer::<3002>();
-    let active = setup_active_muxer::<3002>();
+    let passive = setup_passive_muxer::<50301>();
+
+    // HACK: a small sleep seems to be required for Github actions runner to
+    // formally expose the port
+    thread::sleep(std::time::Duration::from_secs(1));
+
+    let active = setup_active_muxer::<50301>();
 
     let mut active_muxer = active.join().unwrap();
     let mut passive_muxer = passive.join().unwrap();
