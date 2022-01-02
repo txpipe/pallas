@@ -137,6 +137,7 @@ impl<Q: Query + 'static> Agent for OneShotClient<Q> {
         self.state == State::Done
     }
 
+    #[allow(clippy::match_like_matches_macro)]
     fn has_agency(&self) -> bool {
         match self.state {
             State::Idle => true,
