@@ -49,7 +49,7 @@ where
             }
             Err(TryRecvError::Disconnected) => {
                 //TODO: remove handle from list
-                trace!("protocol handle {} disconnected", id);
+                warn!("protocol handle {} disconnected", id);
             }
             Err(TryRecvError::Empty) => (),
         };
