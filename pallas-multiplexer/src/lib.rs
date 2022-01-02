@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::{debug, error, trace, warn};
+use log::{debug, error, warn};
 
 pub trait Bearer: Read + Write + Send + Sync + Sized {
     fn read_segment(&mut self) -> Result<(u16, u32, Payload), std::io::Error>;

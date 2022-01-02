@@ -1,6 +1,6 @@
 use super::*;
 
-use log::{debug, warn};
+use log::debug;
 use minicbor::{Decoder, Encoder};
 use pallas_multiplexer::Payload;
 use std::{
