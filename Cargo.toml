@@ -11,3 +11,7 @@ members = [
     "pallas-alonzo",
     "pallas",
 ]
+
+exclude = [
+    "block-download"
+]
