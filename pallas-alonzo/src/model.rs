@@ -1309,7 +1309,7 @@ pub struct Block {
     pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
-    pub invalid_transactions: MaybeIndefArray<TransactionIndex>,
+    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -1332,6 +1332,7 @@ mod tests {
             include_str!("test_data/test7.block"),
             include_str!("test_data/test8.block"),
             include_str!("test_data/test9.block"),
+            include_str!("test_data/test10.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
