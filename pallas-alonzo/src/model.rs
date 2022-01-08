@@ -1230,7 +1230,7 @@ pub struct AlonzoAuxiliaryData {
     #[n(1)]
     pub native_scripts: Option<MaybeIndefArray<NativeScript>>,
     #[n(2)]
-    pub plutus_scripts: Option<PlutusScript>,
+    pub plutus_scripts: Option<Vec<PlutusScript>>,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1423,6 +1423,9 @@ mod tests {
             include_str!("test_data/test10.block"),
             // peculiar block with protocol update params
             include_str!("test_data/test11.block"),
+            // peculiar block with decoding issue
+            // https://github.com/txpipe/oura/issues/37
+            include_str!("test_data/test12.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
