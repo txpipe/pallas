@@ -1397,17 +1397,32 @@ impl minicbor::Encode for AuxiliaryData {
 
 pub type TransactionIndex = u32;
 
+/// A Block in the Ouroboros ledger
+///
+/// This structure wraps all the data pertinent to a single Block within a
+/// blockchain ledger as defined by the Ouroboros protocol.
+///
+/// It is structured following a layout compatible with network serialization
+/// specs, allowing simple CBOR encoding / decoding compliant with the official
+/// CDDL.
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct Block {
+    /// The header data of the block
     #[n(0)]
     pub header: Header,
 
+    /// The sequence of transaction bodies included in this block
     #[n(1)]
     pub transaction_bodies: MaybeIndefArray<TransactionBody>,
 
     #[n(2)]
     pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
 
+    /// The auxiliary data for each transaction (if available)
+    ///
+    /// It is laid out as a map of transaction index => record. To access data
+    /// for a particular transaction, use the index of the
+    /// `transaction_bodies` sequence as key on this map.
     #[n(3)]
     pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
 
