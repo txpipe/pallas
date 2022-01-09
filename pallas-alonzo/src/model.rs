@@ -34,8 +34,6 @@ impl<const N: usize> minicbor::Encode for SkipCbor<N> {
     }
 }
 
-pub type SomeSkipCbor = SkipCbor<0>;
-
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct VrfCert(#[n(0)] pub ByteVec, #[n(1)] pub ByteVec);
 
@@ -108,7 +106,26 @@ pub struct TransactionInput {
     pub index: u64,
 }
 
-pub type Nonce = SkipCbor<55>;
+// $nonce /= [ 0 // 1, bytes .size 32 ]
+
+#[derive(Encode, Decode, Debug, PartialEq)]
+#[cbor(index_only)]
+pub enum NonceVariant {
+    #[n(0)]
+    NeutralNonce,
+
+    #[n(1)]
+    Nonce,
+}
+
+#[derive(Encode, Decode, Debug, PartialEq)]
+pub struct Nonce {
+    #[n(0)]
+    pub variant: NonceVariant,
+
+    #[n(1)]
+    pub hash: Hash32,
+}
 
 pub type ScriptHash = ByteVec;
 
@@ -281,7 +298,6 @@ pub struct MoveInstantaneousReward {
 }
 
 pub type RewardAccount = ByteVec;
-pub type PoolOwners = SkipCbor<11>;
 
 pub type Port = u32;
 pub type IPv4 = ByteVec;
@@ -1322,7 +1338,7 @@ pub enum AuxiliaryData {
     Shelley(Metadata),
     ShelleyMa {
         transaction_metadata: Metadata,
-        auxiliary_scripts: Vec<SomeSkipCbor>,
+        auxiliary_scripts: Option<MaybeIndefArray<NativeScript>>,
     },
     Alonzo(AlonzoAuxiliaryData),
 }
@@ -1426,6 +1442,8 @@ mod tests {
             // peculiar block with decoding issue
             // https://github.com/txpipe/oura/issues/37
             include_str!("test_data/test12.block"),
+            // peculiar block with protocol update params, including nonce
+            include_str!("test_data/test13.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
