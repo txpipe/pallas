@@ -1,18 +1,50 @@
 use crate::{AuxiliaryData, Header, PlutusData, TransactionBody};
 use cryptoxide::blake2b::Blake2b;
-use minicbor::{to_vec, Encode};
+use minicbor::Encode;
 
 pub type Hash32 = [u8; 32];
 
 pub type Error = Box<dyn std::error::Error>;
 
+struct Hasher<const N: usize> {
+    inner: Blake2b,
+}
+
+impl Hasher<256> {
+    #[inline]
+    fn new() -> Self {
+        Self {
+            inner: Blake2b::new(32),
+        }
+    }
+
+    #[inline]
+    fn result(mut self) -> Hash32 {
+        use cryptoxide::digest::Digest as _;
+
+        let mut hash = [0; 32];
+        self.inner.result(&mut hash);
+        hash
+    }
+}
+
+impl<'a, const N: usize> minicbor::encode::write::Write for &'a mut Hasher<N> {
+    type Error = std::convert::Infallible;
+
+    fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        use cryptoxide::digest::Digest as _;
+        self.inner.input(buf);
+        Ok(())
+    }
+}
+
 // TODO: think if we should turn this into a blanket implementation of a new
 // trait
 fn hash_cbor_encodable(data: &impl Encode) -> Result<Hash32, Error> {
-    let bytes = to_vec(data)?;
-    let mut hash = [0; 32];
-    Blake2b::blake2b(&mut hash, &bytes[..], &[]);
-    Ok(hash)
+    let mut hasher = Hasher::<256>::new();
+    let () = minicbor::encode(data, &mut hasher)?;
+
+    Ok(hasher.result())
 }
 
 pub fn hash_block_header(data: &Header) -> Result<Hash32, Error> {
