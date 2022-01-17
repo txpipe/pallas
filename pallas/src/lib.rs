@@ -12,3 +12,4 @@
 pub mod ouroboros;
 
 pub mod ledger;
+pub use pallas_crypto as crypto;

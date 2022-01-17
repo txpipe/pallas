@@ -20,4 +20,5 @@ pallas-chainsync = { version = "0.3.5", path = "../pallas-chainsync/" }
 pallas-blockfetch = { version = "0.3.4", path = "../pallas-blockfetch/" }
 pallas-localstate = { version = "0.3.5", path = "../pallas-localstate/" }
 pallas-txsubmission = { version = "0.3.5", path = "../pallas-txsubmission/" }
-pallas-alonzo = { version = "0.3.7", path = "../pallas-alonzo/", features=["crypto"] }
+pallas-alonzo = { version = "0.3.7", path = "../pallas-alonzo/" }
+pallas-crypto = { version = "0.3.0", path = "../pallas-crypto/" }
