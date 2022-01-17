@@ -1,0 +1,14 @@
+[package]
+name = "block-download"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pallas = { path = "../../pallas" }
+net2 = "0.2.37"
+env_logger = "0.9.0"
+hex = "0.4.3"
+
+[workspace]
