@@ -8,6 +8,7 @@ members = [
     "pallas-chainsync",
     "pallas-txsubmission",
     "pallas-localstate",
+    "pallas-crypto",
     "pallas-alonzo",
     "pallas",
 ]

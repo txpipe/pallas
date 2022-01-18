@@ -1,0 +1,19 @@
+[package]
+name = "pallas-crypto"
+description = "Cryptographic primitives for Cardano"
+version = "0.3.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-crypto"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+    "Nicolas Di Prima <nicolas@primetype.co.uk>"
+]
+
+[dependencies]
+minicbor = { version = "0.12" }
+hex = "0.4"
+cryptoxide = { version = "0.3.6" }
+

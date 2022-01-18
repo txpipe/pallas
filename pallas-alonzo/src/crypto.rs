@@ -1,34 +1,20 @@
 use crate::{AuxiliaryData, Header, PlutusData, TransactionBody};
-use cryptoxide::blake2b::Blake2b;
-use minicbor::{to_vec, Encode};
+use pallas_crypto::hash::{Hash, Hasher};
 
-pub type Hash32 = [u8; 32];
-
-pub type Error = Box<dyn std::error::Error>;
-
-// TODO: think if we should turn this into a blanket implementation of a new
-// trait
-fn hash_cbor_encodable(data: &impl Encode) -> Result<Hash32, Error> {
-    let bytes = to_vec(data)?;
-    let mut hash = [0; 32];
-    Blake2b::blake2b(&mut hash, &bytes[..], &[]);
-    Ok(hash)
+pub fn hash_block_header(data: &Header) -> Hash<32> {
+    Hasher::<256>::hash_cbor(data)
 }
 
-pub fn hash_block_header(data: &Header) -> Result<Hash32, Error> {
-    hash_cbor_encodable(data)
+pub fn hash_auxiliary_data(data: &AuxiliaryData) -> Hash<32> {
+    Hasher::<256>::hash_cbor(data)
 }
 
-pub fn hash_auxiliary_data(data: &AuxiliaryData) -> Result<Hash32, Error> {
-    hash_cbor_encodable(data)
+pub fn hash_transaction(data: &TransactionBody) -> Hash<32> {
+    Hasher::<256>::hash_cbor(data)
 }
 
-pub fn hash_transaction(data: &TransactionBody) -> Result<Hash32, Error> {
-    hash_cbor_encodable(data)
-}
-
-pub fn hash_plutus_data(data: &PlutusData) -> Result<Hash32, Error> {
-    hash_cbor_encodable(data)
+pub fn hash_plutus_data(data: &PlutusData) -> Hash<32> {
+    Hasher::<256>::hash_cbor(data)
 }
 
 #[cfg(test)]
@@ -56,10 +42,7 @@ mod tests {
         ];
 
         for (tx_idx, tx) in block_model.1.transaction_bodies.iter().enumerate() {
-            let computed_hash = hash_transaction(tx).expect(&format!(
-                "error hashing tx {} from block {}",
-                tx_idx, block_idx
-            ));
+            let computed_hash = hash_transaction(tx);
             let known_hash = valid_hashes[tx_idx];
             assert_eq!(hex::encode(computed_hash), known_hash)
         }
