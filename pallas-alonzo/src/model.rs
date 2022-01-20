@@ -5,6 +5,7 @@
 use log::warn;
 use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
+use pallas_crypto::hash::Hash;
 use std::{collections::BTreeMap, ops::Deref};
 
 use crate::utils::{KeyValuePairs, MaybeIndefArray};
@@ -46,7 +47,7 @@ pub struct HeaderBody {
     pub slot: u64,
 
     #[n(2)]
-    pub prev_hash: ByteVec,
+    pub prev_hash: Hash<32>,
 
     #[n(3)]
     pub issuer_vkey: ByteVec,
@@ -64,7 +65,7 @@ pub struct HeaderBody {
     pub block_body_size: u64,
 
     #[n(8)]
-    pub block_body_hash: ByteVec,
+    pub block_body_hash: Hash<32>,
 
     #[n(9)]
     pub operational_cert: ByteVec,
@@ -100,7 +101,7 @@ pub struct Header {
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct TransactionInput {
     #[n(0)]
-    pub transaction_id: ByteVec,
+    pub transaction_id: Hash<32>,
 
     #[n(1)]
     pub index: u64,
@@ -124,7 +125,7 @@ pub struct Nonce {
     pub variant: NonceVariant,
 
     #[n(1)]
-    pub hash: Hash32,
+    pub hash: Hash<32>,
 }
 
 pub type ScriptHash = ByteVec;
@@ -196,14 +197,11 @@ pub struct TransactionOutput {
     pub datum_hash: Option<ByteVec>,
 }
 
-pub type Hash28 = ByteVec;
-pub type Hash32 = ByteVec;
-
-pub type PoolKeyhash = Hash28;
+pub type PoolKeyhash = Hash<28>;
 pub type Epoch = u64;
 pub type Genesishash = ByteVec;
 pub type GenesisDelegateHash = ByteVec;
-pub type VrfKeyhash = Hash32;
+pub type VrfKeyhash = Hash<32>;
 
 /* move_instantaneous_reward = [ 0 / 1, { * stake_credential => delta_coin } / coin ]
 ; The first field determines where the funds are drawn from.
@@ -361,7 +359,7 @@ impl minicbor::encode::Encode for Relay {
     }
 }
 
-pub type PoolMetadataHash = Hash32;
+pub type PoolMetadataHash = Hash<32>;
 
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct PoolMetadata {
@@ -372,8 +370,8 @@ pub struct PoolMetadata {
     pub hash: PoolMetadataHash,
 }
 
-pub type AddrKeyhash = Hash28;
-pub type Scripthash = Hash28;
+pub type AddrKeyhash = Hash<28>;
+pub type Scripthash = Hash<28>;
 
 #[derive(Debug, PartialEq)]
 pub struct RationalNumber {
@@ -720,7 +718,7 @@ pub enum TransactionBodyComponent {
     AuxiliaryDataHash(ByteVec),
     ValidityIntervalStart(u64),
     Mint(Multiasset<i64>),
-    ScriptDataHash(Hash32),
+    ScriptDataHash(Hash<32>),
     Collateral(MaybeIndefArray<TransactionInput>),
     RequiredSigners(MaybeIndefArray<AddrKeyhash>),
     NetworkId(NetworkId),

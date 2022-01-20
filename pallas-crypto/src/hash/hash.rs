@@ -1,3 +1,4 @@
+use minicbor::{Decode, Encode};
 use std::{fmt, ops::Deref, str::FromStr};
 
 /// data that is a cryptographic [`struct@Hash`] of `BYTES` long.
@@ -64,6 +65,30 @@ impl<const BYTES: usize> FromStr for Hash<BYTES> {
         let mut bytes = [0; BYTES];
         hex::decode_to_slice(s, &mut bytes)?;
         Ok(Self::new(bytes))
+    }
+}
+
+impl<const BYTES: usize> Encode for Hash<BYTES> {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.bytes(&self.0)?.ok()
+    }
+}
+
+impl<'a, const BYTES: usize> Decode<'a> for Hash<BYTES> {
+    fn decode(d: &mut minicbor::Decoder<'a>) -> Result<Self, minicbor::decode::Error> {
+        let bytes = d.bytes()?;
+        if bytes.len() == BYTES {
+            let mut hash = [0; BYTES];
+            hash.copy_from_slice(bytes);
+            Ok(Self::new(hash))
+        } else {
+            // TODO: minicbor does not allow for expecting a specific size byte array
+            //       (in fact cbor is not good at it at all anyway)
+            Err(minicbor::decode::Error::Message("Invalid hash size"))
+        }
     }
 }
 
