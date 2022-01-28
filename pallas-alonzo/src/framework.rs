@@ -13,10 +13,19 @@ where
     T: minicbor::Encode + minicbor::Decode<'a> + Sized,
 {
     fn encode_fragment(&self) -> Result<Vec<u8>, Error> {
-        minicbor::to_vec(self).map_err(|e| e.into())
+        let mut buf = Vec::new();
+        {
+            let mut encoder = minicbor::Encoder::new(&mut buf);
+            encoder.encode(self).expect("error encoding");
+        }
+
+        Ok(buf)
     }
 
     fn decode_fragment(bytes: &'a [u8]) -> Result<Self, Error> {
-        minicbor::decode(bytes).map_err(|e| e.into())
+        let mut decoder = minicbor::Decoder::new(bytes);
+        let out = decoder.decode().expect("error decoding");
+
+        Ok(out)
     }
 }

@@ -13,8 +13,8 @@ authors = [
 ]
 
 [dependencies]
-minicbor = { version = "0.12", features = ["std"] }
+minicbor = { version = "0.12", features = ["derive"] }
 minicbor-derive = "0.8.0"
+
+[dev-dependencies]
 hex = "0.4.3"
-log = "0.4.14"
-pallas-crypto = { version = "0.3", path = "../pallas-crypto" }
