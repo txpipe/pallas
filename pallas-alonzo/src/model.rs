@@ -1152,7 +1152,7 @@ pub struct ExUnits {
     #[n(0)]
     pub mem: u32,
     #[n(1)]
-    pub steps: u32,
+    pub steps: u64,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq)]
