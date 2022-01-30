@@ -21,7 +21,7 @@ hex = "0.4.3"
 
 [dev-dependencies]
 net2 = "0.2.37"
-cryptoxide = "0.3.6"
+cryptoxide = "0.4.1"
 env_logger = "0.9.0"
 pallas-handshake = { version = "0.3.0", path = "../pallas-handshake/" }
 pallas-txsubmission = { version = "0.3.0", path = "../pallas-txsubmission/" }
