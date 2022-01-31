@@ -13,7 +13,7 @@ authors = [
 ]
 
 [dependencies]
-minicbor = { version = "0.12", features = ["std"] }
+minicbor = { version = "0.13", features = ["std"] }
 minicbor-derive = "0.8.0"
 hex = "0.4.3"
 log = "0.4.14"
