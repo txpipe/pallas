@@ -11,7 +11,7 @@
 
 use crate::memsec::Scrubbed as _;
 use cryptoxide::ed25519::{
-    self, PRIVATE_KEY_LENGTH, PUBLIC_KEY_LENGTH, SEED_LENGTH, SIGNATURE_LENGTH,
+    self, EXTENDED_KEY_LENGTH, PRIVATE_KEY_LENGTH, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH,
 };
 use rand_core::{CryptoRng, RngCore};
 use std::{any::type_name, convert::TryFrom, fmt, str::FromStr};
@@ -70,8 +70,8 @@ macro_rules! impl_size_zero {
     };
 }
 
-impl_size_zero!(SecretKey, SEED_LENGTH);
-impl_size_zero!(SecretKeyExtended, PRIVATE_KEY_LENGTH);
+impl_size_zero!(SecretKey, PRIVATE_KEY_LENGTH);
+impl_size_zero!(SecretKeyExtended, EXTENDED_KEY_LENGTH);
 impl_size_zero!(PublicKey, PUBLIC_KEY_LENGTH);
 impl_size_zero!(Signature, SIGNATURE_LENGTH);
 
@@ -161,7 +161,7 @@ impl SecretKeyExtended {
     /// [`Signature`] generated with this [`SecretKeyExtended`] and the original
     /// message.
     pub fn public_key(&self) -> PublicKey {
-        let pk = ed25519::to_public(&self.0);
+        let pk = ed25519::extended_to_public(&self.0);
 
         PublicKey::from(pk)
     }
@@ -186,7 +186,7 @@ impl PublicKey {
     where
         T: AsRef<[u8]>,
     {
-        ed25519::verify(message.as_ref(), &self.0, signature.as_ref())
+        ed25519::verify(message.as_ref(), &self.0, &signature.0)
     }
 }
 
