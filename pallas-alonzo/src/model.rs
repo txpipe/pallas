@@ -1442,6 +1442,9 @@ mod tests {
             include_str!("test_data/test12.block"),
             // peculiar block with protocol update params, including nonce
             include_str!("test_data/test13.block"),
+            // peculiar block with overflow crash
+            // https://github.com/txpipe/oura/issues/113
+            include_str!("test_data/test14.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
