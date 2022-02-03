@@ -8,7 +8,7 @@ use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 use std::{collections::BTreeMap, iter::Skip, ops::Deref};
 
-use crate::utils::{KeyValuePairs, MaybeIndefArray};
+use crate::utils::{CborWrap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
@@ -62,6 +62,273 @@ pub struct SlotId {
 
 pub type PubKey = ByteVec;
 pub type Signature = ByteVec;
+
+// Attributes
+
+// quote from the CDDL file: at the moment we do not bother deserialising these,
+// since they don't contain anything
+
+// attributes = {* any => any}
+pub type Attributes = Vec<SkipCbor<0>>;
+
+// Addresses
+
+#[derive(Debug)]
+pub enum AddrDistr {
+    Variant0(StakeholderId),
+    Variant1,
+}
+
+impl<'b> minicbor::Decode<'b> for AddrDistr {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        let variant = d.u32()?;
+
+        match variant {
+            0 => Ok(AddrDistr::Variant0(d.decode()?)),
+            1 => Ok(AddrDistr::Variant1),
+            _ => Err(minicbor::decode::Error::Message(
+                "invalid variant for addrdstr",
+            )),
+        }
+    }
+}
+
+impl minicbor::Encode for AddrDistr {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            AddrDistr::Variant0(x) => {
+                e.array(2)?;
+                e.u32(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            AddrDistr::Variant1 => {
+                e.array(1)?;
+                e.u32(1)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum AddrType {
+    PubKey,
+    Script,
+    Redeem,
+    Other(u64),
+}
+
+impl<'b> minicbor::Decode<'b> for AddrType {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let variant = d.u64()?;
+
+        match variant {
+            0 => Ok(AddrType::PubKey),
+            1 => Ok(AddrType::Script),
+            2 => Ok(AddrType::Redeem),
+            x => Ok(AddrType::Other(x)),
+        }
+    }
+}
+
+impl minicbor::Encode for AddrType {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            AddrType::PubKey => e.u64(0)?,
+            AddrType::Script => e.u64(1)?,
+            AddrType::Redeem => e.u64(2)?,
+            AddrType::Other(x) => e.u64(*x)?,
+        };
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum AddrAttrProperty {
+    AddrDistr(AddrDistr),
+    Bytes(ByteVec),
+}
+
+impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let key = d.u32()?;
+
+        match key {
+            0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
+            1 => Ok(AddrAttrProperty::Bytes(d.decode()?)),
+            _ => Err(minicbor::decode::Error::Message(
+                "unknown variant for addrattr property",
+            )),
+        }
+    }
+}
+
+impl minicbor::Encode for AddrAttrProperty {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            AddrAttrProperty::AddrDistr(x) => {
+                e.array(2)?;
+                e.u32(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            AddrAttrProperty::Bytes(x) => {
+                e.array(2)?;
+                e.u32(1)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
+pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
+
+// address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
+pub type Address = (CborWrap<(AddressId, AddrAttr, AddrType)>, u64);
+
+// Transactions
+
+// txout = [address, u64]
+pub type TxOut = (Address, u64);
+
+#[derive(Debug)]
+pub enum TxIn {
+    // [0, #6.24(bytes .cbor ([txid, u32]))]
+    Variant0(CborWrap<(TxId, u32)>),
+
+    // [u8 .ne 0, encoded-cbor]
+    Other(u8, ByteVec),
+}
+
+impl<'b> minicbor::Decode<'b> for TxIn {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let variant = d.u8()?;
+
+        match variant {
+            0 => Ok(TxIn::Variant0(d.decode()?)),
+            x => Ok(TxIn::Other(x, d.decode()?)),
+        }
+    }
+}
+
+impl minicbor::Encode for TxIn {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            TxIn::Variant0(x) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            TxIn::Other(a, b) => {
+                e.array(2)?;
+                e.u8(*a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
+// tx = [[+ txin], [+ txout], attributes]
+pub type Tx = (Vec<TxIn>, Vec<TxOut>, Attributes);
+
+// txproof = [u32, hash, hash]
+pub type TxProof = (u32, ByronHash, ByronHash);
+
+#[derive(Debug)]
+pub enum Twit {
+    // [0, #6.24(bytes .cbor ([pubkey, signature]))]
+    Variant0(CborWrap<(PubKey, Signature)>),
+
+    // [1, #6.24(bytes .cbor ([[u16, bytes], [u16, bytes]]))]
+    Variant1(CborWrap<((u16, ByteVec), (u16, ByteVec))>),
+
+    //[2, #6.24(bytes .cbor ([pubkey, signature]))]
+    Variant2(CborWrap<(PubKey, Signature)>),
+
+    // [u8 .gt 2, encoded-cbor]
+    Other(u8, ByteVec),
+}
+
+impl<'b> minicbor::Decode<'b> for Twit {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let variant = d.u8()?;
+
+        match variant {
+            0 => Ok(Twit::Variant0(d.decode()?)),
+            1 => Ok(Twit::Variant1(d.decode()?)),
+            2 => Ok(Twit::Variant2(d.decode()?)),
+            x => Ok(Twit::Other(x, d.decode()?)),
+        }
+    }
+}
+
+impl minicbor::Encode for Twit {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Twit::Variant0(x) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            Twit::Variant1(x) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            Twit::Variant2(x) => {
+                e.array(2)?;
+                e.u8(2)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            Twit::Other(a, b) => {
+                e.array(2)?;
+                e.u8(*a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+        }
+    }
+}
 
 // Blocks
 
@@ -129,10 +396,13 @@ pub struct BlockHead {
     extra_data: BlockHeadEx,
 }
 
+// [tx, [* twit]]
+pub type TxPayload = (Tx, Vec<Twit>);
+
 #[derive(Encode, Decode, Debug)]
 pub struct BlockBody {
     #[n(0)]
-    tx_payload: SkipCbor<99>, // [* [tx, [* twit]]]
+    tx_payload: Vec<TxPayload>,
 
     #[n(1)]
     ssc_payload: SkipCbor<99>, // ssc
@@ -191,7 +461,7 @@ pub struct EbBlock {
     header: EbbHead,
 
     #[n(1)]
-    body: SkipCbor<1>, // Vec<StakeholderId>,
+    body: Vec<StakeholderId>,
 
     #[n(2)]
     extra: SkipCbor<2>, // Vec<Attributes>,

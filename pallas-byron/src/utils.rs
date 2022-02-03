@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use minicbor::{Decode, Encode};
+use minicbor::{data::Tag, Decode, Encode};
 
 /// Custom collection to ensure ordered pairs of values
 ///
@@ -140,6 +140,92 @@ where
                 e.end()?;
             }
         };
+
+        Ok(())
+    }
+}
+
+/// Order-preserving set of attributes
+///
+/// There's no guarantee that the entries on a Cardano cbor entity that uses
+/// maps for its representation will follow the canonical order specified by the
+/// standard. To implement an isomorphic codec, we need a way of preserving the
+/// original order in which the entries were encoded. To acomplish this, we
+/// transform key-value structures into an orderer vec of `properties`, where
+/// each entry represents a a cbor-encodable variant of an attribute of the
+/// struct.
+#[derive(Debug, PartialEq)]
+pub struct OrderPreservingProperties<P>(Vec<P>);
+
+impl<P> Deref for OrderPreservingProperties<P> {
+    type Target = Vec<P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'b, P> minicbor::decode::Decode<'b> for OrderPreservingProperties<P>
+where
+    P: Decode<'b>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        let len = d.map()?.unwrap_or_default();
+
+        let components: Result<_, _> = (0..len).map(|_| d.decode()).collect();
+
+        Ok(Self(components?))
+    }
+}
+
+impl<P> minicbor::encode::Encode for OrderPreservingProperties<P>
+where
+    P: Encode,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.map(self.0.len() as u64)?;
+        for component in &self.0 {
+            e.encode(component)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Wraps a struct so that it is encoded/decoded as a cbor bytes
+#[derive(Debug)]
+pub struct CborWrap<T>(T);
+
+impl<'b, T> minicbor::Decode<'b> for CborWrap<T>
+where
+    T: minicbor::Decode<'b>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.tag()?;
+        let cbor = d.bytes()?;
+        let wrapped = minicbor::decode(cbor)?;
+
+        Ok(CborWrap(wrapped))
+    }
+}
+
+impl<T> minicbor::Encode for CborWrap<T>
+where
+    T: minicbor::Encode,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        let buf = minicbor::to_vec(&self.0).map_err(|_| {
+            minicbor::encode::Error::Message("error encoding cbor-wrapped structure")
+        })?;
+
+        e.tag(Tag::Cbor)?;
+        e.bytes(&buf)?;
 
         Ok(())
     }
