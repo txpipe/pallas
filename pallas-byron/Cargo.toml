@@ -9,7 +9,9 @@ documentation = "https://docs.rs/pallas-byron"
 license = "Apache-2.0"
 readme = "README.md"
 authors = [
-    "Santiago Carmuega <santiago@carmuega.me>"
+    "Santiago Carmuega <santiago@carmuega.me>",
+    "Lucas Rosa <x@rvcas.dev>",
+
 ]
 
 [dependencies]
