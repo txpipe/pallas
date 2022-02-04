@@ -163,9 +163,7 @@ pub enum AddrAttrProperty {
 
 impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        let key = d.u32()?;
+        let key = d.u8()?;
 
         match key {
             0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
@@ -184,14 +182,12 @@ impl minicbor::Encode for AddrAttrProperty {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrAttrProperty::AddrDistr(x) => {
-                e.array(2)?;
                 e.u32(0)?;
                 e.encode(x)?;
 
                 Ok(())
             }
             AddrAttrProperty::Bytes(x) => {
-                e.array(2)?;
                 e.u32(1)?;
                 e.encode(x)?;
 
@@ -641,7 +637,7 @@ pub struct BlockBody {
     ssc_payload: SkipCbor<99>, // ssc
 
     #[n(2)]
-    dlg_payload: SkipCbor<99>, // [* dlg]
+    dlg_payload: Vec<Dlg>,
 
     #[n(3)]
     upd_payload: Up,
@@ -753,7 +749,10 @@ mod tests {
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = vec![include_str!("test_data/test1.block")];
+        let test_blocks = vec![
+            include_str!("test_data/test1.block"),
+            include_str!("test_data/test2.block"),
+        ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
