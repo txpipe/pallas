@@ -7,7 +7,9 @@ use minicbor::bytes::ByteVec;
 use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use crate::utils::{CborWrap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap};
+use crate::utils::{
+    CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
+};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
@@ -68,7 +70,7 @@ pub type Signature = ByteVec;
 // since they don't contain anything
 
 // attributes = {* any => any}
-pub type Attributes = SkipCbor<0>;
+pub type Attributes = EmptyMap;
 
 // Addresses
 

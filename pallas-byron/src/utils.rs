@@ -259,3 +259,27 @@ where
         Ok(())
     }
 }
+
+/// An empty map
+///
+/// don't ask me why, that's what the CDDL asks for.
+#[derive(Debug)]
+pub struct EmptyMap;
+
+impl<'b> minicbor::decode::Decode<'b> for EmptyMap {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.skip()?;
+        Ok(EmptyMap)
+    }
+}
+
+impl minicbor::encode::Encode for EmptyMap {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.map(0)?;
+
+        Ok(())
+    }
+}
