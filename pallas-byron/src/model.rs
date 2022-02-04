@@ -3,10 +3,9 @@
 //! Handcrafted, idiomatic rust artifacts based on based on the [Byron CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/byron/cddl-spec/byron.cddl) file in IOHK repo.
 
 use log::warn;
-use minicbor::{bytes::ByteVec, data::Tag};
+use minicbor::bytes::ByteVec;
 use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
-use std::{collections::BTreeMap, iter::Skip, ops::Deref};
 
 use crate::utils::{CborWrap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap};
 
@@ -510,7 +509,7 @@ pub struct BlockHeadEx {
 #[derive(Encode, Decode, Debug)]
 pub struct BlockProof {
     #[n(0)]
-    tx_proof: SkipCbor<44>, // txproof,
+    tx_proof: TxProof,
 
     #[n(1)]
     ssc_proof: SkipCbor<44>, // sscproof,
@@ -578,7 +577,7 @@ pub struct EbbHead {
     prev_block: BlockId,
 
     #[n(2)]
-    body_proof: SkipCbor<12>,
+    body_proof: ByronHash,
 
     #[n(3)]
     consensus_data: EbbCons,
@@ -608,7 +607,7 @@ pub struct EbBlock {
     body: Vec<StakeholderId>,
 
     #[n(2)]
-    extra: (Attributes,),
+    extra: Option<Attributes>,
 }
 
 #[derive(Debug)]
