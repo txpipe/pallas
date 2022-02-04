@@ -8,7 +8,7 @@ use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 use std::{collections::BTreeMap, iter::Skip, ops::Deref};
 
-use crate::utils::{CborWrap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties};
+use crate::utils::{CborWrap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SkipCbor<const N: usize> {}
@@ -69,7 +69,7 @@ pub type Signature = ByteVec;
 // since they don't contain anything
 
 // attributes = {* any => any}
-pub type Attributes = Vec<SkipCbor<0>>;
+pub type Attributes = SkipCbor<0>;
 
 // Addresses
 
@@ -270,7 +270,7 @@ pub enum Twit {
     // [1, #6.24(bytes .cbor ([[u16, bytes], [u16, bytes]]))]
     Variant1(CborWrap<((u16, ByteVec), (u16, ByteVec))>),
 
-    //[2, #6.24(bytes .cbor ([pubkey, signature]))]
+    // [2, #6.24(bytes .cbor ([pubkey, signature]))]
     Variant2(CborWrap<(PubKey, Signature)>),
 
     // [u8 .gt 2, encoded-cbor]
@@ -329,6 +329,150 @@ impl minicbor::Encode for Twit {
         }
     }
 }
+// Updates
+
+pub type BVer = (u16, u16, u8);
+
+#[derive(Debug)]
+pub enum TxFeePol {
+    //[0, #6.24(bytes .cbor ([bigint, bigint]))]
+    Variant0(CborWrap<(i64, i64)>),
+
+    // [u8 .gt 0, encoded-cbor]
+    Other(u8, ByteVec),
+}
+
+impl<'b> minicbor::Decode<'b> for TxFeePol {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let variant = d.u8()?;
+
+        match variant {
+            0 => Ok(TxFeePol::Variant0(d.decode()?)),
+            x => Ok(TxFeePol::Other(x, d.decode()?)),
+        }
+    }
+}
+
+impl minicbor::Encode for TxFeePol {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            TxFeePol::Variant0(x) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            TxFeePol::Other(a, b) => {
+                e.array(2)?;
+                e.u8(*a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug, Encode, Decode)]
+pub struct BVerMod {
+    #[n(0)]
+    script_version: (Option<u16>,),
+
+    #[n(1)]
+    slot_duration: (Option<u64>,),
+
+    #[n(2)]
+    max_block_size: (Option<u64>,),
+
+    #[n(3)]
+    max_header_size: (Option<u64>,),
+
+    #[n(4)]
+    max_tx_size: (Option<u64>,),
+
+    #[n(5)]
+    max_proposal_size: (Option<u64>,),
+
+    #[n(6)]
+    mpc_thd: (Option<u64>,),
+
+    #[n(7)]
+    heavy_del_thd: (Option<u64>,),
+
+    #[n(8)]
+    update_vote_thd: (Option<u64>,),
+
+    #[n(9)]
+    update_proposal_thd: (Option<u64>,),
+
+    #[n(10)]
+    update_implicit: (Option<u64>,),
+
+    #[n(11)]
+    soft_fork_rule: (Option<(u64, u64, u64)>,),
+
+    #[n(12)]
+    tx_fee_policy: (Option<TxFeePol>,),
+
+    #[n(13)]
+    unlock_stake_epoch: (Option<EpochId>,),
+}
+
+pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
+
+#[derive(Debug, Encode, Decode)]
+pub struct UpProp {
+    #[n(0)]
+    block_version: Option<BVer>,
+
+    #[n(1)]
+    block_version_mod: Option<BVerMod>,
+
+    #[n(2)]
+    software_version: Option<(String, u32)>,
+
+    #[n(3)]
+    data: Option<TagWrap<(String, UpData), 258>>,
+
+    #[n(4)]
+    attributes: Option<Attributes>,
+
+    #[n(5)]
+    from: Option<PubKey>,
+
+    #[n(6)]
+    signature: Option<Signature>,
+}
+
+#[derive(Debug, Encode, Decode)]
+pub struct UpVote {
+    #[n(0)]
+    voter: PubKey,
+
+    #[n(1)]
+    proposal_id: UpdId,
+
+    #[n(2)]
+    vote: bool,
+
+    #[n(3)]
+    signature: Signature,
+}
+
+#[derive(Debug, Encode, Decode)]
+pub struct Up {
+    #[n(0)]
+    proposal: Option<UpProp>,
+
+    #[n(1)]
+    votes: Vec<UpVote>,
+}
 
 // Blocks
 
@@ -351,13 +495,13 @@ pub struct BlockCons(
 #[derive(Encode, Decode, Debug)]
 pub struct BlockHeadEx {
     #[n(0)]
-    block_version: SkipCbor<77>, // bver
+    block_version: BVer,
 
     #[n(1)]
     software_version: (String, u32),
 
     #[n(2)]
-    attributes: SkipCbor<77>, //attributes
+    attributes: Option<Attributes>,
 
     #[n(3)]
     extra_proof: ByronHash,
@@ -411,7 +555,7 @@ pub struct BlockBody {
     dlg_payload: SkipCbor<99>, // [* dlg]
 
     #[n(3)]
-    upd_payload: SkipCbor<99>, // up
+    upd_payload: Up,
 }
 
 // Epoch Boundary Blocks
@@ -440,7 +584,7 @@ pub struct EbbHead {
     consensus_data: EbbCons,
 
     #[n(4)]
-    extra_data: SkipCbor<14>, // [attributes]
+    extra_data: (Attributes,),
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -452,7 +596,7 @@ pub struct MainBlock {
     body: BlockBody,
 
     #[n(2)]
-    extra: SkipCbor<12>, // Vec<Attributes>,
+    extra: Vec<Attributes>,
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -464,7 +608,7 @@ pub struct EbBlock {
     body: Vec<StakeholderId>,
 
     #[n(2)]
-    extra: SkipCbor<2>, // Vec<Attributes>,
+    extra: (Attributes,),
 }
 
 #[derive(Debug)]

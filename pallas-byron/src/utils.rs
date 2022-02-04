@@ -230,3 +230,32 @@ where
         Ok(())
     }
 }
+
+#[derive(Debug)]
+pub struct TagWrap<I, const T: u64>(I);
+
+impl<'b, I, const T: u64> minicbor::Decode<'b> for TagWrap<I, T>
+where
+    I: minicbor::Decode<'b>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.tag()?;
+
+        Ok(TagWrap(d.decode()?))
+    }
+}
+
+impl<I, const T: u64> minicbor::Encode for TagWrap<I, T>
+where
+    I: minicbor::Encode,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(T))?;
+        e.encode(&self.0)?;
+
+        Ok(())
+    }
+}
