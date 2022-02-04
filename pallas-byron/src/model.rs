@@ -329,6 +329,32 @@ impl minicbor::Encode for Twit {
 
 // Shared Seed Computation
 
+// cddl note:
+// This is encoded using the 'Binary' instance
+// for Scrape.PublicKey
+pub type VssPubKey = ByteVec;
+
+// cddl note:
+// This is encoded using the 'Binary' instance
+// for Scrape.Secret.
+pub type VssSec = ByteVec;
+
+// cddl note:
+// This is encoded using the 'Binary' instance
+// for Scrape.EncryptedSi.
+// TODO work out why this seems to be in a length 1 array
+pub type VssEnc = (ByteVec,);
+
+// cddl note:
+// This is encoded using the 'Binary' instance
+// for Scrape.DecryptedShare
+pub type VssDec = ByteVec;
+
+// cddl note:
+// This is encoded using the
+// 'Binary' instance for Scrape.Proof
+pub type VssProof = (ByteVec, ByteVec, ByteVec, Vec<ByteVec>);
+
 // Delegation
 
 #[derive(Debug, Encode, Decode)]
