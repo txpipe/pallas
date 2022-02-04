@@ -328,6 +328,45 @@ impl minicbor::Encode for Twit {
         }
     }
 }
+
+// Shared Seed Computation
+
+// Delegation
+
+#[derive(Debug, Encode, Decode)]
+pub struct Dlg {
+    #[n(0)]
+    epoch: EpochId,
+
+    #[n(1)]
+    issuer: PubKey,
+
+    #[n(2)]
+    delegate: PubKey,
+
+    #[n(3)]
+    certificate: Signature,
+}
+
+pub type DlgSig = (Dlg, Signature);
+
+#[derive(Debug, Encode, Decode)]
+pub struct Lwdlg {
+    #[n(0)]
+    epoch_range: (EpochId, EpochId),
+
+    #[n(1)]
+    issuer: PubKey,
+
+    #[n(2)]
+    delegate: PubKey,
+
+    #[n(3)]
+    certificate: Signature,
+}
+
+pub type LwdlgSig = (Lwdlg, Signature);
+
 // Updates
 
 pub type BVer = (u16, u16, u8);
@@ -480,8 +519,8 @@ pub type Difficulty = Vec<u64>;
 #[derive(Debug)]
 pub enum BlockSig {
     Signature(Signature),
-    LwdlgSig(SkipCbor<66>),
-    DlgSig(SkipCbor<66>),
+    LwdlgSig(LwdlgSig),
+    DlgSig(DlgSig),
 }
 
 impl<'b> minicbor::Decode<'b> for BlockSig {
