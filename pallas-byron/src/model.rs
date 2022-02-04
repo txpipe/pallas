@@ -355,6 +355,161 @@ pub type VssDec = ByteVec;
 // 'Binary' instance for Scrape.Proof
 pub type VssProof = (ByteVec, ByteVec, ByteVec, Vec<ByteVec>);
 
+//ssccomm = [pubkey, [{vsspubkey => vssenc},vssproof], signature]
+pub type SscComm = (
+    PubKey,
+    KeyValuePairs<VssPubKey, VssEnc>,
+    VssProof,
+    Signature,
+);
+
+//ssccomms = #6.258([* ssccomm])
+pub type SscComms = TagWrap<Vec<SscComm>, 258>;
+
+// sscopens = {stakeholderid => vsssec}
+pub type SscOpens = KeyValuePairs<StakeholderId, VssSec>;
+
+// sscshares = {addressid => [addressid, [* vssdec]]}
+pub type SscShares = KeyValuePairs<AddressId, (AddressId, Vec<VssDec>)>;
+
+// ssccert = [vsspubkey, pubkey, epochid, signature]
+pub type SscCert = (VssPubKey, PubKey, EpochId, Signature);
+
+// ssccerts = #6.258([* ssccert])
+pub type SscCerts = TagWrap<Vec<SscCert>, 258>;
+
+#[derive(Debug)]
+pub enum Ssc {
+    Variant0(SscComms, SscCerts),
+    Variant1(SscOpens, SscCerts),
+    Variant2(SscShares, SscCerts),
+    Variant3(SscCerts),
+}
+
+impl<'b> minicbor::Decode<'b> for Ssc {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let variant = d.u8()?;
+
+        match variant {
+            0 => Ok(Ssc::Variant0(d.decode()?, d.decode()?)),
+            1 => Ok(Ssc::Variant1(d.decode()?, d.decode()?)),
+            2 => Ok(Ssc::Variant2(d.decode()?, d.decode()?)),
+            3 => Ok(Ssc::Variant3(d.decode()?)),
+            _ => Err(minicbor::decode::Error::Message("invalid variant for ssc")),
+        }
+    }
+}
+
+impl minicbor::Encode for Ssc {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Ssc::Variant0(a, b) => {
+                e.array(3)?;
+                e.u8(0)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            Ssc::Variant1(a, b) => {
+                e.array(3)?;
+                e.u8(1)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            Ssc::Variant2(a, b) => {
+                e.array(3)?;
+                e.u8(2)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            Ssc::Variant3(x) => {
+                e.array(2)?;
+                e.u8(3)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum SscProof {
+    Variant0(ByronHash, ByronHash),
+    Variant1(ByronHash, ByronHash),
+    Variant2(ByronHash, ByronHash),
+    Variant3(ByronHash),
+}
+
+impl<'b> minicbor::Decode<'b> for SscProof {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let variant = d.u8()?;
+
+        match variant {
+            0 => Ok(SscProof::Variant0(d.decode()?, d.decode()?)),
+            1 => Ok(SscProof::Variant1(d.decode()?, d.decode()?)),
+            2 => Ok(SscProof::Variant2(d.decode()?, d.decode()?)),
+            3 => Ok(SscProof::Variant3(d.decode()?)),
+            _ => Err(minicbor::decode::Error::Message(
+                "invalid variant for sscproof",
+            )),
+        }
+    }
+}
+
+impl minicbor::Encode for SscProof {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            SscProof::Variant0(a, b) => {
+                e.array(3)?;
+                e.u8(0)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            SscProof::Variant1(a, b) => {
+                e.array(3)?;
+                e.u8(1)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            SscProof::Variant2(a, b) => {
+                e.array(3)?;
+                e.u8(2)?;
+                e.encode(a)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+            SscProof::Variant3(x) => {
+                e.array(2)?;
+                e.u8(3)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
 // Delegation
 
 #[derive(Debug, Encode, Decode)]
@@ -624,7 +779,7 @@ pub struct BlockProof {
     tx_proof: TxProof,
 
     #[n(1)]
-    ssc_proof: SkipCbor<44>, // sscproof,
+    ssc_proof: SscProof,
 
     #[n(2)]
     dlg_proof: ByronHash,
@@ -660,7 +815,7 @@ pub struct BlockBody {
     tx_payload: Vec<TxPayload>,
 
     #[n(1)]
-    ssc_payload: SkipCbor<99>, // ssc
+    ssc_payload: Ssc,
 
     #[n(2)]
     dlg_payload: Vec<Dlg>,
