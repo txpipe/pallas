@@ -477,10 +477,59 @@ pub struct Up {
 
 pub type Difficulty = Vec<u64>;
 
+#[derive(Debug)]
 pub enum BlockSig {
-    Signature(SkipCbor<66>),
+    Signature(Signature),
     LwdlgSig(SkipCbor<66>),
     DlgSig(SkipCbor<66>),
+}
+
+impl<'b> minicbor::Decode<'b> for BlockSig {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let variant = d.u8()?;
+
+        match variant {
+            0 => Ok(BlockSig::Signature(d.decode()?)),
+            1 => Ok(BlockSig::LwdlgSig(d.decode()?)),
+            2 => Ok(BlockSig::DlgSig(d.decode()?)),
+            _ => Err(minicbor::decode::Error::Message(
+                "unknown variant for blocksig",
+            )),
+        }
+    }
+}
+
+impl minicbor::Encode for BlockSig {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            BlockSig::Signature(x) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            BlockSig::LwdlgSig(x) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            BlockSig::DlgSig(x) => {
+                e.array(2)?;
+                e.u8(2)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -488,7 +537,7 @@ pub struct BlockCons(
     #[n(0)] SlotId,
     #[n(1)] PubKey,
     #[n(2)] Difficulty,
-    #[n(3)] SkipCbor<55>, //BlockSig,
+    #[n(3)] BlockSig,
 );
 
 #[derive(Encode, Decode, Debug)]
