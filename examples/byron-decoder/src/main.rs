@@ -18,9 +18,11 @@ impl Observer for BlockPrinter {
     fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", hex::encode(&body));
         println!("----------");
-        let block = Block::decode_fragment(body.as_slice());
 
+        let block = Block::decode_fragment(body.as_slice()).unwrap();
         println!("{:?}", block);
+        println!("===========\n\n");
+
         Ok(())
     }
 }

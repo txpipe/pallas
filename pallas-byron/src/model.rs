@@ -343,7 +343,7 @@ pub type VssSec = ByteVec;
 // This is encoded using the 'Binary' instance
 // for Scrape.EncryptedSi.
 // TODO work out why this seems to be in a length 1 array
-pub type VssEnc = (ByteVec,);
+pub type VssEnc = MaybeIndefArray<ByteVec>;
 
 // cddl note:
 // This is encoded using the 'Binary' instance
@@ -358,25 +358,25 @@ pub type VssProof = (ByteVec, ByteVec, ByteVec, Vec<ByteVec>);
 //ssccomm = [pubkey, [{vsspubkey => vssenc},vssproof], signature]
 pub type SscComm = (
     PubKey,
-    KeyValuePairs<VssPubKey, VssEnc>,
-    VssProof,
+    (KeyValuePairs<VssPubKey, VssEnc>, VssProof),
     Signature,
 );
 
 //ssccomms = #6.258([* ssccomm])
-pub type SscComms = TagWrap<Vec<SscComm>, 258>;
+pub type SscComms = TagWrap<MaybeIndefArray<SscComm>, 258>;
 
 // sscopens = {stakeholderid => vsssec}
 pub type SscOpens = KeyValuePairs<StakeholderId, VssSec>;
 
 // sscshares = {addressid => [addressid, [* vssdec]]}
-pub type SscShares = KeyValuePairs<AddressId, (AddressId, Vec<VssDec>)>;
+pub type SscShares = KeyValuePairs<AddressId, (AddressId, MaybeIndefArray<VssDec>)>;
 
-// ssccert = [vsspubkey, pubkey, epochid, signature]
-pub type SscCert = (VssPubKey, PubKey, EpochId, Signature);
+// CDDL says: ssccert = [vsspubkey, pubkey, epochid, signature]
+// this is what seems to work: ssccert = [vsspubkey, epochid, pubkey, signature]
+pub type SscCert = (VssPubKey, EpochId, PubKey, Signature);
 
 // ssccerts = #6.258([* ssccert])
-pub type SscCerts = TagWrap<Vec<SscCert>, 258>;
+pub type SscCerts = TagWrap<MaybeIndefArray<SscCert>, 258>;
 
 #[derive(Debug)]
 pub enum Ssc {
@@ -688,12 +688,12 @@ pub struct Up {
     proposal: Option<UpProp>,
 
     #[n(1)]
-    votes: Vec<UpVote>,
+    votes: MaybeIndefArray<UpVote>,
 }
 
 // Blocks
 
-pub type Difficulty = Vec<u64>;
+pub type Difficulty = MaybeIndefArray<u64>;
 
 #[derive(Debug)]
 pub enum BlockSig {
@@ -812,13 +812,13 @@ pub type TxPayload = (Tx, Vec<Twit>);
 #[derive(Encode, Decode, Debug)]
 pub struct BlockBody {
     #[n(0)]
-    tx_payload: Vec<TxPayload>,
+    tx_payload: MaybeIndefArray<TxPayload>,
 
     #[n(1)]
     ssc_payload: Ssc,
 
     #[n(2)]
-    dlg_payload: Vec<Dlg>,
+    dlg_payload: MaybeIndefArray<Dlg>,
 
     #[n(3)]
     upd_payload: Up,
@@ -862,7 +862,7 @@ pub struct MainBlock {
     body: BlockBody,
 
     #[n(2)]
-    extra: Vec<Attributes>,
+    extra: MaybeIndefArray<Attributes>,
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -871,7 +871,7 @@ pub struct EbBlock {
     header: EbbHead,
 
     #[n(1)]
-    body: Vec<StakeholderId>,
+    body: MaybeIndefArray<StakeholderId>,
 
     #[n(2)]
     extra: Option<Attributes>,
@@ -933,6 +933,7 @@ mod tests {
         let test_blocks = vec![
             include_str!("test_data/test1.block"),
             include_str!("test_data/test2.block"),
+            include_str!("test_data/test3.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
