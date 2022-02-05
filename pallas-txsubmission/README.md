@@ -1,2 +1,0 @@
-# Pallas TxSubmission
-

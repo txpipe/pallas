@@ -1,4 +1,4 @@
-use super::*;
+use crate::machines::CodecError;
 
 use log::debug;
 use minicbor::{Decoder, Encoder};

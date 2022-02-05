@@ -38,13 +38,13 @@ fn main() {
 
     let range = (
         Point(
-            26249860,
-            hex::decode("915386f44ad3a7fccee949c9d3fe43f5a20459c7401f990e1cc7d52c10be1fd6")
+            4492794,
+            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
                 .unwrap(),
         ),
         Point(
-            26250057,
-            hex::decode("5fec758c8aaff4a7683c27b075dc3984d8d982839cc56470a682d1411c9f8198")
+            4492794,
+            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
                 .unwrap(),
         ),
     );

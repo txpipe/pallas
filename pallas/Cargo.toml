@@ -15,11 +15,6 @@ authors = [
 [dependencies]
 pallas-multiplexer = { version = "0.4.0", path = "../pallas-multiplexer/" }
 pallas-machines = { version = "0.4.0", path = "../pallas-machines/" }
-pallas-handshake = { version = "0.4.0", path = "../pallas-handshake/" }
-pallas-chainsync = { version = "0.4.0", path = "../pallas-chainsync/" }
-pallas-blockfetch = { version = "0.4.0", path = "../pallas-blockfetch/" }
-pallas-localstate = { version = "0.4.0", path = "../pallas-localstate/" }
-pallas-txsubmission = { version = "0.4.0", path = "../pallas-txsubmission/" }
 pallas-byron = { version = "0.4.0", path = "../pallas-byron/" }
 pallas-alonzo = { version = "0.4.0", path = "../pallas-alonzo/" }
 pallas-crypto = { version = "0.4.0", path = "../pallas-crypto/" }
