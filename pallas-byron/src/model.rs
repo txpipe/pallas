@@ -877,6 +877,7 @@ pub struct EbBlock {
     extra: Option<Attributes>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Block {
     MainBlock(MainBlock),
