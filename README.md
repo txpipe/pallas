@@ -18,15 +18,10 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 
 ### Ouroboros Network
 
-| Crates                                      | Description                                                                      |
-| ------------------------------------------- | -------------------------------------------------------------------------------- |
-| [pallas-machines](/pallas-machines)         | A framework for implementing state machines for Ouroboros network mini-protocols |
-| [pallas-multiplexer](/pallas-multiplexer)   | Multithreaded Ouroboros multiplexer implementation using mpsc channels           |
-| [pallas-handshake](/pallas-handshake)       | Implementation of the Ouroboros network handshake mini-protocol                  |
-| [pallas-blockfetch](/pallas-blockfetch)     | Implementation of the Ouroboros network blockfetch mini-protocol                 |
-| [pallas-chainsync](/pallas-chainsync)       | Implementation of the Ouroboros network chainsync mini-protocol                  |
-| [pallas-localstate](/pallas-localstate)     | Implementation of the Ouroboros network local state query mini-protocol          |
-| [pallas-txsubmission](/pallas-txsubmission) | Implementation of the Ouroboros network txsubmission mini-protocol               |
+| Crates                                        | Description                                                            |
+| --------------------------------------------- | ---------------------------------------------------------------------- |
+| [pallas-multiplexer](/pallas-multiplexer)     | Multithreaded Ouroboros multiplexer implementation using mpsc channels |
+| [pallas-miniprotocols](/pallas-miniprotocols) | Implementation of the Ouroboros network mini-protocols state-machines  |
 
 ### Ouroboros Consensus
 

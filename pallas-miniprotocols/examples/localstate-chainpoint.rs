@@ -1,8 +1,8 @@
-use pallas_machines::handshake::n2c::{Client, VersionTable};
-use pallas_machines::handshake::MAINNET_MAGIC;
-use pallas_machines::localstate::queries::RequestV10;
-use pallas_machines::localstate::{queries::QueryV10, OneShotClient};
-use pallas_machines::machines::run_agent;
+use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
+use pallas_miniprotocols::handshake::MAINNET_MAGIC;
+use pallas_miniprotocols::localstate::queries::RequestV10;
+use pallas_miniprotocols::localstate::{queries::QueryV10, OneShotClient};
+use pallas_miniprotocols::run_agent;
 use pallas_multiplexer::Multiplexer;
 use std::os::unix::net::UnixStream;
 

@@ -4,4 +4,4 @@
 pub use pallas_multiplexer as multiplexer;
 
 #[doc(inline)]
-pub use pallas_machines as machines;
+pub use pallas_miniprotocols as miniprotocols;

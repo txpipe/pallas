@@ -2,7 +2,7 @@
 
 members = [
     "pallas-multiplexer",
-    "pallas-machines",
+    "pallas-miniprotocols",
     "pallas-crypto",
     "pallas-alonzo",
     "pallas-byron",

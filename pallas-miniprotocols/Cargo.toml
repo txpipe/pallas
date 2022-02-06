@@ -1,6 +1,6 @@
 [package]
-name = "pallas-machines"
-description = "A framework for implementing state machines for Ouroboros network mini-protocols"
+name = "pallas-miniprotocols"
+description = "Implementation of the Ouroboros network mini-protocols state-machines"
 version = "0.4.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
