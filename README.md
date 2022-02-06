@@ -39,6 +39,7 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 
 | Crates                          | Description                                                             |
 | ------------------------------- | ----------------------------------------------------------------------- |
+| [pallas-byron](/pallas-byron)   | Ledger primitives and cbor codec for the Byron era                      |
 | [pallas-alonzo](/pallas-alonzo) | Ledger primitives and cbor codec for the Alonzo era                     |
 | pallas-ticking                  | Time passage implementation for consensus algorithm                     |
 | pallas-applying                 | Logic for validating and applying new blocks and txs to the chain state |
