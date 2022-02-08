@@ -2,12 +2,7 @@
 
 members = [
     "pallas-multiplexer",
-    "pallas-machines",
-    "pallas-handshake",
-    "pallas-blockfetch",
-    "pallas-chainsync",
-    "pallas-txsubmission",
-    "pallas-localstate",
+    "pallas-miniprotocols",
     "pallas-crypto",
     "pallas-alonzo",
     "pallas-byron",

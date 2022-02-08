@@ -1,6 +1,13 @@
-# Pallas
-
-Rust-native building blocks for the Cardano blockchain ecosystem.
+<div align="center">
+    <img src="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-dark.svg?sanitize=true#gh-dark-mode-only" alt="Pallas Logo" width="500">
+    <img src="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-light.svg?sanitize=true#gh-light-mode-only" alt="Pallas Logo" width="500">
+    <hr />
+        <h3 align="center" style="border-bottom: none">Rust-native building blocks for the Cardano blockchain ecosystem</h3>
+        <img alt="GitHub" src="https://img.shields.io/github/license/txpipe/pallas" />
+        <img alt="Crates.io" src="https://img.shields.io/crates/v/pallas" />
+        <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/txpipe/pallas/Validate" />
+    <hr/>
+</div>
 
 ## Introduction
 
@@ -18,15 +25,10 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 
 ### Ouroboros Network
 
-| Crates                                      | Description                                                                      |
-| ------------------------------------------- | -------------------------------------------------------------------------------- |
-| [pallas-machines](/pallas-machines)         | A framework for implementing state machines for Ouroboros network mini-protocols |
-| [pallas-multiplexer](/pallas-multiplexer)   | Multithreaded Ouroboros multiplexer implementation using mpsc channels           |
-| [pallas-handshake](/pallas-handshake)       | Implementation of the Ouroboros network handshake mini-protocol                  |
-| [pallas-blockfetch](/pallas-blockfetch)     | Implementation of the Ouroboros network blockfetch mini-protocol                 |
-| [pallas-chainsync](/pallas-chainsync)       | Implementation of the Ouroboros network chainsync mini-protocol                  |
-| [pallas-localstate](/pallas-localstate)     | Implementation of the Ouroboros network local state query mini-protocol          |
-| [pallas-txsubmission](/pallas-txsubmission) | Implementation of the Ouroboros network txsubmission mini-protocol               |
+| Crates                                        | Description                                                            |
+| --------------------------------------------- | ---------------------------------------------------------------------- |
+| [pallas-multiplexer](/pallas-multiplexer)     | Multithreaded Ouroboros multiplexer implementation using mpsc channels |
+| [pallas-miniprotocols](/pallas-miniprotocols) | Implementation of the Ouroboros network mini-protocols state-machines  |
 
 ### Ouroboros Consensus
 
