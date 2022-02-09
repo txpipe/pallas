@@ -2,11 +2,8 @@ use net2::TcpStreamExt;
 
 use pallas::network::{
     miniprotocols::{
-        handshake::{
-            n2n::{Client, VersionTable},
-            MAINNET_MAGIC,
-        },
-        run_agent, Point,
+        handshake::n2n::{Client, VersionTable},
+        run_agent, Point, MAINNET_MAGIC,
     },
     multiplexer::Multiplexer,
 };

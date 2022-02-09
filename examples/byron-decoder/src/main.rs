@@ -5,15 +5,13 @@ use pallas::{
     network::{
         miniprotocols::{
             blockfetch::{BatchClient, Observer},
-            handshake::{
-                n2n::{Client, VersionTable},
-                MAINNET_MAGIC,
-            },
-            run_agent, Point,
+            handshake::n2n::{Client, VersionTable},
+            run_agent, Point, MAINNET_MAGIC,
         },
         multiplexer::Multiplexer,
     },
 };
+
 use std::net::TcpStream;
 
 #[derive(Debug)]
