@@ -900,7 +900,7 @@ impl minicbor::Encode for Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::alonzo::Block;
+    use crate::byron::Block;
     use crate::Fragment;
 
     use minicbor::{self, to_vec};
