@@ -13,4 +13,5 @@ pub mod network;
 
 pub mod ledger;
 
+#[doc(inline)]
 pub use pallas_crypto as crypto;
