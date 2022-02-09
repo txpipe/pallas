@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
+use crate::common::Point;
 use crate::machines::{DecodePayload, EncodePayload};
-use crate::primitives::Point;
 
 #[derive(Debug)]
 pub struct Tip(pub Point, pub u64);

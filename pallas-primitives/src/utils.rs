@@ -2,6 +2,32 @@ use std::ops::Deref;
 
 use minicbor::{data::Tag, Decode, Encode};
 
+/// Utility for skipping parts of the CBOR payload, use only for debugging
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
+pub struct SkipCbor<const N: usize> {}
+
+impl<'b, const N: usize> minicbor::Decode<'b> for SkipCbor<N> {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        {
+            let probe = d.probe();
+            log::warn!("skipped cbor value {}: {:?}", N, probe.datatype()?);
+            println!("skipped cbor value {}: {:?}", N, probe.datatype()?);
+        }
+
+        d.skip()?;
+        Ok(SkipCbor {})
+    }
+}
+
+impl<const N: usize> minicbor::Encode for SkipCbor<N> {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        _e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        todo!()
+    }
+}
+
 /// Custom collection to ensure ordered pairs of values
 ///
 /// Since the ordering of the entries requires a particular order to maintain

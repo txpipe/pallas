@@ -2,7 +2,6 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Byron CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/byron/cddl-spec/byron.cddl) file in IOHK repo.
 
-use log::warn;
 use minicbor::bytes::ByteVec;
 use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
@@ -10,31 +9,6 @@ use pallas_crypto::hash::Hash;
 use crate::utils::{
     CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
 };
-
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct SkipCbor<const N: usize> {}
-
-impl<'b, const N: usize> minicbor::Decode<'b> for SkipCbor<N> {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        {
-            let probe = d.probe();
-            warn!("skipped cbor value {}: {:?}", N, probe.datatype()?);
-            println!("skipped cbor value {}: {:?}", N, probe.datatype()?);
-        }
-
-        d.skip()?;
-        Ok(SkipCbor {})
-    }
-}
-
-impl<const N: usize> minicbor::Encode for SkipCbor<N> {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        _e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
-    }
-}
 
 // Basic Cardano Types
 
@@ -926,7 +900,9 @@ impl minicbor::Encode for Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Block, Fragment};
+    use crate::byron::Block;
+    use crate::Fragment;
+
     use minicbor::{self, to_vec};
 
     #[test]

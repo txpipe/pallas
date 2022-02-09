@@ -9,7 +9,9 @@
 #![warn(missing_docs)]
 #![warn(missing_doc_code_examples)]
 
-pub mod ouroboros;
+pub mod network;
 
 pub mod ledger;
+
+#[doc(inline)]
 pub use pallas_crypto as crypto;

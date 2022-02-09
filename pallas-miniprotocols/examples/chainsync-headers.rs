@@ -1,14 +1,15 @@
 use minicbor::data::Tag;
 use net2::TcpStreamExt;
-use pallas_alonzo::{crypto, Fragment, Header};
+use pallas_primitives::alonzo::{crypto, Header};
+use pallas_primitives::Fragment;
+
 use pallas_miniprotocols::Point;
 use std::net::TcpStream;
 
 use pallas_miniprotocols::chainsync::{BlockLike, Consumer, NoopObserver};
 use pallas_miniprotocols::handshake::n2n::{Client, VersionTable};
-use pallas_miniprotocols::handshake::MAINNET_MAGIC;
 use pallas_miniprotocols::{
-    run_agent, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder,
+    run_agent, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder, MAINNET_MAGIC,
 };
 use pallas_multiplexer::Multiplexer;
 

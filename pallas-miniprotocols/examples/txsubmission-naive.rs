@@ -2,9 +2,8 @@ use net2::TcpStreamExt;
 use std::net::TcpStream;
 
 use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
-use pallas_miniprotocols::handshake::MAINNET_MAGIC;
-use pallas_miniprotocols::run_agent;
 use pallas_miniprotocols::txsubmission::NaiveProvider;
+use pallas_miniprotocols::{run_agent, MAINNET_MAGIC};
 use pallas_multiplexer::Multiplexer;
 
 fn main() {

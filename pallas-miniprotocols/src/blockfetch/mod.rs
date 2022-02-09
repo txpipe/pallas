@@ -5,7 +5,7 @@ use crate::machines::{
     Transition,
 };
 
-use crate::primitives::Point;
+use crate::common::Point;
 
 use log::debug;
 

@@ -15,6 +15,5 @@ authors = [
 [dependencies]
 pallas-multiplexer = { version = "0.4.0", path = "../pallas-multiplexer/" }
 pallas-miniprotocols = { version = "0.4.0", path = "../pallas-miniprotocols/" }
-pallas-byron = { version = "0.4.0", path = "../pallas-byron/" }
-pallas-alonzo = { version = "0.4.0", path = "../pallas-alonzo/" }
+pallas-primitives = { version = "0.4.0", path = "../pallas-primitives/" }
 pallas-crypto = { version = "0.4.0", path = "../pallas-crypto/" }

@@ -1,7 +1,7 @@
 mod codec;
+mod common;
 mod machines;
 mod payloads;
-mod primitives;
 
 pub mod blockfetch;
 pub mod chainsync;
@@ -10,6 +10,6 @@ pub mod localstate;
 pub mod txsubmission;
 
 pub use codec::*;
+pub use common::*;
 pub use machines::*;
 pub use payloads::*;
-pub use primitives::*;

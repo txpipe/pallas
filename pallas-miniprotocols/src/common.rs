@@ -1,5 +1,11 @@
 use std::fmt::Debug;
 
+/// Well-known magic for testnet
+pub const TESTNET_MAGIC: u64 = 1097911063;
+
+/// Well-known magic for mainnet
+pub const MAINNET_MAGIC: u64 = 764824073;
+
 /// A point within a chain
 #[derive(Clone)]
 pub struct Point(pub u64, pub Vec<u8>);

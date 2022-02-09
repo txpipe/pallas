@@ -1,10 +1,9 @@
-use pallas_alonzo::{crypto, Block, BlockWrapper, Fragment};
+use pallas_primitives::alonzo::{crypto, Block, BlockWrapper};
+use pallas_primitives::Fragment;
 
 use pallas_miniprotocols::chainsync::{BlockLike, Consumer, NoopObserver};
 use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
-use pallas_miniprotocols::handshake::MAINNET_MAGIC;
-use pallas_miniprotocols::run_agent;
-use pallas_miniprotocols::Point;
+use pallas_miniprotocols::{run_agent, Point, MAINNET_MAGIC};
 use pallas_miniprotocols::{DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder};
 use pallas_multiplexer::Multiplexer;
 use std::os::unix::net::UnixStream;

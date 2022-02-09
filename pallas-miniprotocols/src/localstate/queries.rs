@@ -1,6 +1,6 @@
+use crate::common::Point;
 use crate::machines::{DecodePayload, EncodePayload, PayloadDecoder};
 use crate::payloads::PayloadEncoder;
-use crate::primitives::Point;
 use minicbor::{data::Cbor, Decoder};
 
 use super::Query;

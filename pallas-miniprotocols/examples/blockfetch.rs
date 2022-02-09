@@ -1,13 +1,9 @@
 use net2::TcpStreamExt;
-use pallas_miniprotocols::Point;
 use std::net::TcpStream;
 
 use pallas_miniprotocols::blockfetch::{BatchClient, NoopObserver};
-use pallas_miniprotocols::handshake::{
-    n2n::{Client, VersionTable},
-    MAINNET_MAGIC,
-};
-use pallas_miniprotocols::run_agent;
+use pallas_miniprotocols::handshake::n2n::{Client, VersionTable};
+use pallas_miniprotocols::{run_agent, Point, MAINNET_MAGIC};
 use pallas_multiplexer::Multiplexer;
 
 fn main() {

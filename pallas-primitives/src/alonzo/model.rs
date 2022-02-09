@@ -2,38 +2,12 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
-use log::warn;
 use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 use std::{collections::BTreeMap, ops::Deref};
 
 use crate::utils::{KeyValuePairs, MaybeIndefArray};
-
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct SkipCbor<const N: usize> {}
-
-impl<'b, const N: usize> minicbor::Decode<'b> for SkipCbor<N> {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        {
-            let probe = d.probe();
-            warn!("skipped cbor value {}: {:?}", N, probe.datatype()?);
-            println!("skipped cbor value {}: {:?}", N, probe.datatype()?);
-        }
-
-        d.skip()?;
-        Ok(SkipCbor {})
-    }
-}
-
-impl<const N: usize> minicbor::Encode for SkipCbor<N> {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        _e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
-    }
-}
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct VrfCert(#[n(0)] pub ByteVec, #[n(1)] pub ByteVec);
@@ -1418,7 +1392,8 @@ pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
 
 #[cfg(test)]
 mod tests {
-    use crate::{BlockWrapper, Fragment};
+    use super::BlockWrapper;
+    use crate::Fragment;
     use minicbor::{self, to_vec};
 
     #[test]

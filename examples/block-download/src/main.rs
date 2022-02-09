@@ -1,14 +1,18 @@
 use net2::TcpStreamExt;
 
-use pallas::ledger::alonzo::*;
-use pallas::ouroboros::network::blockfetch::{BatchClient, Observer};
-use pallas::ouroboros::network::handshake::{
-    n2n::{Client, VersionTable},
-    MAINNET_MAGIC,
+use pallas::network::{
+    miniprotocols::{
+        handshake::n2n::{Client, VersionTable},
+        run_agent, Point, MAINNET_MAGIC,
+    },
+    multiplexer::Multiplexer,
 };
-use pallas::ouroboros::network::machines::primitives::Point;
-use pallas::ouroboros::network::machines::run_agent;
-use pallas::ouroboros::network::multiplexer::Multiplexer;
+
+use pallas::{
+    ledger::primitives::{alonzo::*, Fragment},
+    network::miniprotocols::blockfetch::{BatchClient, Observer},
+};
+
 use std::net::TcpStream;
 
 #[derive(Debug)]

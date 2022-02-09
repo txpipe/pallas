@@ -5,9 +5,6 @@ use crate::{
 use itertools::Itertools;
 use std::{collections::HashMap, fmt::Debug};
 
-pub const TESTNET_MAGIC: u64 = 1097911063;
-pub const MAINNET_MAGIC: u64 = 764824073;
-
 #[derive(Debug, Clone)]
 pub struct VersionTable<T>
 where
