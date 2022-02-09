@@ -6,8 +6,8 @@ use crate::machines::{
     Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
 };
 
+use crate::common::Point;
 use crate::payloads::{PayloadDecoder, PayloadEncoder};
-use crate::primitives::Point;
 
 use super::{Message, State, Tip};
 

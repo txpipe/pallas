@@ -1418,7 +1418,8 @@ pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
 
 #[cfg(test)]
 mod tests {
-    use crate::{BlockWrapper, Fragment};
+    use super::BlockWrapper;
+    use crate::Fragment;
     use minicbor::{self, to_vec};
 
     #[test]

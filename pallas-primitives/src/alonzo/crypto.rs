@@ -1,4 +1,4 @@
-use crate::{AuxiliaryData, Header, PlutusData, TransactionBody};
+use super::{AuxiliaryData, Header, PlutusData, TransactionBody};
 use pallas_crypto::hash::{Hash, Hasher};
 
 pub fn hash_block_header(data: &Header) -> Hash<32> {
@@ -19,7 +19,8 @@ pub fn hash_plutus_data(data: &PlutusData) -> Hash<32> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BlockWrapper, Fragment};
+    use crate::alonzo::BlockWrapper;
+    use crate::Fragment;
 
     use super::hash_transaction;
 

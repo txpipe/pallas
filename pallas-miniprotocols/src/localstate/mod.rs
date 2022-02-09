@@ -9,7 +9,7 @@ use crate::machines::{
     Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
 };
 
-use crate::primitives::Point;
+use crate::common::Point;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {

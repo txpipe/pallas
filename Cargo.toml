@@ -4,8 +4,7 @@ members = [
     "pallas-multiplexer",
     "pallas-miniprotocols",
     "pallas-crypto",
-    "pallas-alonzo",
-    "pallas-byron",
+    "pallas-primitives",
     "pallas",
 ]
 

@@ -1,5 +1,5 @@
+use crate::common::Point;
 use crate::machines::{CodecError, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder};
-use crate::primitives::Point;
 
 use super::{Message, Tip};
 
