@@ -29,10 +29,10 @@ pub type EpochId = u64;
 #[derive(Encode, Decode, Debug)]
 pub struct SlotId {
     #[n(0)]
-    epoch: EpochId,
+    pub epoch: EpochId,
 
     #[n(1)]
-    slot: u64,
+    pub slot: u64,
 }
 
 pub type PubKey = ByteVec;
@@ -489,16 +489,16 @@ impl minicbor::Encode for SscProof {
 #[derive(Debug, Encode, Decode)]
 pub struct Dlg {
     #[n(0)]
-    epoch: EpochId,
+    pub epoch: EpochId,
 
     #[n(1)]
-    issuer: PubKey,
+    pub issuer: PubKey,
 
     #[n(2)]
-    delegate: PubKey,
+    pub delegate: PubKey,
 
     #[n(3)]
-    certificate: Signature,
+    pub certificate: Signature,
 }
 
 pub type DlgSig = (Dlg, Signature);
@@ -506,16 +506,16 @@ pub type DlgSig = (Dlg, Signature);
 #[derive(Debug, Encode, Decode)]
 pub struct Lwdlg {
     #[n(0)]
-    epoch_range: (EpochId, EpochId),
+    pub epoch_range: (EpochId, EpochId),
 
     #[n(1)]
-    issuer: PubKey,
+    pub issuer: PubKey,
 
     #[n(2)]
-    delegate: PubKey,
+    pub delegate: PubKey,
 
     #[n(3)]
-    certificate: Signature,
+    pub certificate: Signature,
 }
 
 pub type LwdlgSig = (Lwdlg, Signature);
@@ -573,46 +573,46 @@ impl minicbor::Encode for TxFeePol {
 #[derive(Debug, Encode, Decode)]
 pub struct BVerMod {
     #[n(0)]
-    script_version: (Option<u16>,),
+    pub script_version: (Option<u16>,),
 
     #[n(1)]
-    slot_duration: (Option<u64>,),
+    pub slot_duration: (Option<u64>,),
 
     #[n(2)]
-    max_block_size: (Option<u64>,),
+    pub max_block_size: (Option<u64>,),
 
     #[n(3)]
-    max_header_size: (Option<u64>,),
+    pub max_header_size: (Option<u64>,),
 
     #[n(4)]
-    max_tx_size: (Option<u64>,),
+    pub max_tx_size: (Option<u64>,),
 
     #[n(5)]
-    max_proposal_size: (Option<u64>,),
+    pub max_proposal_size: (Option<u64>,),
 
     #[n(6)]
-    mpc_thd: (Option<u64>,),
+    pub mpc_thd: (Option<u64>,),
 
     #[n(7)]
-    heavy_del_thd: (Option<u64>,),
+    pub heavy_del_thd: (Option<u64>,),
 
     #[n(8)]
-    update_vote_thd: (Option<u64>,),
+    pub update_vote_thd: (Option<u64>,),
 
     #[n(9)]
-    update_proposal_thd: (Option<u64>,),
+    pub update_proposal_thd: (Option<u64>,),
 
     #[n(10)]
-    update_implicit: (Option<u64>,),
+    pub update_implicit: (Option<u64>,),
 
     #[n(11)]
-    soft_fork_rule: (Option<(u64, u64, u64)>,),
+    pub soft_fork_rule: (Option<(u64, u64, u64)>,),
 
     #[n(12)]
-    tx_fee_policy: (Option<TxFeePol>,),
+    pub tx_fee_policy: (Option<TxFeePol>,),
 
     #[n(13)]
-    unlock_stake_epoch: (Option<EpochId>,),
+    pub unlock_stake_epoch: (Option<EpochId>,),
 }
 
 pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
@@ -620,49 +620,49 @@ pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
 #[derive(Debug, Encode, Decode)]
 pub struct UpProp {
     #[n(0)]
-    block_version: Option<BVer>,
+    pub block_version: Option<BVer>,
 
     #[n(1)]
-    block_version_mod: Option<BVerMod>,
+    pub block_version_mod: Option<BVerMod>,
 
     #[n(2)]
-    software_version: Option<(String, u32)>,
+    pub software_version: Option<(String, u32)>,
 
     #[n(3)]
-    data: Option<TagWrap<(String, UpData), 258>>,
+    pub data: Option<TagWrap<(String, UpData), 258>>,
 
     #[n(4)]
-    attributes: Option<Attributes>,
+    pub attributes: Option<Attributes>,
 
     #[n(5)]
-    from: Option<PubKey>,
+    pub from: Option<PubKey>,
 
     #[n(6)]
-    signature: Option<Signature>,
+    pub signature: Option<Signature>,
 }
 
 #[derive(Debug, Encode, Decode)]
 pub struct UpVote {
     #[n(0)]
-    voter: PubKey,
+    pub voter: PubKey,
 
     #[n(1)]
-    proposal_id: UpdId,
+    pub proposal_id: UpdId,
 
     #[n(2)]
-    vote: bool,
+    pub vote: bool,
 
     #[n(3)]
-    signature: Signature,
+    pub signature: Signature,
 }
 
 #[derive(Debug, Encode, Decode)]
 pub struct Up {
     #[n(0)]
-    proposal: Option<UpProp>,
+    pub proposal: Option<UpProp>,
 
     #[n(1)]
-    votes: MaybeIndefArray<UpVote>,
+    pub votes: MaybeIndefArray<UpVote>,
 }
 
 // Blocks
@@ -726,58 +726,58 @@ impl minicbor::Encode for BlockSig {
 
 #[derive(Encode, Decode, Debug)]
 pub struct BlockCons(
-    #[n(0)] SlotId,
-    #[n(1)] PubKey,
-    #[n(2)] Difficulty,
-    #[n(3)] BlockSig,
+    #[n(0)] pub SlotId,
+    #[n(1)] pub PubKey,
+    #[n(2)] pub Difficulty,
+    #[n(3)] pub BlockSig,
 );
 
 #[derive(Encode, Decode, Debug)]
 pub struct BlockHeadEx {
     #[n(0)]
-    block_version: BVer,
+    pub block_version: BVer,
 
     #[n(1)]
-    software_version: (String, u32),
+    pub software_version: (String, u32),
 
     #[n(2)]
-    attributes: Option<Attributes>,
+    pub attributes: Option<Attributes>,
 
     #[n(3)]
-    extra_proof: ByronHash,
+    pub extra_proof: ByronHash,
 }
 
 #[derive(Encode, Decode, Debug)]
 pub struct BlockProof {
     #[n(0)]
-    tx_proof: TxProof,
+    pub tx_proof: TxProof,
 
     #[n(1)]
-    ssc_proof: SscProof,
+    pub ssc_proof: SscProof,
 
     #[n(2)]
-    dlg_proof: ByronHash,
+    pub dlg_proof: ByronHash,
 
     #[n(3)]
-    upd_proof: ByronHash,
+    pub upd_proof: ByronHash,
 }
 
 #[derive(Encode, Decode, Debug)]
 pub struct BlockHead {
     #[n(0)]
-    protocol_magic: u32,
+    pub protocol_magic: u32,
 
     #[n(1)]
-    prev_block: BlockId,
+    pub prev_block: BlockId,
 
     #[n(2)]
-    body_proof: BlockProof,
+    pub body_proof: BlockProof,
 
     #[n(3)]
-    consensus_data: BlockCons,
+    pub consensus_data: BlockCons,
 
     #[n(4)]
-    extra_data: BlockHeadEx,
+    pub extra_data: BlockHeadEx,
 }
 
 // [tx, [* twit]]
@@ -786,16 +786,16 @@ pub type TxPayload = (Tx, Vec<Twit>);
 #[derive(Encode, Decode, Debug)]
 pub struct BlockBody {
     #[n(0)]
-    tx_payload: MaybeIndefArray<TxPayload>,
+    pub tx_payload: MaybeIndefArray<TxPayload>,
 
     #[n(1)]
-    ssc_payload: Ssc,
+    pub ssc_payload: Ssc,
 
     #[n(2)]
-    dlg_payload: MaybeIndefArray<Dlg>,
+    pub dlg_payload: MaybeIndefArray<Dlg>,
 
     #[n(3)]
-    upd_payload: Up,
+    pub upd_payload: Up,
 }
 
 // Epoch Boundary Blocks
@@ -803,52 +803,52 @@ pub struct BlockBody {
 #[derive(Encode, Decode, Debug)]
 pub struct EbbCons {
     #[n(0)]
-    epoch_id: EpochId,
+    pub epoch_id: EpochId,
 
     #[n(1)]
-    difficulty: Difficulty,
+    pub difficulty: Difficulty,
 }
 
 #[derive(Encode, Decode, Debug)]
 pub struct EbbHead {
     #[n(0)]
-    protocol_magic: u32,
+    pub protocol_magic: u32,
 
     #[n(1)]
-    prev_block: BlockId,
+    pub prev_block: BlockId,
 
     #[n(2)]
-    body_proof: ByronHash,
+    pub body_proof: ByronHash,
 
     #[n(3)]
-    consensus_data: EbbCons,
+    pub consensus_data: EbbCons,
 
     #[n(4)]
-    extra_data: (Attributes,),
+    pub extra_data: (Attributes,),
 }
 
 #[derive(Encode, Decode, Debug)]
 pub struct MainBlock {
     #[n(0)]
-    header: BlockHead,
+    pub header: BlockHead,
 
     #[n(1)]
-    body: BlockBody,
+    pub body: BlockBody,
 
     #[n(2)]
-    extra: MaybeIndefArray<Attributes>,
+    pub extra: MaybeIndefArray<Attributes>,
 }
 
 #[derive(Encode, Decode, Debug)]
 pub struct EbBlock {
     #[n(0)]
-    header: EbbHead,
+    pub header: EbbHead,
 
     #[n(1)]
-    body: MaybeIndefArray<StakeholderId>,
+    pub body: MaybeIndefArray<StakeholderId>,
 
     #[n(2)]
-    extra: Option<Attributes>,
+    pub extra: Option<Attributes>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -900,7 +900,7 @@ impl minicbor::Encode for Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::byron::Block;
+    use crate::byron::{Block, BlockHead};
     use crate::Fragment;
 
     use minicbor::{self, to_vec};
@@ -926,6 +926,26 @@ mod tests {
             // HACK: we ommit the ismorphic requirement until we find the
             // offending difference
             // assert_eq!(bytes, bytes2);
+        }
+    }
+
+    #[test]
+    fn header_isomorphic_decoding_encoding() {
+        let subjects = vec![include_str!("test_data/test1.header")];
+
+        for (idx, str) in subjects.iter().enumerate() {
+            println!("decoding test header {}", idx + 1);
+            let bytes = hex::decode(str).expect(&format!("bad header file {}", idx));
+
+            let block = BlockHead::decode_fragment(&bytes[..])
+                .expect(&format!("error decoding cbor for file {}", idx));
+
+            println!("{:?}", block);
+
+            let bytes2 =
+                to_vec(block).expect(&format!("error encoding header cbor for file {}", idx));
+
+            assert_eq!(bytes, bytes2);
         }
     }
 }
