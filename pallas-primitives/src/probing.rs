@@ -26,6 +26,7 @@ pub fn probe_block_cbor(cbor: &[u8]) -> BlockInference {
 
     match tokenizer.next() {
         Some(Ok(Token::Array(3))) => BlockInference::Byron,
+        Some(Ok(Token::Array(4))) => BlockInference::Shelley,
         Some(Ok(Token::Array(5))) => BlockInference::Shelley,
         _ => BlockInference::Inconclusive,
     }
