@@ -4,4 +4,4 @@ mod model;
 
 pub use model::*;
 
-// pub mod crypto;
+pub mod crypto;
