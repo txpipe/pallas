@@ -1,26 +1,34 @@
-use super::{Block, BlockHead, EbbHead};
+use super::{Block, BlockHead, EbbHead, Tx};
 use pallas_crypto::hash::{Hash, Hasher};
 
-pub fn hash_boundary_block_header(header: &EbbHead) -> Hash<32> {
-    // hash expects to have a prefix for the type of block
-    Hasher::<256>::hash_cbor(&(0, header))
-}
-
-pub fn hash_main_block_header(header: &BlockHead) -> Hash<32> {
-    // hash expects to have a prefix for the type of block
-    Hasher::<256>::hash_cbor(&(1, header))
-}
-
-pub fn hash_block_header(block: &Block) -> Hash<32> {
-    match block {
-        Block::EbBlock(x) => hash_boundary_block_header(&x.header),
-        Block::MainBlock(x) => hash_main_block_header(&x.header),
+impl EbbHead {
+    pub fn to_hash(&self) -> Hash<32> {
+        // hash expects to have a prefix for the type of block
+        Hasher::<256>::hash_cbor(&(0, self))
     }
 }
 
-//pub fn hash_transaction(data: &TransactionBody) -> Hash<32> {
-//    Hasher::<256>::hash_cbor(data)
-//}
+impl BlockHead {
+    pub fn to_hash(&self) -> Hash<32> {
+        // hash expects to have a prefix for the type of block
+        Hasher::<256>::hash_cbor(&(1, self))
+    }
+}
+
+impl Block {
+    pub fn to_hash(&self) -> Hash<32> {
+        match self {
+            Block::EbBlock(x) => x.header.to_hash(),
+            Block::MainBlock(x) => x.header.to_hash(),
+        }
+    }
+}
+
+impl Tx {
+    pub fn to_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -40,7 +48,7 @@ mod tests {
         let block_model = Block::decode_fragment(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
 
-        let computed_hash = super::hash_block_header(&block_model);
+        let computed_hash = block_model.to_hash();
 
         assert_eq!(hex::encode(computed_hash), KNOWN_HASH)
     }
