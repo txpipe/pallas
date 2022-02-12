@@ -173,13 +173,39 @@ impl minicbor::Encode for AddrAttrProperty {
 
 pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
 
+#[derive(Debug, Encode, Decode)]
+pub struct AddressPayload {
+    #[n(0)]
+    pub root: AddressId,
+
+    #[n(1)]
+    pub attributes: AddrAttr,
+
+    #[n(2)]
+    pub addrtype: AddrType,
+}
+
 // address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
-pub type Address = (CborWrap<(AddressId, AddrAttr, AddrType)>, u64);
+#[derive(Debug, Encode, Decode)]
+pub struct Address {
+    #[n(0)]
+    pub payload: CborWrap<AddressPayload>,
+
+    #[n(1)]
+    pub crc: u64,
+}
 
 // Transactions
 
 // txout = [address, u64]
-pub type TxOut = (Address, u64);
+#[derive(Debug, Encode, Decode)]
+pub struct TxOut {
+    #[n(0)]
+    pub address: Address,
+
+    #[n(1)]
+    pub amount: u64,
+}
 
 #[derive(Debug)]
 pub enum TxIn {
@@ -228,21 +254,34 @@ impl minicbor::Encode for TxIn {
 }
 
 // tx = [[+ txin], [+ txout], attributes]
-pub type Tx = (Vec<TxIn>, Vec<TxOut>, Attributes);
+#[derive(Debug, Encode, Decode)]
+pub struct Tx {
+    #[n(0)]
+    pub inputs: MaybeIndefArray<TxIn>,
+
+    #[n(1)]
+    pub outputs: MaybeIndefArray<TxOut>,
+
+    #[n(2)]
+    pub attributes: Attributes,
+}
 
 // txproof = [u32, hash, hash]
 pub type TxProof = (u32, ByronHash, ByronHash);
 
+pub type ValidatorScript = (u16, ByteVec);
+pub type RedeemerScript = (u16, ByteVec);
+
 #[derive(Debug)]
 pub enum Twit {
     // [0, #6.24(bytes .cbor ([pubkey, signature]))]
-    Variant0(CborWrap<(PubKey, Signature)>),
+    PkWitness(CborWrap<(PubKey, Signature)>),
 
     // [1, #6.24(bytes .cbor ([[u16, bytes], [u16, bytes]]))]
-    Variant1(CborWrap<((u16, ByteVec), (u16, ByteVec))>),
+    ScriptWitness(CborWrap<(ValidatorScript, RedeemerScript)>),
 
     // [2, #6.24(bytes .cbor ([pubkey, signature]))]
-    Variant2(CborWrap<(PubKey, Signature)>),
+    RedeemWitness(CborWrap<(PubKey, Signature)>),
 
     // [u8 .gt 2, encoded-cbor]
     Other(u8, ByteVec),
@@ -255,9 +294,9 @@ impl<'b> minicbor::Decode<'b> for Twit {
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(Twit::Variant0(d.decode()?)),
-            1 => Ok(Twit::Variant1(d.decode()?)),
-            2 => Ok(Twit::Variant2(d.decode()?)),
+            0 => Ok(Twit::PkWitness(d.decode()?)),
+            1 => Ok(Twit::ScriptWitness(d.decode()?)),
+            2 => Ok(Twit::RedeemWitness(d.decode()?)),
             x => Ok(Twit::Other(x, d.decode()?)),
         }
     }
@@ -269,21 +308,21 @@ impl minicbor::Encode for Twit {
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            Twit::Variant0(x) => {
+            Twit::PkWitness(x) => {
                 e.array(2)?;
                 e.u8(0)?;
                 e.encode(x)?;
 
                 Ok(())
             }
-            Twit::Variant1(x) => {
+            Twit::ScriptWitness(x) => {
                 e.array(2)?;
                 e.u8(1)?;
                 e.encode(x)?;
 
                 Ok(())
             }
-            Twit::Variant2(x) => {
+            Twit::RedeemWitness(x) => {
                 e.array(2)?;
                 e.u8(2)?;
                 e.encode(x)?;
@@ -327,7 +366,7 @@ pub type VssDec = ByteVec;
 // cddl note:
 // This is encoded using the
 // 'Binary' instance for Scrape.Proof
-pub type VssProof = (ByteVec, ByteVec, ByteVec, Vec<ByteVec>);
+pub type VssProof = (ByteVec, ByteVec, ByteVec, MaybeIndefArray<ByteVec>);
 
 //ssccomm = [pubkey, [{vsspubkey => vssenc},vssproof], signature]
 pub type SscComm = (
@@ -781,7 +820,14 @@ pub struct BlockHead {
 }
 
 // [tx, [* twit]]
-pub type TxPayload = (Tx, Vec<Twit>);
+#[derive(Debug, Encode, Decode)]
+pub struct TxPayload {
+    #[n(0)]
+    pub transaction: Tx,
+
+    #[n(1)]
+    pub witness: MaybeIndefArray<Twit>,
+}
 
 #[derive(Encode, Decode, Debug)]
 pub struct BlockBody {
@@ -920,12 +966,10 @@ mod tests {
             let block = Block::decode_fragment(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
-            let _bytes2 =
+            let bytes2 =
                 to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
 
-            // HACK: we ommit the ismorphic requirement until we find the
-            // offending difference
-            // assert_eq!(bytes, bytes2);
+            assert_eq!(hex::encode(bytes), hex::encode(bytes2));
         }
     }
 
@@ -939,8 +983,6 @@ mod tests {
 
             let block = BlockHead::decode_fragment(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
-
-            println!("{:?}", block);
 
             let bytes2 =
                 to_vec(block).expect(&format!("error encoding header cbor for file {}", idx));

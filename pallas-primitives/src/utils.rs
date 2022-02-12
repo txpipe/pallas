@@ -153,9 +153,10 @@ where
             MaybeIndefArray::Def(x) => {
                 e.encode(x)?;
             }
-            MaybeIndefArray::Indef(x) if x.is_empty() => {
-                e.encode(x)?;
-            }
+            // TODO: this seemed necesary on alonzo, but breaks on byron. We need to double check.
+            //MaybeIndefArray::Indef(x) if x.is_empty() => {
+            //    e.encode(x)?;
+            //}
             MaybeIndefArray::Indef(x) => {
                 e.begin_array()?;
 
@@ -223,7 +224,7 @@ where
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
 #[derive(Debug)]
-pub struct CborWrap<T>(T);
+pub struct CborWrap<T>(pub T);
 
 impl<'b, T> minicbor::Decode<'b> for CborWrap<T>
 where
@@ -254,6 +255,14 @@ where
         e.bytes(&buf)?;
 
         Ok(())
+    }
+}
+
+impl<T> Deref for CborWrap<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
