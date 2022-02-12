@@ -1,5 +1,3 @@
-use std::ops::{Add, Mul};
-
 use crate::Error;
 
 use super::TxPayload;
@@ -51,14 +49,11 @@ mod tests {
     use crate::byron::Block;
     use crate::Fragment;
 
-    const KNOWN_HASH: &'static str =
-        "5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6";
-
     #[test]
     fn known_fee_matches() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("test_data/test2.block");
+        let block_str = include_str!("test_data/test4.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
         let block = Block::decode_fragment(&block_bytes[..])
@@ -72,10 +67,10 @@ mod tests {
         // don't want to pass if we don't have tx in the block
         assert!(block.body.tx_payload.len() > 0);
 
-        for tx in block.body.tx_payload.iter() {
+        for tx in block.body.tx_payload.iter().take(1) {
             println!("{}", tx.transaction.to_hash());
             let fee = tx.compute_fee_with_defaults().unwrap();
-            assert_eq!(fee, 172433);
+            assert_eq!(fee, 171070);
         }
     }
 }
