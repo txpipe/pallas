@@ -1,7 +1,7 @@
 use crate::common::Point;
 use crate::machines::{CodecError, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder};
 
-use super::{Message, Tip};
+use super::{BlockContent, HeaderContent, Message, SkippedContent, Tip};
 
 impl EncodePayload for Tip {
     fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
@@ -25,7 +25,7 @@ impl DecodePayload for Tip {
 
 impl<C> EncodePayload for Message<C>
 where
-    C: EncodePayload + DecodePayload,
+    C: EncodePayload,
 {
     fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
         match self {
@@ -37,9 +37,9 @@ where
                 e.array(1)?.u16(1)?;
                 Ok(())
             }
-            Message::RollForward(header, tip) => {
+            Message::RollForward(content, tip) => {
                 e.array(3)?.u16(2)?;
-                header.encode_payload(e)?;
+                content.encode_payload(e)?;
                 tip.encode_payload(e)?;
                 Ok(())
             }
@@ -78,7 +78,7 @@ where
 
 impl<C> DecodePayload for Message<C>
 where
-    C: EncodePayload + DecodePayload,
+    C: DecodePayload,
 {
     fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
         d.array()?;
@@ -113,5 +113,74 @@ where
             7 => Ok(Message::Done),
             x => Err(Box::new(CodecError::BadLabel(x))),
         }
+    }
+}
+
+impl DecodePayload for HeaderContent {
+    fn decode_payload(d: &mut crate::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+        d.array()?;
+        let variant = d.u32()?; // WTF is this value?
+
+        match variant {
+            // byron
+            0 => {
+                d.array()?;
+
+                // can't find a reference anywhere about the structure of these values, but they
+                // seem to provide the Byron-specific variant of the header
+                let (a, b): (u8, u64) = d.decode()?;
+
+                d.tag()?;
+                let bytes = d.bytes()?;
+
+                Ok(HeaderContent::Byron(a, b, Vec::from(bytes)))
+            }
+            // shelley
+            _ => {
+                d.tag()?;
+                let bytes = d.bytes()?;
+                Ok(HeaderContent::Shelley(Vec::from(bytes)))
+            }
+        }
+    }
+}
+
+impl EncodePayload for HeaderContent {
+    fn encode_payload(
+        &self,
+        _e: &mut crate::PayloadEncoder,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        todo!()
+    }
+}
+
+impl DecodePayload for BlockContent {
+    fn decode_payload(d: &mut crate::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+        d.tag()?;
+        Ok(BlockContent(d.decode()?))
+    }
+}
+
+impl EncodePayload for BlockContent {
+    fn encode_payload(
+        &self,
+        _e: &mut crate::PayloadEncoder,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        todo!()
+    }
+}
+impl DecodePayload for SkippedContent {
+    fn decode_payload(d: &mut crate::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+        d.skip()?;
+        Ok(SkippedContent)
+    }
+}
+
+impl EncodePayload for SkippedContent {
+    fn encode_payload(
+        &self,
+        _e: &mut crate::PayloadEncoder,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
     }
 }

@@ -1,37 +1,20 @@
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
-use log::{debug, log_enabled, trace};
+use log::debug;
 
-use crate::machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
-};
+use crate::machines::{Agent, MachineError, MachineOutput, Transition};
+use crate::{DecodePayload, EncodePayload};
 
 use crate::common::Point;
-use crate::payloads::{PayloadDecoder, PayloadEncoder};
 
-use super::{Message, State, Tip};
-
-/// A trait to deal with polymorphic payloads in the ChainSync protocol
-/// (WrappedHeader vs BlockBody)
-pub trait BlockLike: EncodePayload + DecodePayload + Debug {
-    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>>;
-}
+use super::{BlockContent, HeaderContent, Message, SkippedContent, State, Tip};
 
 /// An observer of chain-sync events sent by the state-machine
-pub trait Observer<C>
-where
-    C: Debug,
-{
-    fn on_block(
-        &self,
-        cursor: &Option<Point>,
-        content: &C,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        log::debug!(
-            "asked to save block content {:?} at cursor {:?}",
-            content,
-            cursor
-        );
+pub trait Observer<C> {
+    fn on_roll_forward(&self, _content: C, tip: &Tip) -> Result<(), Box<dyn std::error::Error>> {
+        log::debug!("asked to roll forward, tip at {:?}", tip);
+
         Ok(())
     }
 
@@ -57,43 +40,42 @@ where
 #[derive(Debug)]
 pub struct NoopObserver {}
 
-impl<C> Observer<C> for NoopObserver where C: Debug {}
+impl<C> Observer<C> for NoopObserver {}
 
 #[derive(Debug)]
 pub struct Consumer<C, O>
 where
     O: Observer<C>,
-    C: Debug,
 {
     pub state: State,
     pub known_points: Vec<Point>,
-    pub cursor: Option<Point>,
+    pub intersect: Option<Point>,
     pub tip: Option<Tip>,
 
     observer: O,
 
-    // as recommended here: https://doc.rust-lang.org/error-index.html#E0207
-    _phantom: Option<C>,
+    _phantom: PhantomData<C>,
 }
 
 impl<C, O> Consumer<C, O>
 where
-    C: BlockLike + EncodePayload + DecodePayload + Debug,
     O: Observer<C>,
+    C: DecodePayload + EncodePayload,
 {
     pub fn initial(known_points: Vec<Point>, observer: O) -> Self {
         Self {
             state: State::Idle,
-            cursor: None,
+            intersect: None,
             tip: None,
             known_points,
             observer,
-
-            _phantom: None,
+            _phantom: PhantomData::default(),
         }
     }
 
     fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
+        debug!("requesting find intersect");
+
         let msg = Message::<C>::FindIntersect(self.known_points.clone());
 
         tx.send_msg(&msg)?;
@@ -105,6 +87,8 @@ where
     }
 
     fn send_request_next(self, tx: &impl MachineOutput) -> Transition<Self> {
+        debug!("requesting next");
+
         let msg = Message::<C>::RequestNext;
 
         tx.send_msg(&msg)?;
@@ -122,7 +106,7 @@ where
 
         Ok(Self {
             tip: Some(tip),
-            cursor: Some(point),
+            intersect: Some(point),
             state: State::Idle,
             ..self
         })
@@ -133,7 +117,7 @@ where
 
         Ok(Self {
             tip: Some(tip),
-            cursor: None,
+            intersect: None,
             state: State::Done,
             ..self
         })
@@ -142,17 +126,9 @@ where
     fn on_roll_forward(self, content: C, tip: Tip) -> Transition<Self> {
         debug!("rolling forward");
 
-        let point = content.block_point()?;
-
-        if log_enabled!(log::Level::Trace) {
-            trace!("content: {:?}", content);
-        }
-
-        debug!("reporting block to observer");
-        self.observer.on_block(&self.cursor, &content)?;
+        self.observer.on_roll_forward(content, &tip)?;
 
         Ok(Self {
-            cursor: Some(point),
             tip: Some(tip),
             state: State::Idle,
             ..self
@@ -167,7 +143,7 @@ where
 
         Ok(Self {
             tip: Some(tip),
-            cursor: Some(point),
+            intersect: Some(point),
             state: State::Idle,
             ..self
         })
@@ -176,7 +152,6 @@ where
     fn on_await_reply(self) -> Transition<Self> {
         debug!("reached tip, await reply");
 
-        debug!("reporting tip to observer");
         self.observer.on_tip_reached()?;
 
         Ok(Self {
@@ -188,7 +163,7 @@ where
 
 impl<C, O> Agent for Consumer<C, O>
 where
-    C: BlockLike + EncodePayload + DecodePayload + Debug + 'static,
+    C: EncodePayload + DecodePayload + Debug + 'static,
     O: Observer<C>,
 {
     type Message = Message<C>;
@@ -209,7 +184,7 @@ where
 
     fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
         match self.state {
-            State::Idle => match self.cursor {
+            State::Idle => match self.intersect {
                 Some(_) => self.send_request_next(tx),
                 None => self.send_find_intersect(tx),
             },
@@ -226,8 +201,8 @@ where
                 self.on_roll_backward(point, tip)
             }
             (State::CanAwait, Message::AwaitReply) => self.on_await_reply(),
-            (State::MustReply, Message::RollForward(header, tip)) => {
-                self.on_roll_forward(header, tip)
+            (State::MustReply, Message::RollForward(content, tip)) => {
+                self.on_roll_forward(content, tip)
             }
             (State::MustReply, Message::RollBackward(point, tip)) => {
                 self.on_roll_backward(point, tip)
@@ -258,7 +233,7 @@ impl TipFinder {
     }
 
     fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::<NoopContent>::FindIntersect(vec![self.wellknown_point.clone()]);
+        let msg = Message::<SkippedContent>::FindIntersect(vec![self.wellknown_point.clone()]);
 
         tx.send_msg(&msg)?;
 
@@ -289,29 +264,12 @@ impl TipFinder {
     }
 }
 
-#[derive(Debug)]
-pub struct NoopContent {}
+pub type HeaderConsumer<O> = Consumer<HeaderContent, O>;
 
-impl EncodePayload for NoopContent {
-    fn encode_payload(&self, _e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
-    }
-}
-
-impl DecodePayload for NoopContent {
-    fn decode_payload(_d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
-        todo!()
-    }
-}
-
-impl BlockLike for NoopContent {
-    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>> {
-        todo!()
-    }
-}
+pub type BlockConsumer<O> = Consumer<BlockContent, O>;
 
 impl Agent for TipFinder {
-    type Message = Message<NoopContent>;
+    type Message = Message<SkippedContent>;
 
     fn is_done(&self) -> bool {
         self.state == State::Done
