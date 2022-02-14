@@ -142,14 +142,22 @@ impl<'a> PayloadDeconstructor<'a> {
                 debug!("consumed {} from payload buffer", new_pos);
                 Ok(t)
             }
-            Err(_err) => {
-                //TODO: we need to match EndOfInput kind of errors
+            Err(err) => {
+                let downcast = err.downcast::<minicbor::decode::Error>();
 
-                debug!("payload incomplete, fetching next segment");
-                let payload = self.rx.recv()?;
-                self.remaining.extend(payload);
+                match downcast {
+                    Ok(err) => match err.deref() {
+                        minicbor::decode::Error::EndOfInput => {
+                            debug!("payload incomplete, fetching next segment");
+                            let payload = self.rx.recv()?;
+                            self.remaining.extend(payload);
 
-                self.consume_next_message::<T>()
+                            self.consume_next_message::<T>()
+                        }
+                        _ => Err(err),
+                    },
+                    Err(err) => Err(err),
+                }
             }
         }
     }
