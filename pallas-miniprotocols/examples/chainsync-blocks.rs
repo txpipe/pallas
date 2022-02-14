@@ -1,7 +1,7 @@
-use pallas_primitives::alonzo::{crypto, Block, BlockWrapper};
+use pallas_primitives::alonzo::{Block, BlockWrapper};
 use pallas_primitives::Fragment;
 
-use pallas_miniprotocols::chainsync::{BlockLike, Consumer, NoopObserver};
+use pallas_miniprotocols::chainsync::{Consumer, NoopObserver};
 use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
 use pallas_miniprotocols::{run_agent, Point, MAINNET_MAGIC};
 use pallas_miniprotocols::{DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder};
@@ -25,14 +25,6 @@ impl DecodePayload for Content {
         Ok(Content(block))
     }
 }
-
-impl BlockLike for Content {
-    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>> {
-        let hash = crypto::hash_block_header(&self.0.header);
-        Ok(Point(self.0.header.header_body.slot, hash.to_vec()))
-    }
-}
-
 fn main() {
     env_logger::init();
 

@@ -1,12 +1,12 @@
 use minicbor::data::Tag;
 use net2::TcpStreamExt;
-use pallas_primitives::alonzo::{crypto, Header};
+use pallas_primitives::alonzo::Header;
 use pallas_primitives::Fragment;
 
 use pallas_miniprotocols::Point;
 use std::net::TcpStream;
 
-use pallas_miniprotocols::chainsync::{BlockLike, Consumer, NoopObserver};
+use pallas_miniprotocols::chainsync::{Consumer, NoopObserver};
 use pallas_miniprotocols::handshake::n2n::{Client, VersionTable};
 use pallas_miniprotocols::{
     run_agent, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder, MAINNET_MAGIC,
@@ -35,13 +35,6 @@ impl DecodePayload for Content {
         let bytes = d.bytes()?;
         let header = Header::decode_fragment(bytes)?;
         Ok(Content(unknown, header))
-    }
-}
-
-impl BlockLike for Content {
-    fn block_point(&self) -> Result<Point, Box<dyn std::error::Error>> {
-        let hash = crypto::hash_block_header(&self.1);
-        Ok(Point(self.1.header_body.slot, hash.to_vec()))
     }
 }
 
