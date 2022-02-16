@@ -2,7 +2,7 @@ use std::{fmt::Debug, ops::Deref};
 
 use crate::common::Point;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tip(pub Point, pub u64);
 
 #[derive(Debug, PartialEq, Clone)]
