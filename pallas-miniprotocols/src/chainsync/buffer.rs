@@ -29,6 +29,11 @@ impl Default for RollbackBuffer {
     }
 }
 
+pub enum RollbackEffect {
+    Handled,
+    OutOfScope,
+}
+
 impl RollbackBuffer {
     pub fn new() -> Self {
         Self {
@@ -80,22 +85,20 @@ impl RollbackBuffer {
     /// the back and return Ok. If the rollback point is outside the scope of
     /// the buffer, we clear the whole buffer and notify a failure
     /// in the rollback process.
-    pub fn roll_back(&mut self, point: Point) -> Result<(), Point> {
-        if let Some(x) = self.position(&point) {
+    pub fn roll_back(&mut self, point: &Point) -> RollbackEffect {
+        if let Some(x) = self.position(point) {
             self.points.truncate(x + 1);
-            Ok(())
+            RollbackEffect::Handled
         } else {
             self.points.clear();
-            Err(point)
+            RollbackEffect::OutOfScope
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
-    use crate::Point;
+    use crate::{chainsync::RollbackEffect, Point};
 
     use super::RollbackBuffer;
 
@@ -110,8 +113,6 @@ mod tests {
             let point = dummy_point(i as u64);
             buffer.roll_forward(point);
         }
-
-        dbg!(&buffer);
 
         buffer
     }
@@ -160,9 +161,9 @@ mod tests {
     fn roll_back_within_scope_works() {
         let mut buffer = build_filled_buffer(6);
 
-        let result = buffer.roll_back(dummy_point(2));
+        let result = buffer.roll_back(&dummy_point(2));
 
-        assert!(matches!(result, Ok(_)));
+        assert!(matches!(result, RollbackEffect::Handled));
 
         assert_eq!(buffer.size(), 3);
         assert_eq!(buffer.oldest().unwrap(), &dummy_point(0));
@@ -181,12 +182,9 @@ mod tests {
     fn roll_back_outside_scope_works() {
         let mut buffer = build_filled_buffer(6);
 
-        let result = buffer.roll_back(dummy_point(100));
+        let result = buffer.roll_back(&dummy_point(100));
 
-        match result {
-            Ok(_) => panic!("expected to receive err"),
-            Err(point) => assert_eq!(point, dummy_point(100)),
-        }
+        assert!(matches!(result, RollbackEffect::OutOfScope));
 
         assert_eq!(buffer.size(), 0);
         assert_eq!(buffer.oldest(), None);
