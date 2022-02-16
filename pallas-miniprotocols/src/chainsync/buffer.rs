@@ -38,12 +38,6 @@ impl RollbackBuffer {
 
     /// Adds a new point to the back of the buffer
     pub fn roll_forward(&mut self, point: Point) {
-        log::info!(
-            "chain buffer roll forward, previous size: {}, tip: {:?}",
-            self.points.len(),
-            point
-        );
-
         self.points.push_back(point);
     }
 
@@ -66,14 +60,16 @@ impl RollbackBuffer {
     }
 
     /// Unwind the buffer up to a certain point, clearing orphaned items
+    ///
+    /// If the buffer contains the rollback point, we can safely discard from
+    /// the back and return Ok. If the rollback point is outside the scope of
+    /// the buffer, we clear the whole buffer and notify a failure
+    /// in the rollback process.
     pub fn roll_back(&mut self, point: Point) -> Result<(), Point> {
         if let Some(x) = self.position(&point) {
-            // the buffer contains the rollback point, we can safely discard from the back
             self.points.truncate(x + 1);
             Ok(())
         } else {
-            // the rollback point is outside the scope of the buffer, we need to
-            // clear the queue and notify the error
             self.points.clear();
             Err(point)
         }
