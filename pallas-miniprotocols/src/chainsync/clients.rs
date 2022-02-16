@@ -12,14 +12,18 @@ use super::{BlockContent, HeaderContent, Message, SkippedContent, State, Tip};
 
 /// An observer of chain-sync events sent by the state-machine
 pub trait Observer<C> {
-    fn on_roll_forward(&self, _content: C, tip: &Tip) -> Result<(), Box<dyn std::error::Error>> {
+    fn on_roll_forward(
+        &mut self,
+        _content: C,
+        tip: &Tip,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         log::debug!("asked to roll forward, tip at {:?}", tip);
 
         Ok(())
     }
 
     fn on_intersect_found(
-        &self,
+        &mut self,
         point: &Point,
         tip: &Tip,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -27,11 +31,11 @@ pub trait Observer<C> {
         Ok(())
     }
 
-    fn on_rollback(&self, point: &Point) -> Result<(), Box<dyn std::error::Error>> {
+    fn on_rollback(&mut self, point: &Point) -> Result<(), Box<dyn std::error::Error>> {
         log::debug!("asked to roll back {:?}", point);
         Ok(())
     }
-    fn on_tip_reached(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn on_tip_reached(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         log::debug!("tip was reached");
         Ok(())
     }
@@ -99,7 +103,7 @@ where
         })
     }
 
-    fn on_intersect_found(self, point: Point, tip: Tip) -> Transition<Self> {
+    fn on_intersect_found(mut self, point: Point, tip: Tip) -> Transition<Self> {
         debug!("intersect found: {:?} (tip: {:?})", point, tip);
 
         self.observer.on_intersect_found(&point, &tip)?;
@@ -123,7 +127,7 @@ where
         })
     }
 
-    fn on_roll_forward(self, content: C, tip: Tip) -> Transition<Self> {
+    fn on_roll_forward(mut self, content: C, tip: Tip) -> Transition<Self> {
         debug!("rolling forward");
 
         self.observer.on_roll_forward(content, &tip)?;
@@ -135,7 +139,7 @@ where
         })
     }
 
-    fn on_roll_backward(self, point: Point, tip: Tip) -> Transition<Self> {
+    fn on_roll_backward(mut self, point: Point, tip: Tip) -> Transition<Self> {
         debug!("rolling backward to point: {:?}", point);
 
         debug!("reporting rollback to observer");
@@ -149,7 +153,7 @@ where
         })
     }
 
-    fn on_await_reply(self) -> Transition<Self> {
+    fn on_await_reply(mut self) -> Transition<Self> {
         debug!("reached tip, await reply");
 
         self.observer.on_tip_reached()?;
