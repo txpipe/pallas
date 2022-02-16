@@ -4,15 +4,15 @@ use crate::Point;
 
 /// A memory buffer to handle chain rollbacks
 ///
-/// This structure is intended to faciliate the process of managing rollback in
-/// a chain sync process. The goal is to keep `points` in memory until they
+/// This structure is intended to facilitate the process of managing rollbacks
+/// in a chain sync process. The goal is to keep points in memory until they
 /// reach a certain depth (# of confirmations). If a rollback happens, the
 /// buffer will try to find the intersection, clear the orphaned points and keep
-/// the remaining still in memory. Furhter forward rolls will accumulate from
+/// the remaining still in memory. Further forward rolls will accumulate from
 /// the intersection.
 ///
 /// It works by keeping a `VecDeque` data structure of points, where
-/// roll-forward operations accumulate at the end of the deque and retrieveing
+/// roll-forward operations accumulate at the end of the deque and retrieving
 /// confirmed points means to pop from the front of the deque.
 ///
 /// Notice that it works by keeping track of points, not blocks. It is meant to
@@ -21,6 +21,12 @@ use crate::Point;
 #[derive(Debug)]
 pub struct RollbackBuffer {
     points: VecDeque<Point>,
+}
+
+impl Default for RollbackBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RollbackBuffer {
