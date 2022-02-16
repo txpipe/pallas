@@ -64,6 +64,16 @@ impl RollbackBuffer {
         self.points.len()
     }
 
+    /// Returns the newest point in the buffer
+    pub fn latest(&self) -> Option<&Point> {
+        self.points.back()
+    }
+
+    /// Returns the oldest point in the buffer
+    pub fn oldest(&self) -> Option<&Point> {
+        self.points.front()
+    }
+
     /// Unwind the buffer up to a certain point, clearing orphaned items
     ///
     /// If the buffer contains the rollback point, we can safely discard from
@@ -113,6 +123,9 @@ mod tests {
         assert!(matches!(buffer.position(&dummy_point(0)), Some(0)));
         assert!(matches!(buffer.position(&dummy_point(1)), Some(1)));
         assert!(matches!(buffer.position(&dummy_point(2)), Some(2)));
+
+        assert_eq!(buffer.oldest().unwrap(), &dummy_point(0));
+        assert_eq!(buffer.latest().unwrap(), &dummy_point(2));
     }
 
     #[test]
@@ -126,6 +139,9 @@ mod tests {
         assert_eq!(dummy_point(2), ready[2]);
 
         assert_eq!(ready.len(), 3);
+
+        assert_eq!(buffer.oldest().unwrap(), &dummy_point(3));
+        assert_eq!(buffer.latest().unwrap(), &dummy_point(4));
     }
 
     #[test]
@@ -135,6 +151,9 @@ mod tests {
         let ready = buffer.pop_with_depth(10);
 
         assert_eq!(ready.len(), 0);
+
+        assert_eq!(buffer.oldest().unwrap(), &dummy_point(0));
+        assert_eq!(buffer.latest().unwrap(), &dummy_point(5));
     }
 
     #[test]
@@ -146,6 +165,8 @@ mod tests {
         assert!(matches!(result, Ok(_)));
 
         assert_eq!(buffer.size(), 3);
+        assert_eq!(buffer.oldest().unwrap(), &dummy_point(0));
+        assert_eq!(buffer.latest().unwrap(), &dummy_point(2));
 
         let remaining = buffer.pop_with_depth(0);
 
@@ -168,5 +189,7 @@ mod tests {
         }
 
         assert_eq!(buffer.size(), 0);
+        assert_eq!(buffer.oldest(), None);
+        assert_eq!(buffer.latest(), None);
     }
 }
