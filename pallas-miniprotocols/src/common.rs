@@ -7,7 +7,7 @@ pub const TESTNET_MAGIC: u64 = 1097911063;
 pub const MAINNET_MAGIC: u64 = 764824073;
 
 /// A point within a chain
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Point(pub u64, pub Vec<u8>);
 
 impl Debug for Point {
