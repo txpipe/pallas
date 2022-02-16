@@ -59,6 +59,11 @@ impl RollbackBuffer {
         self.points.iter()
     }
 
+    /// Returns the size of the buffer (number of points)
+    pub fn size(&self) -> usize {
+        self.points.len()
+    }
+
     /// Unwind the buffer up to a certain point, clearing orphaned items
     ///
     /// If the buffer contains the rollback point, we can safely discard from
@@ -78,6 +83,8 @@ impl RollbackBuffer {
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
+
     use crate::Point;
 
     use super::RollbackBuffer;
@@ -131,12 +138,14 @@ mod tests {
     }
 
     #[test]
-    fn roll_back_works() {
+    fn roll_back_within_scope_works() {
         let mut buffer = build_filled_buffer(6);
 
         let result = buffer.roll_back(dummy_point(2));
 
         assert!(matches!(result, Ok(_)));
+
+        assert_eq!(buffer.size(), 3);
 
         let remaining = buffer.pop_with_depth(0);
 
@@ -145,5 +154,19 @@ mod tests {
         assert_eq!(dummy_point(2), remaining[2]);
 
         assert_eq!(remaining.len(), 3);
+    }
+
+    #[test]
+    fn roll_back_outside_scope_works() {
+        let mut buffer = build_filled_buffer(6);
+
+        let result = buffer.roll_back(dummy_point(100));
+
+        match result {
+            Ok(_) => panic!("expected to receive err"),
+            Err(point) => assert_eq!(point, dummy_point(100)),
+        }
+
+        assert_eq!(buffer.size(), 0);
     }
 }
