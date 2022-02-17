@@ -2,33 +2,34 @@
 
 use minicbor::decode::{Token, Tokenizer};
 
-pub enum BlockInference {
-    Byron,
-    Shelley,
+use crate::Era;
+
+#[derive(Debug)]
+pub enum Outcome {
+    Matched(Era),
     Inconclusive,
 }
 
 // Executes a very lightweight inspection of the initial tokens of the CBOR
 // payload and infers with a certain degree of confidence the type of Cardano
 // structure within.
-pub fn probe_block_cbor(cbor: &[u8]) -> BlockInference {
+pub fn probe_block_cbor_era(cbor: &[u8]) -> Outcome {
     let mut tokenizer = Tokenizer::new(cbor);
 
     if !matches!(tokenizer.next(), Some(Ok(Token::Array(2)))) {
-        return BlockInference::Inconclusive;
+        return Outcome::Inconclusive;
     }
-
-    if !matches!(tokenizer.next(), Some(Ok(Token::U8(_)))) {
-        return BlockInference::Inconclusive;
-    }
-
-    //println!("{:?}", tokenizer.next());
 
     match tokenizer.next() {
-        Some(Ok(Token::Array(3))) => BlockInference::Byron,
-        Some(Ok(Token::Array(4))) => BlockInference::Shelley,
-        Some(Ok(Token::Array(5))) => BlockInference::Shelley,
-        _ => BlockInference::Inconclusive,
+        Some(Ok(Token::U8(variant))) => match variant {
+            1 => Outcome::Matched(Era::Byron),
+            2 => Outcome::Matched(Era::Shelley),
+            3 => Outcome::Matched(Era::Allegra),
+            4 => Outcome::Matched(Era::Mary),
+            5 => Outcome::Matched(Era::Alonzo),
+            _ => Outcome::Inconclusive,
+        },
+        _ => Outcome::Inconclusive,
     }
 }
 
@@ -41,18 +42,48 @@ mod tests {
         let block_str = include_str!("byron/test_data/test1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor(bytes.as_slice());
+        let inference = probe_block_cbor_era(bytes.as_slice());
 
-        assert!(matches!(inference, BlockInference::Byron));
+        assert!(matches!(inference, Outcome::Matched(Era::Byron)));
     }
 
     #[test]
     fn shelley_block_detected() {
+        let block_str = include_str!("test_data/shelley1.block");
+        let bytes = hex::decode(block_str).unwrap();
+
+        let inference = probe_block_cbor_era(bytes.as_slice());
+
+        assert!(matches!(inference, Outcome::Matched(Era::Shelley)));
+    }
+
+    #[test]
+    fn allegra_block_detected() {
+        let block_str = include_str!("test_data/allegra1.block");
+        let bytes = hex::decode(block_str).unwrap();
+
+        let inference = probe_block_cbor_era(bytes.as_slice());
+
+        assert!(matches!(inference, Outcome::Matched(Era::Allegra)));
+    }
+
+    #[test]
+    fn mary_block_detected() {
+        let block_str = include_str!("test_data/mary1.block");
+        let bytes = hex::decode(block_str).unwrap();
+
+        let inference = probe_block_cbor_era(bytes.as_slice());
+
+        assert!(matches!(inference, Outcome::Matched(Era::Mary)));
+    }
+
+    #[test]
+    fn alonzo_block_detected() {
         let block_str = include_str!("alonzo/test_data/test1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor(bytes.as_slice());
+        let inference = probe_block_cbor_era(bytes.as_slice());
 
-        assert!(matches!(inference, BlockInference::Shelley));
+        assert!(matches!(inference, Outcome::Matched(Era::Alonzo)));
     }
 }
