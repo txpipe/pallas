@@ -119,7 +119,7 @@ where
 impl DecodePayload for HeaderContent {
     fn decode_payload(d: &mut crate::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
         d.array()?;
-        let variant = d.u32()?; // WTF is this value?
+        let variant = d.u8()?; // era variant
 
         match variant {
             // byron
@@ -133,13 +133,22 @@ impl DecodePayload for HeaderContent {
                 d.tag()?;
                 let bytes = d.bytes()?;
 
-                Ok(HeaderContent::Byron(a, b, Vec::from(bytes)))
+                Ok(HeaderContent {
+                    variant,
+                    byron_prefix: Some((a, b)),
+                    cbor: Vec::from(bytes),
+                })
             }
-            // shelley
+            // shelley and beyond
             _ => {
                 d.tag()?;
                 let bytes = d.bytes()?;
-                Ok(HeaderContent::Shelley(Vec::from(bytes)))
+
+                Ok(HeaderContent {
+                    variant,
+                    byron_prefix: None,
+                    cbor: Vec::from(bytes),
+                })
             }
         }
     }

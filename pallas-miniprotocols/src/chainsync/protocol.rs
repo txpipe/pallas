@@ -28,9 +28,10 @@ pub enum Message<C> {
 }
 
 #[derive(Debug)]
-pub enum HeaderContent {
-    Byron(u8, u64, Vec<u8>),
-    Shelley(Vec<u8>),
+pub struct HeaderContent {
+    pub variant: u8,
+    pub byron_prefix: Option<(u8, u64)>,
+    pub cbor: Vec<u8>,
 }
 
 #[derive(Debug)]
