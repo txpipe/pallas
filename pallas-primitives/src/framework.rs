@@ -20,3 +20,12 @@ where
         minicbor::decode(bytes).map_err(|e| e.into())
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+pub enum Era {
+    Byron,
+    Shelley,
+    Allegra, // time-locks
+    Mary,    // multi-assets
+    Alonzo,  // smart-contracts
+}
