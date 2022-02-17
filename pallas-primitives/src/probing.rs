@@ -21,17 +21,14 @@ pub fn probe_block_cbor_era(cbor: &[u8]) -> Outcome {
     }
 
     match tokenizer.next() {
-        Some(Ok(Token::U8(variant))) => {
-            dbg!(variant);
-            match variant {
-                1 => Outcome::Matched(Era::Byron),
-                2 => Outcome::Matched(Era::Shelley),
-                3 => Outcome::Matched(Era::Allegra),
-                4 => Outcome::Matched(Era::Mary),
-                5 => Outcome::Matched(Era::Alonzo),
-                _ => Outcome::Inconclusive,
-            }
-        }
+        Some(Ok(Token::U8(variant))) => match variant {
+            1 => Outcome::Matched(Era::Byron),
+            2 => Outcome::Matched(Era::Shelley),
+            3 => Outcome::Matched(Era::Allegra),
+            4 => Outcome::Matched(Era::Mary),
+            5 => Outcome::Matched(Era::Alonzo),
+            _ => Outcome::Inconclusive,
+        },
         _ => Outcome::Inconclusive,
     }
 }
