@@ -52,7 +52,7 @@ where
     O: Observer<C>,
 {
     pub state: State,
-    pub known_points: Vec<Point>,
+    pub known_points: Option<Vec<Point>>,
     pub intersect: Option<Point>,
     pub tip: Option<Tip>,
 
@@ -66,7 +66,7 @@ where
     O: Observer<C>,
     C: DecodePayload + EncodePayload,
 {
-    pub fn initial(known_points: Vec<Point>, observer: O) -> Self {
+    pub fn initial(known_points: Option<Vec<Point>>, observer: O) -> Self {
         Self {
             state: State::Idle,
             intersect: None,
@@ -80,7 +80,12 @@ where
     fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
         debug!("requesting find intersect");
 
-        let msg = Message::<C>::FindIntersect(self.known_points.clone());
+        let points = match &self.known_points {
+            Some(x) => x.clone(),
+            None => return Err("can't find intersect without known points".into()),
+        };
+
+        let msg = Message::<C>::FindIntersect(points);
 
         tx.send_msg(&msg)?;
 
@@ -189,8 +194,14 @@ where
     fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
         match self.state {
             State::Idle => match self.intersect {
+                // keep going from pointer
                 Some(_) => self.send_request_next(tx),
-                None => self.send_find_intersect(tx),
+                _ => match self.known_points {
+                    // need to find instersection first
+                    Some(_) => self.send_find_intersect(tx),
+                    // start from genesis
+                    None => self.send_request_next(tx),
+                },
             },
             _ => panic!("I don't have agency, don't know what to do"),
         }

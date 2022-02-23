@@ -8,19 +8,22 @@ pub const MAINNET_MAGIC: u64 = 764824073;
 
 /// A point within a chain
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Point(pub u64, pub Vec<u8>);
+pub enum Point {
+    Origin,
+    Specific(u64, Vec<u8>),
+}
 
 impl Debug for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Point")
-            .field(&self.0)
-            .field(&hex::encode(&self.1))
-            .finish()
+        match self {
+            Self::Origin => write!(f, "Origin"),
+            Self::Specific(arg0, arg1) => write!(f, "({}, {})", arg0, hex::encode(arg1)),
+        }
     }
 }
 
 impl Point {
     pub fn new(slot: u64, hash: Vec<u8>) -> Self {
-        Point(slot, hash)
+        Point::Specific(slot, hash)
     }
 }

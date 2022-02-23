@@ -40,13 +40,13 @@ fn main() {
     println!("last hanshake state: {:?}", last);
 
     // some random known-point in the chain to use as starting point for the sync
-    let known_points = vec![Point(
+    let known_points = vec![Point::Specific(
         45147459,
         hex::decode("bee16ef28ac02abb50c340a7deff085a77f3a7b84c66250b3318dcb125c19a10").unwrap(),
     )];
 
     let mut cs_channel = muxer.use_channel(5);
-    let cs = Consumer::<Content, _>::initial(known_points, NoopObserver {});
+    let cs = Consumer::<Content, _>::initial(Some(known_points), NoopObserver {});
     let cs = run_agent(cs, &mut cs_channel).unwrap();
     println!("{:?}", cs);
 }
