@@ -23,12 +23,12 @@ fn main() {
     println!("{:?}", last);
 
     let range = (
-        Point(
+        Point::Specific(
             43847831u64,
             hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45")
                 .unwrap(),
         ),
-        Point(
+        Point::Specific(
             43847831u64,
             hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45")
                 .unwrap(),
