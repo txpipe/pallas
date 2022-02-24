@@ -13,6 +13,15 @@ pub enum Point {
     Specific(u64, Vec<u8>),
 }
 
+impl Point {
+    pub fn slot_or_default(&self) -> u64 {
+        match self {
+            Point::Origin => 0,
+            Point::Specific(slot, _) => *slot,
+        }
+    }
+}
+
 impl Debug for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
