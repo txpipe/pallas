@@ -894,7 +894,7 @@ pub struct EbBlock {
     pub body: MaybeIndefArray<StakeholderId>,
 
     #[n(2)]
-    pub extra: Option<Attributes>,
+    pub extra: MaybeIndefArray<Attributes>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -954,9 +954,11 @@ mod tests {
     #[test]
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = vec![
+            include_str!("test_data/genesis.block"),
             include_str!("test_data/test1.block"),
             include_str!("test_data/test2.block"),
             include_str!("test_data/test3.block"),
+            include_str!("test_data/test4.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
