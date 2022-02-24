@@ -34,7 +34,7 @@ fn main() {
     bearer.set_nodelay(true).unwrap();
     bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
 
-    let mut muxer = Multiplexer::setup(bearer, &vec![0, 3]).unwrap();
+    let mut muxer = Multiplexer::setup(bearer, &[0, 3]).unwrap();
 
     let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
