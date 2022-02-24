@@ -6,8 +6,6 @@ members = [
     "pallas-crypto",
     "pallas-primitives",
     "pallas",
-]
-
-exclude = [
-    "block-download"
+    "examples/block-download",
+    "examples/byron-decoder",
 ]
