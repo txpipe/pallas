@@ -20,3 +20,5 @@ hex = "0.4.3"
 log = "0.4.14"
 pallas-crypto = { version = "0.5.0", path = "../pallas-crypto" }
 base58 = "0.2.0"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
