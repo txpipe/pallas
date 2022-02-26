@@ -166,7 +166,8 @@ impl EncodePayload for HeaderContent {
 impl DecodePayload for BlockContent {
     fn decode_payload(d: &mut crate::PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
         d.tag()?;
-        Ok(BlockContent(d.decode()?))
+        let bytes = d.bytes()?;
+        Ok(BlockContent(Vec::from(bytes)))
     }
 }
 
