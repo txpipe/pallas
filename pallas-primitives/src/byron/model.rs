@@ -8,6 +8,7 @@ use pallas_crypto::hash::Hash;
 
 use crate::utils::{
     CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
+    ZeroOrOneArray,
 };
 
 // Basic Cardano Types
@@ -612,46 +613,46 @@ impl minicbor::Encode for TxFeePol {
 #[derive(Debug, Encode, Decode)]
 pub struct BVerMod {
     #[n(0)]
-    pub script_version: (Option<u16>,),
+    pub script_version: ZeroOrOneArray<u16>,
 
     #[n(1)]
-    pub slot_duration: (Option<u64>,),
+    pub slot_duration: ZeroOrOneArray<u64>,
 
     #[n(2)]
-    pub max_block_size: (Option<u64>,),
+    pub max_block_size: ZeroOrOneArray<u64>,
 
     #[n(3)]
-    pub max_header_size: (Option<u64>,),
+    pub max_header_size: ZeroOrOneArray<u64>,
 
     #[n(4)]
-    pub max_tx_size: (Option<u64>,),
+    pub max_tx_size: ZeroOrOneArray<u64>,
 
     #[n(5)]
-    pub max_proposal_size: (Option<u64>,),
+    pub max_proposal_size: ZeroOrOneArray<u64>,
 
     #[n(6)]
-    pub mpc_thd: (Option<u64>,),
+    pub mpc_thd: ZeroOrOneArray<u64>,
 
     #[n(7)]
-    pub heavy_del_thd: (Option<u64>,),
+    pub heavy_del_thd: ZeroOrOneArray<u64>,
 
     #[n(8)]
-    pub update_vote_thd: (Option<u64>,),
+    pub update_vote_thd: ZeroOrOneArray<u64>,
 
     #[n(9)]
-    pub update_proposal_thd: (Option<u64>,),
+    pub update_proposal_thd: ZeroOrOneArray<u64>,
 
     #[n(10)]
-    pub update_implicit: (Option<u64>,),
+    pub update_implicit: ZeroOrOneArray<u64>,
 
     #[n(11)]
-    pub soft_fork_rule: (Option<(u64, u64, u64)>,),
+    pub soft_fork_rule: ZeroOrOneArray<(u64, u64, u64)>,
 
     #[n(12)]
-    pub tx_fee_policy: (Option<TxFeePol>,),
+    pub tx_fee_policy: ZeroOrOneArray<TxFeePol>,
 
     #[n(13)]
-    pub unlock_stake_epoch: (Option<EpochId>,),
+    pub unlock_stake_epoch: ZeroOrOneArray<EpochId>,
 }
 
 pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
@@ -668,7 +669,9 @@ pub struct UpProp {
     pub software_version: Option<(String, u32)>,
 
     #[n(3)]
-    pub data: Option<TagWrap<(String, UpData), 258>>,
+    // HACK: CDDL show a tag wrap 258, but chain data doesn't present the tag
+    //pub data: TagWrap<(String, UpData), 258>,
+    pub data: KeyValuePairs<String, UpData>,
 
     #[n(4)]
     pub attributes: Option<Attributes>,
@@ -698,7 +701,7 @@ pub struct UpVote {
 #[derive(Debug, Encode, Decode)]
 pub struct Up {
     #[n(0)]
-    pub proposal: Option<UpProp>,
+    pub proposal: ZeroOrOneArray<UpProp>,
 
     #[n(1)]
     pub votes: MaybeIndefArray<UpVote>,
@@ -959,6 +962,7 @@ mod tests {
             include_str!("test_data/test2.block"),
             include_str!("test_data/test3.block"),
             include_str!("test_data/test4.block"),
+            include_str!("test_data/test5.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
