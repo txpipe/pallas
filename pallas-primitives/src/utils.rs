@@ -65,7 +65,7 @@ where
         match datatype {
             minicbor::data::Type::Map => Ok(KeyValuePairs::Def(items)),
             minicbor::data::Type::MapIndef => Ok(KeyValuePairs::Indef(items)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid data type for keyvaluepairs",
             )),
         }
@@ -134,7 +134,7 @@ where
         match datatype {
             minicbor::data::Type::Array => Ok(Self::Def(d.decode()?)),
             minicbor::data::Type::ArrayIndef => Ok(Self::Indef(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown data type of maybe indef array",
             )),
         }
@@ -248,7 +248,7 @@ where
         e: &mut minicbor::Encoder<W>,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         let buf = minicbor::to_vec(&self.0).map_err(|_| {
-            minicbor::encode::Error::Message("error encoding cbor-wrapped structure")
+            minicbor::encode::Error::message("error encoding cbor-wrapped structure")
         })?;
 
         e.tag(Tag::Cbor)?;
@@ -345,10 +345,10 @@ where
         match len {
             Some(0) => Ok(ZeroOrOneArray(None)),
             Some(1) => Ok(ZeroOrOneArray(Some(d.decode()?))),
-            Some(_) => Err(minicbor::decode::Error::Message(
+            Some(_) => Err(minicbor::decode::Error::message(
                 "found invalid len for zero-or-one pattern",
             )),
-            None => Err(minicbor::decode::Error::Message(
+            None => Err(minicbor::decode::Error::message(
                 "found invalid indefinite len array for zero-or-one pattern",
             )),
         }
