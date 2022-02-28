@@ -650,7 +650,7 @@ pub struct ProtocolParamUpdate {
     #[n(13)]
     pub extra_entropy: Option<Nonce>,
     #[n(14)]
-    pub protocol_version: Option<MaybeIndefArray<ProtocolVersion>>,
+    pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
     #[n(17)]
@@ -1422,6 +1422,8 @@ mod tests {
             include_str!("test_data/test14.block"),
             // peculiar block with many move-instantaneous-rewards certs
             include_str!("test_data/test15.block"),
+            // peculiar block with protocol update values
+            include_str!("test_data/test16.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
