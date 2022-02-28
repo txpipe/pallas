@@ -383,7 +383,7 @@ pub type SscComms = TagWrap<MaybeIndefArray<SscComm>, 258>;
 pub type SscOpens = KeyValuePairs<StakeholderId, VssSec>;
 
 // sscshares = {addressid => [addressid, [* vssdec]]}
-pub type SscShares = KeyValuePairs<AddressId, (AddressId, MaybeIndefArray<VssDec>)>;
+pub type SscShares = KeyValuePairs<AddressId, KeyValuePairs<AddressId, MaybeIndefArray<VssDec>>>;
 
 // CDDL says: ssccert = [vsspubkey, pubkey, epochid, signature]
 // this is what seems to work: ssccert = [vsspubkey, epochid, pubkey, signature]
@@ -963,6 +963,7 @@ mod tests {
             include_str!("test_data/test3.block"),
             include_str!("test_data/test4.block"),
             include_str!("test_data/test5.block"),
+            include_str!("test_data/test6.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
