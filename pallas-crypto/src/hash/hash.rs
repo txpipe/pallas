@@ -87,7 +87,7 @@ impl<'a, const BYTES: usize> Decode<'a> for Hash<BYTES> {
         } else {
             // TODO: minicbor does not allow for expecting a specific size byte array
             //       (in fact cbor is not good at it at all anyway)
-            Err(minicbor::decode::Error::Message("Invalid hash size"))
+            Err(minicbor::decode::Error::message("Invalid hash size"))
         }
     }
 }

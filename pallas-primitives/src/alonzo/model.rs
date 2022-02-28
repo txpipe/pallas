@@ -131,7 +131,7 @@ impl<'b> minicbor::decode::Decode<'b> for Value {
                 let multiasset = d.decode()?;
                 Ok(Value::Multiasset(coin, multiasset))
             }
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown cbor data type for Alonzo Value enum",
             )),
         }
@@ -197,7 +197,7 @@ impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardSource {
         match variant {
             0 => Ok(Self::Reserves),
             1 => Ok(Self::Treasury),
-            _ => Err(minicbor::decode::Error::Message("invalid funds variant")),
+            _ => Err(minicbor::decode::Error::message("invalid funds variant")),
         }
     }
 }
@@ -292,7 +292,7 @@ impl<'b> minicbor::decode::Decode<'b> for Relay {
             0 => Ok(Relay::SingleHostAddr(d.decode()?, d.decode()?, d.decode()?)),
             1 => Ok(Relay::SingleHostName(d.decode()?, d.decode()?)),
             2 => Ok(Relay::MultiHostName(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid variant id for Relay",
             )),
         }
@@ -398,7 +398,7 @@ impl<'b> minicbor::decode::Decode<'b> for StakeCredential {
         match variant {
             0 => Ok(StakeCredential::AddrKeyhash(d.decode()?)),
             1 => Ok(StakeCredential::Scripthash(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid variant id for StakeCredential",
             )),
         }
@@ -507,7 +507,7 @@ impl<'b> minicbor::decode::Decode<'b> for Certificate {
                 let a = d.decode()?;
                 Ok(Certificate::MoveInstantaneousRewardsCert(a))
             }
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown variant id for certificate",
             )),
         }
@@ -716,7 +716,7 @@ impl<'b> minicbor::decode::Decode<'b> for TransactionBodyComponent {
             13 => Ok(Self::Collateral(d.decode()?)),
             14 => Ok(Self::RequiredSigners(d.decode()?)),
             15 => Ok(Self::NetworkId(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid map key for transaction body component",
             )),
         }
@@ -859,7 +859,7 @@ impl<'b> minicbor::decode::Decode<'b> for NativeScript {
             3 => Ok(NativeScript::ScriptNOfK(d.decode()?, d.decode()?)),
             4 => Ok(NativeScript::InvalidBefore(d.decode()?)),
             5 => Ok(NativeScript::InvalidHereafter(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown variant id for native script",
             )),
         }
@@ -939,12 +939,12 @@ impl<'b> minicbor::decode::Decode<'b> for BigInt {
                 match tag {
                     minicbor::data::Tag::PosBignum => Ok(Self::BigUInt(d.decode()?)),
                     minicbor::data::Tag::NegBignum => Ok(Self::BigNInt(d.decode()?)),
-                    _ => Err(minicbor::decode::Error::Message(
+                    _ => Err(minicbor::decode::Error::message(
                         "invalid cbor tag for big int",
                     )),
                 }
             }
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid cbor data type for big int",
             )),
         }
@@ -996,7 +996,7 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
                 match tag {
                     Tag::Unassigned(121..=127 | 1280..=1400 | 102) => Ok(Self::Constr(d.decode()?)),
                     Tag::PosBignum | Tag::NegBignum => Ok(Self::BigInt(d.decode()?)),
-                    _ => Err(minicbor::decode::Error::Message(
+                    _ => Err(minicbor::decode::Error::message(
                         "unknown tag for plutus data tag",
                     )),
                 }
@@ -1015,7 +1015,7 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
             minicbor::data::Type::Array => Ok(Self::Array(d.decode()?)),
             minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode()?)),
 
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "bad cbor data type for plutus data",
             )),
         }
@@ -1083,11 +1083,11 @@ where
                         values,
                     })
                 }
-                _ => Err(minicbor::decode::Error::Message(
+                _ => Err(minicbor::decode::Error::message(
                     "bad tag code for plutus data",
                 )),
             },
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "bad tag code for plutus data",
             )),
         }
@@ -1269,7 +1269,7 @@ impl<'b> minicbor::Decode<'b> for Metadatum {
             minicbor::data::Type::String => Ok(Metadatum::Text(d.decode()?)),
             minicbor::data::Type::Array => Ok(Metadatum::Array(d.decode()?)),
             minicbor::data::Type::Map => Ok(Metadatum::Map(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "Can't turn data type into metadatum",
             )),
         }
@@ -1332,7 +1332,7 @@ impl<'b> minicbor::Decode<'b> for AuxiliaryData {
                 d.tag()?;
                 Ok(AuxiliaryData::Alonzo(d.decode()?))
             }
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "Can't infer variant from data type for AuxiliaryData",
             )),
         }

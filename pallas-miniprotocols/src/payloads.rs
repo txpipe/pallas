@@ -146,8 +146,8 @@ impl<'a> PayloadDeconstructor<'a> {
                 let downcast = err.downcast::<minicbor::decode::Error>();
 
                 match downcast {
-                    Ok(err) => match err.deref() {
-                        minicbor::decode::Error::EndOfInput => {
+                    Ok(err) => match err.deref().is_end_of_input() {
+                        true => {
                             debug!("payload incomplete, fetching next segment");
                             let payload = self.rx.recv()?;
                             self.remaining.extend(payload);

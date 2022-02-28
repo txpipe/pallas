@@ -63,7 +63,7 @@ impl<'b> minicbor::Decode<'b> for AddrDistr {
         match variant {
             0 => Ok(AddrDistr::Variant0(d.decode()?)),
             1 => Ok(AddrDistr::Variant1),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid variant for addrdstr",
             )),
         }
@@ -143,7 +143,7 @@ impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
         match key {
             0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
             1 => Ok(AddrAttrProperty::Bytes(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown variant for addrattr property",
             )),
         }
@@ -411,7 +411,7 @@ impl<'b> minicbor::Decode<'b> for Ssc {
             1 => Ok(Ssc::Variant1(d.decode()?, d.decode()?)),
             2 => Ok(Ssc::Variant2(d.decode()?, d.decode()?)),
             3 => Ok(Ssc::Variant3(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message("invalid variant for ssc")),
+            _ => Err(minicbor::decode::Error::message("invalid variant for ssc")),
         }
     }
 }
@@ -476,7 +476,7 @@ impl<'b> minicbor::Decode<'b> for SscProof {
             1 => Ok(SscProof::Variant1(d.decode()?, d.decode()?)),
             2 => Ok(SscProof::Variant2(d.decode()?, d.decode()?)),
             3 => Ok(SscProof::Variant3(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "invalid variant for sscproof",
             )),
         }
@@ -728,7 +728,7 @@ impl<'b> minicbor::Decode<'b> for BlockSig {
             0 => Ok(BlockSig::Signature(d.decode()?)),
             1 => Ok(BlockSig::LwdlgSig(d.decode()?)),
             2 => Ok(BlockSig::DlgSig(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown variant for blocksig",
             )),
         }
@@ -916,7 +916,7 @@ impl<'b> minicbor::Decode<'b> for Block {
         match variant {
             0 => Ok(Block::EbBlock(d.decode()?)),
             1 => Ok(Block::MainBlock(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            _ => Err(minicbor::decode::Error::message(
                 "unknown variant for block",
             )),
         }
