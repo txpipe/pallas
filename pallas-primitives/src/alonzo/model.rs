@@ -5,7 +5,7 @@
 use minicbor::{bytes::ByteVec, data::Tag};
 use minicbor_derive::{Decode, Encode};
 use pallas_crypto::hash::Hash;
-use std::{collections::BTreeMap, ops::Deref};
+use std::ops::Deref;
 
 use crate::utils::{KeyValuePairs, MaybeIndefArray};
 
@@ -220,7 +220,7 @@ impl minicbor::encode::Encode for InstantaneousRewardSource {
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum InstantaneousRewardTarget {
-    StakeCredentials(BTreeMap<StakeCredential, i64>),
+    StakeCredentials(KeyValuePairs<StakeCredential, i64>),
     OtherAccountingPot(Coin),
 }
 
@@ -229,7 +229,7 @@ impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardTarget {
         let datatype = d.datatype()?;
 
         match datatype {
-            minicbor::data::Type::Map => {
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
                 let a = d.decode()?;
                 Ok(Self::StakeCredentials(a))
             }
@@ -420,7 +420,7 @@ impl minicbor::encode::Encode for StakeCredential {
             }
             StakeCredential::Scripthash(a) => {
                 e.array(2)?;
-                e.encode(0)?;
+                e.encode(1)?;
                 e.encode(a)?;
 
                 Ok(())
@@ -441,8 +441,8 @@ pub enum Certificate {
         cost: Coin,
         margin: UnitInterval,
         reward_account: RewardAccount,
-        pool_owners: Vec<AddrKeyhash>,
-        relays: Vec<Relay>,
+        pool_owners: MaybeIndefArray<AddrKeyhash>,
+        relays: MaybeIndefArray<Relay>,
         pool_metadata: Option<PoolMetadata>,
     },
     PoolRetirement(PoolKeyhash, Epoch),
@@ -586,7 +586,7 @@ impl minicbor::encode::Encode for Certificate {
                 Ok(())
             }
             Certificate::MoveInstantaneousRewardsCert(a) => {
-                e.array(3)?;
+                e.array(2)?;
                 e.u16(6)?;
                 e.encode(a)?;
 
@@ -612,7 +612,7 @@ pub enum Language {
     PlutusV1,
 }
 
-pub type CostModel = Vec<i32>;
+pub type CostModel = MaybeIndefArray<i32>;
 
 pub type CostMdls = KeyValuePairs<Language, CostModel>;
 
@@ -650,7 +650,7 @@ pub struct ProtocolParamUpdate {
     #[n(13)]
     pub extra_entropy: Option<Nonce>,
     #[n(14)]
-    pub protocol_version: Option<Vec<ProtocolVersion>>,
+    pub protocol_version: Option<MaybeIndefArray<ProtocolVersion>>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
     #[n(17)]
@@ -686,7 +686,7 @@ pub enum TransactionBodyComponent {
     Outputs(MaybeIndefArray<TransactionOutput>),
     Fee(u64),
     Ttl(u64),
-    Certificates(Vec<Certificate>),
+    Certificates(MaybeIndefArray<Certificate>),
     Withdrawals(KeyValuePairs<RewardAccount, Coin>),
     Update(Update),
     AuxiliaryDataHash(ByteVec),
@@ -1218,7 +1218,7 @@ pub struct AlonzoAuxiliaryData {
     #[n(1)]
     pub native_scripts: Option<MaybeIndefArray<NativeScript>>,
     #[n(2)]
-    pub plutus_scripts: Option<Vec<PlutusScript>>,
+    pub plutus_scripts: Option<MaybeIndefArray<PlutusScript>>,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1420,6 +1420,8 @@ mod tests {
             // peculiar block with overflow crash
             // https://github.com/txpipe/oura/issues/113
             include_str!("test_data/test14.block"),
+            // peculiar block with many move-instantaneous-rewards certs
+            include_str!("test_data/test15.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
