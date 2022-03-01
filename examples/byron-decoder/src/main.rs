@@ -1,7 +1,7 @@
 use net2::TcpStreamExt;
 
 use pallas::{
-    ledger::primitives::{alonzo::BlockWrapper, byron::Block, Fragment},
+    ledger::primitives::{byron::Block, Fragment},
     network::{
         miniprotocols::{
             blockfetch::{BatchClient, Observer},
@@ -22,7 +22,7 @@ impl Observer for BlockPrinter {
         println!("{}", hex::encode(&body));
         println!("----------");
 
-        let block = BlockWrapper::decode_fragment(body.as_slice()).unwrap();
+        let block = Block::decode_fragment(body.as_slice()).unwrap();
         println!("{:?}", block);
         println!("===========\n\n");
 
@@ -45,13 +45,13 @@ fn main() {
 
     let range = (
         Point::Specific(
-            16233554,
-            hex::decode("02707620f06fbf6daf2e56848e1b881df1a2b7d3d7ecd53cffc55151858a1de1")
+            3240000,
+            hex::decode("b7096a881f77ced24bdd285758646c0e059545b54855bd3a2307ece518bd6317")
                 .unwrap(),
         ),
         Point::Specific(
-            16233737,
-            hex::decode("77a63ccd3b2b7a9f83686915884ff9c59aab4e00b12c92df46a904dc59e7b5fd")
+            4492794,
+            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
                 .unwrap(),
         ),
     );
