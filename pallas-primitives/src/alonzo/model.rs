@@ -99,7 +99,7 @@ pub struct Nonce {
     pub variant: NonceVariant,
 
     #[n(1)]
-    pub hash: Hash<32>,
+    pub hash: Option<Hash<32>>,
 }
 
 pub type ScriptHash = ByteVec;
@@ -1424,6 +1424,8 @@ mod tests {
             include_str!("test_data/test15.block"),
             // peculiar block with protocol update values
             include_str!("test_data/test16.block"),
+            // peculiar block with missing nonce hash
+            include_str!("test_data/test17.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
