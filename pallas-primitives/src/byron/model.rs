@@ -134,6 +134,7 @@ impl minicbor::Encode for AddrType {
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     Bytes(ByteVec),
+    Unparsed(u8, ByteVec),
 }
 
 impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
@@ -143,9 +144,7 @@ impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
         match key {
             0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
             1 => Ok(AddrAttrProperty::Bytes(d.decode()?)),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant for addrattr property",
-            )),
+            x => Ok(AddrAttrProperty::Unparsed(x, d.decode()?)),
         }
     }
 }
@@ -165,6 +164,12 @@ impl minicbor::Encode for AddrAttrProperty {
             AddrAttrProperty::Bytes(x) => {
                 e.u32(1)?;
                 e.encode(x)?;
+
+                Ok(())
+            }
+            AddrAttrProperty::Unparsed(a, b) => {
+                e.encode(a)?;
+                e.encode(b)?;
 
                 Ok(())
             }
@@ -964,6 +969,7 @@ mod tests {
             include_str!("test_data/test4.block"),
             include_str!("test_data/test5.block"),
             include_str!("test_data/test6.block"),
+            include_str!("test_data/test7.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
