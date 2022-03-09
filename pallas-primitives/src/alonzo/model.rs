@@ -1318,7 +1318,9 @@ pub enum AuxiliaryData {
 impl<'b> minicbor::Decode<'b> for AuxiliaryData {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
-            minicbor::data::Type::Map => Ok(AuxiliaryData::Shelley(d.decode()?)),
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(AuxiliaryData::Shelley(d.decode()?))
+            }
             minicbor::data::Type::Array => {
                 d.array()?;
                 let transaction_metadata = d.decode()?;
@@ -1426,6 +1428,8 @@ mod tests {
             include_str!("test_data/test16.block"),
             // peculiar block with missing nonce hash
             include_str!("test_data/test17.block"),
+            // peculiar block with strange AuxiliaryData variant
+            include_str!("test_data/test18.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
