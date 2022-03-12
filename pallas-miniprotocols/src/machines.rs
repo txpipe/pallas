@@ -1,10 +1,10 @@
-use log::{debug, trace};
+pub use crate::payloads::*;
+use pallas_codec::minicbor::{to_vec, Encode};
+use pallas_codec::Fragment;
 use pallas_multiplexer::{Channel, Payload};
 use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
 use std::sync::mpsc::Sender;
-
-pub use crate::payloads::*;
 
 #[derive(Debug)]
 pub enum MachineError<State, Msg>
@@ -62,12 +62,12 @@ impl Display for CodecError {
 }
 
 pub trait MachineOutput {
-    fn send_msg(&self, data: &impl EncodePayload) -> Result<(), Box<dyn std::error::Error>>;
+    fn send_msg(&self, data: &impl Encode) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 impl MachineOutput for Sender<Payload> {
-    fn send_msg(&self, data: &impl EncodePayload) -> Result<(), Box<dyn std::error::Error>> {
-        let payload = to_payload(data.borrow())?;
+    fn send_msg(&self, data: &impl Encode) -> Result<(), Box<dyn std::error::Error>> {
+        let payload = to_vec(data.borrow())?;
         self.send(payload)?;
 
         Ok(())
@@ -77,7 +77,7 @@ impl MachineOutput for Sender<Payload> {
 pub type Transition<T> = Result<T, Box<dyn std::error::Error>>;
 
 pub trait Agent: Sized {
-    type Message: DecodePayload + Debug;
+    type Message;
 
     fn is_done(&self) -> bool;
     fn has_agency(&self) -> bool;
@@ -85,29 +85,30 @@ pub trait Agent: Sized {
     fn receive_next(self, msg: Self::Message) -> Transition<Self>;
 }
 
-pub fn run_agent<T: Agent + Debug>(
+pub fn run_agent<'a, 'b, T>(
     agent: T,
-    channel: &mut Channel,
-) -> Result<T, Box<dyn std::error::Error>> {
+    channel: &'a mut Channel,
+) -> Result<T, Box<dyn std::error::Error>>
+where
+    T: Agent + Debug,
+    T::Message: Fragment + Debug,
+{
     let Channel(tx, rx) = channel;
-
-    let mut input = PayloadDeconstructor {
-        rx,
-        remaining: Vec::new(),
-    };
 
     let mut agent = agent;
 
     while !agent.is_done() {
-        debug!("evaluating agent {:?}", agent);
+        log::debug!("evaluating agent {:?}", agent);
 
         match agent.has_agency() {
             true => {
                 agent = agent.send_next(tx)?;
             }
             false => {
-                let msg = input.consume_next_message::<T::Message>()?;
-                trace!("procesing inbound msg: {:?}", msg);
+                let mut buffer = Vec::new();
+
+                let msg = read_until_full_msg::<T::Message>(&mut buffer, rx).unwrap();
+                log::trace!("procesing inbound msg: {:?}", msg);
                 agent = agent.receive_next(msg)?;
             }
         }

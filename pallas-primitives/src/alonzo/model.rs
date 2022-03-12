@@ -2,12 +2,14 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
-use minicbor::{bytes::ByteVec, data::Tag};
-use minicbor_derive::{Decode, Encode};
+use pallas_codec::minicbor::{bytes::ByteVec, data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 use std::ops::Deref;
 
-use crate::utils::{KeyValuePairs, MaybeIndefArray};
+use pallas_codec::utils::{KeyValuePairs, MaybeIndefArray};
+
+// required for derive attrs to work
+use pallas_codec::minicbor;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct VrfCert(#[n(0)] pub ByteVec, #[n(1)] pub ByteVec);
@@ -1263,7 +1265,7 @@ impl<'b> minicbor::Decode<'b> for Metadatum {
             }
             minicbor::data::Type::I64 => {
                 let i = d.i64()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i))
             }
             minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode()?)),
             minicbor::data::Type::String => Ok(Metadatum::Text(d.decode()?)),
@@ -1396,7 +1398,7 @@ pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
 mod tests {
     use super::BlockWrapper;
     use crate::Fragment;
-    use minicbor::{self, to_vec};
+    use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
@@ -1432,9 +1434,20 @@ mod tests {
             include_str!("test_data/test18.block"),
         ];
 
+        let bytes = hex::decode("3be153691687de9cad").unwrap();
+        let mut d = minicbor::Decoder::new(bytes.as_slice());
+        dbg!(d.datatype().unwrap());
+        dbg!(d.i64().unwrap());
+
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+
+            //let tokens = minicbor::decode::Tokenizer::new(&bytes);
+            //
+            //for token in tokens {
+            //    println!("{:?}", token);
+            //}
 
             let block = BlockWrapper::decode_fragment(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));

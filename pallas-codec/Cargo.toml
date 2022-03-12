@@ -1,0 +1,17 @@
+[package]
+name = "pallas-codec"
+description = "Pallas common CBOR encoding interface and utilities"
+version = "0.6.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-codec"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+    "Santiago Carmuega <santiago@carmuega.me>"
+]
+
+[dependencies]
+minicbor = { version = "0.14", features = ["std", "half", "derive"] }
+

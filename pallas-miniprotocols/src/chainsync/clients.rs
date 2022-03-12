@@ -1,10 +1,9 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use log::debug;
+use pallas_codec::minicbor::Encode;
 
 use crate::machines::{Agent, MachineError, MachineOutput, Transition};
-use crate::{DecodePayload, EncodePayload};
 
 use crate::common::Point;
 
@@ -64,7 +63,7 @@ where
 impl<C, O> Consumer<C, O>
 where
     O: Observer<C>,
-    C: DecodePayload + EncodePayload,
+    C: Encode,
 {
     pub fn initial(known_points: Option<Vec<Point>>, observer: O) -> Self {
         Self {
@@ -78,7 +77,7 @@ where
     }
 
     fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
-        debug!("requesting find intersect");
+        log::debug!("requesting find intersect");
 
         let points = match &self.known_points {
             Some(x) => x.clone(),
@@ -96,7 +95,7 @@ where
     }
 
     fn send_request_next(self, tx: &impl MachineOutput) -> Transition<Self> {
-        debug!("requesting next");
+        log::debug!("requesting next");
 
         let msg = Message::<C>::RequestNext;
 
@@ -109,7 +108,7 @@ where
     }
 
     fn on_intersect_found(mut self, point: Point, tip: Tip) -> Transition<Self> {
-        debug!("intersect found: {:?} (tip: {:?})", point, tip);
+        log::debug!("intersect found: {:?} (tip: {:?})", point, tip);
 
         self.observer.on_intersect_found(&point, &tip)?;
 
@@ -122,7 +121,7 @@ where
     }
 
     fn on_intersect_not_found(self, tip: Tip) -> Transition<Self> {
-        debug!("intersect not found (tip: {:?})", tip);
+        log::debug!("intersect not found (tip: {:?})", tip);
 
         Ok(Self {
             tip: Some(tip),
@@ -133,7 +132,7 @@ where
     }
 
     fn on_roll_forward(mut self, content: C, tip: Tip) -> Transition<Self> {
-        debug!("rolling forward");
+        log::debug!("rolling forward");
 
         self.observer.on_roll_forward(content, &tip)?;
 
@@ -145,9 +144,9 @@ where
     }
 
     fn on_roll_backward(mut self, point: Point, tip: Tip) -> Transition<Self> {
-        debug!("rolling backward to point: {:?}", point);
+        log::debug!("rolling backward to point: {:?}", point);
 
-        debug!("reporting rollback to observer");
+        log::debug!("reporting rollback to observer");
         self.observer.on_rollback(&point)?;
 
         Ok(Self {
@@ -159,7 +158,7 @@ where
     }
 
     fn on_await_reply(mut self) -> Transition<Self> {
-        debug!("reached tip, await reply");
+        log::debug!("reached tip, await reply");
 
         self.observer.on_tip_reached()?;
 
@@ -172,8 +171,8 @@ where
 
 impl<C, O> Agent for Consumer<C, O>
 where
-    C: EncodePayload + DecodePayload + Debug + 'static,
     O: Observer<C>,
+    C: Encode + Debug + 'static,
 {
     type Message = Message<C>;
 
@@ -259,7 +258,7 @@ impl TipFinder {
     }
 
     fn on_intersect_found(self, tip: Tip) -> Transition<Self> {
-        debug!("intersect found with tip: {:?}", tip);
+        log::debug!("intersect found with tip: {:?}", tip);
 
         Ok(Self {
             state: State::Done,
@@ -269,7 +268,7 @@ impl TipFinder {
     }
 
     fn on_intersect_not_found(self, tip: Tip) -> Transition<Self> {
-        debug!("intersect not found but still have a tip: {:?}", tip);
+        log::debug!("intersect not found but still have a tip: {:?}", tip);
 
         Ok(Self {
             state: State::Done,

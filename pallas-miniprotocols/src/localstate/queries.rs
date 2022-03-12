@@ -1,9 +1,9 @@
-use crate::common::Point;
-use crate::machines::{DecodePayload, EncodePayload, PayloadDecoder};
-use crate::payloads::PayloadEncoder;
-use minicbor::{data::Cbor, Decoder};
+use pallas_codec::{
+    impl_fragment,
+    minicbor::{data::Cbor, decode, encode, Decode, Decoder, Encode, Encoder},
+};
 
-use super::Query;
+use super::{Message, Query};
 
 #[derive(Debug, Clone)]
 pub struct BlockQuery {}
@@ -16,8 +16,8 @@ pub enum RequestV10 {
     GetChainPoint,
 }
 
-impl EncodePayload for RequestV10 {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for RequestV10 {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             Self::BlockQuery(..) => {
                 todo!()
@@ -38,8 +38,8 @@ impl EncodePayload for RequestV10 {
     }
 }
 
-impl DecodePayload for RequestV10 {
-    fn decode_payload(_d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for RequestV10 {
+    fn decode(_d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         todo!()
     }
 }
@@ -47,27 +47,18 @@ impl DecodePayload for RequestV10 {
 #[derive(Debug, Clone)]
 pub struct GenericResponse(Vec<u8>);
 
-impl EncodePayload for GenericResponse {
-    fn encode_payload(&self, _e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for GenericResponse {
+    fn encode<W: encode::Write>(&self, _e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         todo!()
     }
 }
 
-impl DecodePayload for GenericResponse {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for GenericResponse {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         let cbor: Cbor = d.decode()?;
         let slice = cbor.as_ref();
         let vec = slice.to_vec();
         Ok(GenericResponse(vec))
-    }
-}
-
-impl TryInto<Point> for GenericResponse {
-    type Error = Box<dyn std::error::Error>;
-
-    fn try_into(self) -> Result<Point, Self::Error> {
-        let mut d = PayloadDecoder(Decoder::new(self.0.as_slice()));
-        Point::decode_payload(&mut d)
     }
 }
 
@@ -78,3 +69,5 @@ impl Query for QueryV10 {
     type Request = RequestV10;
     type Response = GenericResponse;
 }
+
+impl_fragment!(Message<QueryV10>);

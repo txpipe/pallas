@@ -1,7 +1,7 @@
 use crate::Error;
 
 use super::TxPayload;
-use minicbor::to_vec;
+use pallas_codec::minicbor::to_vec;
 
 pub struct PolicyParams {
     constant: u64,

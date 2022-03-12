@@ -2,14 +2,16 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Byron CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/byron/cddl-spec/byron.cddl) file in IOHK repo.
 
-use minicbor::bytes::ByteVec;
-use minicbor_derive::{Decode, Encode};
+use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use crate::utils::{
+use pallas_codec::utils::{
     CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
     ZeroOrOneArray,
 };
+
+// required for derive attrs to work
+use pallas_codec::minicbor;
 
 // Basic Cardano Types
 
@@ -957,7 +959,7 @@ mod tests {
     use crate::byron::{Block, BlockHead};
     use crate::Fragment;
 
-    use minicbor::{self, to_vec};
+    use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

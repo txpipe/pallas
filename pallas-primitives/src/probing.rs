@@ -1,6 +1,6 @@
 //! Heuristics for detecting cbor content without decoding
 
-use minicbor::decode::{Token, Tokenizer};
+use pallas_codec::minicbor::decode::{Token, Tokenizer};
 
 use crate::Era;
 

@@ -5,6 +5,5 @@ mod framework;
 pub mod alonzo;
 pub mod byron;
 pub mod probing;
-pub mod utils;
 
 pub use framework::*;
