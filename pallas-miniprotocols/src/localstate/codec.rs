@@ -1,8 +1,9 @@
-use super::*;
-use crate::machines::*;
+use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
-impl EncodePayload for AcquireFailure {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+use super::{AcquireFailure, Message, Query};
+
+impl Encode for AcquireFailure {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         let code = match self {
             AcquireFailure::PointTooOld => 0,
             AcquireFailure::PointNotInChain => 1,
@@ -14,26 +15,33 @@ impl EncodePayload for AcquireFailure {
     }
 }
 
-impl DecodePayload for AcquireFailure {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for AcquireFailure {
+    fn decode(
+        d: &mut pallas_codec::minicbor::Decoder<'b>,
+    ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
         let code = d.u16()?;
 
         match code {
             0 => Ok(AcquireFailure::PointTooOld),
             1 => Ok(AcquireFailure::PointNotInChain),
-            _ => Err(Box::new(CodecError::UnexpectedCbor(
+            _ => Err(decode::Error::message(
                 "can't infer acquire failure from variant id",
-            ))),
+            )),
         }
     }
 }
 
-impl<Q: Query> EncodePayload for Message<Q> {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl<Q> Encode for Message<Q>
+where
+    Q: Query,
+    Q::Request: Encode,
+    Q::Response: Encode,
+{
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::Acquire(Some(point)) => {
                 e.array(2)?.u16(0)?;
-                e.encode_payload(point)?;
+                e.encode(point)?;
                 Ok(())
             }
             Message::Acquire(None) => {
@@ -46,24 +54,24 @@ impl<Q: Query> EncodePayload for Message<Q> {
             }
             Message::Failure(failure) => {
                 e.array(2)?.u16(2)?;
-                e.encode_payload(failure)?;
+                e.encode(failure)?;
                 Ok(())
             }
             Message::Query(query) => {
                 e.array(2)?.u16(3)?;
                 e.array(1)?;
-                e.encode_payload(query)?;
+                e.encode(query)?;
                 Ok(())
             }
             Message::Result(result) => {
                 e.array(2)?.u16(4)?;
                 e.array(1)?;
-                e.encode_payload(result)?;
+                e.encode(result)?;
                 Ok(())
             }
             Message::ReAcquire(Some(point)) => {
                 e.array(2)?.u16(6)?;
-                e.encode_payload(point)?;
+                e.encode(point)?;
                 Ok(())
             }
             Message::ReAcquire(None) => {
@@ -82,38 +90,47 @@ impl<Q: Query> EncodePayload for Message<Q> {
     }
 }
 
-impl<Q: Query> DecodePayload for Message<Q> {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b, Q> Decode<'b> for Message<Q>
+where
+    Q: Query,
+    Q::Request: Decode<'b>,
+    Q::Response: Decode<'b>,
+{
+    fn decode(
+        d: &mut pallas_codec::minicbor::Decoder<'b>,
+    ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
         d.array()?;
         let label = d.u16()?;
 
         match label {
             0 => {
-                let point = d.decode_payload()?;
+                let point = d.decode()?;
                 Ok(Message::Acquire(Some(point)))
             }
             8 => Ok(Message::Acquire(None)),
             1 => Ok(Message::Acquired),
             2 => {
-                let failure = d.decode_payload()?;
+                let failure = d.decode()?;
                 Ok(Message::Failure(failure))
             }
             3 => {
-                let query = d.decode_payload()?;
+                let query = d.decode()?;
                 Ok(Message::Query(query))
             }
             4 => {
-                let response = d.decode_payload()?;
+                let response = d.decode()?;
                 Ok(Message::Result(response))
             }
             5 => Ok(Message::Release),
             6 => {
-                let point = d.decode_payload()?;
+                let point = d.decode()?;
                 Ok(Message::ReAcquire(point))
             }
             9 => Ok(Message::ReAcquire(None)),
             7 => Ok(Message::Done),
-            x => Err(Box::new(CodecError::BadLabel(x))),
+            _ => Err(decode::Error::message(
+                "unknown variant for localstate message",
+            )),
         }
     }
 }

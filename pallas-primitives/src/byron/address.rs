@@ -2,7 +2,7 @@ use crate::Error;
 
 use super::Address;
 use base58::ToBase58;
-use minicbor::to_vec;
+use pallas_codec::minicbor::to_vec;
 
 impl Address {
     pub fn to_addr_string(&self) -> Result<String, Error> {
@@ -13,10 +13,9 @@ impl Address {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Deref;
-
     use crate::byron::Block;
     use crate::Fragment;
+    use std::ops::Deref;
 
     const KNOWN_ADDRESSES: &[&str] = &[
         "DdzFFzCqrht8QHTQXbWy2qoyPaqTN8BjyfKygGmpy9dtot1tvkBfCaVTnR22XCaaDVn3M1U6aiMShoCLzw6VWSwzQKhhJrM3YjYp3wyy",

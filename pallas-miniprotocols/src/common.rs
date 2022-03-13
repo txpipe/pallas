@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+
 /// Well-known magic for testnet
 pub const TESTNET_MAGIC: u64 = 1097911063;
 
@@ -34,5 +36,34 @@ impl Debug for Point {
 impl Point {
     pub fn new(slot: u64, hash: Vec<u8>) -> Self {
         Point::Specific(slot, hash)
+    }
+}
+
+impl Encode for Point {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Point::Origin => e.array(0)?,
+            Point::Specific(slot, hash) => e.array(2)?.u64(*slot)?.bytes(hash)?,
+        };
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b> for Point {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+        let size = d.array()?;
+
+        match size {
+            Some(0) => Ok(Point::Origin),
+            Some(2) => {
+                let slot = d.u64()?;
+                let hash = d.bytes()?;
+                Ok(Point::Specific(slot, Vec::from(hash)))
+            }
+            _ => Err(decode::Error::message(
+                "can't decode Point from array of size",
+            )),
+        }
     }
 }

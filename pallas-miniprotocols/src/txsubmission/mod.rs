@@ -2,11 +2,12 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 use log::debug;
-
-use crate::machines::{
-    Agent, CodecError, DecodePayload, EncodePayload, MachineError, MachineOutput, PayloadDecoder,
-    PayloadEncoder, Transition,
+use pallas_codec::{
+    impl_fragment,
+    minicbor::{decode, encode, Decode, Decoder, Encode, Encoder},
 };
+
+use crate::machines::{Agent, MachineError, MachineOutput, Transition};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -28,8 +29,8 @@ pub type TxId = u64;
 #[derive(Debug)]
 pub struct TxIdAndSize(TxId, TxSizeInBytes);
 
-impl EncodePayload for TxIdAndSize {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for TxIdAndSize {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
         e.u64(self.0)?;
         e.u32(self.1)?;
@@ -38,8 +39,8 @@ impl EncodePayload for TxIdAndSize {
     }
 }
 
-impl DecodePayload for TxIdAndSize {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for TxIdAndSize {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.array()?;
         let id = d.u64()?;
         let size = d.u32()?;
@@ -68,8 +69,8 @@ pub enum Message {
     Done,
 }
 
-impl EncodePayload for Message {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for Message {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::RequestTxIds(blocking, ack, req) => {
                 e.array(4)?.u16(0)?;
@@ -82,7 +83,7 @@ impl EncodePayload for Message {
                 e.array(2)?.u16(1)?;
                 e.array(ids.len() as u64)?;
                 for id in ids {
-                    id.encode_payload(e)?;
+                    id.encode(e)?;
                 }
                 Ok(())
             }
@@ -110,8 +111,8 @@ impl EncodePayload for Message {
     }
 }
 
-impl DecodePayload for Message {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for Message {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
 
@@ -123,7 +124,7 @@ impl DecodePayload for Message {
                 Ok(Message::RequestTxIds(blocking, ack, req))
             }
             1 => {
-                let items = Vec::<TxIdAndSize>::decode_payload(d)?;
+                let items = Vec::<TxIdAndSize>::decode(d)?;
                 Ok(Message::ReplyTxIds(items))
             }
             2 => {
@@ -134,10 +135,14 @@ impl DecodePayload for Message {
                 todo!()
             }
             4 => Ok(Message::Done),
-            x => Err(Box::new(CodecError::BadLabel(x))),
+            _ => Err(decode::Error::message(
+                "unknown variant for txsubmission message",
+            )),
         }
     }
 }
+
+impl_fragment!(Message);
 
 /// A very basic tx provider agent with a fixed set of tx to submit
 ///

@@ -1,9 +1,12 @@
 use core::panic;
 use std::collections::HashMap;
 
-use crate::machines::{
-    Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder,
+use pallas_codec::{
+    impl_fragment,
+    minicbor::{decode, encode, Decode, Encode, Encoder},
 };
+
+use crate::machines::{Agent, MachineOutput};
 
 use super::common::{RefuseReason, VersionNumber};
 
@@ -55,8 +58,8 @@ impl VersionData {
     }
 }
 
-impl EncodePayload for VersionData {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for VersionData {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?
             .u64(self.network_magic)?
             .bool(self.initiator_and_responder_diffusion_mode)?;
@@ -65,8 +68,10 @@ impl EncodePayload for VersionData {
     }
 }
 
-impl DecodePayload for VersionData {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for VersionData {
+    fn decode(
+        d: &mut pallas_codec::minicbor::Decoder<'b>,
+    ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
         d.array()?;
         let network_magic = d.u64()?;
         let initiator_and_responder_diffusion_mode = d.bool()?;
@@ -85,21 +90,21 @@ pub enum Message {
     Refuse(RefuseReason),
 }
 
-impl EncodePayload for Message {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for Message {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::Propose(version_table) => {
                 e.array(2)?.u16(0)?;
-                version_table.encode_payload(e)?;
+                version_table.encode(e)?;
             }
             Message::Accept(version_number, version_data) => {
                 e.array(3)?.u16(1)?;
                 e.u64(*version_number)?;
-                version_data.encode_payload(e)?;
+                version_data.encode(e)?;
             }
             Message::Refuse(reason) => {
                 e.array(2)?.u16(2)?;
-                reason.encode_payload(e)?;
+                reason.encode(e)?;
             }
         };
 
@@ -107,25 +112,31 @@ impl EncodePayload for Message {
     }
 }
 
-impl DecodePayload for Message {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for Message {
+    fn decode(
+        d: &mut pallas_codec::minicbor::Decoder<'b>,
+    ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
         d.array()?;
 
         match d.u16()? {
             0 => todo!(),
             1 => {
                 let version_number = d.u64()?;
-                let version_data = VersionData::decode_payload(d)?;
+                let version_data = VersionData::decode(d)?;
                 Ok(Message::Accept(version_number, version_data))
             }
             2 => {
-                let reason = RefuseReason::decode_payload(d)?;
+                let reason = RefuseReason::decode(d)?;
                 Ok(Message::Refuse(reason))
             }
-            x => Err(Box::new(CodecError::BadLabel(x))),
+            _ => Err(decode::Error::message(
+                "unknown variant for handshake message",
+            )),
         }
     }
 }
+
+impl_fragment!(Message);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum State {

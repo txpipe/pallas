@@ -1,4 +1,3 @@
-mod codec;
 mod common;
 mod machines;
 mod payloads;
@@ -9,7 +8,6 @@ pub mod handshake;
 pub mod localstate;
 pub mod txsubmission;
 
-pub use codec::*;
 pub use common::*;
 pub use machines::*;
 pub use payloads::*;
