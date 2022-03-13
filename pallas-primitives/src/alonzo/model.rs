@@ -2,6 +2,7 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
+use pallas_codec::minicbor::data::Int;
 use pallas_codec::minicbor::{bytes::ByteVec, data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 use std::ops::Deref;
@@ -1225,7 +1226,7 @@ pub struct AlonzoAuxiliaryData {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Metadatum {
-    Int(i64),
+    Int(Int),
     Bytes(ByteVec),
     Text(String),
     Array(MaybeIndefArray<Metadatum>),
@@ -1237,35 +1238,39 @@ impl<'b> minicbor::Decode<'b> for Metadatum {
         match d.datatype()? {
             minicbor::data::Type::U8 => {
                 let i = d.u8()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::U16 => {
                 let i = d.u16()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::U32 => {
                 let i = d.u32()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::U64 => {
                 let i = d.u64()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::I8 => {
                 let i = d.i8()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::I16 => {
                 let i = d.i16()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::I32 => {
                 let i = d.i32()?;
-                Ok(Metadatum::Int(i as i64))
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::I64 => {
                 let i = d.i64()?;
-                Ok(Metadatum::Int(i))
+                Ok(Metadatum::Int(i.into()))
+            }
+            minicbor::data::Type::Int => {
+                let i = d.int()?;
+                Ok(Metadatum::Int(i.into()))
             }
             minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode()?)),
             minicbor::data::Type::String => Ok(Metadatum::Text(d.decode()?)),
@@ -1432,6 +1437,10 @@ mod tests {
             include_str!("test_data/test17.block"),
             // peculiar block with strange AuxiliaryData variant
             include_str!("test_data/test18.block"),
+            // peculiar block with strange AuxiliaryData variant
+            include_str!("test_data/test18.block"),
+            // peculiar block with nevative i64 overflow
+            include_str!("test_data/test19.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
