@@ -2,8 +2,7 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
-use pallas_codec::minicbor::data::Int;
-use pallas_codec::minicbor::{bytes::ByteVec, data::Tag, Decode, Encode};
+use pallas_codec::minicbor::{bytes::ByteVec, data::Int, data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 use std::ops::Deref;
 
@@ -1270,7 +1269,7 @@ impl<'b> minicbor::Decode<'b> for Metadatum {
             }
             minicbor::data::Type::Int => {
                 let i = d.int()?;
-                Ok(Metadatum::Int(i.into()))
+                Ok(Metadatum::Int(i))
             }
             minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode()?)),
             minicbor::data::Type::String => Ok(Metadatum::Text(d.decode()?)),
