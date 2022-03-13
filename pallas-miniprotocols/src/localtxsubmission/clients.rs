@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 
-use crate::machines::{Agent, DecodePayload, EncodePayload, MachineOutput, Transition};
+use pallas_codec::Fragment;
+
+use crate::machines::{Agent, MachineOutput, Transition};
 
 use super::protocol::{Message, State};
 
@@ -16,8 +18,9 @@ pub struct BatchClient<T, E> {
 
 impl<T, E> BatchClient<T, E>
 where
-    T: EncodePayload + DecodePayload + Clone,
-    E: EncodePayload + DecodePayload + Debug,
+    T: Clone,
+    E: Debug,
+    Message<T, E>: Fragment,
 {
     pub fn initial(mut fifo_requests: Vec<T>) -> Self {
         // reverse the fifo vec to treat it as a stack of pending requests
@@ -96,8 +99,9 @@ where
 
 impl<T, E> Agent for BatchClient<T, E>
 where
-    T: EncodePayload + DecodePayload + Debug + Clone,
-    E: EncodePayload + DecodePayload + Debug,
+    T: Debug + Clone,
+    E: Debug,
+    Message<T, E>: Fragment,
 {
     type Message = Message<T, E>;
 

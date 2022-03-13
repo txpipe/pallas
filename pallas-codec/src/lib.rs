@@ -15,14 +15,14 @@ pub trait Fragment: Sized {
 macro_rules! impl_fragment {
     ($Struct:ty) => {
         impl $crate::Fragment for $Struct {
-            fn read_cbor(buffer: &[u8]) -> Result<Self, decode::Error> {
+            fn read_cbor(buffer: &[u8]) -> Result<Self, $crate::minicbor::decode::Error> {
                 $crate::minicbor::decode(buffer)
             }
 
-            fn write_cbor<W: encode::Write>(
+            fn write_cbor<W: $crate::minicbor::encode::Write>(
                 &self,
                 write: W,
-            ) -> Result<(), encode::Error<W::Error>> {
+            ) -> Result<(), $crate::minicbor::encode::Error<W::Error>> {
                 $crate::minicbor::encode(self, write)
             }
         }

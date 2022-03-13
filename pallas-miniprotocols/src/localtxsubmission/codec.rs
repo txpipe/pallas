@@ -1,28 +1,19 @@
-/*
-
-msgSubmitTx = [0, transaction ]
-msgAcceptTx = [1]
-msgRejectTx = [2, rejectReason ]
-ltMsgDone   = [3]
-
-*/
-
-use crate::{CodecError, DecodePayload, EncodePayload, PayloadDecoder, PayloadEncoder};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::protocol::Message;
 
-impl<T, E> EncodePayload for Message<T, E>
+impl<T, E> Encode for Message<T, E>
 where
-    T: EncodePayload + DecodePayload,
-    E: EncodePayload + DecodePayload,
+    T: Encode,
+    E: Encode,
 {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::SubmitTx(tx) => {
                 e.array(2)?;
                 e.u8(0)?;
 
-                tx.encode_payload(e)?;
+                e.encode(tx)?;
 
                 Ok(())
             }
@@ -33,7 +24,7 @@ where
             Message::RejectTx(reason) => {
                 e.array(2)?.u8(2)?;
 
-                reason.encode_payload(e)?;
+                e.encode(reason)?;
 
                 Ok(())
             }
@@ -45,24 +36,26 @@ where
     }
 }
 
-impl<T, E> DecodePayload for Message<T, E>
+impl<'b, T, E> Decode<'b> for Message<T, E>
 where
-    T: EncodePayload + DecodePayload,
-    E: EncodePayload + DecodePayload,
+    T: Decode<'b>,
+    E: Decode<'b>,
 {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.array()?;
         let variant = d.u8()?;
 
         match variant {
             0 => {
                 d.tag()?;
-                Ok(Message::SubmitTx(d.decode_payload()?))
+                Ok(Message::SubmitTx(d.decode()?))
             }
             1 => Ok(Message::AcceptTx),
-            2 => Ok(Message::RejectTx(d.decode_payload()?)),
+            2 => Ok(Message::RejectTx(d.decode()?)),
             3 => Ok(Message::Done),
-            x => Err(Box::new(CodecError::BadLabel(x as u16))),
+            _ => Err(decode::Error::message(
+                "unkown variant for localtxsubmission message",
+            )),
         }
     }
 }

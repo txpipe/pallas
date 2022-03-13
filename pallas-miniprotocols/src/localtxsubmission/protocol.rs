@@ -1,5 +1,3 @@
-use crate::{DecodePayload, EncodePayload};
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
     Idle,
@@ -8,11 +6,7 @@ pub enum State {
 }
 
 #[derive(Debug)]
-pub enum Message<T, E>
-where
-    T: EncodePayload + DecodePayload,
-    E: EncodePayload + DecodePayload,
-{
+pub enum Message<T, E> {
     SubmitTx(T),
     AcceptTx,
     RejectTx(E),
