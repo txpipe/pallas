@@ -1398,7 +1398,7 @@ pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
 mod tests {
     use super::BlockWrapper;
     use crate::Fragment;
-    use pallas_codec::minicbor::{self, to_vec};
+    use pallas_codec::minicbor::to_vec;
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
@@ -1434,20 +1434,9 @@ mod tests {
             include_str!("test_data/test18.block"),
         ];
 
-        let bytes = hex::decode("3be153691687de9cad").unwrap();
-        let mut d = minicbor::Decoder::new(bytes.as_slice());
-        dbg!(d.datatype().unwrap());
-        dbg!(d.i64().unwrap());
-
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
-
-            //let tokens = minicbor::decode::Tokenizer::new(&bytes);
-            //
-            //for token in tokens {
-            //    println!("{:?}", token);
-            //}
 
             let block = BlockWrapper::decode_fragment(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));

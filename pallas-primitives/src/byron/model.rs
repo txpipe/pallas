@@ -959,7 +959,7 @@ mod tests {
     use crate::byron::{Block, BlockHead};
     use crate::Fragment;
 
-    use pallas_codec::minicbor::{self, to_vec};
+    use pallas_codec::minicbor::to_vec;
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

@@ -15,6 +15,7 @@ impl Address {
 mod tests {
     use crate::byron::Block;
     use crate::Fragment;
+    use std::ops::Deref;
 
     const KNOWN_ADDRESSES: &[&str] = &[
         "DdzFFzCqrht8QHTQXbWy2qoyPaqTN8BjyfKygGmpy9dtot1tvkBfCaVTnR22XCaaDVn3M1U6aiMShoCLzw6VWSwzQKhhJrM3YjYp3wyy",

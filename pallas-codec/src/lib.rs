@@ -7,19 +7,22 @@ pub use minicbor;
 pub mod utils;
 
 pub trait Fragment: Sized {
-    fn from_cbor(buffer: &[u8]) -> Result<Self, minicbor::decode::Error>;
-    fn into_cbor<W: Write>(&self, write: W) -> Result<(), minicbor::encode::Error<W::Error>>;
+    fn read_cbor(buffer: &[u8]) -> Result<Self, minicbor::decode::Error>;
+    fn write_cbor<W: Write>(&self, write: W) -> Result<(), minicbor::encode::Error<W::Error>>;
 }
 
 #[macro_export]
 macro_rules! impl_fragment {
     ($Struct:ty) => {
         impl $crate::Fragment for $Struct {
-            fn from_cbor(buffer: &[u8]) -> Result<Self, decode::Error> {
+            fn read_cbor(buffer: &[u8]) -> Result<Self, decode::Error> {
                 $crate::minicbor::decode(buffer)
             }
 
-            fn into_cbor<W: encode::Write>(&self, write: W) -> Result<(), encode::Error<W::Error>> {
+            fn write_cbor<W: encode::Write>(
+                &self,
+                write: W,
+            ) -> Result<(), encode::Error<W::Error>> {
                 $crate::minicbor::encode(self, write)
             }
         }

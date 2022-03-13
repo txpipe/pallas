@@ -1,8 +1,6 @@
 pub use crate::payloads::*;
-use pallas_codec::minicbor::{to_vec, Encode};
 use pallas_codec::Fragment;
 use pallas_multiplexer::{Channel, Payload};
-use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
 use std::sync::mpsc::Sender;
 
@@ -62,12 +60,13 @@ impl Display for CodecError {
 }
 
 pub trait MachineOutput {
-    fn send_msg(&self, data: &impl Encode) -> Result<(), Box<dyn std::error::Error>>;
+    fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 impl MachineOutput for Sender<Payload> {
-    fn send_msg(&self, data: &impl Encode) -> Result<(), Box<dyn std::error::Error>> {
-        let payload = to_vec(data.borrow())?;
+    fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>> {
+        let mut payload = Vec::new();
+        data.write_cbor(&mut payload)?;
         self.send(payload)?;
 
         Ok(())
@@ -85,10 +84,7 @@ pub trait Agent: Sized {
     fn receive_next(self, msg: Self::Message) -> Transition<Self>;
 }
 
-pub fn run_agent<'a, 'b, T>(
-    agent: T,
-    channel: &'a mut Channel,
-) -> Result<T, Box<dyn std::error::Error>>
+pub fn run_agent<T>(agent: T, channel: &mut Channel) -> Result<T, Box<dyn std::error::Error>>
 where
     T: Agent + Debug,
     T::Message: Fragment + Debug,

@@ -3,7 +3,7 @@ pub mod queries;
 
 use std::fmt::Debug;
 
-use pallas_codec::minicbor::Encode;
+use pallas_codec::Fragment;
 
 use crate::machines::{Agent, MachineError, MachineOutput, Transition};
 
@@ -53,8 +53,7 @@ pub struct OneShotClient<Q: Query> {
 impl<Q> OneShotClient<Q>
 where
     Q: Query,
-    Q::Request: Encode,
-    Q::Response: Encode,
+    Message<Q>: Fragment,
 {
     pub fn initial(check_point: Option<Point>, request: Q::Request) -> Self {
         Self {
@@ -138,8 +137,7 @@ where
 impl<Q> Agent for OneShotClient<Q>
 where
     Q: Query + 'static,
-    Q::Request: Encode,
-    Q::Response: Encode,
+    Message<Q>: Fragment,
 {
     type Message = Message<Q>;
 

@@ -14,7 +14,7 @@ fn try_decode_message<M>(buffer: &[u8]) -> Decoding<M>
 where
     M: Fragment,
 {
-    let maybe_msg: Result<M, _> = M::from_cbor(buffer);
+    let maybe_msg: Result<M, _> = M::read_cbor(buffer);
 
     match maybe_msg {
         Ok(msg) => Decoding::Done(msg),

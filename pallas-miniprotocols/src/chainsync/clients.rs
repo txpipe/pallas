@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use pallas_codec::minicbor::Encode;
+use pallas_codec::Fragment;
 
 use crate::machines::{Agent, MachineError, MachineOutput, Transition};
 
@@ -63,7 +63,7 @@ where
 impl<C, O> Consumer<C, O>
 where
     O: Observer<C>,
-    C: Encode,
+    Message<C>: Fragment,
 {
     pub fn initial(known_points: Option<Vec<Point>>, observer: O) -> Self {
         Self {
@@ -172,7 +172,8 @@ where
 impl<C, O> Agent for Consumer<C, O>
 where
     O: Observer<C>,
-    C: Encode + Debug + 'static,
+    C: Debug + 'static,
+    Message<C>: Fragment,
 {
     type Message = Message<C>;
 
