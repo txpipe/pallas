@@ -1,13 +1,11 @@
 use std::sync::mpsc::Receiver;
 
-use crate::machines::{
-    Agent, CodecError, DecodePayload, EncodePayload, MachineOutput, PayloadDecoder, PayloadEncoder,
-    Transition,
-};
+use crate::machines::{Agent, MachineOutput, Transition};
 
 use crate::common::Point;
 
-use log::debug;
+use pallas_codec::impl_fragment;
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -27,13 +25,13 @@ pub enum Message {
     BatchDone,
 }
 
-impl EncodePayload for Message {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for Message {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::RequestRange { range } => {
                 e.array(3)?.u16(0)?;
-                range.0.encode_payload(e)?;
-                range.1.encode_payload(e)?;
+                range.0.encode(e)?;
+                range.1.encode(e)?;
                 Ok(())
             }
             Message::ClientDone => {
@@ -61,15 +59,15 @@ impl EncodePayload for Message {
     }
 }
 
-impl DecodePayload for Message {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for Message {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
 
         match label {
             0 => {
-                let point1 = Point::decode_payload(d)?;
-                let point2 = Point::decode_payload(d)?;
+                let point1 = Point::decode(d)?;
+                let point2 = Point::decode(d)?;
                 Ok(Message::RequestRange {
                     range: (point1, point2),
                 })
@@ -85,10 +83,14 @@ impl DecodePayload for Message {
                 })
             }
             5 => Ok(Message::BatchDone),
-            x => Err(Box::new(CodecError::BadLabel(x))),
+            _ => Err(decode::Error::message(
+                "unknown variant for blockfetch message",
+            )),
         }
     }
 }
+
+impl_fragment!(Message);
 
 pub trait Observer {
     fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
@@ -152,7 +154,7 @@ where
     }
 
     fn on_block(self, body: Vec<u8>) -> Transition<Self> {
-        debug!("received block body, size {}", body.len());
+        log::debug!("received block body, size {}", body.len());
 
         self.observer.on_block_received(body)?;
 
@@ -244,7 +246,7 @@ where
     }
 
     fn on_block(self, body: Vec<u8>) -> Transition<Self> {
-        debug!("received block body, size {}", body.len());
+        log::debug!("received block body, size {}", body.len());
 
         self.observer.on_block_received(body)?;
 

@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "pallas-codec",
     "pallas-multiplexer",
     "pallas-miniprotocols",
     "pallas-crypto",

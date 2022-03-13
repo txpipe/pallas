@@ -2,14 +2,16 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Byron CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/byron/cddl-spec/byron.cddl) file in IOHK repo.
 
-use minicbor::bytes::ByteVec;
-use minicbor_derive::{Decode, Encode};
+use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use crate::utils::{
+use pallas_codec::utils::{
     CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
     ZeroOrOneArray,
 };
+
+// required for derive attrs to work
+use pallas_codec::minicbor;
 
 // Basic Cardano Types
 
@@ -134,6 +136,7 @@ impl minicbor::Encode for AddrType {
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     Bytes(ByteVec),
+    Unparsed(u8, ByteVec),
 }
 
 impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
@@ -143,9 +146,7 @@ impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
         match key {
             0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
             1 => Ok(AddrAttrProperty::Bytes(d.decode()?)),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant for addrattr property",
-            )),
+            x => Ok(AddrAttrProperty::Unparsed(x, d.decode()?)),
         }
     }
 }
@@ -165,6 +166,12 @@ impl minicbor::Encode for AddrAttrProperty {
             AddrAttrProperty::Bytes(x) => {
                 e.u32(1)?;
                 e.encode(x)?;
+
+                Ok(())
+            }
+            AddrAttrProperty::Unparsed(a, b) => {
+                e.encode(a)?;
+                e.encode(b)?;
 
                 Ok(())
             }
@@ -952,7 +959,7 @@ mod tests {
     use crate::byron::{Block, BlockHead};
     use crate::Fragment;
 
-    use minicbor::{self, to_vec};
+    use pallas_codec::minicbor::to_vec;
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
@@ -964,6 +971,7 @@ mod tests {
             include_str!("test_data/test4.block"),
             include_str!("test_data/test5.block"),
             include_str!("test_data/test6.block"),
+            include_str!("test_data/test7.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

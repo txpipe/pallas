@@ -3,11 +3,9 @@ pub mod queries;
 
 use std::fmt::Debug;
 
-use log::debug;
+use pallas_codec::Fragment;
 
-use crate::machines::{
-    Agent, DecodePayload, EncodePayload, MachineError, MachineOutput, Transition,
-};
+use crate::machines::{Agent, MachineError, MachineOutput, Transition};
 
 use crate::common::Point;
 
@@ -26,8 +24,8 @@ pub enum AcquireFailure {
     PointNotInChain,
 }
 pub trait Query: Debug {
-    type Request: EncodePayload + DecodePayload + Clone + Debug;
-    type Response: EncodePayload + DecodePayload + Clone + Debug;
+    type Request: Clone + Debug;
+    type Response: Clone + Debug;
 }
 
 #[derive(Debug)]
@@ -52,7 +50,11 @@ pub struct OneShotClient<Q: Query> {
     pub output: Option<Output<Q::Response>>,
 }
 
-impl<Q: Query> OneShotClient<Q> {
+impl<Q> OneShotClient<Q>
+where
+    Q: Query,
+    Message<Q>: Fragment,
+{
     pub fn initial(check_point: Option<Point>, request: Q::Request) -> Self {
         Self {
             state: State::Idle,
@@ -96,7 +98,7 @@ impl<Q: Query> OneShotClient<Q> {
     }
 
     fn on_acquired(self) -> Transition<Self> {
-        debug!("acquired check point for chain state");
+        log::debug!("acquired check point for chain state");
 
         Ok(Self {
             state: State::Acquired,
@@ -105,7 +107,7 @@ impl<Q: Query> OneShotClient<Q> {
     }
 
     fn on_result(self, response: Q::Response) -> Transition<Self> {
-        debug!("query result received: {:?}", response);
+        log::debug!("query result received: {:?}", response);
 
         Ok(Self {
             state: State::Acquired,
@@ -115,7 +117,7 @@ impl<Q: Query> OneShotClient<Q> {
     }
 
     fn on_failure(self, failure: AcquireFailure) -> Transition<Self> {
-        debug!("acquire failure: {:?}", failure);
+        log::debug!("acquire failure: {:?}", failure);
 
         Ok(Self {
             state: State::Idle,
@@ -132,7 +134,11 @@ impl<Q: Query> OneShotClient<Q> {
     }
 }
 
-impl<Q: Query + 'static> Agent for OneShotClient<Q> {
+impl<Q> Agent for OneShotClient<Q>
+where
+    Q: Query + 'static,
+    Message<Q>: Fragment,
+{
     type Message = Message<Q>;
 
     fn is_done(&self) -> bool {

@@ -1,28 +1,25 @@
-use crate::{
-    machines::{CodecError, DecodePayload, EncodePayload, PayloadEncoder},
-    payloads::PayloadDecoder,
-};
 use itertools::Itertools;
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use std::{collections::HashMap, fmt::Debug};
 
 #[derive(Debug, Clone)]
 pub struct VersionTable<T>
 where
-    T: Debug + Clone + EncodePayload + DecodePayload,
+    T: Debug + Clone,
 {
     pub values: HashMap<u64, T>,
 }
 
-impl<T> EncodePayload for VersionTable<T>
+impl<'b, T> Encode for VersionTable<T>
 where
-    T: Debug + Clone + EncodePayload + DecodePayload,
+    T: Debug + Clone + Encode + Decode<'b>,
 {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         e.map(self.values.len() as u64)?;
 
         for key in self.values.keys().sorted() {
             e.u64(*key)?;
-            self.values[key].encode_payload(e)?;
+            self.values[key].encode(e)?;
         }
 
         Ok(())
@@ -40,8 +37,8 @@ pub enum RefuseReason {
     Refused(VersionNumber, String),
 }
 
-impl EncodePayload for RefuseReason {
-    fn encode_payload(&self, e: &mut PayloadEncoder) -> Result<(), Box<dyn std::error::Error>> {
+impl Encode for RefuseReason {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         match self {
             RefuseReason::VersionMismatch(versions) => {
                 e.array(2)?;
@@ -73,8 +70,8 @@ impl EncodePayload for RefuseReason {
     }
 }
 
-impl DecodePayload for RefuseReason {
-    fn decode_payload(d: &mut PayloadDecoder) -> Result<Self, Box<dyn std::error::Error>> {
+impl<'b> Decode<'b> for RefuseReason {
+    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.array()?;
 
         match d.u16()? {
@@ -95,7 +92,7 @@ impl DecodePayload for RefuseReason {
 
                 Ok(RefuseReason::Refused(version, msg.to_string()))
             }
-            x => Err(Box::new(CodecError::BadLabel(x))),
+            _ => Err(decode::Error::message("unknown variant for refusereason")),
         }
     }
 }
