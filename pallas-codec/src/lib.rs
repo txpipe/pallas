@@ -11,20 +11,19 @@ pub trait Fragment: Sized {
     fn write_cbor<W: Write>(&self, write: W) -> Result<(), minicbor::encode::Error<W::Error>>;
 }
 
-#[macro_export]
-macro_rules! impl_fragment {
-    ($Struct:ty) => {
-        impl $crate::Fragment for $Struct {
-            fn read_cbor(buffer: &[u8]) -> Result<Self, decode::Error> {
-                $crate::minicbor::decode(buffer)
-            }
+pub trait DecodeOwned: for<'b> minicbor::Decode<'b> {}
 
-            fn write_cbor<W: encode::Write>(
-                &self,
-                write: W,
-            ) -> Result<(), encode::Error<W::Error>> {
-                $crate::minicbor::encode(self, write)
-            }
-        }
-    };
+impl<T> DecodeOwned for T where T: for<'b> minicbor::Decode<'b> {}
+
+impl<T> Fragment for T
+where
+    T: DecodeOwned + minicbor::Encode,
+{
+    fn read_cbor(buffer: &[u8]) -> Result<Self, minicbor::decode::Error> {
+        minicbor::decode(buffer)
+    }
+
+    fn write_cbor<W: Write>(&self, write: W) -> Result<(), minicbor::encode::Error<W::Error>> {
+        minicbor::encode(self, write)
+    }
 }

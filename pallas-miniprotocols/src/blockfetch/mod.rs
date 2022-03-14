@@ -4,7 +4,6 @@ use crate::machines::{Agent, MachineOutput, Transition};
 
 use crate::common::Point;
 
-use pallas_codec::impl_fragment;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -89,8 +88,6 @@ impl<'b> Decode<'b> for Message {
         }
     }
 }
-
-impl_fragment!(Message);
 
 pub trait Observer {
     fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
