@@ -1,10 +1,7 @@
 use core::panic;
 use std::collections::HashMap;
 
-use pallas_codec::{
-    impl_fragment,
-    minicbor::{decode, encode, Decode, Encode, Encoder},
-};
+use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
 use crate::machines::{Agent, MachineOutput};
 
@@ -135,8 +132,6 @@ impl<'b> Decode<'b> for Message {
         }
     }
 }
-
-impl_fragment!(Message);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum State {

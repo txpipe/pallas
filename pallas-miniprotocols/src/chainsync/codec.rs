@@ -1,8 +1,5 @@
 use crate::common::Point;
-use pallas_codec::{
-    impl_fragment,
-    minicbor::{decode, encode, Decode, Decoder, Encode, Encoder},
-};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::{BlockContent, HeaderContent, Message, SkippedContent, Tip};
 
@@ -165,8 +162,6 @@ impl Encode for HeaderContent {
     }
 }
 
-impl_fragment!(Message<HeaderContent>);
-
 impl<'b> Decode<'b> for BlockContent {
     fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.tag()?;
@@ -181,8 +176,6 @@ impl Encode for BlockContent {
     }
 }
 
-impl_fragment!(Message<BlockContent>);
-
 impl<'b> Decode<'b> for SkippedContent {
     fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
         d.skip()?;
@@ -195,5 +188,3 @@ impl Encode for SkippedContent {
         todo!()
     }
 }
-
-impl_fragment!(Message<SkippedContent>);

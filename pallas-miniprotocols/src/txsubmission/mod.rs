@@ -2,10 +2,7 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 use log::debug;
-use pallas_codec::{
-    impl_fragment,
-    minicbor::{decode, encode, Decode, Decoder, Encode, Encoder},
-};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::machines::{Agent, MachineError, MachineOutput, Transition};
 
@@ -141,8 +138,6 @@ impl<'b> Decode<'b> for Message {
         }
     }
 }
-
-impl_fragment!(Message);
 
 /// A very basic tx provider agent with a fixed set of tx to submit
 ///

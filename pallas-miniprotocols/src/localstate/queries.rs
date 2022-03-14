@@ -1,9 +1,6 @@
-use pallas_codec::{
-    impl_fragment,
-    minicbor::{data::Cbor, decode, encode, Decode, Decoder, Encode, Encoder},
-};
+use pallas_codec::minicbor::{data::Cbor, decode, encode, Decode, Decoder, Encode, Encoder};
 
-use super::{Message, Query};
+use super::Query;
 
 #[derive(Debug, Clone)]
 pub struct BlockQuery {}
@@ -69,5 +66,3 @@ impl Query for QueryV10 {
     type Request = RequestV10;
     type Response = GenericResponse;
 }
-
-impl_fragment!(Message<QueryV10>);
