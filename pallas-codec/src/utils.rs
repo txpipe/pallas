@@ -266,7 +266,16 @@ impl<T> Deref for CborWrap<T> {
 }
 
 #[derive(Debug)]
-pub struct TagWrap<I, const T: u64>(I);
+pub struct TagWrap<I, const T: u64>(pub I);
+
+impl<I, const T: u64> Clone for TagWrap<I, T>
+where
+    I: Clone,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<'b, I, const T: u64> minicbor::Decode<'b> for TagWrap<I, T>
 where

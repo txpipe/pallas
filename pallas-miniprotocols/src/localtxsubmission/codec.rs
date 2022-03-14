@@ -1,7 +1,4 @@
-use pallas_codec::{
-    minicbor::{decode, encode, Decode, Decoder, Encode, Encoder},
-    DecodeOwned,
-};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::protocol::Message;
 

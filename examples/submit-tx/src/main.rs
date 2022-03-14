@@ -1,13 +1,11 @@
 use net2::TcpStreamExt;
 use pallas::codec::minicbor::bytes::ByteVec;
-use pallas::codec::utils::CborWrap;
+use pallas::codec::utils::TagWrap;
 use std::net::TcpStream;
-
-use pallas::codec::{DecodeOwned, Fragment};
 
 use pallas::ledger::primitives::alonzo::network::{SubmitTx, SubmitTxRejection};
 use pallas::network::miniprotocols::handshake::n2c::{Client, VersionTable};
-use pallas::network::miniprotocols::localtxsubmission::{BatchClient, Message};
+use pallas::network::miniprotocols::localtxsubmission::BatchClient;
 use pallas::network::miniprotocols::{run_agent, TESTNET_MAGIC};
 use pallas::network::multiplexer::Multiplexer;
 
@@ -32,7 +30,7 @@ fn main() {
     let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
     println!("{:?}", last);
 
-    let tx = SubmitTx(CborWrap(ByteVec::from(hex::decode(TX).unwrap())));
+    let tx = SubmitTx(TagWrap(ByteVec::from(hex::decode(TX).unwrap())));
 
     let mut ts_channel = muxer.use_channel(6);
     let ts = AlonzoBatchClient::initial(vec![tx]);
