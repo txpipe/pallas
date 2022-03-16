@@ -8,10 +8,7 @@ use pallas::network::{
     multiplexer::Multiplexer,
 };
 
-use pallas::{
-    ledger::primitives::{alonzo::*, Fragment},
-    network::miniprotocols::blockfetch::{BatchClient, Observer},
-};
+use pallas::network::miniprotocols::blockfetch::{BatchClient, Observer};
 
 use std::net::TcpStream;
 
@@ -22,7 +19,6 @@ impl Observer for BlockPrinter {
     fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", hex::encode(&body));
         println!("----------");
-        BlockWrapper::decode_fragment(&body[..])?;
         Ok(())
     }
 }
@@ -42,13 +38,13 @@ fn main() {
 
     let range = (
         Point::Specific(
-            4492794,
-            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
+            97,
+            hex::decode("cf7fa60bbd210273d79fa48d11ab1d141242af32b231cc40ce3411230a8d3c61")
                 .unwrap(),
         ),
         Point::Specific(
-            4492794,
-            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
+            99,
+            hex::decode("a52cca923a67326ea9c409e958a17a77990be72f3607625ec5b3d456202e223e")
                 .unwrap(),
         ),
     );
