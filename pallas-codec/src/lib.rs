@@ -11,13 +11,9 @@ pub trait Fragment: Sized {
     fn write_cbor<W: Write>(&self, write: W) -> Result<(), minicbor::encode::Error<W::Error>>;
 }
 
-pub trait DecodeOwned: for<'b> minicbor::Decode<'b> {}
-
-impl<T> DecodeOwned for T where T: for<'b> minicbor::Decode<'b> {}
-
 impl<T> Fragment for T
 where
-    T: DecodeOwned + minicbor::Encode,
+    T: for<'b> minicbor::Decode<'b> + minicbor::Encode,
 {
     fn read_cbor(buffer: &[u8]) -> Result<Self, minicbor::decode::Error> {
         minicbor::decode(buffer)
