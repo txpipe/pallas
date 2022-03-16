@@ -1,5 +1,5 @@
 pub use crate::payloads::*;
-use pallas_codec::Fragment;
+use pallas_codec::{minicbor, Fragment};
 use pallas_multiplexer::{Channel, Payload};
 use std::fmt::{Debug, Display};
 use std::sync::mpsc::Sender;
@@ -66,7 +66,7 @@ pub trait MachineOutput {
 impl MachineOutput for Sender<Payload> {
     fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = Vec::new();
-        data.write_cbor(&mut payload)?;
+        minicbor::encode(data, &mut payload)?;
         self.send(payload)?;
 
         Ok(())
@@ -92,6 +92,7 @@ where
     let Channel(tx, rx) = channel;
 
     let mut agent = agent;
+    let mut buffer = Vec::new();
 
     while !agent.is_done() {
         log::debug!("evaluating agent {:?}", agent);
@@ -101,8 +102,6 @@ where
                 agent = agent.send_next(tx)?;
             }
             false => {
-                let mut buffer = Vec::new();
-
                 let msg = read_until_full_msg::<T::Message>(&mut buffer, rx).unwrap();
                 log::trace!("procesing inbound msg: {:?}", msg);
                 agent = agent.receive_next(msg)?;
