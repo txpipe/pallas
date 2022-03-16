@@ -917,7 +917,7 @@ big_nint = #6.3(bounded_bytes) ; New
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BigInt {
-    Int(i64),
+    Int(Int),
     BigUInt(ByteVec),
     BigNInt(ByteVec),
 }
@@ -1440,6 +1440,8 @@ mod tests {
             include_str!("test_data/test18.block"),
             // peculiar block with nevative i64 overflow
             include_str!("test_data/test19.block"),
+            // peculiar block with very BigInt in plutus code
+            include_str!("test_data/test20.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
