@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use net2::TcpStreamExt;
-
 use pallas::ledger::primitives::{alonzo, byron, probing, Era, Fragment};
 
 fn pretty_print(block: impl Debug) {
@@ -17,7 +15,7 @@ fn main() {
         include_str!("blocks/alonzo.block"),
     ];
 
-    for (idx, block_str) in blocks.iter().enumerate() {
+    for block_str in blocks.iter() {
         let bytes = hex::decode(block_str).expect("valid hex");
 
         match probing::probe_block_cbor_era(&bytes) {
