@@ -6,4 +6,6 @@ mod fees;
 mod model;
 mod time;
 
+pub mod config;
+
 pub use model::*;
