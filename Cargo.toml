@@ -8,5 +8,5 @@ members = [
     "pallas-primitives",
     "pallas",
     "examples/block-download",
-    "examples/byron-decoder",
+    "examples/block-decode",
 ]
