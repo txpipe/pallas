@@ -1,6 +1,6 @@
 # Pallas Multiplexer
 
-This is an implementation of the Ouroboros multiplexer logic as defined in the [The Shelley Networking Protocol](https://hydra.iohk.io/build/8242334/download/2/network-spec.pdf) specs.
+This is an implementation of the Ouroboros multiplexer logic as defined in the [The Shelley Networking Protocol](https://hydra.iohk.io/build/1070091/download/1/network.pdf#chapter.3) specs.
 
 ## Architectural Decisions
 
