@@ -12,14 +12,14 @@ The following architectural decisions were made for this particular Rust impleme
 
 ## Development Status
 
-| mini-protocol                  | status  |
-| ------------------------------ | ------- |
-| [block-fetch](/blockfetch)     | done    |
-| [chain-sync](/chainsync)       | done    |
-| [handshake](/handshake)        | done    |
-| [local-state](/localstate)     | done    |
-| [tx-submission](/txsubmission) | done    |
-| local-tx-submission            | ongoing |
+| mini-protocol                   | status  |
+| ------------------------------- | ------- |
+| [block-fetch](./blockfetch)     | done    |
+| [chain-sync](./chainsync)       | done    |
+| [handshake](./handshake)        | done    |
+| [local-state](./localstate)     | done    |
+| [tx-submission](./txsubmission) | done    |
+| local-tx-submission             | ongoing |
 
 ## Implementation Details
 
