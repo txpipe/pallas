@@ -1,4 +1,4 @@
-# Pallas Machines
+# Pallas Mini-protocols
 
 This crate provides an implementation of the different Ouroboros mini-protocols as defined in the [The Shelley Networking Protocol](https://hydra.iohk.io/build/1070091/download/1/network.pdf#chapter.3) specs.
 
