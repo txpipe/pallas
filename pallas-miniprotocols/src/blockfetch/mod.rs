@@ -1,5 +1,3 @@
-use std::sync::mpsc::Receiver;
-
 use crate::machines::{Agent, MachineOutput, Transition};
 
 use crate::common::Point;
@@ -206,20 +204,22 @@ where
 }
 
 #[derive(Debug)]
-pub struct OnDemandClient<O>
+pub struct OnDemandClient<I, O>
 where
+    I: Iterator<Item = Point>,
     O: Observer,
 {
     pub state: State,
-    pub requests: Receiver<Point>,
+    pub requests: I,
     pub observer: O,
 }
 
-impl<O> OnDemandClient<O>
+impl<I, O> OnDemandClient<I, O>
 where
+    I: Iterator<Item = Point>,
     O: Observer,
 {
-    pub fn initial(requests: Receiver<Point>, observer: O) -> Self {
+    pub fn initial(requests: I, observer: O) -> Self {
         Self {
             state: State::Idle,
             requests,
@@ -227,8 +227,8 @@ where
         }
     }
 
-    fn wait_for_request_and_send(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let point = self.requests.recv()?;
+    fn send_request_range(self, tx: &impl MachineOutput, point: Point) -> Transition<Self> {
+        log::debug!("requesting block {:?}", point);
 
         let msg = Message::RequestRange {
             range: (point.clone(), point),
@@ -242,6 +242,24 @@ where
         })
     }
 
+    fn dropout(self) -> Transition<Self> {
+        log::debug!("dropping out, channel will remain open");
+
+        Ok(Self {
+            state: State::Done,
+            ..self
+        })
+    }
+
+    fn wait_for_request_and_send(mut self, tx: &impl MachineOutput) -> Transition<Self> {
+        let point = self.requests.next();
+
+        match point {
+            Some(x) => self.send_request_range(tx, x),
+            None => self.dropout(),
+        }
+    }
+
     fn on_block(self, body: Vec<u8>) -> Transition<Self> {
         log::debug!("received block body, size {}", body.len());
 
@@ -251,16 +269,15 @@ where
     }
 }
 
-impl<O> Agent for OnDemandClient<O>
+impl<I, O> Agent for OnDemandClient<I, O>
 where
+    I: Iterator<Item = Point>,
     O: Observer,
 {
     type Message = Message;
 
-    // we're never done because we react to external work requests.
-    // TODO: see if we can inspect mpsc channel status and stop if disconnected
     fn is_done(&self) -> bool {
-        false
+        self.state == State::Done
     }
 
     fn has_agency(&self) -> bool {
