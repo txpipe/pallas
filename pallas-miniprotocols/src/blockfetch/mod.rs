@@ -242,12 +242,8 @@ where
         })
     }
 
-    fn send_done(self, tx: &impl MachineOutput) -> Transition<Self> {
-        log::debug!("notifying done");
-
-        let msg = Message::ClientDone;
-
-        //tx.send_msg(&msg)?;
+    fn dropout(self) -> Transition<Self> {
+        log::debug!("dropping out, channel will remain open");
 
         Ok(Self {
             state: State::Done,
@@ -260,7 +256,7 @@ where
 
         match point {
             Some(x) => self.send_request_range(tx, x),
-            None => self.send_done(tx),
+            None => self.dropout(),
         }
     }
 
