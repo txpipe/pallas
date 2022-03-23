@@ -1,15 +1,16 @@
+use core::panic;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use pallas_codec::Fragment;
 
-use crate::machines::{Agent, MachineError, MachineOutput, Transition};
+use crate::machines::{Agent, MachineError, Transition};
 
 use crate::common::Point;
 
 use super::{BlockContent, HeaderContent, Message, SkippedContent, State, Tip};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Continuation {
     Proceed,
     DropOut,
@@ -89,59 +90,6 @@ where
         }
     }
 
-    fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
-        log::debug!("requesting find intersect");
-
-        let points = match &self.known_points {
-            Some(x) => x.clone(),
-            None => return Err("can't find intersect without known points".into()),
-        };
-
-        let msg = Message::<C>::FindIntersect(points);
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Intersect,
-            ..self
-        })
-    }
-
-    fn send_request_next(self, tx: &impl MachineOutput) -> Transition<Self> {
-        log::debug!("requesting next");
-
-        let msg = Message::<C>::RequestNext;
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::CanAwait,
-            ..self
-        })
-    }
-
-    fn send_done(self, tx: &impl MachineOutput) -> Transition<Self> {
-        log::debug!("notifying done");
-
-        let msg = Message::<C>::Done;
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Done,
-            ..self
-        })
-    }
-
-    fn dropout(self) -> Transition<Self> {
-        log::debug!("dropping out, channel will keep open");
-
-        Ok(Self {
-            state: State::Done,
-            ..self
-        })
-    }
-
     fn on_intersect_found(mut self, point: Point, tip: Tip) -> Transition<Self> {
         log::debug!("intersect found: {:?} (tip: {:?})", point, tip);
 
@@ -216,7 +164,7 @@ where
     type Message = Message<C>;
 
     fn is_done(&self) -> bool {
-        self.state == State::Done
+        self.state == State::Done || self.continuation == Continuation::DropOut
     }
 
     fn has_agency(&self) -> bool {
@@ -229,29 +177,41 @@ where
         }
     }
 
-    fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
-        match self.continuation {
-            Continuation::Done => return self.send_done(tx),
-            Continuation::DropOut => return self.dropout(),
-            _ => (),
-        };
-
-        match self.state {
-            State::Idle => match self.intersect {
-                // keep going from pointer
-                Some(_) => self.send_request_next(tx),
-                _ => match self.known_points {
-                    // need to find instersection first
-                    Some(_) => self.send_find_intersect(tx),
-                    // start from genesis
-                    None => self.send_request_next(tx),
-                },
+    fn build_next(&self) -> Self::Message {
+        match (&self.state, &self.intersect, &self.continuation) {
+            (State::Idle, _, Continuation::Done) => Message::<C>::Done,
+            (State::Idle, None, Continuation::Proceed) => match &self.known_points {
+                Some(x) => Message::<C>::FindIntersect(x.clone()),
+                None => Message::<C>::RequestNext,
             },
-            _ => panic!("I don't have agency, don't know what to do"),
+            (State::Idle, Some(_), Continuation::Proceed) => Message::<C>::RequestNext,
+            _ => panic!(""),
         }
     }
 
-    fn receive_next(self, msg: Self::Message) -> Transition<Self> {
+    fn apply_start(self) -> Transition<Self> {
+        Ok(self)
+    }
+
+    fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
+        match (self.state, msg) {
+            (State::Idle, Message::RequestNext) => Ok(Self {
+                state: State::CanAwait,
+                ..self
+            }),
+            (State::Idle, Message::FindIntersect(_)) => Ok(Self {
+                state: State::Intersect,
+                ..self
+            }),
+            (State::Idle, Message::Done) => Ok(Self {
+                state: State::Done,
+                ..self
+            }),
+            _ => panic!(""),
+        }
+    }
+
+    fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
         match (&self.state, msg) {
             (State::CanAwait, Message::RollForward(header, tip)) => {
                 self.on_roll_forward(header, tip)
@@ -289,17 +249,6 @@ impl TipFinder {
             output: None,
             state: State::Idle,
         }
-    }
-
-    fn send_find_intersect(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::<SkippedContent>::FindIntersect(vec![self.wellknown_point.clone()]);
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Intersect,
-            ..self
-        })
     }
 
     fn on_intersect_found(self, tip: Tip) -> Transition<Self> {
@@ -344,20 +293,36 @@ impl Agent for TipFinder {
         }
     }
 
-    fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
+    fn build_next(&self) -> Self::Message {
         match self.state {
-            State::Idle => self.send_find_intersect(tx),
-            _ => panic!("I don't have agency, don't know what to do"),
+            State::Idle => {
+                Message::<SkippedContent>::FindIntersect(vec![self.wellknown_point.clone()])
+            }
+            _ => panic!("I don't know what to do"),
         }
     }
 
-    fn receive_next(self, msg: Self::Message) -> Transition<Self> {
+    fn apply_start(self) -> Transition<Self> {
+        Ok(self)
+    }
+
+    fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
+        match (self.state, msg) {
+            (State::Idle, Message::FindIntersect(_)) => Ok(Self {
+                state: State::Intersect,
+                ..self
+            }),
+            _ => panic!("I don't know what to do"),
+        }
+    }
+
+    fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
         match (&self.state, msg) {
             (State::Intersect, Message::IntersectFound(_point, tip)) => {
                 self.on_intersect_found(tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
+            (state, msg) => Err(MachineError::InvalidMsgForState(state.clone(), msg).into()),
         }
     }
 }

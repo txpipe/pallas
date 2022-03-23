@@ -5,7 +5,7 @@ use std::fmt::Debug;
 
 use pallas_codec::Fragment;
 
-use crate::machines::{Agent, MachineError, MachineOutput, Transition};
+use crate::machines::{Agent, MachineError, Transition};
 
 use crate::common::Point;
 
@@ -64,39 +64,6 @@ where
         }
     }
 
-    fn send_acquire(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::<Q>::Acquire(self.check_point.clone());
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Acquiring,
-            ..self
-        })
-    }
-
-    fn send_query(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::<Q>::Query(self.request.clone());
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Querying,
-            ..self
-        })
-    }
-
-    fn send_release(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::<Q>::Release;
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Idle,
-            ..self
-        })
-    }
-
     fn on_acquired(self) -> Transition<Self> {
         log::debug!("acquired check point for chain state");
 
@@ -110,7 +77,8 @@ where
         log::debug!("query result received: {:?}", response);
 
         Ok(Self {
-            state: State::Acquired,
+            // once we get a result, since this is a one-shot client, we mutate into Done
+            state: State::Done,
             output: Some(Ok(response)),
             ..self
         })
@@ -122,13 +90,6 @@ where
         Ok(Self {
             state: State::Idle,
             output: Some(Err(failure)),
-            ..self
-        })
-    }
-
-    fn done(self) -> Transition<Self> {
-        Ok(Self {
-            state: State::Done,
             ..self
         })
     }
@@ -154,21 +115,45 @@ where
         }
     }
 
-    fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
+    fn build_next(&self) -> Self::Message {
         match (&self.state, &self.output) {
             // if we're idle and without a result, assume start of flow
-            (State::Idle, None) => self.send_acquire(tx),
-            // if we're idle and with a result, assume end of flow
-            (State::Idle, Some(_)) => self.done(),
+            (State::Idle, None) => Message::<Q>::Acquire(self.check_point.clone()),
             // if we don't have an output, assume start of query
-            (State::Acquired, None) => self.send_query(tx),
+            (State::Acquired, None) => Message::<Q>::Query(self.request.clone()),
             // if we have an output but still acquired, release the server
-            (State::Acquired, Some(_)) => self.send_release(tx),
+            (State::Acquired, Some(_)) => Message::<Q>::Release,
             _ => panic!("I don't have agency, don't know what to do"),
         }
     }
 
-    fn receive_next(self, msg: Self::Message) -> Transition<Self> {
+    fn apply_start(self) -> Transition<Self> {
+        Ok(self)
+    }
+
+    fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
+        match (self.state, msg) {
+            (State::Idle, Message::Acquire(_)) => Ok(Self {
+                state: State::Acquiring,
+                ..self
+            }),
+            (State::Acquired, Message::Query(_)) => Ok(Self {
+                state: State::Querying,
+                ..self
+            }),
+            (State::Acquired, Message::Release) => Ok(Self {
+                state: State::Idle,
+                ..self
+            }),
+            (State::Idle, Message::Done) => Ok(Self {
+                state: State::Done,
+                ..self
+            }),
+            _ => panic!(""),
+        }
+    }
+
+    fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
         match (&self.state, msg) {
             (State::Acquiring, Message::Acquired) => self.on_acquired(),
             (State::Acquiring, Message::Failure(failure)) => self.on_failure(failure),

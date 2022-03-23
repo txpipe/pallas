@@ -1,5 +1,5 @@
 use pallas_miniprotocols::chainsync::{BlockContent, Consumer, NoopObserver};
-use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
+use pallas_miniprotocols::handshake::{n2c::VersionTable, Initiator};
 use pallas_miniprotocols::{run_agent, Point, MAINNET_MAGIC};
 use pallas_multiplexer::Multiplexer;
 use std::os::unix::net::UnixStream;
@@ -15,7 +15,7 @@ fn main() {
 
     let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::v1_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
+    let last = run_agent(Initiator::initial(versions), &mut hs_channel).unwrap();
     println!("last hanshake state: {:?}", last);
 
     // some random known-point in the chain to use as starting point for the sync

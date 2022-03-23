@@ -5,7 +5,7 @@ use pallas_miniprotocols::Point;
 use std::net::TcpStream;
 
 use pallas_miniprotocols::chainsync::{Consumer, HeaderContent, NoopObserver};
-use pallas_miniprotocols::handshake::n2n::{Client, VersionTable};
+use pallas_miniprotocols::handshake::{n2n::VersionTable, Initiator};
 use pallas_miniprotocols::{run_agent, MAINNET_MAGIC};
 use pallas_multiplexer::Multiplexer;
 
@@ -23,7 +23,7 @@ fn main() {
     let mut hs_channel = muxer.use_channel(0);
 
     let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
+    let last = run_agent(Initiator::initial(versions), &mut hs_channel).unwrap();
     println!("{:?}", last);
 
     let known_points = vec![Point::Specific(
