@@ -1,4 +1,4 @@
-use crate::machines::{Agent, MachineOutput, Transition};
+use crate::machines::{Agent, Transition};
 
 use crate::common::Point;
 
@@ -133,14 +133,14 @@ where
         }
     }
 
-    fn send_request_range(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::RequestRange {
+    fn request_range_msg(&self) -> Message {
+        Message::RequestRange {
             range: self.range.clone(),
-        };
+        }
+    }
 
-        tx.send_msg(&msg)?;
-
-        self.observer.on_block_range_requested(&self.range)?;
+    fn on_range_requested(self) -> Transition<Self> {
+        log::debug!("block range requested");
 
         Ok(Self {
             state: State::Busy,
@@ -154,6 +154,20 @@ where
         self.observer.on_block_received(body)?;
 
         Ok(self)
+    }
+
+    fn on_batch_done(self) -> Transition<Self> {
+        Ok(Self {
+            state: State::Done,
+            ..self
+        })
+    }
+
+    fn on_client_done(self) -> Transition<Self> {
+        Ok(Self {
+            state: State::Done,
+            ..self
+        })
     }
 }
 
@@ -176,14 +190,29 @@ where
         }
     }
 
-    fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
+    fn build_next(&self) -> Self::Message {
         match self.state {
-            State::Idle => self.send_request_range(tx),
+            State::Idle => self.request_range_msg(),
             _ => panic!("I don't have agency, don't know what to do"),
         }
     }
 
-    fn receive_next(self, msg: Self::Message) -> Transition<Self> {
+    fn apply_start(self) -> Transition<Self> {
+        Ok(Self {
+            state: State::Idle,
+            ..self
+        })
+    }
+
+    fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
+        match (&self.state, msg) {
+            (State::Idle, Message::RequestRange { .. }) => self.on_range_requested(),
+            (State::Idle, Message::ClientDone) => self.on_client_done(),
+            _ => panic!("I don't have agency, I don't expect outbound message"),
+        }
+    }
+
+    fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
         match (&self.state, msg) {
             (State::Busy, Message::StartBatch) => Ok(Self {
                 state: State::Streaming,
@@ -194,10 +223,7 @@ where
                 ..self
             }),
             (State::Streaming, Message::Block { body }) => self.on_block(body),
-            (State::Streaming, Message::BatchDone) => Ok(Self {
-                state: State::Done,
-                ..self
-            }),
+            (State::Streaming, Message::BatchDone) => self.on_batch_done(),
             _ => panic!("I have agency, I don't expect messages"),
         }
     }
@@ -210,6 +236,8 @@ where
     O: Observer,
 {
     pub state: State,
+    pub inflight: Option<(Point, Point)>,
+    pub next: Option<(Point, Point)>,
     pub requests: I,
     pub observer: O,
 }
@@ -222,42 +250,41 @@ where
     pub fn initial(requests: I, observer: O) -> Self {
         Self {
             state: State::Idle,
+            inflight: None,
+            next: None,
             requests,
             observer,
         }
     }
 
-    fn send_request_range(self, tx: &impl MachineOutput, point: Point) -> Transition<Self> {
-        log::debug!("requesting block {:?}", point);
+    fn wait_for_request(mut self) -> Transition<Self> {
+        log::debug!("waiting for external block request");
 
-        let msg = Message::RequestRange {
-            range: (point.clone(), point),
-        };
+        let next = self.requests.next();
 
-        tx.send_msg(&msg)?;
+        match next {
+            Some(x) => Ok(Self {
+                state: State::Idle,
+                next: Some((x.clone(), x)),
+                ..self
+            }),
+            None => Ok(Self {
+                state: State::Done,
+                next: None,
+                ..self
+            }),
+        }
+    }
+
+    fn on_range_requested(self, range: (Point, Point)) -> Transition<Self> {
+        log::debug!("requested block range {:?}", range);
 
         Ok(Self {
             state: State::Busy,
+            inflight: Some(range),
+            next: None,
             ..self
         })
-    }
-
-    fn dropout(self) -> Transition<Self> {
-        log::debug!("dropping out, channel will remain open");
-
-        Ok(Self {
-            state: State::Done,
-            ..self
-        })
-    }
-
-    fn wait_for_request_and_send(mut self, tx: &impl MachineOutput) -> Transition<Self> {
-        let point = self.requests.next();
-
-        match point {
-            Some(x) => self.send_request_range(tx, x),
-            None => self.dropout(),
-        }
     }
 
     fn on_block(self, body: Vec<u8>) -> Transition<Self> {
@@ -266,6 +293,17 @@ where
         self.observer.on_block_received(body)?;
 
         Ok(self)
+    }
+
+    fn on_batch_done(self) -> Transition<Self> {
+        self.wait_for_request()
+    }
+
+    fn on_client_done(self) -> Transition<Self> {
+        Ok(Self {
+            state: State::Done,
+            ..self
+        })
     }
 }
 
@@ -289,14 +327,29 @@ where
         }
     }
 
-    fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
-        match self.state {
-            State::Idle => self.wait_for_request_and_send(tx),
+    fn build_next(&self) -> Self::Message {
+        match (&self.state, &self.next) {
+            (State::Idle, Some(range)) => Message::RequestRange {
+                range: range.clone(),
+            },
+            (State::Idle, None) => panic!("I'm idle but no more block requests available"),
             _ => panic!("I don't have agency, don't know what to do"),
         }
     }
 
-    fn receive_next(self, msg: Self::Message) -> Transition<Self> {
+    fn apply_start(self) -> Transition<Self> {
+        self.wait_for_request()
+    }
+
+    fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
+        match (&self.state, msg) {
+            (State::Idle, Message::RequestRange { range }) => self.on_range_requested(range),
+            (State::Idle, Message::ClientDone) => self.on_client_done(),
+            _ => panic!("I don't have agency, I don't expect outbound message"),
+        }
+    }
+
+    fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
         match (&self.state, msg) {
             (State::Busy, Message::StartBatch) => Ok(Self {
                 state: State::Streaming,
@@ -307,11 +360,8 @@ where
                 ..self
             }),
             (State::Streaming, Message::Block { body }) => self.on_block(body),
-            (State::Streaming, Message::BatchDone) => Ok(Self {
-                state: State::Idle,
-                ..self
-            }),
-            _ => panic!("I have agency, I don't expect messages"),
+            (State::Streaming, Message::BatchDone) => self.on_batch_done(),
+            _ => panic!("I have agency, I don't expect inbound message"),
         }
     }
 }

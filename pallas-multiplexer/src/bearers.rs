@@ -20,8 +20,9 @@ fn write_segment(
 
     if log_enabled!(log::Level::Trace) {
         trace!(
-            "sending segment, header {:?}, payload length: {}",
+            "sending segment, header {:?}, protocol id: {}, payload length: {}",
             hex::encode(&msg),
+            protocol_id,
             payload.len()
         );
     }

@@ -1,9 +1,9 @@
+mod agents;
 mod buffer;
-mod clients;
 mod codec;
 mod protocol;
 
+pub use agents::*;
 pub use buffer::*;
-pub use clients::*;
 pub use codec::*;
 pub use protocol::*;

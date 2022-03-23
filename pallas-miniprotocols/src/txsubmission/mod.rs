@@ -4,7 +4,7 @@ use itertools::Itertools;
 use log::debug;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
-use crate::machines::{Agent, MachineError, MachineOutput, Transition};
+use crate::machines::{Agent, MachineError, Transition};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum State {
@@ -151,7 +151,6 @@ impl<'b> Decode<'b> for Message {
 pub struct NaiveProvider {
     pub state: State,
     pub fifo_txs: Vec<Tx>,
-    pub acknowledged_count: usize,
     pub requested_ids_count: usize,
     pub requested_txs: Option<Vec<TxId>>,
 }
@@ -160,49 +159,27 @@ impl NaiveProvider {
     pub fn initial(fifo_txs: Vec<Tx>) -> Self {
         Self {
             state: State::Idle,
-            acknowledged_count: 0,
             requested_ids_count: 0,
             requested_txs: None,
             fifo_txs,
         }
     }
 
-    fn send_done(self, tx: &impl MachineOutput) -> Transition<Self> {
-        let msg = Message::Done;
-
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Done,
-            ..self
-        })
-    }
-
-    fn send_tx_ids(mut self, tx: &impl MachineOutput) -> Transition<Self> {
-        debug!("draining {} from tx fifo queue", self.acknowledged_count);
-        self.fifo_txs.drain(0..(self.acknowledged_count - 1));
-
+    fn reply_tx_ids_msg(&self) -> Message {
         debug!(
             "sending next {} tx ids from fifo queue",
             self.requested_ids_count
         );
+
         let to_send = self.fifo_txs[0..self.requested_ids_count]
             .iter()
             .map_into()
             .collect_vec();
 
-        let msg = Message::ReplyTxIds(to_send);
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Idle,
-            acknowledged_count: 0,
-            requested_ids_count: 0,
-            ..self
-        })
+        Message::ReplyTxIds(to_send)
     }
 
-    fn send_txs(self, tx: &impl MachineOutput) -> Transition<Self> {
+    fn reply_txs_msg(&self) -> Message {
         let matches = self
             .fifo_txs
             .iter()
@@ -213,14 +190,7 @@ impl NaiveProvider {
             .map(|Tx(_, body)| body.clone())
             .collect_vec();
 
-        let msg = Message::ReplyTxs(matches);
-        tx.send_msg(&msg)?;
-
-        Ok(Self {
-            state: State::Idle,
-            requested_txs: None,
-            ..self
-        })
+        Message::ReplyTxs(matches)
     }
 
     fn on_tx_ids_request(
@@ -233,10 +203,17 @@ impl NaiveProvider {
             requested_ids_count, acknowledged_count
         );
 
+        debug!("draining {} from tx fifo queue", acknowledged_count);
+        let new_fifo: Vec<_> = self
+            .fifo_txs
+            .into_iter()
+            .skip(acknowledged_count - 1)
+            .collect();
+
         Ok(Self {
             state: State::Idle,
             requested_ids_count,
-            acknowledged_count,
+            fifo_txs: new_fifo,
             ..self
         })
     }
@@ -269,16 +246,38 @@ impl Agent for NaiveProvider {
         }
     }
 
-    fn send_next(self, tx: &impl MachineOutput) -> Transition<Self> {
-        match self.state {
-            State::TxIdsBlocking => self.send_done(tx),
-            State::TxIdsNonBlocking => self.send_tx_ids(tx),
-            State::Txs => self.send_txs(tx),
-            _ => panic!("I don't have agency, don't know what to do"),
+    fn build_next(&self) -> Self::Message {
+        match &self.state {
+            State::TxIdsNonBlocking => self.reply_tx_ids_msg(),
+            State::TxIdsBlocking => Message::Done,
+            State::Txs => self.reply_txs_msg(),
+            _ => panic!(""),
         }
     }
 
-    fn receive_next(self, msg: Self::Message) -> Transition<Self> {
+    fn apply_start(self) -> Transition<Self> {
+        Ok(self)
+    }
+
+    fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
+        match (self.state, msg) {
+            (State::TxIdsNonBlocking, Message::ReplyTxIds(_)) => Ok(Self {
+                state: State::Idle,
+                ..self
+            }),
+            (State::TxIdsBlocking, Message::Done) => Ok(Self {
+                state: State::Done,
+                ..self
+            }),
+            (State::Txs, Message::ReplyTxs(_)) => Ok(Self {
+                state: State::Idle,
+                ..self
+            }),
+            _ => panic!(),
+        }
+    }
+
+    fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
         match (&self.state, msg) {
             (State::Idle, Message::RequestTxIds(block, ack, req)) if !block => {
                 self.on_tx_ids_request(ack as usize, req as usize)

@@ -1,4 +1,4 @@
-use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
+use pallas_miniprotocols::handshake::{n2c::VersionTable, Initiator};
 use pallas_miniprotocols::localstate::{
     queries::{QueryV10, RequestV10},
     OneShotClient,
@@ -19,7 +19,7 @@ fn main() {
 
     let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::only_v10(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
+    let last = run_agent(Initiator::initial(versions), &mut hs_channel).unwrap();
     println!("last hanshake state: {:?}", last);
 
     let mut ls_channel = muxer.use_channel(7);

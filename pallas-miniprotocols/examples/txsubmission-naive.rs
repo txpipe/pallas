@@ -1,7 +1,7 @@
 use net2::TcpStreamExt;
 use std::net::TcpStream;
 
-use pallas_miniprotocols::handshake::n2c::{Client, VersionTable};
+use pallas_miniprotocols::handshake::{n2c::VersionTable, Initiator};
 use pallas_miniprotocols::txsubmission::NaiveProvider;
 use pallas_miniprotocols::{run_agent, MAINNET_MAGIC};
 use pallas_multiplexer::Multiplexer;
@@ -19,7 +19,7 @@ fn main() {
 
     let mut hs_channel = muxer.use_channel(0);
     let versions = VersionTable::v1_and_above(MAINNET_MAGIC);
-    let last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
+    let last = run_agent(Initiator::initial(versions), &mut hs_channel).unwrap();
     println!("{:?}", last);
 
     let mut ts_channel = muxer.use_channel(4);
