@@ -88,7 +88,7 @@ impl<'b> Decode<'b> for Message {
 }
 
 pub trait Observer {
-    fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    fn on_block_received(&mut self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         log::debug!("block received, sice: {}", body.len());
         Ok(())
     }
@@ -148,7 +148,7 @@ where
         })
     }
 
-    fn on_block(self, body: Vec<u8>) -> Transition<Self> {
+    fn on_block(mut self, body: Vec<u8>) -> Transition<Self> {
         log::debug!("received block body, size {}", body.len());
 
         self.observer.on_block_received(body)?;
@@ -287,7 +287,7 @@ where
         })
     }
 
-    fn on_block(self, body: Vec<u8>) -> Transition<Self> {
+    fn on_block(mut self, body: Vec<u8>) -> Transition<Self> {
         log::debug!("received block body, size {}", body.len());
 
         self.observer.on_block_received(body)?;
