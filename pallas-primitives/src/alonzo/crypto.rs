@@ -9,6 +9,7 @@ pub fn hash_auxiliary_data(data: &AuxiliaryData) -> Hash<32> {
     Hasher::<256>::hash_cbor(data)
 }
 
+#[deprecated(note = "use TransactionBody::to_hash instead")]
 pub fn hash_transaction(data: &TransactionBody) -> Hash<32> {
     Hasher::<256>::hash_cbor(data)
 }
@@ -17,12 +18,16 @@ pub fn hash_plutus_data(data: &PlutusData) -> Hash<32> {
     Hasher::<256>::hash_cbor(data)
 }
 
+impl TransactionBody {
+    pub fn to_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::alonzo::BlockWrapper;
     use crate::Fragment;
-
-    use super::hash_transaction;
 
     #[test]
     fn transaction_hash_works() {
@@ -43,7 +48,7 @@ mod tests {
         ];
 
         for (tx_idx, tx) in block_model.1.transaction_bodies.iter().enumerate() {
-            let computed_hash = hash_transaction(tx);
+            let computed_hash = tx.to_hash();
             let known_hash = valid_hashes[tx_idx];
             assert_eq!(hex::encode(computed_hash), known_hash)
         }
