@@ -16,7 +16,7 @@ use std::net::TcpStream;
 struct BlockPrinter;
 
 impl Observer for BlockPrinter {
-    fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    fn on_block_received(&mut self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", hex::encode(&body));
         println!("----------");
         Ok(())
