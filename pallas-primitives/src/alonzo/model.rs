@@ -1402,14 +1402,8 @@ pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
 #[cfg(test)]
 mod tests {
     use super::BlockWrapper;
-    use crate::{
-        alonzo::{Coin, RewardAccount, TransactionBodyComponent},
-        Fragment,
-    };
-    use pallas_codec::{
-        minicbor::{bytes::ByteVec, data::Int, to_vec},
-        utils::KeyValuePairs,
-    };
+    use crate::Fragment;
+    use pallas_codec::minicbor::to_vec;
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
