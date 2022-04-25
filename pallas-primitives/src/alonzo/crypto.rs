@@ -1,4 +1,4 @@
-use super::{AuxiliaryData, Header, PlutusData, TransactionBody};
+use super::{AuxiliaryData, Header, NativeScript, PlutusData, TransactionBody};
 use pallas_crypto::hash::{Hash, Hasher};
 
 pub fn hash_block_header(data: &Header) -> Hash<32> {
@@ -14,8 +14,21 @@ pub fn hash_transaction(data: &TransactionBody) -> Hash<32> {
     Hasher::<256>::hash_cbor(data)
 }
 
+#[deprecated(note = "use PlutusData::to_hash instead")]
 pub fn hash_plutus_data(data: &PlutusData) -> Hash<32> {
     Hasher::<256>::hash_cbor(data)
+}
+
+impl NativeScript {
+    pub fn to_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_cbor(self)
+    }
+}
+
+impl PlutusData {
+    pub fn to_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
 }
 
 impl TransactionBody {
