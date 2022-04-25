@@ -19,7 +19,10 @@ impl ToCanonicalJson for super::PlutusData {
                 json!({ "map": map })
             }
             super::PlutusData::BigInt(int) => match int {
-                super::BigInt::Int(n) => json!({ "int": i128::from(*n) }),
+                super::BigInt::Int(n) => match i64::try_from(*n) {
+                    Ok(x) => json!({ "int": x }),
+                    Err(_) => json!({ "bignint": hex::encode(i128::from(*n).to_be_bytes()) }),
+                },
                 // WARNING / TODO: the CDDL shows a bignum variants of arbitrary length expressed as
                 // bytes, but I can't find the corresponding mapping to JSON in the
                 // Haskell implementation. Not sure what I'm missing. For the time
@@ -61,6 +64,71 @@ impl ToCanonicalJson for super::NativeScript {
             }
             super::NativeScript::InvalidBefore(slot) => json!({ "type": "before", "slot": slot }),
             super::NativeScript::InvalidHereafter(slot) => json!({"type": "after", "slot": slot }),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{alonzo::BlockWrapper, Fragment, ToCanonicalJson};
+
+    #[test]
+    fn test_datums_serialize_as_expected() {
+        let test_blocks = vec![(
+            include_str!("test_data/test9.block"),
+            include_str!("test_data/test9.datums"),
+        )];
+
+        for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
+            println!("decoding json block {}", idx + 1);
+
+            let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+
+            let BlockWrapper(_, block) = BlockWrapper::decode_fragment(&bytes[..])
+                .expect(&format!("error decoding cbor for file {}", idx));
+
+            let mut datums = jsonl_str.lines();
+
+            for ws in block.transaction_witness_sets.iter() {
+                if let Some(pds) = &ws.plutus_data {
+                    for pd in pds.iter() {
+                        let expected: serde_json::Value =
+                            serde_json::from_str(datums.next().unwrap()).unwrap();
+                        let current = pd.to_json();
+                        assert_eq!(current, expected);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_native_scripts_serialize_as_expected() {
+        let test_blocks = vec![(
+            include_str!("test_data/test9.block"),
+            include_str!("test_data/test9.native"),
+        )];
+
+        for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
+            println!("decoding json block {}", idx + 1);
+
+            let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+
+            let BlockWrapper(_, block) = BlockWrapper::decode_fragment(&bytes[..])
+                .expect(&format!("error decoding cbor for file {}", idx));
+
+            let mut scripts = jsonl_str.lines();
+
+            for ws in block.transaction_witness_sets.iter() {
+                if let Some(nss) = &ws.native_script {
+                    for ns in nss.iter() {
+                        let expected: serde_json::Value =
+                            serde_json::from_str(scripts.next().unwrap()).unwrap();
+                        let current = ns.to_json();
+                        assert_eq!(current, expected);
+                    }
+                }
+            }
         }
     }
 }
