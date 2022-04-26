@@ -23,6 +23,11 @@ where
     }
 }
 
+#[cfg(feature = "json")]
+pub trait ToCanonicalJson {
+    fn to_json(&self) -> serde_json::Value;
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Era {
     Byron,
