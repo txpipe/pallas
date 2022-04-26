@@ -62,8 +62,8 @@ impl ToCanonicalJson for super::NativeScript {
                 let scripts: Vec<_> = k.iter().map(|i| i.to_json()).collect();
                 json!({ "type": "atLeast", "required": n, "scripts" : scripts })
             }
-            super::NativeScript::InvalidBefore(slot) => json!({ "type": "before", "slot": slot }),
-            super::NativeScript::InvalidHereafter(slot) => json!({"type": "after", "slot": slot }),
+            super::NativeScript::InvalidBefore(slot) => json!({ "type": "after", "slot": slot }),
+            super::NativeScript::InvalidHereafter(slot) => json!({"type": "before", "slot": slot }),
         }
     }
 }
