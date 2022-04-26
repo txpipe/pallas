@@ -377,7 +377,7 @@ where
 }
 
 /// A uint structure that preserves original int length
-#[derive(Debug, PartialEq, Clone, PartialOrd)]
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd)]
 pub enum AnyUInt {
     MajorByte(u8),
     U8(u8),
@@ -451,5 +451,11 @@ impl From<AnyUInt> for u64 {
             AnyUInt::U32(x) => x as u64,
             AnyUInt::U64(x) => x as u64,
         }
+    }
+}
+
+impl From<&AnyUInt> for u64 {
+    fn from(x: &AnyUInt) -> Self {
+        u64::from(*x)
     }
 }
