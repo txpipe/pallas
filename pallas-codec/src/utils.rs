@@ -375,3 +375,87 @@ where
         Ok(())
     }
 }
+
+/// A uint structure that preserves original int length
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd)]
+pub enum AnyUInt {
+    MajorByte(u8),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+}
+
+impl<'b> minicbor::decode::Decode<'b> for AnyUInt {
+    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::U8 => match d.u8()? {
+                x @ 0..=0x17 => Ok(AnyUInt::MajorByte(x)),
+                x @ 0x18..=0xff => Ok(AnyUInt::U8(x)),
+            },
+            minicbor::data::Type::U16 => Ok(AnyUInt::U16(d.u16()?)),
+            minicbor::data::Type::U32 => Ok(AnyUInt::U32(d.u32()?)),
+            minicbor::data::Type::U64 => Ok(AnyUInt::U64(d.u64()?)),
+            _ => Err(minicbor::decode::Error::message(
+                "invalid data type for AnyUInt",
+            )),
+        }
+    }
+}
+
+impl minicbor::encode::Encode for AnyUInt {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            AnyUInt::MajorByte(x) => {
+                let b = &x.to_be_bytes()[..];
+                e.encode(minicbor::data::Cbor::from(b))?;
+                Ok(())
+            }
+            AnyUInt::U8(x) => {
+                let x = x.to_be_bytes();
+                let b = &[[24u8], x].concat()[..];
+                e.encode(minicbor::data::Cbor::from(b))?;
+                Ok(())
+            }
+            AnyUInt::U16(x) => {
+                let x = &x.to_be_bytes()[..];
+                let b = &[&[25u8], x].concat()[..];
+                e.encode(minicbor::data::Cbor::from(b))?;
+                Ok(())
+            }
+            AnyUInt::U32(x) => {
+                let x = &x.to_be_bytes()[..];
+                let b = &[&[26u8], x].concat()[..];
+                e.encode(minicbor::data::Cbor::from(b))?;
+                Ok(())
+            }
+            AnyUInt::U64(x) => {
+                let x = &x.to_be_bytes()[..];
+                let b = &[&[27u8], x].concat()[..];
+                e.encode(minicbor::data::Cbor::from(b))?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl From<AnyUInt> for u64 {
+    fn from(x: AnyUInt) -> Self {
+        match x {
+            AnyUInt::MajorByte(x) => x as u64,
+            AnyUInt::U8(x) => x as u64,
+            AnyUInt::U16(x) => x as u64,
+            AnyUInt::U32(x) => x as u64,
+            AnyUInt::U64(x) => x as u64,
+        }
+    }
+}
+
+impl From<&AnyUInt> for u64 {
+    fn from(x: &AnyUInt) -> Self {
+        u64::from(*x)
+    }
+}

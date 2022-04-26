@@ -6,7 +6,7 @@ use pallas_codec::minicbor::{bytes::ByteVec, data::Int, data::Tag, Decode, Encod
 use pallas_crypto::hash::Hash;
 use std::ops::Deref;
 
-use pallas_codec::utils::{KeyValuePairs, MaybeIndefArray};
+use pallas_codec::utils::{AnyUInt, KeyValuePairs, MaybeIndefArray};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -114,12 +114,12 @@ pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
 
-pub type Coin = u64;
+pub type Coin = AnyUInt;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Coin(Coin),
-    Multiasset(Coin, Multiasset<u64>),
+    Multiasset(Coin, Multiasset<Coin>),
 }
 
 impl<'b> minicbor::decode::Decode<'b> for Value {
@@ -129,7 +129,7 @@ impl<'b> minicbor::decode::Decode<'b> for Value {
             minicbor::data::Type::U64 => Ok(Value::Coin(d.decode()?)),
             minicbor::data::Type::Array => {
                 d.array()?;
-                let coin = d.u64()?;
+                let coin = d.decode()?;
                 let multiasset = d.decode()?;
                 Ok(Value::Multiasset(coin, multiasset))
             }
@@ -170,7 +170,7 @@ pub struct TransactionOutput {
     pub amount: Value,
 
     #[n(2)]
-    pub datum_hash: Option<ByteVec>,
+    pub datum_hash: Option<Hash<32>>,
 }
 
 pub type PoolKeyhash = Hash<28>;
@@ -699,6 +699,7 @@ pub enum TransactionBodyComponent {
     RequiredSigners(MaybeIndefArray<AddrKeyhash>),
     NetworkId(NetworkId),
 }
+
 impl<'b> minicbor::decode::Decode<'b> for TransactionBodyComponent {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
         let key: u32 = d.decode()?;
@@ -1442,6 +1443,8 @@ mod tests {
             include_str!("test_data/test19.block"),
             // peculiar block with very BigInt in plutus code
             include_str!("test_data/test20.block"),
+            // peculiar block with bad tx hash
+            include_str!("test_data/test21.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
