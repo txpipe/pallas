@@ -21,7 +21,7 @@ pub fn hash_plutus_data(data: &PlutusData) -> Hash<32> {
 
 impl NativeScript {
     pub fn to_hash(&self) -> Hash<28> {
-        Hasher::<224>::hash_cbor(self)
+        Hasher::<224>::hash_tagged_cbor(self, 0)
     }
 }
 

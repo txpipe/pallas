@@ -78,6 +78,14 @@ macro_rules! common_hasher {
                 hasher.finalize()
             }
 
+            #[inline]
+            pub fn hash_tagged_cbor(data: &impl minicbor::Encode, tag: u8) -> Hash<{ $size / 8 }> {
+                let mut hasher = Self::new();
+                hasher.input(&[tag]);
+                let () = minicbor::encode(data, &mut hasher).expect("Infallible");
+                hasher.finalize()
+            }
+
             /// consume the [`Hasher`] and returns the computed digest
             pub fn finalize(mut self) -> Hash<{ $size / 8 }> {
                 use cryptoxide::digest::Digest as _;
