@@ -377,7 +377,7 @@ where
 }
 
 /// A uint structure that preserves original int length
-#[derive(Debug, PartialEq, Copy, Clone, PartialOrd)]
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord)]
 pub enum AnyUInt {
     MajorByte(u8),
     U8(u8),

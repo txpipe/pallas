@@ -1230,7 +1230,7 @@ pub enum Metadatum {
     Bytes(ByteVec),
     Text(String),
     Array(MaybeIndefArray<Metadatum>),
-    Map(Metadata),
+    Map(KeyValuePairs<Metadatum, Metadatum>),
 }
 
 impl<'b> minicbor::Decode<'b> for Metadatum {
@@ -1310,7 +1310,9 @@ impl minicbor::Encode for Metadatum {
     }
 }
 
-pub type Metadata = KeyValuePairs<Metadatum, Metadatum>;
+pub type MetadatumLabel = AnyUInt;
+
+pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
 
 #[derive(Debug, PartialEq)]
 pub enum AuxiliaryData {
