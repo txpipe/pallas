@@ -39,7 +39,12 @@ impl TransactionBody {
 
 #[cfg(test)]
 mod tests {
-    use crate::alonzo::BlockWrapper;
+    use std::str::FromStr;
+
+    use pallas_codec::utils::MaybeIndefArray;
+    use pallas_crypto::hash::Hash;
+
+    use crate::alonzo::{BlockWrapper, NativeScript};
     use crate::Fragment;
 
     #[test]
@@ -65,5 +70,25 @@ mod tests {
             let known_hash = valid_hashes[tx_idx];
             assert_eq!(hex::encode(computed_hash), known_hash)
         }
+    }
+
+    #[test]
+    fn native_script_hashes_cardano_cli() {
+        // construct an arbitrary script to use as example
+        let ns = NativeScript::ScriptAll(MaybeIndefArray::Def(vec![
+            NativeScript::ScriptPubkey(
+                Hash::<28>::from_str("4d04380dcb9fbad5aff8e2f4e19394ef4e5e11b37932838f01984a12")
+                    .unwrap(),
+            ),
+            NativeScript::InvalidBefore(112500819),
+        ]));
+
+        // hash that we assume correct since it was generated through the cardano-cli
+        let cardano_cli_output = "d6a8ced01ecdfbb26c90850010a06fbc20a7c23632fc92f531667f36";
+
+        assert_eq!(
+            ns.to_hash(),
+            Hash::<28>::from_str(cardano_cli_output).unwrap()
+        )
     }
 }
