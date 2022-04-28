@@ -9,4 +9,6 @@ members = [
     "pallas",
     "examples/block-download",
     "examples/block-decode",
+    "examples/n2n-miniprotocols",
+    "examples/n2c-miniprotocols",
 ]
