@@ -1,5 +1,3 @@
-use log;
-
 use pallas::network::{
     miniprotocols::{chainsync, handshake, localstate, run_agent, Point, MAINNET_MAGIC},
     multiplexer::Multiplexer,

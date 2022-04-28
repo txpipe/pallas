@@ -1,4 +1,3 @@
-use log;
 use net2::TcpStreamExt;
 
 use pallas::network::{
