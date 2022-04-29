@@ -268,6 +268,12 @@ impl<T> Deref for CborWrap<T> {
 #[derive(Debug)]
 pub struct TagWrap<I, const T: u64>(I);
 
+impl<I, const T: u64> TagWrap<I, T> {
+    pub fn new(inner: I) -> Self {
+        TagWrap(inner)
+    }
+}
+
 impl<'b, I, const T: u64> minicbor::Decode<'b> for TagWrap<I, T>
 where
     I: minicbor::Decode<'b>,

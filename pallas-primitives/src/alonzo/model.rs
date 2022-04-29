@@ -908,7 +908,9 @@ impl minicbor::encode::Encode for NativeScript {
     }
 }
 
-pub type PlutusScript = ByteVec;
+#[derive(Encode, Decode, Debug, PartialEq)]
+#[cbor(transparent)]
+pub struct PlutusScript(#[n(0)] ByteVec);
 
 /*
 big_int = int / big_uint / big_nint ; New
@@ -1058,8 +1060,8 @@ impl minicbor::encode::Encode for PlutusData {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Constr<A> {
     pub tag: u64,
-    pub prefix: Option<u32>,
-    pub values: MaybeIndefArray<A>,
+    pub any_constructor: Option<u64>,
+    pub fields: MaybeIndefArray<A>,
 }
 
 impl<'b, A> minicbor::decode::Decode<'b> for Constr<A>
@@ -1073,17 +1075,16 @@ where
             Tag::Unassigned(x) => match x {
                 121..=127 | 1280..=1400 => Ok(Constr {
                     tag: x,
-                    values: d.decode()?,
-                    prefix: None,
+                    fields: d.decode()?,
+                    any_constructor: None,
                 }),
                 102 => {
                     d.array()?;
-                    let prefix = Some(d.decode()?);
-                    let values = d.decode()?;
+
                     Ok(Constr {
-                        tag: 102,
-                        prefix,
-                        values,
+                        tag: x,
+                        any_constructor: Some(d.decode()?),
+                        fields: d.decode()?,
                     })
                 }
                 _ => Err(minicbor::decode::Error::message(
@@ -1110,13 +1111,13 @@ where
         match self.tag {
             102 => {
                 e.array(2)?;
-                e.encode(self.prefix)?;
-                e.encode(&self.values)?;
+                e.encode(self.any_constructor.unwrap_or_default())?;
+                e.encode(&self.fields)?;
 
                 Ok(())
             }
             _ => {
-                e.encode(&self.values)?;
+                e.encode(&self.fields)?;
 
                 Ok(())
             }
