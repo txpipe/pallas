@@ -7,7 +7,7 @@ impl<A> super::Constr<A> {
         match self.tag {
             121..=127 => Some(self.tag - 121),
             1280..=1400 => Some(self.tag - 1280 + 7),
-            102 => self.any_constructor.clone(),
+            102 => self.any_constructor,
             _ => None,
         }
     }
