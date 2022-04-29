@@ -1,4 +1,4 @@
-use super::{AuxiliaryData, Header, NativeScript, PlutusData, TransactionBody};
+use super::{AuxiliaryData, Header, NativeScript, PlutusData, PlutusScript, TransactionBody};
 use pallas_crypto::hash::{Hash, Hasher};
 
 pub fn hash_block_header(data: &Header) -> Hash<32> {
@@ -25,6 +25,12 @@ impl NativeScript {
     }
 }
 
+impl PlutusScript {
+    pub fn to_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_tagged_cbor(self, 1)
+    }
+}
+
 impl PlutusData {
     pub fn to_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
@@ -41,10 +47,11 @@ impl TransactionBody {
 mod tests {
     use std::str::FromStr;
 
+    use pallas_codec::minicbor::data::Int;
     use pallas_codec::utils::MaybeIndefArray;
     use pallas_crypto::hash::Hash;
 
-    use crate::alonzo::{BlockWrapper, NativeScript};
+    use crate::alonzo::{BigInt, BlockWrapper, Constr, NativeScript, PlutusData};
     use crate::Fragment;
 
     #[test]
@@ -73,7 +80,7 @@ mod tests {
     }
 
     #[test]
-    fn native_script_hashes_cardano_cli() {
+    fn native_script_hashes_as_cardano_cli() {
         // construct an arbitrary script to use as example
         let ns = NativeScript::ScriptAll(MaybeIndefArray::Def(vec![
             NativeScript::ScriptPubkey(
@@ -89,6 +96,47 @@ mod tests {
         assert_eq!(
             ns.to_hash(),
             Hash::<28>::from_str(cardano_cli_output).unwrap()
+        )
+    }
+
+    #[test]
+    fn plutus_data_hashes_as_cardano_cli() {
+        // construct an arbitrary complex datum to use as example
+        let pd = PlutusData::Constr(Constr::<PlutusData> {
+            tag: 1280,
+            any_constructor: None,
+            fields: MaybeIndefArray::Indef(vec![
+                PlutusData::BigInt(BigInt::Int(Int::from(4))),
+                PlutusData::Constr(Constr::<PlutusData> {
+                    tag: 124,
+                    any_constructor: None,
+                    fields: MaybeIndefArray::Indef(vec![
+                        PlutusData::BigInt(BigInt::Int(Int::from(-4))),
+                        PlutusData::Constr(Constr::<PlutusData> {
+                            tag: 102,
+                            any_constructor: Some(453),
+                            fields: MaybeIndefArray::Indef(vec![
+                                PlutusData::BigInt(BigInt::Int(Int::from(2))),
+                                PlutusData::BigInt(BigInt::Int(Int::from(3434))),
+                            ]),
+                        }),
+                        PlutusData::BigInt(BigInt::Int(Int::from(-11828293))),
+                    ]),
+                }),
+                PlutusData::BigInt(BigInt::Int(Int::from(11828293))),
+            ]),
+        });
+
+        // if you need to try this out in the cardano-cli, uncomment this line to see
+        // the json representation of the above struct:
+        // println!("{}", crate::ToCanonicalJson::to_json(&pd));
+
+        // hash that we assume correct since it was generated through the cardano-cli
+        let cardano_cli_output = "d9bc0eb6ac664286155f70d720cafd2af16277fbd9014a930997431a2ffbe554";
+
+        assert_eq!(
+            pd.to_hash(),
+            Hash::<32>::from_str(cardano_cli_output).unwrap()
         )
     }
 }

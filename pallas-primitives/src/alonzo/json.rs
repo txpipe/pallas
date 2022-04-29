@@ -2,14 +2,24 @@ use serde_json::json;
 
 use crate::ToCanonicalJson;
 
+impl<A> super::Constr<A> {
+    pub fn constructor_value(&self) -> Option<u64> {
+        match self.tag {
+            121..=127 => Some(self.tag - 121),
+            1280..=1400 => Some(self.tag - 1280 + 7),
+            102 => self.any_constructor.clone(),
+            _ => None,
+        }
+    }
+}
+
 // infered from https://github.com/input-output-hk/cardano-node/blob/c1efb2f97134c0607c982246a36e3da7266ac194/cardano-api/src/Cardano/Api/ScriptData.hs#L254
 impl ToCanonicalJson for super::PlutusData {
     fn to_json(&self) -> serde_json::Value {
         match self {
             super::PlutusData::Constr(x) => {
-                let constructor = x.prefix.map(|x| x as u64).unwrap_or(x.tag);
-                let fields: Vec<_> = x.values.iter().map(|i| i.to_json()).collect();
-                json!({ "constructor": constructor, "fields": fields })
+                let fields: Vec<_> = x.fields.iter().map(|i| i.to_json()).collect();
+                json!({ "constructor": x.constructor_value(), "fields": fields })
             }
             super::PlutusData::Map(x) => {
                 let map: Vec<_> = x
