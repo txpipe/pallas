@@ -1066,7 +1066,7 @@ pub struct Constr<A> {
 
 impl<'b, A> minicbor::decode::Decode<'b> for Constr<A>
 where
-    A: minicbor::decode::Decode<'b> + std::fmt::Debug,
+    A: minicbor::decode::Decode<'b>,
 {
     fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
         let tag = d.tag()?;
