@@ -1,0 +1,53 @@
+name: Release
+on:
+  #push:
+  #  tags:
+  #    - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  cargo_publish:
+    name: Publish to Crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.4.0
+
+      - name: Setup Rust Toolchain
+        uses: actions-rs/toolchain@v1.0.7
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+
+      - name: Setup Cargo Plugins
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: install
+          args: cargo-workspaces
+
+  github_release:
+    name: Create GitHub Release
+    needs: [cargo_publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "1.16"
+
+      - name: Release Notes
+        run: |
+          go install github.com/git-chglog/git-chglog/cmd/git-chglog@v0.15.0
+          git-chglog -c .github/chglog/release.yml $(git describe --tags) > RELEASE.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE.md
+          draft: true
