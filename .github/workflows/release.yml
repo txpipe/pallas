@@ -1,9 +1,8 @@
 name: Release
 on:
-  #push:
-  #  tags:
-  #    - "v*"
-  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
 
 jobs:
   cargo_publish:
@@ -25,6 +24,12 @@ jobs:
         with:
           command: install
           args: cargo-workspaces
+
+      - name: Publish to Crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo workspaces publish --from-git
 
   github_release:
     name: Create GitHub Release
