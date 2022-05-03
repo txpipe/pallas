@@ -910,7 +910,13 @@ impl minicbor::encode::Encode for NativeScript {
 
 #[derive(Encode, Decode, Debug, PartialEq)]
 #[cbor(transparent)]
-pub struct PlutusScript(#[n(0)] ByteVec);
+pub struct PlutusScript(#[n(0)] pub ByteVec);
+
+impl AsRef<[u8]> for PlutusScript {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
 
 /*
 big_int = int / big_uint / big_nint ; New
