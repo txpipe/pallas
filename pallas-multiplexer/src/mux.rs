@@ -14,13 +14,8 @@ use crate::{
 /// To be used as an abstration over the set of all ingress channels. Its main
 /// pourpose is to select the next segment to be muxed from the list of
 /// available channels.
+#[derive(Default)]
 pub struct Ingress(HashMap<u16, Receiver<Payload>>);
-
-impl Default for Ingress {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
 
 pub enum Selection {
     Message(u16, Payload),

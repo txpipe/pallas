@@ -6,13 +6,8 @@ use crate::{Bearer, Payload};
 ///
 /// The inner structure is a hashmap where each entry represent a channel. Used
 /// as an abstraction to dispatch segements to the correspoding channel by id.
+#[derive(Default)]
 pub struct Egress(HashMap<u16, Sender<Payload>>);
-
-impl Default for Egress {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
 
 pub enum Dispatch {
     Disconnected(u16, Payload),
