@@ -4,22 +4,22 @@ use std::{
 };
 
 use log::info;
-use pallas_multiplexer::{Channel, Multiplexer};
+use pallas_multiplexer::{spawn_demuxer, spawn_muxer, Channel, Multiplexer};
 use rand::{distributions::Uniform, Rng};
 
-fn setup_passive_muxer<const P: u16>() -> JoinHandle<Multiplexer> {
+fn setup_passive_muxer<const P: u16>() -> JoinHandle<Multiplexer<TcpStream>> {
     thread::spawn(|| {
         let server = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P)).unwrap();
         info!("listening for connections on port {}", P);
         let (bearer, _) = server.accept().unwrap();
-        Multiplexer::setup(bearer, &[0x8003u16]).unwrap()
+        Multiplexer::new(bearer)
     })
 }
 
-fn setup_active_muxer<const P: u16>() -> JoinHandle<Multiplexer> {
+fn setup_active_muxer<const P: u16>() -> JoinHandle<Multiplexer<TcpStream>> {
     thread::spawn(|| {
         let bearer = TcpStream::connect(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P)).unwrap();
-        Multiplexer::setup(bearer, &[0x0003u16]).unwrap()
+        Multiplexer::new(bearer)
     })
 }
 
@@ -38,14 +38,17 @@ fn one_way_small_payload_is_consistent() {
 
     let active = setup_active_muxer::<50201>();
 
-    let mut active_muxer = active.join().unwrap();
-    let mut passive_muxer = passive.join().unwrap();
+    let mut active_plexer = active.join().unwrap();
+    let mut passive_plexer = passive.join().unwrap();
 
-    let Channel(tx, _) = active_muxer.use_channel(0x0003u16);
-    let Channel(_, rx) = passive_muxer.use_channel(0x8003u16);
+    let Channel(tx, _) = active_plexer.use_channel(0x0003u16);
+    let Channel(_, rx) = passive_plexer.use_channel(0x8003u16);
+
+    spawn_muxer(active_plexer.muxer);
+    spawn_demuxer(passive_plexer.demuxer);
 
     let payload = random_payload(50);
-    tx.send(payload.clone()).unwrap();
+    tx.send_payload(payload.clone()).unwrap();
     let received_payload = rx.recv().unwrap();
     assert_eq!(payload, received_payload)
 }
@@ -60,15 +63,18 @@ fn one_way_small_sequence_of_payloads_are_consistent() {
 
     let active = setup_active_muxer::<50301>();
 
-    let mut active_muxer = active.join().unwrap();
-    let mut passive_muxer = passive.join().unwrap();
+    let mut active_plexer = active.join().unwrap();
+    let mut passive_plexer = passive.join().unwrap();
 
-    let Channel(tx, _) = active_muxer.use_channel(0x0003u16);
-    let Channel(_, rx) = passive_muxer.use_channel(0x8003u16);
+    let Channel(tx, _) = active_plexer.use_channel(0x0003u16);
+    let Channel(_, rx) = passive_plexer.use_channel(0x8003u16);
+
+    spawn_muxer(active_plexer.muxer);
+    spawn_demuxer(passive_plexer.demuxer);
 
     for _ in [0..100] {
         let payload = random_payload(50);
-        tx.send(payload.clone()).unwrap();
+        tx.send_payload(payload.clone()).unwrap();
         let received_payload = rx.recv().unwrap();
         assert_eq!(payload, received_payload)
     }

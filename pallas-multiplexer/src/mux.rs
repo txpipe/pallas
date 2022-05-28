@@ -87,7 +87,7 @@ impl From<std::sync::mpsc::Sender<Payload>> for ChunkSender {
 
 impl ChunkSender {
     pub fn send_payload(
-        &mut self,
+        &self,
         payload: Payload,
     ) -> Result<(), std::sync::mpsc::SendError<Payload>> {
         let chunks = payload.chunks(MAX_SEGMENT_PAYLOAD_LENGTH);
