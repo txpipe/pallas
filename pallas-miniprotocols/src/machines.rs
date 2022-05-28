@@ -147,7 +147,7 @@ where
 
             let mut payload = Vec::new();
             minicbor::encode(&msg, &mut payload)?;
-            tx.send(payload)?;
+            tx.send_payload(payload)?;
 
             agent.apply_outbound(msg)
         }

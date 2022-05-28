@@ -2,7 +2,7 @@ use net2::TcpStreamExt;
 
 use pallas::network::{
     miniprotocols::{blockfetch, chainsync, handshake, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::Multiplexer,
+    multiplexer::{spawn_demuxer, spawn_muxer, Channel, Multiplexer},
 };
 
 use std::net::TcpStream;
@@ -54,15 +54,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
     }
 }
 
-fn do_handshake(muxer: &mut Multiplexer) {
-    let mut channel = muxer.use_channel(0);
+fn do_handshake(mut channel: Channel) {
     let versions = handshake::n2n::VersionTable::v4_and_above(MAINNET_MAGIC);
     let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
 }
 
-fn do_blockfetch(muxer: &mut Multiplexer) {
-    let mut channel = muxer.use_channel(3);
-
+fn do_blockfetch(mut channel: Channel) {
     let range = (
         Point::Specific(
             43847831,
@@ -84,9 +81,7 @@ fn do_blockfetch(muxer: &mut Multiplexer) {
     println!("{:?}", agent);
 }
 
-fn do_chainsync(muxer: &mut Multiplexer) {
-    let mut channel = muxer.use_channel(2);
-
+fn do_chainsync(mut channel: Channel) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
@@ -116,14 +111,20 @@ fn main() {
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
-    let mut muxer = Multiplexer::setup(bearer, &[0, 2, 3, 4]).unwrap();
+    let mut plexer = Multiplexer::new(bearer);
+    let channel0 = plexer.use_channel(0);
+    let channel3 = plexer.use_channel(3);
+    let channel2 = plexer.use_channel(2);
+
+    spawn_muxer(plexer.muxer);
+    spawn_demuxer(plexer.demuxer);
 
     // execute the required handshake against the relay
-    do_handshake(&mut muxer);
+    do_handshake(channel0);
 
     // fetch an arbitrary batch of block
-    do_blockfetch(&mut muxer);
+    do_blockfetch(channel3);
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(&mut muxer);
+    do_chainsync(channel2);
 }

@@ -1,6 +1,6 @@
 use pallas::network::{
     miniprotocols::{chainsync, handshake, localstate, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::Multiplexer,
+    multiplexer::{spawn_demuxer, spawn_muxer, Channel, Multiplexer},
 };
 
 use std::os::unix::net::UnixStream;
@@ -45,15 +45,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
     }
 }
 
-fn do_handshake(muxer: &mut Multiplexer) {
-    let mut channel = muxer.use_channel(0);
+fn do_handshake(mut channel: Channel) {
     let versions = handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC);
     let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
 }
 
-fn do_localstate_query(muxer: &mut Multiplexer) {
-    let mut channel = muxer.use_channel(7);
-
+fn do_localstate_query(mut channel: Channel) {
     let agent = run_agent(
         localstate::OneShotClient::<localstate::queries::QueryV10>::initial(
             None,
@@ -65,9 +62,7 @@ fn do_localstate_query(muxer: &mut Multiplexer) {
     log::info!("state query result: {:?}", agent);
 }
 
-fn do_chainsync(muxer: &mut Multiplexer) {
-    let mut channel = muxer.use_channel(5);
-
+fn do_chainsync(mut channel: Channel) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
@@ -95,14 +90,20 @@ fn main() {
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
-    let mut muxer = Multiplexer::setup(bearer, &[0, 4, 5]).unwrap();
+    let mut plexer = Multiplexer::new(bearer);
+    let channel0 = plexer.use_channel(0);
+    let channel7 = plexer.use_channel(7);
+    let channel5 = plexer.use_channel(5);
+
+    spawn_muxer(plexer.muxer);
+    spawn_demuxer(plexer.demuxer);
 
     // execute the required handshake against the relay
-    do_handshake(&mut muxer);
+    do_handshake(channel0);
 
     // execute an arbitrary "Local State" query against the node
-    do_localstate_query(&mut muxer);
+    do_localstate_query(channel7);
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(&mut muxer);
+    do_chainsync(channel5);
 }
