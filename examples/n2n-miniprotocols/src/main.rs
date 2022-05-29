@@ -2,7 +2,7 @@ use net2::TcpStreamExt;
 
 use pallas::network::{
     miniprotocols::{blockfetch, chainsync, handshake, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::{spawn_demuxer, spawn_muxer, Channel, Multiplexer},
+    multiplexer::{threads, Channel, Multiplexer},
 };
 
 use std::net::TcpStream;
@@ -116,8 +116,8 @@ fn main() {
     let channel3 = plexer.use_channel(3);
     let channel2 = plexer.use_channel(2);
 
-    spawn_muxer(plexer.muxer);
-    spawn_demuxer(plexer.demuxer);
+    threads::spawn_muxer(plexer.muxer);
+    threads::spawn_demuxer(plexer.demuxer);
 
     // execute the required handshake against the relay
     do_handshake(channel0);

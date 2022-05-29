@@ -18,7 +18,7 @@ pub struct Segment {
 pub trait Bearer: Read + Write + Send + Sync + Sized {
     type Error: std::error::Error;
 
-    fn read_segment(&mut self) -> Result<Segment, Self::Error>;
+    fn read_segment(&mut self) -> Result<Option<Segment>, Self::Error>;
 
     fn write_segment(&mut self, segment: Segment) -> Result<(), Self::Error>;
 
@@ -94,6 +94,18 @@ fn read_segment(reader: &mut impl Read) -> Result<Segment, std::io::Error> {
     })
 }
 
+fn read_segment_with_timeout(reader: &mut impl Read) -> Result<Option<Segment>, std::io::Error> {
+    match read_segment(reader) {
+        Ok(s) => Ok(Some(s)),
+        Err(err) => match err.kind() {
+            std::io::ErrorKind::WouldBlock => Ok(None),
+            std::io::ErrorKind::TimedOut => Ok(None),
+            std::io::ErrorKind::Interrupted => Ok(None),
+            _ => todo!(),
+        },
+    }
+}
+
 impl Bearer for TcpStream {
     type Error = std::io::Error;
 
@@ -101,8 +113,8 @@ impl Bearer for TcpStream {
         self.try_clone().expect("error cloning tcp stream")
     }
 
-    fn read_segment(&mut self) -> Result<Segment, std::io::Error> {
-        read_segment(self)
+    fn read_segment(&mut self) -> Result<Option<Segment>, std::io::Error> {
+        read_segment_with_timeout(self)
     }
 
     fn write_segment(&mut self, segment: Segment) -> Result<(), std::io::Error> {
@@ -118,8 +130,8 @@ impl Bearer for UnixStream {
         self.try_clone().expect("error cloning unix stream")
     }
 
-    fn read_segment(&mut self) -> Result<Segment, std::io::Error> {
-        read_segment(self)
+    fn read_segment(&mut self) -> Result<Option<Segment>, std::io::Error> {
+        read_segment_with_timeout(self)
     }
 
     fn write_segment(&mut self, segment: Segment) -> Result<(), std::io::Error> {

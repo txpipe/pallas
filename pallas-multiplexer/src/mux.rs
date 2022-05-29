@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     bearers::{Bearer, Segment, MAX_SEGMENT_PAYLOAD_LENGTH},
-    Payload,
+    Cancel, Payload,
 };
 
 /// An unified view of all mux ingress channels
@@ -138,12 +138,15 @@ where
         }
     }
 
-    pub fn block(&mut self) -> Result<(), TBearer::Error> {
+    pub fn block(&mut self, cancel: Cancel) -> Result<(), TBearer::Error> {
         loop {
             match self.tick() {
                 TickOutcome::BearerError(err) => return Err(err),
                 TickOutcome::Disconnected(id) => self.ingress.deregister(id),
-                TickOutcome::Empty => std::thread::yield_now(),
+                TickOutcome::Empty => match cancel.is_set() {
+                    true => break Ok(()),
+                    false => std::thread::yield_now(),
+                },
                 TickOutcome::Busy => (),
             }
         }

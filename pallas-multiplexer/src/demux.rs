@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::mpsc::Sender};
 
-use crate::{Bearer, Payload};
+use crate::{Bearer, Cancel, Payload};
 
 /// An unified view of all demux egress channels
 ///
@@ -61,7 +61,8 @@ where
     pub fn tick(&mut self) -> TickOutcome<TBearer> {
         match self.bearer.read_segment() {
             Err(err) => TickOutcome::BearerError(err),
-            Ok(segment) => match self.egress.dispatch(segment.protocol, segment.payload) {
+            Ok(None) => TickOutcome::Idle,
+            Ok(Some(segment)) => match self.egress.dispatch(segment.protocol, segment.payload) {
                 Dispatch::Disconnected(id, payload) => TickOutcome::Disconnected(id, payload),
                 Dispatch::Unknown(id, payload) => TickOutcome::Unknown(id, payload),
                 Dispatch::Done => TickOutcome::Busy,
@@ -69,11 +70,14 @@ where
         }
     }
 
-    pub fn block(&mut self) -> Result<(), TBearer::Error> {
+    pub fn block(&mut self, cancel: Cancel) -> Result<(), TBearer::Error> {
         loop {
             match self.tick() {
                 TickOutcome::Busy => (),
-                TickOutcome::Idle => (),
+                TickOutcome::Idle => match cancel.is_set() {
+                    true => break Ok(()),
+                    false => (),
+                },
                 TickOutcome::BearerError(err) => return Err(err),
                 TickOutcome::Disconnected(id, _) => {
                     log::warn!("disconnected protocol {}", id)

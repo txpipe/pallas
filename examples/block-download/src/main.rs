@@ -5,7 +5,7 @@ use pallas::network::{
         handshake::{n2n::VersionTable, Initiator},
         run_agent, Point, MAINNET_MAGIC,
     },
-    multiplexer::{spawn_demuxer, spawn_muxer, Multiplexer},
+    multiplexer::{threads, Multiplexer},
 };
 
 use pallas::network::miniprotocols::blockfetch::{BatchClient, Observer};
@@ -34,8 +34,8 @@ fn main() {
     let mut channel0 = plexer.use_channel(0);
     let mut channel3 = plexer.use_channel(3);
 
-    spawn_muxer(plexer.muxer);
-    spawn_demuxer(plexer.demuxer);
+    threads::spawn_muxer(plexer.muxer);
+    threads::spawn_demuxer(plexer.demuxer);
 
     let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
     let _last = run_agent(Initiator::initial(versions), &mut channel0).unwrap();

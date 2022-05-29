@@ -1,6 +1,6 @@
 use pallas::network::{
     miniprotocols::{chainsync, handshake, localstate, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::{spawn_demuxer, spawn_muxer, Channel, Multiplexer},
+    multiplexer::{threads, Channel, Multiplexer},
 };
 
 use std::os::unix::net::UnixStream;
@@ -95,8 +95,8 @@ fn main() {
     let channel7 = plexer.use_channel(7);
     let channel5 = plexer.use_channel(5);
 
-    spawn_muxer(plexer.muxer);
-    spawn_demuxer(plexer.demuxer);
+    threads::spawn_muxer(plexer.muxer);
+    threads::spawn_demuxer(plexer.demuxer);
 
     // execute the required handshake against the relay
     do_handshake(channel0);
