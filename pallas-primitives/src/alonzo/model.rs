@@ -1420,13 +1420,6 @@ pub struct Transaction {
     auxiliary_data: Option<AuxiliaryData>,
 }
 
-// transaction =
-//   [ transaction_body
-//   , transaction_witness_set
-//   , bool
-//   , auxiliary_data / null
-//   ]
-
 #[cfg(test)]
 mod tests {
     use super::BlockWrapper;
