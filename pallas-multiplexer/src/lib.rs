@@ -1,59 +1,37 @@
 pub mod bearers;
 pub mod demux;
 pub mod mux;
-pub mod threads;
-
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc::{self, Receiver},
-    Arc,
-};
-
-use bearers::Bearer;
+pub mod std;
 
 pub type Payload = Vec<u8>;
 
-#[derive(Clone, Debug, Default)]
-pub struct Cancel(Arc<AtomicBool>);
+pub type Channel<I, E> = (I, E);
 
-impl Cancel {
-    pub fn set(&self) {
-        self.0.store(true, Ordering::SeqCst);
-    }
-
-    pub fn is_set(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
-    }
+pub struct Multiplexer<B, I, E>
+where
+    B: bearers::Bearer,
+    I: mux::Ingress,
+    E: demux::Egress,
+{
+    pub muxer: mux::Muxer<B, I>,
+    pub demuxer: demux::Demuxer<B, E>,
 }
 
-pub struct Channel(pub mux::ChunkSender, pub Receiver<Payload>);
-
-pub struct Multiplexer<TBearer>
+impl<B, I, E> Multiplexer<B, I, E>
 where
-    TBearer: Bearer,
+    B: bearers::Bearer,
+    I: mux::Ingress,
+    E: demux::Egress,
 {
-    pub muxer: mux::Muxer<TBearer>,
-    pub demuxer: demux::Demuxer<TBearer>,
-}
-
-impl<TBearer> Multiplexer<TBearer>
-where
-    TBearer: Bearer,
-{
-    pub fn new(bearer: TBearer) -> Self {
+    pub fn new(bearer: B) -> Self {
         Multiplexer {
             muxer: mux::Muxer::new(bearer.clone()),
             demuxer: demux::Demuxer::new(bearer.clone()),
         }
     }
 
-    pub fn use_channel(&mut self, protocol_id: u16) -> Channel {
-        let (demux_tx, demux_rx) = mpsc::channel::<Payload>();
-        let (mux_tx, mux_rx) = mpsc::channel::<Payload>();
-
-        self.muxer.ingress.register(protocol_id, mux_rx);
-        self.demuxer.egress.register(protocol_id, demux_tx);
-
-        Channel(mux::ChunkSender::from(mux_tx), demux_rx)
+    pub fn register_channel(&mut self, protocol: u16, ingress: I, egress: E) {
+        self.muxer.register(protocol, ingress);
+        self.demuxer.register(protocol, egress);
     }
 }

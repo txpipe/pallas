@@ -5,7 +5,7 @@ use std::{
 };
 
 use log::info;
-use pallas_multiplexer::{threads, Channel, Multiplexer};
+use pallas_multiplexer::std::{spawn_demuxer, spawn_muxer, use_channel, Multiplexer};
 use rand::{distributions::Uniform, Rng};
 
 fn setup_passive_muxer<const P: u16>() -> JoinHandle<Multiplexer<TcpStream>> {
@@ -49,11 +49,11 @@ fn one_way_small_sequence_of_payloads() {
     let mut active_plexer = active.join().unwrap();
     let mut passive_plexer = passive.join().unwrap();
 
-    let Channel(tx, _) = active_plexer.use_channel(0x0003u16);
-    let Channel(_, rx) = passive_plexer.use_channel(0x8003u16);
+    let (tx, _) = use_channel(&mut active_plexer, 0x0003u16);
+    let (_, rx) = use_channel(&mut passive_plexer, 0x8003u16);
 
-    let loop1 = threads::spawn_muxer(active_plexer.muxer);
-    let loop2 = threads::spawn_demuxer(passive_plexer.demuxer);
+    let loop1 = spawn_muxer(active_plexer.muxer);
+    let loop2 = spawn_demuxer(passive_plexer.demuxer);
 
     for _ in [0..100] {
         let payload = random_payload(50);
@@ -82,18 +82,17 @@ fn threads_cancel_while_still_sending() {
     let mut active_plexer = active.join().unwrap();
     let mut passive_plexer = passive.join().unwrap();
 
-    let Channel(tx, _) = active_plexer.use_channel(0x0003u16);
-    let Channel(_, rx) = passive_plexer.use_channel(0x8003u16);
+    let (tx, _) = use_channel(&mut active_plexer, 0x0003u16);
+    let (_, rx) = use_channel(&mut passive_plexer, 0x8003u16);
 
-    let loop1 = threads::spawn_muxer(active_plexer.muxer);
-    let loop2 = threads::spawn_demuxer(passive_plexer.demuxer);
+    let loop1 = spawn_muxer(active_plexer.muxer);
+    let loop2 = spawn_demuxer(passive_plexer.demuxer);
 
     thread::spawn(move || loop {
         let payload = random_payload(50);
         tx.send_payload(payload.clone()).unwrap();
         let received_payload = rx.recv().unwrap();
         assert_eq!(payload, received_payload);
-        println!(".");
     });
 
     thread::sleep(Duration::from_secs(5));

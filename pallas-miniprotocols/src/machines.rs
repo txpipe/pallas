@@ -1,9 +1,7 @@
 pub use crate::payloads::*;
-use pallas_codec::{minicbor, Fragment};
-use pallas_multiplexer::{Channel, Payload};
+use pallas_codec::Fragment;
 use std::cell::Cell;
 use std::fmt::{Debug, Display};
-use std::sync::mpsc::Sender;
 
 #[derive(Debug)]
 pub enum MachineError<State, Msg>
@@ -60,20 +58,6 @@ impl Display for CodecError {
     }
 }
 
-pub trait MachineOutput {
-    fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>>;
-}
-
-impl MachineOutput for Sender<Payload> {
-    fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>> {
-        let mut payload = Vec::new();
-        minicbor::encode(data, &mut payload)?;
-        self.send(payload)?;
-
-        Ok(())
-    }
-}
-
 pub type Transition<T> = Result<T, Box<dyn std::error::Error>>;
 
 pub trait Agent: Sized {
@@ -114,9 +98,9 @@ where
         Ok(())
     }
 
-    pub fn run_step(&mut self, channel: &mut Channel) -> Result<bool, Error> {
+    pub fn run_step<T: Transport>(&mut self, transport: &mut T) -> Result<bool, Error> {
         let prev = self.agent.take().unwrap();
-        let next = run_agent_step(prev, channel, &mut self.buffer)?;
+        let next = run_agent_step(prev, transport, &mut self.buffer)?;
         let is_done = next.is_done();
 
         self.agent.set(Some(next));
@@ -124,35 +108,32 @@ where
         Ok(is_done)
     }
 
-    pub fn fulfill(mut self, channel: &mut Channel) -> Result<(), Error> {
+    pub fn fulfill<T: Transport>(mut self, tranport: &mut T) -> Result<(), Error> {
         self.start()?;
 
-        while self.run_step(channel)? {}
+        while self.run_step(tranport)? {}
 
         Ok(())
     }
 }
 
-pub fn run_agent_step<T>(agent: T, channel: &mut Channel, buffer: &mut Vec<u8>) -> Transition<T>
+pub fn run_agent_step<A, T>(agent: A, transport: &mut T, buffer: &mut Vec<u8>) -> Transition<A>
 where
-    T: Agent,
-    T::Message: Fragment + Debug,
+    A: Agent,
+    A::Message: Fragment + Debug,
+    T: Transport,
 {
-    let Channel(tx, rx) = channel;
-
     match agent.has_agency() {
         true => {
             let msg = agent.build_next();
             log::trace!("processing outbound msg: {:?}", msg);
 
-            let mut payload = Vec::new();
-            minicbor::encode(&msg, &mut payload)?;
-            tx.send_payload(payload)?;
+            write_msg_as_chunks(&msg, transport)?;
 
             agent.apply_outbound(msg)
         }
         false => {
-            let msg = read_until_full_msg::<T::Message>(buffer, rx).unwrap();
+            let msg = read_until_full_msg::<A::Message, T>(buffer, transport).unwrap();
             log::trace!("procesing inbound msg: {:?}", msg);
 
             agent.apply_inbound(msg)
@@ -160,17 +141,18 @@ where
     }
 }
 
-pub fn run_agent<T>(agent: T, channel: &mut Channel) -> Result<T, Box<dyn std::error::Error>>
+pub fn run_agent<A, T>(agent: A, transport: &mut T) -> Result<A, Box<dyn std::error::Error>>
 where
-    T: Agent,
-    T::Message: Fragment + Debug,
+    A: Agent,
+    A::Message: Fragment + Debug,
+    T: Transport,
 {
     let mut buffer = Vec::new();
 
     let mut agent = agent.apply_start()?;
 
     while !agent.is_done() {
-        agent = run_agent_step(agent, channel, &mut buffer)?;
+        agent = run_agent_step(agent, transport, &mut buffer)?;
     }
 
     Ok(agent)

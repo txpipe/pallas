@@ -1,88 +1,80 @@
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::collections::HashMap;
 
-use crate::{Bearer, Cancel, Payload};
+use crate::{bearers::Bearer, std::Cancel, Payload};
 
-/// An unified view of all demux egress channels
-///
-/// The inner structure is a hashmap where each entry represent a channel. Used
-/// as an abstraction to dispatch segements to the correspoding channel by id.
-#[derive(Default)]
-pub struct Egress(HashMap<u16, Sender<Payload>>);
+pub struct EgressError(pub Payload);
 
-pub enum Dispatch {
-    Disconnected(u16, Payload),
-    Unknown(u16, Payload),
-    Done,
+pub trait Egress {
+    fn send(&self, payload: Payload) -> Result<(), EgressError>;
 }
 
-impl Egress {
-    pub fn register(&mut self, id: u16, tx: Sender<Payload>) {
-        self.0.insert(id, tx);
-    }
-
-    pub fn dispatch(&self, protocol: u16, payload: Vec<u8>) -> Dispatch {
-        match self.0.get(&protocol) {
-            Some(tx) => match tx.send(payload) {
-                Err(err) => Dispatch::Disconnected(protocol, err.0),
-                Ok(_) => Dispatch::Done,
-            },
-            None => Dispatch::Unknown(protocol, payload),
-        }
-    }
+pub enum DemuxError<B: Bearer> {
+    BearerError(B::Error),
+    EgressDisconnected(u16, Payload),
+    EgressUnknown(u16, Payload),
 }
 
-pub enum TickOutcome<TBearer>
-where
-    TBearer: Bearer,
-{
-    BearerError(TBearer::Error),
-    Disconnected(u16, Payload),
-    Unknown(u16, Payload),
+pub enum TickOutcome {
     Busy,
     Idle,
 }
 
-pub struct Demuxer<TBearer> {
-    bearer: TBearer,
-    pub egress: Egress,
+/// A demuxer that reads from a bearer into the corresponding egress
+pub struct Demuxer<B, E> {
+    bearer: B,
+    egress: HashMap<u16, E>,
 }
 
-impl<TBearer> Demuxer<TBearer>
+impl<B, E> Demuxer<B, E>
 where
-    TBearer: Bearer,
+    B: Bearer,
+    E: Egress,
 {
-    pub fn new(bearer: TBearer) -> Self {
+    pub fn new(bearer: B) -> Self {
         Demuxer {
             bearer,
-            egress: Egress::default(),
+            egress: Default::default(),
         }
     }
 
-    pub fn tick(&mut self) -> TickOutcome<TBearer> {
+    pub fn register(&mut self, id: u16, tx: E) {
+        self.egress.insert(id, tx);
+    }
+
+    fn dispatch(&self, protocol: u16, payload: Payload) -> Result<(), DemuxError<B>> {
+        match self.egress.get(&protocol) {
+            Some(tx) => match tx.send(payload) {
+                Err(EgressError(p)) => Err(DemuxError::EgressDisconnected(protocol, p)),
+                Ok(_) => Ok(()),
+            },
+            None => Err(DemuxError::EgressUnknown(protocol, payload)),
+        }
+    }
+
+    pub fn tick(&mut self) -> Result<TickOutcome, DemuxError<B>> {
         match self.bearer.read_segment() {
-            Err(err) => TickOutcome::BearerError(err),
-            Ok(None) => TickOutcome::Idle,
-            Ok(Some(segment)) => match self.egress.dispatch(segment.protocol, segment.payload) {
-                Dispatch::Disconnected(id, payload) => TickOutcome::Disconnected(id, payload),
-                Dispatch::Unknown(id, payload) => TickOutcome::Unknown(id, payload),
-                Dispatch::Done => TickOutcome::Busy,
+            Err(err) => Err(DemuxError::BearerError(err)),
+            Ok(None) => Ok(TickOutcome::Idle),
+            Ok(Some(segment)) => match self.dispatch(segment.protocol, segment.payload) {
+                Err(err) => Err(err),
+                Ok(()) => Ok(TickOutcome::Busy),
             },
         }
     }
 
-    pub fn block(&mut self, cancel: Cancel) -> Result<(), TBearer::Error> {
+    pub fn block(&mut self, cancel: Cancel) -> Result<(), B::Error> {
         loop {
             match self.tick() {
-                TickOutcome::Busy => (),
-                TickOutcome::Idle => match cancel.is_set() {
+                Ok(TickOutcome::Busy) => (),
+                Ok(TickOutcome::Idle) => match cancel.is_set() {
                     true => break Ok(()),
                     false => (),
                 },
-                TickOutcome::BearerError(err) => return Err(err),
-                TickOutcome::Disconnected(id, _) => {
+                Err(DemuxError::BearerError(err)) => return Err(err),
+                Err(DemuxError::EgressDisconnected(id, _)) => {
                     log::warn!("disconnected protocol {}", id)
                 }
-                TickOutcome::Unknown(id, _) => {
+                Err(DemuxError::EgressUnknown(id, _)) => {
                     log::warn!("unknown protocol {}", id)
                 }
             }

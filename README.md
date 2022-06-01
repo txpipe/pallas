@@ -42,6 +42,7 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 | Crates                                  | Description                                                             |
 | --------------------------------------- | ----------------------------------------------------------------------- |
 | [pallas-primitives](/pallas-primitives) | Ledger primitives and cbor codec for the different Cardano eras         |
+| pallas-addresses                        | Multi-era primitives for working with addresses                         |
 | pallas-ticking                          | Time passage implementation for consensus algorithm                     |
 | pallas-applying                         | Logic for validating and applying new blocks and txs to the chain state |
 | pallas-forecasting                      | Ledger forecasting algorithm to be used by the consensus layer          |
@@ -52,6 +53,14 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 | ------------------------------- | -------------------------------------------------- |
 | [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                    |
 | [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib |
+
+## Opinionted Facades
+
+| Crates                          | Description                                                                                   |
+| ------------------------------- | --------------------------------------------------------------------------------------------- |
+| pallas-builder                  | High-level abstraction for constructing Txs                                                   |
+| [pallas-gasket](/pallas-gasket) | Networking layer facade using the [Gasket](https://github.com/construkts/gasket-rs) framework |
+
 
 ## Etymology
 

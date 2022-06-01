@@ -5,7 +5,7 @@ use pallas::network::{
         handshake::{n2n::VersionTable, Initiator},
         run_agent, Point, MAINNET_MAGIC,
     },
-    multiplexer::{threads, Multiplexer},
+    multiplexer::std,
 };
 
 use pallas::network::miniprotocols::blockfetch::{BatchClient, Observer};

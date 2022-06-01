@@ -1,8 +1,12 @@
 use pallas_codec::{minicbor, Fragment};
-use pallas_multiplexer::Payload;
-use std::sync::mpsc::Receiver;
+use pallas_multiplexer::{bearers::MAX_SEGMENT_PAYLOAD_LENGTH, Payload};
 
 pub type Error = Box<dyn std::error::Error>;
+
+pub trait Transport {
+    fn send(&self, payload: Payload) -> Result<(), Error>;
+    fn recv(&mut self) -> Result<Payload, Error>;
+}
 
 enum Decoding<M> {
     Done(M, usize),
@@ -25,17 +29,15 @@ where
 }
 
 /// Reads from the receiver until a complete message is found
-pub fn read_until_full_msg<M>(
-    buffer: &mut Vec<u8>,
-    receiver: &mut Receiver<Payload>,
-) -> Result<M, Error>
+pub fn read_until_full_msg<M, T>(buffer: &mut Vec<u8>, transport: &mut T) -> Result<M, Error>
 where
     M: Fragment,
+    T: Transport,
 {
     // do an eager reading if buffer is empty, no point in going through the error
     // handling
     if buffer.is_empty() {
-        let chunk = receiver.recv()?;
+        let chunk = transport.recv()?;
         buffer.extend(chunk);
     }
 
@@ -48,12 +50,29 @@ where
         }
         Decoding::UnexpectedError(err) => Err(err),
         Decoding::NotEnoughData => {
-            let chunk = receiver.recv()?;
+            let chunk = transport.recv()?;
             buffer.extend(chunk);
 
-            read_until_full_msg::<M>(buffer, receiver)
+            read_until_full_msg(buffer, transport)
         }
     }
+}
+
+pub fn write_msg_as_chunks<M, T>(msg: &M, transport: &mut T) -> Result<(), Error>
+where
+    M: Fragment,
+    T: Transport,
+{
+    let mut payload = Vec::new();
+    minicbor::encode(&msg, &mut payload)?;
+
+    let chunks = payload.chunks(MAX_SEGMENT_PAYLOAD_LENGTH);
+
+    for chunk in chunks {
+        transport.send(Vec::from(chunk))?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
