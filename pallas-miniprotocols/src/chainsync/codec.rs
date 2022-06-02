@@ -1,33 +1,41 @@
-use crate::common::Point;
+use pallas_codec::minicbor;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::{BlockContent, HeaderContent, Message, SkippedContent, Tip};
 
-impl Encode for Tip {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl minicbor::encode::Encode<()> for Tip {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
-        self.0.encode(e)?;
+        e.encode(&self.0)?;
         e.u64(self.1)?;
 
         Ok(())
     }
 }
 
-impl<'b> Decode<'b> for Tip {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for Tip {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
-        let point = Point::decode(d)?;
+        let point = d.decode()?;
         let block_num = d.u64()?;
 
         Ok(Tip(point, block_num))
     }
 }
 
-impl<C> Encode for Message<C>
+impl<C> Encode<()> for Message<C>
 where
-    C: Encode,
+    C: Encode<()>,
 {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::RequestNext => {
                 e.array(1)?.u16(0)?;
@@ -39,33 +47,33 @@ where
             }
             Message::RollForward(content, tip) => {
                 e.array(3)?.u16(2)?;
-                content.encode(e)?;
-                tip.encode(e)?;
+                e.encode(content)?;
+                e.encode(tip)?;
                 Ok(())
             }
             Message::RollBackward(point, tip) => {
                 e.array(3)?.u16(3)?;
-                point.encode(e)?;
-                tip.encode(e)?;
+                e.encode(point)?;
+                e.encode(tip)?;
                 Ok(())
             }
             Message::FindIntersect(points) => {
                 e.array(2)?.u16(4)?;
                 e.array(points.len() as u64)?;
                 for point in points.iter() {
-                    point.encode(e)?;
+                    e.encode(point)?;
                 }
                 Ok(())
             }
             Message::IntersectFound(point, tip) => {
                 e.array(3)?.u16(5)?;
-                point.encode(e)?;
-                tip.encode(e)?;
+                e.encode(point)?;
+                e.encode(tip)?;
                 Ok(())
             }
             Message::IntersectNotFound(tip) => {
                 e.array(1)?.u16(6)?;
-                tip.encode(e)?;
+                e.encode(tip)?;
                 Ok(())
             }
             Message::Done => {
@@ -76,11 +84,11 @@ where
     }
 }
 
-impl<'b, C> Decode<'b> for Message<C>
+impl<'b, C> Decode<'b, ()> for Message<C>
 where
-    C: Decode<'b>,
+    C: Decode<'b, ()>,
 {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
 
@@ -88,26 +96,26 @@ where
             0 => Ok(Message::RequestNext),
             1 => Ok(Message::AwaitReply),
             2 => {
-                let content = C::decode(d)?;
-                let tip = Tip::decode(d)?;
+                let content = d.decode()?;
+                let tip = d.decode()?;
                 Ok(Message::RollForward(content, tip))
             }
             3 => {
-                let point = Point::decode(d)?;
-                let tip = Tip::decode(d)?;
+                let point = d.decode()?;
+                let tip = d.decode()?;
                 Ok(Message::RollBackward(point, tip))
             }
             4 => {
-                let points = Vec::<Point>::decode(d)?;
+                let points = d.decode()?;
                 Ok(Message::FindIntersect(points))
             }
             5 => {
-                let point = Point::decode(d)?;
-                let tip = Tip::decode(d)?;
+                let point = d.decode()?;
+                let tip = d.decode()?;
                 Ok(Message::IntersectFound(point, tip))
             }
             6 => {
-                let tip = Tip::decode(d)?;
+                let tip = d.decode()?;
                 Ok(Message::IntersectNotFound(tip))
             }
             7 => Ok(Message::Done),
@@ -118,8 +126,8 @@ where
     }
 }
 
-impl<'b> Decode<'b> for HeaderContent {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for HeaderContent {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let variant = d.u8()?; // era variant
 
@@ -156,35 +164,47 @@ impl<'b> Decode<'b> for HeaderContent {
     }
 }
 
-impl Encode for HeaderContent {
-    fn encode<W: encode::Write>(&self, _e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for HeaderContent {
+    fn encode<W: encode::Write>(
+        &self,
+        _e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         todo!()
     }
 }
 
-impl<'b> Decode<'b> for BlockContent {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for BlockContent {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.tag()?;
         let bytes = d.bytes()?;
         Ok(BlockContent(Vec::from(bytes)))
     }
 }
 
-impl Encode for BlockContent {
-    fn encode<W: encode::Write>(&self, _e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for BlockContent {
+    fn encode<W: encode::Write>(
+        &self,
+        _e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         todo!()
     }
 }
 
-impl<'b> Decode<'b> for SkippedContent {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for SkippedContent {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.skip()?;
         Ok(SkippedContent)
     }
 }
 
-impl Encode for SkippedContent {
-    fn encode<W: encode::Write>(&self, _e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for SkippedContent {
+    fn encode<W: encode::Write>(
+        &self,
+        _e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         todo!()
     }
 }

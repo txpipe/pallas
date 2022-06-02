@@ -22,13 +22,17 @@ pub enum Message {
     BatchDone,
 }
 
-impl Encode for Message {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for Message {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::RequestRange { range } => {
                 e.array(3)?.u16(0)?;
-                range.0.encode(e)?;
-                range.1.encode(e)?;
+                e.encode(&range.0)?;
+                e.encode(&range.1)?;
                 Ok(())
             }
             Message::ClientDone => {
@@ -56,15 +60,15 @@ impl Encode for Message {
     }
 }
 
-impl<'b> Decode<'b> for Message {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for Message {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
 
         match label {
             0 => {
-                let point1 = Point::decode(d)?;
-                let point2 = Point::decode(d)?;
+                let point1 = d.decode()?;
+                let point2 = d.decode()?;
                 Ok(Message::RequestRange {
                     range: (point1, point2),
                 })

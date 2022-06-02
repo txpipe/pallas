@@ -49,16 +49,20 @@ impl VersionTable {
 #[derive(Debug, Clone)]
 pub struct VersionData(NetworkMagic);
 
-impl Encode for VersionData {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for VersionData {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         e.u64(self.0)?;
 
         Ok(())
     }
 }
 
-impl<'b> Decode<'b> for VersionData {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for VersionData {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let network_magic = d.u64()?;
 
         Ok(Self(network_magic))

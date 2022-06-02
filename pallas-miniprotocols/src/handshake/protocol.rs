@@ -10,27 +10,31 @@ where
     pub values: HashMap<u64, T>,
 }
 
-impl<T> Encode for VersionTable<T>
+impl<T> Encode<()> for VersionTable<T>
 where
-    T: Debug + Clone + Encode,
+    T: Debug + Clone + Encode<()>,
 {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         e.map(self.values.len() as u64)?;
 
         for key in self.values.keys().sorted() {
             e.u64(*key)?;
-            self.values[key].encode(e)?;
+            e.encode(&self.values[key])?;
         }
 
         Ok(())
     }
 }
 
-impl<'b, T> Decode<'b> for VersionTable<T>
+impl<'b, T> Decode<'b, ()> for VersionTable<T>
 where
-    T: Debug + Clone + Decode<'b>,
+    T: Debug + Clone + Decode<'b, ()>,
 {
-    fn decode(_d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+    fn decode(_d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         todo!()
     }
 }
@@ -49,13 +53,17 @@ where
     Refuse(RefuseReason),
 }
 
-impl<D> Encode for Message<D>
+impl<D> Encode<()> for Message<D>
 where
     D: Debug + Clone,
-    D: Encode,
-    VersionTable<D>: Encode,
+    D: Encode<()>,
+    VersionTable<D>: Encode<()>,
 {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::Propose(version_table) => {
                 e.array(2)?.u16(0)?;
@@ -68,7 +76,7 @@ where
             }
             Message::Refuse(reason) => {
                 e.array(2)?.u16(2)?;
-                reason.encode(e)?;
+                e.encode(reason)?;
             }
         };
 
@@ -76,12 +84,12 @@ where
     }
 }
 
-impl<'b, D> Decode<'b> for Message<D>
+impl<'b, D> Decode<'b, ()> for Message<D>
 where
-    D: Decode<'b> + Debug + Clone,
-    VersionTable<D>: Decode<'b>,
+    D: Decode<'b, ()> + Debug + Clone,
+    VersionTable<D>: Decode<'b, ()>,
 {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
 
         match d.u16()? {
@@ -92,7 +100,7 @@ where
                 Ok(Message::Accept(version_number, version_data))
             }
             2 => {
-                let reason = RefuseReason::decode(d)?;
+                let reason: RefuseReason = d.decode()?;
                 Ok(Message::Refuse(reason))
             }
             _ => Err(decode::Error::message(
@@ -116,8 +124,12 @@ pub enum RefuseReason {
     Refused(VersionNumber, String),
 }
 
-impl Encode for RefuseReason {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for RefuseReason {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             RefuseReason::VersionMismatch(versions) => {
                 e.array(2)?;
@@ -149,8 +161,8 @@ impl Encode for RefuseReason {
     }
 }
 
-impl<'b> Decode<'b> for RefuseReason {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for RefuseReason {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
 
         match d.u16()? {
