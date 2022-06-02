@@ -122,15 +122,15 @@ pub enum Value {
     Multiasset(Coin, Multiasset<Coin>),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for Value {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
-            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode()?)),
-            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode()?)),
+            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::Array => {
                 d.array()?;
-                let coin = d.decode()?;
-                let multiasset = d.decode()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
                 Ok(Value::Multiasset(coin, multiasset))
             }
             _ => Err(minicbor::decode::Error::message(
@@ -140,20 +140,21 @@ impl<'b> minicbor::decode::Decode<'b> for Value {
     }
 }
 
-impl minicbor::encode::Encode for Value {
+impl<C> minicbor::encode::Encode<C> for Value {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         // TODO: check how to deal with uint variants (u32 vs u64)
         match self {
             Value::Coin(coin) => {
-                e.encode(coin)?;
+                e.encode_with(coin, ctx)?;
             }
             Value::Multiasset(coin, other) => {
                 e.array(2)?;
-                e.encode(coin)?;
-                e.encode(other)?;
+                e.encode_with(coin, ctx)?;
+                e.encode_with(other, ctx)?;
             }
         };
 
@@ -192,8 +193,11 @@ pub enum InstantaneousRewardSource {
     Treasury,
 }
 
-impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardSource {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for InstantaneousRewardSource {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
         let variant = d.u32()?;
 
         match variant {
@@ -204,10 +208,11 @@ impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardSource {
     }
 }
 
-impl minicbor::encode::Encode for InstantaneousRewardSource {
+impl<C> minicbor::encode::Encode<C> for InstantaneousRewardSource {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         let variant = match self {
             Self::Reserves => 0,
@@ -226,35 +231,36 @@ pub enum InstantaneousRewardTarget {
     OtherAccountingPot(Coin),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for InstantaneousRewardTarget {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for InstantaneousRewardTarget {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let datatype = d.datatype()?;
 
         match datatype {
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                let a = d.decode()?;
+                let a = d.decode_with(ctx)?;
                 Ok(Self::StakeCredentials(a))
             }
             _ => {
-                let a = d.decode()?;
+                let a = d.decode_with(ctx)?;
                 Ok(Self::OtherAccountingPot(a))
             }
         }
     }
 }
 
-impl minicbor::encode::Encode for InstantaneousRewardTarget {
+impl<C> minicbor::encode::Encode<C> for InstantaneousRewardTarget {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             InstantaneousRewardTarget::StakeCredentials(a) => {
-                a.encode(e)?;
+                e.encode_with(a, ctx)?;
                 Ok(())
             }
             InstantaneousRewardTarget::OtherAccountingPot(a) => {
-                a.encode(e)?;
+                e.encode_with(a, ctx)?;
                 Ok(())
             }
         }
@@ -285,15 +291,22 @@ pub enum Relay {
     MultiHostName(DnsName),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for Relay {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for Relay {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
         let variant = d.u16()?;
 
         match variant {
-            0 => Ok(Relay::SingleHostAddr(d.decode()?, d.decode()?, d.decode()?)),
-            1 => Ok(Relay::SingleHostName(d.decode()?, d.decode()?)),
-            2 => Ok(Relay::MultiHostName(d.decode()?)),
+            0 => Ok(Relay::SingleHostAddr(
+                d.decode_with(ctx)?,
+                d.decode_with(ctx)?,
+                d.decode_with(ctx)?,
+            )),
+            1 => Ok(Relay::SingleHostName(
+                d.decode_with(ctx)?,
+                d.decode_with(ctx)?,
+            )),
+            2 => Ok(Relay::MultiHostName(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant id for Relay",
             )),
@@ -301,33 +314,34 @@ impl<'b> minicbor::decode::Decode<'b> for Relay {
     }
 }
 
-impl minicbor::encode::Encode for Relay {
+impl<C> minicbor::encode::Encode<C> for Relay {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Relay::SingleHostAddr(a, b, c) => {
                 e.array(4)?;
-                e.encode(0)?;
-                e.encode(a)?;
-                e.encode(b)?;
-                e.encode(c)?;
+                e.encode_with(0, ctx)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
 
                 Ok(())
             }
             Relay::SingleHostName(a, b) => {
                 e.array(3)?;
-                e.encode(1)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(1, ctx)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Relay::MultiHostName(a) => {
                 e.array(2)?;
-                e.encode(2)?;
-                e.encode(a)?;
+                e.encode_with(2, ctx)?;
+                e.encode_with(a, ctx)?;
 
                 Ok(())
             }
@@ -355,28 +369,29 @@ pub struct RationalNumber {
     pub denominator: u64,
 }
 
-impl<'b> minicbor::decode::Decode<'b> for RationalNumber {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for RationalNumber {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.tag()?;
         d.array()?;
 
         Ok(RationalNumber {
-            numerator: d.decode()?,
-            denominator: d.decode()?,
+            numerator: d.decode_with(ctx)?,
+            denominator: d.decode_with(ctx)?,
         })
     }
 }
 
-impl minicbor::encode::Encode for RationalNumber {
+impl<C> minicbor::encode::Encode<C> for RationalNumber {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         // TODO: check if this is the correct tag
         e.tag(Tag::Unassigned(30))?;
         e.array(2)?;
-        e.encode(self.numerator)?;
-        e.encode(self.denominator)?;
+        e.encode_with(self.numerator, ctx)?;
+        e.encode_with(self.denominator, ctx)?;
 
         Ok(())
     }
@@ -392,14 +407,14 @@ pub enum StakeCredential {
     Scripthash(Scripthash),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for StakeCredential {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for StakeCredential {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
         let variant = d.u16()?;
 
         match variant {
-            0 => Ok(StakeCredential::AddrKeyhash(d.decode()?)),
-            1 => Ok(StakeCredential::Scripthash(d.decode()?)),
+            0 => Ok(StakeCredential::AddrKeyhash(d.decode_with(ctx)?)),
+            1 => Ok(StakeCredential::Scripthash(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant id for StakeCredential",
             )),
@@ -407,23 +422,24 @@ impl<'b> minicbor::decode::Decode<'b> for StakeCredential {
     }
 }
 
-impl minicbor::encode::Encode for StakeCredential {
+impl<C> minicbor::encode::Encode<C> for StakeCredential {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             StakeCredential::AddrKeyhash(a) => {
                 e.array(2)?;
-                e.encode(0)?;
-                e.encode(a)?;
+                e.encode_with(0, ctx)?;
+                e.encode_with(a, ctx)?;
 
                 Ok(())
             }
             StakeCredential::Scripthash(a) => {
                 e.array(2)?;
-                e.encode(1)?;
-                e.encode(a)?;
+                e.encode_with(1, ctx)?;
+                e.encode_with(a, ctx)?;
 
                 Ok(())
             }
@@ -452,35 +468,35 @@ pub enum Certificate {
     MoveInstantaneousRewardsCert(MoveInstantaneousReward),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for Certificate {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
         let variant = d.u16()?;
 
         match variant {
             0 => {
-                let a = d.decode()?;
+                let a = d.decode_with(ctx)?;
                 Ok(Certificate::StakeRegistration(a))
             }
             1 => {
-                let a = d.decode()?;
+                let a = d.decode_with(ctx)?;
                 Ok(Certificate::StakeDeregistration(a))
             }
             2 => {
-                let a = d.decode()?;
-                let b = d.decode()?;
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
                 Ok(Certificate::StakeDelegation(a, b))
             }
             3 => {
-                let operator = d.decode()?;
-                let vrf_keyhash = d.decode()?;
-                let pledge = d.decode()?;
-                let cost = d.decode()?;
-                let margin = d.decode()?;
-                let reward_account = d.decode()?;
-                let pool_owners = d.decode()?;
-                let relays = d.decode()?;
-                let pool_metadata = d.decode()?;
+                let operator = d.decode_with(ctx)?;
+                let vrf_keyhash = d.decode_with(ctx)?;
+                let pledge = d.decode_with(ctx)?;
+                let cost = d.decode_with(ctx)?;
+                let margin = d.decode_with(ctx)?;
+                let reward_account = d.decode_with(ctx)?;
+                let pool_owners = d.decode_with(ctx)?;
+                let relays = d.decode_with(ctx)?;
+                let pool_metadata = d.decode_with(ctx)?;
 
                 Ok(Certificate::PoolRegistration {
                     operator,
@@ -495,18 +511,18 @@ impl<'b> minicbor::decode::Decode<'b> for Certificate {
                 })
             }
             4 => {
-                let a = d.decode()?;
-                let b = d.decode()?;
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
                 Ok(Certificate::PoolRetirement(a, b))
             }
             5 => {
-                let a = d.decode()?;
-                let b = d.decode()?;
-                let c = d.decode()?;
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
                 Ok(Certificate::GenesisKeyDelegation(a, b, c))
             }
             6 => {
-                let a = d.decode()?;
+                let a = d.decode_with(ctx)?;
                 Ok(Certificate::MoveInstantaneousRewardsCert(a))
             }
             _ => Err(minicbor::decode::Error::message(
@@ -516,31 +532,32 @@ impl<'b> minicbor::decode::Decode<'b> for Certificate {
     }
 }
 
-impl minicbor::encode::Encode for Certificate {
+impl<C> minicbor::encode::Encode<C> for Certificate {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Certificate::StakeRegistration(a) => {
                 e.array(2)?;
                 e.u16(0)?;
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
 
                 Ok(())
             }
             Certificate::StakeDeregistration(a) => {
                 e.array(2)?;
                 e.u16(1)?;
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
 
                 Ok(())
             }
             Certificate::StakeDelegation(a, b) => {
                 e.array(3)?;
                 e.u16(2)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
@@ -558,39 +575,39 @@ impl minicbor::encode::Encode for Certificate {
                 e.array(10)?;
                 e.u16(3)?;
 
-                e.encode(operator)?;
-                e.encode(vrf_keyhash)?;
-                e.encode(pledge)?;
-                e.encode(cost)?;
-                e.encode(margin)?;
-                e.encode(reward_account)?;
-                e.encode(pool_owners)?;
-                e.encode(relays)?;
-                e.encode(pool_metadata)?;
+                e.encode_with(operator, ctx)?;
+                e.encode_with(vrf_keyhash, ctx)?;
+                e.encode_with(pledge, ctx)?;
+                e.encode_with(cost, ctx)?;
+                e.encode_with(margin, ctx)?;
+                e.encode_with(reward_account, ctx)?;
+                e.encode_with(pool_owners, ctx)?;
+                e.encode_with(relays, ctx)?;
+                e.encode_with(pool_metadata, ctx)?;
 
                 Ok(())
             }
             Certificate::PoolRetirement(a, b) => {
                 e.array(3)?;
                 e.u16(4)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Certificate::GenesisKeyDelegation(a, b, c) => {
                 e.array(4)?;
                 e.u16(5)?;
-                e.encode(a)?;
-                e.encode(b)?;
-                e.encode(c)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
 
                 Ok(())
             }
             Certificate::MoveInstantaneousRewardsCert(a) => {
                 e.array(2)?;
                 e.u16(6)?;
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
 
                 Ok(())
             }
@@ -700,25 +717,25 @@ pub enum TransactionBodyComponent {
     NetworkId(NetworkId),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for TransactionBodyComponent {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        let key: u32 = d.decode()?;
+impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionBodyComponent {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let key: u32 = d.decode_with(ctx)?;
 
         match key {
-            0 => Ok(Self::Inputs(d.decode()?)),
-            1 => Ok(Self::Outputs(d.decode()?)),
-            2 => Ok(Self::Fee(d.decode()?)),
-            3 => Ok(Self::Ttl(d.decode()?)),
-            4 => Ok(Self::Certificates(d.decode()?)),
-            5 => Ok(Self::Withdrawals(d.decode()?)),
-            6 => Ok(Self::Update(d.decode()?)),
-            7 => Ok(Self::AuxiliaryDataHash(d.decode()?)),
-            8 => Ok(Self::ValidityIntervalStart(d.decode()?)),
-            9 => Ok(Self::Mint(d.decode()?)),
-            11 => Ok(Self::ScriptDataHash(d.decode()?)),
-            13 => Ok(Self::Collateral(d.decode()?)),
-            14 => Ok(Self::RequiredSigners(d.decode()?)),
-            15 => Ok(Self::NetworkId(d.decode()?)),
+            0 => Ok(Self::Inputs(d.decode_with(ctx)?)),
+            1 => Ok(Self::Outputs(d.decode_with(ctx)?)),
+            2 => Ok(Self::Fee(d.decode_with(ctx)?)),
+            3 => Ok(Self::Ttl(d.decode_with(ctx)?)),
+            4 => Ok(Self::Certificates(d.decode_with(ctx)?)),
+            5 => Ok(Self::Withdrawals(d.decode_with(ctx)?)),
+            6 => Ok(Self::Update(d.decode_with(ctx)?)),
+            7 => Ok(Self::AuxiliaryDataHash(d.decode_with(ctx)?)),
+            8 => Ok(Self::ValidityIntervalStart(d.decode_with(ctx)?)),
+            9 => Ok(Self::Mint(d.decode_with(ctx)?)),
+            11 => Ok(Self::ScriptDataHash(d.decode_with(ctx)?)),
+            13 => Ok(Self::Collateral(d.decode_with(ctx)?)),
+            14 => Ok(Self::RequiredSigners(d.decode_with(ctx)?)),
+            15 => Ok(Self::NetworkId(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid map key for transaction body component",
             )),
@@ -726,67 +743,68 @@ impl<'b> minicbor::decode::Decode<'b> for TransactionBodyComponent {
     }
 }
 
-impl minicbor::encode::Encode for TransactionBodyComponent {
+impl<C> minicbor::encode::Encode<C> for TransactionBodyComponent {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             TransactionBodyComponent::Inputs(x) => {
-                e.encode(0)?;
-                e.encode(x)?;
+                e.encode_with(0, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Outputs(x) => {
-                e.encode(1)?;
-                e.encode(x)?;
+                e.encode_with(1, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Fee(x) => {
-                e.encode(2)?;
-                e.encode(x)?;
+                e.encode_with(2, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Ttl(x) => {
-                e.encode(3)?;
-                e.encode(x)?;
+                e.encode_with(3, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Certificates(x) => {
-                e.encode(4)?;
-                e.encode(x)?;
+                e.encode_with(4, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Withdrawals(x) => {
-                e.encode(5)?;
-                e.encode(x)?;
+                e.encode_with(5, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Update(x) => {
-                e.encode(6)?;
-                e.encode(x)?;
+                e.encode_with(6, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::AuxiliaryDataHash(x) => {
-                e.encode(7)?;
-                e.encode(x)?;
+                e.encode_with(7, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::ValidityIntervalStart(x) => {
-                e.encode(8)?;
-                e.encode(x)?;
+                e.encode_with(8, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Mint(x) => {
-                e.encode(9)?;
-                e.encode(x)?;
+                e.encode_with(9, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::ScriptDataHash(x) => {
-                e.encode(11)?;
-                e.encode(x)?;
+                e.encode_with(11, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::Collateral(x) => {
-                e.encode(13)?;
-                e.encode(x)?;
+                e.encode_with(13, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::RequiredSigners(x) => {
-                e.encode(14)?;
-                e.encode(x)?;
+                e.encode_with(14, ctx)?;
+                e.encode_with(x, ctx)?;
             }
             TransactionBodyComponent::NetworkId(x) => {
-                e.encode(15)?;
-                e.encode(x)?;
+                e.encode_with(15, ctx)?;
+                e.encode_with(x, ctx)?;
             }
         }
 
@@ -807,24 +825,25 @@ impl Deref for TransactionBody {
     }
 }
 
-impl<'b> minicbor::decode::Decode<'b> for TransactionBody {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionBody {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let len = d.map()?.unwrap_or_default();
 
-        let components: Result<_, _> = (0..len).map(|_| d.decode()).collect();
+        let components: Result<_, _> = (0..len).map(|_| d.decode_with(ctx)).collect();
 
         Ok(Self(components?))
     }
 }
 
-impl minicbor::encode::Encode for TransactionBody {
+impl<C> minicbor::encode::Encode<C> for TransactionBody {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.map(self.0.len() as u64)?;
         for component in &self.0 {
-            e.encode(component)?;
+            e.encode_with(component, ctx)?;
         }
 
         Ok(())
@@ -850,18 +869,21 @@ pub enum NativeScript {
     InvalidHereafter(u64),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for NativeScript {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for NativeScript {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
         let variant = d.u32()?;
 
         match variant {
-            0 => Ok(NativeScript::ScriptPubkey(d.decode()?)),
-            1 => Ok(NativeScript::ScriptAll(d.decode()?)),
-            2 => Ok(NativeScript::ScriptAny(d.decode()?)),
-            3 => Ok(NativeScript::ScriptNOfK(d.decode()?, d.decode()?)),
-            4 => Ok(NativeScript::InvalidBefore(d.decode()?)),
-            5 => Ok(NativeScript::InvalidHereafter(d.decode()?)),
+            0 => Ok(NativeScript::ScriptPubkey(d.decode_with(ctx)?)),
+            1 => Ok(NativeScript::ScriptAll(d.decode_with(ctx)?)),
+            2 => Ok(NativeScript::ScriptAny(d.decode_with(ctx)?)),
+            3 => Ok(NativeScript::ScriptNOfK(
+                d.decode_with(ctx)?,
+                d.decode_with(ctx)?,
+            )),
+            4 => Ok(NativeScript::InvalidBefore(d.decode_with(ctx)?)),
+            5 => Ok(NativeScript::InvalidHereafter(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "unknown variant id for native script",
             )),
@@ -869,38 +891,39 @@ impl<'b> minicbor::decode::Decode<'b> for NativeScript {
     }
 }
 
-impl minicbor::encode::Encode for NativeScript {
+impl<C> minicbor::encode::Encode<C> for NativeScript {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.array(2)?;
 
         match self {
             NativeScript::ScriptPubkey(v) => {
-                e.encode(0)?;
-                e.encode(v)?;
+                e.encode_with(0, ctx)?;
+                e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptAll(v) => {
-                e.encode(1)?;
-                e.encode(v)?;
+                e.encode_with(1, ctx)?;
+                e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptAny(v) => {
-                e.encode(2)?;
-                e.encode(v)?;
+                e.encode_with(2, ctx)?;
+                e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptNOfK(a, b) => {
-                e.encode(3)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(3, ctx)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
             }
             NativeScript::InvalidBefore(v) => {
-                e.encode(4)?;
-                e.encode(v)?;
+                e.encode_with(4, ctx)?;
+                e.encode_with(v, ctx)?;
             }
             NativeScript::InvalidHereafter(v) => {
-                e.encode(5)?;
-                e.encode(v)?;
+                e.encode_with(5, ctx)?;
+                e.encode_with(v, ctx)?;
             }
         }
 
@@ -931,8 +954,8 @@ pub enum BigInt {
     BigNInt(ByteVec),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for BigInt {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for BigInt {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let datatype = d.datatype()?;
 
         match datatype {
@@ -943,13 +966,13 @@ impl<'b> minicbor::decode::Decode<'b> for BigInt {
             | minicbor::data::Type::I8
             | minicbor::data::Type::I16
             | minicbor::data::Type::I32
-            | minicbor::data::Type::I64 => Ok(Self::Int(d.decode()?)),
+            | minicbor::data::Type::I64 => Ok(Self::Int(d.decode_with(ctx)?)),
             minicbor::data::Type::Tag => {
                 let tag = d.tag()?;
 
                 match tag {
-                    minicbor::data::Tag::PosBignum => Ok(Self::BigUInt(d.decode()?)),
-                    minicbor::data::Tag::NegBignum => Ok(Self::BigNInt(d.decode()?)),
+                    minicbor::data::Tag::PosBignum => Ok(Self::BigUInt(d.decode_with(ctx)?)),
+                    minicbor::data::Tag::NegBignum => Ok(Self::BigNInt(d.decode_with(ctx)?)),
                     _ => Err(minicbor::decode::Error::message(
                         "invalid cbor tag for big int",
                     )),
@@ -962,22 +985,23 @@ impl<'b> minicbor::decode::Decode<'b> for BigInt {
     }
 }
 
-impl minicbor::encode::Encode for BigInt {
+impl<C> minicbor::encode::Encode<C> for BigInt {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             BigInt::Int(x) => {
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
             }
             BigInt::BigUInt(x) => {
                 e.tag(Tag::PosBignum)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
             }
             BigInt::BigNInt(x) => {
                 e.tag(Tag::NegBignum)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
             }
         };
 
@@ -995,8 +1019,8 @@ pub enum PlutusData {
     ArrayIndef(MaybeIndefArray<PlutusData>),
 }
 
-impl<'b> minicbor::decode::Decode<'b> for PlutusData {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let type_ = d.datatype()?;
 
         match type_ {
@@ -1005,8 +1029,10 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
                 let tag = probe.tag()?;
 
                 match tag {
-                    Tag::Unassigned(121..=127 | 1280..=1400 | 102) => Ok(Self::Constr(d.decode()?)),
-                    Tag::PosBignum | Tag::NegBignum => Ok(Self::BigInt(d.decode()?)),
+                    Tag::Unassigned(121..=127 | 1280..=1400 | 102) => {
+                        Ok(Self::Constr(d.decode_with(ctx)?))
+                    }
+                    Tag::PosBignum | Tag::NegBignum => Ok(Self::BigInt(d.decode_with(ctx)?)),
                     _ => Err(minicbor::decode::Error::message(
                         "unknown tag for plutus data tag",
                     )),
@@ -1019,12 +1045,12 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
             | minicbor::data::Type::I8
             | minicbor::data::Type::I16
             | minicbor::data::Type::I32
-            | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode()?)),
-            minicbor::data::Type::Map => Ok(Self::Map(d.decode()?)),
-            minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode()?)),
-            minicbor::data::Type::BytesIndef => Ok(Self::BoundedBytes(d.decode()?)),
-            minicbor::data::Type::Array => Ok(Self::Array(d.decode()?)),
-            minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode()?)),
+            | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map => Ok(Self::Map(d.decode_with(ctx)?)),
+            minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
+            minicbor::data::Type::BytesIndef => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => Ok(Self::Array(d.decode_with(ctx)?)),
+            minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode_with(ctx)?)),
 
             _ => Err(minicbor::decode::Error::message(
                 "bad cbor data type for plutus data",
@@ -1033,29 +1059,30 @@ impl<'b> minicbor::decode::Decode<'b> for PlutusData {
     }
 }
 
-impl minicbor::encode::Encode for PlutusData {
+impl<C> minicbor::encode::Encode<C> for PlutusData {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Self::Constr(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Self::BigInt(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Self::BoundedBytes(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Self::ArrayIndef(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
         }
 
@@ -1070,18 +1097,18 @@ pub struct Constr<A> {
     pub fields: MaybeIndefArray<A>,
 }
 
-impl<'b, A> minicbor::decode::Decode<'b> for Constr<A>
+impl<'b, C, A> minicbor::decode::Decode<'b, C> for Constr<A>
 where
-    A: minicbor::decode::Decode<'b>,
+    A: minicbor::decode::Decode<'b, C>,
 {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let tag = d.tag()?;
 
         match tag {
             Tag::Unassigned(x) => match x {
                 121..=127 | 1280..=1400 => Ok(Constr {
                     tag: x,
-                    fields: d.decode()?,
+                    fields: d.decode_with(ctx)?,
                     any_constructor: None,
                 }),
                 102 => {
@@ -1089,8 +1116,8 @@ where
 
                     Ok(Constr {
                         tag: x,
-                        any_constructor: Some(d.decode()?),
-                        fields: d.decode()?,
+                        any_constructor: Some(d.decode_with(ctx)?),
+                        fields: d.decode_with(ctx)?,
                     })
                 }
                 _ => Err(minicbor::decode::Error::message(
@@ -1104,26 +1131,27 @@ where
     }
 }
 
-impl<A> minicbor::encode::Encode for Constr<A>
+impl<C, A> minicbor::encode::Encode<C> for Constr<A>
 where
-    A: minicbor::encode::Encode,
+    A: minicbor::encode::Encode<C>,
 {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.tag(Tag::Unassigned(self.tag))?;
 
         match self.tag {
             102 => {
                 e.array(2)?;
-                e.encode(self.any_constructor.unwrap_or_default())?;
-                e.encode(&self.fields)?;
+                e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
+                e.encode_with(&self.fields, ctx)?;
 
                 Ok(())
             }
             _ => {
-                e.encode(&self.fields)?;
+                e.encode_with(&self.fields, ctx)?;
 
                 Ok(())
             }
@@ -1240,8 +1268,8 @@ pub enum Metadatum {
     Map(KeyValuePairs<Metadatum, Metadatum>),
 }
 
-impl<'b> minicbor::Decode<'b> for Metadatum {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::U8 => {
                 let i = d.u8()?;
@@ -1279,10 +1307,10 @@ impl<'b> minicbor::Decode<'b> for Metadatum {
                 let i = d.int()?;
                 Ok(Metadatum::Int(i))
             }
-            minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode()?)),
-            minicbor::data::Type::String => Ok(Metadatum::Text(d.decode()?)),
-            minicbor::data::Type::Array => Ok(Metadatum::Array(d.decode()?)),
-            minicbor::data::Type::Map => Ok(Metadatum::Map(d.decode()?)),
+            minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
+            minicbor::data::Type::String => Ok(Metadatum::Text(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => Ok(Metadatum::Array(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map => Ok(Metadatum::Map(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "Can't turn data type into metadatum",
             )),
@@ -1290,26 +1318,27 @@ impl<'b> minicbor::Decode<'b> for Metadatum {
     }
 }
 
-impl minicbor::Encode for Metadatum {
+impl<C> minicbor::Encode<C> for Metadatum {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Metadatum::Int(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Metadatum::Bytes(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Metadatum::Text(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Metadatum::Array(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
             Metadatum::Map(a) => {
-                e.encode(a)?;
+                e.encode_with(a, ctx)?;
             }
         };
 
@@ -1331,16 +1360,16 @@ pub enum AuxiliaryData {
     Alonzo(AlonzoAuxiliaryData),
 }
 
-impl<'b> minicbor::Decode<'b> for AuxiliaryData {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for AuxiliaryData {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(AuxiliaryData::Shelley(d.decode()?))
+                Ok(AuxiliaryData::Shelley(d.decode_with(ctx)?))
             }
             minicbor::data::Type::Array => {
                 d.array()?;
-                let transaction_metadata = d.decode()?;
-                let auxiliary_scripts = d.decode()?;
+                let transaction_metadata = d.decode_with(ctx)?;
+                let auxiliary_scripts = d.decode_with(ctx)?;
                 Ok(AuxiliaryData::ShelleyMa {
                     transaction_metadata,
                     auxiliary_scripts,
@@ -1348,7 +1377,7 @@ impl<'b> minicbor::Decode<'b> for AuxiliaryData {
             }
             minicbor::data::Type::Tag => {
                 d.tag()?;
-                Ok(AuxiliaryData::Alonzo(d.decode()?))
+                Ok(AuxiliaryData::Alonzo(d.decode_with(ctx)?))
             }
             _ => Err(minicbor::decode::Error::message(
                 "Can't infer variant from data type for AuxiliaryData",
@@ -1357,27 +1386,28 @@ impl<'b> minicbor::Decode<'b> for AuxiliaryData {
     }
 }
 
-impl minicbor::Encode for AuxiliaryData {
+impl<C> minicbor::Encode<C> for AuxiliaryData {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AuxiliaryData::Shelley(m) => {
-                e.encode(m)?;
+                e.encode_with(m, ctx)?;
             }
             AuxiliaryData::ShelleyMa {
                 transaction_metadata,
                 auxiliary_scripts,
             } => {
                 e.array(2)?;
-                e.encode(transaction_metadata)?;
-                e.encode(auxiliary_scripts)?;
+                e.encode_with(transaction_metadata, ctx)?;
+                e.encode_with(auxiliary_scripts, ctx)?;
             }
             AuxiliaryData::Alonzo(v) => {
                 // TODO: check if this is the correct tag
                 e.tag(Tag::Unassigned(259))?;
-                e.encode(v)?;
+                e.encode_with(v, ctx)?;
             }
         };
 

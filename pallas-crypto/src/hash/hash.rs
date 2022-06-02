@@ -1,11 +1,10 @@
-use minicbor::{Decode, Encode};
+use pallas_codec::minicbor;
 use std::{fmt, ops::Deref, str::FromStr};
 
 /// data that is a cryptographic [`struct@Hash`] of `BYTES` long.
 ///
 /// Possible values with Cardano are 32 bytes long (block hash or transaction
 /// hash). Or 28 bytes long (as used in addresses)
-///
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Hash<const BYTES: usize>([u8; BYTES]);
 
@@ -68,17 +67,21 @@ impl<const BYTES: usize> FromStr for Hash<BYTES> {
     }
 }
 
-impl<const BYTES: usize> Encode for Hash<BYTES> {
+impl<C, const BYTES: usize> minicbor::Encode<C> for Hash<BYTES> {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.bytes(&self.0)?.ok()
     }
 }
 
-impl<'a, const BYTES: usize> Decode<'a> for Hash<BYTES> {
-    fn decode(d: &mut minicbor::Decoder<'a>) -> Result<Self, minicbor::decode::Error> {
+impl<'a, C, const BYTES: usize> minicbor::Decode<'a, C> for Hash<BYTES> {
+    fn decode(
+        d: &mut minicbor::Decoder<'a>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
         let bytes = d.bytes()?;
         if bytes.len() == BYTES {
             let mut hash = [0; BYTES];

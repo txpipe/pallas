@@ -26,8 +26,12 @@ pub type TxId = u64;
 #[derive(Debug)]
 pub struct TxIdAndSize(TxId, TxSizeInBytes);
 
-impl Encode for TxIdAndSize {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for TxIdAndSize {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
         e.u64(self.0)?;
         e.u32(self.1)?;
@@ -36,8 +40,8 @@ impl Encode for TxIdAndSize {
     }
 }
 
-impl<'b> Decode<'b> for TxIdAndSize {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for TxIdAndSize {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let id = d.u64()?;
         let size = d.u32()?;
@@ -66,8 +70,12 @@ pub enum Message {
     Done,
 }
 
-impl Encode for Message {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for Message {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::RequestTxIds(blocking, ack, req) => {
                 e.array(4)?.u16(0)?;
@@ -80,7 +88,7 @@ impl Encode for Message {
                 e.array(2)?.u16(1)?;
                 e.array(ids.len() as u64)?;
                 for id in ids {
-                    id.encode(e)?;
+                    e.encode(id)?;
                 }
                 Ok(())
             }
@@ -108,8 +116,8 @@ impl Encode for Message {
     }
 }
 
-impl<'b> Decode<'b> for Message {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for Message {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
 
@@ -121,7 +129,7 @@ impl<'b> Decode<'b> for Message {
                 Ok(Message::RequestTxIds(blocking, ack, req))
             }
             1 => {
-                let items = Vec::<TxIdAndSize>::decode(d)?;
+                let items = d.decode()?;
                 Ok(Message::ReplyTxIds(items))
             }
             2 => {

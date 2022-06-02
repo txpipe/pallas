@@ -1,6 +1,6 @@
 use crate::hash::Hash;
 use cryptoxide::blake2b::Blake2b;
-use minicbor::encode::Write;
+use pallas_codec::minicbor;
 
 /// handy method to create a hash of given `SIZE` bit size.
 ///
@@ -72,14 +72,17 @@ macro_rules! common_hasher {
             /// convenient function to directly generate the hash
             /// of the given [minicbor::Encode] data object
             #[inline]
-            pub fn hash_cbor(data: &impl minicbor::Encode) -> Hash<{ $size / 8 }> {
+            pub fn hash_cbor(data: &impl minicbor::Encode<()>) -> Hash<{ $size / 8 }> {
                 let mut hasher = Self::new();
                 let () = minicbor::encode(data, &mut hasher).expect("Infallible");
                 hasher.finalize()
             }
 
             #[inline]
-            pub fn hash_tagged_cbor(data: &impl minicbor::Encode, tag: u8) -> Hash<{ $size / 8 }> {
+            pub fn hash_tagged_cbor(
+                data: &impl minicbor::Encode<()>,
+                tag: u8,
+            ) -> Hash<{ $size / 8 }> {
                 let mut hasher = Self::new();
                 hasher.input(&[tag]);
                 let () = minicbor::encode(data, &mut hasher).expect("Infallible");
@@ -122,7 +125,7 @@ impl<const BITS: usize> Write for Hasher<BITS> {
 }
 */
 
-impl<'a, const BITS: usize> Write for &'a mut Hasher<BITS> {
+impl<'a, const BITS: usize> minicbor::encode::Write for &'a mut Hasher<BITS> {
     type Error = std::convert::Infallible;
 
     #[inline]

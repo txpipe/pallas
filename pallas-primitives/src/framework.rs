@@ -12,7 +12,7 @@ where
 
 impl<'a, T> Fragment<'a> for T
 where
-    T: Encode + Decode<'a> + Sized,
+    T: Encode<()> + Decode<'a, ()> + Sized,
 {
     fn encode_fragment(&self) -> Result<Vec<u8>, Error> {
         to_vec(self).map_err(|e| e.into())

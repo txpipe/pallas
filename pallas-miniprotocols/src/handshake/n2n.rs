@@ -50,8 +50,12 @@ impl VersionData {
     }
 }
 
-impl Encode for VersionData {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for VersionData {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?
             .u64(self.network_magic)?
             .bool(self.initiator_and_responder_diffusion_mode)?;
@@ -60,8 +64,8 @@ impl Encode for VersionData {
     }
 }
 
-impl<'b> Decode<'b> for VersionData {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for VersionData {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let network_magic = d.u64()?;
         let initiator_and_responder_diffusion_mode = d.bool()?;

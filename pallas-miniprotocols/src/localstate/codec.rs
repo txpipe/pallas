@@ -2,8 +2,12 @@ use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
 use super::{AcquireFailure, Message, Query};
 
-impl Encode for AcquireFailure {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for AcquireFailure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         let code = match self {
             AcquireFailure::PointTooOld => 0,
             AcquireFailure::PointNotInChain => 1,
@@ -15,9 +19,10 @@ impl Encode for AcquireFailure {
     }
 }
 
-impl<'b> Decode<'b> for AcquireFailure {
+impl<'b> Decode<'b, ()> for AcquireFailure {
     fn decode(
         d: &mut pallas_codec::minicbor::Decoder<'b>,
+        _ctx: &mut (),
     ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
         let code = d.u16()?;
 
@@ -31,13 +36,17 @@ impl<'b> Decode<'b> for AcquireFailure {
     }
 }
 
-impl<Q> Encode for Message<Q>
+impl<Q> Encode<()> for Message<Q>
 where
     Q: Query,
-    Q::Request: Encode,
-    Q::Response: Encode,
+    Q::Request: Encode<()>,
+    Q::Response: Encode<()>,
 {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::Acquire(Some(point)) => {
                 e.array(2)?.u16(0)?;
@@ -90,14 +99,15 @@ where
     }
 }
 
-impl<'b, Q> Decode<'b> for Message<Q>
+impl<'b, Q> Decode<'b, ()> for Message<Q>
 where
     Q: Query,
-    Q::Request: Decode<'b>,
-    Q::Response: Decode<'b>,
+    Q::Request: Decode<'b, ()>,
+    Q::Response: Decode<'b, ()>,
 {
     fn decode(
         d: &mut pallas_codec::minicbor::Decoder<'b>,
+        _ctx: &mut (),
     ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
         d.array()?;
         let label = d.u16()?;

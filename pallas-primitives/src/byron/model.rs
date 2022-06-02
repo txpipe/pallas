@@ -57,13 +57,13 @@ pub enum AddrDistr {
     Variant1,
 }
 
-impl<'b> minicbor::Decode<'b> for AddrDistr {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for AddrDistr {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
         let variant = d.u32()?;
 
         match variant {
-            0 => Ok(AddrDistr::Variant0(d.decode()?)),
+            0 => Ok(AddrDistr::Variant0(d.decode_with(ctx)?)),
             1 => Ok(AddrDistr::Variant1),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for addrdstr",
@@ -72,10 +72,11 @@ impl<'b> minicbor::Decode<'b> for AddrDistr {
     }
 }
 
-impl minicbor::Encode for AddrDistr {
+impl minicbor::Encode<()> for AddrDistr {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut (),
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrDistr::Variant0(x) => {
@@ -103,8 +104,11 @@ pub enum AddrType {
     Other(u64),
 }
 
-impl<'b> minicbor::Decode<'b> for AddrType {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for AddrType {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
         let variant = d.u64()?;
 
         match variant {
@@ -116,10 +120,11 @@ impl<'b> minicbor::Decode<'b> for AddrType {
     }
 }
 
-impl minicbor::Encode for AddrType {
+impl<C> minicbor::Encode<C> for AddrType {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrType::PubKey => e.u64(0)?,
@@ -139,22 +144,23 @@ pub enum AddrAttrProperty {
     Unparsed(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for AddrAttrProperty {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let key = d.u8()?;
 
         match key {
-            0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
-            1 => Ok(AddrAttrProperty::Bytes(d.decode()?)),
-            x => Ok(AddrAttrProperty::Unparsed(x, d.decode()?)),
+            0 => Ok(AddrAttrProperty::AddrDistr(d.decode_with(ctx)?)),
+            1 => Ok(AddrAttrProperty::Bytes(d.decode_with(ctx)?)),
+            x => Ok(AddrAttrProperty::Unparsed(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for AddrAttrProperty {
+impl<C> minicbor::Encode<C> for AddrAttrProperty {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrAttrProperty::AddrDistr(x) => {
@@ -224,36 +230,37 @@ pub enum TxIn {
     Other(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for TxIn {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for TxIn {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(TxIn::Variant0(d.decode()?)),
-            x => Ok(TxIn::Other(x, d.decode()?)),
+            0 => Ok(TxIn::Variant0(d.decode_with(ctx)?)),
+            x => Ok(TxIn::Other(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for TxIn {
+impl<C> minicbor::Encode<C> for TxIn {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             TxIn::Variant0(x) => {
                 e.array(2)?;
                 e.u8(0)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
             TxIn::Other(a, b) => {
                 e.array(2)?;
                 e.u8(*a)?;
-                e.encode(b)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
@@ -295,38 +302,39 @@ pub enum Twit {
     Other(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for Twit {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for Twit {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(Twit::PkWitness(d.decode()?)),
-            1 => Ok(Twit::ScriptWitness(d.decode()?)),
-            2 => Ok(Twit::RedeemWitness(d.decode()?)),
-            x => Ok(Twit::Other(x, d.decode()?)),
+            0 => Ok(Twit::PkWitness(d.decode_with(ctx)?)),
+            1 => Ok(Twit::ScriptWitness(d.decode_with(ctx)?)),
+            2 => Ok(Twit::RedeemWitness(d.decode_with(ctx)?)),
+            x => Ok(Twit::Other(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for Twit {
+impl<C> minicbor::Encode<C> for Twit {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Twit::PkWitness(x) => {
                 e.array(2)?;
                 e.u8(0)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
             Twit::ScriptWitness(x) => {
                 e.array(2)?;
                 e.u8(1)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
@@ -407,56 +415,57 @@ pub enum Ssc {
     Variant3(SscCerts),
 }
 
-impl<'b> minicbor::Decode<'b> for Ssc {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for Ssc {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(Ssc::Variant0(d.decode()?, d.decode()?)),
-            1 => Ok(Ssc::Variant1(d.decode()?, d.decode()?)),
-            2 => Ok(Ssc::Variant2(d.decode()?, d.decode()?)),
-            3 => Ok(Ssc::Variant3(d.decode()?)),
+            0 => Ok(Ssc::Variant0(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            1 => Ok(Ssc::Variant1(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            2 => Ok(Ssc::Variant2(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            3 => Ok(Ssc::Variant3(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message("invalid variant for ssc")),
         }
     }
 }
 
-impl minicbor::Encode for Ssc {
+impl<C> minicbor::Encode<C> for Ssc {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Ssc::Variant0(a, b) => {
                 e.array(3)?;
                 e.u8(0)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Ssc::Variant1(a, b) => {
                 e.array(3)?;
                 e.u8(1)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Ssc::Variant2(a, b) => {
                 e.array(3)?;
                 e.u8(2)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Ssc::Variant3(x) => {
                 e.array(2)?;
                 e.u8(3)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
@@ -472,17 +481,17 @@ pub enum SscProof {
     Variant3(ByronHash),
 }
 
-impl<'b> minicbor::Decode<'b> for SscProof {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for SscProof {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(SscProof::Variant0(d.decode()?, d.decode()?)),
-            1 => Ok(SscProof::Variant1(d.decode()?, d.decode()?)),
-            2 => Ok(SscProof::Variant2(d.decode()?, d.decode()?)),
-            3 => Ok(SscProof::Variant3(d.decode()?)),
+            0 => Ok(SscProof::Variant0(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            1 => Ok(SscProof::Variant1(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            2 => Ok(SscProof::Variant2(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            3 => Ok(SscProof::Variant3(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for sscproof",
             )),
@@ -490,40 +499,41 @@ impl<'b> minicbor::Decode<'b> for SscProof {
     }
 }
 
-impl minicbor::Encode for SscProof {
+impl<C> minicbor::Encode<C> for SscProof {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             SscProof::Variant0(a, b) => {
                 e.array(3)?;
                 e.u8(0)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             SscProof::Variant1(a, b) => {
                 e.array(3)?;
                 e.u8(1)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             SscProof::Variant2(a, b) => {
                 e.array(3)?;
                 e.u8(2)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             SscProof::Variant3(x) => {
                 e.array(2)?;
                 e.u8(3)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
@@ -580,36 +590,37 @@ pub enum TxFeePol {
     Other(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for TxFeePol {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for TxFeePol {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(TxFeePol::Variant0(d.decode()?)),
-            x => Ok(TxFeePol::Other(x, d.decode()?)),
+            0 => Ok(TxFeePol::Variant0(d.decode_with(ctx)?)),
+            x => Ok(TxFeePol::Other(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for TxFeePol {
+impl<C> minicbor::Encode<C> for TxFeePol {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             TxFeePol::Variant0(x) => {
                 e.array(2)?;
                 e.u8(0)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
             TxFeePol::Other(a, b) => {
                 e.array(2)?;
                 e.u8(*a)?;
-                e.encode(b)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
@@ -725,16 +736,16 @@ pub enum BlockSig {
     DlgSig(DlgSig),
 }
 
-impl<'b> minicbor::Decode<'b> for BlockSig {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for BlockSig {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(BlockSig::Signature(d.decode()?)),
-            1 => Ok(BlockSig::LwdlgSig(d.decode()?)),
-            2 => Ok(BlockSig::DlgSig(d.decode()?)),
+            0 => Ok(BlockSig::Signature(d.decode_with(ctx)?)),
+            1 => Ok(BlockSig::LwdlgSig(d.decode_with(ctx)?)),
+            2 => Ok(BlockSig::DlgSig(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "unknown variant for blocksig",
             )),
@@ -742,10 +753,11 @@ impl<'b> minicbor::Decode<'b> for BlockSig {
     }
 }
 
-impl minicbor::Encode for BlockSig {
+impl<C> minicbor::Encode<C> for BlockSig {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             BlockSig::Signature(x) => {
@@ -914,15 +926,15 @@ pub enum Block {
     EbBlock(EbBlock),
 }
 
-impl<'b> minicbor::Decode<'b> for Block {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for Block {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u32()?;
 
         match variant {
-            0 => Ok(Block::EbBlock(d.decode()?)),
-            1 => Ok(Block::MainBlock(d.decode()?)),
+            0 => Ok(Block::EbBlock(d.decode_with(ctx)?)),
+            1 => Ok(Block::MainBlock(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "unknown variant for block",
             )),
@@ -930,10 +942,11 @@ impl<'b> minicbor::Decode<'b> for Block {
     }
 }
 
-impl minicbor::Encode for Block {
+impl minicbor::Encode<()> for Block {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut (),
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Block::EbBlock(x) => {

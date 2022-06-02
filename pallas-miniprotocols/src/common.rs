@@ -39,8 +39,12 @@ impl Point {
     }
 }
 
-impl Encode for Point {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
+impl Encode<()> for Point {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Point::Origin => e.array(0)?,
             Point::Specific(slot, hash) => e.array(2)?.u64(*slot)?.bytes(hash)?,
@@ -50,8 +54,8 @@ impl Encode for Point {
     }
 }
 
-impl<'b> Decode<'b> for Point {
-    fn decode(d: &mut Decoder<'b>) -> Result<Self, decode::Error> {
+impl<'b> Decode<'b, ()> for Point {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let size = d.array()?;
 
         match size {
