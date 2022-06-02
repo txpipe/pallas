@@ -76,7 +76,7 @@ impl minicbor::Encode<()> for AddrDistr {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        ctx: &mut (),
+        _ctx: &mut (),
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrDistr::Variant0(x) => {
@@ -124,7 +124,7 @@ impl<C> minicbor::Encode<C> for AddrType {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrType::PubKey => e.u64(0)?,
@@ -160,7 +160,7 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrAttrProperty::AddrDistr(x) => {
@@ -757,7 +757,7 @@ impl<C> minicbor::Encode<C> for BlockSig {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             BlockSig::Signature(x) => {

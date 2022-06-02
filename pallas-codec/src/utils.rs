@@ -438,7 +438,7 @@ impl<C> minicbor::encode::Encode<C> for AnyUInt {
 
                 e.writer_mut()
                     .write_all(b)
-                    .map_err(|err| minicbor::encode::Error::write(err))?;
+                    .map_err(minicbor::encode::Error::write)?;
 
                 Ok(())
             }
@@ -448,7 +448,7 @@ impl<C> minicbor::encode::Encode<C> for AnyUInt {
 
                 e.writer_mut()
                     .write_all(b)
-                    .map_err(|err| minicbor::encode::Error::write(err))?;
+                    .map_err(minicbor::encode::Error::write)?;
 
                 Ok(())
             }
@@ -458,7 +458,7 @@ impl<C> minicbor::encode::Encode<C> for AnyUInt {
 
                 e.writer_mut()
                     .write_all(b)
-                    .map_err(|err| minicbor::encode::Error::write(err))?;
+                    .map_err(minicbor::encode::Error::write)?;
 
                 Ok(())
             }
@@ -468,7 +468,7 @@ impl<C> minicbor::encode::Encode<C> for AnyUInt {
 
                 e.writer_mut()
                     .write_all(b)
-                    .map_err(|err| minicbor::encode::Error::write(err))?;
+                    .map_err(minicbor::encode::Error::write)?;
 
                 Ok(())
             }
@@ -478,7 +478,7 @@ impl<C> minicbor::encode::Encode<C> for AnyUInt {
 
                 e.writer_mut()
                     .write_all(b)
-                    .map_err(|err| minicbor::encode::Error::write(err))?;
+                    .map_err(minicbor::encode::Error::write)?;
 
                 Ok(())
             }
@@ -501,27 +501,5 @@ impl From<AnyUInt> for u64 {
 impl From<&AnyUInt> for u64 {
     fn from(x: &AnyUInt) -> Self {
         u64::from(*x)
-    }
-}
-
-pub struct KeepRaw<'b, T> {
-    raw: &'b [u8],
-    inner: T,
-}
-
-impl<'b, T, C> minicbor::Decode<'b, C> for KeepRaw<'b, T>
-where
-    T: minicbor::Decode<'b, C>,
-{
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let all = d.input();
-        let start = d.position();
-        let inner: T = d.decode_with(ctx)?;
-        let end = d.position();
-
-        Ok(Self {
-            inner,
-            raw: &all[start..end],
-        })
     }
 }
