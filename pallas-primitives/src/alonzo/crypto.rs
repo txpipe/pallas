@@ -1,45 +1,48 @@
+use crate::ToHash;
+
 use super::{AuxiliaryData, Header, NativeScript, PlutusData, PlutusScript, TransactionBody};
+use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
 
-pub fn hash_block_header(data: &Header) -> Hash<32> {
-    Hasher::<256>::hash_cbor(data)
+impl ToHash<32> for Header {
+    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
 }
 
-pub fn hash_auxiliary_data(data: &AuxiliaryData) -> Hash<32> {
-    Hasher::<256>::hash_cbor(data)
+impl ToHash<32> for AuxiliaryData {
+    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
 }
 
-#[deprecated(note = "use TransactionBody::to_hash instead")]
-pub fn hash_transaction(data: &TransactionBody) -> Hash<32> {
-    Hasher::<256>::hash_cbor(data)
-}
-
-#[deprecated(note = "use PlutusData::to_hash instead")]
-pub fn hash_plutus_data(data: &PlutusData) -> Hash<32> {
-    Hasher::<256>::hash_cbor(data)
-}
-
-impl NativeScript {
-    pub fn to_hash(&self) -> Hash<28> {
+impl ToHash<28> for NativeScript {
+    fn to_hash(&self) -> Hash<28> {
         Hasher::<224>::hash_tagged_cbor(self, 0)
     }
 }
 
-impl PlutusScript {
-    pub fn to_hash(&self) -> Hash<28> {
+impl ToHash<28> for PlutusScript {
+    fn to_hash(&self) -> Hash<28> {
         Hasher::<224>::hash_tagged_cbor(self, 1)
     }
 }
 
-impl PlutusData {
-    pub fn to_hash(&self) -> Hash<32> {
+impl ToHash<32> for PlutusData {
+    fn to_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl TransactionBody {
-    pub fn to_hash(&self) -> Hash<32> {
+impl ToHash<32> for TransactionBody {
+    fn to_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
+    }
+}
+
+impl ToHash<32> for KeepRaw<'_, TransactionBody> {
+    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
@@ -52,7 +55,7 @@ mod tests {
     use pallas_crypto::hash::Hash;
 
     use crate::alonzo::{BigInt, BlockWrapper, Constr, NativeScript, PlutusData};
-    use crate::Fragment;
+    use crate::{Fragment, ToHash};
 
     #[test]
     fn transaction_hash_works() {

@@ -36,3 +36,7 @@ pub enum Era {
     Mary,    // multi-assets
     Alonzo,  // smart-contracts
 }
+
+pub trait ToHash<const BYTES: usize> {
+    fn to_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
+}

@@ -6,7 +6,7 @@ use pallas_codec::minicbor::{bytes::ByteVec, data::Int, data::Tag, Decode, Encod
 use pallas_crypto::hash::Hash;
 use std::ops::Deref;
 
-use pallas_codec::utils::{AnyUInt, KeyValuePairs, MaybeIndefArray};
+use pallas_codec::utils::{AnyUInt, KeepRaw, KeyValuePairs, MaybeIndefArray};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -1418,12 +1418,12 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
 pub type TransactionIndex = u32;
 
 #[derive(Encode, Decode, Debug, PartialEq)]
-pub struct Block {
+pub struct Block<'b> {
     #[n(0)]
     pub header: Header,
 
-    #[n(1)]
-    pub transaction_bodies: MaybeIndefArray<TransactionBody>,
+    #[b(1)]
+    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
 
     #[n(2)]
     pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
@@ -1436,12 +1436,12 @@ pub struct Block {
 }
 
 #[derive(Encode, Decode, Debug)]
-pub struct BlockWrapper(#[n(0)] pub u16, #[n(1)] pub Block);
+pub struct BlockWrapper<'b>(#[n(0)] pub u16, #[b(1)] pub Block<'b>);
 
 #[cfg(test)]
 mod tests {
     use super::BlockWrapper;
-    use crate::Fragment;
+    use crate::{Fragment, ToHash};
     use pallas_codec::minicbor::to_vec;
 
     #[test]
@@ -1484,6 +1484,8 @@ mod tests {
             include_str!("test_data/test20.block"),
             // peculiar block with bad tx hash
             include_str!("test_data/test21.block"),
+            // peculiar block with bad tx hash
+            include_str!("test_data/test22.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

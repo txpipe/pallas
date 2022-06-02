@@ -503,3 +503,66 @@ impl From<&AnyUInt> for u64 {
         u64::from(*x)
     }
 }
+
+/// Decodes a struct while preserving original CBOR
+///
+/// # Examples
+///
+/// ```
+/// use pallas_codec::utils::KeepRaw;
+///
+/// let a = (123u16, (456u16, 789u16), 123u16);
+/// let data = minicbor::to_vec(a).unwrap();
+///
+/// let (_, keeper, _): (u16, KeepRaw<(u16, u16)>, u16) = minicbor::decode(&data).unwrap();
+/// let confirm: (u16, u16) = minicbor::decode(keeper.raw_cbor()).unwrap();
+/// assert_eq!(confirm, (456u16, 789u16));
+/// ```
+#[derive(Debug, PartialEq, PartialOrd)]
+pub struct KeepRaw<'b, T> {
+    raw: &'b [u8],
+    inner: T,
+}
+
+impl<'b, T> KeepRaw<'b, T> {
+    pub fn raw_cbor(&self) -> &'b [u8] {
+        self.raw
+    }
+}
+
+impl<'b, T> Deref for KeepRaw<'b, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<'b, T, C> minicbor::Decode<'b, C> for KeepRaw<'b, T>
+where
+    T: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let all = d.input();
+        let start = d.position();
+        let inner: T = d.decode_with(ctx)?;
+        let end = d.position();
+
+        Ok(Self {
+            inner,
+            raw: &all[start..end],
+        })
+    }
+}
+
+impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.writer_mut()
+            .write_all(self.raw_cbor())
+            .map_err(minicbor::encode::Error::write)
+    }
+}
