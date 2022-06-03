@@ -250,7 +250,7 @@ where
                 self.on_intersect_found(point, tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
+            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg)),
         }
     }
 }
@@ -347,7 +347,7 @@ impl Agent for TipFinder {
                 self.on_intersect_found(tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            (state, msg) => Err(MachineError::InvalidMsgForState(state.clone(), msg).into()),
+            (state, msg) => Err(MachineError::InvalidMsgForState(state.clone(), msg)),
         }
     }
 }

@@ -13,7 +13,7 @@ pub type StdIngress = Receiver<Payload>;
 
 impl mux::Ingress for StdIngress {
     fn try_recv(&mut self) -> Result<Payload, mux::IngressError> {
-        match Receiver::try_recv(&self) {
+        match Receiver::try_recv(self) {
             Ok(x) => Ok(x),
             Err(TryRecvError::Disconnected) => Err(mux::IngressError::Disconnected),
             Err(TryRecvError::Empty) => Err(mux::IngressError::Empty),
@@ -25,7 +25,7 @@ pub type StdEgress = Sender<Payload>;
 
 impl demux::Egress for StdEgress {
     fn send(&self, payload: Payload) -> Result<(), demux::EgressError> {
-        match Sender::send(&self, payload) {
+        match Sender::send(self, payload) {
             Ok(_) => Ok(()),
             Err(SendError(p)) => Err(demux::EgressError(p)),
         }
