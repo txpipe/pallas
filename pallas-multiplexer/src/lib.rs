@@ -1,11 +1,9 @@
+pub mod agents;
 pub mod bearers;
 pub mod demux;
 pub mod mux;
-pub mod std;
 
 pub type Payload = Vec<u8>;
-
-pub type Channel<I, E> = (I, E);
 
 pub struct Multiplexer<B, I, E>
 where
@@ -35,3 +33,9 @@ where
         self.demuxer.register(protocol, egress);
     }
 }
+
+#[cfg(feature = "std")]
+mod std;
+
+#[cfg(feature = "std")]
+pub use crate::std::*;

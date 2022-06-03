@@ -231,6 +231,11 @@ impl NaiveProvider {
 
 impl Agent for NaiveProvider {
     type Message = Message;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done

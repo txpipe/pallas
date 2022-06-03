@@ -7,8 +7,6 @@ use std::{net::TcpStream, time::Instant};
 
 use crate::Payload;
 
-pub const MAX_SEGMENT_PAYLOAD_LENGTH: usize = 65535;
-
 pub struct Segment {
     pub protocol: u16,
     pub timestamp: u32,

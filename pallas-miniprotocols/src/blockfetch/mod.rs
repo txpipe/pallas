@@ -1,4 +1,5 @@
 use crate::machines::{Agent, Transition};
+use crate::MachineError;
 
 use crate::common::Point;
 
@@ -151,7 +152,9 @@ where
     fn on_block(mut self, body: Vec<u8>) -> Transition<Self> {
         log::debug!("received block body, size {}", body.len());
 
-        self.observer.on_block_received(body)?;
+        self.observer
+            .on_block_received(body)
+            .map_err(MachineError::downstream)?;
 
         Ok(self)
     }
@@ -176,6 +179,11 @@ where
     O: Observer,
 {
     type Message = Message;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done
@@ -290,7 +298,9 @@ where
     fn on_block(mut self, body: Vec<u8>) -> Transition<Self> {
         log::debug!("received block body, size {}", body.len());
 
-        self.observer.on_block_received(body)?;
+        self.observer
+            .on_block_received(body)
+            .map_err(MachineError::downstream)?;
 
         Ok(self)
     }
@@ -313,6 +323,11 @@ where
     O: Observer,
 {
     type Message = Message;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done

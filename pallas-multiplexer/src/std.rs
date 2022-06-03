@@ -1,4 +1,4 @@
-use crate::{bearers::Bearer, demux, mux, Payload};
+use crate::{agents, bearers::Bearer, demux, mux, Payload};
 
 use std::{
     sync::{
@@ -9,9 +9,9 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-pub type Ingress = Receiver<Payload>;
+pub type StdIngress = Receiver<Payload>;
 
-impl mux::Ingress for Ingress {
+impl mux::Ingress for StdIngress {
     fn try_recv(&mut self) -> Result<Payload, mux::IngressError> {
         match Receiver::try_recv(&self) {
             Ok(x) => Ok(x),
@@ -21,9 +21,9 @@ impl mux::Ingress for Ingress {
     }
 }
 
-pub type Egress = Sender<Payload>;
+pub type StdEgress = Sender<Payload>;
 
-impl demux::Egress for Egress {
+impl demux::Egress for StdEgress {
     fn send(&self, payload: Payload) -> Result<(), demux::EgressError> {
         match Sender::send(&self, payload) {
             Ok(_) => Ok(()),
@@ -32,11 +32,27 @@ impl demux::Egress for Egress {
     }
 }
 
-pub type Multiplexer<B> = crate::Multiplexer<B, Ingress, Egress>;
+pub type StdPlexer<B> = crate::Multiplexer<B, StdIngress, StdEgress>;
 
-pub type Channel = (Sender<Payload>, Receiver<Payload>);
+pub type StdChannel = (Sender<Payload>, Receiver<Payload>);
 
-pub fn use_channel<B: Bearer>(plexer: &mut Multiplexer<B>, protocol: u16) -> Channel {
+impl agents::Channel for StdChannel {
+    fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
+        match self.0.send(payload) {
+            Ok(_) => Ok(()),
+            Err(SendError(payload)) => Err(agents::ChannelError::NotConnected(Some(payload))),
+        }
+    }
+
+    fn dequeue_chunk(&mut self) -> Result<Payload, agents::ChannelError> {
+        match self.1.recv() {
+            Ok(payload) => Ok(payload),
+            Err(_) => Err(agents::ChannelError::NotConnected(None)),
+        }
+    }
+}
+
+pub fn use_channel<B: Bearer>(plexer: &mut StdPlexer<B>, protocol: u16) -> StdChannel {
     let (demux_tx, demux_rx) = channel::<Payload>();
     let (mux_tx, mux_rx) = channel::<Payload>();
 

@@ -1,6 +1,6 @@
 use pallas::network::{
     miniprotocols::{chainsync, handshake, localstate, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::{threads, Channel, Multiplexer},
+    multiplexer,
 };
 
 use std::os::unix::net::UnixStream;
@@ -45,12 +45,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
     }
 }
 
-fn do_handshake(mut channel: Channel) {
+fn do_handshake(mut channel: multiplexer::StdChannel) {
     let versions = handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC);
     let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
 }
 
-fn do_localstate_query(mut channel: Channel) {
+fn do_localstate_query(mut channel: multiplexer::StdChannel) {
     let agent = run_agent(
         localstate::OneShotClient::<localstate::queries::QueryV10>::initial(
             None,
@@ -62,7 +62,7 @@ fn do_localstate_query(mut channel: Channel) {
     log::info!("state query result: {:?}", agent);
 }
 
-fn do_chainsync(mut channel: Channel) {
+fn do_chainsync(mut channel: multiplexer::StdChannel) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
@@ -90,13 +90,13 @@ fn main() {
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
-    let mut plexer = Multiplexer::new(bearer);
-    let channel0 = plexer.use_channel(0);
-    let channel7 = plexer.use_channel(7);
-    let channel5 = plexer.use_channel(5);
+    let mut plexer = multiplexer::StdPlexer::new(bearer);
+    let channel0 = multiplexer::use_channel(&mut plexer, 0);
+    let channel7 = multiplexer::use_channel(&mut plexer, 7);
+    let channel5 = multiplexer::use_channel(&mut plexer, 5);
 
-    threads::spawn_muxer(plexer.muxer);
-    threads::spawn_demuxer(plexer.demuxer);
+    multiplexer::spawn_muxer(plexer.muxer);
+    multiplexer::spawn_demuxer(plexer.demuxer);
 
     // execute the required handshake against the relay
     do_handshake(channel0);
