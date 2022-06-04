@@ -45,9 +45,9 @@ impl Deref for BlockContent {
     }
 }
 
-impl Into<Vec<u8>> for BlockContent {
-    fn into(self) -> Vec<u8> {
-        self.0
+impl From<BlockContent> for Vec<u8> {
+    fn from(other: BlockContent) -> Self {
+        other.0
     }
 }
 

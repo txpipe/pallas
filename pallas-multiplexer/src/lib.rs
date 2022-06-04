@@ -30,7 +30,7 @@ where
     pub fn new(bearer: Bearer) -> Self {
         Multiplexer {
             muxer: mux::Muxer::new(bearer.clone()),
-            demuxer: demux::Demuxer::new(bearer.clone()),
+            demuxer: demux::Demuxer::new(bearer),
         }
     }
 

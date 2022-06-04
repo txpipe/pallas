@@ -250,7 +250,7 @@ where
                 self.on_intersect_found(point, tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            (state, msg) => Err(MachineError::invalid_msg::<Self>(&state, &msg)),
+            (state, msg) => Err(MachineError::invalid_msg::<Self>(state, &msg)),
         }
     }
 }

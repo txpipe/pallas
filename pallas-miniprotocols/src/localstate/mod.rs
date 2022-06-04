@@ -163,7 +163,7 @@ where
             (State::Acquiring, Message::Acquired) => self.on_acquired(),
             (State::Acquiring, Message::Failure(failure)) => self.on_failure(failure),
             (State::Querying, Message::Result(result)) => self.on_result(result),
-            (state, msg) => Err(MachineError::invalid_msg::<Self>(&state, &msg)),
+            (state, msg) => Err(MachineError::invalid_msg::<Self>(state, &msg)),
         }
     }
 }

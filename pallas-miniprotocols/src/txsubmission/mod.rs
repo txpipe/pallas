@@ -300,7 +300,7 @@ impl Agent for NaiveProvider {
                 ..self
             }),
             (State::Idle, Message::RequestTxs(ids)) => self.on_txs_request(ids),
-            (state, msg) => Err(MachineError::invalid_msg::<Self>(&state, &msg)),
+            (state, msg) => Err(MachineError::invalid_msg::<Self>(state, &msg)),
         }
     }
 }
