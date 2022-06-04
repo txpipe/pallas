@@ -13,10 +13,15 @@ authors = [
 ]
 
 [dependencies]
+pallas-codec = { version = "0.9.0",  path = "../pallas-codec/" }
 log = "0.4.14"
 byteorder = "1.4.3"
 hex = "0.4.3"
+rand = "0.8.4"
 
 [dev-dependencies]
-rand = "0.8.4"
 env_logger = "0.9.0"
+
+[features]
+std = []
+default = ["std"]
