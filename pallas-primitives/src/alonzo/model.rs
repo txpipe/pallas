@@ -1438,6 +1438,18 @@ pub struct Block<'b> {
 #[derive(Encode, Decode, Debug)]
 pub struct BlockWrapper<'b>(#[n(0)] pub u16, #[b(1)] pub Block<'b>);
 
+#[derive(Encode, Decode, Debug)]
+pub struct Transaction {
+    #[n(0)]
+    transaction_body: TransactionBody,
+    #[n(1)]
+    transaction_witness_set: TransactionWitnessSet,
+    #[n(2)]
+    success: bool,
+    #[n(3)]
+    auxiliary_data: Option<AuxiliaryData>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::BlockWrapper;

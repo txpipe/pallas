@@ -52,7 +52,7 @@ pub struct OneShotClient<Q: Query> {
 
 impl<Q> OneShotClient<Q>
 where
-    Q: Query,
+    Q: Query + 'static,
     Message<Q>: Fragment,
 {
     pub fn initial(check_point: Option<Point>, request: Q::Request) -> Self {
@@ -101,6 +101,11 @@ where
     Message<Q>: Fragment,
 {
     type Message = Message<Q>;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done
@@ -158,7 +163,7 @@ where
             (State::Acquiring, Message::Acquired) => self.on_acquired(),
             (State::Acquiring, Message::Failure(failure)) => self.on_failure(failure),
             (State::Querying, Message::Result(result)) => self.on_result(result),
-            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
+            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg)),
         }
     }
 }

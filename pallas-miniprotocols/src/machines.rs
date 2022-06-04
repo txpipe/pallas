@@ -1,84 +1,31 @@
-pub use crate::payloads::*;
-use pallas_codec::{minicbor, Fragment};
-use pallas_multiplexer::{Channel, Payload};
+use pallas_codec::Fragment;
+use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
 use std::cell::Cell;
-use std::fmt::{Debug, Display};
-use std::sync::mpsc::Sender;
 
 #[derive(Debug)]
-pub enum MachineError<State, Msg>
-where
-    State: Debug,
-    Msg: Debug,
-{
-    InvalidMsgForState(State, Msg),
+pub enum MachineError<A: Agent> {
+    InvalidMsgForState(A::State, A::Message),
+    ChannelError(ChannelError),
+    DownstreamError(Box<dyn std::error::Error>),
 }
 
-impl<S, M> Display for MachineError<S, M>
-where
-    S: Debug,
-    M: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MachineError::InvalidMsgForState(msg, state) => {
-                write!(
-                    f,
-                    "received invalid message ({:?}) for current state ({:?})",
-                    msg, state
-                )
-            }
-        }
+impl<A: Agent> MachineError<A> {
+    pub fn channel(err: ChannelError) -> Self {
+        Self::ChannelError(err)
+    }
+
+    pub fn downstream(err: Box<dyn std::error::Error>) -> Self {
+        Self::DownstreamError(err)
     }
 }
 
-impl<S, M> std::error::Error for MachineError<S, M>
-where
-    S: Debug,
-    M: Debug,
-{
-}
-
-#[derive(Debug)]
-pub enum CodecError {
-    BadLabel(u16),
-    UnexpectedCbor(&'static str),
-}
-
-impl std::error::Error for CodecError {}
-
-impl Display for CodecError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CodecError::BadLabel(label) => {
-                write!(f, "unknown message label: {}", label)
-            }
-            CodecError::UnexpectedCbor(msg) => {
-                write!(f, "unexpected cbor: {}", msg)
-            }
-        }
-    }
-}
-
-pub trait MachineOutput {
-    fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>>;
-}
-
-impl MachineOutput for Sender<Payload> {
-    fn send_msg(&self, data: &impl Fragment) -> Result<(), Box<dyn std::error::Error>> {
-        let mut payload = Vec::new();
-        minicbor::encode(data, &mut payload)?;
-        self.send(payload)?;
-
-        Ok(())
-    }
-}
-
-pub type Transition<T> = Result<T, Box<dyn std::error::Error>>;
+pub type Transition<A> = Result<A, MachineError<A>>;
 
 pub trait Agent: Sized {
     type Message;
+    type State;
 
+    fn state(&self) -> &Self::State;
     fn is_done(&self) -> bool;
     fn has_agency(&self) -> bool;
     fn build_next(&self) -> Self::Message;
@@ -87,36 +34,38 @@ pub trait Agent: Sized {
     fn apply_inbound(self, msg: Self::Message) -> Transition<Self>;
 }
 
-pub struct Runner<A>
+pub struct Runner<'c, A, C>
 where
     A: Agent,
+    C: Channel,
 {
     agent: Cell<Option<A>>,
-    buffer: Vec<u8>,
+    buffer: ChannelBuffer<'c, C>,
 }
 
-impl<'a, A> Runner<A>
+impl<'c, A, C> Runner<'c, A, C>
 where
     A: Agent,
-    A::Message: Fragment + Debug,
+    A::Message: Fragment + std::fmt::Debug,
+    C: Channel,
 {
-    pub fn new(agent: A) -> Self {
+    pub fn new(agent: A, channel: &'c mut C) -> Self {
         Self {
             agent: Cell::new(Some(agent)),
-            buffer: Vec::new(),
+            buffer: ChannelBuffer::new(channel),
         }
     }
 
-    pub fn start(&mut self) -> Result<(), Error> {
+    pub fn start(&mut self) -> Result<(), MachineError<A>> {
         let prev = self.agent.take().unwrap();
         let next = prev.apply_start()?;
         self.agent.set(Some(next));
         Ok(())
     }
 
-    pub fn run_step(&mut self, channel: &mut Channel) -> Result<bool, Error> {
+    pub fn run_step(&mut self) -> Result<bool, MachineError<A>> {
         let prev = self.agent.take().unwrap();
-        let next = run_agent_step(prev, channel, &mut self.buffer)?;
+        let next = run_agent_step(prev, &mut self.buffer)?;
         let is_done = next.is_done();
 
         self.agent.set(Some(next));
@@ -124,35 +73,35 @@ where
         Ok(is_done)
     }
 
-    pub fn fulfill(mut self, channel: &mut Channel) -> Result<(), Error> {
+    pub fn fulfill(mut self) -> Result<(), MachineError<A>> {
         self.start()?;
 
-        while self.run_step(channel)? {}
+        while self.run_step()? {}
 
         Ok(())
     }
 }
 
-pub fn run_agent_step<T>(agent: T, channel: &mut Channel, buffer: &mut Vec<u8>) -> Transition<T>
+pub fn run_agent_step<A, C>(agent: A, channel: &mut ChannelBuffer<C>) -> Transition<A>
 where
-    T: Agent,
-    T::Message: Fragment + Debug,
+    A: Agent,
+    A::Message: Fragment + std::fmt::Debug,
+    C: Channel,
 {
-    let Channel(tx, rx) = channel;
-
     match agent.has_agency() {
         true => {
             let msg = agent.build_next();
             log::trace!("processing outbound msg: {:?}", msg);
 
-            let mut payload = Vec::new();
-            minicbor::encode(&msg, &mut payload)?;
-            tx.send(payload)?;
+            channel
+                .send_msg_chunks(&msg)
+                .map_err(MachineError::channel)?;
 
             agent.apply_outbound(msg)
         }
         false => {
-            let msg = read_until_full_msg::<T::Message>(buffer, rx).unwrap();
+            let msg = channel.recv_full_msg().map_err(MachineError::channel)?;
+
             log::trace!("procesing inbound msg: {:?}", msg);
 
             agent.apply_inbound(msg)
@@ -160,17 +109,18 @@ where
     }
 }
 
-pub fn run_agent<T>(agent: T, channel: &mut Channel) -> Result<T, Box<dyn std::error::Error>>
+pub fn run_agent<A, C>(agent: A, channel: &mut C) -> Transition<A>
 where
-    T: Agent,
-    T::Message: Fragment + Debug,
+    A: Agent,
+    A::Message: Fragment + std::fmt::Debug,
+    C: Channel,
 {
-    let mut buffer = Vec::new();
+    let mut buffer = ChannelBuffer::new(channel);
 
     let mut agent = agent.apply_start()?;
 
     while !agent.is_done() {
-        agent = run_agent_step(agent, channel, &mut buffer)?;
+        agent = run_agent_step(agent, &mut buffer)?;
     }
 
     Ok(agent)

@@ -44,6 +44,7 @@ pub trait Observer<C> {
 
         Ok(Continuation::Proceed)
     }
+
     fn on_tip_reached(&mut self) -> Result<Continuation, Box<dyn std::error::Error>> {
         log::debug!("tip was reached");
 
@@ -59,6 +60,7 @@ impl<C> Observer<C> for NoopObserver {}
 #[derive(Debug)]
 pub struct Consumer<C, O>
 where
+    Self: Agent,
     O: Observer<C>,
 {
     pub state: State,
@@ -77,6 +79,7 @@ impl<C, O> Consumer<C, O>
 where
     O: Observer<C>,
     Message<C>: Fragment,
+    C: std::fmt::Debug + 'static,
 {
     pub fn initial(known_points: Option<Vec<Point>>, observer: O) -> Self {
         Self {
@@ -93,7 +96,10 @@ where
     fn on_intersect_found(mut self, point: Point, tip: Tip) -> Transition<Self> {
         log::debug!("intersect found: {:?} (tip: {:?})", point, tip);
 
-        let continuation = self.observer.on_intersect_found(&point, &tip)?;
+        let continuation = self
+            .observer
+            .on_intersect_found(&point, &tip)
+            .map_err(MachineError::downstream)?;
 
         Ok(Self {
             tip: Some(tip),
@@ -118,7 +124,10 @@ where
     fn on_roll_forward(mut self, content: C, tip: Tip) -> Transition<Self> {
         log::debug!("rolling forward");
 
-        let continuation = self.observer.on_roll_forward(content, &tip)?;
+        let continuation = self
+            .observer
+            .on_roll_forward(content, &tip)
+            .map_err(MachineError::downstream)?;
 
         Ok(Self {
             tip: Some(tip),
@@ -131,7 +140,10 @@ where
     fn on_roll_backward(mut self, point: Point, tip: Tip) -> Transition<Self> {
         log::debug!("rolling backward to point: {:?}", point);
 
-        let continuation = self.observer.on_rollback(&point)?;
+        let continuation = self
+            .observer
+            .on_rollback(&point)
+            .map_err(MachineError::downstream)?;
 
         Ok(Self {
             tip: Some(tip),
@@ -145,7 +157,10 @@ where
     fn on_await_reply(mut self) -> Transition<Self> {
         log::debug!("reached tip, await reply");
 
-        let continuation = self.observer.on_tip_reached()?;
+        let continuation = self
+            .observer
+            .on_tip_reached()
+            .map_err(MachineError::downstream)?;
 
         Ok(Self {
             state: State::MustReply,
@@ -162,6 +177,11 @@ where
     Message<C>: Fragment,
 {
     type Message = Message<C>;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done || self.continuation == Continuation::DropOut
@@ -230,7 +250,7 @@ where
                 self.on_intersect_found(point, tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
+            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg)),
         }
     }
 }
@@ -278,6 +298,11 @@ pub type BlockConsumer<O> = Consumer<BlockContent, O>;
 
 impl Agent for TipFinder {
     type Message = Message<SkippedContent>;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done
@@ -322,7 +347,7 @@ impl Agent for TipFinder {
                 self.on_intersect_found(tip)
             }
             (State::Intersect, Message::IntersectNotFound(tip)) => self.on_intersect_not_found(tip),
-            (state, msg) => Err(MachineError::InvalidMsgForState(state.clone(), msg).into()),
+            (state, msg) => Err(MachineError::InvalidMsgForState(state.clone(), msg)),
         }
     }
 }

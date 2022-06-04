@@ -239,6 +239,11 @@ impl NaiveProvider {
 
 impl Agent for NaiveProvider {
     type Message = Message;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done
@@ -295,7 +300,7 @@ impl Agent for NaiveProvider {
                 ..self
             }),
             (State::Idle, Message::RequestTxs(ids)) => self.on_txs_request(ids),
-            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg).into()),
+            (_, msg) => Err(MachineError::InvalidMsgForState(self.state, msg)),
         }
     }
 }

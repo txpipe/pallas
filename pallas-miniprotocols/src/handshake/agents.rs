@@ -39,6 +39,11 @@ where
     D: Debug + Clone,
 {
     type Message = Message<D>;
+    type State = State;
+
+    fn state(&self) -> &Self::State {
+        &self.state
+    }
 
     fn is_done(&self) -> bool {
         self.state == State::Done
