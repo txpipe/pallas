@@ -1,9 +1,7 @@
 use pallas::network::{
     miniprotocols::{chainsync, handshake, localstate, run_agent, Point, MAINNET_MAGIC},
-    multiplexer,
+    multiplexer::{self, bearers::Bearer},
 };
-
-use std::os::unix::net::UnixStream;
 
 #[derive(Debug)]
 struct LoggingObserver;
@@ -86,17 +84,17 @@ fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let bearer = UnixStream::connect("/tmp/node.socket").unwrap();
+    let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let channel0 = multiplexer::use_channel(&mut plexer, 0);
-    let channel7 = multiplexer::use_channel(&mut plexer, 7);
-    let channel5 = multiplexer::use_channel(&mut plexer, 5);
+    let channel0 = plexer.use_channel(0);
+    let channel7 = plexer.use_channel(7);
+    let channel5 = plexer.use_channel(5);
 
-    multiplexer::spawn_muxer(plexer.muxer);
-    multiplexer::spawn_demuxer(plexer.demuxer);
+    plexer.muxer.spawn();
+    plexer.demuxer.spawn();
 
     // execute the required handshake against the relay
     do_handshake(channel0);

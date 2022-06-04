@@ -1,11 +1,7 @@
-use net2::TcpStreamExt;
-
 use pallas::network::{
     miniprotocols::{blockfetch, chainsync, handshake, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::{spawn_demuxer, spawn_muxer, use_channel, StdChannel, StdPlexer},
+    multiplexer::{bearers::Bearer, StdChannel, StdPlexer},
 };
-
-use std::net::TcpStream;
 
 #[derive(Debug)]
 struct LoggingObserver;
@@ -105,19 +101,17 @@ fn main() {
 
     // setup a TCP socket to act as data bearer between our agents and the remote
     // relay.
-    let bearer = TcpStream::connect("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
-    bearer.set_nodelay(true).unwrap();
-    bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
+    let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = StdPlexer::new(bearer);
-    let channel0 = use_channel(&mut plexer, 0);
-    let channel3 = use_channel(&mut plexer, 3);
-    let channel2 = use_channel(&mut plexer, 2);
+    let channel0 = plexer.use_channel(0);
+    let channel3 = plexer.use_channel(3);
+    let channel2 = plexer.use_channel(2);
 
-    spawn_muxer(plexer.muxer);
-    spawn_demuxer(plexer.demuxer);
+    plexer.muxer.spawn();
+    plexer.demuxer.spawn();
 
     // execute the required handshake against the relay
     do_handshake(channel0);

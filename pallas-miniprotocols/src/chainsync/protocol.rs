@@ -45,5 +45,11 @@ impl Deref for BlockContent {
     }
 }
 
+impl From<BlockContent> for Vec<u8> {
+    fn from(other: BlockContent) -> Self {
+        other.0
+    }
+}
+
 #[derive(Debug)]
 pub struct SkippedContent;

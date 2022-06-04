@@ -1,4 +1,4 @@
-use crate::{agents, bearers::Bearer, demux, mux, Payload};
+use crate::{agents, demux, mux, Payload};
 
 use std::{
     sync::{
@@ -7,6 +7,7 @@ use std::{
         Arc,
     },
     thread::{spawn, JoinHandle},
+    time::Duration,
 };
 
 pub type StdIngress = Receiver<Payload>;
@@ -32,7 +33,73 @@ impl demux::Egress for StdEgress {
     }
 }
 
-pub type StdPlexer<B> = crate::Multiplexer<B, StdIngress, StdEgress>;
+pub type StdPlexer = crate::Multiplexer<StdIngress, StdEgress>;
+
+impl StdPlexer {
+    pub fn use_channel(&mut self, protocol: u16) -> StdChannel {
+        let (demux_tx, demux_rx) = channel::<Payload>();
+        let (mux_tx, mux_rx) = channel::<Payload>();
+
+        self.register_channel(protocol, mux_rx, demux_tx);
+
+        (mux_tx, demux_rx)
+    }
+}
+
+impl mux::Muxer<StdIngress> {
+    pub fn block(&mut self, cancel: Cancel) -> Result<(), std::io::Error> {
+        loop {
+            match self.tick() {
+                mux::TickOutcome::BearerError(err) => return Err(err),
+                mux::TickOutcome::Idle => match cancel.is_set() {
+                    true => break Ok(()),
+                    false => {
+                        // TODO: investigate why std::thread::yield_now() hogs the thread
+                        std::thread::sleep(Duration::from_millis(100))
+                    }
+                },
+                mux::TickOutcome::Busy => (),
+            }
+        }
+    }
+
+    pub fn spawn(mut self) -> Loop {
+        let cancel = Cancel::default();
+        let cancel2 = cancel.clone();
+        let thread = spawn(move || self.block(cancel2));
+
+        Loop { cancel, thread }
+    }
+}
+
+impl demux::Demuxer<StdEgress> {
+    pub fn block(&mut self, cancel: Cancel) -> Result<(), std::io::Error> {
+        loop {
+            match self.tick() {
+                Ok(demux::TickOutcome::Busy) => (),
+                Ok(demux::TickOutcome::Idle) => match cancel.is_set() {
+                    true => break Ok(()),
+                    false => (),
+                },
+                Err(demux::DemuxError::BearerError(err)) => return Err(err),
+                Err(demux::DemuxError::EgressDisconnected(id, _)) => {
+                    log::warn!("disconnected protocol {}", id)
+                }
+                Err(demux::DemuxError::EgressUnknown(id, _)) => {
+                    log::warn!("unknown protocol {}", id)
+                }
+            }
+        }
+    }
+
+    pub fn spawn(mut self) -> Loop {
+        let cancel = Cancel::default();
+        let cancel2 = cancel.clone();
+        let thread = spawn(move || self.block(cancel2));
+
+        Loop { cancel, thread }
+    }
+}
 
 pub type StdChannel = (Sender<Payload>, Receiver<Payload>);
 
@@ -52,15 +119,6 @@ impl agents::Channel for StdChannel {
     }
 }
 
-pub fn use_channel<B: Bearer>(plexer: &mut StdPlexer<B>, protocol: u16) -> StdChannel {
-    let (demux_tx, demux_rx) = channel::<Payload>();
-    let (mux_tx, mux_rx) = channel::<Payload>();
-
-    plexer.register_channel(protocol, mux_rx, demux_tx);
-
-    (mux_tx, demux_rx)
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct Cancel(Arc<AtomicBool>);
 
@@ -75,49 +133,17 @@ impl Cancel {
 }
 
 #[derive(Debug)]
-pub struct Loop<B>
-where
-    B: Bearer,
-{
+pub struct Loop {
     cancel: Cancel,
-    thread: JoinHandle<Result<(), B::Error>>,
+    thread: JoinHandle<Result<(), std::io::Error>>,
 }
 
-impl<B> Loop<B>
-where
-    B: Bearer,
-{
+impl Loop {
     pub fn cancel(&self) {
         self.cancel.set();
     }
 
-    pub fn join(self) -> Result<(), B::Error> {
+    pub fn join(self) -> Result<(), std::io::Error> {
         self.thread.join().unwrap()
     }
-}
-
-pub fn spawn_muxer<B, I>(mut muxer: mux::Muxer<B, I>) -> Loop<B>
-where
-    B: Bearer + 'static,
-    B::Error: Send,
-    I: mux::Ingress + Send + 'static,
-{
-    let cancel = Cancel::default();
-    let cancel2 = cancel.clone();
-    let thread = spawn(move || muxer.block(cancel2));
-
-    Loop { cancel, thread }
-}
-
-pub fn spawn_demuxer<B, E>(mut demuxer: demux::Demuxer<B, E>) -> Loop<B>
-where
-    B: Bearer + 'static,
-    B::Error: Send,
-    E: demux::Egress + Send + 'static,
-{
-    let cancel = Cancel::default();
-    let cancel2 = cancel.clone();
-    let thread = spawn(move || demuxer.block(cancel2));
-
-    Loop { cancel, thread }
 }
