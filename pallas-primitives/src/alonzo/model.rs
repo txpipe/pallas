@@ -1453,7 +1453,7 @@ pub struct Transaction {
 #[cfg(test)]
 mod tests {
     use super::BlockWrapper;
-    use crate::{Fragment, ToHash};
+    use crate::Fragment;
     use pallas_codec::minicbor::to_vec;
 
     #[test]
