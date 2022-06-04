@@ -1,13 +1,18 @@
 //! Interface to interact with the multiplexer as an agent
 
 use crate::Payload;
-
 use pallas_codec::{minicbor, Fragment};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ChannelError {
+    #[error("channel is not connected, failed to send payload")]
     NotConnected(Option<Payload>),
+
+    #[error("failure encoding message into CBOR")]
     Encoding(String),
+
+    #[error("failure decoding message from CBOR")]
     Decoding(String),
 }
 

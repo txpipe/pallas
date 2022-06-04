@@ -45,5 +45,11 @@ impl Deref for BlockContent {
     }
 }
 
+impl Into<Vec<u8>> for BlockContent {
+    fn into(self) -> Vec<u8> {
+        self.0
+    }
+}
+
 #[derive(Debug)]
 pub struct SkippedContent;

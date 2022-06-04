@@ -1,15 +1,21 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
-use std::cell::Cell;
+use std::{cell::Cell, fmt::Debug};
+use thiserror::Error;
 
-#[derive(Debug)]
-pub enum MachineError<A: Agent> {
-    InvalidMsgForState(A::State, A::Message),
+#[derive(Debug, Error)]
+pub enum MachineError {
+    #[error("invalid message for state [{0}]: {1}")]
+    InvalidMsgForState(String, String),
+
+    #[error("channel error communicating with multiplexer: {0}")]
     ChannelError(ChannelError),
+
+    #[error("downstream error while processing business logic {0}")]
     DownstreamError(Box<dyn std::error::Error>),
 }
 
-impl<A: Agent> MachineError<A> {
+impl MachineError {
     pub fn channel(err: ChannelError) -> Self {
         Self::ChannelError(err)
     }
@@ -17,13 +23,17 @@ impl<A: Agent> MachineError<A> {
     pub fn downstream(err: Box<dyn std::error::Error>) -> Self {
         Self::DownstreamError(err)
     }
+
+    pub fn invalid_msg<A: Agent>(state: &A::State, msg: &A::Message) -> Self {
+        Self::InvalidMsgForState(format!("{:?}", state), format!("{:?}", msg))
+    }
 }
 
-pub type Transition<A> = Result<A, MachineError<A>>;
+pub type Transition<A> = Result<A, MachineError>;
 
 pub trait Agent: Sized {
-    type Message;
-    type State;
+    type Message: std::fmt::Debug;
+    type State: std::fmt::Debug;
 
     fn state(&self) -> &Self::State;
     fn is_done(&self) -> bool;
@@ -56,14 +66,14 @@ where
         }
     }
 
-    pub fn start(&mut self) -> Result<(), MachineError<A>> {
+    pub fn start(&mut self) -> Result<(), MachineError> {
         let prev = self.agent.take().unwrap();
         let next = prev.apply_start()?;
         self.agent.set(Some(next));
         Ok(())
     }
 
-    pub fn run_step(&mut self) -> Result<bool, MachineError<A>> {
+    pub fn run_step(&mut self) -> Result<bool, MachineError> {
         let prev = self.agent.take().unwrap();
         let next = run_agent_step(prev, &mut self.buffer)?;
         let is_done = next.is_done();
@@ -73,7 +83,7 @@ where
         Ok(is_done)
     }
 
-    pub fn fulfill(mut self) -> Result<(), MachineError<A>> {
+    pub fn fulfill(mut self) -> Result<(), MachineError> {
         self.start()?;
 
         while self.run_step()? {}

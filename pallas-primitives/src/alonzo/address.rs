@@ -15,7 +15,7 @@ impl TransactionOutput {
 
 #[cfg(test)]
 mod tests {
-    use crate::alonzo::{crypto, BlockWrapper, TransactionBodyComponent};
+    use crate::alonzo::{BlockWrapper, TransactionBodyComponent};
     use crate::Fragment;
 
     const KNOWN_ADDRESSES: &[&str] =&[

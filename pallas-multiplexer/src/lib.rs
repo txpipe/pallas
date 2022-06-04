@@ -3,25 +3,31 @@ pub mod bearers;
 pub mod demux;
 pub mod mux;
 
+use bearers::Bearer;
+
+#[cfg(feature = "std")]
+mod std;
+
+#[cfg(feature = "std")]
+pub use crate::std::*;
+
 pub type Payload = Vec<u8>;
 
-pub struct Multiplexer<B, I, E>
+pub struct Multiplexer<I, E>
 where
-    B: bearers::Bearer,
     I: mux::Ingress,
     E: demux::Egress,
 {
-    pub muxer: mux::Muxer<B, I>,
-    pub demuxer: demux::Demuxer<B, E>,
+    pub muxer: mux::Muxer<I>,
+    pub demuxer: demux::Demuxer<E>,
 }
 
-impl<B, I, E> Multiplexer<B, I, E>
+impl<I, E> Multiplexer<I, E>
 where
-    B: bearers::Bearer,
     I: mux::Ingress,
     E: demux::Egress,
 {
-    pub fn new(bearer: B) -> Self {
+    pub fn new(bearer: Bearer) -> Self {
         Multiplexer {
             muxer: mux::Muxer::new(bearer.clone()),
             demuxer: demux::Demuxer::new(bearer.clone()),
@@ -33,9 +39,3 @@ where
         self.demuxer.register(protocol, egress);
     }
 }
-
-#[cfg(feature = "std")]
-mod std;
-
-#[cfg(feature = "std")]
-pub use crate::std::*;

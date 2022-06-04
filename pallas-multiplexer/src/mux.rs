@@ -5,7 +5,6 @@ use rand::thread_rng;
 
 use crate::{
     bearers::{Bearer, Segment},
-    std::Cancel,
     Payload,
 };
 
@@ -24,27 +23,23 @@ pub trait Ingress {
 
 type Message = (u16, Payload);
 
-pub enum TickOutcome<TBearer>
-where
-    TBearer: Bearer,
-{
-    BearerError(TBearer::Error),
+pub enum TickOutcome {
+    BearerError(std::io::Error),
     Idle,
     Busy,
 }
 
-pub struct Muxer<B, I> {
-    bearer: B,
+pub struct Muxer<I> {
+    bearer: Bearer,
     ingress: HashMap<u16, I>,
     clock: Instant,
 }
 
-impl<B, I> Muxer<B, I>
+impl<I> Muxer<I>
 where
-    B: Bearer,
     I: Ingress,
 {
-    pub fn new(bearer: B) -> Self {
+    pub fn new(bearer: Bearer) -> Self {
         Self {
             bearer,
             ingress: Default::default(),
@@ -93,7 +88,7 @@ where
         None
     }
 
-    pub fn tick(&mut self) -> TickOutcome<B> {
+    pub fn tick(&mut self) -> TickOutcome {
         match self.select() {
             Some((id, payload)) => {
                 let segment = Segment::new(self.clock, id, payload);
@@ -104,19 +99,6 @@ where
                 }
             }
             None => TickOutcome::Idle,
-        }
-    }
-
-    pub fn block(&mut self, cancel: Cancel) -> Result<(), B::Error> {
-        loop {
-            match self.tick() {
-                TickOutcome::BearerError(err) => return Err(err),
-                TickOutcome::Idle => match cancel.is_set() {
-                    true => break Ok(()),
-                    false => std::thread::yield_now(),
-                },
-                TickOutcome::Busy => (),
-            }
         }
     }
 }

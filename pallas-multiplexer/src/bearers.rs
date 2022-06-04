@@ -1,28 +1,19 @@
 use byteorder::{ByteOrder, NetworkEndian, WriteBytesExt};
 use log::{debug, log_enabled, trace};
 use std::io::{Read, Write};
-#[cfg(target_family = "unix")]
-use std::os::unix::net::UnixStream;
+use std::net::{TcpListener, ToSocketAddrs};
 use std::{net::TcpStream, time::Instant};
 
 use crate::Payload;
+
+#[cfg(target_family = "unix")]
+use std::os::unix::net::UnixStream;
 
 pub struct Segment {
     pub protocol: u16,
     pub timestamp: u32,
     pub payload: Payload,
 }
-
-pub trait Bearer: Read + Write + Send + Sync + Sized {
-    type Error: std::error::Error;
-
-    fn read_segment(&mut self) -> Result<Option<Segment>, Self::Error>;
-
-    fn write_segment(&mut self, segment: Segment) -> Result<(), Self::Error>;
-
-    fn clone(&self) -> Self;
-}
-
 impl Segment {
     pub fn new(clock: Instant, protocol: u16, payload: Payload) -> Self {
         Segment {
@@ -104,35 +95,74 @@ fn read_segment_with_timeout(reader: &mut impl Read) -> Result<Option<Segment>, 
     }
 }
 
-impl Bearer for TcpStream {
-    type Error = std::io::Error;
+pub enum Bearer {
+    Tcp(TcpStream),
 
-    fn clone(&self) -> Self {
-        self.try_clone().expect("error cloning tcp stream")
+    #[cfg(target_family = "unix")]
+    Unix(UnixStream),
+}
+
+impl Bearer {
+    pub fn connect_tcp<A: ToSocketAddrs>(addr: A) -> Result<Self, std::io::Error> {
+        let bearer = TcpStream::connect(addr)?;
+        bearer.set_nodelay(true)?;
+
+        Ok(Bearer::Tcp(bearer))
     }
 
-    fn read_segment(&mut self) -> Result<Option<Segment>, std::io::Error> {
-        read_segment_with_timeout(self)
+    pub fn accept_tcp(server: TcpListener) -> Result<Self, std::io::Error> {
+        let (bearer, _) = server.accept().unwrap();
+        bearer.set_nodelay(true)?;
+
+        Ok(Bearer::Tcp(bearer))
     }
 
-    fn write_segment(&mut self, segment: Segment) -> Result<(), std::io::Error> {
-        write_segment(self, segment)
+    #[cfg(target_family = "unix")]
+    pub fn connect_unix<P: AsRef<std::path::Path>>(path: P) -> Result<Self, std::io::Error> {
+        let bearer = UnixStream::connect(path)?;
+
+        Ok(Bearer::Unix(bearer))
+    }
+
+    pub fn read_segment(&mut self) -> Result<Option<Segment>, std::io::Error> {
+        match self {
+            Bearer::Tcp(s) => read_segment_with_timeout(s),
+
+            #[cfg(target_family = "unix")]
+            Bearer::Unix(s) => read_segment_with_timeout(s),
+        }
+    }
+
+    pub fn write_segment(&mut self, segment: Segment) -> Result<(), std::io::Error> {
+        match self {
+            Bearer::Tcp(s) => write_segment(s, segment),
+
+            #[cfg(target_family = "unix")]
+            Bearer::Unix(s) => write_segment(s, segment),
+        }
+    }
+}
+
+impl From<TcpStream> for Bearer {
+    fn from(stream: TcpStream) -> Self {
+        Bearer::Tcp(stream)
     }
 }
 
 #[cfg(target_family = "unix")]
-impl Bearer for UnixStream {
-    type Error = std::io::Error;
+impl From<UnixStream> for Bearer {
+    fn from(stream: UnixStream) -> Self {
+        Bearer::Unix(stream)
+    }
+}
 
+impl Clone for Bearer {
     fn clone(&self) -> Self {
-        self.try_clone().expect("error cloning unix stream")
-    }
+        match self {
+            Bearer::Tcp(s) => Bearer::Tcp(s.try_clone().expect("error cloning tcp stream")),
 
-    fn read_segment(&mut self) -> Result<Option<Segment>, std::io::Error> {
-        read_segment_with_timeout(self)
-    }
-
-    fn write_segment(&mut self, segment: Segment) -> Result<(), std::io::Error> {
-        write_segment(self, segment)
+            #[cfg(target_family = "unix")]
+            Bearer::Unix(s) => Bearer::Unix(s.try_clone().expect("error cloning unix stream")),
+        }
     }
 }
