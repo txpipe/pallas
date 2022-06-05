@@ -2,6 +2,35 @@
 ## [Unreleased]
 
 
+<a name="v0.10.0"></a>
+## [v0.10.0] - 2022-06-04
+### Chore
+- **deps:** Upgrade to minicbor 0.17 (breaking changes) ([#109](https://github.com/txpipe/pallas/issues/109))
+
+### Feat
+- Improve multiplexer ergonomics ([#111](https://github.com/txpipe/pallas/issues/111))
+- Add mechanism to retain original CBOR ([#110](https://github.com/txpipe/pallas/issues/110))
+- **multiplexer:** Allow fine-grained control of concurrency strategy ([#106](https://github.com/txpipe/pallas/issues/106))
+- **primitives:** Add self-contained transaction struct ([#107](https://github.com/txpipe/pallas/issues/107))
+
+
+<a name="v0.9.1"></a>
+## [v0.9.1] - 2022-05-03
+### Fix
+- Provide access to PlutusScript bytes ([#102](https://github.com/txpipe/pallas/issues/102))
+
+
+<a name="v0.9.0"></a>
+## [v0.9.0] - 2022-04-30
+### Ci
+- Skip publish confirmation prompt
+- Enable tag-based release workflow
+- Add draft version of the release workflow ([#101](https://github.com/txpipe/pallas/issues/101))
+
+### Docs
+- Add retroactive change log
+
+
 <a name="v0.9.0-alpha.1"></a>
 ## [v0.9.0-alpha.1] - 2022-04-29
 ### Chore
@@ -344,7 +373,10 @@
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.9.0-alpha.1...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.10.0...HEAD
+[v0.10.0]: https://github.com/txpipe/pallas/compare/v0.9.1...v0.10.0
+[v0.9.1]: https://github.com/txpipe/pallas/compare/v0.9.0...v0.9.1
+[v0.9.0]: https://github.com/txpipe/pallas/compare/v0.9.0-alpha.1...v0.9.0
 [v0.9.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.9.0-alpha.0...v0.9.0-alpha.1
 [v0.9.0-alpha.0]: https://github.com/txpipe/pallas/compare/v0.8.0...v0.9.0-alpha.0
 [v0.8.0]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.1...v0.8.0
