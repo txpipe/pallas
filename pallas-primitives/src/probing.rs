@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn alonzo_block_detected() {
-        let block_str = include_str!("alonzo/test_data/test1.block");
+        let block_str = include_str!("test_data/alonzo1.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());

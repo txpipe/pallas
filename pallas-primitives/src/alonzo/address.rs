@@ -36,7 +36,7 @@ mod tests {
     fn known_address_matches() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("test_data/test2.block");
+        let block_str = include_str!("../test_data/alonzo2.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
         let BlockWrapper(_, block) = BlockWrapper::decode_fragment(&block_bytes[..])
