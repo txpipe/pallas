@@ -7,6 +7,7 @@ members = [
     "pallas-crypto",
     "pallas-primitives",
     "pallas",
+    "pallas-ticking",
     "examples/block-download",
     "examples/block-decode",
     "examples/n2n-miniprotocols",
