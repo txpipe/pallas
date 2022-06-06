@@ -1459,45 +1459,45 @@ mod tests {
     #[test]
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = vec![
-            include_str!("test_data/test1.block"),
-            include_str!("test_data/test2.block"),
-            include_str!("test_data/test3.block"),
-            include_str!("test_data/test4.block"),
-            include_str!("test_data/test5.block"),
-            include_str!("test_data/test6.block"),
-            include_str!("test_data/test7.block"),
-            include_str!("test_data/test8.block"),
-            include_str!("test_data/test9.block"),
+            include_str!("../test_data/alonzo1.block"),
+            include_str!("../test_data/alonzo2.block"),
+            include_str!("../test_data/alonzo3.block"),
+            include_str!("../test_data/alonzo4.block"),
+            include_str!("../test_data/alonzo5.block"),
+            include_str!("../test_data/alonzo6.block"),
+            include_str!("../test_data/alonzo7.block"),
+            include_str!("../test_data/alonzo8.block"),
+            include_str!("../test_data/alonzo9.block"),
             // old block without invalid_transactions fields
-            include_str!("test_data/test10.block"),
+            include_str!("../test_data/alonzo10.block"),
             // peculiar block with protocol update params
-            include_str!("test_data/test11.block"),
+            include_str!("../test_data/alonzo11.block"),
             // peculiar block with decoding issue
             // https://github.com/txpipe/oura/issues/37
-            include_str!("test_data/test12.block"),
+            include_str!("../test_data/alonzo12.block"),
             // peculiar block with protocol update params, including nonce
-            include_str!("test_data/test13.block"),
+            include_str!("../test_data/alonzo13.block"),
             // peculiar block with overflow crash
             // https://github.com/txpipe/oura/issues/113
-            include_str!("test_data/test14.block"),
+            include_str!("../test_data/alonzo14.block"),
             // peculiar block with many move-instantaneous-rewards certs
-            include_str!("test_data/test15.block"),
+            include_str!("../test_data/alonzo15.block"),
             // peculiar block with protocol update values
-            include_str!("test_data/test16.block"),
+            include_str!("../test_data/alonzo16.block"),
             // peculiar block with missing nonce hash
-            include_str!("test_data/test17.block"),
+            include_str!("../test_data/alonzo17.block"),
             // peculiar block with strange AuxiliaryData variant
-            include_str!("test_data/test18.block"),
+            include_str!("../test_data/alonzo18.block"),
             // peculiar block with strange AuxiliaryData variant
-            include_str!("test_data/test18.block"),
+            include_str!("../test_data/alonzo18.block"),
             // peculiar block with nevative i64 overflow
-            include_str!("test_data/test19.block"),
+            include_str!("../test_data/alonzo19.block"),
             // peculiar block with very BigInt in plutus code
-            include_str!("test_data/test20.block"),
+            include_str!("../test_data/alonzo20.block"),
             // peculiar block with bad tx hash
-            include_str!("test_data/test21.block"),
+            include_str!("../test_data/alonzo21.block"),
             // peculiar block with bad tx hash
-            include_str!("test_data/test22.block"),
+            include_str!("../test_data/alonzo22.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

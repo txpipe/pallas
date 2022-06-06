@@ -85,8 +85,8 @@ mod tests {
     #[test]
     fn test_datums_serialize_as_expected() {
         let test_blocks = vec![(
-            include_str!("test_data/test9.block"),
-            include_str!("test_data/test9.datums"),
+            include_str!("../test_data/alonzo9.block"),
+            include_str!("../test_data/alonzo9.datums"),
         )];
 
         for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
@@ -115,8 +115,8 @@ mod tests {
     #[test]
     fn test_native_scripts_serialize_as_expected() {
         let test_blocks = vec![(
-            include_str!("test_data/test9.block"),
-            include_str!("test_data/test9.native"),
+            include_str!("../test_data/alonzo9.block"),
+            include_str!("../test_data/alonzo9.native"),
         )];
 
         for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
