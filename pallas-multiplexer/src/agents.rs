@@ -46,13 +46,13 @@ where
 }
 
 /// A channel abstraction to hide the complexity of partial payloads
-pub struct ChannelBuffer<'c, C: Channel> {
-    channel: &'c mut C,
+pub struct ChannelBuffer<C: Channel> {
+    channel: C,
     temp: Vec<u8>,
 }
 
-impl<'c, C: Channel> ChannelBuffer<'c, C> {
-    pub fn new(channel: &'c mut C) -> Self {
+impl<C: Channel> ChannelBuffer<C> {
+    pub fn new(channel: C) -> Self {
         Self {
             channel,
             temp: Vec::new(),
@@ -104,5 +104,15 @@ impl<'c, C: Channel> ChannelBuffer<'c, C> {
                 self.recv_full_msg()
             }
         }
+    }
+
+    pub fn unwrap(self) -> C {
+        self.channel
+    }
+}
+
+impl<C: Channel> From<C> for ChannelBuffer<C> {
+    fn from(channel: C) -> Self {
+        ChannelBuffer::new(channel)
     }
 }

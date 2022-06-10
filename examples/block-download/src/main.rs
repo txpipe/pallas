@@ -25,8 +25,8 @@ fn main() {
     let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
 
     let mut plexer = StdPlexer::new(bearer);
-    let mut channel0 = plexer.use_channel(0);
-    let mut channel3 = plexer.use_channel(3);
+    let mut channel0 = plexer.use_channel(0).into();
+    let mut channel3 = plexer.use_channel(3).into();
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();

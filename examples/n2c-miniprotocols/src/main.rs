@@ -43,12 +43,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
     }
 }
 
-fn do_handshake(mut channel: multiplexer::StdChannel) {
+fn do_handshake(mut channel: multiplexer::StdChannelBuffer) {
     let versions = handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC);
     let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
 }
 
-fn do_localstate_query(mut channel: multiplexer::StdChannel) {
+fn do_localstate_query(mut channel: multiplexer::StdChannelBuffer) {
     let agent = run_agent(
         localstate::OneShotClient::<localstate::queries::QueryV10>::initial(
             None,
@@ -60,7 +60,7 @@ fn do_localstate_query(mut channel: multiplexer::StdChannel) {
     log::info!("state query result: {:?}", agent);
 }
 
-fn do_chainsync(mut channel: multiplexer::StdChannel) {
+fn do_chainsync(mut channel: multiplexer::StdChannelBuffer) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
@@ -89,9 +89,9 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let channel0 = plexer.use_channel(0);
-    let channel7 = plexer.use_channel(7);
-    let channel5 = plexer.use_channel(5);
+    let channel0 = plexer.use_channel(0).into();
+    let channel7 = plexer.use_channel(7).into();
+    let channel5 = plexer.use_channel(5).into();
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();

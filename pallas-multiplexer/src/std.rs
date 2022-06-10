@@ -1,4 +1,7 @@
-use crate::{agents, demux, mux, Payload};
+use crate::{
+    agents::{self, ChannelBuffer},
+    demux, mux, Payload,
+};
 
 use std::{
     sync::{
@@ -102,6 +105,8 @@ impl demux::Demuxer<StdEgress> {
 }
 
 pub type StdChannel = (Sender<Payload>, Receiver<Payload>);
+
+pub type StdChannelBuffer = ChannelBuffer<StdChannel>;
 
 impl agents::Channel for StdChannel {
     fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
