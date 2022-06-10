@@ -44,22 +44,22 @@ pub trait Agent: Sized {
     fn apply_inbound(self, msg: Self::Message) -> Transition<Self>;
 }
 
-pub struct Runner<'c, A, C>
+pub struct Runner<A, C>
 where
     A: Agent,
     C: Channel,
 {
     agent: Cell<Option<A>>,
-    buffer: ChannelBuffer<'c, C>,
+    buffer: ChannelBuffer<C>,
 }
 
-impl<'c, A, C> Runner<'c, A, C>
+impl<A, C> Runner<A, C>
 where
     A: Agent,
     A::Message: Fragment + std::fmt::Debug,
     C: Channel,
 {
-    pub fn new(agent: A, channel: &'c mut C) -> Self {
+    pub fn new(agent: A, channel: C) -> Self {
         Self {
             agent: Cell::new(Some(agent)),
             buffer: ChannelBuffer::new(channel),
@@ -119,18 +119,16 @@ where
     }
 }
 
-pub fn run_agent<A, C>(agent: A, channel: &mut C) -> Transition<A>
+pub fn run_agent<A, C>(agent: A, buffer: &mut ChannelBuffer<C>) -> Transition<A>
 where
     A: Agent,
     A::Message: Fragment + std::fmt::Debug,
     C: Channel,
 {
-    let mut buffer = ChannelBuffer::new(channel);
-
     let mut agent = agent.apply_start()?;
 
     while !agent.is_done() {
-        agent = run_agent_step(agent, &mut buffer)?;
+        agent = run_agent_step(agent, buffer)?;
     }
 
     Ok(agent)

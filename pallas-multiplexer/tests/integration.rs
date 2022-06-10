@@ -72,10 +72,10 @@ fn multiple_messages_in_same_payload() {
     minicbor::encode(in_part1, &mut input).unwrap();
     minicbor::encode(in_part2, &mut input).unwrap();
 
-    let mut channel = std::sync::mpsc::channel();
+    let channel = std::sync::mpsc::channel();
     channel.0.send(input).unwrap();
 
-    let mut buf = ChannelBuffer::new(&mut channel);
+    let mut buf = ChannelBuffer::new(channel);
 
     let out_part1 = buf.recv_full_msg::<(u8, u8, u8)>().unwrap();
     let out_part2 = buf.recv_full_msg::<(u8, u8, u8)>().unwrap();
@@ -90,14 +90,14 @@ fn fragmented_message_in_multiple_payloads() {
     let msg = (11u8, 12u8, 13u8, 14u8, 15u8, 16u8, 17u8);
     minicbor::encode(msg, &mut input).unwrap();
 
-    let mut channel = std::sync::mpsc::channel();
+    let channel = std::sync::mpsc::channel();
 
     while !input.is_empty() {
         let chunk = Vec::from(input.drain(0..2).as_slice());
         channel.0.send(chunk).unwrap();
     }
 
-    let mut buf = ChannelBuffer::new(&mut channel);
+    let mut buf = ChannelBuffer::new(channel);
 
     let out_msg = buf.recv_full_msg::<(u8, u8, u8, u8, u8, u8, u8)>().unwrap();
 

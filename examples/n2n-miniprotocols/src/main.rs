@@ -1,6 +1,6 @@
 use pallas::network::{
     miniprotocols::{blockfetch, chainsync, handshake, run_agent, Point, MAINNET_MAGIC},
-    multiplexer::{bearers::Bearer, StdChannel, StdPlexer},
+    multiplexer::{agents::ChannelBuffer, bearers::Bearer, StdChannel, StdPlexer},
 };
 
 #[derive(Debug)]
@@ -50,12 +50,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
     }
 }
 
-fn do_handshake(mut channel: StdChannel) {
+fn do_handshake(mut channel: ChannelBuffer<StdChannel>) {
     let versions = handshake::n2n::VersionTable::v4_and_above(MAINNET_MAGIC);
     let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
 }
 
-fn do_blockfetch(mut channel: StdChannel) {
+fn do_blockfetch(mut channel: ChannelBuffer<StdChannel>) {
     let range = (
         Point::Specific(
             43847831,
@@ -77,7 +77,7 @@ fn do_blockfetch(mut channel: StdChannel) {
     println!("{:?}", agent);
 }
 
-fn do_chainsync(mut channel: StdChannel) {
+fn do_chainsync(mut channel: ChannelBuffer<StdChannel>) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
@@ -106,9 +106,9 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = StdPlexer::new(bearer);
-    let channel0 = plexer.use_channel(0);
-    let channel3 = plexer.use_channel(3);
-    let channel2 = plexer.use_channel(2);
+    let channel0 = plexer.use_channel(0).into();
+    let channel3 = plexer.use_channel(3).into();
+    let channel2 = plexer.use_channel(2).into();
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
