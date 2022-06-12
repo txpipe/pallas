@@ -22,23 +22,21 @@ impl EbbHead {
 
 #[cfg(test)]
 mod tests {
-    use crate::byron::Block;
-    use crate::Fragment;
+    use pallas_codec::minicbor;
+
+    use crate::byron::MainBlock;
+
+    type BlockWrapper = (u16, MainBlock);
 
     #[test]
     fn knwon_slot_matches() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("test_data/test1.block");
+        let block_str = include_str!("../../../test_data/byron1.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
-        let block = Block::decode_fragment(&block_bytes[..])
+        let (_, block): BlockWrapper = minicbor::decode(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
-
-        let block = match block {
-            Block::MainBlock(x) => x,
-            Block::EbBlock(_) => panic!(),
-        };
 
         let computed_slot = block.header.consensus_data.0.to_abs_slot();
 

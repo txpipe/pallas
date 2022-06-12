@@ -7,7 +7,7 @@ use crate::Era;
 #[derive(Debug)]
 pub enum Outcome {
     Matched(Era),
-    GenesisBlock,
+    EpochBoundary,
     Inconclusive,
 }
 
@@ -23,7 +23,7 @@ pub fn probe_block_cbor_era(cbor: &[u8]) -> Outcome {
 
     match tokenizer.next() {
         Some(Ok(Token::U8(variant))) => match variant {
-            0 => Outcome::GenesisBlock,
+            0 => Outcome::EpochBoundary,
             1 => Outcome::Matched(Era::Byron),
             2 => Outcome::Matched(Era::Shelley),
             3 => Outcome::Matched(Era::Allegra),
@@ -41,17 +41,17 @@ mod tests {
 
     #[test]
     fn genesis_block_detected() {
-        let block_str = include_str!("byron/test_data/genesis.block");
+        let block_str = include_str!("../../test_data/genesis.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());
 
-        assert!(matches!(inference, Outcome::GenesisBlock));
+        assert!(matches!(inference, Outcome::EpochBoundary));
     }
 
     #[test]
     fn byron_block_detected() {
-        let block_str = include_str!("byron/test_data/test1.block");
+        let block_str = include_str!("../../test_data/byron1.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn shelley_block_detected() {
-        let block_str = include_str!("test_data/shelley1.block");
+        let block_str = include_str!("../../test_data/shelley1.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn allegra_block_detected() {
-        let block_str = include_str!("test_data/allegra1.block");
+        let block_str = include_str!("../../test_data/allegra1.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn mary_block_detected() {
-        let block_str = include_str!("test_data/mary1.block");
+        let block_str = include_str!("../../test_data/mary1.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn alonzo_block_detected() {
-        let block_str = include_str!("test_data/alonzo1.block");
+        let block_str = include_str!("../../test_data/alonzo1.block");
         let bytes = hex::decode(block_str).unwrap();
 
         let inference = probe_block_cbor_era(bytes.as_slice());
