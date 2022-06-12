@@ -879,13 +879,13 @@ pub struct MintedBlockBody<'b> {
     #[b(0)]
     pub tx_payload: MaybeIndefArray<MintedTxPayload<'b>>,
 
-    #[n(1)]
+    #[b(1)]
     pub ssc_payload: Ssc,
 
-    #[n(2)]
+    #[b(2)]
     pub dlg_payload: MaybeIndefArray<Dlg>,
 
-    #[n(3)]
+    #[b(3)]
     pub upd_payload: Up,
 }
 

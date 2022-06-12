@@ -518,7 +518,7 @@ impl From<&AnyUInt> for u64 {
 /// let confirm: (u16, u16) = minicbor::decode(keeper.raw_cbor()).unwrap();
 /// assert_eq!(confirm, (456u16, 789u16));
 /// ```
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct KeepRaw<'b, T> {
     raw: &'b [u8],
     inner: T,
@@ -535,18 +535,6 @@ impl<'b, T> Deref for KeepRaw<'b, T> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-impl<'b, T> Clone for KeepRaw<'b, T>
-where
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            raw: self.raw.clone(),
-            inner: self.inner.clone(),
-        }
     }
 }
 

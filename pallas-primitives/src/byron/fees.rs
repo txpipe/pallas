@@ -48,9 +48,9 @@ impl TxPayload {
 mod tests {
     use pallas_codec::minicbor;
 
-    use crate::{byron::MainBlock, ToHash};
+    use crate::{byron::Block, ToHash};
 
-    type BlockWrapper = (u16, MainBlock);
+    type BlockWrapper = (u16, Block);
 
     #[test]
     fn known_fee_matches() {

@@ -24,9 +24,9 @@ impl EbbHead {
 mod tests {
     use pallas_codec::minicbor;
 
-    use crate::byron::MainBlock;
+    use crate::byron::Block;
 
-    type BlockWrapper = (u16, MainBlock);
+    type BlockWrapper = (u16, Block);
 
     #[test]
     fn knwon_slot_matches() {

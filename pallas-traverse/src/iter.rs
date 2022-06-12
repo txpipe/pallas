@@ -54,9 +54,9 @@ impl<'b> Iterator for TxIter<'b> {
         let tx = match self.block {
             MultiEraBlock::EpochBoundary(_) => None,
             MultiEraBlock::AlonzoCompatible(x) => {
-                clone_alonzo_tx_at(x, self.index).map(MultiEraTx::AlonzoCompatible)
+                clone_alonzo_tx_at(x, self.index).map(MultiEraTx::from_alonzo_compatible)
             }
-            MultiEraBlock::Byron(x) => clone_byron_tx_at(x, self.index).map(MultiEraTx::Byron),
+            MultiEraBlock::Byron(x) => clone_byron_tx_at(x, self.index).map(MultiEraTx::from_byron),
         }?;
 
         self.index += 1;
