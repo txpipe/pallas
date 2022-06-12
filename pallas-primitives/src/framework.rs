@@ -23,15 +23,6 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Era {
-    Byron,
-    Shelley,
-    Allegra, // time-locks
-    Mary,    // multi-assets
-    Alonzo,  // smart-contracts
-}
-
 #[cfg(feature = "json")]
 pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;

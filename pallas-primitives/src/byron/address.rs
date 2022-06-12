@@ -13,9 +13,9 @@ impl Address {
 
 #[cfg(test)]
 mod tests {
-    use crate::byron::MintedMainBlock;
+    use crate::byron::MintedBlock;
 
-    type BlockWrapper<'b> = (u16, MintedMainBlock<'b>);
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
     const KNOWN_ADDRESSES: &[&str] = &[
         "DdzFFzCqrht8QHTQXbWy2qoyPaqTN8BjyfKygGmpy9dtot1tvkBfCaVTnR22XCaaDVn3M1U6aiMShoCLzw6VWSwzQKhhJrM3YjYp3wyy",

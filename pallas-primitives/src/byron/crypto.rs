@@ -48,9 +48,9 @@ impl ToHash<32> for KeepRaw<'_, Tx> {
 mod tests {
     use pallas_codec::minicbor;
 
-    use crate::{byron::MintedMainBlock, ToHash};
+    use crate::{byron::MintedBlock, ToHash};
 
-    type BlockWrapper<'b> = (u16, MintedMainBlock<'b>);
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
     const KNOWN_HASH: &'static str =
         "5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6";

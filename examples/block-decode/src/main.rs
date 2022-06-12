@@ -1,4 +1,4 @@
-use pallas::ledger::primitives::{alonzo, byron, probing, Era};
+use pallas::ledger::traverse::MultiEraBlock;
 
 fn main() {
     let blocks = vec![
@@ -10,23 +10,14 @@ fn main() {
     ];
 
     for block_str in blocks.iter() {
-        let bytes = hex::decode(block_str).expect("invalid hex");
+        let cbor = hex::decode(block_str).expect("invalid hex");
 
-        match probing::probe_block_cbor_era(&bytes) {
-            probing::Outcome::Matched(era) => match era {
-                Era::Byron => {
-                    let (_, block): (u16, byron::MainBlock) =
-                        pallas::codec::minicbor::decode(&bytes).expect("invalid cbor");
-                    println!("{:?}", block)
-                }
-                // we use alonzo for everything post-shelly since it's backward compatible
-                Era::Shelley | Era::Allegra | Era::Mary | Era::Alonzo => {
-                    let (_, block): (u16, alonzo::Block) =
-                        pallas::codec::minicbor::decode(&bytes).expect("invalid cbor");
-                    println!("{:?}", block)
-                }
-            },
-            _ => println!("couldn't infer block era"),
-        };
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        println!("{} {}", block.slot(), block.hash());
+
+        for tx in block.tx_iter() {
+            println!("{:?}", tx);
+        }
     }
 }
