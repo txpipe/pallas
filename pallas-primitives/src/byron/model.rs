@@ -6,8 +6,8 @@ use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
 use pallas_codec::utils::{
-    CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
-    ZeroOrOneArray,
+    CborWrap, EmptyMap, KeepRaw, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties,
+    TagWrap, ZeroOrOneArray,
 };
 
 // required for derive attrs to work
@@ -908,6 +908,18 @@ pub struct MainBlock {
 }
 
 #[derive(Encode, Decode, Debug)]
+pub struct MintedMainBlock<'b> {
+    #[b(0)]
+    pub header: KeepRaw<'b, BlockHead>,
+
+    #[n(1)]
+    pub body: BlockBody,
+
+    #[n(2)]
+    pub extra: MaybeIndefArray<Attributes>,
+}
+
+#[derive(Encode, Decode, Debug)]
 pub struct EbBlock {
     #[n(0)]
     pub header: EbbHead,
@@ -919,79 +931,51 @@ pub struct EbBlock {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum Block {
-    MainBlock(MainBlock),
-    EbBlock(EbBlock),
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for Block {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(Block::EbBlock(d.decode_with(ctx)?)),
-            1 => Ok(Block::MainBlock(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant for block",
-            )),
-        }
-    }
-}
-
-impl minicbor::Encode<()> for Block {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut (),
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Block::EbBlock(x) => {
-                e.array(2)?;
-                e.encode(0)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            Block::MainBlock(x) => {
-                e.array(2)?;
-                e.encode(1)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::byron::{Block, BlockHead};
-    use crate::Fragment;
-
-    use pallas_codec::minicbor::to_vec;
+    use super::{BlockHead, EbBlock, MintedMainBlock};
+    use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
-    fn block_isomorphic_decoding_encoding() {
+    fn boundary_block_isomorphic_decoding_encoding() {
+        type BlockWrapper = (u16, EbBlock);
+
+        let test_blocks = vec![include_str!("../../../test_data/genesis.block")];
+
+        for (idx, block_str) in test_blocks.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
+                .expect(&format!("error decoding cbor for file {}", idx));
+
+            let bytes2 =
+                to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+
+            assert_eq!(hex::encode(bytes), hex::encode(bytes2));
+        }
+    }
+
+    #[test]
+    fn main_block_isomorphic_decoding_encoding() {
+        type BlockWrapper<'b> = (u16, MintedMainBlock<'b>);
+
         let test_blocks = vec![
-            include_str!("test_data/genesis.block"),
-            include_str!("test_data/test1.block"),
-            include_str!("test_data/test2.block"),
-            include_str!("test_data/test3.block"),
-            include_str!("test_data/test4.block"),
-            include_str!("test_data/test5.block"),
-            include_str!("test_data/test6.block"),
-            include_str!("test_data/test7.block"),
+            //include_str!("../../../test_data/genesis.block"),
+            include_str!("../../../test_data/byron1.block"),
+            include_str!("../../../test_data/byron2.block"),
+            include_str!("../../../test_data/byron3.block"),
+            include_str!("../../../test_data/byron4.block"),
+            include_str!("../../../test_data/byron5.block"),
+            include_str!("../../../test_data/byron6.block"),
+            include_str!("../../../test_data/byron7.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
 
-            let block = Block::decode_fragment(&bytes[..])
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let bytes2 =
@@ -1003,13 +987,13 @@ mod tests {
 
     #[test]
     fn header_isomorphic_decoding_encoding() {
-        let subjects = vec![include_str!("test_data/test1.header")];
+        let subjects = vec![include_str!("../../../test_data/byron1.header")];
 
         for (idx, str) in subjects.iter().enumerate() {
             println!("decoding test header {}", idx + 1);
             let bytes = hex::decode(str).expect(&format!("bad header file {}", idx));
 
-            let block = BlockHead::decode_fragment(&bytes[..])
+            let block: BlockHead = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let bytes2 =

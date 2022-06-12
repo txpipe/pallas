@@ -1418,12 +1418,12 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
 pub type TransactionIndex = u32;
 
 #[derive(Encode, Decode, Debug, PartialEq)]
-pub struct Block<'b> {
+pub struct Block {
     #[n(0)]
     pub header: Header,
 
     #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
+    pub transaction_bodies: MaybeIndefArray<TransactionBody>,
 
     #[n(2)]
     pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
@@ -1435,82 +1435,107 @@ pub struct Block<'b> {
     pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
 
-#[derive(Encode, Decode, Debug)]
-pub struct BlockWrapper<'b>(#[n(0)] pub u16, #[b(1)] pub Block<'b>);
+/// A memory representation of an already minted block
+///
+/// This structure is analogous to [Block], but it allows to retrieve the
+/// original CBOR bytes for each structure that might require hashing. In this
+/// way, we make sure that the resulting hash matches what exists on-chain.
+#[derive(Encode, Decode, Debug, PartialEq)]
+pub struct MintedBlock<'b> {
+    #[n(0)]
+    pub header: KeepRaw<'b, Header>,
+
+    #[b(1)]
+    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
+
+    #[n(2)]
+    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
+
+    #[n(3)]
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
+
+    #[n(4)]
+    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
+}
 
 #[derive(Encode, Decode, Debug)]
 pub struct Transaction {
     #[n(0)]
     transaction_body: TransactionBody,
+
     #[n(1)]
     transaction_witness_set: TransactionWitnessSet,
+
     #[n(2)]
     success: bool,
+
     #[n(3)]
     auxiliary_data: Option<AuxiliaryData>,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::BlockWrapper;
-    use crate::Fragment;
-    use pallas_codec::minicbor::to_vec;
+    use pallas_codec::minicbor::{self, to_vec};
+
+    use super::MintedBlock;
+
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = vec![
-            include_str!("../test_data/alonzo1.block"),
-            include_str!("../test_data/alonzo2.block"),
-            include_str!("../test_data/alonzo3.block"),
-            include_str!("../test_data/alonzo4.block"),
-            include_str!("../test_data/alonzo5.block"),
-            include_str!("../test_data/alonzo6.block"),
-            include_str!("../test_data/alonzo7.block"),
-            include_str!("../test_data/alonzo8.block"),
-            include_str!("../test_data/alonzo9.block"),
+            include_str!("../../../test_data/alonzo1.block"),
+            include_str!("../../../test_data/alonzo2.block"),
+            include_str!("../../../test_data/alonzo3.block"),
+            include_str!("../../../test_data/alonzo4.block"),
+            include_str!("../../../test_data/alonzo5.block"),
+            include_str!("../../../test_data/alonzo6.block"),
+            include_str!("../../../test_data/alonzo7.block"),
+            include_str!("../../../test_data/alonzo8.block"),
+            include_str!("../../../test_data/alonzo9.block"),
             // old block without invalid_transactions fields
-            include_str!("../test_data/alonzo10.block"),
+            include_str!("../../../test_data/alonzo10.block"),
             // peculiar block with protocol update params
-            include_str!("../test_data/alonzo11.block"),
+            include_str!("../../../test_data/alonzo11.block"),
             // peculiar block with decoding issue
             // https://github.com/txpipe/oura/issues/37
-            include_str!("../test_data/alonzo12.block"),
+            include_str!("../../../test_data/alonzo12.block"),
             // peculiar block with protocol update params, including nonce
-            include_str!("../test_data/alonzo13.block"),
+            include_str!("../../../test_data/alonzo13.block"),
             // peculiar block with overflow crash
             // https://github.com/txpipe/oura/issues/113
-            include_str!("../test_data/alonzo14.block"),
+            include_str!("../../../test_data/alonzo14.block"),
             // peculiar block with many move-instantaneous-rewards certs
-            include_str!("../test_data/alonzo15.block"),
+            include_str!("../../../test_data/alonzo15.block"),
             // peculiar block with protocol update values
-            include_str!("../test_data/alonzo16.block"),
+            include_str!("../../../test_data/alonzo16.block"),
             // peculiar block with missing nonce hash
-            include_str!("../test_data/alonzo17.block"),
+            include_str!("../../../test_data/alonzo17.block"),
             // peculiar block with strange AuxiliaryData variant
-            include_str!("../test_data/alonzo18.block"),
+            include_str!("../../../test_data/alonzo18.block"),
             // peculiar block with strange AuxiliaryData variant
-            include_str!("../test_data/alonzo18.block"),
+            include_str!("../../../test_data/alonzo18.block"),
             // peculiar block with nevative i64 overflow
-            include_str!("../test_data/alonzo19.block"),
+            include_str!("../../../test_data/alonzo19.block"),
             // peculiar block with very BigInt in plutus code
-            include_str!("../test_data/alonzo20.block"),
+            include_str!("../../../test_data/alonzo20.block"),
             // peculiar block with bad tx hash
-            include_str!("../test_data/alonzo21.block"),
+            include_str!("../../../test_data/alonzo21.block"),
             // peculiar block with bad tx hash
-            include_str!("../test_data/alonzo22.block"),
+            include_str!("../../../test_data/alonzo22.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
 
-            let block = BlockWrapper::decode_fragment(&bytes[..])
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let bytes2 =
                 to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
 
-            assert_eq!(bytes, bytes2);
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
     }
 }

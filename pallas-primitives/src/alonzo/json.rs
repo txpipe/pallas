@@ -80,13 +80,17 @@ impl ToCanonicalJson for super::NativeScript {
 
 #[cfg(test)]
 mod tests {
-    use crate::{alonzo::BlockWrapper, Fragment, ToCanonicalJson};
+    use pallas_codec::minicbor;
+
+    use crate::{alonzo::Block, ToCanonicalJson};
+
+    type BlockWrapper = (u16, Block);
 
     #[test]
     fn test_datums_serialize_as_expected() {
         let test_blocks = vec![(
-            include_str!("../test_data/alonzo9.block"),
-            include_str!("../test_data/alonzo9.datums"),
+            include_str!("../../../test_data/alonzo9.block"),
+            include_str!("../../../test_data/alonzo9.datums"),
         )];
 
         for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
@@ -94,7 +98,7 @@ mod tests {
 
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
 
-            let BlockWrapper(_, block) = BlockWrapper::decode_fragment(&bytes[..])
+            let (_, block): BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let mut datums = jsonl_str.lines();
@@ -115,8 +119,8 @@ mod tests {
     #[test]
     fn test_native_scripts_serialize_as_expected() {
         let test_blocks = vec![(
-            include_str!("../test_data/alonzo9.block"),
-            include_str!("../test_data/alonzo9.native"),
+            include_str!("../../../test_data/alonzo9.block"),
+            include_str!("../../../test_data/alonzo9.native"),
         )];
 
         for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
@@ -124,7 +128,7 @@ mod tests {
 
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
 
-            let BlockWrapper(_, block) = BlockWrapper::decode_fragment(&bytes[..])
+            let (_, block): BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let mut scripts = jsonl_str.lines();
