@@ -1,4 +1,4 @@
-//! Heuristics for detecting cbor content without decoding
+//! Lightweight inspection of block data without full CBOR decoding
 
 use pallas_codec::minicbor::decode::{Token, Tokenizer};
 
@@ -12,9 +12,9 @@ pub enum Outcome {
 }
 
 // Executes a very lightweight inspection of the initial tokens of the CBOR
-// payload and infers with a certain degree of confidence the type of Cardano
-// structure within.
-pub fn probe_block_cbor_era(cbor: &[u8]) -> Outcome {
+// block payload to extract the tag of the block wrapper which defines the era
+// of the contained bytes.
+pub fn block_era(cbor: &[u8]) -> Outcome {
     let mut tokenizer = Tokenizer::new(cbor);
 
     if !matches!(tokenizer.next(), Some(Ok(Token::Array(2)))) {
@@ -44,7 +44,7 @@ mod tests {
         let block_str = include_str!("../../test_data/genesis.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor_era(bytes.as_slice());
+        let inference = block_era(bytes.as_slice());
 
         assert!(matches!(inference, Outcome::EpochBoundary));
     }
@@ -54,7 +54,7 @@ mod tests {
         let block_str = include_str!("../../test_data/byron1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor_era(bytes.as_slice());
+        let inference = block_era(bytes.as_slice());
 
         assert!(matches!(inference, Outcome::Matched(Era::Byron)));
     }
@@ -64,7 +64,7 @@ mod tests {
         let block_str = include_str!("../../test_data/shelley1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor_era(bytes.as_slice());
+        let inference = block_era(bytes.as_slice());
 
         assert!(matches!(inference, Outcome::Matched(Era::Shelley)));
     }
@@ -74,7 +74,7 @@ mod tests {
         let block_str = include_str!("../../test_data/allegra1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor_era(bytes.as_slice());
+        let inference = block_era(bytes.as_slice());
 
         assert!(matches!(inference, Outcome::Matched(Era::Allegra)));
     }
@@ -84,7 +84,7 @@ mod tests {
         let block_str = include_str!("../../test_data/mary1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor_era(bytes.as_slice());
+        let inference = block_era(bytes.as_slice());
 
         assert!(matches!(inference, Outcome::Matched(Era::Mary)));
     }
@@ -94,7 +94,7 @@ mod tests {
         let block_str = include_str!("../../test_data/alonzo1.block");
         let bytes = hex::decode(block_str).unwrap();
 
-        let inference = probe_block_cbor_era(bytes.as_slice());
+        let inference = block_era(bytes.as_slice());
 
         assert!(matches!(inference, Outcome::Matched(Era::Alonzo)));
     }

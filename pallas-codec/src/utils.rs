@@ -111,7 +111,7 @@ where
 }
 
 /// A struct that maintains a reference to whether a cbor array was indef or not
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum MaybeIndefArray<A> {
     Def(Vec<A>),
     Indef(Vec<A>),
@@ -186,7 +186,7 @@ where
 /// transform key-value structures into an orderer vec of `properties`, where
 /// each entry represents a a cbor-encodable variant of an attribute of the
 /// struct.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct OrderPreservingProperties<P>(Vec<P>);
 
 impl<P> Deref for OrderPreservingProperties<P> {
@@ -229,7 +229,7 @@ where
 }
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CborWrap<T>(pub T);
 
 impl<'b, C, T> minicbor::Decode<'b, C> for CborWrap<T>
@@ -312,7 +312,7 @@ where
 /// An empty map
 ///
 /// don't ask me why, that's what the CDDL asks for.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EmptyMap;
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for EmptyMap {
@@ -535,6 +535,18 @@ impl<'b, T> Deref for KeepRaw<'b, T> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<'b, T> Clone for KeepRaw<'b, T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            raw: self.raw.clone(),
+            inner: self.inner.clone(),
+        }
     }
 }
 

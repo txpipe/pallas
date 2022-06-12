@@ -51,7 +51,7 @@ pub type Attributes = EmptyMap;
 
 // Addresses
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddrDistr {
     Variant0(StakeholderId),
     Variant1,
@@ -96,7 +96,7 @@ impl minicbor::Encode<()> for AddrDistr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddrType {
     PubKey,
     Script,
@@ -137,7 +137,7 @@ impl<C> minicbor::Encode<C> for AddrType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     Bytes(ByteVec),
@@ -187,7 +187,7 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
 
 pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct AddressPayload {
     #[n(0)]
     pub root: AddressId,
@@ -200,7 +200,7 @@ pub struct AddressPayload {
 }
 
 // address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Address {
     #[n(0)]
     pub payload: CborWrap<AddressPayload>,
@@ -212,7 +212,7 @@ pub struct Address {
 // Transactions
 
 // txout = [address, u64]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct TxOut {
     #[n(0)]
     pub address: Address,
@@ -221,7 +221,7 @@ pub struct TxOut {
     pub amount: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxIn {
     // [0, #6.24(bytes .cbor ([txid, u32]))]
     Variant0(CborWrap<(TxId, u32)>),
@@ -269,7 +269,7 @@ impl<C> minicbor::Encode<C> for TxIn {
 }
 
 // tx = [[+ txin], [+ txout], attributes]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Tx {
     #[n(0)]
     pub inputs: MaybeIndefArray<TxIn>,
@@ -287,7 +287,7 @@ pub type TxProof = (u32, ByronHash, ByronHash);
 pub type ValidatorScript = (u16, ByteVec);
 pub type RedeemerScript = (u16, ByteVec);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Twit {
     // [0, #6.24(bytes .cbor ([pubkey, signature]))]
     PkWitness(CborWrap<(PubKey, Signature)>),
@@ -841,7 +841,6 @@ pub struct BlockHead {
     pub extra_data: BlockHeadEx,
 }
 
-// [tx, [* twit]]
 #[derive(Debug, Encode, Decode)]
 pub struct TxPayload {
     #[n(0)]
@@ -851,10 +850,34 @@ pub struct TxPayload {
     pub witness: MaybeIndefArray<Twit>,
 }
 
+#[derive(Debug, Encode, Decode, Clone)]
+pub struct MintedTxPayload<'b> {
+    #[b(0)]
+    pub transaction: KeepRaw<'b, Tx>,
+
+    #[n(1)]
+    pub witness: MaybeIndefArray<Twit>,
+}
+
 #[derive(Encode, Decode, Debug)]
 pub struct BlockBody {
     #[n(0)]
     pub tx_payload: MaybeIndefArray<TxPayload>,
+
+    #[n(1)]
+    pub ssc_payload: Ssc,
+
+    #[n(2)]
+    pub dlg_payload: MaybeIndefArray<Dlg>,
+
+    #[n(3)]
+    pub upd_payload: Up,
+}
+
+#[derive(Encode, Decode, Debug)]
+pub struct MintedBlockBody<'b> {
+    #[b(0)]
+    pub tx_payload: MaybeIndefArray<MintedTxPayload<'b>>,
 
     #[n(1)]
     pub ssc_payload: Ssc,
@@ -896,7 +919,7 @@ pub struct EbbHead {
 }
 
 #[derive(Encode, Decode, Debug)]
-pub struct MainBlock {
+pub struct Block {
     #[n(0)]
     pub header: BlockHead,
 
@@ -908,12 +931,12 @@ pub struct MainBlock {
 }
 
 #[derive(Encode, Decode, Debug)]
-pub struct MintedMainBlock<'b> {
+pub struct MintedBlock<'b> {
     #[b(0)]
     pub header: KeepRaw<'b, BlockHead>,
 
-    #[n(1)]
-    pub body: BlockBody,
+    #[b(1)]
+    pub body: MintedBlockBody<'b>,
 
     #[n(2)]
     pub extra: MaybeIndefArray<Attributes>,
@@ -933,7 +956,7 @@ pub struct EbBlock {
 
 #[cfg(test)]
 mod tests {
-    use super::{BlockHead, EbBlock, MintedMainBlock};
+    use super::{BlockHead, EbBlock, MintedBlock};
     use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
@@ -958,7 +981,7 @@ mod tests {
 
     #[test]
     fn main_block_isomorphic_decoding_encoding() {
-        type BlockWrapper<'b> = (u16, MintedMainBlock<'b>);
+        type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
         let test_blocks = vec![
             //include_str!("../../../test_data/genesis.block"),
