@@ -90,7 +90,7 @@ fn read_segment_with_timeout(reader: &mut impl Read) -> Result<Option<Segment>, 
             std::io::ErrorKind::WouldBlock => Ok(None),
             std::io::ErrorKind::TimedOut => Ok(None),
             std::io::ErrorKind::Interrupted => Ok(None),
-            _ => todo!(),
+            _ => Err(err),
         },
     }
 }
