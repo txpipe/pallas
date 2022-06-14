@@ -4,7 +4,6 @@
 
 use pallas_codec::minicbor::{bytes::ByteVec, data::Int, data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
-use std::ops::Deref;
 
 use pallas_codec::utils::{AnyUInt, KeepRaw, KeyValuePairs, MaybeIndefArray};
 
@@ -699,155 +698,52 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum TransactionBodyComponent {
-    Inputs(MaybeIndefArray<TransactionInput>),
-    Outputs(MaybeIndefArray<TransactionOutput>),
-    Fee(u64),
-    Ttl(u64),
-    Certificates(MaybeIndefArray<Certificate>),
-    Withdrawals(KeyValuePairs<RewardAccount, Coin>),
-    Update(Update),
-    AuxiliaryDataHash(ByteVec),
-    ValidityIntervalStart(u64),
-    Mint(Multiasset<i64>),
-    ScriptDataHash(Hash<32>),
-    Collateral(MaybeIndefArray<TransactionInput>),
-    RequiredSigners(MaybeIndefArray<AddrKeyhash>),
-    NetworkId(NetworkId),
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionBodyComponent {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let key: u32 = d.decode_with(ctx)?;
-
-        match key {
-            0 => Ok(Self::Inputs(d.decode_with(ctx)?)),
-            1 => Ok(Self::Outputs(d.decode_with(ctx)?)),
-            2 => Ok(Self::Fee(d.decode_with(ctx)?)),
-            3 => Ok(Self::Ttl(d.decode_with(ctx)?)),
-            4 => Ok(Self::Certificates(d.decode_with(ctx)?)),
-            5 => Ok(Self::Withdrawals(d.decode_with(ctx)?)),
-            6 => Ok(Self::Update(d.decode_with(ctx)?)),
-            7 => Ok(Self::AuxiliaryDataHash(d.decode_with(ctx)?)),
-            8 => Ok(Self::ValidityIntervalStart(d.decode_with(ctx)?)),
-            9 => Ok(Self::Mint(d.decode_with(ctx)?)),
-            11 => Ok(Self::ScriptDataHash(d.decode_with(ctx)?)),
-            13 => Ok(Self::Collateral(d.decode_with(ctx)?)),
-            14 => Ok(Self::RequiredSigners(d.decode_with(ctx)?)),
-            15 => Ok(Self::NetworkId(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid map key for transaction body component",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for TransactionBodyComponent {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            TransactionBodyComponent::Inputs(x) => {
-                e.encode_with(0, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Outputs(x) => {
-                e.encode_with(1, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Fee(x) => {
-                e.encode_with(2, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Ttl(x) => {
-                e.encode_with(3, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Certificates(x) => {
-                e.encode_with(4, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Withdrawals(x) => {
-                e.encode_with(5, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Update(x) => {
-                e.encode_with(6, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::AuxiliaryDataHash(x) => {
-                e.encode_with(7, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::ValidityIntervalStart(x) => {
-                e.encode_with(8, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Mint(x) => {
-                e.encode_with(9, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::ScriptDataHash(x) => {
-                e.encode_with(11, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Collateral(x) => {
-                e.encode_with(13, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::RequiredSigners(x) => {
-                e.encode_with(14, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::NetworkId(x) => {
-                e.encode_with(15, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
 // Can't derive encode for TransactionBody because it seems to require a very
 // particular order for each key in the map
-#[derive(Debug, PartialEq, Clone)]
-pub struct TransactionBody(Vec<TransactionBodyComponent>);
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[cbor(map)]
+pub struct TransactionBody {
+    #[n(0)]
+    pub inputs: MaybeIndefArray<TransactionInput>,
 
-impl Deref for TransactionBody {
-    type Target = Vec<TransactionBodyComponent>;
+    #[n(1)]
+    pub outputs: MaybeIndefArray<TransactionOutput>,
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+    #[n(2)]
+    pub fee: u64,
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionBody {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let len = d.map()?.unwrap_or_default();
+    #[n(3)]
+    pub ttl: Option<u64>,
 
-        let components: Result<_, _> = (0..len).map(|_| d.decode_with(ctx)).collect();
+    #[n(4)]
+    pub certificates: Option<MaybeIndefArray<Certificate>>,
 
-        Ok(Self(components?))
-    }
-}
+    #[n(5)]
+    pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>,
 
-impl<C> minicbor::encode::Encode<C> for TransactionBody {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.map(self.0.len() as u64)?;
-        for component in &self.0 {
-            e.encode_with(component, ctx)?;
-        }
+    #[n(6)]
+    pub update: Option<Update>,
 
-        Ok(())
-    }
+    #[n(7)]
+    pub auxiliary_data_hash: Option<ByteVec>,
+
+    #[n(8)]
+    pub validity_interval_start: Option<u64>,
+
+    #[n(9)]
+    pub mint: Option<Multiasset<i64>>,
+
+    #[n(11)]
+    pub script_data_hash: Option<Hash<32>>,
+
+    #[n(13)]
+    pub collateral: Option<MaybeIndefArray<TransactionInput>>,
+
+    #[n(14)]
+    pub required_signers: Option<MaybeIndefArray<AddrKeyhash>>,
+
+    #[n(15)]
+    pub network_id: Option<NetworkId>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -1440,7 +1336,7 @@ pub struct Block {
 /// This structure is analogous to [Block], but it allows to retrieve the
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct MintedBlock<'b> {
     #[n(0)]
     pub header: KeepRaw<'b, Header>,
@@ -1473,7 +1369,7 @@ pub struct Tx {
     pub auxiliary_data: Option<AuxiliaryData>,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct MintedTx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody>,
