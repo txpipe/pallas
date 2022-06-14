@@ -7,11 +7,11 @@ use crate::{MultiEraCert, MultiEraOutput, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
-        Self::Byron(Cow::Borrowed(tx))
+        Self::Byron(Box::new(Cow::Borrowed(tx)))
     }
 
     pub fn from_alonzo_compatible(tx: &'b alonzo::MintedTx<'b>) -> Self {
-        Self::AlonzoCompatible(Cow::Borrowed(tx))
+        Self::AlonzoCompatible(Box::new(Cow::Borrowed(tx)))
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, minicbor::encode::Error<std::io::Error>> {
@@ -52,7 +52,7 @@ impl<'b> MultiEraTx<'b> {
                 .certificates
                 .iter()
                 .flat_map(|c| c.iter())
-                .map(|c| MultiEraCert::AlonzoCompatible(Cow::Borrowed(c)))
+                .map(|c| MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(c))))
                 .collect(),
             MultiEraTx::Byron(_) => vec![],
         }

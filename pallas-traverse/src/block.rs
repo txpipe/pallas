@@ -13,42 +13,54 @@ impl<'b> MultiEraBlock<'b> {
         let (_, block): BlockWrapper<byron::EbBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::EpochBoundary(Cow::Owned(block)))
+        Ok(Self::EpochBoundary(Box::new(Cow::Owned(block))))
     }
 
     pub fn decode_byron(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<byron::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::Byron(Cow::Owned(block)))
+        Ok(Self::Byron(Box::new(Cow::Owned(block))))
     }
 
     pub fn decode_shelley(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(Cow::Owned(block), Era::Shelley))
+        Ok(Self::AlonzoCompatible(
+            Box::new(Cow::Owned(block)),
+            Era::Shelley,
+        ))
     }
 
     pub fn decode_allegra(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(Cow::Owned(block), Era::Allegra))
+        Ok(Self::AlonzoCompatible(
+            Box::new(Cow::Owned(block)),
+            Era::Allegra,
+        ))
     }
 
     pub fn decode_mary(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(Cow::Owned(block), Era::Mary))
+        Ok(Self::AlonzoCompatible(
+            Box::new(Cow::Owned(block)),
+            Era::Mary,
+        ))
     }
 
     pub fn decode_alonzo(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(Cow::Owned(block), Era::Alonzo))
+        Ok(Self::AlonzoCompatible(
+            Box::new(Cow::Owned(block)),
+            Era::Alonzo,
+        ))
     }
 
     pub fn decode(cbor: &'b [u8]) -> Result<MultiEraBlock<'b>, Error> {
@@ -93,13 +105,13 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::AlonzoCompatible(x, _) => support::clone_alonzo_txs(x)
                 .into_iter()
-                .map(|x| MultiEraTx::AlonzoCompatible(Cow::Owned(x)))
+                .map(|x| MultiEraTx::AlonzoCompatible(Box::new(Cow::Owned(x))))
                 .collect(),
             MultiEraBlock::Byron(x) => support::clone_byron_txs(x)
                 .into_iter()
-                .map(|x| MultiEraTx::Byron(Cow::Owned(x)))
+                .map(|x| MultiEraTx::Byron(Box::new(Cow::Owned(x))))
                 .collect(),
-            MultiEraBlock::EpochBoundary(_) => vec![].into(),
+            MultiEraBlock::EpochBoundary(_) => vec![],
         }
     }
 }

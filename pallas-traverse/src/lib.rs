@@ -26,28 +26,28 @@ pub enum Era {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraBlock<'b> {
-    EpochBoundary(Cow<'b, byron::EbBlock>),
-    AlonzoCompatible(Cow<'b, alonzo::MintedBlock<'b>>, Era),
-    Byron(Cow<'b, byron::MintedBlock<'b>>),
+    EpochBoundary(Box<Cow<'b, byron::EbBlock>>),
+    AlonzoCompatible(Box<Cow<'b, alonzo::MintedBlock<'b>>>, Era),
+    Byron(Box<Cow<'b, byron::MintedBlock<'b>>>),
 }
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MultiEraTx<'b> {
-    AlonzoCompatible(Cow<'b, alonzo::MintedTx<'b>>),
-    Byron(Cow<'b, byron::MintedTxPayload<'b>>),
+    AlonzoCompatible(Box<Cow<'b, alonzo::MintedTx<'b>>>),
+    Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
 }
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MultiEraOutput<'b> {
-    Byron(Cow<'b, byron::TxOut>),
-    AlonzoCompatible(Cow<'b, alonzo::TransactionOutput>),
+    Byron(Box<Cow<'b, byron::TxOut>>),
+    AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
 }
 
 pub enum MultiEraCert<'b> {
     NotApplicable,
-    AlonzoCompatible(Cow<'b, alonzo::Certificate>),
+    AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
 }
 
 #[derive(Debug, Error)]

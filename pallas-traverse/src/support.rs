@@ -39,7 +39,7 @@ pub fn clone_alonzo_txs<'b>(block: &'b alonzo::MintedBlock) -> Vec<alonzo::Minte
     (0..block.transaction_bodies.len())
         .step_by(1)
         .map(|idx| clone_alonzo_tx_at(block, idx))
-        .filter_map(|x| x)
+        .flatten()
         .collect()
 }
 
