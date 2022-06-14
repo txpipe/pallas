@@ -17,7 +17,7 @@ impl TransactionOutput {
 mod tests {
     use pallas_codec::minicbor;
 
-    use crate::alonzo::{Block, TransactionBodyComponent};
+    use crate::alonzo::Block;
 
     type BlockWrapper = (u16, Block);
 
@@ -49,18 +49,14 @@ mod tests {
         assert!(block.transaction_bodies.len() > 0);
 
         for tx in block.transaction_bodies.iter() {
-            for component in tx.iter() {
-                if let TransactionBodyComponent::Outputs(outputs) = component {
-                    for output in outputs.iter() {
-                        let addr_str = output.to_bech32_address("addr_test").unwrap();
+            for output in tx.outputs.iter() {
+                let addr_str = output.to_bech32_address("addr_test").unwrap();
 
-                        assert!(
-                            KNOWN_ADDRESSES.contains(&addr_str.as_str()),
-                            "address {} not in known list",
-                            addr_str
-                        );
-                    }
-                }
+                assert!(
+                    KNOWN_ADDRESSES.contains(&addr_str.as_str()),
+                    "address {} not in known list",
+                    addr_str
+                );
             }
         }
     }

@@ -29,7 +29,7 @@ pub type StakeholderId = Blake2b224;
 
 pub type EpochId = u64;
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct SlotId {
     #[n(0)]
     pub epoch: EpochId,
@@ -407,7 +407,7 @@ pub type SscCert = (VssPubKey, EpochId, PubKey, Signature);
 // ssccerts = #6.258([* ssccert])
 pub type SscCerts = TagWrap<MaybeIndefArray<SscCert>, 258>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ssc {
     Variant0(SscComms, SscCerts),
     Variant1(SscOpens, SscCerts),
@@ -473,7 +473,7 @@ impl<C> minicbor::Encode<C> for Ssc {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SscProof {
     Variant0(ByronHash, ByronHash),
     Variant1(ByronHash, ByronHash),
@@ -543,7 +543,7 @@ impl<C> minicbor::Encode<C> for SscProof {
 
 // Delegation
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Dlg {
     #[n(0)]
     pub epoch: EpochId,
@@ -560,7 +560,7 @@ pub struct Dlg {
 
 pub type DlgSig = (Dlg, Signature);
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Lwdlg {
     #[n(0)]
     pub epoch_range: (EpochId, EpochId),
@@ -581,7 +581,7 @@ pub type LwdlgSig = (Lwdlg, Signature);
 
 pub type BVer = (u16, u16, u8);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxFeePol {
     //[0, #6.24(bytes .cbor ([bigint, bigint]))]
     Variant0(CborWrap<(i64, i64)>),
@@ -628,7 +628,7 @@ impl<C> minicbor::Encode<C> for TxFeePol {
     }
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct BVerMod {
     #[n(0)]
     pub script_version: ZeroOrOneArray<u16>,
@@ -675,7 +675,7 @@ pub struct BVerMod {
 
 pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct UpProp {
     #[n(0)]
     pub block_version: Option<BVer>,
@@ -701,7 +701,7 @@ pub struct UpProp {
     pub signature: Option<Signature>,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct UpVote {
     #[n(0)]
     pub voter: PubKey,
@@ -716,7 +716,7 @@ pub struct UpVote {
     pub signature: Signature,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Up {
     #[n(0)]
     pub proposal: ZeroOrOneArray<UpProp>,
@@ -729,7 +729,7 @@ pub struct Up {
 
 pub type Difficulty = MaybeIndefArray<u64>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BlockSig {
     Signature(Signature),
     LwdlgSig(LwdlgSig),
@@ -785,7 +785,7 @@ impl<C> minicbor::Encode<C> for BlockSig {
     }
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockCons(
     #[n(0)] pub SlotId,
     #[n(1)] pub PubKey,
@@ -793,7 +793,7 @@ pub struct BlockCons(
     #[n(3)] pub BlockSig,
 );
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockHeadEx {
     #[n(0)]
     pub block_version: BVer,
@@ -808,7 +808,7 @@ pub struct BlockHeadEx {
     pub extra_proof: ByronHash,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockProof {
     #[n(0)]
     pub tx_proof: TxProof,
@@ -823,7 +823,7 @@ pub struct BlockProof {
     pub upd_proof: ByronHash,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockHead {
     #[n(0)]
     pub protocol_magic: u32,
@@ -874,7 +874,7 @@ pub struct BlockBody {
     pub upd_payload: Up,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct MintedBlockBody<'b> {
     #[b(0)]
     pub tx_payload: MaybeIndefArray<MintedTxPayload<'b>>,
@@ -891,7 +891,7 @@ pub struct MintedBlockBody<'b> {
 
 // Epoch Boundary Blocks
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbbCons {
     #[n(0)]
     pub epoch_id: EpochId,
@@ -900,7 +900,7 @@ pub struct EbbCons {
     pub difficulty: Difficulty,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbbHead {
     #[n(0)]
     pub protocol_magic: u32,
@@ -930,7 +930,7 @@ pub struct Block {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct MintedBlock<'b> {
     #[b(0)]
     pub header: KeepRaw<'b, BlockHead>,
@@ -942,7 +942,7 @@ pub struct MintedBlock<'b> {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbBlock {
     #[n(0)]
     pub header: EbbHead,

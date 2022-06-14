@@ -16,7 +16,7 @@ fn main() {
 
         println!("{} {}", block.slot(), block.hash());
 
-        for tx in block.tx_iter() {
+        for tx in &block.txs() {
             println!("{:?}", tx);
         }
     }

@@ -273,7 +273,7 @@ impl<T> Deref for CborWrap<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TagWrap<I, const T: u64>(I);
 
 impl<I, const T: u64> TagWrap<I, T> {
@@ -342,7 +342,7 @@ impl<C> minicbor::encode::Encode<C> for EmptyMap {
 /// A common pattern seen in the CDDL is to represent optional values as an
 /// array containing zero or more items. This structure reflects that pattern
 /// while providing semantic meaning.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ZeroOrOneArray<T>(Option<T>);
 
 impl<T> Deref for ZeroOrOneArray<T> {
