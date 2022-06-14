@@ -57,4 +57,18 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Byron(_) => vec![],
         }
     }
+
+    pub fn as_alonzo(&self) -> Option<&alonzo::MintedTx> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x) => Some(x),
+            MultiEraTx::Byron(_) => None,
+        }
+    }
+
+    pub fn as_byron(&self) -> Option<&byron::MintedTxPayload> {
+        match self {
+            MultiEraTx::AlonzoCompatible(_) => None,
+            MultiEraTx::Byron(x) => Some(x),
+        }
+    }
 }

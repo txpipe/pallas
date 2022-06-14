@@ -114,6 +114,22 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::EpochBoundary(_) => vec![],
         }
     }
+
+    pub fn as_alonzo(&self) -> Option<&alonzo::MintedBlock> {
+        match self {
+            MultiEraBlock::EpochBoundary(_) => None,
+            MultiEraBlock::AlonzoCompatible(x, _) => Some(x),
+            MultiEraBlock::Byron(_) => None,
+        }
+    }
+
+    pub fn as_byron(&self) -> Option<&byron::MintedBlock> {
+        match self {
+            MultiEraBlock::EpochBoundary(_) => None,
+            MultiEraBlock::AlonzoCompatible(_, _) => None,
+            MultiEraBlock::Byron(x) => Some(x),
+        }
+    }
 }
 
 #[cfg(test)]

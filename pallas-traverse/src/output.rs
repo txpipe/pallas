@@ -21,4 +21,18 @@ impl<'b> MultiEraOutput<'b> {
             }
         }
     }
+
+    pub fn as_alonzo(&self) -> Option<&alonzo::TransactionOutput> {
+        match self {
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::AlonzoCompatible(x) => Some(x),
+        }
+    }
+
+    pub fn as_byron(&self) -> Option<&byron::TxOut> {
+        match self {
+            MultiEraOutput::Byron(x) => Some(x),
+            MultiEraOutput::AlonzoCompatible(_) => None,
+        }
+    }
 }
