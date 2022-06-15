@@ -1,6 +1,7 @@
 use crate::{Era, Feature};
 
 impl Era {
+    #[allow(clippy::match_like_matches_macro)]
     pub fn has_feature(&self, feature: Feature) -> bool {
         match (self, feature) {
             (Era::Byron, _) => false,
