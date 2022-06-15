@@ -8,6 +8,7 @@ use thiserror::Error;
 
 pub mod block;
 pub mod cert;
+pub mod era;
 pub mod output;
 pub mod probe;
 mod support;
@@ -21,6 +22,15 @@ pub enum Era {
     Allegra, // time-locks
     Mary,    // multi-assets
     Alonzo,  // smart-contracts
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum Feature {
+    TimeLocks,
+    MultiAssets,
+    Staking,
+    SmartContracts,
 }
 
 #[derive(Debug, Clone)]
