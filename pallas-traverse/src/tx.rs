@@ -3,7 +3,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, byron, ToHash};
 use std::borrow::Cow;
 
-use crate::{MultiEraCert, MultiEraOutput, MultiEraTx};
+use crate::{MultiEraCert, MultiEraOutput, MultiEraInput, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
@@ -41,6 +41,24 @@ impl<'b> MultiEraTx<'b> {
                 .outputs
                 .iter()
                 .map(MultiEraOutput::from_byron)
+                .collect(),
+        }
+    }
+
+    pub fn inputs(&self) -> Vec<MultiEraInput> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x) => x
+                .transaction_body
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+
+            MultiEraTx::Byron(x) => x
+                .transaction
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_byron)
                 .collect(),
         }
     }
