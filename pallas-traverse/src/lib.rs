@@ -10,6 +10,7 @@ pub mod block;
 pub mod cert;
 pub mod era;
 pub mod output;
+pub mod input;
 pub mod probe;
 mod support;
 pub mod tx;
@@ -53,6 +54,13 @@ pub enum MultiEraTx<'b> {
 pub enum MultiEraOutput<'b> {
     Byron(Box<Cow<'b, byron::TxOut>>),
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum MultiEraInput<'b> {
+    Byron(Box<Cow<'b, byron::TxIn>>),
+    AlonzoCompatible(Box<Cow<'b, alonzo::TransactionInput>>),
 }
 
 pub enum MultiEraCert<'b> {
