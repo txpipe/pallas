@@ -3,7 +3,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, byron, ToHash};
 use std::borrow::Cow;
 
-use crate::{MultiEraCert, MultiEraOutput, MultiEraInput, MultiEraTx};
+use crate::{MultiEraCert, MultiEraInput, MultiEraOutput, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
