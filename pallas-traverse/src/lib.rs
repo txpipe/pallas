@@ -3,14 +3,15 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
+use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, byron};
 use thiserror::Error;
 
 pub mod block;
 pub mod cert;
 pub mod era;
-pub mod output;
 pub mod input;
+pub mod output;
 pub mod probe;
 mod support;
 pub mod tx;
@@ -67,6 +68,8 @@ pub enum MultiEraCert<'b> {
     NotApplicable,
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
 }
+
+pub struct OutputRef<'a>(Cow<'a, Hash<32>>, u64);
 
 #[derive(Debug, Error)]
 pub enum Error {
