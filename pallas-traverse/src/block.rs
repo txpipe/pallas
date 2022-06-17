@@ -103,9 +103,9 @@ impl<'b> MultiEraBlock<'b> {
 
     pub fn txs(&self) -> Vec<MultiEraTx> {
         match self {
-            MultiEraBlock::AlonzoCompatible(x, _) => support::clone_alonzo_txs(x)
+            MultiEraBlock::AlonzoCompatible(x, era) => support::clone_alonzo_txs(x)
                 .into_iter()
-                .map(|x| MultiEraTx::AlonzoCompatible(Box::new(Cow::Owned(x))))
+                .map(|x| MultiEraTx::AlonzoCompatible(Box::new(Cow::Owned(x)), *era))
                 .collect(),
             MultiEraBlock::Byron(x) => support::clone_byron_txs(x)
                 .into_iter()

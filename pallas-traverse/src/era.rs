@@ -15,3 +15,33 @@ impl Era {
         }
     }
 }
+
+// for consistency, we use the same tag convention used by the node's cbor
+// encoding
+impl TryFrom<u16> for Era {
+    type Error = crate::Error;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Era::Byron),
+            1 => Ok(Era::Byron),
+            2 => Ok(Era::Shelley),
+            3 => Ok(Era::Allegra),
+            4 => Ok(Era::Mary),
+            5 => Ok(Era::Alonzo),
+            x => Err(crate::Error::UnkownEra(x)),
+        }
+    }
+}
+
+impl Into<u16> for Era {
+    fn into(self) -> u16 {
+        match self {
+            Era::Byron => 1,
+            Era::Shelley => 2,
+            Era::Allegra => 3,
+            Era::Mary => 4,
+            Era::Alonzo => 5,
+        }
+    }
+}
