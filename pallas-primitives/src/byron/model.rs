@@ -6,8 +6,8 @@ use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
 use pallas_codec::utils::{
-    CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
-    ZeroOrOneArray,
+    CborWrap, EmptyMap, KeepRaw, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties,
+    TagWrap, ZeroOrOneArray,
 };
 
 // required for derive attrs to work
@@ -29,7 +29,7 @@ pub type StakeholderId = Blake2b224;
 
 pub type EpochId = u64;
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct SlotId {
     #[n(0)]
     pub epoch: EpochId,
@@ -51,7 +51,7 @@ pub type Attributes = EmptyMap;
 
 // Addresses
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddrDistr {
     Variant0(StakeholderId),
     Variant1,
@@ -96,7 +96,7 @@ impl minicbor::Encode<()> for AddrDistr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddrType {
     PubKey,
     Script,
@@ -137,7 +137,7 @@ impl<C> minicbor::Encode<C> for AddrType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     Bytes(ByteVec),
@@ -187,7 +187,7 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
 
 pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct AddressPayload {
     #[n(0)]
     pub root: AddressId,
@@ -200,7 +200,7 @@ pub struct AddressPayload {
 }
 
 // address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Address {
     #[n(0)]
     pub payload: CborWrap<AddressPayload>,
@@ -212,7 +212,7 @@ pub struct Address {
 // Transactions
 
 // txout = [address, u64]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct TxOut {
     #[n(0)]
     pub address: Address,
@@ -221,7 +221,7 @@ pub struct TxOut {
     pub amount: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxIn {
     // [0, #6.24(bytes .cbor ([txid, u32]))]
     Variant0(CborWrap<(TxId, u32)>),
@@ -269,7 +269,7 @@ impl<C> minicbor::Encode<C> for TxIn {
 }
 
 // tx = [[+ txin], [+ txout], attributes]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Tx {
     #[n(0)]
     pub inputs: MaybeIndefArray<TxIn>,
@@ -287,7 +287,7 @@ pub type TxProof = (u32, ByronHash, ByronHash);
 pub type ValidatorScript = (u16, ByteVec);
 pub type RedeemerScript = (u16, ByteVec);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Twit {
     // [0, #6.24(bytes .cbor ([pubkey, signature]))]
     PkWitness(CborWrap<(PubKey, Signature)>),
@@ -407,7 +407,7 @@ pub type SscCert = (VssPubKey, EpochId, PubKey, Signature);
 // ssccerts = #6.258([* ssccert])
 pub type SscCerts = TagWrap<MaybeIndefArray<SscCert>, 258>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ssc {
     Variant0(SscComms, SscCerts),
     Variant1(SscOpens, SscCerts),
@@ -473,7 +473,7 @@ impl<C> minicbor::Encode<C> for Ssc {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SscProof {
     Variant0(ByronHash, ByronHash),
     Variant1(ByronHash, ByronHash),
@@ -543,7 +543,7 @@ impl<C> minicbor::Encode<C> for SscProof {
 
 // Delegation
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Dlg {
     #[n(0)]
     pub epoch: EpochId,
@@ -560,7 +560,7 @@ pub struct Dlg {
 
 pub type DlgSig = (Dlg, Signature);
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Lwdlg {
     #[n(0)]
     pub epoch_range: (EpochId, EpochId),
@@ -581,7 +581,7 @@ pub type LwdlgSig = (Lwdlg, Signature);
 
 pub type BVer = (u16, u16, u8);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxFeePol {
     //[0, #6.24(bytes .cbor ([bigint, bigint]))]
     Variant0(CborWrap<(i64, i64)>),
@@ -628,7 +628,7 @@ impl<C> minicbor::Encode<C> for TxFeePol {
     }
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct BVerMod {
     #[n(0)]
     pub script_version: ZeroOrOneArray<u16>,
@@ -675,7 +675,7 @@ pub struct BVerMod {
 
 pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct UpProp {
     #[n(0)]
     pub block_version: Option<BVer>,
@@ -701,7 +701,7 @@ pub struct UpProp {
     pub signature: Option<Signature>,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct UpVote {
     #[n(0)]
     pub voter: PubKey,
@@ -716,7 +716,7 @@ pub struct UpVote {
     pub signature: Signature,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Up {
     #[n(0)]
     pub proposal: ZeroOrOneArray<UpProp>,
@@ -729,7 +729,7 @@ pub struct Up {
 
 pub type Difficulty = MaybeIndefArray<u64>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BlockSig {
     Signature(Signature),
     LwdlgSig(LwdlgSig),
@@ -785,7 +785,7 @@ impl<C> minicbor::Encode<C> for BlockSig {
     }
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockCons(
     #[n(0)] pub SlotId,
     #[n(1)] pub PubKey,
@@ -793,7 +793,7 @@ pub struct BlockCons(
     #[n(3)] pub BlockSig,
 );
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockHeadEx {
     #[n(0)]
     pub block_version: BVer,
@@ -808,7 +808,7 @@ pub struct BlockHeadEx {
     pub extra_proof: ByronHash,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockProof {
     #[n(0)]
     pub tx_proof: TxProof,
@@ -823,7 +823,7 @@ pub struct BlockProof {
     pub upd_proof: ByronHash,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockHead {
     #[n(0)]
     pub protocol_magic: u32,
@@ -841,11 +841,19 @@ pub struct BlockHead {
     pub extra_data: BlockHeadEx,
 }
 
-// [tx, [* twit]]
 #[derive(Debug, Encode, Decode)]
 pub struct TxPayload {
     #[n(0)]
     pub transaction: Tx,
+
+    #[n(1)]
+    pub witness: MaybeIndefArray<Twit>,
+}
+
+#[derive(Debug, Encode, Decode, Clone)]
+pub struct MintedTxPayload<'b> {
+    #[b(0)]
+    pub transaction: KeepRaw<'b, Tx>,
 
     #[n(1)]
     pub witness: MaybeIndefArray<Twit>,
@@ -866,9 +874,24 @@ pub struct BlockBody {
     pub upd_payload: Up,
 }
 
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct MintedBlockBody<'b> {
+    #[b(0)]
+    pub tx_payload: MaybeIndefArray<MintedTxPayload<'b>>,
+
+    #[b(1)]
+    pub ssc_payload: Ssc,
+
+    #[b(2)]
+    pub dlg_payload: MaybeIndefArray<Dlg>,
+
+    #[b(3)]
+    pub upd_payload: Up,
+}
+
 // Epoch Boundary Blocks
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbbCons {
     #[n(0)]
     pub epoch_id: EpochId,
@@ -877,7 +900,7 @@ pub struct EbbCons {
     pub difficulty: Difficulty,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbbHead {
     #[n(0)]
     pub protocol_magic: u32,
@@ -896,7 +919,7 @@ pub struct EbbHead {
 }
 
 #[derive(Encode, Decode, Debug)]
-pub struct MainBlock {
+pub struct Block {
     #[n(0)]
     pub header: BlockHead,
 
@@ -907,7 +930,19 @@ pub struct MainBlock {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct MintedBlock<'b> {
+    #[b(0)]
+    pub header: KeepRaw<'b, BlockHead>,
+
+    #[b(1)]
+    pub body: MintedBlockBody<'b>,
+
+    #[n(2)]
+    pub extra: MaybeIndefArray<Attributes>,
+}
+
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbBlock {
     #[n(0)]
     pub header: EbbHead,
@@ -919,79 +954,51 @@ pub struct EbBlock {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum Block {
-    MainBlock(MainBlock),
-    EbBlock(EbBlock),
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for Block {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(Block::EbBlock(d.decode_with(ctx)?)),
-            1 => Ok(Block::MainBlock(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant for block",
-            )),
-        }
-    }
-}
-
-impl minicbor::Encode<()> for Block {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut (),
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Block::EbBlock(x) => {
-                e.array(2)?;
-                e.encode(0)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            Block::MainBlock(x) => {
-                e.array(2)?;
-                e.encode(1)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::byron::{Block, BlockHead};
-    use crate::Fragment;
-
-    use pallas_codec::minicbor::to_vec;
+    use super::{BlockHead, EbBlock, MintedBlock};
+    use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
-    fn block_isomorphic_decoding_encoding() {
+    fn boundary_block_isomorphic_decoding_encoding() {
+        type BlockWrapper = (u16, EbBlock);
+
+        let test_blocks = vec![include_str!("../../../test_data/genesis.block")];
+
+        for (idx, block_str) in test_blocks.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
+                .expect(&format!("error decoding cbor for file {}", idx));
+
+            let bytes2 =
+                to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+
+            assert_eq!(hex::encode(bytes), hex::encode(bytes2));
+        }
+    }
+
+    #[test]
+    fn main_block_isomorphic_decoding_encoding() {
+        type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+
         let test_blocks = vec![
-            include_str!("test_data/genesis.block"),
-            include_str!("test_data/test1.block"),
-            include_str!("test_data/test2.block"),
-            include_str!("test_data/test3.block"),
-            include_str!("test_data/test4.block"),
-            include_str!("test_data/test5.block"),
-            include_str!("test_data/test6.block"),
-            include_str!("test_data/test7.block"),
+            //include_str!("../../../test_data/genesis.block"),
+            include_str!("../../../test_data/byron1.block"),
+            include_str!("../../../test_data/byron2.block"),
+            include_str!("../../../test_data/byron3.block"),
+            include_str!("../../../test_data/byron4.block"),
+            include_str!("../../../test_data/byron5.block"),
+            include_str!("../../../test_data/byron6.block"),
+            include_str!("../../../test_data/byron7.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
 
-            let block = Block::decode_fragment(&bytes[..])
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let bytes2 =
@@ -1003,13 +1010,13 @@ mod tests {
 
     #[test]
     fn header_isomorphic_decoding_encoding() {
-        let subjects = vec![include_str!("test_data/test1.header")];
+        let subjects = vec![include_str!("../../../test_data/byron1.header")];
 
         for (idx, str) in subjects.iter().enumerate() {
             println!("decoding test header {}", idx + 1);
             let bytes = hex::decode(str).expect(&format!("bad header file {}", idx));
 
-            let block = BlockHead::decode_fragment(&bytes[..])
+            let block: BlockHead = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let bytes2 =

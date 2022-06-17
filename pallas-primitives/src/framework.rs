@@ -28,15 +28,6 @@ pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Era {
-    Byron,
-    Shelley,
-    Allegra, // time-locks
-    Mary,    // multi-assets
-    Alonzo,  // smart-contracts
-}
-
 pub trait ToHash<const BYTES: usize> {
     fn to_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
 }

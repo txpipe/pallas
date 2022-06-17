@@ -13,9 +13,9 @@ impl Address {
 
 #[cfg(test)]
 mod tests {
-    use crate::byron::Block;
-    use crate::Fragment;
-    use std::ops::Deref;
+    use crate::byron::MintedBlock;
+
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
     const KNOWN_ADDRESSES: &[&str] = &[
         "DdzFFzCqrht8QHTQXbWy2qoyPaqTN8BjyfKygGmpy9dtot1tvkBfCaVTnR22XCaaDVn3M1U6aiMShoCLzw6VWSwzQKhhJrM3YjYp3wyy",
@@ -32,22 +32,17 @@ mod tests {
     fn known_address_matches() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("test_data/test2.block");
+        let block_str = include_str!("../../../test_data/byron2.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
-        let block = Block::decode_fragment(&block_bytes[..])
+        let (_, block): BlockWrapper = pallas_codec::minicbor::decode(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
-
-        let block = match block {
-            Block::MainBlock(x) => x,
-            Block::EbBlock(_) => panic!(),
-        };
 
         // don't want to pass if we don't have tx in the block
         assert!(block.body.tx_payload.len() > 0);
 
         for tx in block.body.tx_payload.iter() {
-            for output in tx.deref().transaction.outputs.iter() {
+            for output in tx.transaction.outputs.iter() {
                 let addr_str = output.address.to_addr_string().unwrap();
 
                 assert!(

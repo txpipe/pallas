@@ -46,23 +46,21 @@ impl TxPayload {
 
 #[cfg(test)]
 mod tests {
-    use crate::byron::Block;
-    use crate::Fragment;
+    use pallas_codec::minicbor;
+
+    use crate::{byron::Block, ToHash};
+
+    type BlockWrapper = (u16, Block);
 
     #[test]
     fn known_fee_matches() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("test_data/test4.block");
+        let block_str = include_str!("../../../test_data/byron4.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
-        let block = Block::decode_fragment(&block_bytes[..])
+        let (_, block): BlockWrapper = minicbor::decode(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
-
-        let block = match block {
-            Block::MainBlock(x) => x,
-            Block::EbBlock(_) => panic!(),
-        };
 
         // don't want to pass if we don't have tx in the block
         assert!(block.body.tx_payload.len() > 0);

@@ -1,10 +1,4 @@
-use std::fmt::Debug;
-
-use pallas::ledger::primitives::{alonzo, byron, probing, Era, Fragment};
-
-fn pretty_print(block: impl Debug) {
-    println!("{:?}", block)
-}
+use pallas::ledger::traverse::MultiEraBlock;
 
 fn main() {
     let blocks = vec![
@@ -16,18 +10,14 @@ fn main() {
     ];
 
     for block_str in blocks.iter() {
-        let bytes = hex::decode(block_str).expect("valid hex");
+        let cbor = hex::decode(block_str).expect("invalid hex");
 
-        match probing::probe_block_cbor_era(&bytes) {
-            probing::Outcome::Matched(era) => match era {
-                Era::Byron => pretty_print(byron::Block::decode_fragment(&bytes)),
-                // we use alonzo for everything post-shelly since it's backward compatible
-                Era::Shelley => pretty_print(alonzo::BlockWrapper::decode_fragment(&bytes)),
-                Era::Allegra => pretty_print(alonzo::BlockWrapper::decode_fragment(&bytes)),
-                Era::Mary => pretty_print(alonzo::BlockWrapper::decode_fragment(&bytes)),
-                Era::Alonzo => pretty_print(alonzo::BlockWrapper::decode_fragment(&bytes)),
-            },
-            _ => println!("couldn't infer block era"),
-        };
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        println!("{} {}", block.slot(), block.hash());
+
+        for tx in &block.txs() {
+            println!("{:?}", tx);
+        }
     }
 }

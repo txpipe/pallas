@@ -1,28 +1,20 @@
 [package]
-name = "pallas-primitives"
-description = "Ledger primitives and cbor codec for the different Cardano eras"
+name = "pallas-traverse"
+description = "Utilities to traverse over multi-era block data"
 version = "0.11.0-alpha.2"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
-documentation = "https://docs.rs/pallas-byron"
+documentation = "https://docs.rs/pallas-traverse"
 license = "Apache-2.0"
 readme = "README.md"
 authors = [
     "Santiago Carmuega <santiago@carmuega.me>",
-    "Lucas Rosa <x@rvcas.dev>",
 ]
 
 [dependencies]
-hex = "0.4.3"
-log = "0.4.14"
+pallas-primitives = { version = "0.11.0-alpha.0", path = "../pallas-primitives" }
 pallas-crypto = { version = "0.11.0-alpha.0", path = "../pallas-crypto" }
 pallas-codec = { version = "0.11.0-alpha.0", path = "../pallas-codec" }
-base58 = "0.2.0"
-bech32 = "0.8.1"
-serde = { version ="1.0.136", optional = true }
-serde_json = { version ="1.0.79", optional = true }
-
-[features]
-json = ["serde", "serde_json"]
-default = ["json"]
+hex = "0.4.3"
+thiserror = "1.0.31"

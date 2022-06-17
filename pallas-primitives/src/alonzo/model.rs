@@ -4,7 +4,6 @@
 
 use pallas_codec::minicbor::{bytes::ByteVec, data::Int, data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
-use std::ops::Deref;
 
 use pallas_codec::utils::{AnyUInt, KeepRaw, KeyValuePairs, MaybeIndefArray};
 
@@ -74,7 +73,7 @@ pub struct Header {
     pub body_signature: ByteVec,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct TransactionInput {
     #[n(0)]
     pub transaction_id: Hash<32>,
@@ -85,7 +84,7 @@ pub struct TransactionInput {
 
 // $nonce /= [ 0 // 1, bytes .size 32 ]
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(index_only)]
 pub enum NonceVariant {
     #[n(0)]
@@ -95,7 +94,7 @@ pub enum NonceVariant {
     Nonce,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Nonce {
     #[n(0)]
     pub variant: NonceVariant,
@@ -162,7 +161,7 @@ impl<C> minicbor::encode::Encode<C> for Value {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct TransactionOutput {
     #[n(0)]
     pub address: ByteVec,
@@ -187,7 +186,7 @@ pub type VrfKeyhash = Hash<32>;
 ; otherwise the funds are given to the other accounting pot.
  */
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum InstantaneousRewardSource {
     Reserves,
     Treasury,
@@ -225,7 +224,7 @@ impl<C> minicbor::encode::Encode<C> for InstantaneousRewardSource {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum InstantaneousRewardTarget {
     StakeCredentials(KeyValuePairs<StakeCredential, i64>),
     OtherAccountingPot(Coin),
@@ -267,7 +266,7 @@ impl<C> minicbor::encode::Encode<C> for InstantaneousRewardTarget {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd)]
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Clone)]
 #[cbor]
 pub struct MoveInstantaneousReward {
     #[n(0)]
@@ -284,7 +283,7 @@ pub type IPv4 = ByteVec;
 pub type IPv6 = ByteVec;
 pub type DnsName = String;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Relay {
     SingleHostAddr(Option<Port>, Option<IPv4>, Option<IPv6>),
     SingleHostName(Option<Port>, DnsName),
@@ -351,7 +350,7 @@ impl<C> minicbor::encode::Encode<C> for Relay {
 
 pub type PoolMetadataHash = Hash<32>;
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct PoolMetadata {
     #[n(0)]
     pub url: String,
@@ -363,7 +362,7 @@ pub struct PoolMetadata {
 pub type AddrKeyhash = Hash<28>;
 pub type Scripthash = Hash<28>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RationalNumber {
     pub numerator: i64,
     pub denominator: u64,
@@ -401,7 +400,7 @@ pub type UnitInterval = RationalNumber;
 
 pub type PositiveInterval = RationalNumber;
 
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 pub enum StakeCredential {
     AddrKeyhash(AddrKeyhash),
     Scripthash(Scripthash),
@@ -447,7 +446,7 @@ impl<C> minicbor::encode::Encode<C> for StakeCredential {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Certificate {
     StakeRegistration(StakeCredential),
     StakeDeregistration(StakeCredential),
@@ -615,7 +614,7 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[cbor(index_only)]
 pub enum NetworkId {
     #[n(0)]
@@ -624,7 +623,7 @@ pub enum NetworkId {
     Two,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(index_only)]
 pub enum Language {
     #[n(0)]
@@ -637,7 +636,7 @@ pub type CostMdls = KeyValuePairs<Language, CostModel>;
 
 pub type ProtocolVersion = (u32, u32);
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -690,7 +689,7 @@ pub struct ProtocolParamUpdate {
     pub max_collateral_inputs: Option<u32>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Update {
     #[n(0)]
     pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
@@ -699,158 +698,55 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum TransactionBodyComponent {
-    Inputs(MaybeIndefArray<TransactionInput>),
-    Outputs(MaybeIndefArray<TransactionOutput>),
-    Fee(u64),
-    Ttl(u64),
-    Certificates(MaybeIndefArray<Certificate>),
-    Withdrawals(KeyValuePairs<RewardAccount, Coin>),
-    Update(Update),
-    AuxiliaryDataHash(ByteVec),
-    ValidityIntervalStart(u64),
-    Mint(Multiasset<i64>),
-    ScriptDataHash(Hash<32>),
-    Collateral(MaybeIndefArray<TransactionInput>),
-    RequiredSigners(MaybeIndefArray<AddrKeyhash>),
-    NetworkId(NetworkId),
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionBodyComponent {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let key: u32 = d.decode_with(ctx)?;
-
-        match key {
-            0 => Ok(Self::Inputs(d.decode_with(ctx)?)),
-            1 => Ok(Self::Outputs(d.decode_with(ctx)?)),
-            2 => Ok(Self::Fee(d.decode_with(ctx)?)),
-            3 => Ok(Self::Ttl(d.decode_with(ctx)?)),
-            4 => Ok(Self::Certificates(d.decode_with(ctx)?)),
-            5 => Ok(Self::Withdrawals(d.decode_with(ctx)?)),
-            6 => Ok(Self::Update(d.decode_with(ctx)?)),
-            7 => Ok(Self::AuxiliaryDataHash(d.decode_with(ctx)?)),
-            8 => Ok(Self::ValidityIntervalStart(d.decode_with(ctx)?)),
-            9 => Ok(Self::Mint(d.decode_with(ctx)?)),
-            11 => Ok(Self::ScriptDataHash(d.decode_with(ctx)?)),
-            13 => Ok(Self::Collateral(d.decode_with(ctx)?)),
-            14 => Ok(Self::RequiredSigners(d.decode_with(ctx)?)),
-            15 => Ok(Self::NetworkId(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid map key for transaction body component",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for TransactionBodyComponent {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            TransactionBodyComponent::Inputs(x) => {
-                e.encode_with(0, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Outputs(x) => {
-                e.encode_with(1, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Fee(x) => {
-                e.encode_with(2, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Ttl(x) => {
-                e.encode_with(3, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Certificates(x) => {
-                e.encode_with(4, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Withdrawals(x) => {
-                e.encode_with(5, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Update(x) => {
-                e.encode_with(6, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::AuxiliaryDataHash(x) => {
-                e.encode_with(7, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::ValidityIntervalStart(x) => {
-                e.encode_with(8, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Mint(x) => {
-                e.encode_with(9, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::ScriptDataHash(x) => {
-                e.encode_with(11, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::Collateral(x) => {
-                e.encode_with(13, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::RequiredSigners(x) => {
-                e.encode_with(14, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-            TransactionBodyComponent::NetworkId(x) => {
-                e.encode_with(15, ctx)?;
-                e.encode_with(x, ctx)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
 // Can't derive encode for TransactionBody because it seems to require a very
 // particular order for each key in the map
-#[derive(Debug, PartialEq)]
-pub struct TransactionBody(Vec<TransactionBodyComponent>);
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[cbor(map)]
+pub struct TransactionBody {
+    #[n(0)]
+    pub inputs: MaybeIndefArray<TransactionInput>,
 
-impl Deref for TransactionBody {
-    type Target = Vec<TransactionBodyComponent>;
+    #[n(1)]
+    pub outputs: MaybeIndefArray<TransactionOutput>,
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+    #[n(2)]
+    pub fee: u64,
+
+    #[n(3)]
+    pub ttl: Option<u64>,
+
+    #[n(4)]
+    pub certificates: Option<MaybeIndefArray<Certificate>>,
+
+    #[n(5)]
+    pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>,
+
+    #[n(6)]
+    pub update: Option<Update>,
+
+    #[n(7)]
+    pub auxiliary_data_hash: Option<ByteVec>,
+
+    #[n(8)]
+    pub validity_interval_start: Option<u64>,
+
+    #[n(9)]
+    pub mint: Option<Multiasset<i64>>,
+
+    #[n(11)]
+    pub script_data_hash: Option<Hash<32>>,
+
+    #[n(13)]
+    pub collateral: Option<MaybeIndefArray<TransactionInput>>,
+
+    #[n(14)]
+    pub required_signers: Option<MaybeIndefArray<AddrKeyhash>>,
+
+    #[n(15)]
+    pub network_id: Option<NetworkId>,
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionBody {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let len = d.map()?.unwrap_or_default();
-
-        let components: Result<_, _> = (0..len).map(|_| d.decode_with(ctx)).collect();
-
-        Ok(Self(components?))
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for TransactionBody {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.map(self.0.len() as u64)?;
-        for component in &self.0 {
-            e.encode_with(component, ctx)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct VKeyWitness {
     #[n(0)]
     pub vkey: ByteVec,
@@ -859,7 +755,7 @@ pub struct VKeyWitness {
     pub signature: ByteVec,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum NativeScript {
     ScriptPubkey(AddrKeyhash),
     ScriptAll(MaybeIndefArray<NativeScript>),
@@ -931,7 +827,7 @@ impl<C> minicbor::encode::Encode<C> for NativeScript {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(transparent)]
 pub struct PlutusScript(#[n(0)] pub ByteVec);
 
@@ -947,7 +843,7 @@ big_uint = #6.2(bounded_bytes) ; New
 big_nint = #6.3(bounded_bytes) ; New
  */
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum BigInt {
     Int(Int),
     BigUInt(ByteVec),
@@ -1009,7 +905,7 @@ impl<C> minicbor::encode::Encode<C> for BigInt {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(KeyValuePairs<PlutusData, PlutusData>),
@@ -1090,7 +986,7 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Constr<A> {
     pub tag: u64,
     pub any_constructor: Option<u64>,
@@ -1159,7 +1055,7 @@ where
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct ExUnits {
     #[n(0)]
     pub mem: u32,
@@ -1167,7 +1063,7 @@ pub struct ExUnits {
     pub steps: u64,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct ExUnitPrices {
     #[n(0)]
     mem_price: PositiveInterval,
@@ -1176,7 +1072,7 @@ pub struct ExUnitPrices {
     step_price: PositiveInterval,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1189,7 +1085,7 @@ pub enum RedeemerTag {
     Reward,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Redeemer {
     #[n(0)]
     pub tag: RedeemerTag,
@@ -1211,7 +1107,7 @@ pub struct Redeemer {
 , attributes : bytes
 ] */
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct BootstrapWitness {
     #[n(0)]
     pub public_key: ByteVec,
@@ -1226,7 +1122,7 @@ pub struct BootstrapWitness {
     pub attributes: ByteVec,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct TransactionWitnessSet {
     #[n(0)]
@@ -1248,7 +1144,7 @@ pub struct TransactionWitnessSet {
     pub redeemer: Option<MaybeIndefArray<Redeemer>>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct AlonzoAuxiliaryData {
     #[n(0)]
@@ -1259,7 +1155,7 @@ pub struct AlonzoAuxiliaryData {
     pub plutus_scripts: Option<MaybeIndefArray<PlutusScript>>,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum Metadatum {
     Int(Int),
     Bytes(ByteVec),
@@ -1350,7 +1246,7 @@ pub type MetadatumLabel = AnyUInt;
 
 pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AuxiliaryData {
     Shelley(Metadata),
     ShelleyMa {
@@ -1417,13 +1313,13 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
 
 pub type TransactionIndex = u32;
 
-#[derive(Encode, Decode, Debug, PartialEq)]
-pub struct Block<'b> {
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+pub struct Block {
     #[n(0)]
     pub header: Header,
 
     #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
+    pub transaction_bodies: MaybeIndefArray<TransactionBody>,
 
     #[n(2)]
     pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
@@ -1435,82 +1331,122 @@ pub struct Block<'b> {
     pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
 
-#[derive(Encode, Decode, Debug)]
-pub struct BlockWrapper<'b>(#[n(0)] pub u16, #[b(1)] pub Block<'b>);
+/// A memory representation of an already minted block
+///
+/// This structure is analogous to [Block], but it allows to retrieve the
+/// original CBOR bytes for each structure that might require hashing. In this
+/// way, we make sure that the resulting hash matches what exists on-chain.
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+pub struct MintedBlock<'b> {
+    #[n(0)]
+    pub header: KeepRaw<'b, Header>,
+
+    #[b(1)]
+    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
+
+    #[n(2)]
+    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
+
+    #[n(3)]
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
+
+    #[n(4)]
+    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
+}
 
 #[derive(Encode, Decode, Debug)]
-pub struct Transaction {
+pub struct Tx {
     #[n(0)]
-    transaction_body: TransactionBody,
+    pub transaction_body: TransactionBody,
+
     #[n(1)]
-    transaction_witness_set: TransactionWitnessSet,
+    pub transaction_witness_set: TransactionWitnessSet,
+
     #[n(2)]
-    success: bool,
+    pub success: bool,
+
     #[n(3)]
-    auxiliary_data: Option<AuxiliaryData>,
+    pub auxiliary_data: Option<AuxiliaryData>,
+}
+
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct MintedTx<'b> {
+    #[b(0)]
+    pub transaction_body: KeepRaw<'b, TransactionBody>,
+
+    #[n(1)]
+    pub transaction_witness_set: TransactionWitnessSet,
+
+    #[n(2)]
+    pub success: bool,
+
+    #[n(3)]
+    pub auxiliary_data: Option<KeepRaw<'b, AuxiliaryData>>,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::BlockWrapper;
-    use crate::Fragment;
-    use pallas_codec::minicbor::to_vec;
+    use pallas_codec::minicbor::{self, to_vec};
+
+    use super::MintedBlock;
+
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = vec![
-            include_str!("../test_data/alonzo1.block"),
-            include_str!("../test_data/alonzo2.block"),
-            include_str!("../test_data/alonzo3.block"),
-            include_str!("../test_data/alonzo4.block"),
-            include_str!("../test_data/alonzo5.block"),
-            include_str!("../test_data/alonzo6.block"),
-            include_str!("../test_data/alonzo7.block"),
-            include_str!("../test_data/alonzo8.block"),
-            include_str!("../test_data/alonzo9.block"),
+            include_str!("../../../test_data/alonzo1.block"),
+            include_str!("../../../test_data/alonzo2.block"),
+            include_str!("../../../test_data/alonzo3.block"),
+            include_str!("../../../test_data/alonzo4.block"),
+            include_str!("../../../test_data/alonzo5.block"),
+            include_str!("../../../test_data/alonzo6.block"),
+            include_str!("../../../test_data/alonzo7.block"),
+            include_str!("../../../test_data/alonzo8.block"),
+            include_str!("../../../test_data/alonzo9.block"),
             // old block without invalid_transactions fields
-            include_str!("../test_data/alonzo10.block"),
+            include_str!("../../../test_data/alonzo10.block"),
             // peculiar block with protocol update params
-            include_str!("../test_data/alonzo11.block"),
+            include_str!("../../../test_data/alonzo11.block"),
             // peculiar block with decoding issue
             // https://github.com/txpipe/oura/issues/37
-            include_str!("../test_data/alonzo12.block"),
+            include_str!("../../../test_data/alonzo12.block"),
             // peculiar block with protocol update params, including nonce
-            include_str!("../test_data/alonzo13.block"),
+            include_str!("../../../test_data/alonzo13.block"),
             // peculiar block with overflow crash
             // https://github.com/txpipe/oura/issues/113
-            include_str!("../test_data/alonzo14.block"),
+            include_str!("../../../test_data/alonzo14.block"),
             // peculiar block with many move-instantaneous-rewards certs
-            include_str!("../test_data/alonzo15.block"),
+            include_str!("../../../test_data/alonzo15.block"),
             // peculiar block with protocol update values
-            include_str!("../test_data/alonzo16.block"),
+            include_str!("../../../test_data/alonzo16.block"),
             // peculiar block with missing nonce hash
-            include_str!("../test_data/alonzo17.block"),
+            include_str!("../../../test_data/alonzo17.block"),
             // peculiar block with strange AuxiliaryData variant
-            include_str!("../test_data/alonzo18.block"),
+            include_str!("../../../test_data/alonzo18.block"),
             // peculiar block with strange AuxiliaryData variant
-            include_str!("../test_data/alonzo18.block"),
+            include_str!("../../../test_data/alonzo18.block"),
             // peculiar block with nevative i64 overflow
-            include_str!("../test_data/alonzo19.block"),
+            include_str!("../../../test_data/alonzo19.block"),
             // peculiar block with very BigInt in plutus code
-            include_str!("../test_data/alonzo20.block"),
+            include_str!("../../../test_data/alonzo20.block"),
             // peculiar block with bad tx hash
-            include_str!("../test_data/alonzo21.block"),
+            include_str!("../../../test_data/alonzo21.block"),
             // peculiar block with bad tx hash
-            include_str!("../test_data/alonzo22.block"),
+            include_str!("../../../test_data/alonzo22.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
 
-            let block = BlockWrapper::decode_fragment(&bytes[..])
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
             let bytes2 =
                 to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
 
-            assert_eq!(bytes, bytes2);
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
     }
 }

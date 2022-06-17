@@ -50,21 +50,24 @@ impl ToHash<32> for KeepRaw<'_, TransactionBody> {
 mod tests {
     use std::str::FromStr;
 
+    use pallas_codec::minicbor;
     use pallas_codec::minicbor::data::Int;
     use pallas_codec::utils::MaybeIndefArray;
     use pallas_crypto::hash::Hash;
 
-    use crate::alonzo::{BigInt, BlockWrapper, Constr, NativeScript, PlutusData};
-    use crate::{Fragment, ToHash};
+    use crate::alonzo::{BigInt, Constr, MintedBlock, NativeScript, PlutusData};
+    use crate::ToHash;
+
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
     #[test]
     fn transaction_hash_works() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("../test_data/alonzo1.block");
+        let block_str = include_str!("../../../test_data/alonzo1.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
-        let block_model = BlockWrapper::decode_fragment(&block_bytes[..])
+        let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
 
         let valid_hashes = vec![
@@ -75,7 +78,7 @@ mod tests {
             "8838f5ab27894a6543255aeaec086f7b3405a6db6e7457a541409cdbbf0cd474",
         ];
 
-        for (tx_idx, tx) in block_model.1.transaction_bodies.iter().enumerate() {
+        for (tx_idx, tx) in block_model.transaction_bodies.iter().enumerate() {
             let computed_hash = tx.to_hash();
             let known_hash = valid_hashes[tx_idx];
             assert_eq!(hex::encode(computed_hash), known_hash)

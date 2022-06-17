@@ -15,8 +15,11 @@ impl TransactionOutput {
 
 #[cfg(test)]
 mod tests {
-    use crate::alonzo::{BlockWrapper, TransactionBodyComponent};
-    use crate::Fragment;
+    use pallas_codec::minicbor;
+
+    use crate::alonzo::Block;
+
+    type BlockWrapper = (u16, Block);
 
     const KNOWN_ADDRESSES: &[&str] =&[
         "addr_test1vzzql63nddp8qdgka578hx6pats290js9kmn4uay5we9fwsgza0z3",
@@ -36,28 +39,24 @@ mod tests {
     fn known_address_matches() {
         // TODO: expand this test to include more test blocks
         let block_idx = 1;
-        let block_str = include_str!("../test_data/alonzo2.block");
+        let block_str = include_str!("../../../test_data/alonzo2.block");
 
         let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
-        let BlockWrapper(_, block) = BlockWrapper::decode_fragment(&block_bytes[..])
+        let (_, block): BlockWrapper = minicbor::decode(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
 
         // don't want to pass if we don't have tx in the block
         assert!(block.transaction_bodies.len() > 0);
 
         for tx in block.transaction_bodies.iter() {
-            for component in tx.iter() {
-                if let TransactionBodyComponent::Outputs(outputs) = component {
-                    for output in outputs.iter() {
-                        let addr_str = output.to_bech32_address("addr_test").unwrap();
+            for output in tx.outputs.iter() {
+                let addr_str = output.to_bech32_address("addr_test").unwrap();
 
-                        assert!(
-                            KNOWN_ADDRESSES.contains(&addr_str.as_str()),
-                            "address {} not in known list",
-                            addr_str
-                        );
-                    }
-                }
+                assert!(
+                    KNOWN_ADDRESSES.contains(&addr_str.as_str()),
+                    "address {} not in known list",
+                    addr_str
+                );
             }
         }
     }
