@@ -52,7 +52,7 @@ pub enum MultiEraBlock<'b> {
     Byron(Box<Cow<'b, byron::MintedBlock<'b>>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraTx<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::MintedTx<'b>>>, Era),
