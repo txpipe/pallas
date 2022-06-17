@@ -1,13 +1,14 @@
 use byteorder::{ByteOrder, NetworkEndian, WriteBytesExt};
 use log::{debug, log_enabled, trace};
 use std::io::{Read, Write};
-use std::net::{TcpListener, ToSocketAddrs};
+use std::net::{SocketAddr, TcpListener, ToSocketAddrs};
 use std::{net::TcpStream, time::Instant};
 
 use crate::Payload;
 
 #[cfg(target_family = "unix")]
 use std::os::unix::net::UnixStream;
+use std::time::Duration;
 
 pub struct Segment {
     pub protocol: u16,
@@ -105,6 +106,13 @@ pub enum Bearer {
 impl Bearer {
     pub fn connect_tcp<A: ToSocketAddrs>(addr: A) -> Result<Self, std::io::Error> {
         let bearer = TcpStream::connect(addr)?;
+        bearer.set_nodelay(true)?;
+
+        Ok(Bearer::Tcp(bearer))
+    }
+
+    pub fn connect_tcp_timeout(addr: &SocketAddr, timeout: Duration) -> Result<Self, std::io::Error> {
+        let bearer = TcpStream::connect_timeout(addr, timeout)?;
         bearer.set_nodelay(true)?;
 
         Ok(Bearer::Tcp(bearer))
