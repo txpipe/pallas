@@ -67,6 +67,21 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    pub fn output_at(&self, index: usize) -> Option<MultiEraOutput> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_alonzo_compatible),
+            MultiEraTx::Byron(x) => x
+                .transaction
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_byron),
+        }
+    }
+
     pub fn inputs(&self) -> Vec<MultiEraInput> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
