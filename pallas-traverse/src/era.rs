@@ -34,9 +34,9 @@ impl TryFrom<u16> for Era {
     }
 }
 
-impl Into<u16> for Era {
-    fn into(self) -> u16 {
-        match self {
+impl From<Era> for u16 {
+    fn from(other: Era) -> Self {
+        match other {
             Era::Byron => 1,
             Era::Shelley => 2,
             Era::Allegra => 3,
