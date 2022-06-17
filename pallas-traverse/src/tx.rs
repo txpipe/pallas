@@ -3,34 +3,56 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, byron, ToHash};
 use std::borrow::Cow;
 
-use crate::{MultiEraCert, MultiEraInput, MultiEraOutput, MultiEraTx};
+use crate::{Era, MultiEraCert, MultiEraInput, MultiEraOutput, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
         Self::Byron(Box::new(Cow::Borrowed(tx)))
     }
 
-    pub fn from_alonzo_compatible(tx: &'b alonzo::MintedTx<'b>) -> Self {
-        Self::AlonzoCompatible(Box::new(Cow::Borrowed(tx)))
+    pub fn from_alonzo_compatible(tx: &'b alonzo::MintedTx<'b>, era: Era) -> Self {
+        Self::AlonzoCompatible(Box::new(Cow::Borrowed(tx)), era)
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, minicbor::encode::Error<std::io::Error>> {
         match self {
-            MultiEraTx::AlonzoCompatible(x) => minicbor::to_vec(x),
+            MultiEraTx::AlonzoCompatible(x, _) => minicbor::to_vec(x),
             MultiEraTx::Byron(x) => minicbor::to_vec(x),
+        }
+    }
+
+    pub fn decode(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
+        match era {
+            Era::Byron => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(MultiEraTx::Byron(tx))
+            }
+            Era::Shelley | Era::Allegra | Era::Mary | Era::Alonzo => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(MultiEraTx::AlonzoCompatible(tx, era))
+            }
+        }
+    }
+
+    pub fn era(&self) -> Era {
+        match self {
+            MultiEraTx::AlonzoCompatible(_, era) => *era,
+            MultiEraTx::Byron(_) => Era::Byron,
         }
     }
 
     pub fn hash(&self) -> Hash<32> {
         match self {
-            MultiEraTx::AlonzoCompatible(x) => x.transaction_body.to_hash(),
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.to_hash(),
             MultiEraTx::Byron(x) => x.transaction.to_hash(),
         }
     }
 
     pub fn outputs(&self) -> Vec<MultiEraOutput> {
         match self {
-            MultiEraTx::AlonzoCompatible(x) => x
+            MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .outputs
                 .iter()
@@ -47,7 +69,7 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn inputs(&self) -> Vec<MultiEraInput> {
         match self {
-            MultiEraTx::AlonzoCompatible(x) => x
+            MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .inputs
                 .iter()
@@ -65,7 +87,7 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn certs(&self) -> Vec<MultiEraCert> {
         match self {
-            MultiEraTx::AlonzoCompatible(x) => x
+            MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .certificates
                 .iter()
@@ -78,14 +100,14 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn as_alonzo(&self) -> Option<&alonzo::MintedTx> {
         match self {
-            MultiEraTx::AlonzoCompatible(x) => Some(x),
+            MultiEraTx::AlonzoCompatible(x, _) => Some(x),
             MultiEraTx::Byron(_) => None,
         }
     }
 
     pub fn as_byron(&self) -> Option<&byron::MintedTxPayload> {
         match self {
-            MultiEraTx::AlonzoCompatible(_) => None,
+            MultiEraTx::AlonzoCompatible(_, _) => None,
             MultiEraTx::Byron(x) => Some(x),
         }
     }
