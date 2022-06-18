@@ -43,25 +43,22 @@ pub struct HeaderBody {
     pub block_body_hash: Hash<32>,
 
     #[n(9)]
-    pub operational_cert: OperationalCert,
+    pub operational_cert_hot_vkey: ByteVec,
 
     #[n(10)]
-    pub protocol: ProtocolVersion,
-}
+    pub operational_cert_sequence_number: u64,
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct OperationalCert {
-    #[n(0)]
-    hot_vkey: ByteVec,
+    #[n(11)]
+    pub operational_cert_kes_period: u64,
 
-    #[n(1)]
-    sequence_number: u64,
+    #[n(12)]
+    pub operational_cert_sigma: ByteVec,
 
-    #[n(2)]
-    kes_period: u64,
+    #[n(13)]
+    pub protocol_major: u64,
 
-    #[n(3)]
-    sigma: ByteVec,
+    #[n(14)]
+    pub protocol_minor: u64,
 }
 
 pub type ProtocolVersion = (u64, u64);

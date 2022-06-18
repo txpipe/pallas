@@ -39,13 +39,23 @@ pub struct HeaderBody {
     pub block_body_hash: Hash<32>,
 
     #[n(8)]
-    pub operational_cert: OperationalCert,
+    pub operational_cert_hot_vkey: ByteVec,
 
     #[n(9)]
-    pub protocol_version: ProtocolVersion,
-}
+    pub operational_cert_sequence_number: u64,
 
-pub use crate::alonzo::OperationalCert;
+    #[n(10)]
+    pub operational_cert_kes_period: u64,
+
+    #[n(11)]
+    pub operational_cert_sigma: ByteVec,
+
+    #[n(12)]
+    pub protocol_major: u64,
+
+    #[n(13)]
+    pub protocol_minor: u64,
+}
 
 pub use crate::alonzo::ProtocolVersion;
 
