@@ -159,10 +159,10 @@ pub use crate::alonzo::CostModel;
 #[cbor(map)]
 pub struct CostMdls {
     #[n(0)]
-    plutus_v1: CostModel,
+    pub plutus_v1: CostModel,
 
     #[n(1)]
-    plutus_v2: CostModel,
+    pub plutus_v2: CostModel,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -270,13 +270,13 @@ pub struct TransactionBody {
     pub network_id: Option<NetworkId>,
 
     #[n(16)]
-    collateral_return: Option<TransactionOutput>,
+    pub collateral_return: Option<TransactionOutput>,
 
     #[n(17)]
-    total_collateral: Option<Coin>,
+    pub total_collateral: Option<Coin>,
 
     #[n(18)]
-    reference_inputs: Option<MaybeIndefArray<TransactionInput>>,
+    pub reference_inputs: Option<MaybeIndefArray<TransactionInput>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -321,16 +321,16 @@ impl<C> minicbor::Encode<C> for TransactionOutput {
 #[cbor(map)]
 pub struct PostAlonzoTransactionOutput {
     #[n(0)]
-    address: ByteVec,
+    pub address: ByteVec,
 
     #[n(1)]
-    value: Value,
+    pub value: Value,
 
     #[n(2)]
-    datum_option: Option<DatumOption>,
+    pub datum_option: Option<DatumOption>,
 
     #[n(3)]
-    script_ref: Option<ScriptRef>,
+    pub script_ref: Option<ScriptRef>,
 }
 
 pub use crate::alonzo::VKeyWitness;
@@ -585,7 +585,11 @@ mod tests {
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = vec![include_str!("../../../test_data/babbage1.block")];
+        let test_blocks = vec![
+            include_str!("../../../test_data/babbage1.block"),
+            include_str!("../../../test_data/babbage2.block"),
+            include_str!("../../../test_data/babbage3.block"),
+        ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);

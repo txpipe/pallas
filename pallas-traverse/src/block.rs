@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, byron, ToHash};
+use pallas_primitives::{alonzo, babbage, byron, ToHash};
 
 use crate::{probe, support, Era, Error, MultiEraBlock, MultiEraTx};
 
@@ -63,6 +63,13 @@ impl<'b> MultiEraBlock<'b> {
         ))
     }
 
+    pub fn decode_babbage(cbor: &'b [u8]) -> Result<Self, Error> {
+        let (_, block): BlockWrapper<babbage::MintedBlock> =
+            minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
+
+        Ok(Self::Babbage(Box::new(Cow::Owned(block))))
+    }
+
     pub fn decode(cbor: &'b [u8]) -> Result<MultiEraBlock<'b>, Error> {
         match probe::block_era(cbor) {
             probe::Outcome::EpochBoundary => Self::decode_epoch_boundary(cbor),
@@ -72,6 +79,7 @@ impl<'b> MultiEraBlock<'b> {
                 Era::Allegra => Self::decode_allegra(cbor),
                 Era::Mary => Self::decode_mary(cbor),
                 Era::Alonzo => Self::decode_alonzo(cbor),
+                Era::Babbage => Self::decode_babbage(cbor),
             },
             probe::Outcome::Inconclusive => Err(Error::unknown_cbor(cbor)),
         }
@@ -81,6 +89,7 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::EpochBoundary(_) => Era::Byron,
             MultiEraBlock::AlonzoCompatible(_, x) => *x,
+            MultiEraBlock::Babbage(_) => Era::Babbage,
             MultiEraBlock::Byron(_) => Era::Byron,
         }
     }
@@ -89,6 +98,7 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::EpochBoundary(x) => x.header.to_hash(),
             MultiEraBlock::AlonzoCompatible(x, _) => x.header.to_hash(),
+            MultiEraBlock::Babbage(x) => x.header.to_hash(),
             MultiEraBlock::Byron(x) => x.header.to_hash(),
         }
     }
@@ -97,6 +107,7 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::EpochBoundary(x) => x.header.to_abs_slot(),
             MultiEraBlock::AlonzoCompatible(x, _) => x.header.header_body.slot,
+            MultiEraBlock::Babbage(x) => x.header.header_body.slot,
             MultiEraBlock::Byron(x) => x.header.consensus_data.0.to_abs_slot(),
         }
     }
@@ -106,6 +117,10 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(x, era) => support::clone_alonzo_txs(x)
                 .into_iter()
                 .map(|x| MultiEraTx::AlonzoCompatible(Box::new(Cow::Owned(x)), *era))
+                .collect(),
+            MultiEraBlock::Babbage(x) => support::clone_babbage_txs(x)
+                .into_iter()
+                .map(|x| MultiEraTx::Babbage(Box::new(Cow::Owned(x))))
                 .collect(),
             MultiEraBlock::Byron(x) => support::clone_byron_txs(x)
                 .into_iter()
@@ -119,6 +134,16 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::EpochBoundary(_) => None,
             MultiEraBlock::AlonzoCompatible(x, _) => Some(x),
+            MultiEraBlock::Babbage(_) => None,
+            MultiEraBlock::Byron(_) => None,
+        }
+    }
+
+    pub fn as_babbage(&self) -> Option<&babbage::MintedBlock> {
+        match self {
+            MultiEraBlock::EpochBoundary(_) => None,
+            MultiEraBlock::AlonzoCompatible(_, _) => None,
+            MultiEraBlock::Babbage(x) => Some(x),
             MultiEraBlock::Byron(_) => None,
         }
     }
@@ -127,6 +152,7 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::EpochBoundary(_) => None,
             MultiEraBlock::AlonzoCompatible(_, _) => None,
+            MultiEraBlock::Babbage(_) => None,
             MultiEraBlock::Byron(x) => Some(x),
         }
     }

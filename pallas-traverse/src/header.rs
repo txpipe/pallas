@@ -28,6 +28,7 @@ impl<'b> MultiEraHeader<'b> {
         match self {
             MultiEraHeader::EpochBoundary(x) => x.to_abs_slot(),
             MultiEraHeader::AlonzoCompatible(x) => x.header_body.slot,
+            MultiEraHeader::Babbage(x) => x.header_body.slot,
             MultiEraHeader::Byron(x) => x.consensus_data.0.to_abs_slot(),
         }
     }
@@ -36,6 +37,7 @@ impl<'b> MultiEraHeader<'b> {
         match self {
             MultiEraHeader::EpochBoundary(x) => x.to_hash(),
             MultiEraHeader::AlonzoCompatible(x) => x.to_hash(),
+            MultiEraHeader::Babbage(x) => x.to_hash(),
             MultiEraHeader::Byron(x) => x.to_hash(),
         }
     }
