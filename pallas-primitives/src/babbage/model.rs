@@ -39,22 +39,25 @@ pub struct HeaderBody {
     pub block_body_hash: Hash<32>,
 
     #[n(8)]
-    pub operational_cert_hot_vkey: ByteVec,
+    pub operational_cert: OperationalCert,
 
     #[n(9)]
+    pub protocol_version: ProtocolVersion,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, PartialOrd)]
+pub struct OperationalCert {
+    #[n(0)]
+    pub operational_cert_hot_vkey: ByteVec,
+
+    #[n(1)]
     pub operational_cert_sequence_number: u64,
 
-    #[n(10)]
+    #[n(2)]
     pub operational_cert_kes_period: u64,
 
-    #[n(11)]
+    #[n(3)]
     pub operational_cert_sigma: ByteVec,
-
-    #[n(12)]
-    pub protocol_major: u64,
-
-    #[n(13)]
-    pub protocol_minor: u64,
 }
 
 pub use crate::alonzo::ProtocolVersion;
@@ -267,13 +270,13 @@ pub struct TransactionBody {
     pub network_id: Option<NetworkId>,
 
     #[n(16)]
-    collateral_return: TransactionOutput,
+    collateral_return: Option<TransactionOutput>,
 
     #[n(17)]
-    total_collateral: Coin,
+    total_collateral: Option<Coin>,
 
     #[n(18)]
-    reference_inputs: MaybeIndefArray<TransactionInput>,
+    reference_inputs: Option<MaybeIndefArray<TransactionInput>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -336,7 +339,15 @@ pub use crate::alonzo::NativeScript;
 
 pub use crate::alonzo::PlutusScript as PlutusV1Script;
 
-pub type PlutusV2Script = ByteVec;
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[cbor(transparent)]
+pub struct PlutusV2Script(#[n(0)] pub ByteVec);
+
+impl AsRef<[u8]> for PlutusV2Script {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
 
 pub use crate::alonzo::BigInt;
 
@@ -400,29 +411,87 @@ pub type DatumHash = Hash<32>;
 pub type Data = CborWrap<PlutusData>;
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum DatumOption {
-    #[n(0)]
-    Hash(#[n(0)] Hash<32>),
+    Hash(Hash<32>),
+    Data(Data),
+}
 
-    #[n(1)]
-    Data(#[n(0)] Data),
+impl<'b, C> minicbor::Decode<'b, C> for DatumOption {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(Self::Hash(d.decode()?)),
+            1 => Ok(Self::Data(d.decode()?)),
+            _ => Err(minicbor::decode::Error::message(
+                "invalid variant for datum option enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for DatumOption {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Self::Hash(x) => e.encode_with((0, x), ctx)?,
+            Self::Data(x) => e.encode_with((1, x), ctx)?,
+        };
+
+        Ok(())
+    }
 }
 
 // script_ref = #6.24(bytes .cbor script)
 pub type ScriptRef = CborWrap<Script>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Script {
-    #[n(0)]
-    NativeScript(#[n(0)] NativeScript),
+    NativeScript(NativeScript),
+    PlutusV1Script(PlutusV1Script),
+    PlutusV2Script(PlutusV2Script),
+}
 
-    #[n(1)]
-    PlutusV1Script(#[n(0)] PlutusV1Script),
+impl<'b, C> minicbor::Decode<'b, C> for Script {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
 
-    #[n(2)]
-    PlutusV2Script(#[n(0)] PlutusV2Script),
+        match d.u8()? {
+            0 => Ok(Self::NativeScript(d.decode()?)),
+            1 => Ok(Self::PlutusV1Script(d.decode()?)),
+            2 => Ok(Self::PlutusV2Script(d.decode()?)),
+            _ => Err(minicbor::decode::Error::message(
+                "invalid variant for script enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for Script {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Self::NativeScript(x) => e.encode_with((0, x), ctx)?,
+            Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
+            Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
+        };
+
+        Ok(())
+    }
 }
 
 pub use crate::alonzo::Metadatum;
@@ -508,11 +577,17 @@ pub struct MintedTx<'b> {
 
 #[cfg(test)]
 mod tests {
-    use pallas_codec::minicbor::{self, to_vec};
+    use pallas_codec::minicbor::{self, bytes::ByteVec, to_vec};
 
-    use super::MintedBlock;
+    use super::{MintedBlock, PlutusV2Script, Script};
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+
+    #[test]
+    fn test_enum_enc() {
+        let a = Script::PlutusV2Script(PlutusV2Script(ByteVec::from(vec![0, 2, 2, 2])));
+        println!("{}", hex::encode(minicbor::to_vec(a).unwrap()));
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
