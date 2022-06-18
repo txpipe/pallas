@@ -111,7 +111,10 @@ impl Bearer {
         Ok(Bearer::Tcp(bearer))
     }
 
-    pub fn connect_tcp_timeout(addr: &SocketAddr, timeout: Duration) -> Result<Self, std::io::Error> {
+    pub fn connect_tcp_timeout(
+        addr: &SocketAddr,
+        timeout: Duration,
+    ) -> Result<Self, std::io::Error> {
         let bearer = TcpStream::connect_timeout(addr, timeout)?;
         bearer.set_nodelay(true)?;
 
