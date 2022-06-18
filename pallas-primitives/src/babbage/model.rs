@@ -577,17 +577,11 @@ pub struct MintedTx<'b> {
 
 #[cfg(test)]
 mod tests {
-    use pallas_codec::minicbor::{self, bytes::ByteVec, to_vec};
+    use pallas_codec::minicbor;
 
-    use super::{MintedBlock, PlutusV2Script, Script};
+    use super::MintedBlock;
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
-
-    #[test]
-    fn test_enum_enc() {
-        let a = Script::PlutusV2Script(PlutusV2Script(ByteVec::from(vec![0, 2, 2, 2])));
-        println!("{}", hex::encode(minicbor::to_vec(a).unwrap()));
-    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
@@ -600,8 +594,8 @@ mod tests {
             let block: BlockWrapper = minicbor::decode(&bytes[..])
                 .expect(&format!("error decoding cbor for file {}", idx));
 
-            let bytes2 =
-                to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+            let bytes2 = minicbor::to_vec(block)
+                .expect(&format!("error encoding block cbor for file {}", idx));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
