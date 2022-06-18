@@ -51,15 +51,14 @@ impl StdPlexer {
 
 impl mux::Muxer<StdIngress> {
     pub fn block(&mut self, cancel: Cancel) -> Result<(), std::io::Error> {
+        let backoff = crossbeam::utils::Backoff::new();
+
         loop {
             match self.tick() {
                 mux::TickOutcome::BearerError(err) => return Err(err),
                 mux::TickOutcome::Idle => match cancel.is_set() {
                     true => break Ok(()),
-                    false => {
-                        // TODO: investigate why std::thread::yield_now() hogs the thread
-                        std::thread::sleep(Duration::from_millis(100))
-                    }
+                    false => backoff.snooze(),
                 },
                 mux::TickOutcome::Busy => (),
             }
