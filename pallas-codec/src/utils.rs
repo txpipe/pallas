@@ -229,7 +229,7 @@ where
 }
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CborWrap<T>(pub T);
 
 impl<'b, C, T> minicbor::Decode<'b, C> for CborWrap<T>
