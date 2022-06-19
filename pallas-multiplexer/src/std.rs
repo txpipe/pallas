@@ -10,7 +10,6 @@ use std::{
         Arc,
     },
     thread::{spawn, JoinHandle},
-    time::Duration,
 };
 
 pub type StdIngress = Receiver<Payload>;
