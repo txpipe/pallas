@@ -4,7 +4,9 @@ use pallas::network::{
 };
 
 #[derive(Debug)]
-struct LoggingObserver;
+struct LoggingObserver {
+    block_counter: u64,
+}
 
 impl blockfetch::Observer for LoggingObserver {
     fn on_block_received(&mut self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +21,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
         _content: chainsync::HeaderContent,
         tip: &chainsync::Tip,
     ) -> Result<chainsync::Continuation, Box<dyn std::error::Error>> {
-        log::debug!("asked to roll forward, tip at {:?}", tip);
+        self.block_counter += 1;
+
+        log::info!(
+            "asked to roll forward, total blocks: {}",
+            self.block_counter
+        );
 
         Ok(chainsync::Continuation::Proceed)
     }
@@ -70,7 +77,7 @@ fn do_blockfetch(mut channel: ChannelBuffer<StdChannel>) {
     );
 
     let agent = run_agent(
-        blockfetch::BatchClient::initial(range, LoggingObserver {}),
+        blockfetch::BatchClient::initial(range, LoggingObserver { block_counter: 0 }),
         &mut channel,
     );
 
@@ -86,7 +93,7 @@ fn do_chainsync(mut channel: ChannelBuffer<StdChannel>) {
     let agent = run_agent(
         chainsync::Consumer::<chainsync::HeaderContent, _>::initial(
             Some(known_points),
-            LoggingObserver {},
+            LoggingObserver { block_counter: 0 },
         ),
         &mut channel,
     );
@@ -96,7 +103,7 @@ fn do_chainsync(mut channel: ChannelBuffer<StdChannel>) {
 
 fn main() {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Trace)
+        .filter_level(log::LevelFilter::Info)
         .init();
 
     // setup a TCP socket to act as data bearer between our agents and the remote
@@ -110,7 +117,7 @@ fn main() {
     let channel3 = plexer.use_channel(3).into();
     let channel2 = plexer.use_channel(2).into();
 
-    plexer.muxer.spawn();
+    plexer.muxer.spawn(plexer.egress_parking.clone());
     plexer.demuxer.spawn();
 
     // execute the required handshake against the relay
