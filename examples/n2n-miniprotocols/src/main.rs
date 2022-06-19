@@ -117,7 +117,7 @@ fn main() {
     let channel3 = plexer.use_channel(3).into();
     let channel2 = plexer.use_channel(2).into();
 
-    plexer.muxer.spawn(plexer.egress_parking.clone());
+    plexer.muxer.spawn(plexer.ingress_parking.clone());
     plexer.demuxer.spawn();
 
     // execute the required handshake against the relay

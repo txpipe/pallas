@@ -26,21 +26,21 @@ impl mux::Ingress for StdIngress {
     }
 }
 
-pub struct EgressParking(Mutex<bool>, Condvar);
+pub struct IngressParking(Mutex<bool>, Condvar);
 
-impl EgressParking {
+impl IngressParking {
     fn new() -> Self {
         Self(Mutex::new(false), Condvar::new())
     }
 
     fn set_no_data(&self) {
-        let EgressParking(lock, _) = self;
+        let IngressParking(lock, _) = self;
         let mut has_data = lock.lock().unwrap();
         *has_data = false;
     }
 
     fn park(&self) -> bool {
-        let EgressParking(lock, cvar) = self;
+        let IngressParking(lock, cvar) = self;
         let guard = lock.lock().unwrap();
         let (result, _) = cvar
             .wait_timeout(guard, Duration::from_millis(500))
@@ -50,24 +50,19 @@ impl EgressParking {
     }
 
     fn unpark(&self) {
-        let EgressParking(lock, cvar) = self;
+        let IngressParking(lock, cvar) = self;
         let mut has_data = lock.lock().unwrap();
         *has_data = true;
         cvar.notify_all();
     }
 }
 
-pub struct StdEgress(Sender<Payload>, Arc<EgressParking>);
+pub type StdEgress = Sender<Payload>;
 
 impl demux::Egress for StdEgress {
     fn send(&self, payload: Payload) -> Result<(), demux::EgressError> {
-        let StdEgress(chann, parking) = self;
-
-        match Sender::send(chann, payload) {
-            Ok(_) => {
-                parking.unpark();
-                Ok(())
-            }
+        match Sender::send(self, payload) {
+            Ok(_) => Ok(()),
             Err(SendError(p)) => Err(demux::EgressError(p)),
         }
     }
@@ -76,7 +71,7 @@ impl demux::Egress for StdEgress {
 pub struct StdPlexer {
     pub muxer: mux::Muxer<StdIngress>,
     pub demuxer: demux::Demuxer<StdEgress>,
-    pub egress_parking: Arc<EgressParking>,
+    pub ingress_parking: Arc<IngressParking>,
 }
 
 impl StdPlexer {
@@ -84,7 +79,7 @@ impl StdPlexer {
         Self {
             muxer: mux::Muxer::new(bearer.clone()),
             demuxer: demux::Demuxer::new(bearer),
-            egress_parking: Arc::new(EgressParking::new()),
+            ingress_parking: Arc::new(IngressParking::new()),
         }
     }
 }
@@ -95,9 +90,9 @@ impl StdPlexer {
         let (mux_tx, mux_rx) = channel::<Payload>();
 
         self.muxer.register(protocol, mux_rx);
-        self.demuxer
-            .register(protocol, StdEgress(demux_tx, self.egress_parking.clone()));
+        self.demuxer.register(protocol, demux_tx);
 
+        let mux_tx = StdIngressSender(mux_tx, self.ingress_parking.clone());
         (mux_tx, demux_rx)
     }
 }
@@ -106,7 +101,7 @@ impl mux::Muxer<StdIngress> {
     pub fn block(
         &mut self,
         cancel: Cancel,
-        parking: Arc<EgressParking>,
+        parking: Arc<IngressParking>,
     ) -> Result<(), std::io::Error> {
         loop {
             match self.tick() {
@@ -123,7 +118,7 @@ impl mux::Muxer<StdIngress> {
         }
     }
 
-    pub fn spawn(mut self, parking: Arc<EgressParking>) -> Loop {
+    pub fn spawn(mut self, parking: Arc<IngressParking>) -> Loop {
         let cancel = Cancel::default();
         let cancel2 = cancel.clone();
         let thread = spawn(move || self.block(cancel2, parking));
@@ -161,7 +156,23 @@ impl demux::Demuxer<StdEgress> {
     }
 }
 
-pub type StdChannel = (Sender<Payload>, Receiver<Payload>);
+pub struct StdIngressSender(Sender<Payload>, Arc<IngressParking>);
+
+impl StdIngressSender {
+    fn send(&self, payload: Payload) -> Result<(), SendError<Payload>> {
+        let StdIngressSender(chann, parking) = self;
+
+        match Sender::send(chann, payload) {
+            Ok(_) => {
+                parking.unpark();
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+
+pub type StdChannel = (StdIngressSender, Receiver<Payload>);
 
 pub type StdChannelBuffer = ChannelBuffer<StdChannel>;
 
