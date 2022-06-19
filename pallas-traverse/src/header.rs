@@ -17,6 +17,10 @@ impl<'b> MultiEraHeader<'b> {
                     Ok(MultiEraHeader::Byron(header))
                 }
             },
+            5 => {
+                let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
+                Ok(MultiEraHeader::Babbage(header))
+            }
             _ => {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
                 Ok(MultiEraHeader::AlonzoCompatible(header))
