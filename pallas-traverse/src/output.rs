@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use pallas_primitives::{alonzo, byron};
+use pallas_primitives::{alonzo::{self, Value}, byron};
 
 use crate::MultiEraOutput;
 
@@ -18,6 +18,16 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Byron(x) => x.address.to_addr_string().expect("invalid address value"),
             MultiEraOutput::AlonzoCompatible(x) => {
                 x.to_bech32_address(hrp).expect("invalid address value")
+            }
+        }
+    }
+
+    pub fn ada_amount(&self) -> u64 {
+        match self {
+            MultiEraOutput::Byron(x) => x.amount,
+            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
+                Value::Coin(c) => u64::from(c),
+                Value::Multiasset(c, _) => u64::from(c)
             }
         }
     }
