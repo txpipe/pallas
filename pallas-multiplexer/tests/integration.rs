@@ -8,7 +8,7 @@ use pallas_codec::minicbor;
 use pallas_multiplexer::{
     agents::{Channel, ChannelBuffer},
     bearers::Bearer,
-    StdPlexer,
+    Payload, StdPlexer,
 };
 use rand::{distributions::Uniform, Rng};
 
@@ -61,45 +61,4 @@ fn one_way_small_sequence_of_payloads() {
         let received_payload = receiver_channel.dequeue_chunk().unwrap();
         assert_eq!(payload, received_payload);
     }
-}
-
-#[test]
-fn multiple_messages_in_same_payload() {
-    let mut input = Vec::new();
-    let in_part1 = (1u8, 2u8, 3u8);
-    let in_part2 = (6u8, 5u8, 4u8);
-
-    minicbor::encode(in_part1, &mut input).unwrap();
-    minicbor::encode(in_part2, &mut input).unwrap();
-
-    let channel = std::sync::mpsc::channel();
-    channel.0.send(input).unwrap();
-
-    let mut buf = ChannelBuffer::new(channel);
-
-    let out_part1 = buf.recv_full_msg::<(u8, u8, u8)>().unwrap();
-    let out_part2 = buf.recv_full_msg::<(u8, u8, u8)>().unwrap();
-
-    assert_eq!(in_part1, out_part1);
-    assert_eq!(in_part2, out_part2);
-}
-
-#[test]
-fn fragmented_message_in_multiple_payloads() {
-    let mut input = Vec::new();
-    let msg = (11u8, 12u8, 13u8, 14u8, 15u8, 16u8, 17u8);
-    minicbor::encode(msg, &mut input).unwrap();
-
-    let channel = std::sync::mpsc::channel();
-
-    while !input.is_empty() {
-        let chunk = Vec::from(input.drain(0..2).as_slice());
-        channel.0.send(chunk).unwrap();
-    }
-
-    let mut buf = ChannelBuffer::new(channel);
-
-    let out_msg = buf.recv_full_msg::<(u8, u8, u8, u8, u8, u8, u8)>().unwrap();
-
-    assert_eq!(msg, out_msg);
 }
