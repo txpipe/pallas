@@ -29,7 +29,7 @@ impl TryFrom<u16> for Era {
             4 => Ok(Era::Mary),
             5 => Ok(Era::Alonzo),
             6 => Ok(Era::Babbage),
-            x => Err(crate::Error::UnkownEra(x)),
+            x => Err(crate::Error::UnknownEra(x)),
         }
     }
 }

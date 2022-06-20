@@ -1,12 +1,13 @@
 //! Utilities to traverse over multi-era block data
 
 use std::borrow::Cow;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
+
+use thiserror::Error;
 
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
-use thiserror::Error;
 
 pub mod block;
 pub mod cert;
@@ -23,10 +24,26 @@ pub mod tx;
 pub enum Era {
     Byron,
     Shelley,
-    Allegra, // time-locks
-    Mary,    // multi-assets
-    Alonzo,  // smart-contracts
+    Allegra,
+    // time-locks
+    Mary,
+    // multi-assets
+    Alonzo,
+    // smart-contracts
     Babbage, // CIP-31/32/33
+}
+
+impl Display for Era {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Era::Byron => { write!(f, "Byron") }
+            Era::Shelley => { write!(f, "Shelley") }
+            Era::Allegra => { write!(f, "Allegra") }
+            Era::Mary => { write!(f, "Mary") }
+            Era::Alonzo => { write!(f, "Alonzo") }
+            Era::Babbage => { write!(f, "Babbage") }
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -97,7 +114,10 @@ pub enum Error {
     UnknownCbor(String),
 
     #[error("Unknown era tag: {0}")]
-    UnkownEra(u16),
+    UnknownEra(u16),
+
+    #[error("Invalid era for request: {0}")]
+    InvalidEra(Era),
 }
 
 impl Error {
