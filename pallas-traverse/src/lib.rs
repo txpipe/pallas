@@ -1,7 +1,7 @@
 //! Utilities to traverse over multi-era block data
 
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
 use thiserror::Error;
 
@@ -24,26 +24,10 @@ pub mod tx;
 pub enum Era {
     Byron,
     Shelley,
-    Allegra,
-    // time-locks
-    Mary,
-    // multi-assets
-    Alonzo,
-    // smart-contracts
+    Allegra, // time-locks
+    Mary,    // multi-assets
+    Alonzo,  // smart-contracts
     Babbage, // CIP-31/32/33
-}
-
-impl Display for Era {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Era::Byron => { write!(f, "Byron") }
-            Era::Shelley => { write!(f, "Shelley") }
-            Era::Allegra => { write!(f, "Allegra") }
-            Era::Mary => { write!(f, "Mary") }
-            Era::Alonzo => { write!(f, "Alonzo") }
-            Era::Babbage => { write!(f, "Babbage") }
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
