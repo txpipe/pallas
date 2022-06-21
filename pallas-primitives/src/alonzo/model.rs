@@ -43,23 +43,25 @@ pub struct HeaderBody {
     pub block_body_hash: Hash<32>,
 
     #[n(9)]
-    pub operational_cert: ByteVec,
+    pub operational_cert_hot_vkey: ByteVec,
 
     #[n(10)]
-    pub unknown_0: u64,
+    pub operational_cert_sequence_number: u64,
 
     #[n(11)]
-    pub unknown_1: u64,
+    pub operational_cert_kes_period: u64,
 
     #[n(12)]
-    pub unknown_2: ByteVec,
+    pub operational_cert_sigma: ByteVec,
 
     #[n(13)]
-    pub protocol_version_major: u64,
+    pub protocol_major: u64,
 
     #[n(14)]
-    pub protocol_version_minor: u64,
+    pub protocol_minor: u64,
 }
+
+pub type ProtocolVersion = (u64, u64);
 
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct KesSignature {}
@@ -634,8 +636,6 @@ pub type CostModel = MaybeIndefArray<i32>;
 
 pub type CostMdls = KeyValuePairs<Language, CostModel>;
 
-pub type ProtocolVersion = (u32, u32);
-
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
@@ -1146,11 +1146,13 @@ pub struct TransactionWitnessSet {
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct AlonzoAuxiliaryData {
+pub struct PostAlonzoAuxiliaryData {
     #[n(0)]
     pub metadata: Option<Metadata>,
+
     #[n(1)]
     pub native_scripts: Option<MaybeIndefArray<NativeScript>>,
+
     #[n(2)]
     pub plutus_scripts: Option<MaybeIndefArray<PlutusScript>>,
 }
@@ -1246,14 +1248,20 @@ pub type MetadatumLabel = AnyUInt;
 
 pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
 
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+pub struct ShelleyMaAuxiliaryDAta {
+    #[n(0)]
+    transaction_metadata: Metadata,
+
+    #[n(1)]
+    auxiliary_scripts: Option<MaybeIndefArray<NativeScript>>,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum AuxiliaryData {
     Shelley(Metadata),
-    ShelleyMa {
-        transaction_metadata: Metadata,
-        auxiliary_scripts: Option<MaybeIndefArray<NativeScript>>,
-    },
-    Alonzo(AlonzoAuxiliaryData),
+    ShelleyMa(ShelleyMaAuxiliaryDAta),
+    PostAlonzo(PostAlonzoAuxiliaryData),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for AuxiliaryData {
@@ -1262,18 +1270,10 @@ impl<'b, C> minicbor::Decode<'b, C> for AuxiliaryData {
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
                 Ok(AuxiliaryData::Shelley(d.decode_with(ctx)?))
             }
-            minicbor::data::Type::Array => {
-                d.array()?;
-                let transaction_metadata = d.decode_with(ctx)?;
-                let auxiliary_scripts = d.decode_with(ctx)?;
-                Ok(AuxiliaryData::ShelleyMa {
-                    transaction_metadata,
-                    auxiliary_scripts,
-                })
-            }
+            minicbor::data::Type::Array => Ok(AuxiliaryData::ShelleyMa(d.decode_with(ctx)?)),
             minicbor::data::Type::Tag => {
                 d.tag()?;
-                Ok(AuxiliaryData::Alonzo(d.decode_with(ctx)?))
+                Ok(AuxiliaryData::PostAlonzo(d.decode_with(ctx)?))
             }
             _ => Err(minicbor::decode::Error::message(
                 "Can't infer variant from data type for AuxiliaryData",
@@ -1292,15 +1292,10 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
             AuxiliaryData::Shelley(m) => {
                 e.encode_with(m, ctx)?;
             }
-            AuxiliaryData::ShelleyMa {
-                transaction_metadata,
-                auxiliary_scripts,
-            } => {
-                e.array(2)?;
-                e.encode_with(transaction_metadata, ctx)?;
-                e.encode_with(auxiliary_scripts, ctx)?;
+            AuxiliaryData::ShelleyMa(m) => {
+                e.encode_with(m, ctx)?;
             }
-            AuxiliaryData::Alonzo(v) => {
+            AuxiliaryData::PostAlonzo(v) => {
                 // TODO: check if this is the correct tag
                 e.tag(Tag::Unassigned(259))?;
                 e.encode_with(v, ctx)?;

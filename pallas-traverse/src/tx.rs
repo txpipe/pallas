@@ -1,6 +1,6 @@
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, byron, ToHash};
+use pallas_primitives::{alonzo, babbage, byron, ToHash};
 use std::borrow::Cow;
 
 use crate::{Era, MultiEraCert, MultiEraInput, MultiEraOutput, MultiEraTx};
@@ -14,9 +14,14 @@ impl<'b> MultiEraTx<'b> {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(tx)), era)
     }
 
+    pub fn from_babbage(tx: &'b babbage::MintedTx<'b>) -> Self {
+        Self::Babbage(Box::new(Cow::Borrowed(tx)))
+    }
+
     pub fn encode(&self) -> Result<Vec<u8>, minicbor::encode::Error<std::io::Error>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => minicbor::to_vec(x),
+            MultiEraTx::Babbage(x) => minicbor::to_vec(x),
             MultiEraTx::Byron(x) => minicbor::to_vec(x),
         }
     }
@@ -33,12 +38,18 @@ impl<'b> MultiEraTx<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(MultiEraTx::AlonzoCompatible(tx, era))
             }
+            Era::Babbage => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(MultiEraTx::Babbage(tx))
+            }
         }
     }
 
     pub fn era(&self) -> Era {
         match self {
             MultiEraTx::AlonzoCompatible(_, era) => *era,
+            MultiEraTx::Babbage(_) => Era::Babbage,
             MultiEraTx::Byron(_) => Era::Byron,
         }
     }
@@ -46,6 +57,7 @@ impl<'b> MultiEraTx<'b> {
     pub fn hash(&self) -> Hash<32> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.to_hash(),
+            MultiEraTx::Babbage(x) => x.transaction_body.to_hash(),
             MultiEraTx::Byron(x) => x.transaction.to_hash(),
         }
     }
@@ -57,6 +69,12 @@ impl<'b> MultiEraTx<'b> {
                 .outputs
                 .iter()
                 .map(MultiEraOutput::from_alonzo_compatible)
+                .collect(),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .outputs
+                .iter()
+                .map(MultiEraOutput::from_babbage)
                 .collect(),
             MultiEraTx::Byron(x) => x
                 .transaction
@@ -74,6 +92,11 @@ impl<'b> MultiEraTx<'b> {
                 .outputs
                 .get(index)
                 .map(MultiEraOutput::from_alonzo_compatible),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_babbage),
             MultiEraTx::Byron(x) => x
                 .transaction
                 .outputs
@@ -90,7 +113,12 @@ impl<'b> MultiEraTx<'b> {
                 .iter()
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
-
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             MultiEraTx::Byron(x) => x
                 .transaction
                 .inputs
@@ -109,13 +137,29 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|c| c.iter())
                 .map(|c| MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(c))))
                 .collect(),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .certificates
+                .iter()
+                .flat_map(|c| c.iter())
+                .map(|c| MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(c))))
+                .collect(),
             MultiEraTx::Byron(_) => vec![],
+        }
+    }
+
+    pub fn as_babbage(&self) -> Option<&babbage::MintedTx> {
+        match self {
+            MultiEraTx::AlonzoCompatible(_, _) => None,
+            MultiEraTx::Babbage(x) => Some(x),
+            MultiEraTx::Byron(_) => None,
         }
     }
 
     pub fn as_alonzo(&self) -> Option<&alonzo::MintedTx> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => Some(x),
+            MultiEraTx::Babbage(_) => None,
             MultiEraTx::Byron(_) => None,
         }
     }
@@ -123,6 +167,7 @@ impl<'b> MultiEraTx<'b> {
     pub fn as_byron(&self) -> Option<&byron::MintedTxPayload> {
         match self {
             MultiEraTx::AlonzoCompatible(_, _) => None,
+            MultiEraTx::Babbage(_) => None,
             MultiEraTx::Byron(x) => Some(x),
         }
     }

@@ -3,10 +3,11 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
+use thiserror::Error;
+
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, byron};
-use thiserror::Error;
+use pallas_primitives::{alonzo, babbage, byron};
 
 pub mod block;
 pub mod cert;
@@ -26,6 +27,7 @@ pub enum Era {
     Allegra, // time-locks
     Mary,    // multi-assets
     Alonzo,  // smart-contracts
+    Babbage, // CIP-31/32/33
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -35,12 +37,16 @@ pub enum Feature {
     MultiAssets,
     Staking,
     SmartContracts,
+    CIP31,
+    CIP32,
+    CIP33,
 }
 
 #[derive(Debug)]
 pub enum MultiEraHeader<'b> {
     EpochBoundary(KeepRaw<'b, byron::EbbHead>),
     AlonzoCompatible(KeepRaw<'b, alonzo::Header>),
+    Babbage(KeepRaw<'b, babbage::Header>),
     Byron(KeepRaw<'b, byron::BlockHead>),
 }
 
@@ -49,6 +55,7 @@ pub enum MultiEraHeader<'b> {
 pub enum MultiEraBlock<'b> {
     EpochBoundary(Box<Cow<'b, byron::EbBlock>>),
     AlonzoCompatible(Box<Cow<'b, alonzo::MintedBlock<'b>>>, Era),
+    Babbage(Box<Cow<'b, babbage::MintedBlock<'b>>>),
     Byron(Box<Cow<'b, byron::MintedBlock<'b>>>),
 }
 
@@ -56,14 +63,16 @@ pub enum MultiEraBlock<'b> {
 #[non_exhaustive]
 pub enum MultiEraTx<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::MintedTx<'b>>>, Era),
+    Babbage(Box<Cow<'b, babbage::MintedTx<'b>>>),
     Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
 }
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MultiEraOutput<'b> {
-    Byron(Box<Cow<'b, byron::TxOut>>),
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
+    Babbage(Box<Cow<'b, babbage::TransactionOutput>>),
+    Byron(Box<Cow<'b, byron::TxOut>>),
 }
 
 #[derive(Debug)]
@@ -89,7 +98,10 @@ pub enum Error {
     UnknownCbor(String),
 
     #[error("Unknown era tag: {0}")]
-    UnkownEra(u16),
+    UnknownEra(u16),
+
+    #[error("Invalid era for request: {0}")]
+    InvalidEra(Era),
 }
 
 impl Error {

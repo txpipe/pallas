@@ -1,17 +1,18 @@
+use std::fmt::{Display, Formatter};
+
 use crate::{Era, Feature};
 
 impl Era {
     #[allow(clippy::match_like_matches_macro)]
     pub fn has_feature(&self, feature: Feature) -> bool {
-        match (self, feature) {
-            (Era::Byron, _) => false,
-            (Era::Shelley, Feature::SmartContracts) => false,
-            (Era::Shelley, Feature::TimeLocks) => false,
-            (Era::Shelley, Feature::MultiAssets) => false,
-            (Era::Allegra, Feature::MultiAssets) => false,
-            (Era::Allegra, Feature::SmartContracts) => false,
-            (Era::Mary, Feature::SmartContracts) => false,
-            _ => true,
+        match feature {
+            Feature::Staking => self.ge(&Era::Shelley),
+            Feature::MultiAssets => self.ge(&Era::Mary),
+            Feature::TimeLocks => self.ge(&Era::Allegra),
+            Feature::SmartContracts => self.ge(&Era::Alonzo),
+            Feature::CIP31 => self.ge(&Era::Babbage),
+            Feature::CIP32 => self.ge(&Era::Babbage),
+            Feature::CIP33 => self.ge(&Era::Babbage),
         }
     }
 }
@@ -29,7 +30,8 @@ impl TryFrom<u16> for Era {
             3 => Ok(Era::Allegra),
             4 => Ok(Era::Mary),
             5 => Ok(Era::Alonzo),
-            x => Err(crate::Error::UnkownEra(x)),
+            6 => Ok(Era::Babbage),
+            x => Err(crate::Error::UnknownEra(x)),
         }
     }
 }
@@ -42,6 +44,20 @@ impl From<Era> for u16 {
             Era::Allegra => 3,
             Era::Mary => 4,
             Era::Alonzo => 5,
+            Era::Babbage => 6,
+        }
+    }
+}
+
+impl Display for Era {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Era::Byron => write!(f, "Byron"),
+            Era::Shelley => write!(f, "Shelley"),
+            Era::Allegra => write!(f, "Allegra"),
+            Era::Mary => write!(f, "Mary"),
+            Era::Alonzo => write!(f, "Alonzo"),
+            Era::Babbage => write!(f, "Babbage"),
         }
     }
 }
