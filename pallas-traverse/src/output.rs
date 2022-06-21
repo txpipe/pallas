@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use pallas_primitives::{alonzo, babbage, byron};
 
@@ -24,6 +24,26 @@ impl<'b> MultiEraOutput<'b> {
             }
             MultiEraOutput::Babbage(x) => x.to_bech32_address(hrp).expect("invalid address value"),
             MultiEraOutput::Byron(x) => x.address.to_addr_string().expect("invalid address value"),
+        }
+    }
+
+    pub fn ada_amount(&self) -> u64 {
+        match self {
+            MultiEraOutput::Byron(x) => x.amount,
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => match x.amount {
+                    babbage::Value::Coin(c) => u64::from(c),
+                    babbage::Value::Multiasset(c, _) => u64::from(c),
+                },
+                babbage::TransactionOutput::PostAlonzo(x) => match x.value {
+                    babbage::Value::Coin(c) => u64::from(c),
+                    babbage::Value::Multiasset(c, _) => u64::from(c),
+                },
+            },
+            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
+                alonzo::Value::Coin(c) => u64::from(c),
+                alonzo::Value::Multiasset(c, _) => u64::from(c),
+            },
         }
     }
 

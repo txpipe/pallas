@@ -19,7 +19,7 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
         _content: chainsync::HeaderContent,
         tip: &chainsync::Tip,
     ) -> Result<chainsync::Continuation, Box<dyn std::error::Error>> {
-        log::debug!("asked to roll forward, tip at {:?}", tip);
+        log::info!("asked to roll forward, tip at {:?}", tip);
 
         Ok(chainsync::Continuation::Proceed)
     }
@@ -96,7 +96,7 @@ fn do_chainsync(mut channel: ChannelBuffer<StdChannel>) {
 
 fn main() {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Trace)
+        .filter_level(log::LevelFilter::Info)
         .init();
 
     // setup a TCP socket to act as data bearer between our agents and the remote
