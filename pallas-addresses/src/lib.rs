@@ -182,10 +182,7 @@ impl ShelleyDelegationPart {
     }
 
     pub fn is_script(&self) -> bool {
-        match self {
-            ShelleyDelegationPart::Script(_) => true,
-            _ => false,
-        }
+        matches!(self, ShelleyDelegationPart::Script(_))
     }
 }
 
@@ -199,10 +196,7 @@ impl StakePayload {
     }
 
     pub fn is_script(&self) -> bool {
-        match self {
-            StakePayload::Script(_) => true,
-            _ => false,
-        }
+        matches!(self, StakePayload::Script(_))
     }
 }
 
@@ -554,10 +548,7 @@ impl Address {
     /// Indicates if this is an enterpise address
     pub fn is_enterprise(&self) -> bool {
         match self {
-            Address::Shelley(x) => match x.delegation() {
-                ShelleyDelegationPart::Null => true,
-                _ => false,
-            },
+            Address::Shelley(x) => matches!(x.delegation(), ShelleyDelegationPart::Null),
             _ => false,
         }
     }
