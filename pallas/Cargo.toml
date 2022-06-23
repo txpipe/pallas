@@ -17,5 +17,6 @@ pallas-multiplexer = { version = "0.11.0-alpha.0", path = "../pallas-multiplexer
 pallas-miniprotocols = { version = "0.11.0-alpha.0", path = "../pallas-miniprotocols/" }
 pallas-primitives = { version = "0.11.0-alpha.0", path = "../pallas-primitives/" }
 pallas-traverse = { version = "0.11.0-alpha.0", path = "../pallas-traverse/" }
+pallas-addresses = { version = "0.11.0-alpha.0", path = "../pallas-addresses/" }
 pallas-crypto = { version = "0.11.0-alpha.0", path = "../pallas-crypto/" }
 pallas-codec = { version = "0.11.0-alpha.0", path = "../pallas-codec/" }
