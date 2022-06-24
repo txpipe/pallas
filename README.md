@@ -43,6 +43,7 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 | --------------------------------------- | ----------------------------------------------------------------------- |
 | [pallas-primitives](/pallas-primitives) | Ledger primitives and cbor codec for the different Cardano eras         |
 | [pallas-traverse](/pallas-traverse)     | Utilities to traverse over multi-era block data                         |
+| [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                           |
 | pallas-ticking                          | Time passage implementation for consensus algorithm                     |
 | pallas-applying                         | Logic for validating and applying new blocks and txs to the chain state |
 | pallas-forecasting                      | Ledger forecasting algorithm to be used by the consensus layer          |
