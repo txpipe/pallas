@@ -1,5 +1,9 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{
+    borrow::Cow,
+    ops::{Add, Deref},
+};
 
+use pallas_addresses::{Address, Error as AddressError};
 use pallas_primitives::{alonzo, babbage, byron};
 
 use crate::MultiEraOutput;
@@ -17,13 +21,20 @@ impl<'b> MultiEraOutput<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn address(&self, hrp: &str) -> String {
+    pub fn address(&self) -> Result<Address, AddressError> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => {
-                x.to_bech32_address(hrp).expect("invalid address value")
+            MultiEraOutput::AlonzoCompatible(x) => Address::from_bytes(&x.address),
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                babbage::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+            },
+            MultiEraOutput::Byron(x) => {
+                // TODO: we need to move the byron address struct out of primitives and into the
+                // addresses crate. Primitive crate should only handle bytes, without decoding.
+                // Decoding should happen at this step when use asks for a decoded address via
+                // traverse.
+                todo!()
             }
-            MultiEraOutput::Babbage(x) => x.to_bech32_address(hrp).expect("invalid address value"),
-            MultiEraOutput::Byron(x) => x.address.to_addr_string().expect("invalid address value"),
         }
     }
 

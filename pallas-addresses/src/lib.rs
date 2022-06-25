@@ -509,6 +509,20 @@ impl Address {
         bech32_to_address(bech32)
     }
 
+    /// Encodes the Address into the corresponding byte repsresentation
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Address::Byron(x) => x.0.clone(),
+            Address::Shelley(x) => x.to_vec(),
+            Address::Stake(x) => x.to_vec(),
+        }
+    }
+
+    /// Tries to parse a slice of bytes into an address
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        bytes_to_address(bytes)
+    }
+
     /// Gets the network assoaciated with this address
     pub fn network(&self) -> Option<Network> {
         match self {

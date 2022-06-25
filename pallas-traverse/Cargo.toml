@@ -14,6 +14,7 @@ authors = [
 
 [dependencies]
 pallas-primitives = { version = "0.11.0-alpha.0", path = "../pallas-primitives" }
+pallas-addresses = { version = "0.11.0-alpha.0", path = "../pallas-addresses" }
 pallas-crypto = { version = "0.11.0-alpha.0", path = "../pallas-crypto" }
 pallas-codec = { version = "0.11.0-alpha.0", path = "../pallas-codec" }
 hex = "0.4.3"
