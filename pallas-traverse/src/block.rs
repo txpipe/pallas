@@ -166,9 +166,9 @@ mod tests {
     fn test_iteration() {
         let blocks = vec![
             (include_str!("../../test_data/byron2.block"), 2usize),
-            (include_str!("../../test_data/shelley1.block"), 0),
-            (include_str!("../../test_data/mary1.block"), 0),
-            (include_str!("../../test_data/allegra1.block"), 0),
+            (include_str!("../../test_data/shelley1.block"), 4),
+            (include_str!("../../test_data/mary1.block"), 14),
+            (include_str!("../../test_data/allegra1.block"), 3),
             (include_str!("../../test_data/alonzo1.block"), 5),
         ];
 

@@ -11,8 +11,9 @@ macro_rules! clone_tx_fn {
 
             let success = !block
                 .invalid_transactions
-                .as_ref()?
-                .contains(&(index as u32));
+                .as_ref()
+                .map(|x| x.contains(&(index as u32)))
+                .unwrap_or(false);
 
             let auxiliary_data = block
                 .auxiliary_data_set
