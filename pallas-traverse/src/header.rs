@@ -29,6 +29,20 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
+    pub fn number(&self) -> u64 {
+        match self {
+            MultiEraHeader::EpochBoundary(x) => x
+                .consensus_data
+                .difficulty
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+            MultiEraHeader::AlonzoCompatible(x) => x.header_body.block_number,
+            MultiEraHeader::Babbage(x) => x.header_body.block_number,
+            MultiEraHeader::Byron(x) => x.consensus_data.2.first().cloned().unwrap_or_default(),
+        }
+    }
+
     pub fn slot(&self) -> u64 {
         match self {
             MultiEraHeader::EpochBoundary(x) => x.to_abs_slot(),
