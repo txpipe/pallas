@@ -85,6 +85,27 @@ impl<'b> MultiEraBlock<'b> {
         }
     }
 
+    pub fn number(&self) -> u64 {
+        match self {
+            MultiEraBlock::EpochBoundary(x) => x
+                .header
+                .consensus_data
+                .difficulty
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+            MultiEraBlock::AlonzoCompatible(x, _) => x.header.header_body.block_number,
+            MultiEraBlock::Babbage(x) => x.header.header_body.block_number,
+            MultiEraBlock::Byron(x) => x
+                .header
+                .consensus_data
+                .2
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+        }
+    }
+
     pub fn era(&self) -> Era {
         match self {
             MultiEraBlock::EpochBoundary(_) => Era::Byron,
