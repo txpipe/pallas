@@ -30,7 +30,7 @@ impl FromStr for OutputRef {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<_> = s.trim().split("#").collect();
+        let parts: Vec<_> = s.trim().split('#').collect();
         let (hash, idx) = match &parts[..] {
             &[a, b] => (
                 Hash::<32>::from_str(a).map_err(|_| crate::Error::invalid_utxo_ref(s))?,
@@ -55,14 +55,10 @@ impl<'b> MultiEraInput<'b> {
     pub fn output_ref(&self) -> Option<OutputRef> {
         match self {
             MultiEraInput::Byron(x) => match x.deref().deref() {
-                byron::TxIn::Variant0(CborWrap((tx, idx))) => {
-                    Some(OutputRef(tx.clone(), *idx as u64))
-                }
+                byron::TxIn::Variant0(CborWrap((tx, idx))) => Some(OutputRef(*tx, *idx as u64)),
                 byron::TxIn::Other(_, _) => None,
             },
-            MultiEraInput::AlonzoCompatible(x) => {
-                Some(OutputRef(x.transaction_id.clone(), x.index))
-            }
+            MultiEraInput::AlonzoCompatible(x) => Some(OutputRef(x.transaction_id, x.index)),
         }
     }
 
