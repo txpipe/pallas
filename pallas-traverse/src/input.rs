@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Display, ops::Deref};
+use std::{borrow::Cow, fmt::Display, ops::Deref, str::FromStr};
 
 use pallas_codec::utils::CborWrap;
 use pallas_crypto::hash::Hash;
@@ -6,7 +6,11 @@ use pallas_primitives::{alonzo, byron};
 
 use crate::{MultiEraInput, OutputRef};
 
-impl OutputRef<'_> {
+impl OutputRef {
+    pub fn new(hash: Hash<32>, index: u64) -> Self {
+        Self(hash, index)
+    }
+
     pub fn tx_id(&self) -> &Hash<32> {
         &self.0
     }
@@ -16,9 +20,26 @@ impl OutputRef<'_> {
     }
 }
 
-impl Display for OutputRef<'_> {
+impl Display for OutputRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}#{}", self.tx_id(), self.tx_index())
+    }
+}
+
+impl FromStr for OutputRef {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.trim().split("#").collect();
+        let (hash, idx) = match &parts[..] {
+            &[a, b] => (
+                Hash::<32>::from_str(a).map_err(|_| crate::Error::invalid_utxo_ref(s))?,
+                u64::from_str(b).map_err(|_| crate::Error::invalid_utxo_ref(s))?,
+            ),
+            _ => return Err(crate::Error::invalid_utxo_ref(s)),
+        };
+
+        Ok(Self::new(hash, idx))
     }
 }
 
@@ -35,12 +56,12 @@ impl<'b> MultiEraInput<'b> {
         match self {
             MultiEraInput::Byron(x) => match x.deref().deref() {
                 byron::TxIn::Variant0(CborWrap((tx, idx))) => {
-                    Some(OutputRef(Cow::Borrowed(tx), *idx as u64))
+                    Some(OutputRef(tx.clone(), *idx as u64))
                 }
                 byron::TxIn::Other(_, _) => None,
             },
             MultiEraInput::AlonzoCompatible(x) => {
-                Some(OutputRef(Cow::Borrowed(&x.transaction_id), x.index))
+                Some(OutputRef(x.transaction_id.clone(), x.index))
             }
         }
     }
@@ -62,6 +83,8 @@ impl<'b> MultiEraInput<'b> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::*;
 
     #[test]
@@ -97,6 +120,24 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_utxo_ref_parsing() {
+        let valid_vectors = [
+            "da832fb5ef57df5b91817e9a7448d26e92552afb34f8ee5adb491b24bbe990d5#14",
+            " da832fb5ef57df5b91817e9a7448d26e92552afb34f8ee5adb491b24bbe990d5#14 ",
+        ];
+
+        for vector in valid_vectors.iter() {
+            let sample = OutputRef::from_str(vector).unwrap();
+
+            assert_eq!(
+                sample.tx_id().to_string(),
+                "da832fb5ef57df5b91817e9a7448d26e92552afb34f8ee5adb491b24bbe990d5"
+            );
+            assert_eq!(sample.tx_index(), 14);
         }
     }
 }
