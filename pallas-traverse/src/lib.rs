@@ -67,7 +67,7 @@ pub enum MultiEraTx<'b> {
     Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraOutput<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
@@ -75,7 +75,7 @@ pub enum MultiEraOutput<'b> {
     Byron(Box<Cow<'b, byron::TxOut>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraInput<'b> {
     Byron(Box<Cow<'b, byron::TxIn>>),
@@ -87,7 +87,8 @@ pub enum MultiEraCert<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
 }
 
-pub struct OutputRef<'a>(Cow<'a, Hash<32>>, u64);
+#[derive(Debug, Clone)]
+pub struct OutputRef(Hash<32>, u64);
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -102,6 +103,9 @@ pub enum Error {
 
     #[error("Invalid era for request: {0}")]
     InvalidEra(Era),
+
+    #[error("Invalid UTxO ref: {0}")]
+    InvalidUtxoRef(String),
 }
 
 impl Error {
@@ -111,5 +115,9 @@ impl Error {
 
     pub fn unknown_cbor(bytes: &[u8]) -> Self {
         Error::UnknownCbor(hex::encode(bytes))
+    }
+
+    pub fn invalid_utxo_ref(str: &str) -> Self {
+        Error::InvalidUtxoRef(str.to_owned())
     }
 }

@@ -1,8 +1,9 @@
 use std::{borrow::Cow, ops::Deref};
 
+use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::MultiEraOutput;
+use crate::{Era, MultiEraOutput};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -68,6 +69,34 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::AlonzoCompatible(_) => None,
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(x) => Some(x),
+        }
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, minicbor::encode::Error<std::io::Error>> {
+        match self {
+            Self::AlonzoCompatible(x) => minicbor::to_vec(x),
+            Self::Babbage(x) => minicbor::to_vec(x),
+            Self::Byron(x) => minicbor::to_vec(x),
+        }
+    }
+
+    pub fn decode(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
+        match era {
+            Era::Byron => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Byron(tx))
+            }
+            Era::Shelley | Era::Allegra | Era::Mary | Era::Alonzo => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::AlonzoCompatible(tx))
+            }
+            Era::Babbage => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Babbage(tx))
+            }
         }
     }
 }
