@@ -1048,7 +1048,15 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
             | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode_with(ctx)?)),
             minicbor::data::Type::Map => Ok(Self::Map(d.decode_with(ctx)?)),
             minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
-            minicbor::data::Type::BytesIndef => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
+            minicbor::data::Type::BytesIndef => {
+                let mut full = Vec::new();
+
+                for slice in d.bytes_iter()? {
+                    full.extend(slice?);
+                }
+
+                Ok(Self::BoundedBytes(ByteVec::from(full)))
+            }
             minicbor::data::Type::Array => Ok(Self::Array(d.decode_with(ctx)?)),
             minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode_with(ctx)?)),
 
@@ -1241,7 +1249,7 @@ pub struct TransactionWitnessSet {
     #[n(3)]
     pub plutus_script: Option<MaybeIndefArray<PlutusScript>>,
 
-    #[n(4)]
+    #[b(4)]
     pub plutus_data: Option<MaybeIndefArray<PlutusData>>,
 
     #[n(5)]
@@ -1442,10 +1450,13 @@ pub struct BlockWrapper<'b>(#[n(0)] pub u16, #[b(1)] pub Block<'b>);
 pub struct Transaction {
     #[n(0)]
     transaction_body: TransactionBody,
-    #[n(1)]
+
+    #[b(1)]
     transaction_witness_set: TransactionWitnessSet,
+
     #[n(2)]
     success: bool,
+
     #[n(3)]
     auxiliary_data: Option<AuxiliaryData>,
 }
