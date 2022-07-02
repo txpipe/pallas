@@ -536,7 +536,7 @@ pub struct MintedBlock<'b> {
     pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
 
     #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
+    pub transaction_witness_sets: MaybeIndefArray<KeepRaw<'b, TransactionWitnessSet>>,
 
     #[n(3)]
     pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
@@ -566,7 +566,7 @@ pub struct MintedTx<'b> {
     pub transaction_body: KeepRaw<'b, TransactionBody>,
 
     #[n(1)]
-    pub transaction_witness_set: TransactionWitnessSet,
+    pub transaction_witness_set: KeepRaw<'b, TransactionWitnessSet>,
 
     #[n(2)]
     pub success: bool,

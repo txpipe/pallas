@@ -944,7 +944,15 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
             | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode_with(ctx)?)),
             minicbor::data::Type::Map => Ok(Self::Map(d.decode_with(ctx)?)),
             minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
-            minicbor::data::Type::BytesIndef => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
+            minicbor::data::Type::BytesIndef => {
+                let mut full = Vec::new();
+
+                for slice in d.bytes_iter()? {
+                    full.extend(slice?);
+                }
+
+                Ok(Self::BoundedBytes(ByteVec::from(full)))
+            }
             minicbor::data::Type::Array => Ok(Self::Array(d.decode_with(ctx)?)),
             minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode_with(ctx)?)),
 
@@ -1340,7 +1348,7 @@ pub struct MintedBlock<'b> {
     pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
 
     #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
+    pub transaction_witness_sets: MaybeIndefArray<KeepRaw<'b, TransactionWitnessSet>>,
 
     #[n(3)]
     pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
@@ -1370,7 +1378,7 @@ pub struct MintedTx<'b> {
     pub transaction_body: KeepRaw<'b, TransactionBody>,
 
     #[n(1)]
-    pub transaction_witness_set: TransactionWitnessSet,
+    pub transaction_witness_set: KeepRaw<'b, TransactionWitnessSet>,
 
     #[n(2)]
     pub success: bool,
@@ -1429,6 +1437,8 @@ mod tests {
             include_str!("../../../test_data/alonzo21.block"),
             // peculiar block with bad tx hash
             include_str!("../../../test_data/alonzo22.block"),
+            // peculiar block with indef byte array in plutus data
+            include_str!("../../../test_data/alonzo23.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
