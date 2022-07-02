@@ -1259,10 +1259,10 @@ pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct ShelleyMaAuxiliaryDAta {
     #[n(0)]
-    transaction_metadata: Metadata,
+    pub transaction_metadata: Metadata,
 
     #[n(1)]
-    auxiliary_scripts: Option<MaybeIndefArray<NativeScript>>,
+    pub auxiliary_scripts: Option<MaybeIndefArray<NativeScript>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
