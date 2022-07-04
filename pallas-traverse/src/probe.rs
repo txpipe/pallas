@@ -29,6 +29,7 @@ pub fn block_era(cbor: &[u8]) -> Outcome {
             3 => Outcome::Matched(Era::Allegra),
             4 => Outcome::Matched(Era::Mary),
             5 => Outcome::Matched(Era::Alonzo),
+            6 => Outcome::Matched(Era::Babbage),
             _ => Outcome::Inconclusive,
         },
         _ => Outcome::Inconclusive,
