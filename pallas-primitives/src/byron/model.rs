@@ -51,7 +51,7 @@ pub type Attributes = EmptyMap;
 
 // Addresses
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum AddrDistr {
     Variant0(StakeholderId),
     Variant1,
@@ -96,7 +96,7 @@ impl minicbor::Encode<()> for AddrDistr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum AddrType {
     PubKey,
     Script,
@@ -137,7 +137,7 @@ impl<C> minicbor::Encode<C> for AddrType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     Bytes(ByteVec),
@@ -187,7 +187,7 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
 
 pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
 
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, PartialOrd)]
 pub struct AddressPayload {
     #[n(0)]
     pub root: AddressId,
@@ -200,7 +200,7 @@ pub struct AddressPayload {
 }
 
 // address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, PartialOrd)]
 pub struct Address {
     #[n(0)]
     pub payload: CborWrap<AddressPayload>,
