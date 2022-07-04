@@ -55,7 +55,7 @@ mod tests {
     use pallas_codec::utils::MaybeIndefArray;
     use pallas_crypto::hash::Hash;
 
-    use crate::alonzo::{BigInt, Constr, MintedBlock, NativeScript, PlutusData};
+    use crate::alonzo::{BigInt, Constr, MintedBlock, NativeScript, PlutusData, PlutusScript};
     use crate::ToHash;
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
@@ -144,5 +144,21 @@ mod tests {
             pd.to_hash(),
             Hash::<32>::from_str(cardano_cli_output).unwrap()
         )
+    }
+
+    #[test]
+    fn plutus_script_hashes_as_cardano_cli() {
+        let bytecode_hex = include_str!("../../../test_data/jpgstore.plutus");
+        let bytecode = hex::decode(bytecode_hex).unwrap();
+        let script: PlutusScript = pallas_codec::minicbor::decode(&bytecode).unwrap();
+
+        let generated = script.to_hash().to_string();
+
+        assert_eq!(
+            generated,
+            // this is the payment script hash from the address:
+            // addr1w999n67e86jn6xal07pzxtrmqynspgx0fwmcmpua4wc6yzsxpljz3
+            "4a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"
+        );
     }
 }
