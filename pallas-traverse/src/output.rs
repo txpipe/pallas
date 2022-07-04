@@ -1,5 +1,6 @@
 use std::{borrow::Cow, ops::Deref};
 
+use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron};
 
@@ -18,13 +19,14 @@ impl<'b> MultiEraOutput<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn address(&self, hrp: &str) -> String {
+    pub fn to_address(&self) -> Result<Address, AddressError> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => {
-                x.to_bech32_address(hrp).expect("invalid address value")
-            }
-            MultiEraOutput::Babbage(x) => x.to_bech32_address(hrp).expect("invalid address value"),
-            MultiEraOutput::Byron(x) => x.address.to_addr_string().expect("invalid address value"),
+            MultiEraOutput::AlonzoCompatible(x) => Address::from_bytes(&x.address),
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                babbage::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+            },
+            MultiEraOutput::Byron(x) => Ok(ByronAddress::new(x.address.clone()).into()),
         }
     }
 

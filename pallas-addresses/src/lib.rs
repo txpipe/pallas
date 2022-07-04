@@ -28,6 +28,9 @@ pub enum Error {
     #[error("invalid operation for Byron address")]
     InvalidForByron,
 
+    #[error("invalid CBOR for Byron address")]
+    InvalidByronCbor,
+
     #[error("unkown hrp for network {0:08b}")]
     UnknownNetworkHrp(u8),
 
@@ -231,9 +234,15 @@ pub enum StakePayload {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct StakeAddress(Network, StakePayload);
 
-/// Newtype representing a Byron address
+/// New type wrapping a Byron address primitive
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct ByronAddress(Vec<u8>);
+pub struct ByronAddress(pallas_primitives::byron::Address);
+
+impl ByronAddress {
+    pub fn new(primitive: pallas_primitives::byron::Address) -> Self {
+        Self(primitive)
+    }
+}
 
 /// A decoded Cardano address of any type
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -325,7 +334,8 @@ parse_shelley_fn!(parse_type_7, script_hash);
 // type 8 (1000) are Byron addresses
 fn parse_type_8(header: u8, payload: &[u8]) -> Result<Address, Error> {
     let vec = [&[header], payload].concat();
-    Ok(Address::Byron(ByronAddress(vec)))
+    let prim = pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
+    Ok(Address::Byron(ByronAddress(prim)))
 }
 
 // types 14-15 are Stake addresses
@@ -378,18 +388,12 @@ impl ByronAddress {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        self.0.clone()
+        pallas_codec::minicbor::to_vec(&self.0).unwrap()
     }
 
     pub fn to_hex(&self) -> String {
         let bytes = self.to_vec();
         hex::encode(bytes)
-    }
-}
-
-impl AsRef<[u8]> for ByronAddress {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
     }
 }
 
@@ -554,6 +558,11 @@ impl Address {
         bech32_to_address(bech32)
     }
 
+    // Tries to decode the raw bytes of an address
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        bytes_to_address(bytes)
+    }
+
     /// Gets the network assoaciated with this address
     pub fn network(&self) -> Option<Network> {
         match self {
@@ -612,6 +621,14 @@ impl Address {
             Address::Shelley(x) => x.to_hex(),
             Address::Stake(x) => x.to_hex(),
         }
+    }
+}
+
+impl TryFrom<&[u8]> for Address {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        bytes_to_address(value)
     }
 }
 
