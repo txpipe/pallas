@@ -186,7 +186,7 @@ where
 /// transform key-value structures into an orderer vec of `properties`, where
 /// each entry represents a a cbor-encodable variant of an attribute of the
 /// struct.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub struct OrderPreservingProperties<P>(Vec<P>);
 
 impl<P> Deref for OrderPreservingProperties<P> {

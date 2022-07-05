@@ -28,6 +28,9 @@ pub enum Error {
     #[error("invalid operation for Byron address")]
     InvalidForByron,
 
+    #[error("invalid CBOR for Byron address")]
+    InvalidByronCbor,
+
     #[error("unkown hrp for network {0:08b}")]
     UnknownNetworkHrp(u8),
 
@@ -42,9 +45,7 @@ pub enum Error {
 }
 
 pub type PaymentKeyHash = Hash<28>;
-
 pub type StakeKeyHash = Hash<28>;
-
 pub type ScriptHash = Hash<28>;
 
 pub type Slot = u64;
@@ -104,23 +105,23 @@ impl Pointer {
 /// The payment part of a Shelley address
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum ShelleyPaymentPart {
-    PaymentKey(PaymentKeyHash),
+    Key(PaymentKeyHash),
     Script(ScriptHash),
 }
 
 impl ShelleyPaymentPart {
-    fn payment_key(bytes: &[u8]) -> Result<Self, Error> {
-        slice_to_hash(bytes).map(ShelleyPaymentPart::PaymentKey)
+    pub fn key_hash(hash: Hash<28>) -> Self {
+        Self::Key(hash)
     }
 
-    fn script(bytes: &[u8]) -> Result<Self, Error> {
-        slice_to_hash(bytes).map(ShelleyPaymentPart::Script)
+    pub fn script_hash(hash: Hash<28>) -> Self {
+        Self::Script(hash)
     }
 
     /// Get a reference to the inner hash of this address part
     pub fn as_hash(&self) -> &Hash<28> {
         match self {
-            Self::PaymentKey(x) => x,
+            Self::Key(x) => x,
             Self::Script(x) => x,
         }
     }
@@ -128,7 +129,7 @@ impl ShelleyPaymentPart {
     /// Encodes this address as a sequence of bytes
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Self::PaymentKey(x) => x.to_vec(),
+            Self::Key(x) => x.to_vec(),
             Self::Script(x) => x.to_vec(),
         }
     }
@@ -142,22 +143,22 @@ impl ShelleyPaymentPart {
 /// The delegation part of a Shelley address
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum ShelleyDelegationPart {
-    StakeKey(StakeKeyHash),
+    Key(StakeKeyHash),
     Script(ScriptHash),
     Pointer(Pointer),
     Null,
 }
 
 impl ShelleyDelegationPart {
-    fn stake_key(bytes: &[u8]) -> Result<Self, Error> {
-        slice_to_hash(bytes).map(Self::StakeKey)
+    pub fn key_hash(hash: Hash<28>) -> Self {
+        Self::Key(hash)
     }
 
-    fn script(bytes: &[u8]) -> Result<Self, Error> {
-        slice_to_hash(bytes).map(Self::Script)
+    pub fn script_hash(hash: Hash<28>) -> Self {
+        Self::Script(hash)
     }
 
-    fn pointer(bytes: &[u8]) -> Result<Self, Error> {
+    pub fn from_pointer(bytes: &[u8]) -> Result<Self, Error> {
         let pointer = Pointer::parse(bytes)?;
         Ok(Self::Pointer(pointer))
     }
@@ -165,7 +166,7 @@ impl ShelleyDelegationPart {
     /// Get a reference to the inner hash of this address part
     pub fn as_hash(&self) -> Option<&Hash<28>> {
         match self {
-            Self::StakeKey(x) => Some(x),
+            Self::Key(x) => Some(x),
             Self::Script(x) => Some(x),
             Self::Pointer(_) => todo!(),
             Self::Null => todo!(),
@@ -174,7 +175,7 @@ impl ShelleyDelegationPart {
 
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Self::StakeKey(x) => x.to_vec(),
+            Self::Key(x) => x.to_vec(),
             Self::Script(x) => x.to_vec(),
             Self::Pointer(x) => x.to_vec(),
             Self::Null => vec![],
@@ -208,6 +209,16 @@ pub enum Network {
     Other(u8),
 }
 
+impl From<u8> for Network {
+    fn from(id: u8) -> Self {
+        match id {
+            0 => Network::Testnet,
+            1 => Network::Mainnet,
+            x => Network::Other(x),
+        }
+    }
+}
+
 /// A decoded Shelley address
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ShelleyAddress(Network, ShelleyPaymentPart, ShelleyDelegationPart);
@@ -223,9 +234,15 @@ pub enum StakePayload {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct StakeAddress(Network, StakePayload);
 
-/// Newtype representing a Byron address
+/// New type wrapping a Byron address primitive
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct ByronAddress(Vec<u8>);
+pub struct ByronAddress(pallas_primitives::byron::Address);
+
+impl ByronAddress {
+    pub fn new(primitive: pallas_primitives::byron::Address) -> Self {
+        Self(primitive)
+    }
+}
 
 /// A decoded Cardano address of any type
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -260,8 +277,9 @@ macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt, pointer) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             let net = parse_network(header);
-            let p1 = ShelleyPaymentPart::$payment(&payload[0..=27])?;
-            let p2 = ShelleyDelegationPart::pointer(&payload[28..])?;
+            let h1 = slice_to_hash(&payload[0..=27])?;
+            let p1 = ShelleyPaymentPart::$payment(h1);
+            let p2 = ShelleyDelegationPart::from_pointer(&payload[28..])?;
             let addr = ShelleyAddress(net, p1, p2);
 
             Ok(addr.into())
@@ -270,8 +288,10 @@ macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt, $delegation:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             let net = parse_network(header);
-            let p1 = ShelleyPaymentPart::$payment(&payload[0..=27])?;
-            let p2 = ShelleyDelegationPart::$delegation(&payload[28..=55])?;
+            let h1 = slice_to_hash(&payload[0..=27])?;
+            let p1 = ShelleyPaymentPart::$payment(h1);
+            let h2 = slice_to_hash(&payload[28..=55])?;
+            let p2 = ShelleyDelegationPart::$delegation(h2);
             let addr = ShelleyAddress(net, p1, p2);
 
             Ok(addr.into())
@@ -280,7 +300,8 @@ macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             let net = parse_network(header);
-            let p1 = ShelleyPaymentPart::$payment(&payload[0..=27])?;
+            let h1 = slice_to_hash(&payload[0..=27])?;
+            let p1 = ShelleyPaymentPart::$payment(h1);
             let addr = ShelleyAddress(net, p1, ShelleyDelegationPart::Null);
 
             Ok(addr.into())
@@ -301,19 +322,20 @@ macro_rules! parse_stake_fn {
 }
 
 // types 0-7 are Shelley addresses
-parse_shelley_fn!(parse_type_0, payment_key, stake_key);
-parse_shelley_fn!(parse_type_1, script, stake_key);
-parse_shelley_fn!(parse_type_2, payment_key, script);
-parse_shelley_fn!(parse_type_3, script, script);
-parse_shelley_fn!(parse_type_4, payment_key, pointer);
-parse_shelley_fn!(parse_type_5, script, pointer);
-parse_shelley_fn!(parse_type_6, payment_key);
-parse_shelley_fn!(parse_type_7, script);
+parse_shelley_fn!(parse_type_0, key_hash, key_hash);
+parse_shelley_fn!(parse_type_1, script_hash, key_hash);
+parse_shelley_fn!(parse_type_2, key_hash, script_hash);
+parse_shelley_fn!(parse_type_3, script_hash, script_hash);
+parse_shelley_fn!(parse_type_4, key_hash, pointer);
+parse_shelley_fn!(parse_type_5, script_hash, pointer);
+parse_shelley_fn!(parse_type_6, key_hash);
+parse_shelley_fn!(parse_type_7, script_hash);
 
 // type 8 (1000) are Byron addresses
 fn parse_type_8(header: u8, payload: &[u8]) -> Result<Address, Error> {
     let vec = [&[header], payload].concat();
-    Ok(Address::Byron(ByronAddress(vec)))
+    let prim = pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
+    Ok(Address::Byron(ByronAddress(prim)))
 }
 
 // types 14-15 are Stake addresses
@@ -345,22 +367,6 @@ fn bech32_to_address(bech32: &str) -> Result<Address, Error> {
     bytes_to_address(&bytes)
 }
 
-fn address_to_bech32(addr: &Address) -> Result<String, Error> {
-    match addr {
-        Address::Byron(_) => Err(Error::InvalidForByron),
-        Address::Shelley(ref x) => {
-            let hrp = x.hrp()?;
-            let bytes = x.to_vec();
-            encode_bech32(&bytes, hrp)
-        }
-        Address::Stake(ref x) => {
-            let hrp = x.hrp()?;
-            let bytes = x.to_vec();
-            encode_bech32(&bytes, hrp)
-        }
-    }
-}
-
 impl Network {
     pub fn is_mainnet(&self) -> bool {
         matches!(self, Network::Mainnet)
@@ -380,9 +386,26 @@ impl ByronAddress {
     pub fn typeid(&self) -> u8 {
         0b1000
     }
+
+    fn to_vec(&self) -> Vec<u8> {
+        pallas_codec::minicbor::to_vec(&self.0).unwrap()
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
+    }
 }
 
 impl ShelleyAddress {
+    pub fn new(
+        network: Network,
+        payment: ShelleyPaymentPart,
+        delegation: ShelleyDelegationPart,
+    ) -> Self {
+        Self(network, payment, delegation)
+    }
+
     /// Gets the network assoaciated with this address
     pub fn network(&self) -> Network {
         self.0
@@ -391,13 +414,13 @@ impl ShelleyAddress {
     /// Gets a numeric id describing the type of the address
     pub fn typeid(&self) -> u8 {
         match (&self.1, &self.2) {
-            (ShelleyPaymentPart::PaymentKey(_), ShelleyDelegationPart::StakeKey(_)) => 0b0000,
-            (ShelleyPaymentPart::Script(_), ShelleyDelegationPart::StakeKey(_)) => 0b0001,
-            (ShelleyPaymentPart::PaymentKey(_), ShelleyDelegationPart::Script(_)) => 0b0010,
+            (ShelleyPaymentPart::Key(_), ShelleyDelegationPart::Key(_)) => 0b0000,
+            (ShelleyPaymentPart::Script(_), ShelleyDelegationPart::Key(_)) => 0b0001,
+            (ShelleyPaymentPart::Key(_), ShelleyDelegationPart::Script(_)) => 0b0010,
             (ShelleyPaymentPart::Script(_), ShelleyDelegationPart::Script(_)) => 0b0011,
-            (ShelleyPaymentPart::PaymentKey(_), ShelleyDelegationPart::Pointer(_)) => 0b0100,
+            (ShelleyPaymentPart::Key(_), ShelleyDelegationPart::Pointer(_)) => 0b0100,
             (ShelleyPaymentPart::Script(_), ShelleyDelegationPart::Pointer(_)) => 0b0101,
-            (ShelleyPaymentPart::PaymentKey(_), ShelleyDelegationPart::Null) => 0b0110,
+            (ShelleyPaymentPart::Key(_), ShelleyDelegationPart::Null) => 0b0110,
             (ShelleyPaymentPart::Script(_), ShelleyDelegationPart::Null) => 0b0111,
         }
     }
@@ -433,6 +456,17 @@ impl ShelleyAddress {
         let delegation = self.2.to_vec();
 
         [&[header], payment.as_slice(), delegation.as_slice()].concat()
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
+    }
+
+    pub fn to_bech32(&self) -> Result<String, Error> {
+        let hrp = self.hrp()?;
+        let bytes = self.to_vec();
+        encode_bech32(&bytes, hrp)
     }
 
     /// Indicates if either the payment or delegation part is a script
@@ -493,6 +527,17 @@ impl StakeAddress {
         [&[header], self.1.as_ref()].concat()
     }
 
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
+    }
+
+    pub fn to_bech32(&self) -> Result<String, Error> {
+        let hrp = self.hrp()?;
+        let bytes = self.to_vec();
+        encode_bech32(&bytes, hrp)
+    }
+
     pub fn is_script(&self) -> bool {
         self.payload().is_script()
     }
@@ -501,12 +546,21 @@ impl StakeAddress {
 impl Address {
     /// Tries to encode an Address into a bech32 string
     pub fn to_bech32(&self) -> Result<String, Error> {
-        address_to_bech32(self)
+        match self {
+            Address::Byron(_) => Err(Error::InvalidForByron),
+            Address::Shelley(x) => x.to_bech32(),
+            Address::Stake(x) => x.to_bech32(),
+        }
     }
 
     /// Tries to parse a bech32 address into an Address
     pub fn from_bech32(bech32: &str) -> Result<Self, Error> {
         bech32_to_address(bech32)
+    }
+
+    // Tries to decode the raw bytes of an address
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        bytes_to_address(bytes)
     }
 
     /// Gets the network assoaciated with this address
@@ -551,6 +605,30 @@ impl Address {
             Address::Shelley(x) => matches!(x.delegation(), ShelleyDelegationPart::Null),
             _ => false,
         }
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Address::Byron(x) => x.to_vec(),
+            Address::Shelley(x) => x.to_vec(),
+            Address::Stake(x) => x.to_vec(),
+        }
+    }
+
+    pub fn to_hex(&self) -> String {
+        match self {
+            Address::Byron(x) => x.to_hex(),
+            Address::Shelley(x) => x.to_hex(),
+            Address::Stake(x) => x.to_hex(),
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for Address {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        bytes_to_address(value)
     }
 }
 
@@ -639,7 +717,7 @@ mod tests {
             match addr {
                 Address::Shelley(x) => {
                     match x.payment() {
-                        ShelleyPaymentPart::PaymentKey(hash) => {
+                        ShelleyPaymentPart::Key(hash) => {
                             let expected = &hash_vector_key(PAYMENT_PUBLIC_KEY);
                             assert_eq!(hash, expected);
                         }
@@ -651,7 +729,7 @@ mod tests {
                     };
 
                     match x.delegation() {
-                        ShelleyDelegationPart::StakeKey(hash) => {
+                        ShelleyDelegationPart::Key(hash) => {
                             let expected = &hash_vector_key(STAKE_PUBLIC_KEY);
                             assert_eq!(hash, expected);
                         }
@@ -682,5 +760,20 @@ mod tests {
                 Address::Byron(_) => (),
             };
         }
+    }
+
+    #[test]
+    fn construct_from_parts() {
+        let payment_hash = hash_vector_key(PAYMENT_PUBLIC_KEY);
+        let delegation_hash = hash_vector_key(STAKE_PUBLIC_KEY);
+
+        let addr: Address = ShelleyAddress::new(
+            Network::Mainnet,
+            ShelleyPaymentPart::key_hash(payment_hash),
+            ShelleyDelegationPart::key_hash(delegation_hash),
+        )
+        .into();
+
+        assert_eq!(addr.to_bech32().unwrap(), MAINNET_TEST_VECTORS[0].0);
     }
 }
