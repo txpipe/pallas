@@ -14,6 +14,7 @@ pub mod cert;
 pub mod era;
 pub mod header;
 pub mod input;
+pub mod meta;
 pub mod output;
 pub mod probe;
 mod support;
@@ -86,6 +87,8 @@ pub enum MultiEraCert<'b> {
     NotApplicable,
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
 }
+
+pub struct MultiEraMeta<'b>(Cow<'b, alonzo::Metadata>);
 
 #[derive(Debug, Clone)]
 pub struct OutputRef(Hash<32>, u64);
