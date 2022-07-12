@@ -16,6 +16,8 @@ const PROTOCOL_V7: u64 = 32775;
 const PROTOCOL_V8: u64 = 32776;
 const PROTOCOL_V9: u64 = 32777;
 const PROTOCOL_V10: u64 = 32778;
+const PROTOCOL_V11: u64 = 32779;
+const PROTOCOL_V12: u64 = 32780;
 
 impl VersionTable {
     pub fn v1_and_above(network_magic: u64) -> VersionTable {
@@ -30,6 +32,8 @@ impl VersionTable {
             (PROTOCOL_V8, VersionData(network_magic)),
             (PROTOCOL_V9, VersionData(network_magic)),
             (PROTOCOL_V10, VersionData(network_magic)),
+            (PROTOCOL_V11, VersionData(network_magic)),
+            (PROTOCOL_V12, VersionData(network_magic)),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -39,6 +43,19 @@ impl VersionTable {
 
     pub fn only_v10(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V10, VersionData(network_magic))]
+            .into_iter()
+            .collect::<HashMap<u64, VersionData>>();
+
+        VersionTable { values }
+    }
+
+    pub fn v10_and_above(network_magic: u64) -> VersionTable {
+        let values = vec![
+            (PROTOCOL_V10, VersionData(network_magic)),
+            (PROTOCOL_V11, VersionData(network_magic)),
+            (PROTOCOL_V12, VersionData(network_magic)),
+
+            ]
             .into_iter()
             .collect::<HashMap<u64, VersionData>>();
 

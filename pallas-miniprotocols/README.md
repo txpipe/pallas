@@ -19,6 +19,7 @@ The following architectural decisions were made for this particular Rust impleme
 | handshake           | done      | planned   |
 | local-state         | done      | planned   |
 | tx-submission       | planned   | minimal   |
+| local tx monitor    | done      | planned   |
 | local-tx-submission | ongoing   | planned   |
 
 ## Implementation Details
