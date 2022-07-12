@@ -1,9 +1,12 @@
-use pallas_codec::minicbor;
+use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron, ToHash};
+use pallas_primitives::{
+    alonzo::{self, AuxiliaryData},
+    babbage, byron, ToHash,
+};
 use std::{borrow::Cow, ops::Deref};
 
-use crate::{Era, MultiEraCert, MultiEraInput, MultiEraOutput, MultiEraTx, MultiEraMeta};
+use crate::{Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
@@ -148,19 +151,23 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn metadata(&self) -> Option<MultiEraMeta> {
+    fn aux_data(&self) -> Option<&KeepRaw<'_, AuxiliaryData>> {
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => x.auxiliary_data.map(|x| x.deref()).map(|x| match x {
-                alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta(Cow::Borrowed(x)),
-                alonzo::AuxiliaryData::ShelleyMa(x) => MultiEraMeta(Cow::Borrowed(&x.transaction_metadata)),
-                alonzo::AuxiliaryData::PostAlonzo(x) => MultiEraMeta(Cow::Borrowed(x.metadata)),
-            })
-            MultiEraTx::Babbage(x) => x.auxiliary_data.map(|x| x.deref()).map(|x| match x {
-                alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta(Cow::Borrowed(x)),
-                alonzo::AuxiliaryData::ShelleyMa(x) => MultiEraMeta(Cow::Borrowed(&x.transaction_metadata)),
-                alonzo::AuxiliaryData::PostAlonzo(x) => MultiEraMeta(Cow::Borrowed(x.metadata)),
-            }),
+            MultiEraTx::AlonzoCompatible(x, _) => x.auxiliary_data.as_ref(),
+            MultiEraTx::Babbage(x) => x.auxiliary_data.as_ref(),
             MultiEraTx::Byron(_) => None,
+        }
+    }
+
+    pub fn metadata(&self) -> Option<MultiEraMeta> {
+        match self.aux_data()?.deref() {
+            AuxiliaryData::Shelley(x) => MultiEraMeta(Cow::Borrowed(x)).into(),
+            AuxiliaryData::ShelleyMa(x) => {
+                MultiEraMeta(Cow::Borrowed(&x.transaction_metadata)).into()
+            }
+            AuxiliaryData::PostAlonzo(x) => {
+                x.metadata.as_ref().map(|x| MultiEraMeta(Cow::Borrowed(x)))
+            }
         }
     }
 
