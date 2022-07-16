@@ -273,7 +273,7 @@ impl<T> Deref for CborWrap<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct TagWrap<I, const T: u64>(I);
 
 impl<I, const T: u64> TagWrap<I, T> {
@@ -306,6 +306,14 @@ where
         e.encode_with(&self.0, ctx)?;
 
         Ok(())
+    }
+}
+
+impl<I, const T: u64> Deref for TagWrap<I, T> {
+    type Target = I;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

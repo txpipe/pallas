@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use pallas_codec::minicbor;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::ToHash;
@@ -11,21 +13,30 @@ impl<'b> MultiEraHeader<'b> {
             0 => match subtag {
                 Some(0) => {
                     let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
-                    Ok(MultiEraHeader::EpochBoundary(header))
+                    Ok(MultiEraHeader::EpochBoundary(Cow::Owned(header)))
                 }
                 _ => {
                     let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
-                    Ok(MultiEraHeader::Byron(header))
+                    Ok(MultiEraHeader::Byron(Cow::Owned(header)))
                 }
             },
             5 => {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
-                Ok(MultiEraHeader::Babbage(header))
+                Ok(MultiEraHeader::Babbage(Cow::Owned(header)))
             }
             _ => {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
-                Ok(MultiEraHeader::AlonzoCompatible(header))
+                Ok(MultiEraHeader::AlonzoCompatible(Cow::Owned(header)))
             }
+        }
+    }
+
+    pub fn cbor(&self) -> &'b [u8] {
+        match self {
+            MultiEraHeader::EpochBoundary(x) => x.raw_cbor(),
+            MultiEraHeader::AlonzoCompatible(x) => x.raw_cbor(),
+            MultiEraHeader::Babbage(x) => x.raw_cbor(),
+            MultiEraHeader::Byron(x) => x.raw_cbor(),
         }
     }
 

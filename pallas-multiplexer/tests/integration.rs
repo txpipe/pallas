@@ -4,12 +4,7 @@ use std::{
 };
 
 use log::info;
-use pallas_codec::minicbor;
-use pallas_multiplexer::{
-    agents::{Channel, ChannelBuffer},
-    bearers::Bearer,
-    Payload, StdPlexer,
-};
+use pallas_multiplexer::{agents::Channel, bearers::Bearer, StdPlexer};
 use rand::{distributions::Uniform, Rng};
 
 fn setup_passive_muxer<const P: u16>() -> JoinHandle<StdPlexer> {
