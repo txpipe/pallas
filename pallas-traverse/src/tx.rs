@@ -178,16 +178,14 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .collateral
                 .iter()
-                .map(|x| x.iter())
-                .flatten()
+                .flat_map(|x| x.iter())
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .collateral
                 .iter()
-                .map(|x| x.iter())
-                .flatten()
+                .flat_map(|x| x.iter())
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
             MultiEraTx::Byron(_) => vec![],
@@ -219,11 +217,9 @@ impl<'b> MultiEraTx<'b> {
     pub fn metadata(&'b self) -> MultiEraMeta<'b> {
         match self.aux_data() {
             Some(x) => match x.deref() {
-                AuxiliaryData::Shelley(x) => {
-                    MultiEraMeta::AlonzoCompatible(Cow::Borrowed(x)).into()
-                }
+                AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(Cow::Borrowed(x)),
                 AuxiliaryData::ShelleyMa(x) => {
-                    MultiEraMeta::AlonzoCompatible(Cow::Borrowed(&x.transaction_metadata)).into()
+                    MultiEraMeta::AlonzoCompatible(Cow::Borrowed(&x.transaction_metadata))
                 }
                 AuxiliaryData::PostAlonzo(x) => x
                     .metadata
