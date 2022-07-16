@@ -2,15 +2,15 @@ use std::borrow::Cow;
 
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron, ToHash};
+use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::{probe, support, Era, Error, MultiEraBlock, MultiEraTx};
+use crate::{probe, support, Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx};
 
 type BlockWrapper<T> = (u16, T);
 
 impl<'b> MultiEraBlock<'b> {
     pub fn decode_epoch_boundary(cbor: &'b [u8]) -> Result<Self, Error> {
-        let (_, block): BlockWrapper<byron::EbBlock> =
+        let (_, block): BlockWrapper<byron::MintedEbBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
         Ok(Self::EpochBoundary(Box::new(Cow::Owned(block))))
@@ -85,25 +85,22 @@ impl<'b> MultiEraBlock<'b> {
         }
     }
 
-    pub fn number(&self) -> u64 {
+    pub fn header(&self) -> MultiEraHeader<'_> {
         match self {
-            MultiEraBlock::EpochBoundary(x) => x
-                .header
-                .consensus_data
-                .difficulty
-                .first()
-                .cloned()
-                .unwrap_or_default(),
-            MultiEraBlock::AlonzoCompatible(x, _) => x.header.header_body.block_number,
-            MultiEraBlock::Babbage(x) => x.header.header_body.block_number,
-            MultiEraBlock::Byron(x) => x
-                .header
-                .consensus_data
-                .2
-                .first()
-                .cloned()
-                .unwrap_or_default(),
+            MultiEraBlock::EpochBoundary(x) => {
+                MultiEraHeader::EpochBoundary(Cow::Borrowed(&x.header))
+            }
+            MultiEraBlock::Byron(x) => MultiEraHeader::Byron(Cow::Borrowed(&x.header)),
+            MultiEraBlock::AlonzoCompatible(x, _) => {
+                MultiEraHeader::AlonzoCompatible(Cow::Borrowed(&x.header))
+            }
+            MultiEraBlock::Babbage(x) => MultiEraHeader::Babbage(Cow::Borrowed(&x.header)),
         }
+    }
+
+    /// Returns the block number (aka: height)
+    pub fn number(&self) -> u64 {
+        self.header().number()
     }
 
     pub fn era(&self) -> Era {
@@ -116,23 +113,14 @@ impl<'b> MultiEraBlock<'b> {
     }
 
     pub fn hash(&self) -> Hash<32> {
-        match self {
-            MultiEraBlock::EpochBoundary(x) => x.header.to_hash(),
-            MultiEraBlock::AlonzoCompatible(x, _) => x.header.to_hash(),
-            MultiEraBlock::Babbage(x) => x.header.to_hash(),
-            MultiEraBlock::Byron(x) => x.header.to_hash(),
-        }
+        self.header().hash()
     }
 
     pub fn slot(&self) -> u64 {
-        match self {
-            MultiEraBlock::EpochBoundary(x) => x.header.to_abs_slot(),
-            MultiEraBlock::AlonzoCompatible(x, _) => x.header.header_body.slot,
-            MultiEraBlock::Babbage(x) => x.header.header_body.slot,
-            MultiEraBlock::Byron(x) => x.header.consensus_data.0.to_abs_slot(),
-        }
+        self.header().slot()
     }
 
+    /// Builds a vec with the Txs of the block
     pub fn txs(&self) -> Vec<MultiEraTx> {
         match self {
             MultiEraBlock::AlonzoCompatible(x, era) => support::clone_alonzo_txs(x)
@@ -148,6 +136,36 @@ impl<'b> MultiEraBlock<'b> {
                 .map(|x| MultiEraTx::Byron(Box::new(Cow::Owned(x))))
                 .collect(),
             MultiEraBlock::EpochBoundary(_) => vec![],
+        }
+    }
+
+    /// Returns true if the there're no tx in the block
+    pub fn is_empty(&self) -> bool {
+        match self {
+            MultiEraBlock::EpochBoundary(_) => true,
+            MultiEraBlock::AlonzoCompatible(x, _) => x.transaction_bodies.is_empty(),
+            MultiEraBlock::Babbage(x) => x.transaction_bodies.is_empty(),
+            MultiEraBlock::Byron(x) => x.body.tx_payload.is_empty(),
+        }
+    }
+
+    /// Returns the count of txs in the block
+    pub fn tx_count(&self) -> usize {
+        match self {
+            MultiEraBlock::EpochBoundary(_) => 0,
+            MultiEraBlock::AlonzoCompatible(x, _) => x.transaction_bodies.len(),
+            MultiEraBlock::Babbage(x) => x.transaction_bodies.len(),
+            MultiEraBlock::Byron(x) => x.body.tx_payload.len(),
+        }
+    }
+
+    /// Returns true if the block has any auxiliary data
+    pub fn has_aux_data(&self) -> bool {
+        match self {
+            MultiEraBlock::EpochBoundary(_) => false,
+            MultiEraBlock::AlonzoCompatible(x, _) => !x.auxiliary_data_set.is_empty(),
+            MultiEraBlock::Babbage(x) => !x.auxiliary_data_set.is_empty(),
+            MultiEraBlock::Byron(_) => false,
         }
     }
 

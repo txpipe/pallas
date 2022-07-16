@@ -280,6 +280,8 @@ pub struct MoveInstantaneousReward {
 
 pub type RewardAccount = ByteVec;
 
+pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+
 pub type Port = u32;
 pub type IPv4 = ByteVec;
 pub type IPv6 = ByteVec;
@@ -719,7 +721,7 @@ pub struct TransactionBody {
     pub certificates: Option<MaybeIndefArray<Certificate>>,
 
     #[n(5)]
-    pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>,
+    pub withdrawals: Option<Withdrawals>,
 
     #[n(6)]
     pub update: Option<Update>,

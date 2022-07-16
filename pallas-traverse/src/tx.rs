@@ -6,7 +6,10 @@ use pallas_primitives::{
 };
 use std::{borrow::Cow, ops::Deref};
 
-use crate::{Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraTx};
+use crate::{
+    Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraTx,
+    MultiEraWithdrawals,
+};
 
 impl<'b> MultiEraTx<'b> {
     pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
@@ -151,6 +154,58 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    pub fn mint(&self) -> MultiEraMint {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .mint
+                .as_ref()
+                .map(|c| MultiEraMint::AlonzoCompatible(Cow::Borrowed(c)))
+                .unwrap_or_default(),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .mint
+                .as_ref()
+                .map(|c| MultiEraMint::AlonzoCompatible(Cow::Borrowed(c)))
+                .unwrap_or_default(),
+            MultiEraTx::Byron(_) => MultiEraMint::NotApplicable,
+        }
+    }
+
+    pub fn collateral(&self) -> Vec<MultiEraInput> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .collateral
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .collateral
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            MultiEraTx::Byron(_) => vec![],
+        }
+    }
+
+    pub fn withdrawals(&'b self) -> MultiEraWithdrawals<'b> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => match &x.transaction_body.withdrawals {
+                Some(x) => MultiEraWithdrawals::AlonzoCompatible(Cow::Borrowed(x)),
+                None => MultiEraWithdrawals::Empty,
+            },
+            MultiEraTx::Babbage(x) => match &x.transaction_body.withdrawals {
+                Some(x) => MultiEraWithdrawals::AlonzoCompatible(Cow::Borrowed(x)),
+                None => MultiEraWithdrawals::Empty,
+            },
+            MultiEraTx::Byron(_) => MultiEraWithdrawals::NotApplicable,
+        }
+    }
+
     fn aux_data(&self) -> Option<&KeepRaw<'_, AuxiliaryData>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x.auxiliary_data.as_ref(),
@@ -159,15 +214,28 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn metadata(&self) -> Option<MultiEraMeta> {
-        match self.aux_data()?.deref() {
-            AuxiliaryData::Shelley(x) => MultiEraMeta(Cow::Borrowed(x)).into(),
-            AuxiliaryData::ShelleyMa(x) => {
-                MultiEraMeta(Cow::Borrowed(&x.transaction_metadata)).into()
-            }
-            AuxiliaryData::PostAlonzo(x) => {
-                x.metadata.as_ref().map(|x| MultiEraMeta(Cow::Borrowed(x)))
-            }
+    pub fn metadata(&'b self) -> MultiEraMeta<'b> {
+        match self.aux_data() {
+            Some(x) => match x.deref() {
+                AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(Cow::Borrowed(x)),
+                AuxiliaryData::ShelleyMa(x) => {
+                    MultiEraMeta::AlonzoCompatible(Cow::Borrowed(&x.transaction_metadata))
+                }
+                AuxiliaryData::PostAlonzo(x) => x
+                    .metadata
+                    .as_ref()
+                    .map(|x| MultiEraMeta::AlonzoCompatible(Cow::Borrowed(x)))
+                    .unwrap_or_default(),
+            },
+            None => MultiEraMeta::Empty,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x.success,
+            MultiEraTx::Babbage(x) => x.success,
+            MultiEraTx::Byron(_) => true,
         }
     }
 

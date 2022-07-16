@@ -7,6 +7,7 @@
 //!
 //! For more information regarding Cardano addresses and their formats, please refer to [CIP-19](https://cips.cardano.org/cips/cip19/).
 
+pub mod byron;
 pub mod varuint;
 
 use std::io::Cursor;
@@ -236,10 +237,10 @@ pub struct StakeAddress(Network, StakePayload);
 
 /// New type wrapping a Byron address primitive
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct ByronAddress(pallas_primitives::byron::Address);
+pub struct ByronAddress(byron::AddressPayload);
 
 impl ByronAddress {
-    pub fn new(primitive: pallas_primitives::byron::Address) -> Self {
+    pub fn new(primitive: byron::AddressPayload) -> Self {
         Self(primitive)
     }
 }

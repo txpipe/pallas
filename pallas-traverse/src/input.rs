@@ -11,18 +11,18 @@ impl OutputRef {
         Self(hash, index)
     }
 
-    pub fn tx_id(&self) -> &Hash<32> {
+    pub fn hash(&self) -> &Hash<32> {
         &self.0
     }
 
-    pub fn tx_index(&self) -> u64 {
+    pub fn index(&self) -> u64 {
         self.1
     }
 }
 
 impl Display for OutputRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}#{}", self.tx_id(), self.tx_index())
+        write!(f, "{}#{}", self.hash(), self.index())
     }
 }
 
@@ -52,13 +52,33 @@ impl<'b> MultiEraInput<'b> {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(input)))
     }
 
-    pub fn output_ref(&self) -> Option<OutputRef> {
+    pub fn output_ref(&self) -> OutputRef {
         match self {
             MultiEraInput::Byron(x) => match x.deref().deref() {
-                byron::TxIn::Variant0(CborWrap((tx, idx))) => Some(OutputRef(*tx, *idx as u64)),
-                byron::TxIn::Other(_, _) => None,
+                byron::TxIn::Variant0(CborWrap((tx, idx))) => OutputRef(*tx, *idx as u64),
+                byron::TxIn::Other(_, _) => unreachable!(),
             },
-            MultiEraInput::AlonzoCompatible(x) => Some(OutputRef(x.transaction_id, x.index)),
+            MultiEraInput::AlonzoCompatible(x) => OutputRef(x.transaction_id, x.index),
+        }
+    }
+
+    pub fn hash(&self) -> &Hash<32> {
+        match self {
+            MultiEraInput::Byron(x) => match x.deref().deref() {
+                byron::TxIn::Variant0(CborWrap((x, _))) => x,
+                byron::TxIn::Other(_, _) => unreachable!(),
+            },
+            MultiEraInput::AlonzoCompatible(x) => &x.transaction_id,
+        }
+    }
+
+    pub fn index(&self) -> u64 {
+        match self {
+            MultiEraInput::Byron(x) => match x.deref().deref() {
+                byron::TxIn::Variant0(CborWrap((_, x))) => *x as u64,
+                byron::TxIn::Other(_, _) => unreachable!(),
+            },
+            MultiEraInput::AlonzoCompatible(x) => x.index,
         }
     }
 
@@ -110,10 +130,9 @@ mod tests {
             let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
             for tx in block.txs() {
                 for input in tx.inputs() {
-                    if let Some(out) = input.output_ref() {
-                        let right = expected.remove(0);
-                        assert_eq!(out.to_string(), right);
-                    }
+                    let ref_ = input.output_ref();
+                    let right = expected.remove(0);
+                    assert_eq!(ref_.to_string(), right);
                 }
             }
         }
@@ -130,10 +149,10 @@ mod tests {
             let sample = OutputRef::from_str(vector).unwrap();
 
             assert_eq!(
-                sample.tx_id().to_string(),
+                sample.hash().to_string(),
                 "da832fb5ef57df5b91817e9a7448d26e92552afb34f8ee5adb491b24bbe990d5"
             );
-            assert_eq!(sample.tx_index(), 14);
+            assert_eq!(sample.index(), 14);
         }
     }
 }

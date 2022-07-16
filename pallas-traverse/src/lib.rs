@@ -15,10 +15,12 @@ pub mod era;
 pub mod header;
 pub mod input;
 pub mod meta;
+pub mod mint;
 pub mod output;
 pub mod probe;
 mod support;
 pub mod tx;
+pub mod withdrawals;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
@@ -45,16 +47,16 @@ pub enum Feature {
 
 #[derive(Debug)]
 pub enum MultiEraHeader<'b> {
-    EpochBoundary(KeepRaw<'b, byron::EbbHead>),
-    AlonzoCompatible(KeepRaw<'b, alonzo::Header>),
-    Babbage(KeepRaw<'b, babbage::Header>),
-    Byron(KeepRaw<'b, byron::BlockHead>),
+    EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
+    AlonzoCompatible(Cow<'b, KeepRaw<'b, alonzo::Header>>),
+    Babbage(Cow<'b, KeepRaw<'b, babbage::Header>>),
+    Byron(Cow<'b, KeepRaw<'b, byron::BlockHead>>),
 }
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraBlock<'b> {
-    EpochBoundary(Box<Cow<'b, byron::EbBlock>>),
+    EpochBoundary(Box<Cow<'b, byron::MintedEbBlock<'b>>>),
     AlonzoCompatible(Box<Cow<'b, alonzo::MintedBlock<'b>>>, Era),
     Babbage(Box<Cow<'b, babbage::MintedBlock<'b>>>),
     Byron(Box<Cow<'b, byron::MintedBlock<'b>>>),
@@ -83,12 +85,36 @@ pub enum MultiEraInput<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionInput>>),
 }
 
+#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum MultiEraCert<'b> {
     NotApplicable,
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
 }
 
-pub struct MultiEraMeta<'b>(Cow<'b, alonzo::Metadata>);
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraMeta<'b> {
+    NotApplicable,
+    Empty,
+    AlonzoCompatible(Cow<'b, alonzo::Metadata>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraMint<'b> {
+    NotApplicable,
+    Empty,
+    AlonzoCompatible(Cow<'b, alonzo::Mint>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraWithdrawals<'b> {
+    NotApplicable,
+    Empty,
+    AlonzoCompatible(Cow<'b, alonzo::Withdrawals>),
+}
 
 #[derive(Debug, Clone)]
 pub struct OutputRef(Hash<32>, u64);
