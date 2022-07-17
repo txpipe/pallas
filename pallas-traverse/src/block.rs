@@ -13,61 +13,49 @@ impl<'b> MultiEraBlock<'b> {
         let (_, block): BlockWrapper<byron::MintedEbBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::EpochBoundary(Box::new(Cow::Owned(block))))
+        Ok(Self::EpochBoundary(Box::new(block)))
     }
 
     pub fn decode_byron(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<byron::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::Byron(Box::new(Cow::Owned(block))))
+        Ok(Self::Byron(Box::new(block)))
     }
 
     pub fn decode_shelley(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(
-            Box::new(Cow::Owned(block)),
-            Era::Shelley,
-        ))
+        Ok(Self::AlonzoCompatible(Box::new(block), Era::Shelley))
     }
 
     pub fn decode_allegra(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(
-            Box::new(Cow::Owned(block)),
-            Era::Allegra,
-        ))
+        Ok(Self::AlonzoCompatible(Box::new(block), Era::Allegra))
     }
 
     pub fn decode_mary(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(
-            Box::new(Cow::Owned(block)),
-            Era::Mary,
-        ))
+        Ok(Self::AlonzoCompatible(Box::new(block), Era::Mary))
     }
 
     pub fn decode_alonzo(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<alonzo::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::AlonzoCompatible(
-            Box::new(Cow::Owned(block)),
-            Era::Alonzo,
-        ))
+        Ok(Self::AlonzoCompatible(Box::new(block), Era::Alonzo))
     }
 
     pub fn decode_babbage(cbor: &'b [u8]) -> Result<Self, Error> {
         let (_, block): BlockWrapper<babbage::MintedBlock> =
             minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
 
-        Ok(Self::Babbage(Box::new(Cow::Owned(block))))
+        Ok(Self::Babbage(Box::new(block)))
     }
 
     pub fn decode(cbor: &'b [u8]) -> Result<MultiEraBlock<'b>, Error> {

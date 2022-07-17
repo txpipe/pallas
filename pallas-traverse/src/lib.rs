@@ -18,9 +18,11 @@ pub mod meta;
 pub mod mint;
 pub mod output;
 pub mod probe;
+pub mod signers;
 mod support;
 pub mod tx;
 pub mod withdrawals;
+pub mod witnesses;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
@@ -56,10 +58,10 @@ pub enum MultiEraHeader<'b> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraBlock<'b> {
-    EpochBoundary(Box<Cow<'b, byron::MintedEbBlock<'b>>>),
-    AlonzoCompatible(Box<Cow<'b, alonzo::MintedBlock<'b>>>, Era),
-    Babbage(Box<Cow<'b, babbage::MintedBlock<'b>>>),
-    Byron(Box<Cow<'b, byron::MintedBlock<'b>>>),
+    EpochBoundary(Box<byron::MintedEbBlock<'b>>),
+    AlonzoCompatible(Box<alonzo::MintedBlock<'b>>, Era),
+    Babbage(Box<babbage::MintedBlock<'b>>),
+    Byron(Box<byron::MintedBlock<'b>>),
 }
 
 #[derive(Debug, Clone)]
@@ -97,7 +99,7 @@ pub enum MultiEraCert<'b> {
 pub enum MultiEraMeta<'b> {
     NotApplicable,
     Empty,
-    AlonzoCompatible(Cow<'b, alonzo::Metadata>),
+    AlonzoCompatible(&'b alonzo::Metadata),
 }
 
 #[derive(Debug, Clone)]
@@ -105,7 +107,7 @@ pub enum MultiEraMeta<'b> {
 pub enum MultiEraMint<'b> {
     NotApplicable,
     Empty,
-    AlonzoCompatible(Cow<'b, alonzo::Mint>),
+    AlonzoCompatible(&'b alonzo::Mint),
 }
 
 #[derive(Debug, Clone)]
@@ -113,7 +115,23 @@ pub enum MultiEraMint<'b> {
 pub enum MultiEraWithdrawals<'b> {
     NotApplicable,
     Empty,
-    AlonzoCompatible(Cow<'b, alonzo::Withdrawals>),
+    AlonzoCompatible(&'b alonzo::Withdrawals),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraSigners<'b> {
+    NotApplicable,
+    Empty,
+    AlonzoCompatible(&'b alonzo::RequiredSigners),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraWitnesses<'b> {
+    Byron(&'b KeepRaw<'b, byron::Witnesses>),
+    AlonzoCompatible(&'b KeepRaw<'b, alonzo::TransactionWitnessSet>),
+    Babbage(&'b KeepRaw<'b, babbage::TransactionWitnessSet>),
 }
 
 #[derive(Debug, Clone)]

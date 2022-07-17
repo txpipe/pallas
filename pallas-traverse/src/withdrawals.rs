@@ -22,11 +22,10 @@ impl<'b> MultiEraWithdrawals<'b> {
         T: FromIterator<(&'a [u8], u64)>,
     {
         match self {
-            MultiEraWithdrawals::NotApplicable => T::from_iter(std::iter::empty()),
-            MultiEraWithdrawals::Empty => T::from_iter(std::iter::empty()),
+            MultiEraWithdrawals::NotApplicable => std::iter::empty().collect(),
+            MultiEraWithdrawals::Empty => std::iter::empty().collect(),
             MultiEraWithdrawals::AlonzoCompatible(x) => {
-                let iter = x.iter().map(|(k, v)| (k.as_slice(), v.into()));
-                T::from_iter(iter)
+                x.iter().map(|(k, v)| (k.as_slice(), v.into())).collect()
             }
         }
     }

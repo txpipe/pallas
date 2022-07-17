@@ -693,13 +693,15 @@ pub struct BlockHead {
     pub extra_data: BlockHeadEx,
 }
 
+pub type Witnesses = MaybeIndefArray<Twit>;
+
 #[derive(Debug, Encode, Decode)]
 pub struct TxPayload {
     #[n(0)]
     pub transaction: Tx,
 
     #[n(1)]
-    pub witness: MaybeIndefArray<Twit>,
+    pub witness: Witnesses,
 }
 
 #[derive(Debug, Encode, Decode, Clone)]
@@ -708,7 +710,7 @@ pub struct MintedTxPayload<'b> {
     pub transaction: KeepRaw<'b, Tx>,
 
     #[n(1)]
-    pub witness: MaybeIndefArray<Twit>,
+    pub witness: KeepRaw<'b, Witnesses>,
 }
 
 #[derive(Encode, Decode, Debug)]

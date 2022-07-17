@@ -113,6 +113,10 @@ pub use crate::alonzo::MoveInstantaneousReward;
 
 pub use crate::alonzo::RewardAccount;
 
+pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+
+pub type RequiredSigners = MaybeIndefArray<AddrKeyhash>;
+
 pub use crate::alonzo::Port;
 
 pub use crate::alonzo::IPv4;

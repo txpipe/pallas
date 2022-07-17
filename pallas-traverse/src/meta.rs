@@ -34,12 +34,9 @@ impl<'b> MultiEraMeta<'b> {
         T: FromIterator<(&'a alonzo::MetadatumLabel, &'a alonzo::Metadatum)>,
     {
         match self {
-            MultiEraMeta::NotApplicable => T::from_iter(std::iter::empty()),
-            MultiEraMeta::Empty => T::from_iter(std::iter::empty()),
-            MultiEraMeta::AlonzoCompatible(x) => {
-                let iter = x.iter().map(|(k, v)| (k, v));
-                T::from_iter(iter)
-            }
+            MultiEraMeta::NotApplicable => std::iter::empty().collect(),
+            MultiEraMeta::Empty => std::iter::empty().collect(),
+            MultiEraMeta::AlonzoCompatible(x) => x.iter().map(|(k, v)| (k, v)).collect(),
         }
     }
 }
