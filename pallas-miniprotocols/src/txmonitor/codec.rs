@@ -1,77 +1,68 @@
-use super::{Message, MsgRequest, MsgResponse, MempoolSizeAndCapacity};
+use super::{MempoolSizeAndCapacity, Message, MsgRequest, MsgResponse};
 use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
-impl Encode<()> for Message 
-    {
-
+impl Encode<()> for Message {
     fn encode<W: encode::Write>(
-        &self, 
-        e: &mut Encoder<W>, 
+        &self,
+        e: &mut Encoder<W>,
         ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::MsgDone => {
                 e.array(1)?.u16(0)?;
-            },
+            }
             Message::MsgAcquire => {
                 e.array(1)?.u16(1)?;
-                
-            },
+            }
             Message::MsgAcquired(slot) => {
                 e.array(2)?.u16(2)?;
                 e.encode(slot)?;
-            },
+            }
             Message::MsgQuery(query) => {
                 query.encode(e, ctx)?;
-            },
+            }
             Message::MsgResponse(response) => {
                 response.encode(e, ctx)?;
             }
         }
-        log::debug!("encode message: {:?}",self);
+        log::debug!("encode message: {:?}", self);
         Ok(())
     }
 }
 
-impl<'b> Decode<'b,()>  for Message {
-fn decode(d: &mut pallas_codec::minicbor::Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-    d.array()?;
-    let label = d.u16()?;
-    log::debug!("decode message: {:?}",label);
-    match label {
-            0 => {
-                Ok(Message::MsgDone)
-            },
-            1 => {
-                Ok(Message::MsgAcquire)
-            },
+impl<'b> Decode<'b, ()> for Message {
+    fn decode(
+        d: &mut pallas_codec::minicbor::Decoder<'b>,
+        _ctx: &mut (),
+    ) -> Result<Self, decode::Error> {
+        d.array()?;
+        let label = d.u16()?;
+        log::debug!("decode message: {:?}", label);
+        match label {
+            0 => Ok(Message::MsgDone),
+            1 => Ok(Message::MsgAcquire),
             2 => {
                 let slot = d.decode()?;
                 Ok(Message::MsgAcquired(slot))
-            },
-            3 => {
-                Ok(Message::MsgQuery(MsgRequest::MsgRelease))
-            },
-            5 => {
-                Ok(Message::MsgQuery(MsgRequest::MsgNextTx))
-            },
+            }
+            3 => Ok(Message::MsgQuery(MsgRequest::MsgRelease)),
+            5 => Ok(Message::MsgQuery(MsgRequest::MsgNextTx)),
             6 => {
-                log::trace!("Decoding 6, 1. Array: {:?}",d);
-                let de : Result<Option<u64>,pallas_codec::minicbor::decode::Error> = d.array();
-                log::trace!("Decoding 6, 2. Array: {:?}",de);
-                let tag : Result<u8,pallas_codec::minicbor::decode::Error> = d.u8();
+                log::trace!("Decoding 6, 1. Array: {:?}", d);
+                let de: Result<Option<u64>, pallas_codec::minicbor::decode::Error> = d.array();
+                log::trace!("Decoding 6, 2. Array: {:?}", de);
+                let tag: Result<u8, pallas_codec::minicbor::decode::Error> = d.u8();
                 let mut tx = None;
                 if let Ok(_) = tag {
-                    log::trace!("Decoding 6, Tag: {:?}",tag);
+                    log::trace!("Decoding 6, Tag: {:?}", tag);
                     let det = d.tag();
-                    log::trace!("Decoding 6, Bytes: {:?}",det);
+                    log::trace!("Decoding 6, Bytes: {:?}", det);
                     let cbor = d.bytes()?;
                     tx = Some(hex::encode(cbor));
-                    log::trace!("Decoding 6, Tx: {:?}",tx);
-    
+                    log::trace!("Decoding 6, Tx: {:?}", tx);
                 }
                 Ok(Message::MsgResponse(MsgResponse::MsgReplyNextTx(tx)))
-            },
+            }
             7 => {
                 let txid = d.decode()?;
                 Ok(Message::MsgQuery(MsgRequest::MsgHasTx(txid)))
@@ -80,67 +71,62 @@ fn decode(d: &mut pallas_codec::minicbor::Decoder<'b>, _ctx: &mut ()) -> Result<
                 let has = d.decode()?;
                 Ok(Message::MsgResponse(MsgResponse::MsgReplyHasTx(has)))
             }
-            9 => {
-                Ok(Message::MsgQuery(MsgRequest::MsgGetSizes))
-            }
+            9 => Ok(Message::MsgQuery(MsgRequest::MsgGetSizes)),
             10 => {
                 d.array()?;
                 let capacity = d.decode()?;
                 let size_in_bytes = d.decode()?;
                 let number_of_tx = d.decode()?;
-                Ok(
-                    Message::MsgResponse(MsgResponse::MsgReplyGetSizes(MempoolSizeAndCapacity {
-                        capacity_in_bytes : capacity,
-                        size_in_bytes : size_in_bytes,
-                        number_of_txs : number_of_tx,
-                    }))
-                )
+                Ok(Message::MsgResponse(MsgResponse::MsgReplyGetSizes(
+                    MempoolSizeAndCapacity {
+                        capacity_in_bytes: capacity,
+                        size_in_bytes: size_in_bytes,
+                        number_of_txs: number_of_tx,
+                    },
+                )))
             }
-            _ => Err(decode::Error::message(
-                "can't decode Message",
-            ))
+            _ => Err(decode::Error::message("can't decode Message")),
+        }
     }
-}
 
-fn nil() -> Option<Self> {
+    fn nil() -> Option<Self> {
         None
     }
 }
 
 impl Encode<()> for MsgRequest {
     fn encode<W: encode::Write>(
-        &self, 
-        e: &mut Encoder<W>, 
+        &self,
+        e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             MsgRequest::MsgAwaitAcquire => {
                 e.array(1)?.u16(1)?;
-            },
+            }
             MsgRequest::MsgGetSizes => {
                 e.array(1)?.u16(9)?;
-            },
+            }
             MsgRequest::MsgHasTx(tx) => {
-                e.array(2)?.u16(7)?;    
+                e.array(2)?.u16(7)?;
                 e.encode(tx)?;
-            },
+            }
             MsgRequest::MsgNextTx => {
                 e.array(1)?.u16(5)?;
-            },
+            }
             MsgRequest::MsgRelease => {
-                e.array(1)?.u16(3)?;    
-            },
-
+                e.array(1)?.u16(3)?;
+            }
         }
-        log::debug!("encode message: {:?}",self);
+        log::debug!("encode message: {:?}", self);
         Ok(())
     }
 }
 
 impl Encode<()> for MsgResponse {
     fn encode<W: encode::Write>(
-        &self, 
-        e: &mut Encoder<W>, 
+        &self,
+        e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
@@ -150,18 +136,18 @@ impl Encode<()> for MsgResponse {
                 e.encode(sz.capacity_in_bytes)?;
                 e.encode(sz.size_in_bytes)?;
                 e.encode(sz.number_of_txs)?;
-            },
+            }
             MsgResponse::MsgReplyHasTx(tx) => {
                 e.array(2)?.u16(8)?;
                 e.encode(tx)?;
-            },
+            }
             MsgResponse::MsgReplyNextTx(None) => {
                 e.array(1)?.u16(6)?;
-            },
+            }
             MsgResponse::MsgReplyNextTx(Some(tx)) => {
                 e.array(2)?.u16(6)?;
                 e.encode(tx.to_string())?;
-            },
+            }
         }
         Ok(())
     }

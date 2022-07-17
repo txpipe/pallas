@@ -54,10 +54,9 @@ impl VersionTable {
             (PROTOCOL_V10, VersionData(network_magic)),
             (PROTOCOL_V11, VersionData(network_magic)),
             (PROTOCOL_V12, VersionData(network_magic)),
-
-            ]
-            .into_iter()
-            .collect::<HashMap<u64, VersionData>>();
+        ]
+        .into_iter()
+        .collect::<HashMap<u64, VersionData>>();
 
         VersionTable { values }
     }
