@@ -1,8 +1,9 @@
 use std::borrow::Cow;
+use std::ops::Deref;
 
 use pallas_codec::minicbor;
 use pallas_crypto::hash::{Hash, Hasher};
-use pallas_primitives::ToHash;
+use pallas_primitives::{alonzo, babbage, byron, ToHash};
 
 use crate::Era::Byron;
 use crate::{Error, MultiEraHeader};
@@ -95,6 +96,34 @@ impl<'b> MultiEraHeader<'b> {
                 Ok(Hasher::<256>::hash(&nonce_tagged_vrf).to_vec())
             }
             MultiEraHeader::Byron(_) => Err(Error::InvalidEra(Byron)),
+        }
+    }
+
+    pub fn as_eb(&self) -> Option<&byron::EbbHead> {
+        match self {
+            MultiEraHeader::EpochBoundary(x) => Some(x.deref().deref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_byron(&self) -> Option<&byron::BlockHead> {
+        match self {
+            MultiEraHeader::Byron(x) => Some(x.deref().deref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_alonzo(&self) -> Option<&alonzo::Header> {
+        match self {
+            MultiEraHeader::AlonzoCompatible(x) => Some(x.deref().deref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_babbage(&self) -> Option<&babbage::Header> {
+        match self {
+            MultiEraHeader::Babbage(x) => Some(x.deref().deref()),
+            _ => None,
         }
     }
 }

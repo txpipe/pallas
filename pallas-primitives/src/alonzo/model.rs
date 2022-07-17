@@ -282,6 +282,8 @@ pub type RewardAccount = ByteVec;
 
 pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
 
+pub type RequiredSigners = MaybeIndefArray<AddrKeyhash>;
+
 pub type Port = u32;
 pub type IPv4 = ByteVec;
 pub type IPv6 = ByteVec;
@@ -742,7 +744,7 @@ pub struct TransactionBody {
     pub collateral: Option<MaybeIndefArray<TransactionInput>>,
 
     #[n(14)]
-    pub required_signers: Option<MaybeIndefArray<AddrKeyhash>>,
+    pub required_signers: Option<RequiredSigners>,
 
     #[n(15)]
     pub network_id: Option<NetworkId>,

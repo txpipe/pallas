@@ -7,8 +7,8 @@ use pallas_primitives::{
 use std::{borrow::Cow, ops::Deref};
 
 use crate::{
-    Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraTx,
-    MultiEraWithdrawals,
+    Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraSigners,
+    MultiEraTx, MultiEraWithdrawals, MultiEraWitnesses,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -160,13 +160,13 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .mint
                 .as_ref()
-                .map(|c| MultiEraMint::AlonzoCompatible(Cow::Borrowed(c)))
+                .map(MultiEraMint::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .mint
                 .as_ref()
-                .map(|c| MultiEraMint::AlonzoCompatible(Cow::Borrowed(c)))
+                .map(MultiEraMint::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraMint::NotApplicable,
         }
@@ -192,14 +192,14 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn withdrawals(&'b self) -> MultiEraWithdrawals<'b> {
+    pub fn withdrawals(&self) -> MultiEraWithdrawals {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.transaction_body.withdrawals {
-                Some(x) => MultiEraWithdrawals::AlonzoCompatible(Cow::Borrowed(x)),
+                Some(x) => MultiEraWithdrawals::AlonzoCompatible(x),
                 None => MultiEraWithdrawals::Empty,
             },
             MultiEraTx::Babbage(x) => match &x.transaction_body.withdrawals {
-                Some(x) => MultiEraWithdrawals::AlonzoCompatible(Cow::Borrowed(x)),
+                Some(x) => MultiEraWithdrawals::AlonzoCompatible(x),
                 None => MultiEraWithdrawals::Empty,
             },
             MultiEraTx::Byron(_) => MultiEraWithdrawals::NotApplicable,
@@ -214,20 +214,48 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn metadata(&'b self) -> MultiEraMeta<'b> {
+    pub fn metadata(&self) -> MultiEraMeta {
         match self.aux_data() {
             Some(x) => match x.deref() {
-                AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(Cow::Borrowed(x)),
+                AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
                 AuxiliaryData::ShelleyMa(x) => {
-                    MultiEraMeta::AlonzoCompatible(Cow::Borrowed(&x.transaction_metadata))
+                    MultiEraMeta::AlonzoCompatible(&x.transaction_metadata)
                 }
                 AuxiliaryData::PostAlonzo(x) => x
                     .metadata
                     .as_ref()
-                    .map(|x| MultiEraMeta::AlonzoCompatible(Cow::Borrowed(x)))
+                    .map(MultiEraMeta::AlonzoCompatible)
                     .unwrap_or_default(),
             },
             None => MultiEraMeta::Empty,
+        }
+    }
+
+    pub fn required_signers(&self) -> MultiEraSigners {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .required_signers
+                .as_ref()
+                .map(MultiEraSigners::AlonzoCompatible)
+                .unwrap_or_default(),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .required_signers
+                .as_ref()
+                .map(MultiEraSigners::AlonzoCompatible)
+                .unwrap_or_default(),
+            MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,
+        }
+    }
+
+    pub fn witnesses(&self) -> MultiEraWitnesses {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => {
+                MultiEraWitnesses::AlonzoCompatible(&x.transaction_witness_set)
+            }
+            MultiEraTx::Babbage(x) => MultiEraWitnesses::Babbage(&x.transaction_witness_set),
+            MultiEraTx::Byron(x) => MultiEraWitnesses::Byron(&x.witness),
         }
     }
 
