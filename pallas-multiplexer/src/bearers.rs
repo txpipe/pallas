@@ -84,6 +84,10 @@ fn read_segment(reader: &mut impl Read) -> Result<Segment, std::io::Error> {
     })
 }
 
+// This snippet will be useful if we want to switch TCP streams into
+// non-blocking mode, but that's not likely (if we want async, we'll probably go
+// with Tokio instead of a handcrafted approach).
+/*
 fn read_segment_with_timeout(reader: &mut impl Read) -> Result<Option<Segment>, std::io::Error> {
     match read_segment(reader) {
         Ok(s) => Ok(Some(s)),
@@ -95,6 +99,7 @@ fn read_segment_with_timeout(reader: &mut impl Read) -> Result<Option<Segment>, 
         },
     }
 }
+ */
 
 pub enum Bearer {
     Tcp(TcpStream),
@@ -137,10 +142,16 @@ impl Bearer {
 
     pub fn read_segment(&mut self) -> Result<Option<Segment>, std::io::Error> {
         match self {
-            Bearer::Tcp(s) => read_segment_with_timeout(s),
+            Bearer::Tcp(s) => {
+                // std tcp streams won't be supporting timeout / async. We don't handle
+                // specific timeout-related errors, these will remain unhandled and bubble up
+                // to the consumer lib. The Option wrapper is here just for compatiblity with
+                // other future bearers that might support timeouts
+                read_segment(s).map(Some)
+            }
 
             #[cfg(target_family = "unix")]
-            Bearer::Unix(s) => read_segment_with_timeout(s),
+            Bearer::Unix(s) => read_segment(s).map(Some),
         }
     }
 
