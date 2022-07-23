@@ -31,7 +31,14 @@ impl<'b> MultiEraOutput<'b> {
     }
 
     pub fn address(&self) -> Result<Address, AddressError> {
-        Address::from_bytes(self.address_raw())
+        match self {
+            MultiEraOutput::AlonzoCompatible(x) => Address::from_bytes(&x.address),
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                babbage::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+            },
+            MultiEraOutput::Byron(x) => Ok(Address::Byron(x.address.clone())),
+        }
     }
 
     pub fn ada_amount(&self) -> u64 {

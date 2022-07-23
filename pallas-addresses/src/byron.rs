@@ -1,6 +1,6 @@
 use pallas_codec::{
     minicbor::{self, bytes::ByteVec, Decode, Encode},
-    utils::OrderPreservingProperties,
+    utils::{OrderPreservingProperties, TagWrap},
 };
 
 use pallas_crypto::hash::Hash;
@@ -157,3 +157,7 @@ pub struct AddressPayload {
     #[n(2)]
     pub addrtype: AddrType,
 }
+
+pub type WrappedAddressPayload = TagWrap<ByteVec, 24>;
+
+pub type AddressCrc = u64;

@@ -20,6 +20,9 @@ pub enum Error {
     #[error("error converting from/to bech32 {0}")]
     BadBech32(bech32::Error),
 
+    #[error("error decoding base58 value")]
+    BadBase58(base58::FromBase58Error),
+
     #[error("address header not found")]
     MissingHeader,
 
@@ -237,11 +240,26 @@ pub struct StakeAddress(Network, StakePayload);
 
 /// New type wrapping a Byron address primitive
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct ByronAddress(byron::AddressPayload);
+pub struct ByronAddress(byron::WrappedAddressPayload, byron::AddressCrc);
 
 impl ByronAddress {
-    pub fn new(primitive: byron::AddressPayload) -> Self {
-        Self(primitive)
+    pub fn new(payload: &[u8], crc: u64) -> Self {
+        let payload = byron::WrappedAddressPayload(ByteVec::from(Vec::from(payload)));
+        Self(payload, crc)
+    }
+
+    /// Gets a numeric id describing the type of the address
+    pub fn typeid(&self) -> u8 {
+        0b1000
+    }
+
+    fn to_vec(&self) -> Vec<u8> {
+        pallas_codec::minicbor::to_vec(&self.0).unwrap()
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
     }
 }
 
@@ -335,8 +353,9 @@ parse_shelley_fn!(parse_type_7, script_hash);
 // type 8 (1000) are Byron addresses
 fn parse_type_8(header: u8, payload: &[u8]) -> Result<Address, Error> {
     let vec = [&[header], payload].concat();
-    let prim = pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
-    Ok(Address::Byron(ByronAddress(prim)))
+    let (payload, crc) =
+        pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
+    Ok(Address::Byron(ByronAddress(payload, crc)))
 }
 
 // types 14-15 are Stake addresses
@@ -379,22 +398,6 @@ impl Network {
             Network::Mainnet => 1,
             Network::Other(x) => *x,
         }
-    }
-}
-
-impl ByronAddress {
-    /// Gets a numeric id describing the type of the address
-    pub fn typeid(&self) -> u8 {
-        0b1000
-    }
-
-    fn to_vec(&self) -> Vec<u8> {
-        pallas_codec::minicbor::to_vec(&self.0).unwrap()
-    }
-
-    pub fn to_hex(&self) -> String {
-        let bytes = self.to_vec();
-        hex::encode(bytes)
     }
 }
 
@@ -564,6 +567,12 @@ impl Address {
         bytes_to_address(bytes)
     }
 
+    // Tries to decode an address from its hex representation
+    pub fn from_base58(value: &str) -> Result<Self, Error> {
+        let bytes = base58::FromBase58::from_base58(value).map_err(Error::BadBase58)?;
+        Self::from_bytes(&bytes)
+    }
+
     /// Gets the network assoaciated with this address
     pub fn network(&self) -> Option<Network> {
         match self {
@@ -625,6 +634,16 @@ impl Address {
     }
 }
 
+impl ToString for Address {
+    fn to_string(&self) -> String {
+        match self {
+            Address::Byron(x) => x.to_hex(),
+            Address::Shelley(x) => x.to_bech32().unwrap_or_else(|_| x.to_hex()),
+            Address::Stake(x) => x.to_bech32().unwrap_or_else(|_| x.to_hex()),
+        }
+    }
+}
+
 impl TryFrom<&[u8]> for Address {
     type Error = Error;
 
@@ -669,6 +688,8 @@ mod tests {
         ("stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw", 14u8),
         ("stake178phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcccycj5", 15u8),
     ];
+
+    const MAINNET_BYRON_TEST_VECTOR: &str = "DdzFFzCqrhtCwukpfkhkpDGtzJN9keTB9YFX31dEjm77yBbuH6yDATU2zb9s2jnsmqQGCiz4RQyksenuEeVhngyMTLtCMRdHmpheaV5o";
 
     const PAYMENT_PUBLIC_KEY: &str =
         "addr_vk1w0l2sr2zgfm26ztc6nl9xy8ghsk5sh6ldwemlpmp9xylzy4dtf7st80zhd";
@@ -761,6 +782,12 @@ mod tests {
                 Address::Byron(_) => (),
             };
         }
+    }
+
+    #[test]
+    fn byron_base58_roundtrip() {
+        let addr = Address::from_base58(MAINNET_BYRON_TEST_VECTOR).unwrap();
+        assert!(matches!(addr, Address::Byron(_)))
     }
 
     #[test]
