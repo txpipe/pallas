@@ -10,7 +10,7 @@
 pub mod byron;
 pub mod varuint;
 
-use std::io::Cursor;
+use std::{io::Cursor, str::FromStr};
 
 use pallas_crypto::hash::Hash;
 use thiserror::Error;
@@ -19,6 +19,15 @@ use thiserror::Error;
 pub enum Error {
     #[error("error converting from/to bech32 {0}")]
     BadBech32(bech32::Error),
+
+    #[error("error decoding base58 value")]
+    BadBase58(base58::FromBase58Error),
+
+    #[error("error decoding hex value")]
+    BadHex,
+
+    #[error("unknown or bad string format for address {0}")]
+    UnknownStringFormat(String),
 
     #[error("address header not found")]
     MissingHeader,
@@ -235,15 +244,7 @@ pub enum StakePayload {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct StakeAddress(Network, StakePayload);
 
-/// New type wrapping a Byron address primitive
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct ByronAddress(byron::AddressPayload);
-
-impl ByronAddress {
-    pub fn new(primitive: byron::AddressPayload) -> Self {
-        Self(primitive)
-    }
-}
+pub use byron::ByronAddress;
 
 /// A decoded Cardano address of any type
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -335,8 +336,8 @@ parse_shelley_fn!(parse_type_7, script_hash);
 // type 8 (1000) are Byron addresses
 fn parse_type_8(header: u8, payload: &[u8]) -> Result<Address, Error> {
     let vec = [&[header], payload].concat();
-    let prim = pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
-    Ok(Address::Byron(ByronAddress(prim)))
+    let inner = pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
+    Ok(Address::Byron(inner))
 }
 
 // types 14-15 are Stake addresses
@@ -379,22 +380,6 @@ impl Network {
             Network::Mainnet => 1,
             Network::Other(x) => *x,
         }
-    }
-}
-
-impl ByronAddress {
-    /// Gets a numeric id describing the type of the address
-    pub fn typeid(&self) -> u8 {
-        0b1000
-    }
-
-    fn to_vec(&self) -> Vec<u8> {
-        pallas_codec::minicbor::to_vec(&self.0).unwrap()
-    }
-
-    pub fn to_hex(&self) -> String {
-        let bytes = self.to_vec();
-        hex::encode(bytes)
     }
 }
 
@@ -554,7 +539,7 @@ impl Address {
         }
     }
 
-    /// Tries to parse a bech32 address into an Address
+    /// Tries to parse a bech32 value into an Address
     pub fn from_bech32(bech32: &str) -> Result<Self, Error> {
         bech32_to_address(bech32)
     }
@@ -562,6 +547,12 @@ impl Address {
     // Tries to decode the raw bytes of an address
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         bytes_to_address(bytes)
+    }
+
+    // Tries to parse a hex value into an Address
+    pub fn from_hex(bytes: &str) -> Result<Self, Error> {
+        let bytes = hex::decode(bytes).map_err(|_| Error::BadHex)?;
+        bytes_to_address(&bytes)
     }
 
     /// Gets the network assoaciated with this address
@@ -625,6 +616,36 @@ impl Address {
     }
 }
 
+impl ToString for Address {
+    fn to_string(&self) -> String {
+        match self {
+            Address::Byron(x) => x.to_base58(),
+            Address::Shelley(x) => x.to_bech32().unwrap_or_else(|_| x.to_hex()),
+            Address::Stake(x) => x.to_bech32().unwrap_or_else(|_| x.to_hex()),
+        }
+    }
+}
+
+impl FromStr for Address {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(x) = Address::from_bech32(s) {
+            return Ok(x);
+        }
+
+        if let Ok(x) = ByronAddress::from_base58(s) {
+            return Ok(x.into());
+        }
+
+        if let Ok(x) = Address::from_hex(s) {
+            return Ok(x);
+        }
+
+        Err(Error::UnknownStringFormat(s.to_owned()))
+    }
+}
+
 impl TryFrom<&[u8]> for Address {
     type Error = Error;
 
@@ -668,6 +689,7 @@ mod tests {
         ("addr1w8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcyjy7wx", 07u8),
         ("stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw", 14u8),
         ("stake178phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcccycj5", 15u8),
+        ("37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na", 08u8),
     ];
 
     const PAYMENT_PUBLIC_KEY: &str =
@@ -685,8 +707,23 @@ mod tests {
     fn roundtrip_bech32() {
         for vector in MAINNET_TEST_VECTORS {
             let original = vector.0;
-            let addr = Address::from_bech32(original).unwrap();
-            let ours = addr.to_bech32().unwrap();
+            match Address::from_str(original) {
+                Ok(Address::Byron(_)) => (),
+                Ok(addr) => {
+                    let ours = addr.to_bech32().unwrap();
+                    assert_eq!(original, ours);
+                }
+                _ => panic!("should be able to decode from bech32"),
+            }
+        }
+    }
+
+    #[test]
+    fn roundtrip_string() {
+        for vector in MAINNET_TEST_VECTORS {
+            let original = vector.0;
+            let addr = Address::from_str(original).unwrap();
+            let ours = addr.to_string();
             assert_eq!(original, ours);
         }
     }
@@ -695,7 +732,7 @@ mod tests {
     fn typeid_matches() {
         for vector in MAINNET_TEST_VECTORS {
             let original = vector.0;
-            let addr = Address::from_bech32(original).unwrap();
+            let addr = Address::from_str(original).unwrap();
             assert_eq!(addr.typeid(), vector.1);
         }
     }
@@ -704,8 +741,12 @@ mod tests {
     fn network_matches() {
         for vector in MAINNET_TEST_VECTORS {
             let original = vector.0;
-            let addr = Address::from_bech32(original).unwrap();
-            assert!(matches!(addr.network(), Some(Network::Mainnet)));
+            let addr = Address::from_str(original).unwrap();
+
+            match addr {
+                Address::Byron(_) => assert!(matches!(addr.network(), None)),
+                _ => assert!(matches!(addr.network(), Some(Network::Mainnet))),
+            }
         }
     }
 
@@ -713,7 +754,7 @@ mod tests {
     fn payload_matches() {
         for vector in MAINNET_TEST_VECTORS {
             let original = vector.0;
-            let addr = Address::from_bech32(original).unwrap();
+            let addr = Address::from_str(original).unwrap();
 
             match addr {
                 Address::Shelley(x) => {
@@ -758,7 +799,10 @@ mod tests {
                         assert_eq!(hash, expected);
                     }
                 },
-                Address::Byron(_) => (),
+                Address::Byron(_) => {
+                    // byron has it's own payload tests
+                    ()
+                }
             };
         }
     }

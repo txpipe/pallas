@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ops::Deref};
 
-use pallas_addresses::{Address, Error as AddressError};
+use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron};
 
@@ -19,19 +19,17 @@ impl<'b> MultiEraOutput<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn address_raw(&self) -> &[u8] {
-        match self {
-            MultiEraOutput::AlonzoCompatible(x) => &x.address,
-            MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::TransactionOutput::Legacy(x) => &x.address,
-                babbage::TransactionOutput::PostAlonzo(x) => &x.address,
-            },
-            MultiEraOutput::Byron(x) => x.address.payload.deref(),
-        }
-    }
-
     pub fn address(&self) -> Result<Address, AddressError> {
-        Address::from_bytes(self.address_raw())
+        match self {
+            MultiEraOutput::AlonzoCompatible(x) => Address::from_bytes(&x.address),
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                babbage::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+            },
+            MultiEraOutput::Byron(x) => {
+                Ok(ByronAddress::new(&x.address.payload.0, x.address.crc).into())
+            }
+        }
     }
 
     pub fn ada_amount(&self) -> u64 {

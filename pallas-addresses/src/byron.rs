@@ -1,9 +1,11 @@
 use pallas_codec::{
     minicbor::{self, bytes::ByteVec, Decode, Encode},
-    utils::OrderPreservingProperties,
+    utils::{OrderPreservingProperties, TagWrap},
 };
 
 use pallas_crypto::hash::Hash;
+
+use crate::Error;
 
 pub type Blake2b224 = Hash<28>;
 
@@ -156,4 +158,79 @@ pub struct AddressPayload {
 
     #[n(2)]
     pub addrtype: AddrType,
+}
+
+/// New type wrapping a Byron address primitive
+#[derive(Debug, Encode, Decode, Clone, PartialEq, PartialOrd)]
+pub struct ByronAddress {
+    #[n(0)]
+    payload: TagWrap<ByteVec, 24>,
+
+    #[n(1)]
+    crc: u64,
+}
+
+impl ByronAddress {
+    pub fn new(payload: &[u8], crc: u64) -> Self {
+        Self {
+            payload: TagWrap(ByteVec::from(Vec::from(payload))),
+            crc,
+        }
+    }
+
+    pub fn from_bytes(value: &[u8]) -> Result<Self, Error> {
+        pallas_codec::minicbor::decode(value).map_err(|_| Error::InvalidByronCbor)
+    }
+
+    // Tries to decode an address from its hex representation
+    pub fn from_base58(value: &str) -> Result<Self, Error> {
+        let bytes = base58::FromBase58::from_base58(value).map_err(Error::BadBase58)?;
+        Self::from_bytes(&bytes)
+    }
+
+    /// Gets a numeric id describing the type of the address
+    pub fn typeid(&self) -> u8 {
+        0b1000
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        pallas_codec::minicbor::to_vec(&self).unwrap()
+    }
+
+    pub fn to_base58(&self) -> String {
+        let bytes = self.to_vec();
+        base58::ToBase58::to_base58(bytes.as_slice())
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
+    }
+
+    pub fn decode(&self) -> Result<AddressPayload, Error> {
+        minicbor::decode(&self.payload.0).map_err(|_| Error::InvalidByronCbor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_VECTOR: &str = "37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na";
+
+    const ROOT_HASH: &str = "7e9ee4a9527dea9091e2d580edd6716888c42f75d96276290f98fe0b";
+
+    #[test]
+    fn roundtrip_base58() {
+        let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
+        let ours = addr.to_base58();
+        assert_eq!(TEST_VECTOR, ours);
+    }
+
+    #[test]
+    fn payload_matches() {
+        let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
+        let payload = addr.decode().unwrap();
+        assert_eq!(payload.root.to_string(), ROOT_HASH);
+    }
 }

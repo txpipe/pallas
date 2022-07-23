@@ -274,7 +274,7 @@ impl<T> Deref for CborWrap<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct TagWrap<I, const T: u64>(I);
+pub struct TagWrap<I, const T: u64>(pub I);
 
 impl<I, const T: u64> TagWrap<I, T> {
     pub fn new(inner: I) -> Self {
