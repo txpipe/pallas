@@ -69,7 +69,7 @@ where
 {
     pub fn initial(state: State) -> Self {
         Self {
-            state: state,
+            state,
             snapshot: None,
             request: None,
             output: None,
@@ -234,7 +234,7 @@ where
                 State::StBusy(StBusyKind::GetSizes),
                 Message::MsgResponse(MsgResponse::MsgReplyGetSizes(msc)),
             ) => self.on_reply_get_size(msc),
-            (state, msg) => Err(MachineError::invalid_msg::<Self>(&state, &msg)),
+            (state, msg) => Err(MachineError::invalid_msg::<Self>(state, &msg)),
         }
     }
 }

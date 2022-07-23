@@ -53,7 +53,7 @@ impl<'b> Decode<'b, ()> for Message {
                 log::trace!("Decoding 6, 2. Array: {:?}", de);
                 let tag: Result<u8, pallas_codec::minicbor::decode::Error> = d.u8();
                 let mut tx = None;
-                if let Ok(_) = tag {
+                if tag.is_ok() {
                     log::trace!("Decoding 6, Tag: {:?}", tag);
                     let det = d.tag();
                     log::trace!("Decoding 6, Bytes: {:?}", det);
@@ -74,14 +74,15 @@ impl<'b> Decode<'b, ()> for Message {
             9 => Ok(Message::MsgQuery(MsgRequest::MsgGetSizes)),
             10 => {
                 d.array()?;
-                let capacity = d.decode()?;
+                let capacity_in_bytes = d.decode()?;
                 let size_in_bytes = d.decode()?;
-                let number_of_tx = d.decode()?;
+                let number_of_txs = d.decode()?;
+
                 Ok(Message::MsgResponse(MsgResponse::MsgReplyGetSizes(
                     MempoolSizeAndCapacity {
-                        capacity_in_bytes: capacity,
-                        size_in_bytes: size_in_bytes,
-                        number_of_txs: number_of_tx,
+                        capacity_in_bytes,
+                        size_in_bytes,
+                        number_of_txs,
                     },
                 )))
             }
