@@ -1,7 +1,7 @@
 [package]
 name = "pallas-multiplexer"
 description = "Multithreaded Ouroboros multiplexer implementation using mpsc channels"
-version = "0.12.0-alpha.0"
+version = "0.12.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -13,7 +13,7 @@ authors = [
 ]
 
 [dependencies]
-pallas-codec = { version = "0.12.0-alpha.0",  path = "../pallas-codec/" }
+pallas-codec = { version = "0.12.0",  path = "../pallas-codec/" }
 log = "0.4.14"
 byteorder = "1.4.3"
 hex = "0.4.3"
