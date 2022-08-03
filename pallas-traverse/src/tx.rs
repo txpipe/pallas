@@ -192,6 +192,17 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    pub fn collateral_return(&self) -> Option<MultiEraOutput> {
+        match self {
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .collateral_return
+                .as_ref()
+                .map(MultiEraOutput::from_babbage),
+            _ => None
+        }
+    }
+
     pub fn withdrawals(&self) -> MultiEraWithdrawals {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.transaction_body.withdrawals {
