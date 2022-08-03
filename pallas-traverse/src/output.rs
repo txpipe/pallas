@@ -104,3 +104,22 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::MultiEraBlock;
+
+    #[test]
+    fn traverse_block_with_varied_outputs() {
+        let str = include_str!("../../test_data/alonzo24.block");
+        let bytes = hex::decode(str).unwrap();
+        let block = MultiEraBlock::decode(&bytes).unwrap();
+
+        for tx in block.txs() {
+            for output in tx.outputs() {
+                assert_ne!(output.ada_amount(), 0);
+                assert!(matches!(output.address(), Ok(_)));
+            }
+        }
+    }
+}
