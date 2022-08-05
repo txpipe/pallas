@@ -208,8 +208,16 @@ impl<'b> MultiEraTx<'b> {
 
     fn aux_data(&self) -> Option<&KeepRaw<'_, AuxiliaryData>> {
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => x.auxiliary_data.as_ref(),
-            MultiEraTx::Babbage(x) => x.auxiliary_data.as_ref(),
+            MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
+            MultiEraTx::Babbage(x) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
             MultiEraTx::Byron(_) => None,
         }
     }
