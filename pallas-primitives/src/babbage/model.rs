@@ -5,7 +5,7 @@
 use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray};
+use pallas_codec::utils::{CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -561,7 +561,7 @@ pub struct Tx {
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Option<AuxiliaryData>,
+    pub auxiliary_data: Nullable<AuxiliaryData>,
 }
 
 #[derive(Encode, Decode, Debug, Clone)]
@@ -576,7 +576,7 @@ pub struct MintedTx<'b> {
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Option<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
 #[cfg(test)]

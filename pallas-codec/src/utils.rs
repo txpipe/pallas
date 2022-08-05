@@ -574,3 +574,67 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
             .map_err(minicbor::encode::Error::write)
     }
 }
+
+#[derive(Clone, Debug)]
+pub enum Nullable<T> {
+    Some(T),
+    Null,
+    Undefined,
+}
+
+impl<'b, C, T> minicbor::Decode<'b, C> for Nullable<T>
+where
+    T: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::Null => {
+                d.null()?;
+                Ok(Self::Null)
+            }
+            minicbor::data::Type::Undefined => {
+                d.undefined()?;
+                Ok(Self::Undefined)
+            }
+            _ => {
+                let x = d.decode_with(ctx)?;
+                Ok(Self::Some(x))
+            }
+        }
+    }
+}
+
+impl<C, T> minicbor::Encode<C> for Nullable<T>
+where
+    T: minicbor::Encode<C>,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Nullable::Some(x) => {
+                e.encode_with(x, ctx)?;
+                Ok(())
+            }
+            Nullable::Null => {
+                e.null()?;
+                Ok(())
+            }
+            Nullable::Undefined => {
+                e.undefined()?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<T> From<Option<T>> for Nullable<T> {
+    fn from(x: Option<T>) -> Self {
+        match x {
+            Some(x) => Nullable::Some(x),
+            None => Nullable::Null,
+        }
+    }
+}

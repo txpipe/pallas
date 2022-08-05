@@ -25,7 +25,8 @@ macro_rules! clone_tx_fn {
                         None
                     }
                 })
-                .cloned();
+                .cloned()
+                .into();
 
             let x = $era::MintedTx {
                 transaction_body,
