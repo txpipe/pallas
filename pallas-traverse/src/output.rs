@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage::{self, DatumOption, ScriptRef}, byron};
 
 use crate::{Era, MultiEraOutput};
 
@@ -17,6 +17,27 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn from_babbage(output: &'b babbage::TransactionOutput) -> Self {
         Self::Babbage(Box::new(Cow::Borrowed(output)))
+    }
+
+    pub fn datum(&self) -> Option<DatumOption> {
+        match self {
+            MultiEraOutput::AlonzoCompatible(x) => x.datum_hash.map(DatumOption::Hash),
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => x.datum_hash.map(DatumOption::Hash),
+                babbage::TransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+            },
+            _ => None
+        }
+    }
+
+    pub fn script_ref(&self) -> Option<ScriptRef> {
+        match self {
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(_) => None,
+                babbage::TransactionOutput::PostAlonzo(x) => x.script_ref.clone(),
+            },
+            _ => None
+        }
     }
 
     pub fn address(&self) -> Result<Address, AddressError> {
