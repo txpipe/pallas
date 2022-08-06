@@ -1,6 +1,6 @@
 use crate::ToHash;
 
-use super::{Header, PlutusV2Script, TransactionBody};
+use super::{Header, PlutusV2Script, TransactionBody, DatumOption};
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
 
@@ -25,6 +25,15 @@ impl ToHash<32> for TransactionBody {
 impl ToHash<32> for KeepRaw<'_, TransactionBody> {
     fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+impl ToHash<32> for DatumOption {
+    fn to_hash(&self) -> Hash<32> {
+        match self {
+            DatumOption::Hash(hash) => *hash,
+            DatumOption::Data(data) => data.to_hash()
+        }
     }
 }
 
