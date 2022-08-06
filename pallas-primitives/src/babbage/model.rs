@@ -93,7 +93,7 @@ pub use crate::alonzo::Coin;
 
 pub use crate::alonzo::Value;
 
-pub use crate::alonzo::TransactionOutput as LegacyTransacionOutput;
+pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
 pub use crate::alonzo::PoolKeyhash;
 
@@ -285,7 +285,7 @@ pub struct TransactionBody {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TransactionOutput {
-    Legacy(LegacyTransacionOutput),
+    Legacy(LegacyTransactionOutput),
     PostAlonzo(PostAlonzoTransactionOutput),
 }
 
