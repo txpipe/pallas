@@ -22,7 +22,7 @@ pub struct HeaderBody {
     pub slot: u64,
 
     #[n(2)]
-    pub prev_hash: Hash<32>,
+    pub prev_hash: Option<Hash<32>>,
 
     #[n(3)]
     pub issuer_vkey: ByteVec,
@@ -1395,7 +1395,7 @@ pub struct MintedTx<'b> {
 mod tests {
     use pallas_codec::minicbor::{self, to_vec};
 
-    use super::MintedBlock;
+    use super::{Header, MintedBlock};
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
@@ -1454,6 +1454,27 @@ mod tests {
 
             let bytes2 =
                 to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
+
+    #[test]
+    fn header_isomorphic_decoding_encoding() {
+        let test_headers = vec![
+            // peculiar alonzo header used as origin for a vasil devnet
+            include_str!("../../../test_data/alonzo26.header"),
+        ];
+
+        for (idx, header_str) in test_headers.iter().enumerate() {
+            println!("decoding test header {}", idx + 1);
+            let bytes = hex::decode(header_str).expect(&format!("bad header file {}", idx));
+
+            let header: Header = minicbor::decode(&bytes[..])
+                .expect(&format!("error decoding cbor for file {}", idx));
+
+            let bytes2 =
+                to_vec(header).expect(&format!("error encoding header cbor for file {}", idx));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
