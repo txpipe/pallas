@@ -21,7 +21,7 @@ pub struct HeaderBody {
     pub slot: u64,
 
     #[n(2)]
-    pub prev_hash: Hash<32>,
+    pub prev_hash: Option<Hash<32>>,
 
     #[n(3)]
     pub issuer_vkey: ByteVec,
