@@ -134,6 +134,23 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
+        match self {
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .reference_inputs
+                .as_ref()
+                .map(|inputs|
+                    inputs
+                    .iter()
+                    .map(MultiEraInput::from_alonzo_compatible)
+                    .collect()
+                )
+                .unwrap_or_default(),
+            _ => vec![]
+        }
+    }
+
     pub fn certs(&self) -> Vec<MultiEraCert> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
