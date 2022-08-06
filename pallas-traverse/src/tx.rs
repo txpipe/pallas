@@ -199,7 +199,7 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return
                 .as_ref()
                 .map(MultiEraOutput::from_babbage),
-            _ => None
+            _ => None,
         }
     }
 
