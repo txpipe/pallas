@@ -163,10 +163,10 @@ pub use crate::alonzo::CostModel;
 #[cbor(map)]
 pub struct CostMdls {
     #[n(0)]
-    pub plutus_v1: CostModel,
+    pub plutus_v1: Option<CostModel>,
 
     #[n(1)]
-    pub plutus_v2: CostModel,
+    pub plutus_v2: Option<CostModel>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
