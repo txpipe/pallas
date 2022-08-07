@@ -1,4 +1,7 @@
-use pallas_primitives::{alonzo::{self, VKeyWitness, Redeemer, PlutusData, BootstrapWitness, NativeScript}, babbage::{self, PlutusV2Script}};
+use pallas_primitives::{
+    alonzo::{self, BootstrapWitness, NativeScript, PlutusData, Redeemer, VKeyWitness},
+    babbage::{self, PlutusV2Script},
+};
 
 use crate::MultiEraWitnesses;
 
