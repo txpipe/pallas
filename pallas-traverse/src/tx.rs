@@ -140,14 +140,14 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .reference_inputs
                 .as_ref()
-                .map(|inputs|
+                .map(|inputs| {
                     inputs
-                    .iter()
-                    .map(MultiEraInput::from_alonzo_compatible)
-                    .collect()
-                )
+                        .iter()
+                        .map(MultiEraInput::from_alonzo_compatible)
+                        .collect()
+                })
                 .unwrap_or_default(),
-            _ => vec![]
+            _ => vec![],
         }
     }
 

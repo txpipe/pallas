@@ -1,6 +1,6 @@
 use crate::ToHash;
 
-use super::{Header, PlutusV2Script, TransactionBody, DatumOption};
+use super::{DatumOption, Header, PlutusV2Script, TransactionBody};
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
 
@@ -32,7 +32,7 @@ impl ToHash<32> for DatumOption {
     fn to_hash(&self) -> Hash<32> {
         match self {
             DatumOption::Hash(hash) => *hash,
-            DatumOption::Data(data) => data.to_hash()
+            DatumOption::Data(data) => data.to_hash(),
         }
     }
 }
