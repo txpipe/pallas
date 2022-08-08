@@ -636,7 +636,7 @@ pub enum Language {
     PlutusV1,
 }
 
-pub type CostModel = MaybeIndefArray<i32>;
+pub type CostModel = MaybeIndefArray<i64>;
 
 pub type CostMdls = KeyValuePairs<Language, CostModel>;
 
