@@ -593,6 +593,8 @@ mod tests {
             include_str!("../../../test_data/babbage1.block"),
             include_str!("../../../test_data/babbage2.block"),
             include_str!("../../../test_data/babbage3.block"),
+            // peculiar block with single plutus cost model
+            include_str!("../../../test_data/babbage4.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
