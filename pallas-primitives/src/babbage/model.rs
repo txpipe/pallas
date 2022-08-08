@@ -163,10 +163,10 @@ pub use crate::alonzo::CostModel;
 #[cbor(map)]
 pub struct CostMdls {
     #[n(0)]
-    pub plutus_v1: CostModel,
+    pub plutus_v1: Option<CostModel>,
 
     #[n(1)]
-    pub plutus_v2: CostModel,
+    pub plutus_v2: Option<CostModel>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -593,6 +593,8 @@ mod tests {
             include_str!("../../../test_data/babbage1.block"),
             include_str!("../../../test_data/babbage2.block"),
             include_str!("../../../test_data/babbage3.block"),
+            // peculiar block with single plutus cost model
+            include_str!("../../../test_data/babbage4.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
