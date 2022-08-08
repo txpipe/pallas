@@ -1,7 +1,7 @@
 use pallas::network::{
     miniprotocols::{
         handshake::{n2n::VersionTable, Initiator},
-        run_agent, Point, MAINNET_MAGIC,
+        run_agent, Point, TESTNET_MAGIC,
     },
     multiplexer::{bearers::Bearer, StdPlexer},
 };
@@ -22,7 +22,7 @@ impl Observer for BlockPrinter {
 fn main() {
     env_logger::init();
 
-    let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
+    let bearer = Bearer::connect_tcp("relays-new.cardano-testnet.iohkdev.io:3001").unwrap();
 
     let mut plexer = StdPlexer::new(bearer);
     let mut channel0 = plexer.use_channel(0).into();
@@ -31,18 +31,18 @@ fn main() {
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
 
-    let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
+    let versions = VersionTable::v4_and_above(TESTNET_MAGIC);
     let _last = run_agent(Initiator::initial(versions), &mut channel0).unwrap();
 
     let range = (
         Point::Specific(
-            97,
-            hex::decode("cf7fa60bbd210273d79fa48d11ab1d141242af32b231cc40ce3411230a8d3c61")
+            63528597,
+            hex::decode("3f3d81c7b88f0fa28867541c5fea8794125cccf6d6c9ee0037a1dbb064130dfd")
                 .unwrap(),
         ),
         Point::Specific(
-            99,
-            hex::decode("a52cca923a67326ea9c409e958a17a77990be72f3607625ec5b3d456202e223e")
+            63528597,
+            hex::decode("3f3d81c7b88f0fa28867541c5fea8794125cccf6d6c9ee0037a1dbb064130dfd")
                 .unwrap(),
         ),
     );
