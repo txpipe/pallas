@@ -216,7 +216,7 @@ where
 /// transform key-value structures into an orderer vec of `properties`, where
 /// each entry represents a a cbor-encodable variant of an attribute of the
 /// struct.
-#[derive(Debug, PartialEq, Clone, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd)]
 pub struct OrderPreservingProperties<P>(Vec<P>);
 
 impl<P> Deref for OrderPreservingProperties<P> {
@@ -259,7 +259,7 @@ where
 }
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
 #[serde(transparent)]
 pub struct CborWrap<T>(pub T);
 
@@ -304,7 +304,7 @@ impl<T> Deref for CborWrap<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TagWrap<I, const T: u64>(pub I);
 
 impl<I, const T: u64> TagWrap<I, T> {
@@ -557,7 +557,7 @@ impl From<&AnyUInt> for u64 {
 /// let confirm: (u16, u16) = minicbor::decode(keeper.raw_cbor()).unwrap();
 /// assert_eq!(confirm, (456u16, 789u16));
 /// ```
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct KeepRaw<'b, T> {
     raw: &'b [u8],
     inner: T,

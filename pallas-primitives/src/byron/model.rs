@@ -52,7 +52,7 @@ pub type Attributes = EmptyMap;
 // The primitives crate will treat addresses as a black-box vec of bytes.
 
 // address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
-#[derive(Debug, Encode, Decode, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Address {
     #[n(0)]
     pub payload: TagWrap<ByteVec, 24>,

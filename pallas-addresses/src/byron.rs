@@ -12,7 +12,7 @@ pub type Blake2b224 = Hash<28>;
 pub type AddressId = Blake2b224;
 pub type StakeholderId = Blake2b224;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddrDistr {
     Variant0(StakeholderId),
     Variant1,
@@ -57,7 +57,7 @@ impl minicbor::Encode<()> for AddrDistr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddrType {
     PubKey,
     Script,
@@ -98,7 +98,7 @@ impl<C> minicbor::Encode<C> for AddrType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     Bytes(ByteVec),
@@ -148,7 +148,7 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
 
 pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
 
-#[derive(Debug, Encode, Decode, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd)]
 pub struct AddressPayload {
     #[n(0)]
     pub root: AddressId,
@@ -161,7 +161,7 @@ pub struct AddressPayload {
 }
 
 /// New type wrapping a Byron address primitive
-#[derive(Debug, Encode, Decode, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByronAddress {
     #[n(0)]
     payload: TagWrap<ByteVec, 24>,

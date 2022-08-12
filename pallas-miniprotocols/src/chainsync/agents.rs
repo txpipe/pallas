@@ -10,7 +10,7 @@ use crate::common::Point;
 
 use super::{BlockContent, HeaderContent, Message, SkippedContent, State, Tip};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Continuation {
     Proceed,
     DropOut,

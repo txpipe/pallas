@@ -16,7 +16,7 @@ use pallas_codec::minicbor;
 
 pub use crate::alonzo::VrfCert;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
     pub block_number: u64,
@@ -49,7 +49,7 @@ pub struct HeaderBody {
     pub protocol_version: ProtocolVersion,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct OperationalCert {
     #[n(0)]
     pub operational_cert_hot_vkey: Bytes,
@@ -68,7 +68,7 @@ pub use crate::alonzo::ProtocolVersion;
 
 pub use crate::alonzo::KesSignature;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Header {
     #[n(0)]
     pub header_body: HeaderBody,
@@ -151,7 +151,7 @@ pub use crate::alonzo::Certificate;
 
 pub use crate::alonzo::NetworkId;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum Language {
     #[n(0)]
@@ -163,7 +163,7 @@ pub enum Language {
 
 pub use crate::alonzo::CostModel;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct CostMdls {
     #[n(0)]
@@ -173,7 +173,7 @@ pub struct CostMdls {
     pub plutus_v2: Option<CostModel>,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -223,7 +223,7 @@ pub struct ProtocolParamUpdate {
     pub max_collateral_inputs: Option<u32>,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Update {
     #[n(0)]
     pub proposed_protocol_parameter_updates: BTreeMap<Genesishash, ProtocolParamUpdate>,
@@ -347,7 +347,7 @@ pub use crate::alonzo::NativeScript;
 
 pub use crate::alonzo::PlutusScript as PlutusV1Script;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
 pub struct PlutusV2Script(#[n(0)] pub Bytes);
 
@@ -419,7 +419,7 @@ pub type DatumHash = Hash<32>;
 pub type Data = CborWrap<PlutusData>;
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum DatumOption {
     Hash(Hash<32>),
     Data(Data),

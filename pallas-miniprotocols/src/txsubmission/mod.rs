@@ -6,7 +6,7 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::machines::{Agent, MachineError, Transition};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,
     TxIdsNonBlocking,

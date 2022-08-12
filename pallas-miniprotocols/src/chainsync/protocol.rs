@@ -5,7 +5,7 @@ use crate::common::Point;
 #[derive(Debug, Clone)]
 pub struct Tip(pub Point, pub u64);
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,
     CanAwait,
