@@ -49,9 +49,9 @@ impl<K, V> KeyValuePairs<K, V> {
     }
 }
 
-impl<K, V> Into<Vec<(K, V)>> for KeyValuePairs<K, V> {
-    fn into(self) -> Vec<(K, V)> {
-        match self {
+impl<K, V> From<KeyValuePairs<K, V>> for Vec<(K, V)> {
+    fn from(other: KeyValuePairs<K, V>) -> Self {
+        match other {
             KeyValuePairs::Def(x) => x,
             KeyValuePairs::Indef(x) => x,
         }
@@ -149,9 +149,9 @@ impl<A> Deref for MaybeIndefArray<A> {
     }
 }
 
-impl<A> Into<Vec<A>> for MaybeIndefArray<A> {
-    fn into(self) -> Vec<A> {
-        match self {
+impl<A> From<MaybeIndefArray<A>> for Vec<A> {
+    fn from(other: MaybeIndefArray<A>) -> Self {
+        match other {
             MaybeIndefArray::Def(x) => x,
             MaybeIndefArray::Indef(x) => x,
         }
@@ -698,12 +698,12 @@ where
     }
 }
 
-impl<T> Into<Option<T>> for Nullable<T>
+impl<T> From<Nullable<T>> for Option<T>
 where
     T: std::clone::Clone,
 {
-    fn into(self) -> Option<T> {
-        match self {
+    fn from(other: Nullable<T>) -> Self {
+        match other {
             Nullable::Some(x) => Some(x),
             _ => None,
         }
