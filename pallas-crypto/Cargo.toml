@@ -18,8 +18,11 @@ cryptoxide = { version = "0.4.1" }
 thiserror = "1.0"
 rand_core = "0.6"
 pallas-codec = { version = "0.13.0", path = "../pallas-codec" }
+serde = "1.0.143"
 
 [dev-dependencies]
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rand = "0.8"
+serde_json = "1.0.83"
+serde = { version = "*", features = ["derive"] }

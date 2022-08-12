@@ -2,17 +2,21 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Babbage CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/babbage/test-suite/cddl-files/babbage.cddl) file in IOHK repo.
 
-use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
 pub use crate::alonzo::VrfCert;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
     pub block_number: u64,
@@ -24,10 +28,10 @@ pub struct HeaderBody {
     pub prev_hash: Option<Hash<32>>,
 
     #[n(3)]
-    pub issuer_vkey: ByteVec,
+    pub issuer_vkey: Bytes,
 
     #[n(4)]
-    pub vrf_vkey: ByteVec,
+    pub vrf_vkey: Bytes,
 
     #[n(5)]
     pub vrf_result: VrfCert,
@@ -45,10 +49,10 @@ pub struct HeaderBody {
     pub protocol_version: ProtocolVersion,
 }
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, Clone, PartialEq, PartialOrd)]
 pub struct OperationalCert {
     #[n(0)]
-    pub operational_cert_hot_vkey: ByteVec,
+    pub operational_cert_hot_vkey: Bytes,
 
     #[n(1)]
     pub operational_cert_sequence_number: u64,
@@ -57,20 +61,20 @@ pub struct OperationalCert {
     pub operational_cert_kes_period: u64,
 
     #[n(3)]
-    pub operational_cert_sigma: ByteVec,
+    pub operational_cert_sigma: Bytes,
 }
 
 pub use crate::alonzo::ProtocolVersion;
 
 pub use crate::alonzo::KesSignature;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Header {
     #[n(0)]
     pub header_body: HeaderBody,
 
     #[n(1)]
-    pub body_signature: ByteVec,
+    pub body_signature: Bytes,
 }
 
 pub use crate::alonzo::TransactionInput;
@@ -113,9 +117,9 @@ pub use crate::alonzo::MoveInstantaneousReward;
 
 pub use crate::alonzo::RewardAccount;
 
-pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
 
-pub type RequiredSigners = MaybeIndefArray<AddrKeyhash>;
+pub type RequiredSigners = Vec<AddrKeyhash>;
 
 pub use crate::alonzo::Port;
 
@@ -147,7 +151,7 @@ pub use crate::alonzo::Certificate;
 
 pub use crate::alonzo::NetworkId;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(index_only)]
 pub enum Language {
     #[n(0)]
@@ -159,7 +163,7 @@ pub enum Language {
 
 pub use crate::alonzo::CostModel;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct CostMdls {
     #[n(0)]
@@ -169,7 +173,7 @@ pub struct CostMdls {
     pub plutus_v2: Option<CostModel>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -219,23 +223,23 @@ pub struct ProtocolParamUpdate {
     pub max_collateral_inputs: Option<u32>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Update {
     #[n(0)]
-    pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
+    pub proposed_protocol_parameter_updates: BTreeMap<Genesishash, ProtocolParamUpdate>,
 
     #[n(1)]
     pub epoch: Epoch,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct TransactionBody {
     #[n(0)]
-    pub inputs: MaybeIndefArray<TransactionInput>,
+    pub inputs: Vec<TransactionInput>,
 
     #[n(1)]
-    pub outputs: MaybeIndefArray<TransactionOutput>,
+    pub outputs: Vec<TransactionOutput>,
 
     #[n(2)]
     pub fee: u64,
@@ -244,16 +248,16 @@ pub struct TransactionBody {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<MaybeIndefArray<Certificate>>,
+    pub certificates: Option<Vec<Certificate>>,
 
     #[n(5)]
-    pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>,
+    pub withdrawals: Option<BTreeMap<RewardAccount, Coin>>,
 
     #[n(6)]
     pub update: Option<Update>,
 
     #[n(7)]
-    pub auxiliary_data_hash: Option<ByteVec>,
+    pub auxiliary_data_hash: Option<Bytes>,
 
     #[n(8)]
     pub validity_interval_start: Option<u64>,
@@ -265,10 +269,10 @@ pub struct TransactionBody {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(13)]
-    pub collateral: Option<MaybeIndefArray<TransactionInput>>,
+    pub collateral: Option<Vec<TransactionInput>>,
 
     #[n(14)]
-    pub required_signers: Option<MaybeIndefArray<AddrKeyhash>>,
+    pub required_signers: Option<Vec<AddrKeyhash>>,
 
     #[n(15)]
     pub network_id: Option<NetworkId>,
@@ -280,10 +284,10 @@ pub struct TransactionBody {
     pub total_collateral: Option<Coin>,
 
     #[n(18)]
-    pub reference_inputs: Option<MaybeIndefArray<TransactionInput>>,
+    pub reference_inputs: Option<Vec<TransactionInput>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum TransactionOutput {
     Legacy(LegacyTransactionOutput),
     PostAlonzo(PostAlonzoTransactionOutput),
@@ -321,11 +325,11 @@ impl<C> minicbor::Encode<C> for TransactionOutput {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct PostAlonzoTransactionOutput {
     #[n(0)]
-    pub address: ByteVec,
+    pub address: Bytes,
 
     #[n(1)]
     pub value: Value,
@@ -343,9 +347,9 @@ pub use crate::alonzo::NativeScript;
 
 pub use crate::alonzo::PlutusScript as PlutusV1Script;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(transparent)]
-pub struct PlutusV2Script(#[n(0)] pub ByteVec);
+pub struct PlutusV2Script(#[n(0)] pub Bytes);
 
 impl AsRef<[u8]> for PlutusV2Script {
     fn as_ref(&self) -> &[u8] {
@@ -369,45 +373,45 @@ pub use crate::alonzo::Redeemer;
 
 pub use crate::alonzo::BootstrapWitness;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct TransactionWitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<MaybeIndefArray<VKeyWitness>>,
+    pub vkeywitness: Option<Vec<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<MaybeIndefArray<NativeScript>>,
+    pub native_script: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<MaybeIndefArray<BootstrapWitness>>,
+    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<MaybeIndefArray<PlutusV1Script>>,
+    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
 
     #[n(4)]
-    pub plutus_data: Option<MaybeIndefArray<PlutusData>>,
+    pub plutus_data: Option<Vec<PlutusData>>,
 
     #[n(5)]
-    pub redeemer: Option<MaybeIndefArray<Redeemer>>,
+    pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<MaybeIndefArray<PlutusV2Script>>,
+    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct PostAlonzoAuxiliaryData {
     #[n(0)]
     pub metadata: Option<Metadata>,
 
     #[n(1)]
-    pub native_scripts: Option<MaybeIndefArray<NativeScript>>,
+    pub native_scripts: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub plutus_v1_scripts: Option<MaybeIndefArray<PlutusV1Script>>,
+    pub plutus_v1_scripts: Option<Vec<PlutusV1Script>>,
 
     #[n(3)]
-    pub plutus_v2_scripts: Option<MaybeIndefArray<PlutusV2Script>>,
+    pub plutus_v2_scripts: Option<Vec<PlutusV2Script>>,
 }
 
 pub type DatumHash = Hash<32>;
@@ -415,7 +419,7 @@ pub type DatumHash = Hash<32>;
 pub type Data = CborWrap<PlutusData>;
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum DatumOption {
     Hash(Hash<32>),
     Data(Data),
@@ -457,7 +461,7 @@ impl<C> minicbor::Encode<C> for DatumOption {
 pub type ScriptRef = CborWrap<Script>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Script {
     NativeScript(NativeScript),
     PlutusV1Script(PlutusV1Script),
@@ -508,22 +512,22 @@ pub use crate::alonzo::AuxiliaryData;
 
 pub use crate::alonzo::TransactionIndex;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Block {
     #[n(0)]
     pub header: Header,
 
     #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<TransactionBody>,
+    pub transaction_bodies: Vec<TransactionBody>,
 
     #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
+    pub transaction_witness_sets: Vec<TransactionWitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
-    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
+    pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
 /// A memory representation of an already minted block
@@ -549,7 +553,34 @@ pub struct MintedBlock<'b> {
     pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
 
-#[derive(Encode, Decode, Debug)]
+impl<'b> From<MintedBlock<'b>> for Block {
+    fn from(x: MintedBlock<'b>) -> Self {
+        Block {
+            header: x.header.unwrap(),
+            transaction_bodies: x
+                .transaction_bodies
+                .to_vec()
+                .into_iter()
+                .map(|x| x.unwrap())
+                .collect(),
+            transaction_witness_sets: x
+                .transaction_witness_sets
+                .to_vec()
+                .into_iter()
+                .map(|x| x.unwrap())
+                .collect(),
+            auxiliary_data_set: x
+                .auxiliary_data_set
+                .to_vec()
+                .into_iter()
+                .map(|(k, v)| (k, v.unwrap()))
+                .collect(),
+            invalid_transactions: x.invalid_transactions.map(|x| x.into()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
 pub struct Tx {
     #[n(0)]
     pub transaction_body: TransactionBody,
@@ -577,6 +608,17 @@ pub struct MintedTx<'b> {
 
     #[n(3)]
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+}
+
+impl<'b> From<MintedTx<'b>> for Tx {
+    fn from(x: MintedTx<'b>) -> Self {
+        Tx {
+            transaction_body: x.transaction_body.unwrap(),
+            transaction_witness_set: x.transaction_witness_set.unwrap(),
+            success: x.success,
+            auxiliary_data: x.auxiliary_data.map(|x| x.unwrap()),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -51,8 +51,7 @@ mod tests {
     use std::str::FromStr;
 
     use pallas_codec::minicbor;
-    use pallas_codec::minicbor::data::Int;
-    use pallas_codec::utils::MaybeIndefArray;
+    use pallas_codec::utils::Int;
     use pallas_crypto::hash::Hash;
 
     use crate::alonzo::{BigInt, Constr, MintedBlock, NativeScript, PlutusData, PlutusScript};
@@ -88,13 +87,13 @@ mod tests {
     #[test]
     fn native_script_hashes_as_cardano_cli() {
         // construct an arbitrary script to use as example
-        let ns = NativeScript::ScriptAll(MaybeIndefArray::Def(vec![
+        let ns = NativeScript::ScriptAll(vec![
             NativeScript::ScriptPubkey(
                 Hash::<28>::from_str("4d04380dcb9fbad5aff8e2f4e19394ef4e5e11b37932838f01984a12")
                     .unwrap(),
             ),
             NativeScript::InvalidBefore(112500819),
-        ]));
+        ]);
 
         // hash that we assume correct since it was generated through the cardano-cli
         let cardano_cli_output = "d6a8ced01ecdfbb26c90850010a06fbc20a7c23632fc92f531667f36";
@@ -111,26 +110,26 @@ mod tests {
         let pd = PlutusData::Constr(Constr::<PlutusData> {
             tag: 1280,
             any_constructor: None,
-            fields: MaybeIndefArray::Indef(vec![
+            fields: vec![
                 PlutusData::BigInt(BigInt::Int(Int::from(4))),
                 PlutusData::Constr(Constr::<PlutusData> {
                     tag: 124,
                     any_constructor: None,
-                    fields: MaybeIndefArray::Indef(vec![
+                    fields: vec![
                         PlutusData::BigInt(BigInt::Int(Int::from(-4))),
                         PlutusData::Constr(Constr::<PlutusData> {
                             tag: 102,
                             any_constructor: Some(453),
-                            fields: MaybeIndefArray::Indef(vec![
+                            fields: vec![
                                 PlutusData::BigInt(BigInt::Int(Int::from(2))),
                                 PlutusData::BigInt(BigInt::Int(Int::from(3434))),
-                            ]),
+                            ],
                         }),
                         PlutusData::BigInt(BigInt::Int(Int::from(-11828293))),
-                    ]),
+                    ],
                 }),
                 PlutusData::BigInt(BigInt::Int(Int::from(11828293))),
-            ]),
+            ],
         });
 
         // if you need to try this out in the cardano-cli, uncomment this line to see
