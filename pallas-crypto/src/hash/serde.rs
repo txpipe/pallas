@@ -46,16 +46,18 @@ impl<'de, const BYTES: usize> Deserialize<'de> for Hash<BYTES> {
 
 #[cfg(test)]
 mod tests {
+    use serde_test::{assert_de_tokens_error, assert_tokens, Token};
+
     use super::*;
 
-    #[derive(Deserialize, Serialize)]
+    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
     struct Dummy {
         hash1: Hash<28>,
         hash2: Hash<32>,
     }
 
     #[test]
-    fn roundtrip_ok() {
+    fn output_tokens() {
         let dummy = Dummy {
             hash1: "276fd18711931e2c0e21430192dbeac0e458093cd9d1fcd7210f64b3"
                 .parse()
@@ -65,23 +67,31 @@ mod tests {
                 .unwrap(),
         };
 
-        let json = serde_json::to_value(&dummy).unwrap();
-
-        let dummy2: Dummy = serde_json::from_value(json).unwrap();
-
-        assert_eq!(&dummy.hash1, &dummy2.hash1);
-        assert_eq!(&dummy.hash2, &dummy2.hash2);
+        assert_tokens(
+            &dummy,
+            &[
+                Token::Struct {
+                    name: "Dummy",
+                    len: 2,
+                },
+                Token::Str("hash1"),
+                Token::Str("276fd18711931e2c0e21430192dbeac0e458093cd9d1fcd7210f64b3"),
+                Token::Str("hash2"),
+                Token::Str("0d8d00cdd4657ac84d82f0a56067634a7adfdf43da41cb534bcaa45060973d21"),
+                Token::StructEnd,
+            ],
+        );
     }
 
     #[test]
-    #[should_panic]
     fn invalid_str() {
-        let data = r#"
-        {
-            "hash1": "27",
-            "hash2": "0d
-        }"#;
-
-        let _: Dummy = serde_json::from_str(data).unwrap();
+        assert_de_tokens_error::<Dummy>(
+            &[
+                Token::Map { len: Some(2) },
+                Token::Str("hash1"),
+                Token::Str("27"),
+            ],
+            "invalid value: string \"27\", expected a hex string representing 28 bytes",
+        );
     }
 }
