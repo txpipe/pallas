@@ -710,18 +710,21 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub struct Bytes(Vec<u8>);
+#[derive(Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cbor(transparent)]
+#[serde(into = "String")]
+#[serde(try_from = "String")]
+pub struct Bytes(#[n(0)] minicbor::bytes::ByteVec);
 
 impl From<Vec<u8>> for Bytes {
     fn from(xs: Vec<u8>) -> Self {
-        Bytes(xs)
+        Bytes(minicbor::bytes::ByteVec::from(xs))
     }
 }
 
 impl From<Bytes> for Vec<u8> {
     fn from(b: Bytes) -> Self {
-        b.0
+        b.0.into()
     }
 }
 
@@ -729,70 +732,22 @@ impl Deref for Bytes {
     type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.deref()
     }
 }
 
-impl std::ops::DerefMut for Bytes {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+impl TryFrom<String> for Bytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let v = hex::decode(value)?;
+        Ok(Bytes(minicbor::bytes::ByteVec::from(v)))
     }
 }
 
-impl<C> Decode<'_, C> for Bytes {
-    fn decode(d: &mut minicbor::Decoder<'_>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.bytes().map(|xs| xs.to_vec().into())
-    }
-}
-
-impl<C> Encode<C> for Bytes {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.bytes(self)?.ok()
-    }
-}
-
-impl serde::Serialize for Bytes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&hex::encode(&self.0))
-    }
-}
-
-struct BytesVisitor {}
-
-impl<'de> serde::de::Visitor<'de> for BytesVisitor {
-    type Value = Bytes;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "a hex string representing the bytes")
-    }
-
-    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        match hex::decode(s) {
-            Ok(x) => Ok(Bytes(x)),
-            Err(_) => Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Str(s),
-                &self,
-            )),
-        }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Bytes {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_str(BytesVisitor {})
+impl From<Bytes> for String {
+    fn from(b: Bytes) -> Self {
+        hex::encode(b.deref())
     }
 }
 
