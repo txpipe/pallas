@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use serde_json::json;
 
 use crate::ToCanonicalJson;
@@ -29,9 +31,11 @@ impl ToCanonicalJson for super::PlutusData {
                 json!({ "map": map })
             }
             super::PlutusData::BigInt(int) => match int {
-                super::BigInt::Int(n) => match i64::try_from(*n) {
+                super::BigInt::Int(n) => match i64::try_from(*n.deref()) {
                     Ok(x) => json!({ "int": x }),
-                    Err(_) => json!({ "bignint": hex::encode(i128::from(*n).to_be_bytes()) }),
+                    Err(_) => {
+                        json!({ "bignint": hex::encode(i128::from(*n.deref()).to_be_bytes()) })
+                    }
                 },
                 // WARNING / TODO: the CDDL shows a bignum variants of arbitrary length expressed as
                 // bytes, but I can't find the corresponding mapping to JSON in the
@@ -43,10 +47,6 @@ impl ToCanonicalJson for super::PlutusData {
             },
             super::PlutusData::BoundedBytes(x) => json!({ "bytes": hex::encode(x.as_slice())}),
             super::PlutusData::Array(x) => {
-                let list: Vec<_> = x.iter().map(|i| i.to_json()).collect();
-                json!({ "list": list })
-            }
-            super::PlutusData::ArrayIndef(x) => {
                 let list: Vec<_> = x.iter().map(|i| i.to_json()).collect();
                 json!({ "list": list })
             }

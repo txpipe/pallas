@@ -9,7 +9,7 @@ use crate::machines::{Agent, MachineError, Transition};
 
 use crate::common::Point;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,
     Acquiring,

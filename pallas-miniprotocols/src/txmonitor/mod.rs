@@ -8,14 +8,14 @@ type Slot = u64;
 type TxId = String;
 type Tx = String;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StBusyKind {
     NextTx,
     HasTx,
     GetSizes,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     StIdle,
     StAcquiring,
@@ -24,7 +24,7 @@ pub enum State {
     StDone,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MempoolSizeAndCapacity {
     pub capacity_in_bytes: u32,
     pub size_in_bytes: u32,

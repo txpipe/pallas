@@ -25,7 +25,7 @@ impl<'b> MultiEraWithdrawals<'b> {
             MultiEraWithdrawals::NotApplicable => std::iter::empty().collect(),
             MultiEraWithdrawals::Empty => std::iter::empty().collect(),
             MultiEraWithdrawals::AlonzoCompatible(x) => {
-                x.iter().map(|(k, v)| (k.as_slice(), v.into())).collect()
+                x.iter().map(|(k, v)| (k.as_slice(), *v)).collect()
             }
         }
     }

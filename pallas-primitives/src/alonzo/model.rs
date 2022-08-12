@@ -2,18 +2,22 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
-use pallas_codec::minicbor::{bytes::ByteVec, data::Int, data::Tag, Decode, Encode};
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{AnyUInt, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct VrfCert(#[n(0)] pub ByteVec, #[n(1)] pub ByteVec);
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct VrfCert(#[n(0)] pub Bytes, #[n(1)] pub Bytes);
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
     pub block_number: u64,
@@ -25,10 +29,10 @@ pub struct HeaderBody {
     pub prev_hash: Option<Hash<32>>,
 
     #[n(3)]
-    pub issuer_vkey: ByteVec,
+    pub issuer_vkey: Bytes,
 
     #[n(4)]
-    pub vrf_vkey: ByteVec,
+    pub vrf_vkey: Bytes,
 
     #[n(5)]
     pub nonce_vrf: VrfCert,
@@ -43,7 +47,7 @@ pub struct HeaderBody {
     pub block_body_hash: Hash<32>,
 
     #[n(9)]
-    pub operational_cert_hot_vkey: ByteVec,
+    pub operational_cert_hot_vkey: Bytes,
 
     #[n(10)]
     pub operational_cert_sequence_number: u64,
@@ -52,7 +56,7 @@ pub struct HeaderBody {
     pub operational_cert_kes_period: u64,
 
     #[n(12)]
-    pub operational_cert_sigma: ByteVec,
+    pub operational_cert_sigma: Bytes,
 
     #[n(13)]
     pub protocol_major: u64,
@@ -63,19 +67,19 @@ pub struct HeaderBody {
 
 pub type ProtocolVersion = (u64, u64);
 
-#[derive(Encode, Decode, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct KesSignature {}
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Header {
     #[n(0)]
     pub header_body: HeaderBody,
 
     #[n(1)]
-    pub body_signature: ByteVec,
+    pub body_signature: Bytes,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct TransactionInput {
     #[n(0)]
     pub transaction_id: Hash<32>,
@@ -86,7 +90,7 @@ pub struct TransactionInput {
 
 // $nonce /= [ 0 // 1, bytes .size 32 ]
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum NonceVariant {
     #[n(0)]
@@ -96,7 +100,7 @@ pub enum NonceVariant {
     Nonce,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Nonce {
     #[n(0)]
     pub variant: NonceVariant,
@@ -105,19 +109,19 @@ pub struct Nonce {
     pub hash: Option<Hash<32>>,
 }
 
-pub type ScriptHash = ByteVec;
+pub type ScriptHash = Bytes;
 
-pub type PolicyId = ScriptHash;
+pub type PolicyId = Hash<28>;
 
-pub type AssetName = ByteVec;
+pub type AssetName = Bytes;
 
-pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
+pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
 
-pub type Coin = AnyUInt;
+pub type Coin = u64;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Value {
     Coin(Coin),
     Multiasset(Coin, Multiasset<Coin>),
@@ -163,10 +167,10 @@ impl<C> minicbor::encode::Encode<C> for Value {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct TransactionOutput {
     #[n(0)]
-    pub address: ByteVec,
+    pub address: Bytes,
 
     #[n(1)]
     pub amount: Value,
@@ -177,8 +181,8 @@ pub struct TransactionOutput {
 
 pub type PoolKeyhash = Hash<28>;
 pub type Epoch = u64;
-pub type Genesishash = ByteVec;
-pub type GenesisDelegateHash = ByteVec;
+pub type Genesishash = Bytes;
+pub type GenesisDelegateHash = Bytes;
 pub type VrfKeyhash = Hash<32>;
 
 /* move_instantaneous_reward = [ 0 / 1, { * stake_credential => delta_coin } / coin ]
@@ -188,7 +192,7 @@ pub type VrfKeyhash = Hash<32>;
 ; otherwise the funds are given to the other accounting pot.
  */
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum InstantaneousRewardSource {
     Reserves,
     Treasury,
@@ -226,9 +230,9 @@ impl<C> minicbor::encode::Encode<C> for InstantaneousRewardSource {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum InstantaneousRewardTarget {
-    StakeCredentials(KeyValuePairs<StakeCredential, i64>),
+    StakeCredentials(BTreeMap<StakeCredential, i64>),
     OtherAccountingPot(Coin),
 }
 
@@ -268,7 +272,7 @@ impl<C> minicbor::encode::Encode<C> for InstantaneousRewardTarget {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[cbor]
 pub struct MoveInstantaneousReward {
     #[n(0)]
@@ -278,18 +282,18 @@ pub struct MoveInstantaneousReward {
     pub target: InstantaneousRewardTarget,
 }
 
-pub type RewardAccount = ByteVec;
+pub type RewardAccount = Bytes;
 
-pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
 
-pub type RequiredSigners = MaybeIndefArray<AddrKeyhash>;
+pub type RequiredSigners = Vec<AddrKeyhash>;
 
 pub type Port = u32;
-pub type IPv4 = ByteVec;
-pub type IPv6 = ByteVec;
+pub type IPv4 = Bytes;
+pub type IPv6 = Bytes;
 pub type DnsName = String;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Relay {
     SingleHostAddr(Option<Port>, Option<IPv4>, Option<IPv6>),
     SingleHostName(Option<Port>, DnsName),
@@ -356,7 +360,7 @@ impl<C> minicbor::encode::Encode<C> for Relay {
 
 pub type PoolMetadataHash = Hash<32>;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct PoolMetadata {
     #[n(0)]
     pub url: String,
@@ -368,7 +372,7 @@ pub struct PoolMetadata {
 pub type AddrKeyhash = Hash<28>;
 pub type Scripthash = Hash<28>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct RationalNumber {
     pub numerator: i64,
     pub denominator: u64,
@@ -406,7 +410,7 @@ pub type UnitInterval = RationalNumber;
 
 pub type PositiveInterval = RationalNumber;
 
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 pub enum StakeCredential {
     AddrKeyhash(AddrKeyhash),
     Scripthash(Scripthash),
@@ -452,7 +456,7 @@ impl<C> minicbor::encode::Encode<C> for StakeCredential {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Certificate {
     StakeRegistration(StakeCredential),
     StakeDeregistration(StakeCredential),
@@ -464,8 +468,8 @@ pub enum Certificate {
         cost: Coin,
         margin: UnitInterval,
         reward_account: RewardAccount,
-        pool_owners: MaybeIndefArray<AddrKeyhash>,
-        relays: MaybeIndefArray<Relay>,
+        pool_owners: Vec<AddrKeyhash>,
+        relays: Vec<Relay>,
         pool_metadata: Option<PoolMetadata>,
     },
     PoolRetirement(PoolKeyhash, Epoch),
@@ -620,7 +624,7 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[cbor(index_only)]
 pub enum NetworkId {
     #[n(0)]
@@ -629,18 +633,18 @@ pub enum NetworkId {
     Two,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[cbor(index_only)]
 pub enum Language {
     #[n(0)]
     PlutusV1,
 }
 
-pub type CostModel = MaybeIndefArray<i64>;
+pub type CostModel = Vec<i64>;
 
-pub type CostMdls = KeyValuePairs<Language, CostModel>;
+pub type CostMdls = BTreeMap<Language, CostModel>;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -693,10 +697,10 @@ pub struct ProtocolParamUpdate {
     pub max_collateral_inputs: Option<u32>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Update {
     #[n(0)]
-    pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
+    pub proposed_protocol_parameter_updates: BTreeMap<Genesishash, ProtocolParamUpdate>,
 
     #[n(1)]
     pub epoch: Epoch,
@@ -704,14 +708,14 @@ pub struct Update {
 
 // Can't derive encode for TransactionBody because it seems to require a very
 // particular order for each key in the map
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct TransactionBody {
     #[n(0)]
-    pub inputs: MaybeIndefArray<TransactionInput>,
+    pub inputs: Vec<TransactionInput>,
 
     #[n(1)]
-    pub outputs: MaybeIndefArray<TransactionOutput>,
+    pub outputs: Vec<TransactionOutput>,
 
     #[n(2)]
     pub fee: u64,
@@ -720,7 +724,7 @@ pub struct TransactionBody {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<MaybeIndefArray<Certificate>>,
+    pub certificates: Option<Vec<Certificate>>,
 
     #[n(5)]
     pub withdrawals: Option<Withdrawals>,
@@ -729,7 +733,7 @@ pub struct TransactionBody {
     pub update: Option<Update>,
 
     #[n(7)]
-    pub auxiliary_data_hash: Option<ByteVec>,
+    pub auxiliary_data_hash: Option<Bytes>,
 
     #[n(8)]
     pub validity_interval_start: Option<u64>,
@@ -741,7 +745,7 @@ pub struct TransactionBody {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(13)]
-    pub collateral: Option<MaybeIndefArray<TransactionInput>>,
+    pub collateral: Option<Vec<TransactionInput>>,
 
     #[n(14)]
     pub required_signers: Option<RequiredSigners>,
@@ -750,21 +754,21 @@ pub struct TransactionBody {
     pub network_id: Option<NetworkId>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct VKeyWitness {
     #[n(0)]
-    pub vkey: ByteVec,
+    pub vkey: Bytes,
 
     #[n(1)]
-    pub signature: ByteVec,
+    pub signature: Bytes,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum NativeScript {
     ScriptPubkey(AddrKeyhash),
-    ScriptAll(MaybeIndefArray<NativeScript>),
-    ScriptAny(MaybeIndefArray<NativeScript>),
-    ScriptNOfK(u32, MaybeIndefArray<NativeScript>),
+    ScriptAll(Vec<NativeScript>),
+    ScriptAny(Vec<NativeScript>),
+    ScriptNOfK(u32, Vec<NativeScript>),
     InvalidBefore(u64),
     InvalidHereafter(u64),
 }
@@ -831,9 +835,9 @@ impl<C> minicbor::encode::Encode<C> for NativeScript {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
-pub struct PlutusScript(#[n(0)] pub ByteVec);
+pub struct PlutusScript(#[n(0)] pub Bytes);
 
 impl AsRef<[u8]> for PlutusScript {
     fn as_ref(&self) -> &[u8] {
@@ -847,11 +851,11 @@ big_uint = #6.2(bounded_bytes) ; New
 big_nint = #6.3(bounded_bytes) ; New
  */
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum BigInt {
     Int(Int),
-    BigUInt(ByteVec),
-    BigNInt(ByteVec),
+    BigUInt(Bytes),
+    BigNInt(Bytes),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for BigInt {
@@ -909,14 +913,13 @@ impl<C> minicbor::encode::Encode<C> for BigInt {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
-    Map(KeyValuePairs<PlutusData, PlutusData>),
+    Map(BTreeMap<PlutusData, PlutusData>),
     BigInt(BigInt),
-    BoundedBytes(ByteVec),
-    Array(MaybeIndefArray<PlutusData>),
-    ArrayIndef(MaybeIndefArray<PlutusData>),
+    BoundedBytes(Bytes),
+    Array(Vec<PlutusData>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
@@ -955,10 +958,11 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
                     full.extend(slice?);
                 }
 
-                Ok(Self::BoundedBytes(ByteVec::from(full)))
+                Ok(Self::BoundedBytes(Bytes::from(full)))
             }
-            minicbor::data::Type::Array => Ok(Self::Array(d.decode_with(ctx)?)),
-            minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                Ok(Self::Array(d.decode_with(ctx)?))
+            }
 
             _ => Err(minicbor::decode::Error::message(
                 "bad cbor data type for plutus data",
@@ -978,7 +982,13 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                e.encode_with(a, ctx)?;
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_map()?;
+                for (k, v) in a.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+                e.end()?;
             }
             Self::BigInt(a) => {
                 e.encode_with(a, ctx)?;
@@ -987,10 +997,12 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Self::ArrayIndef(a) => {
-                e.encode_with(a, ctx)?;
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_array()?;
+                for v in a.iter() {
+                    e.encode_with(v, ctx)?;
+                }
+                e.end()?;
             }
         }
 
@@ -998,11 +1010,11 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Constr<A> {
     pub tag: u64,
     pub any_constructor: Option<u64>,
-    pub fields: MaybeIndefArray<A>,
+    pub fields: Vec<A>,
 }
 
 impl<'b, C, A> minicbor::decode::Decode<'b, C> for Constr<A>
@@ -1054,12 +1066,23 @@ where
             102 => {
                 e.array(2)?;
                 e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
-                e.encode_with(&self.fields, ctx)?;
+
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_array()?;
+                for v in self.fields.iter() {
+                    e.encode_with(v, ctx)?;
+                }
+                e.end()?;
 
                 Ok(())
             }
             _ => {
-                e.encode_with(&self.fields, ctx)?;
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_array()?;
+                for v in self.fields.iter() {
+                    e.encode_with(v, ctx)?;
+                }
+                e.end()?;
 
                 Ok(())
             }
@@ -1067,7 +1090,7 @@ where
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ExUnits {
     #[n(0)]
     pub mem: u32,
@@ -1075,7 +1098,7 @@ pub struct ExUnits {
     pub steps: u64,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ExUnitPrices {
     #[n(0)]
     mem_price: PositiveInterval,
@@ -1084,7 +1107,7 @@ pub struct ExUnitPrices {
     step_price: PositiveInterval,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1097,7 +1120,7 @@ pub enum RedeemerTag {
     Reward,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Redeemer {
     #[n(0)]
     pub tag: RedeemerTag,
@@ -1119,102 +1142,78 @@ pub struct Redeemer {
 , attributes : bytes
 ] */
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct BootstrapWitness {
     #[n(0)]
-    pub public_key: ByteVec,
+    pub public_key: Bytes,
 
     #[n(1)]
-    pub signature: ByteVec,
+    pub signature: Bytes,
 
     #[n(2)]
-    pub chain_code: ByteVec,
+    pub chain_code: Bytes,
 
     #[n(3)]
-    pub attributes: ByteVec,
+    pub attributes: Bytes,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct TransactionWitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<MaybeIndefArray<VKeyWitness>>,
+    pub vkeywitness: Option<Vec<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<MaybeIndefArray<NativeScript>>,
+    pub native_script: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<MaybeIndefArray<BootstrapWitness>>,
+    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_script: Option<MaybeIndefArray<PlutusScript>>,
+    pub plutus_script: Option<Vec<PlutusScript>>,
 
     #[n(4)]
-    pub plutus_data: Option<MaybeIndefArray<PlutusData>>,
+    pub plutus_data: Option<Vec<PlutusData>>,
 
     #[n(5)]
-    pub redeemer: Option<MaybeIndefArray<Redeemer>>,
+    pub redeemer: Option<Vec<Redeemer>>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct PostAlonzoAuxiliaryData {
     #[n(0)]
     pub metadata: Option<Metadata>,
 
     #[n(1)]
-    pub native_scripts: Option<MaybeIndefArray<NativeScript>>,
+    pub native_scripts: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub plutus_scripts: Option<MaybeIndefArray<PlutusScript>>,
+    pub plutus_scripts: Option<Vec<PlutusScript>>,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum Metadatum {
     Int(Int),
-    Bytes(ByteVec),
+    Bytes(Bytes),
     Text(String),
-    Array(MaybeIndefArray<Metadatum>),
-    Map(KeyValuePairs<Metadatum, Metadatum>),
+    Array(Vec<Metadatum>),
+    Map(BTreeMap<Metadatum, Metadatum>),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
-            minicbor::data::Type::U8 => {
-                let i = d.u8()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::U16 => {
-                let i = d.u16()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::U32 => {
-                let i = d.u32()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::U64 => {
-                let i = d.u64()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::I8 => {
-                let i = d.i8()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::I16 => {
-                let i = d.i16()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::I32 => {
-                let i = d.i32()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::I64 => {
-                let i = d.i64()?;
-                Ok(Metadatum::Int(i.into()))
-            }
-            minicbor::data::Type::Int => {
-                let i = d.int()?;
+            minicbor::data::Type::U8
+            | minicbor::data::Type::U16
+            | minicbor::data::Type::U32
+            | minicbor::data::Type::U64
+            | minicbor::data::Type::I8
+            | minicbor::data::Type::I16
+            | minicbor::data::Type::I32
+            | minicbor::data::Type::I64
+            | minicbor::data::Type::Int => {
+                let i = d.decode()?;
                 Ok(Metadatum::Int(i))
             }
             minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
@@ -1256,23 +1255,23 @@ impl<C> minicbor::Encode<C> for Metadatum {
     }
 }
 
-pub type MetadatumLabel = AnyUInt;
+pub type MetadatumLabel = u64;
 
-pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
+pub type Metadata = BTreeMap<MetadatumLabel, Metadatum>;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct ShelleyMaAuxiliaryDAta {
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+pub struct ShelleyMaAuxiliaryData {
     #[n(0)]
     pub transaction_metadata: Metadata,
 
     #[n(1)]
-    pub auxiliary_scripts: Option<MaybeIndefArray<NativeScript>>,
+    pub auxiliary_scripts: Option<Vec<NativeScript>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum AuxiliaryData {
     Shelley(Metadata),
-    ShelleyMa(ShelleyMaAuxiliaryDAta),
+    ShelleyMa(ShelleyMaAuxiliaryData),
     PostAlonzo(PostAlonzoAuxiliaryData),
 }
 
@@ -1320,22 +1319,22 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
 
 pub type TransactionIndex = u32;
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Block {
     #[n(0)]
     pub header: Header,
 
     #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<TransactionBody>,
+    pub transaction_bodies: Vec<TransactionBody>,
 
     #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<TransactionWitnessSet>,
+    pub transaction_witness_sets: Vec<TransactionWitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
-    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
+    pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
 /// A memory representation of an already minted block
@@ -1361,7 +1360,34 @@ pub struct MintedBlock<'b> {
     pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
 
-#[derive(Encode, Decode, Debug)]
+impl<'b> From<MintedBlock<'b>> for Block {
+    fn from(x: MintedBlock<'b>) -> Self {
+        Block {
+            header: x.header.unwrap(),
+            transaction_bodies: x
+                .transaction_bodies
+                .to_vec()
+                .into_iter()
+                .map(|x| x.unwrap())
+                .collect(),
+            transaction_witness_sets: x
+                .transaction_witness_sets
+                .to_vec()
+                .into_iter()
+                .map(|x| x.unwrap())
+                .collect(),
+            auxiliary_data_set: x
+                .auxiliary_data_set
+                .to_vec()
+                .into_iter()
+                .map(|(k, v)| (k, v.unwrap()))
+                .collect(),
+            invalid_transactions: x.invalid_transactions.map(|x| x.into()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
 pub struct Tx {
     #[n(0)]
     pub transaction_body: TransactionBody,

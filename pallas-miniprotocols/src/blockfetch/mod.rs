@@ -5,7 +5,7 @@ use crate::common::Point;
 
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,
     Busy,

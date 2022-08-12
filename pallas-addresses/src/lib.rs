@@ -63,7 +63,7 @@ pub type TxIdx = u64;
 pub type CertIdx = u64;
 
 /// An on-chain pointer to a stake key
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pointer(Slot, TxIdx, CertIdx);
 
 fn slice_to_hash(slice: &[u8]) -> Result<Hash<28>, Error> {
@@ -113,7 +113,7 @@ impl Pointer {
 }
 
 /// The payment part of a Shelley address
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum ShelleyPaymentPart {
     Key(PaymentKeyHash),
     Script(ScriptHash),
@@ -151,7 +151,7 @@ impl ShelleyPaymentPart {
 }
 
 /// The delegation part of a Shelley address
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum ShelleyDelegationPart {
     Key(StakeKeyHash),
     Script(ScriptHash),
@@ -212,7 +212,7 @@ impl StakePayload {
 }
 
 /// The network tag of an address
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum Network {
     Testnet,
     Mainnet,
@@ -230,24 +230,24 @@ impl From<u8> for Network {
 }
 
 /// A decoded Shelley address
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct ShelleyAddress(Network, ShelleyPaymentPart, ShelleyDelegationPart);
 
 /// The payload of a Stake address
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum StakePayload {
     Stake(StakeKeyHash),
     Script(ScriptHash),
 }
 
 /// A decoded Stake address
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct StakeAddress(Network, StakePayload);
 
 pub use byron::ByronAddress;
 
 /// A decoded Cardano address of any type
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum Address {
     Byron(ByronAddress),
     Shelley(ShelleyAddress),
@@ -345,7 +345,7 @@ parse_stake_fn!(parse_type_14, stake_key);
 parse_stake_fn!(parse_type_15, script);
 
 fn bytes_to_address(bytes: &[u8]) -> Result<Address, Error> {
-    let header = *bytes.get(0).ok_or(Error::MissingHeader)?;
+    let header = *bytes.first().ok_or(Error::MissingHeader)?;
     let payload = &bytes[1..];
 
     match header & 0b1111_0000 {

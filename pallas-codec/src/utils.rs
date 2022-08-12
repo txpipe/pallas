@@ -1,6 +1,6 @@
-use std::ops::Deref;
-
 use minicbor::{data::Tag, Decode, Encode};
+use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 /// Utility for skipping parts of the CBOR payload, use only for debugging
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -41,6 +41,21 @@ impl<C, const N: usize> minicbor::Encode<C> for SkipCbor<N> {
 pub enum KeyValuePairs<K, V> {
     Def(Vec<(K, V)>),
     Indef(Vec<(K, V)>),
+}
+
+impl<K, V> KeyValuePairs<K, V> {
+    pub fn to_vec(self) -> Vec<(K, V)> {
+        self.into()
+    }
+}
+
+impl<K, V> From<KeyValuePairs<K, V>> for Vec<(K, V)> {
+    fn from(other: KeyValuePairs<K, V>) -> Self {
+        match other {
+            KeyValuePairs::Def(x) => x,
+            KeyValuePairs::Indef(x) => x,
+        }
+    }
 }
 
 impl<K, V> Deref for KeyValuePairs<K, V> {
@@ -117,11 +132,26 @@ pub enum MaybeIndefArray<A> {
     Indef(Vec<A>),
 }
 
+impl<A> MaybeIndefArray<A> {
+    pub fn to_vec(self) -> Vec<A> {
+        self.into()
+    }
+}
+
 impl<A> Deref for MaybeIndefArray<A> {
     type Target = Vec<A>;
 
     fn deref(&self) -> &Self::Target {
         match self {
+            MaybeIndefArray::Def(x) => x,
+            MaybeIndefArray::Indef(x) => x,
+        }
+    }
+}
+
+impl<A> From<MaybeIndefArray<A>> for Vec<A> {
+    fn from(other: MaybeIndefArray<A>) -> Self {
+        match other {
             MaybeIndefArray::Def(x) => x,
             MaybeIndefArray::Indef(x) => x,
         }
@@ -186,7 +216,7 @@ where
 /// transform key-value structures into an orderer vec of `properties`, where
 /// each entry represents a a cbor-encodable variant of an attribute of the
 /// struct.
-#[derive(Debug, PartialEq, Clone, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd)]
 pub struct OrderPreservingProperties<P>(Vec<P>);
 
 impl<P> Deref for OrderPreservingProperties<P> {
@@ -229,7 +259,8 @@ where
 }
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[serde(transparent)]
 pub struct CborWrap<T>(pub T);
 
 impl<'b, C, T> minicbor::Decode<'b, C> for CborWrap<T>
@@ -273,7 +304,7 @@ impl<T> Deref for CborWrap<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TagWrap<I, const T: u64>(pub I);
 
 impl<I, const T: u64> TagWrap<I, T> {
@@ -526,7 +557,7 @@ impl From<&AnyUInt> for u64 {
 /// let confirm: (u16, u16) = minicbor::decode(keeper.raw_cbor()).unwrap();
 /// assert_eq!(confirm, (456u16, 789u16));
 /// ```
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct KeepRaw<'b, T> {
     raw: &'b [u8],
     inner: T,
@@ -535,6 +566,10 @@ pub struct KeepRaw<'b, T> {
 impl<'b, T> KeepRaw<'b, T> {
     pub fn raw_cbor(&self) -> &'b [u8] {
         self.raw
+    }
+
+    pub fn unwrap(self) -> T {
+        self.inner
     }
 }
 
@@ -575,16 +610,37 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum Nullable<T> {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(from = "Option::<T>", into = "Option::<T>")]
+pub enum Nullable<T>
+where
+    T: std::clone::Clone,
+{
     Some(T),
     Null,
     Undefined,
 }
 
+impl<T> Nullable<T>
+where
+    T: std::clone::Clone,
+{
+    pub fn map<F, O>(self, f: F) -> Nullable<O>
+    where
+        O: std::clone::Clone,
+        F: Fn(T) -> O,
+    {
+        match self {
+            Nullable::Some(x) => Nullable::Some(f(x)),
+            Nullable::Null => Nullable::Null,
+            Nullable::Undefined => Nullable::Undefined,
+        }
+    }
+}
+
 impl<'b, C, T> minicbor::Decode<'b, C> for Nullable<T>
 where
-    T: minicbor::Decode<'b, C>,
+    T: minicbor::Decode<'b, C> + std::clone::Clone,
 {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
@@ -606,7 +662,7 @@ where
 
 impl<C, T> minicbor::Encode<C> for Nullable<T>
 where
-    T: minicbor::Encode<C>,
+    T: minicbor::Encode<C> + std::clone::Clone,
 {
     fn encode<W: minicbor::encode::Write>(
         &self,
@@ -630,11 +686,103 @@ where
     }
 }
 
-impl<T> From<Option<T>> for Nullable<T> {
+impl<T> From<Option<T>> for Nullable<T>
+where
+    T: std::clone::Clone,
+{
     fn from(x: Option<T>) -> Self {
         match x {
             Some(x) => Nullable::Some(x),
             None => Nullable::Null,
         }
+    }
+}
+
+impl<T> From<Nullable<T>> for Option<T>
+where
+    T: std::clone::Clone,
+{
+    fn from(other: Nullable<T>) -> Self {
+        match other {
+            Nullable::Some(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cbor(transparent)]
+#[serde(into = "String")]
+#[serde(try_from = "String")]
+pub struct Bytes(#[n(0)] minicbor::bytes::ByteVec);
+
+impl From<Vec<u8>> for Bytes {
+    fn from(xs: Vec<u8>) -> Self {
+        Bytes(minicbor::bytes::ByteVec::from(xs))
+    }
+}
+
+impl From<Bytes> for Vec<u8> {
+    fn from(b: Bytes) -> Self {
+        b.0.into()
+    }
+}
+
+impl Deref for Bytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl TryFrom<String> for Bytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let v = hex::decode(value)?;
+        Ok(Bytes(minicbor::bytes::ByteVec::from(v)))
+    }
+}
+
+impl From<Bytes> for String {
+    fn from(b: Bytes) -> Self {
+        hex::encode(b.deref())
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cbor(transparent)]
+#[serde(into = "i128")]
+#[serde(try_from = "i128")]
+pub struct Int(#[n(0)] pub minicbor::data::Int);
+
+impl Deref for Int {
+    type Target = minicbor::data::Int;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Int> for i128 {
+    fn from(value: Int) -> Self {
+        i128::from(value.0)
+    }
+}
+
+impl From<i64> for Int {
+    fn from(x: i64) -> Self {
+        let inner = minicbor::data::Int::from(x);
+        Self(inner)
+    }
+}
+
+impl TryFrom<i128> for Int {
+    type Error = minicbor::data::TryFromIntError;
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        let inner = minicbor::data::Int::try_from(value)?;
+        Ok(Self(inner))
     }
 }

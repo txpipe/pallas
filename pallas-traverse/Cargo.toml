@@ -8,9 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-traverse"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 pallas-primitives = { version = "0.13.0", path = "../pallas-primitives" }

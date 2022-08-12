@@ -62,17 +62,17 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Byron(x) => x.amount,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::TransactionOutput::Legacy(x) => match x.amount {
-                    babbage::Value::Coin(c) => u64::from(c),
-                    babbage::Value::Multiasset(c, _) => u64::from(c),
+                    babbage::Value::Coin(c) => c,
+                    babbage::Value::Multiasset(c, _) => c,
                 },
                 babbage::TransactionOutput::PostAlonzo(x) => match x.value {
-                    babbage::Value::Coin(c) => u64::from(c),
-                    babbage::Value::Multiasset(c, _) => u64::from(c),
+                    babbage::Value::Coin(c) => c,
+                    babbage::Value::Multiasset(c, _) => c,
                 },
             },
             MultiEraOutput::AlonzoCompatible(x) => match x.amount {
-                alonzo::Value::Coin(c) => u64::from(c),
-                alonzo::Value::Multiasset(c, _) => u64::from(c),
+                alonzo::Value::Coin(c) => c,
+                alonzo::Value::Multiasset(c, _) => c,
             },
         }
     }
