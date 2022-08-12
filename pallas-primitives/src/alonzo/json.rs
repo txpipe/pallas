@@ -50,10 +50,6 @@ impl ToCanonicalJson for super::PlutusData {
                 let list: Vec<_> = x.iter().map(|i| i.to_json()).collect();
                 json!({ "list": list })
             }
-            super::PlutusData::ArrayIndef(x) => {
-                let list: Vec<_> = x.iter().map(|i| i.to_json()).collect();
-                json!({ "list": list })
-            }
         }
     }
 }

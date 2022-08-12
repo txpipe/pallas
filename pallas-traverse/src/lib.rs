@@ -24,9 +24,6 @@ pub mod tx;
 pub mod withdrawals;
 pub mod witnesses;
 
-#[cfg(feature = "json")]
-mod json;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum Era {

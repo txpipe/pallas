@@ -920,7 +920,6 @@ pub enum PlutusData {
     BigInt(BigInt),
     BoundedBytes(Bytes),
     Array(Vec<PlutusData>),
-    ArrayIndef(Vec<PlutusData>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
@@ -961,8 +960,9 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
 
                 Ok(Self::BoundedBytes(Bytes::from(full)))
             }
-            minicbor::data::Type::Array => Ok(Self::Array(d.decode_with(ctx)?)),
-            minicbor::data::Type::ArrayIndef => Ok(Self::ArrayIndef(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                Ok(Self::Array(d.decode_with(ctx)?))
+            }
 
             _ => Err(minicbor::decode::Error::message(
                 "bad cbor data type for plutus data",
@@ -982,7 +982,13 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                e.encode_with(a, ctx)?;
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_map()?;
+                for (k, v) in a.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+                e.end()?;
             }
             Self::BigInt(a) => {
                 e.encode_with(a, ctx)?;
@@ -991,10 +997,12 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Self::ArrayIndef(a) => {
-                e.encode_with(a, ctx)?;
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_array()?;
+                for v in a.iter() {
+                    e.encode_with(v, ctx)?;
+                }
+                e.end()?;
             }
         }
 
@@ -1058,12 +1066,23 @@ where
             102 => {
                 e.array(2)?;
                 e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
-                e.encode_with(&self.fields, ctx)?;
+
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_array()?;
+                for v in self.fields.iter() {
+                    e.encode_with(v, ctx)?;
+                }
+                e.end()?;
 
                 Ok(())
             }
             _ => {
-                e.encode_with(&self.fields, ctx)?;
+                // we use indef array by default to match the approach used by the cardano-cli
+                e.begin_array()?;
+                for v in self.fields.iter() {
+                    e.encode_with(v, ctx)?;
+                }
+                e.end()?;
 
                 Ok(())
             }
