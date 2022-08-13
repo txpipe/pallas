@@ -1,4 +1,4 @@
-use crate::hashes::ToHash;
+use crate::{fees, hashes::ToHash};
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
@@ -229,6 +229,28 @@ impl<'b> MultiEraTx<'b> {
                 None => MultiEraWithdrawals::Empty,
             },
             MultiEraTx::Byron(_) => MultiEraWithdrawals::NotApplicable,
+        }
+    }
+
+    pub fn fee(&self) -> Option<u64> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => Some(x.transaction_body.fee),
+            MultiEraTx::Babbage(x) => Some(x.transaction_body.fee),
+            MultiEraTx::Byron(_) => None,
+        }
+    }
+
+    /// Returns the fee or attempts to compute it
+    ///
+    /// If the fee is available as part of the tx data (post-byron), this
+    /// function will return the existing value. For byron txs, this method
+    /// attempts to compute the value by using the linear fee policy.
+    #[cfg(feature = "unstable")]
+    pub fn fee_or_compute(&self) -> u64 {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.fee,
+            MultiEraTx::Babbage(x) => x.transaction_body.fee,
+            MultiEraTx::Byron(x) => fees::compute_byron_fee(x, None),
         }
     }
 
