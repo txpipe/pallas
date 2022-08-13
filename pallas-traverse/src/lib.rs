@@ -21,6 +21,7 @@ pub mod output;
 pub mod probe;
 pub mod signers;
 mod support;
+pub mod time;
 pub mod tx;
 pub mod withdrawals;
 pub mod witnesses;
