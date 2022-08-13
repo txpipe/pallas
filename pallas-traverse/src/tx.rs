@@ -1,9 +1,7 @@
+use crate::hashes::ToHash;
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{
-    alonzo::{self, AuxiliaryData},
-    babbage, byron, ToHash,
-};
+use pallas_primitives::{alonzo, babbage, byron};
 use std::{borrow::Cow, ops::Deref};
 
 use crate::{
@@ -234,7 +232,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    fn aux_data(&self) -> Option<&KeepRaw<'_, AuxiliaryData>> {
+    fn aux_data(&self) -> Option<&KeepRaw<'_, alonzo::AuxiliaryData>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
                 pallas_codec::utils::Nullable::Some(x) => Some(x),
@@ -253,11 +251,11 @@ impl<'b> MultiEraTx<'b> {
     pub fn metadata(&self) -> MultiEraMeta {
         match self.aux_data() {
             Some(x) => match x.deref() {
-                AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
-                AuxiliaryData::ShelleyMa(x) => {
+                alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
+                alonzo::AuxiliaryData::ShelleyMa(x) => {
                     MultiEraMeta::AlonzoCompatible(&x.transaction_metadata)
                 }
-                AuxiliaryData::PostAlonzo(x) => x
+                alonzo::AuxiliaryData::PostAlonzo(x) => x
                     .metadata
                     .as_ref()
                     .map(MultiEraMeta::AlonzoCompatible)
