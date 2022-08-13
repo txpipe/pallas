@@ -751,7 +751,9 @@ impl From<Bytes> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Serialize, Deserialize, Clone, Copy, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord,
+)]
 #[cbor(transparent)]
 #[serde(into = "i128")]
 #[serde(try_from = "i128")]
