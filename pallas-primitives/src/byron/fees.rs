@@ -48,7 +48,7 @@ impl TxPayload {
 mod tests {
     use pallas_codec::minicbor;
 
-    use crate::{byron::Block, ToHash};
+    use crate::byron::Block;
 
     type BlockWrapper = (u16, Block);
 
@@ -66,7 +66,6 @@ mod tests {
         assert!(block.body.tx_payload.len() > 0);
 
         for tx in block.body.tx_payload.iter().take(1) {
-            println!("{}", tx.transaction.to_hash());
             let fee = tx.compute_fee_with_defaults().unwrap();
             assert_eq!(fee, 171070);
         }

@@ -3,10 +3,10 @@ use std::ops::Deref;
 
 use pallas_codec::minicbor;
 use pallas_crypto::hash::{Hash, Hasher};
-use pallas_primitives::{alonzo, babbage, byron, ToHash};
+use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::Era::Byron;
-use crate::{Error, MultiEraHeader};
+use crate::hashes::ToHash;
+use crate::{Era, Error, MultiEraHeader};
 
 impl<'b> MultiEraHeader<'b> {
     pub fn decode(tag: u8, subtag: Option<u8>, cbor: &'b [u8]) -> Result<Self, Error> {
@@ -75,27 +75,27 @@ impl<'b> MultiEraHeader<'b> {
 
     pub fn leader_vrf_output(&self) -> Result<Vec<u8>, Error> {
         match self {
-            MultiEraHeader::EpochBoundary(_) => Err(Error::InvalidEra(Byron)),
+            MultiEraHeader::EpochBoundary(_) => Err(Error::InvalidEra(Era::Byron)),
             MultiEraHeader::AlonzoCompatible(x) => Ok(x.header_body.leader_vrf.0.to_vec()),
             MultiEraHeader::Babbage(x) => {
                 let mut leader_tagged_vrf: Vec<u8> = vec![0x4C_u8]; /* "L" */
                 leader_tagged_vrf.extend(&*x.header_body.vrf_result.0);
                 Ok(Hasher::<256>::hash(&leader_tagged_vrf).to_vec())
             }
-            MultiEraHeader::Byron(_) => Err(Error::InvalidEra(Byron)),
+            MultiEraHeader::Byron(_) => Err(Error::InvalidEra(Era::Byron)),
         }
     }
 
     pub fn nonce_vrf_output(&self) -> Result<Vec<u8>, Error> {
         match self {
-            MultiEraHeader::EpochBoundary(_) => Err(Error::InvalidEra(Byron)),
+            MultiEraHeader::EpochBoundary(_) => Err(Error::InvalidEra(Era::Byron)),
             MultiEraHeader::AlonzoCompatible(x) => Ok(x.header_body.nonce_vrf.0.to_vec()),
             MultiEraHeader::Babbage(x) => {
                 let mut nonce_tagged_vrf: Vec<u8> = vec![0x4E_u8]; /* "N" */
                 nonce_tagged_vrf.extend(&*x.header_body.vrf_result.0);
                 Ok(Hasher::<256>::hash(&nonce_tagged_vrf).to_vec())
             }
-            MultiEraHeader::Byron(_) => Err(Error::InvalidEra(Byron)),
+            MultiEraHeader::Byron(_) => Err(Error::InvalidEra(Era::Byron)),
         }
     }
 

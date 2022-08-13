@@ -27,7 +27,3 @@ where
 pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;
 }
-
-pub trait ToHash<const BYTES: usize> {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
-}
