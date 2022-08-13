@@ -1,8 +1,10 @@
-use crate::{fees, hashes::ToHash};
+use std::{borrow::Cow, ops::Deref};
+
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
-use std::{borrow::Cow, ops::Deref};
+
+use crate::hashes::ToHash;
 
 use crate::{
     Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraSigners,
@@ -250,7 +252,7 @@ impl<'b> MultiEraTx<'b> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.fee,
             MultiEraTx::Babbage(x) => x.transaction_body.fee,
-            MultiEraTx::Byron(x) => fees::compute_byron_fee(x, None),
+            MultiEraTx::Byron(x) => crate::fees::compute_byron_fee(x, None),
         }
     }
 
