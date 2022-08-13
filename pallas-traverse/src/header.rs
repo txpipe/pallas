@@ -6,6 +6,7 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{alonzo, babbage, byron};
 
 use crate::hashes::ToHash;
+use crate::time;
 use crate::{Era, Error, MultiEraHeader};
 
 impl<'b> MultiEraHeader<'b> {
@@ -57,10 +58,15 @@ impl<'b> MultiEraHeader<'b> {
 
     pub fn slot(&self) -> u64 {
         match self {
-            MultiEraHeader::EpochBoundary(x) => x.to_abs_slot(),
+            MultiEraHeader::EpochBoundary(x) => {
+                time::byron_epoch_slot_to_absolute(x.consensus_data.epoch_id, 0)
+            }
             MultiEraHeader::AlonzoCompatible(x) => x.header_body.slot,
             MultiEraHeader::Babbage(x) => x.header_body.slot,
-            MultiEraHeader::Byron(x) => x.consensus_data.0.to_abs_slot(),
+            MultiEraHeader::Byron(x) => time::byron_epoch_slot_to_absolute(
+                x.consensus_data.0.epoch,
+                x.consensus_data.0.slot,
+            ),
         }
     }
 

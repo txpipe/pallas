@@ -2,6 +2,5 @@
 
 mod fees;
 mod model;
-mod time;
 
 pub use model::*;
