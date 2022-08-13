@@ -12,6 +12,7 @@ use pallas_primitives::{alonzo, babbage, byron};
 pub mod block;
 pub mod cert;
 pub mod era;
+pub mod fees;
 pub mod hashes;
 pub mod header;
 pub mod input;
