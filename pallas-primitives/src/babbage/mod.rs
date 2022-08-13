@@ -1,4 +1,3 @@
-mod address;
 mod crypto;
 mod model;
 
