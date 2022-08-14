@@ -1,0 +1,18 @@
+[package]
+name = "pallas-json-ld"
+description = "Interop library between Cardano and JSON-LD vocabularies"
+version = "0.13.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
+
+[dependencies]
+pallas-crypto = { version = "0.13.0", path = "../../pallas-crypto" }
+pallas-traverse = { version = "0.13.0", path = "../../pallas-traverse" }
+thiserror = "1.0.31"
+serde_json = "1.0.83"
+hex = "0.4.3"

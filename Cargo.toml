@@ -9,6 +9,7 @@ members = [
     "pallas-primitives",
     "pallas-traverse",
     "pallas",
+    "unstable/pallas-json-ld",
     "examples/block-download",
     "examples/block-decode",
     "examples/n2n-miniprotocols",

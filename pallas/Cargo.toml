@@ -8,9 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas"
 license = "Apache-2.0"
 readme = "../README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>"
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 pallas-multiplexer = { version = "0.13.0", path = "../pallas-multiplexer/" }
@@ -20,3 +18,6 @@ pallas-traverse = { version = "0.13.0", path = "../pallas-traverse/" }
 pallas-addresses = { version = "0.13.0", path = "../pallas-addresses/" }
 pallas-crypto = { version = "0.13.0", path = "../pallas-crypto/" }
 pallas-codec = { version = "0.13.0", path = "../pallas-codec/" }
+
+[features]
+unstable = ["pallas-traverse/unstable"]
