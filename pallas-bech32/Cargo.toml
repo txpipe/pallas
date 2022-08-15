@@ -1,0 +1,16 @@
+[package]
+name = "pallas-bech32"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+    "Sumit Bakhli <sumit2bk@gmail.com>",
+]
+
+[dependencies]
+bech32 = "0.9.0"
+blake2 = "0.10.4"
+hex = "0.4.3"
