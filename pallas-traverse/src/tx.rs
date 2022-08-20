@@ -24,11 +24,12 @@ impl<'b> MultiEraTx<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(tx)))
     }
 
-    pub fn encode(&self) -> Result<Vec<u8>, minicbor::encode::Error<std::io::Error>> {
+    pub fn encode(&self) -> Vec<u8> {
+        // to_vec is infallible
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => minicbor::to_vec(x),
-            MultiEraTx::Babbage(x) => minicbor::to_vec(x),
-            MultiEraTx::Byron(x) => minicbor::to_vec(x),
+            MultiEraTx::AlonzoCompatible(x, _) => minicbor::to_vec(x).unwrap(),
+            MultiEraTx::Babbage(x) => minicbor::to_vec(x).unwrap(),
+            MultiEraTx::Byron(x) => minicbor::to_vec(x).unwrap(),
         }
     }
 
