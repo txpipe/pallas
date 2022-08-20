@@ -1443,6 +1443,8 @@ mod tests {
             include_str!("../../../test_data/alonzo22.block"),
             // peculiar block with indef byte array in plutus data
             include_str!("../../../test_data/alonzo23.block"),
+            // peculiar block with invalid address (pointer overflow)
+            include_str!("../../../test_data/alonzo27.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
