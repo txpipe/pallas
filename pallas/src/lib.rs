@@ -13,6 +13,14 @@ pub mod network;
 
 pub mod ledger;
 
+pub mod interop {
+    //! Interporability with external tools, protocols and data models
+
+    #[cfg(feature = "unstable")]
+    #[doc(inline)]
+    pub use pallas_json_ld as json_ld;
+}
+
 #[doc(inline)]
 pub use pallas_crypto as crypto;
 
