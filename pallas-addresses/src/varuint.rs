@@ -27,7 +27,14 @@ pub fn read(cursor: &mut Cursor<&[u8]>) -> Result<u64, Error> {
         output = (output << 7) | (byte & 0x7F) as u128;
 
         if output > u64::MAX.into() {
-            return Err(Error::VarUintOverflow);
+            // Strictly speaking, if we find a value above max u64, an overflow error should
+            // be returned. The problem is that testnet has some invalid address values
+            // somehow minted in valid blocks. The node and many explorers, instead of
+            // throwing an error, return max u64 as a workaround. We copy the same behavior
+            // to maintain homogeneity.
+            //
+            // return Err(Error::VarUintOverflow);
+            return Ok(u64::MAX);
         }
 
         if (byte & 0x80) == 0 {
