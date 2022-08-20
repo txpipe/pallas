@@ -8,6 +8,12 @@ pub const TESTNET_MAGIC: u64 = 1097911063;
 /// Well-known magic for mainnet
 pub const MAINNET_MAGIC: u64 = 764824073;
 
+/// Well-known magic for preview
+pub const PREVIEW_MAGIC: u64 = 2;
+
+/// Well-known magic for pre-production
+pub const PRE_PRODUCTION_MAGIC: u64 = 1;
+
 /// A point within a chain
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Point {
