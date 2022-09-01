@@ -8,7 +8,7 @@ use pallas_primitives::{
     byron,
 };
 
-use crate::{Era, MultiEraOutput};
+use crate::{Asset, Era, MultiEraOutput};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -75,6 +75,106 @@ impl<'b> MultiEraOutput<'b> {
                 alonzo::Value::Multiasset(c, _) => c,
             },
         }
+    }
+
+    pub fn assets(&self) -> Vec<Asset> {
+        let mut assets = Vec::new();
+
+        match self {
+            MultiEraOutput::Byron(x) => {
+                assets.push(Asset {
+                    unit: "lovelace".to_string(),
+                    quantity: x.amount,
+                });
+            }
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(x) => match &x.amount {
+                    babbage::Value::Coin(c) => {
+                        assets.push(Asset {
+                            unit: "lovelace".to_string(),
+                            quantity: *c,
+                        });
+                    }
+                    babbage::Value::Multiasset(c, multi_asset) => {
+                        assets.push(Asset {
+                            unit: "lovelace".to_string(),
+                            quantity: *c,
+                        });
+
+                        for (policy_id, names) in multi_asset.iter() {
+                            let policy_hex = hex::encode(policy_id);
+
+                            for (asset_name, quantity) in names.iter() {
+                                let asset_name_hex =
+                                    hex::encode(Vec::<u8>::from(asset_name.clone()));
+
+                                assets.push(Asset {
+                                    unit: format!("{}{}", policy_hex, asset_name_hex),
+                                    quantity: *quantity,
+                                });
+                            }
+                        }
+                    }
+                },
+                babbage::TransactionOutput::PostAlonzo(x) => match &x.value {
+                    babbage::Value::Coin(c) => {
+                        assets.push(Asset {
+                            unit: "lovelace".to_string(),
+                            quantity: *c,
+                        });
+                    }
+                    babbage::Value::Multiasset(c, multi_asset) => {
+                        assets.push(Asset {
+                            unit: "lovelace".to_string(),
+                            quantity: *c,
+                        });
+
+                        for (policy_id, names) in multi_asset.iter() {
+                            let policy_hex = hex::encode(policy_id);
+
+                            for (asset_name, quantity) in names.iter() {
+                                let asset_name_hex =
+                                    hex::encode(Vec::<u8>::from(asset_name.clone()));
+
+                                assets.push(Asset {
+                                    unit: format!("{}{}", policy_hex, asset_name_hex),
+                                    quantity: *quantity,
+                                });
+                            }
+                        }
+                    }
+                },
+            },
+            MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
+                alonzo::Value::Coin(c) => {
+                    assets.push(Asset {
+                        unit: "lovelace".to_string(),
+                        quantity: *c,
+                    });
+                }
+                alonzo::Value::Multiasset(c, multi_asset) => {
+                    assets.push(Asset {
+                        unit: "lovelace".to_string(),
+                        quantity: *c,
+                    });
+
+                    for (policy_id, names) in multi_asset.iter() {
+                        let policy_hex = hex::encode(policy_id);
+
+                        for (asset_name, quantity) in names.iter() {
+                            let asset_name_hex = hex::encode(Vec::<u8>::from(asset_name.clone()));
+
+                            assets.push(Asset {
+                                unit: format!("{}{}", policy_hex, asset_name_hex),
+                                quantity: *quantity,
+                            });
+                        }
+                    }
+                }
+            },
+        };
+
+        assets
     }
 
     pub fn as_babbage(&self) -> Option<&babbage::TransactionOutput> {

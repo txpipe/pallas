@@ -132,6 +132,12 @@ pub enum MultiEraSigners<'b> {
 #[derive(Debug, Clone)]
 pub struct OutputRef(Hash<32>, u64);
 
+#[derive(Debug, Clone)]
+pub struct Asset {
+    pub unit: String,
+    pub quantity: u64,
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Invalid CBOR structure: {0}")]
