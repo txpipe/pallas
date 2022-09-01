@@ -143,6 +143,20 @@ impl ShelleyPaymentPart {
             Self::Script(x) => x.to_vec(),
         }
     }
+    
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
+    }
+
+    pub fn to_bech32(&self) -> Result<String, Error> {
+        let hrp = match self {
+            Self::Key(_) => "addr_vkh",
+            Self::Script(_) => "addr_shared_vkh"
+        };
+        let bytes = self.to_vec();
+        encode_bech32(&bytes, hrp)
+    }
 
     /// Indicates if this is the hash of a script
     pub fn is_script(&self) -> bool {
@@ -190,6 +204,21 @@ impl ShelleyDelegationPart {
             Self::Pointer(x) => x.to_vec(),
             Self::Null => vec![],
         }
+    }
+    
+    pub fn to_hex(&self) -> String {
+        let bytes = self.to_vec();
+        hex::encode(bytes)
+    }
+
+    pub fn to_bech32(&self) -> Result<String, Error> {
+        let hrp = match self {
+            Self::Key(_) => "stake_vkh",
+            Self::Script(_) => "stake_shared_vkh",
+            _ => todo!(),
+        };
+        let bytes = self.to_vec();
+        encode_bech32(&bytes, hrp)
     }
 
     pub fn is_script(&self) -> bool {
