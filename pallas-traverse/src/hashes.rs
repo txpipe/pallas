@@ -96,7 +96,7 @@ impl ToHash<32> for babbage::Header {
 
 impl ToHash<28> for babbage::PlutusV2Script {
     fn to_hash(&self) -> Hash<28> {
-        Hasher::<224>::hash_tagged_cbor(self, 1)
+        Hasher::<224>::hash_tagged_cbor(self, 2)
     }
 }
 
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn plutus_script_hashes_as_cardano_cli() {
+    fn plutus_v1_script_hashes_as_cardano_cli() {
         let bytecode_hex = include_str!("../../test_data/jpgstore.plutus");
         let bytecode = hex::decode(bytecode_hex).unwrap();
         let script: alonzo::PlutusScript = pallas_codec::minicbor::decode(&bytecode).unwrap();
@@ -272,6 +272,24 @@ mod tests {
             // this is the payment script hash from the address:
             // addr1w999n67e86jn6xal07pzxtrmqynspgx0fwmcmpua4wc6yzsxpljz3
             "4a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"
+        );
+    }
+
+    #[test]
+    fn plutus_v2_script_hashes_as_cardano_cli() {
+        let bytecode_hex = include_str!("../../test_data/v2script.plutus");
+        let bytecode = hex::decode(bytecode_hex).unwrap();
+        let script: babbage::PlutusV2Script = pallas_codec::minicbor::decode(&bytecode).unwrap();
+
+        let generated = script.to_hash().to_string();
+
+        println!("{}", generated);
+
+        assert_eq!(
+            generated,
+            // script bytes and script hash from
+            // https://preview.cexplorer.io/script/2616f3e9edb51f98ef04dbaefd042b5c731e86616e8e9172c63c39be
+            "2616f3e9edb51f98ef04dbaefd042b5c731e86616e8e9172c63c39be"
         );
     }
 }
