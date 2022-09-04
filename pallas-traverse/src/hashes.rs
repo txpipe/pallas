@@ -283,8 +283,6 @@ mod tests {
 
         let generated = script.to_hash().to_string();
 
-        println!("{}", generated);
-
         assert_eq!(
             generated,
             // script bytes and script hash from
