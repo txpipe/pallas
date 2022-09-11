@@ -221,6 +221,41 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Returns the list of inputs consumed by the Tx
+    ///
+    /// Helper method to abstract the logic of which inputs are consumed
+    /// depending on the validity of the Tx. If the Tx is valid, this method
+    /// will return the list of inputs. If the tx is invalid, it will return the
+    /// collateral.
+    pub fn consumes(&self) -> Vec<MultiEraInput> {
+        match self.is_valid() {
+            true => self.inputs(),
+            false => self.collateral(),
+        }
+    }
+
+    /// Returns the list of outputs produced by the Tx
+    ///
+    /// Helper method to abstract the logic of which outputs are produced
+    /// depending on the validity of the Tx. If the Tx is valid, this method
+    /// will return the list of inputs. If the tx is invalid, it will return the
+    /// collateral.
+    pub fn produces(&self) -> Vec<MultiEraOutput> {
+        match self.is_valid() {
+            true => self.outputs(),
+            false => self.collateral_return().into_iter().collect(),
+        }
+    }
+
+    /// Returns the list of UTxO required by the Tx
+    ///
+    /// Helper method to yield all of the UTxO that the Tx requires in order to
+    /// be fulfilled. This includes normal inputs, reference inputs and
+    /// collateral.
+    pub fn requires(&self) -> Vec<MultiEraInput> {
+        [self.inputs(), self.reference_inputs(), self.collateral()].concat()
+    }
+
     pub fn withdrawals(&self) -> MultiEraWithdrawals {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.transaction_body.withdrawals {
