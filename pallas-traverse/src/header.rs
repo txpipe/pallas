@@ -5,9 +5,8 @@ use pallas_codec::minicbor;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::hashes::ToHash;
 use crate::time;
-use crate::{Era, Error, MultiEraHeader};
+use crate::{Era, Error, MultiEraHeader, ToHash};
 
 impl<'b> MultiEraHeader<'b> {
     pub fn decode(tag: u8, subtag: Option<u8>, cbor: &'b [u8]) -> Result<Self, Error> {

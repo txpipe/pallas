@@ -171,3 +171,7 @@ impl Error {
         Error::InvalidUtxoRef(str.to_owned())
     }
 }
+
+pub trait ToHash<const BYTES: usize> {
+    fn to_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
+}

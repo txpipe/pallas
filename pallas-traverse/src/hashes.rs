@@ -1,10 +1,7 @@
+use crate::ToHash;
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{alonzo, babbage, byron};
-
-pub(crate) trait ToHash<const BYTES: usize> {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
-}
 
 impl ToHash<32> for byron::EbbHead {
     fn to_hash(&self) -> Hash<32> {

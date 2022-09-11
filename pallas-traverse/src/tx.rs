@@ -4,11 +4,9 @@ use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::hashes::ToHash;
-
 use crate::{
     Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraSigners,
-    MultiEraTx, MultiEraWithdrawals, MultiEraWitnesses,
+    MultiEraTx, MultiEraWithdrawals, MultiEraWitnesses, ToHash,
 };
 
 impl<'b> MultiEraTx<'b> {
