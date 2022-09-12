@@ -130,14 +130,6 @@ pub enum MultiEraSigners<'b> {
 }
 
 #[derive(Debug, Clone)]
-#[non_exhaustive]
-pub enum MultiEraWitnesses<'b> {
-    Byron(&'b KeepRaw<'b, byron::Witnesses>),
-    AlonzoCompatible(&'b KeepRaw<'b, alonzo::TransactionWitnessSet>),
-    Babbage(&'b KeepRaw<'b, babbage::TransactionWitnessSet>),
-}
-
-#[derive(Debug, Clone)]
 pub struct OutputRef(Hash<32>, u64);
 
 #[derive(Debug, Error)]
@@ -172,6 +164,10 @@ impl Error {
     }
 }
 
-pub trait ToHash<const BYTES: usize> {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
+pub trait ComputeHash<const BYTES: usize> {
+    fn compute_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
+}
+
+pub trait OriginalHash<const BYTES: usize> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
 }

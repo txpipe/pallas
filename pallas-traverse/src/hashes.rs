@@ -1,136 +1,151 @@
-use crate::ToHash;
+use crate::{ComputeHash, OriginalHash};
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{alonzo, babbage, byron};
 
-impl ToHash<32> for byron::EbbHead {
-    fn to_hash(&self) -> Hash<32> {
+impl ComputeHash<32> for byron::EbbHead {
+    fn compute_hash(&self) -> Hash<32> {
         // hash expects to have a prefix for the type of block
         Hasher::<256>::hash_cbor(&(0, self))
     }
 }
 
-impl ToHash<32> for KeepRaw<'_, byron::EbbHead> {
-    fn to_hash(&self) -> Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, byron::EbbHead> {
+    fn original_hash(&self) -> Hash<32> {
         // hash expects to have a prefix for the type of block
         Hasher::<256>::hash_cbor(&(0, self))
     }
 }
 
-impl ToHash<32> for byron::BlockHead {
-    fn to_hash(&self) -> Hash<32> {
+impl ComputeHash<32> for byron::BlockHead {
+    fn compute_hash(&self) -> Hash<32> {
         // hash expects to have a prefix for the type of block
         Hasher::<256>::hash_cbor(&(1, self))
     }
 }
 
-impl ToHash<32> for KeepRaw<'_, byron::BlockHead> {
-    fn to_hash(&self) -> Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, byron::BlockHead> {
+    fn original_hash(&self) -> Hash<32> {
         // hash expects to have a prefix for the type of block
         Hasher::<256>::hash_cbor(&(1, self))
     }
 }
 
-impl ToHash<32> for byron::Tx {
-    fn to_hash(&self) -> Hash<32> {
+impl ComputeHash<32> for byron::Tx {
+    fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<32> for KeepRaw<'_, byron::Tx> {
-    fn to_hash(&self) -> Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, byron::Tx> {
+    fn original_hash(&self) -> Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
-impl ToHash<32> for alonzo::Header {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+impl ComputeHash<32> for alonzo::Header {
+    fn compute_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<32> for alonzo::AuxiliaryData {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, alonzo::Header> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+impl ComputeHash<32> for alonzo::AuxiliaryData {
+    fn compute_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<28> for alonzo::NativeScript {
-    fn to_hash(&self) -> Hash<28> {
+impl ComputeHash<28> for alonzo::NativeScript {
+    fn compute_hash(&self) -> Hash<28> {
         Hasher::<224>::hash_tagged_cbor(self, 0)
     }
 }
 
-impl ToHash<28> for alonzo::PlutusScript {
-    fn to_hash(&self) -> Hash<28> {
+impl ComputeHash<28> for alonzo::PlutusScript {
+    fn compute_hash(&self) -> Hash<28> {
         Hasher::<224>::hash_tagged(&self.0, 1)
     }
 }
 
-impl ToHash<32> for alonzo::PlutusData {
-    fn to_hash(&self) -> Hash<32> {
+impl ComputeHash<32> for alonzo::PlutusData {
+    fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<32> for alonzo::TransactionBody {
-    fn to_hash(&self) -> Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, alonzo::PlutusData> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(&self.raw_cbor())
+    }
+}
+
+impl ComputeHash<32> for alonzo::TransactionBody {
+    fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<32> for KeepRaw<'_, alonzo::TransactionBody> {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, alonzo::TransactionBody> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
-impl ToHash<32> for babbage::Header {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+impl ComputeHash<32> for babbage::Header {
+    fn compute_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<28> for babbage::PlutusV2Script {
-    fn to_hash(&self) -> Hash<28> {
+impl OriginalHash<32> for KeepRaw<'_, babbage::Header> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+impl ComputeHash<28> for babbage::PlutusV2Script {
+    fn compute_hash(&self) -> Hash<28> {
         Hasher::<224>::hash_tagged(&self.0, 2)
     }
 }
 
-impl ToHash<32> for babbage::TransactionBody {
-    fn to_hash(&self) -> Hash<32> {
+impl ComputeHash<32> for babbage::TransactionBody {
+    fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl ToHash<32> for KeepRaw<'_, babbage::TransactionBody> {
-    fn to_hash(&self) -> pallas_crypto::hash::Hash<32> {
+impl OriginalHash<32> for KeepRaw<'_, babbage::TransactionBody> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
-impl ToHash<32> for babbage::DatumOption {
-    fn to_hash(&self) -> Hash<32> {
+impl ComputeHash<32> for babbage::DatumOption {
+    fn compute_hash(&self) -> Hash<32> {
         match self {
             babbage::DatumOption::Hash(hash) => *hash,
-            babbage::DatumOption::Data(data) => data.to_hash(),
+            babbage::DatumOption::Data(data) => data.compute_hash(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{MultiEraTx, Era};
+    use crate::{Era, MultiEraTx};
 
-    use super::ToHash;
-    use pallas_codec::{minicbor, utils::Bytes};
+    use super::{ComputeHash, OriginalHash};
     use pallas_codec::utils::Int;
+    use pallas_codec::{minicbor, utils::Bytes};
     use pallas_crypto::hash::Hash;
     use pallas_primitives::{alonzo, babbage, byron};
     use std::str::FromStr;
-
-    const KNOWN_HASH: &'static str =
-        "5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6";
 
     #[test]
     fn byron_transaction_hash_works() {
@@ -144,9 +159,12 @@ mod tests {
         let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
             .expect(&format!("error decoding cbor for file {}", block_idx));
 
-        let computed_hash = block_model.header.to_hash();
+        let computed_hash = block_model.header.original_hash();
 
-        assert_eq!(hex::encode(computed_hash), KNOWN_HASH)
+        assert_eq!(
+            hex::encode(computed_hash),
+            "5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6"
+        )
     }
 
     #[test]
@@ -170,9 +188,9 @@ mod tests {
         ];
 
         for (tx_idx, tx) in block_model.transaction_bodies.iter().enumerate() {
-            let computed_hash = tx.to_hash();
-            let known_hash = valid_hashes[tx_idx];
-            assert_eq!(hex::encode(computed_hash), known_hash)
+            let original_hash = tx.original_hash();
+            let expected_hash = valid_hashes[tx_idx];
+            assert_eq!(hex::encode(original_hash), expected_hash)
         }
     }
 
@@ -191,9 +209,9 @@ mod tests {
         let valid_hashes = vec!["3fad302595665b004971a6b76909854a39a0a7ecdbff3692f37b77ae37dbe882"];
 
         for (tx_idx, tx) in block_model.transaction_bodies.iter().enumerate() {
-            let computed_hash = tx.to_hash();
-            let known_hash = valid_hashes[tx_idx];
-            assert_eq!(hex::encode(computed_hash), known_hash)
+            let original_hash = tx.original_hash();
+            let expected_hash = valid_hashes[tx_idx];
+            assert_eq!(hex::encode(original_hash), expected_hash)
         }
     }
 
@@ -212,7 +230,7 @@ mod tests {
         let cardano_cli_output = "d6a8ced01ecdfbb26c90850010a06fbc20a7c23632fc92f531667f36";
 
         assert_eq!(
-            ns.to_hash(),
+            ns.compute_hash(),
             Hash::<28>::from_str(cardano_cli_output).unwrap()
         )
     }
@@ -253,7 +271,7 @@ mod tests {
         let cardano_cli_output = "d9bc0eb6ac664286155f70d720cafd2af16277fbd9014a930997431a2ffbe554";
 
         assert_eq!(
-            pd.to_hash(),
+            pd.compute_hash(),
             Hash::<32>::from_str(cardano_cli_output).unwrap()
         )
     }
@@ -264,7 +282,7 @@ mod tests {
         let bytecode = hex::decode(bytecode_hex).unwrap();
         let script = alonzo::PlutusScript(Bytes::from(bytecode));
 
-        let generated = script.to_hash().to_string();
+        let generated = script.compute_hash().to_string();
 
         assert_eq!(
             generated,
@@ -280,7 +298,7 @@ mod tests {
         let bytecode = hex::decode(bytecode_hex).unwrap();
         let script = babbage::PlutusV2Script(Bytes::from(bytecode));
 
-        let generated = script.to_hash().to_string();
+        let generated = script.compute_hash().to_string();
 
         assert_eq!(
             generated,
@@ -296,15 +314,37 @@ mod tests {
         let bytecode = hex::decode(tx_bytecode_hex).unwrap();
         let tx = MultiEraTx::decode(Era::Babbage, &bytecode).unwrap();
 
-        let wits = tx.witnesses();
-
-        let script = wits.plutus_v1_script().unwrap().get(0).unwrap();
-
-        let generated = script.to_hash().to_string();
+        let generated = tx
+            .plutus_v1_scripts()
+            .get(0)
+            .unwrap()
+            .compute_hash()
+            .to_string();
 
         assert_eq!(
             generated,
             "62bdc3d04d04376d516d31664944b25ce3affa76d17f8b5e1279b49d"
         );
+    }
+
+    #[test]
+    fn test_datum_hash_respects_original_cbor() {
+        let expected = [
+            "54ad3c112d58e8946480e21d6a35b2a215d1a9a8f540c13714ded86e4b0b6aea",
+            "831a557bc2948e1b8c9f5e8e594d62299abff4eb1a11dc19da38bfaf9f2da407",
+            "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec",
+            "b0ea85f16a443da7f60704a427923ae1d89a7dc2d6621d805d9dd441431ed700",
+            "c695868b4bfbf4c95714e707c69da1823bcf8cfc7c4b14b92c3645d4e1943be3",
+            "ed33125018c5cbc9ae1b242a3ff8f3db2e108e4a63866d0b5238a34502c723ed",
+        ];
+
+        let tx_hex = include_str!("../../test_data/babbage1.tx");
+        let tx_bytes = hex::decode(tx_hex).unwrap();
+        let tx = MultiEraTx::decode(Era::Babbage, &tx_bytes).unwrap();
+        let data = tx.plutus_data();
+
+        for (datum, expected_hash) in data.iter().zip(expected) {
+            assert_eq!(datum.original_hash().to_string(), expected_hash);
+        }
     }
 }

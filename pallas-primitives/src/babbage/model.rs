@@ -375,7 +375,7 @@ pub use crate::alonzo::BootstrapWitness;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct TransactionWitnessSet {
+pub struct WitnessSet {
     #[n(0)]
     pub vkeywitness: Option<Vec<VKeyWitness>>,
 
@@ -396,6 +396,47 @@ pub struct TransactionWitnessSet {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[cbor(map)]
+pub struct MintedWitnessSet<'b> {
+    #[n(0)]
+    pub vkeywitness: Option<Vec<VKeyWitness>>,
+
+    #[n(1)]
+    pub native_script: Option<Vec<NativeScript>>,
+
+    #[n(2)]
+    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
+
+    #[n(3)]
+    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+
+    #[b(4)]
+    pub plutus_data: Option<Vec<KeepRaw<'b, PlutusData>>>,
+
+    #[n(5)]
+    pub redeemer: Option<Vec<Redeemer>>,
+
+    #[n(6)]
+    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+}
+
+impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
+    fn from(x: MintedWitnessSet<'b>) -> Self {
+        WitnessSet {
+            vkeywitness: x.vkeywitness,
+            native_script: x.native_script,
+            bootstrap_witness: x.bootstrap_witness,
+            plutus_v1_script: x.plutus_v1_script,
+            plutus_data: x
+                .plutus_data
+                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
+            redeemer: x.redeemer,
+            plutus_v2_script: x.plutus_v2_script,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -521,7 +562,7 @@ pub struct Block {
     pub transaction_bodies: Vec<TransactionBody>,
 
     #[n(2)]
-    pub transaction_witness_sets: Vec<TransactionWitnessSet>,
+    pub transaction_witness_sets: Vec<WitnessSet>,
 
     #[n(3)]
     pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
@@ -544,7 +585,7 @@ pub struct MintedBlock<'b> {
     pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
 
     #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<KeepRaw<'b, TransactionWitnessSet>>,
+    pub transaction_witness_sets: MaybeIndefArray<KeepRaw<'b, MintedWitnessSet<'b>>>,
 
     #[n(3)]
     pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
@@ -568,6 +609,7 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .to_vec()
                 .into_iter()
                 .map(|x| x.unwrap())
+                .map(|x| WitnessSet::from(x))
                 .collect(),
             auxiliary_data_set: x
                 .auxiliary_data_set
@@ -586,7 +628,7 @@ pub struct Tx {
     pub transaction_body: TransactionBody,
 
     #[n(1)]
-    pub transaction_witness_set: TransactionWitnessSet,
+    pub transaction_witness_set: WitnessSet,
 
     #[n(2)]
     pub success: bool,
@@ -601,7 +643,7 @@ pub struct MintedTx<'b> {
     pub transaction_body: KeepRaw<'b, TransactionBody>,
 
     #[n(1)]
-    pub transaction_witness_set: KeepRaw<'b, TransactionWitnessSet>,
+    pub transaction_witness_set: KeepRaw<'b, MintedWitnessSet<'b>>,
 
     #[n(2)]
     pub success: bool,
@@ -614,7 +656,7 @@ impl<'b> From<MintedTx<'b>> for Tx {
     fn from(x: MintedTx<'b>) -> Self {
         Tx {
             transaction_body: x.transaction_body.unwrap(),
-            transaction_witness_set: x.transaction_witness_set.unwrap(),
+            transaction_witness_set: x.transaction_witness_set.unwrap().into(),
             success: x.success,
             auxiliary_data: x.auxiliary_data.map(|x| x.unwrap()),
         }

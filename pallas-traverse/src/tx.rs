@@ -6,7 +6,7 @@ use pallas_primitives::{alonzo, babbage, byron};
 
 use crate::{
     Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraSigners,
-    MultiEraTx, MultiEraWithdrawals, MultiEraWitnesses, ToHash,
+    MultiEraTx, MultiEraWithdrawals, OriginalHash,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -61,9 +61,9 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn hash(&self) -> Hash<32> {
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.to_hash(),
-            MultiEraTx::Babbage(x) => x.transaction_body.to_hash(),
-            MultiEraTx::Byron(x) => x.transaction.to_hash(),
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.original_hash(),
+            MultiEraTx::Babbage(x) => x.transaction_body.original_hash(),
+            MultiEraTx::Byron(x) => x.transaction.original_hash(),
         }
     }
 
@@ -338,16 +338,6 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraSigners::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,
-        }
-    }
-
-    pub fn witnesses(&self) -> MultiEraWitnesses {
-        match self {
-            MultiEraTx::AlonzoCompatible(x, _) => {
-                MultiEraWitnesses::AlonzoCompatible(&x.transaction_witness_set)
-            }
-            MultiEraTx::Babbage(x) => MultiEraWitnesses::Babbage(&x.transaction_witness_set),
-            MultiEraTx::Byron(x) => MultiEraWitnesses::Byron(&x.witness),
         }
     }
 
