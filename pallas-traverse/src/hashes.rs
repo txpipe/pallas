@@ -291,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn tx_wits_plutus_v1_script_hash() {
+    fn tx_wits_plutus_v1_script_hashes_as_cli() {
         let tx_bytecode_hex = include_str!("../../test_data/scriptwit.tx");
         let bytecode = hex::decode(tx_bytecode_hex).unwrap();
         let tx = MultiEraTx::decode(Era::Babbage, &bytecode).unwrap();
