@@ -63,7 +63,7 @@ impl ToHash<28> for alonzo::NativeScript {
 
 impl ToHash<28> for alonzo::PlutusScript {
     fn to_hash(&self) -> Hash<28> {
-        Hasher::<224>::hash_tagged_cbor(self, 1)
+        Hasher::<224>::hash_tagged(&self.0, 1)
     }
 }
 
@@ -93,7 +93,7 @@ impl ToHash<32> for babbage::Header {
 
 impl ToHash<28> for babbage::PlutusV2Script {
     fn to_hash(&self) -> Hash<28> {
-        Hasher::<224>::hash_tagged_cbor(self, 2)
+        Hasher::<224>::hash_tagged(&self.0, 2)
     }
 }
 
@@ -120,8 +120,10 @@ impl ToHash<32> for babbage::DatumOption {
 
 #[cfg(test)]
 mod tests {
+    use crate::{MultiEraTx, Era};
+
     use super::ToHash;
-    use pallas_codec::minicbor;
+    use pallas_codec::{minicbor, utils::Bytes};
     use pallas_codec::utils::Int;
     use pallas_crypto::hash::Hash;
     use pallas_primitives::{alonzo, babbage, byron};
@@ -260,7 +262,7 @@ mod tests {
     fn plutus_v1_script_hashes_as_cardano_cli() {
         let bytecode_hex = include_str!("../../test_data/jpgstore.plutus");
         let bytecode = hex::decode(bytecode_hex).unwrap();
-        let script: alonzo::PlutusScript = pallas_codec::minicbor::decode(&bytecode).unwrap();
+        let script = alonzo::PlutusScript(Bytes::from(bytecode));
 
         let generated = script.to_hash().to_string();
 
@@ -276,7 +278,7 @@ mod tests {
     fn plutus_v2_script_hashes_as_cardano_cli() {
         let bytecode_hex = include_str!("../../test_data/v2script.plutus");
         let bytecode = hex::decode(bytecode_hex).unwrap();
-        let script: babbage::PlutusV2Script = pallas_codec::minicbor::decode(&bytecode).unwrap();
+        let script = babbage::PlutusV2Script(Bytes::from(bytecode));
 
         let generated = script.to_hash().to_string();
 
@@ -285,6 +287,24 @@ mod tests {
             // script bytes and script hash from
             // https://preview.cexplorer.io/script/2616f3e9edb51f98ef04dbaefd042b5c731e86616e8e9172c63c39be
             "2616f3e9edb51f98ef04dbaefd042b5c731e86616e8e9172c63c39be"
+        );
+    }
+
+    #[test]
+    fn tx_wits_plutus_v1_script_hashes_as_cli() {
+        let tx_bytecode_hex = include_str!("../../test_data/scriptwit.tx");
+        let bytecode = hex::decode(tx_bytecode_hex).unwrap();
+        let tx = MultiEraTx::decode(Era::Babbage, &bytecode).unwrap();
+
+        let wits = tx.witnesses();
+
+        let script = wits.plutus_v1_script().unwrap().get(0).unwrap();
+
+        let generated = script.to_hash().to_string();
+
+        assert_eq!(
+            generated,
+            "62bdc3d04d04376d516d31664944b25ce3affa76d17f8b5e1279b49d"
         );
     }
 }

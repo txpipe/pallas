@@ -69,6 +69,14 @@ macro_rules! common_hasher {
                 hasher.finalize()
             }
 
+            #[inline]
+            pub fn hash_tagged(bytes: &[u8], tag: u8) -> Hash<{ $size / 8 }> {
+                let mut hasher = Self::new();
+                hasher.input(&[tag]);
+                hasher.input(bytes);
+                hasher.finalize()
+            }
+
             /// convenient function to directly generate the hash
             /// of the given [minicbor::Encode] data object
             #[inline]
