@@ -1412,7 +1412,7 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .to_vec()
                 .into_iter()
                 .map(|x| x.unwrap())
-                .map(|x| WitnessSet::from(x))
+                .map(WitnessSet::from)
                 .collect(),
             auxiliary_data_set: x
                 .auxiliary_data_set

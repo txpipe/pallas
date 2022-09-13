@@ -81,7 +81,7 @@ impl ComputeHash<32> for alonzo::PlutusData {
 
 impl OriginalHash<32> for KeepRaw<'_, alonzo::PlutusData> {
     fn original_hash(&self) -> Hash<32> {
-        Hasher::<256>::hash(&self.raw_cbor())
+        Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
