@@ -5,8 +5,7 @@ use pallas_codec::minicbor;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::time;
-use crate::{Era, Error, MultiEraHeader, ToHash};
+use crate::{time, Era, Error, MultiEraHeader, OriginalHash};
 
 impl<'b> MultiEraHeader<'b> {
     pub fn decode(tag: u8, subtag: Option<u8>, cbor: &'b [u8]) -> Result<Self, Error> {
@@ -71,10 +70,10 @@ impl<'b> MultiEraHeader<'b> {
 
     pub fn hash(&self) -> Hash<32> {
         match self {
-            MultiEraHeader::EpochBoundary(x) => x.to_hash(),
-            MultiEraHeader::AlonzoCompatible(x) => x.to_hash(),
-            MultiEraHeader::Babbage(x) => x.to_hash(),
-            MultiEraHeader::Byron(x) => x.to_hash(),
+            MultiEraHeader::EpochBoundary(x) => x.original_hash(),
+            MultiEraHeader::AlonzoCompatible(x) => x.original_hash(),
+            MultiEraHeader::Babbage(x) => x.original_hash(),
+            MultiEraHeader::Byron(x) => x.original_hash(),
         }
     }
 

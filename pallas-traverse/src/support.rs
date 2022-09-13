@@ -7,7 +7,7 @@ macro_rules! clone_tx_fn {
         fn $fn_name<'b>(block: &'b $era::MintedBlock, index: usize) -> Option<$era::MintedTx<'b>> {
             let transaction_body = block.transaction_bodies.get(index).cloned()?;
 
-            let transaction_witness_set = block.transaction_witness_sets.get(index).cloned()?;
+            let transaction_witness_set = block.transaction_witness_sets.get(index)?.clone();
 
             let success = !block
                 .invalid_transactions
