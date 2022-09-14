@@ -2,8 +2,6 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
@@ -115,7 +113,7 @@ pub type PolicyId = Hash<28>;
 
 pub type AssetName = Bytes;
 
-pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
+pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
 
@@ -232,7 +230,7 @@ impl<C> minicbor::encode::Encode<C> for InstantaneousRewardSource {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum InstantaneousRewardTarget {
-    StakeCredentials(BTreeMap<StakeCredential, i64>),
+    StakeCredentials(KeyValuePairs<StakeCredential, i64>),
     OtherAccountingPot(Coin),
 }
 
@@ -284,7 +282,7 @@ pub struct MoveInstantaneousReward {
 
 pub type RewardAccount = Bytes;
 
-pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
+pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
 
 pub type RequiredSigners = Vec<AddrKeyhash>;
 
@@ -642,7 +640,7 @@ pub enum Language {
 
 pub type CostModel = Vec<i64>;
 
-pub type CostMdls = BTreeMap<Language, CostModel>;
+pub type CostMdls = KeyValuePairs<Language, CostModel>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
@@ -700,7 +698,7 @@ pub struct ProtocolParamUpdate {
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Update {
     #[n(0)]
-    pub proposed_protocol_parameter_updates: BTreeMap<Genesishash, ProtocolParamUpdate>,
+    pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
 
     #[n(1)]
     pub epoch: Epoch,
@@ -916,7 +914,7 @@ impl<C> minicbor::encode::Encode<C> for BigInt {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
-    Map(BTreeMap<PlutusData, PlutusData>),
+    Map(KeyValuePairs<PlutusData, PlutusData>),
     BigInt(BigInt),
     BoundedBytes(Bytes),
     Array(Vec<PlutusData>),
@@ -1235,7 +1233,7 @@ pub enum Metadatum {
     Bytes(Bytes),
     Text(String),
     Array(Vec<Metadatum>),
-    Map(BTreeMap<Metadatum, Metadatum>),
+    Map(KeyValuePairs<Metadatum, Metadatum>),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
@@ -1294,7 +1292,7 @@ impl<C> minicbor::Encode<C> for Metadatum {
 
 pub type MetadatumLabel = u64;
 
-pub type Metadata = BTreeMap<MetadatumLabel, Metadatum>;
+pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct ShelleyMaAuxiliaryData {
@@ -1368,7 +1366,7 @@ pub struct Block {
     pub transaction_witness_sets: Vec<WitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
@@ -1419,7 +1417,8 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .to_vec()
                 .into_iter()
                 .map(|(k, v)| (k, v.unwrap()))
-                .collect(),
+                .collect::<Vec<_>>()
+                .into(),
             invalid_transactions: x.invalid_transactions.map(|x| x.into()),
         }
     }

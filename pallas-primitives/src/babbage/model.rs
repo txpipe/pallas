@@ -2,8 +2,6 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Babbage CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/babbage/test-suite/cddl-files/babbage.cddl) file in IOHK repo.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{Decode, Encode};
@@ -117,7 +115,7 @@ pub use crate::alonzo::MoveInstantaneousReward;
 
 pub use crate::alonzo::RewardAccount;
 
-pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
+pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
 
 pub type RequiredSigners = Vec<AddrKeyhash>;
 
@@ -226,7 +224,7 @@ pub struct ProtocolParamUpdate {
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Update {
     #[n(0)]
-    pub proposed_protocol_parameter_updates: BTreeMap<Genesishash, ProtocolParamUpdate>,
+    pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
 
     #[n(1)]
     pub epoch: Epoch,
@@ -251,7 +249,7 @@ pub struct TransactionBody {
     pub certificates: Option<Vec<Certificate>>,
 
     #[n(5)]
-    pub withdrawals: Option<BTreeMap<RewardAccount, Coin>>,
+    pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>,
 
     #[n(6)]
     pub update: Option<Update>,
@@ -565,7 +563,7 @@ pub struct Block {
     pub transaction_witness_sets: Vec<WitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
@@ -616,7 +614,8 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .to_vec()
                 .into_iter()
                 .map(|(k, v)| (k, v.unwrap()))
-                .collect(),
+                .collect::<Vec<_>>()
+                .into(),
             invalid_transactions: x.invalid_transactions.map(|x| x.into()),
         }
     }
