@@ -1,6 +1,6 @@
 use minicbor::{data::Tag, Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 /// Utility for skipping parts of the CBOR payload, use only for debugging
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -775,6 +775,14 @@ impl TryFrom<String> for Bytes {
 impl From<Bytes> for String {
     fn from(b: Bytes) -> Self {
         hex::encode(b.deref())
+    }
+}
+
+impl fmt::Display for Bytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes: Vec<u8> = self.clone().into();
+
+        f.write_str(&hex::encode(bytes))
     }
 }
 

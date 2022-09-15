@@ -4,11 +4,11 @@ use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{
     alonzo,
-    babbage::{self, DatumOption, ScriptRef},
+    babbage::{self, Coin, DatumOption, ScriptRef},
     byron,
 };
 
-use crate::{Asset, Era, MultiEraOutput};
+use crate::{Asset, Era, MultiEraOutput, Subject};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -82,94 +82,38 @@ impl<'b> MultiEraOutput<'b> {
 
         match self {
             MultiEraOutput::Byron(x) => {
-                assets.push(Asset {
-                    unit: "lovelace".to_string(),
-                    quantity: x.amount,
-                });
+                push_lovelace(&mut assets, x.amount);
             }
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::TransactionOutput::Legacy(x) => match &x.amount {
                     babbage::Value::Coin(c) => {
-                        assets.push(Asset {
-                            unit: "lovelace".to_string(),
-                            quantity: *c,
-                        });
+                        push_lovelace(&mut assets, *c);
                     }
                     babbage::Value::Multiasset(c, multi_asset) => {
-                        assets.push(Asset {
-                            unit: "lovelace".to_string(),
-                            quantity: *c,
-                        });
+                        push_lovelace(&mut assets, *c);
 
-                        for (policy_id, names) in multi_asset.iter() {
-                            let policy_hex = hex::encode(policy_id);
-
-                            for (asset_name, quantity) in names.iter() {
-                                let asset_name_hex =
-                                    hex::encode(Vec::<u8>::from(asset_name.clone()));
-
-                                assets.push(Asset {
-                                    unit: format!("{}{}", policy_hex, asset_name_hex),
-                                    quantity: *quantity,
-                                });
-                            }
-                        }
+                        push_native_asset(&mut assets, multi_asset);
                     }
                 },
                 babbage::TransactionOutput::PostAlonzo(x) => match &x.value {
                     babbage::Value::Coin(c) => {
-                        assets.push(Asset {
-                            unit: "lovelace".to_string(),
-                            quantity: *c,
-                        });
+                        push_lovelace(&mut assets, *c);
                     }
                     babbage::Value::Multiasset(c, multi_asset) => {
-                        assets.push(Asset {
-                            unit: "lovelace".to_string(),
-                            quantity: *c,
-                        });
+                        push_lovelace(&mut assets, *c);
 
-                        for (policy_id, names) in multi_asset.iter() {
-                            let policy_hex = hex::encode(policy_id);
-
-                            for (asset_name, quantity) in names.iter() {
-                                let asset_name_hex =
-                                    hex::encode(Vec::<u8>::from(asset_name.clone()));
-
-                                assets.push(Asset {
-                                    unit: format!("{}{}", policy_hex, asset_name_hex),
-                                    quantity: *quantity,
-                                });
-                            }
-                        }
+                        push_native_asset(&mut assets, multi_asset);
                     }
                 },
             },
             MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
                 alonzo::Value::Coin(c) => {
-                    assets.push(Asset {
-                        unit: "lovelace".to_string(),
-                        quantity: *c,
-                    });
+                    push_lovelace(&mut assets, *c);
                 }
                 alonzo::Value::Multiasset(c, multi_asset) => {
-                    assets.push(Asset {
-                        unit: "lovelace".to_string(),
-                        quantity: *c,
-                    });
+                    push_lovelace(&mut assets, *c);
 
-                    for (policy_id, names) in multi_asset.iter() {
-                        let policy_hex = hex::encode(policy_id);
-
-                        for (asset_name, quantity) in names.iter() {
-                            let asset_name_hex = hex::encode(Vec::<u8>::from(asset_name.clone()));
-
-                            assets.push(Asset {
-                                unit: format!("{}{}", policy_hex, asset_name_hex),
-                                quantity: *quantity,
-                            });
-                        }
-                    }
+                    push_native_asset(&mut assets, multi_asset);
                 }
             },
         };
@@ -231,6 +175,24 @@ impl<'b> MultiEraOutput<'b> {
     }
 }
 
+fn push_lovelace(assets: &mut Vec<Asset>, quantity: u64) {
+    assets.push(Asset {
+        subject: Subject::Lovelace,
+        quantity,
+    })
+}
+
+fn push_native_asset(assets: &mut Vec<Asset>, multi_asset: &alonzo::Multiasset<Coin>) {
+    for (policy_id, names) in multi_asset.iter() {
+        for (asset_name, quantity) in names.iter() {
+            assets.push(Asset {
+                subject: Subject::NativeAsset(*policy_id, asset_name.clone()),
+                quantity: *quantity,
+            });
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::MultiEraBlock;
@@ -243,6 +205,7 @@ mod tests {
 
         for tx in block.txs() {
             for output in tx.outputs() {
+                assert_ne!(output.assets()[0].quantity, 0);
                 assert_ne!(output.ada_amount(), 0);
                 assert!(matches!(output.address(), Ok(_)));
             }
