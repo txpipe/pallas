@@ -7,7 +7,11 @@ use thiserror::Error;
 
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{
+    alonzo,
+    babbage::{self, AssetName, PolicyId},
+    byron,
+};
 
 pub mod block;
 pub mod cert;
@@ -131,6 +135,27 @@ pub enum MultiEraSigners<'b> {
 
 #[derive(Debug, Clone)]
 pub struct OutputRef(Hash<32>, u64);
+
+#[derive(Debug, Clone)]
+pub struct Asset {
+    pub subject: Subject,
+    pub quantity: u64,
+}
+
+#[derive(Debug, Clone)]
+pub enum Subject {
+    Lovelace,
+    NativeAsset(PolicyId, AssetName),
+}
+
+impl ToString for Subject {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Lovelace => String::from("lovelace"),
+            Self::NativeAsset(p, n) => format!("{p}.{n}"),
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
