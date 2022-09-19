@@ -240,16 +240,13 @@ impl<'b> MultiEraTx<'b> {
     /// depending on the validity of the Tx. If the Tx is valid, this method
     /// will return the list of outputs. If the tx is invalid it will return the
     /// collateral return if one is present or an empty list if not.
-    pub fn produces(&self) -> Vec<(MultiEraOutput, usize)> {
+    pub fn produces(&self) -> Vec<(usize, MultiEraOutput)> {
         match self.is_valid() {
             true => {
                 self
                 .outputs()
-                .iter()
+                .into_iter()
                 .enumerate()
-                .map(|(idx, txo)| {
-                    (txo.clone(), idx)
-                })
                 .collect()
             }
             false => {
@@ -257,7 +254,7 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return()
                 .into_iter()
                 .map(|txo| {
-                    (txo, self.outputs().len())
+                    (self.outputs().len(), txo)
                 })
                 .collect()
             }
