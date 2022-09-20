@@ -232,8 +232,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    /// Returns a list of tuples of the outputs produced by the Tx coupled with
-    /// their indexes
+    /// Returns a list of tuples of the outputs produced by the Tx with their indexes
     ///
     /// Helper method to abstract the logic of which outputs are produced
     /// depending on the validity of the Tx. If the Tx is valid, this method
