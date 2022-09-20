@@ -233,13 +233,14 @@ impl<'b> MultiEraTx<'b> {
     }
 
     /// Returns a list of tuples of the outputs produced by the Tx coupled with
-    /// their indexes. Note that the collateral return output index is defined
-    /// as the next available index after the txouts (Babbage spec, ch 4).
+    /// their indexes.
     ///
     /// Helper method to abstract the logic of which outputs are produced
     /// depending on the validity of the Tx. If the Tx is valid, this method
-    /// will return the list of outputs. If the tx is invalid it will return the
-    /// collateral return if one is present or an empty list if not.
+    /// will return the list of outputs. If the Tx is invalid it will return the
+    /// collateral return if one is present or an empty list if not. Note that the
+    /// collateral return output index is defined as the next available index after
+    /// the txouts (Babbage spec, ch 4).
     pub fn produces(&self) -> Vec<(usize, MultiEraOutput)> {
         match self.is_valid() {
             true => {
