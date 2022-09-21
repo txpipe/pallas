@@ -242,22 +242,12 @@ impl<'b> MultiEraTx<'b> {
     /// the txouts (Babbage spec, ch 4).
     pub fn produces(&self) -> Vec<(usize, MultiEraOutput)> {
         match self.is_valid() {
-            true => {
-                self
-                .outputs()
-                .into_iter()
-                .enumerate()
-                .collect()
-            }
-            false => {
-                self
+            true => self.outputs().into_iter().enumerate().collect(),
+            false => self
                 .collateral_return()
                 .into_iter()
-                .map(|txo| {
-                    (self.outputs().len(), txo)
-                })
-                .collect()
-            }
+                .map(|txo| (self.outputs().len(), txo))
+                .collect(),
         }
     }
 
