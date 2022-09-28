@@ -12,7 +12,7 @@ fn iter_policy_assets<'b>(
 ) -> impl Iterator<Item = Asset> + 'b {
     assets
         .iter()
-        .map(|(name, amount)| Asset::NativeAsset(policy.clone(), Vec::<u8>::clone(name), *amount))
+        .map(|(name, amount)| Asset::NativeAsset(*policy, Vec::<u8>::clone(name), *amount))
 }
 
 fn collect_multiassets(multiassets: &alonzo::Multiasset<alonzo::Coin>) -> Vec<Asset> {
