@@ -73,7 +73,7 @@ impl<'b> MultiEraOutput<'b> {
 
     /// List of native assets in the output
     ///
-    /// Returns a list of Asset struct where each one represent a native asset
+    /// Returns a list of Asset structs where each one represent a native asset
     /// present in the output of the tx. ADA assets are not included in this
     /// list.
     pub fn non_ada_assets(&self) -> Vec<Asset> {
@@ -96,11 +96,10 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    /// List of native assets in the output
+    /// List of all assets in the output
     ///
-    /// Returns a list of Asset struct where each one represent a native asset
-    /// present in the output of the tx. ADA assets are not included in this
-    /// list.
+    /// Returns a list of Asset structs where each one represent either ADA or a
+    /// native asset present in the output of the tx.
     pub fn assets(&self) -> Vec<Asset> {
         [vec![Asset::Ada(self.ada_amount())], self.non_ada_assets()].concat()
     }
