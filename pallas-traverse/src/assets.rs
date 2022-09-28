@@ -46,12 +46,12 @@ impl Asset {
 }
 
 impl<'b> MultiEraOutput<'b> {
-    /// The amount of ADA in the output
+    /// The amount of ADA asset expressed in Lovelace unit
     ///
     /// The value returned provides the amount of the ADA in a particular
     /// output. The value is expressed in 'lovelace' (1 ADA = 1,000,000
     /// lovelace).
-    pub fn ada_amount(&self) -> u64 {
+    pub fn lovelace_amount(&self) -> u64 {
         match self {
             MultiEraOutput::Byron(x) => x.amount,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
@@ -101,6 +101,10 @@ impl<'b> MultiEraOutput<'b> {
     /// Returns a list of Asset structs where each one represent either ADA or a
     /// native asset present in the output of the tx.
     pub fn assets(&self) -> Vec<Asset> {
-        [vec![Asset::Ada(self.ada_amount())], self.non_ada_assets()].concat()
+        [
+            vec![Asset::Ada(self.lovelace_amount())],
+            self.non_ada_assets(),
+        ]
+        .concat()
     }
 }
