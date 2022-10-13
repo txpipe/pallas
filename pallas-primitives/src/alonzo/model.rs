@@ -946,7 +946,9 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
             | minicbor::data::Type::I16
             | minicbor::data::Type::I32
             | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode_with(ctx)?)),
-            minicbor::data::Type::Map => Ok(Self::Map(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(Self::Map(d.decode_with(ctx)?))
+            }
             minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
             minicbor::data::Type::BytesIndef => {
                 let mut full = Vec::new();
@@ -1219,8 +1221,12 @@ impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
             }
             minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
             minicbor::data::Type::String => Ok(Metadatum::Text(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array => Ok(Metadatum::Array(d.decode_with(ctx)?)),
-            minicbor::data::Type::Map => Ok(Metadatum::Map(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                Ok(Metadatum::Array(d.decode_with(ctx)?))
+            }
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(Metadatum::Map(d.decode_with(ctx)?))
+            }
             _ => Err(minicbor::decode::Error::message(
                 "Can't turn data type into metadatum",
             )),
