@@ -8,9 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-crypto"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Nicolas Di Prima <nicolas@primetype.co.uk>"
-]
+authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
 
 [dependencies]
 hex = "0.4"

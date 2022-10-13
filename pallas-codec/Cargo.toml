@@ -8,12 +8,9 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-codec"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>"
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 hex = "0.4.3"
 minicbor = { version = "0.18", features = ["std", "half", "derive"] }
 serde = { version = "1.0.143", features = ["derive"] }
-

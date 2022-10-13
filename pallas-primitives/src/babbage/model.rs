@@ -680,6 +680,8 @@ mod tests {
             include_str!("../../../test_data/babbage4.block"),
             // peculiar block with i32 overlfow
             include_str!("../../../test_data/babbage5.block"),
+            // peculiar block with map undef in plutus data
+            include_str!("../../../test_data/babbage6.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
