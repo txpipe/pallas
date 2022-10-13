@@ -946,7 +946,9 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
             | minicbor::data::Type::I16
             | minicbor::data::Type::I32
             | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode_with(ctx)?)),
-            minicbor::data::Type::Map => Ok(Self::Map(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(Self::Map(d.decode_with(ctx)?))
+            }
             minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
             minicbor::data::Type::BytesIndef => {
                 let mut full = Vec::new();
