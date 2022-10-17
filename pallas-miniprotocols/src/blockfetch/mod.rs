@@ -244,19 +244,19 @@ where
 #[derive(Debug)]
 pub struct OnDemandClient<I, O>
 where
-    I: Iterator<Item = Point>,
+    I: IntoIterator<Item = Point>,
     O: Observer,
 {
     pub state: State,
     pub inflight: Option<(Point, Point)>,
     pub next: Option<(Point, Point)>,
-    pub requests: I,
+    pub requests: I::IntoIter,
     pub observer: O,
 }
 
 impl<I, O> OnDemandClient<I, O>
 where
-    I: Iterator<Item = Point>,
+    I: IntoIterator<Item = Point>,
     O: Observer,
 {
     pub fn initial(requests: I, observer: O) -> Self {
@@ -264,7 +264,7 @@ where
             state: State::Idle,
             inflight: None,
             next: None,
-            requests,
+            requests: requests.into_iter(),
             observer,
         }
     }
@@ -323,7 +323,7 @@ where
 
 impl<I, O> Agent for OnDemandClient<I, O>
 where
-    I: Iterator<Item = Point>,
+    I: IntoIterator<Item = Point>,
     O: Observer,
 {
     type Message = Message;
