@@ -137,7 +137,7 @@ where
         self.recv_request_range()
     }
 
-    pub fn recv_next_block(&mut self) -> Result<Option<Body>, Error> {
+    pub fn recv_streaming(&mut self) -> Result<Option<Body>, Error> {
         match self.recv_message()? {
             Message::Block { body } => {
                 self.0 = State::Streaming;
@@ -148,6 +148,16 @@ where
                 Ok(None)
             }
             _ => Err(Error::InvalidInbound),
+        }
+    }
+
+    pub fn fetch_single(&mut self, point: Point) -> Result<Body, Error> {
+        self.request_range((point.clone(), point))?;
+        let body = self.recv_streaming()?.ok_or(Error::NoBlocks)?;
+
+        match self.recv_streaming()? {
+            Some(_) => Err(Error::InvalidInbound),
+            None => Ok(body),
         }
     }
 

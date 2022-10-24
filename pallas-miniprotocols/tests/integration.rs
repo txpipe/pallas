@@ -7,6 +7,7 @@ use pallas_miniprotocols::{
 use pallas_multiplexer::{bearers::Bearer, StdPlexer};
 
 #[test]
+#[ignore]
 pub fn chainsync_happy_path() {
     let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
     let mut plexer = StdPlexer::new(bearer);
@@ -29,26 +30,26 @@ pub fn chainsync_happy_path() {
         assert!(v >= 7);
     }
 
-    let KNOWN_POINT = Point::Specific(
+    let known_point = Point::Specific(
         5953863,
         hex::decode("7e44cb1e230b686875ae6a256b95c9b4eea7c9e9a9d046b626ed69d4c1b9bfe1").unwrap(),
     );
 
     let mut client = chainsync::N2NClient::new(channel2);
 
-    let (point, _) = client.find_intersect(vec![KNOWN_POINT.clone()]).unwrap();
+    let (point, _) = client.find_intersect(vec![known_point.clone()]).unwrap();
 
     assert!(matches!(client.state(), chainsync::State::Idle));
 
     match point {
-        Some(point) => assert_eq!(point, KNOWN_POINT.clone()),
+        Some(point) => assert_eq!(point, known_point.clone()),
         None => panic!("expected point"),
     }
 
     let next = client.request_next().unwrap();
 
     match next {
-        NextResponse::RollBackward(point, _) => assert_eq!(point, KNOWN_POINT.clone()),
+        NextResponse::RollBackward(point, _) => assert_eq!(point, known_point.clone()),
         _ => panic!("expected rollback"),
     }
 
@@ -71,6 +72,7 @@ pub fn chainsync_happy_path() {
 }
 
 #[test]
+#[ignore]
 pub fn blockfetch_happy_path() {
     let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
     let mut plexer = StdPlexer::new(bearer);
@@ -93,21 +95,21 @@ pub fn blockfetch_happy_path() {
         assert!(v >= 7);
     }
 
-    let KNOWN_POINT = Point::Specific(
+    let known_point = Point::Specific(
         5953863,
         hex::decode("7e44cb1e230b686875ae6a256b95c9b4eea7c9e9a9d046b626ed69d4c1b9bfe1").unwrap(),
     );
 
     let mut client = blockfetch::Client::new(channel3);
 
-    let range_ok = client.request_range((KNOWN_POINT.clone(), KNOWN_POINT.clone()));
+    let range_ok = client.request_range((known_point.clone(), known_point.clone()));
 
     assert!(matches!(client.state(), blockfetch::State::Streaming));
 
     assert!(matches!(range_ok, Ok(_)));
 
     for _ in [0..1] {
-        let next = client.recv_next_block().unwrap();
+        let next = client.recv_streaming().unwrap();
 
         match next {
             Some(body) => assert_eq!(body.len(), 863),
@@ -117,7 +119,7 @@ pub fn blockfetch_happy_path() {
         assert!(matches!(client.state(), blockfetch::State::Streaming));
     }
 
-    let next = client.recv_next_block().unwrap();
+    let next = client.recv_streaming().unwrap();
 
     assert!(matches!(next, None));
 
