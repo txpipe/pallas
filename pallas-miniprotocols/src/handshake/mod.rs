@@ -1,8 +1,8 @@
-mod agents;
+mod client;
 mod protocol;
 
 pub mod n2c;
 pub mod n2n;
 
-pub use agents::*;
+pub use client::*;
 pub use protocol::*;
