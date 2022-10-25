@@ -7,16 +7,14 @@ use super::{Message, RefuseReason, State, VersionNumber, VersionTable};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("attemted to receive message while agency is ours")]
+    #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
-    #[error("attemted to send message while agency is theirs")]
+    #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
-    #[error("no intersection point found")]
-    IntersectionNotFound,
     #[error("error while sending or receiving data through the channel")]
     ChannelError(ChannelError),
 }
@@ -84,6 +82,7 @@ where
         match (&self.0, msg) {
             (State::Confirm, Message::Accept(..)) => Ok(()),
             (State::Confirm, Message::Refuse(..)) => Ok(()),
+            // from the spec it looks like we can receive a MsgReplyVersion (== MsgPropose)
             _ => Err(Error::InvalidInbound),
         }
     }

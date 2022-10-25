@@ -14,7 +14,7 @@ pub enum State {
 #[derive(Debug)]
 pub enum AcquireFailure {
     PointTooOld,
-    PointNotInChain,
+    PointNotOnChain,
 }
 
 pub trait Query: Debug {
