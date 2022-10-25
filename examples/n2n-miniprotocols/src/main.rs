@@ -85,9 +85,9 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = StdPlexer::new(bearer);
-    let channel0 = plexer.use_channel(0).into();
-    let channel3 = plexer.use_channel(3).into();
-    let channel2 = plexer.use_channel(2).into();
+    let channel0 = plexer.use_channel(0);
+    let channel3 = plexer.use_channel(3);
+    let channel2 = plexer.use_channel(2);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();

@@ -1,9 +1,5 @@
 use std::fmt::Debug;
 
-use pallas_codec::Fragment;
-
-use crate::machines::{Agent, MachineError, Transition};
-
 use crate::common::Point;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
