@@ -114,7 +114,7 @@ where
         Ok(())
     }
 
-    pub fn recv_confirm(&mut self) -> Result<Confirmation<D>, Error> {
+    pub fn recv_while_confirm(&mut self) -> Result<Confirmation<D>, Error> {
         match self.recv_message()? {
             Message::Accept(v, m) => {
                 self.0 = State::Done;
@@ -130,7 +130,7 @@ where
 
     pub fn handshake(&mut self, versions: VersionTable<D>) -> Result<Confirmation<D>, Error> {
         self.send_propose(versions)?;
-        self.recv_confirm()
+        self.recv_while_confirm()
     }
 }
 

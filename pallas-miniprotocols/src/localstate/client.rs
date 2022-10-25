@@ -129,7 +129,7 @@ where
         Ok(())
     }
 
-    pub fn recv_acquiring(&mut self) -> Result<(), Error> {
+    pub fn recv_while_acquiring(&mut self) -> Result<(), Error> {
         match self.recv_message()? {
             Message::Acquired => {
                 self.0 = State::Acquired;
@@ -145,7 +145,7 @@ where
 
     pub fn acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
         self.send_acquire(point)?;
-        self.recv_acquiring()
+        self.recv_while_acquiring()
     }
 
     pub fn send_query(&mut self, request: Q::Request) -> Result<(), Error> {
@@ -156,7 +156,7 @@ where
         Ok(())
     }
 
-    pub fn recv_querying(&mut self) -> Result<Q::Response, Error> {
+    pub fn recv_while_querying(&mut self) -> Result<Q::Response, Error> {
         match self.recv_message()? {
             Message::Result(x) => {
                 self.0 = State::Acquired;
@@ -168,7 +168,7 @@ where
 
     pub fn query(&mut self, request: Q::Request) -> Result<Q::Response, Error> {
         self.send_query(request)?;
-        self.recv_querying()
+        self.recv_while_querying()
     }
 }
 
