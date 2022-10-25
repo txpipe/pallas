@@ -39,7 +39,7 @@ fn do_blockfetch(channel: StdChannel) {
 
     let mut client = blockfetch::Client::new(channel);
 
-    let blocks = client.fetch_range(range);
+    let blocks = client.fetch_range(range).unwrap();
 
     for block in blocks {
         log::info!("received block of size: {}", block.len());

@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::Message;
 
@@ -29,6 +29,7 @@ impl Encode<()> for Message {
             }
             Message::Block { body } => {
                 e.array(2)?.u16(4)?;
+                e.tag(Tag::Cbor)?;
                 e.bytes(body)?;
                 Ok(())
             }
