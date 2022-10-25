@@ -55,7 +55,7 @@ pub fn chainsync_happy_path() {
 
     assert!(matches!(client.state(), chainsync::State::Idle));
 
-    for _ in [0..10] {
+    for _ in 0..10 {
         let next = client.request_next().unwrap();
 
         match next {
@@ -108,7 +108,7 @@ pub fn blockfetch_happy_path() {
 
     assert!(matches!(range_ok, Ok(_)));
 
-    for _ in [0..1] {
+    for _ in 0..1 {
         let next = client.recv_streaming().unwrap();
 
         match next {
