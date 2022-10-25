@@ -1,80 +1,62 @@
 use pallas::network::{
-    miniprotocols::{chainsync, handshake, localstate, run_agent, Point, MAINNET_MAGIC},
+    miniprotocols::{chainsync, handshake, localstate, Point, MAINNET_MAGIC},
     multiplexer::{self, bearers::Bearer},
 };
 
 #[derive(Debug)]
 struct LoggingObserver;
 
-impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
-    fn on_roll_forward(
-        &mut self,
-        _content: chainsync::HeaderContent,
-        tip: &chainsync::Tip,
-    ) -> Result<chainsync::Continuation, Box<dyn std::error::Error>> {
-        log::debug!("asked to roll forward, tip at {:?}", tip);
+fn do_handshake(channel: multiplexer::StdChannel) {
+    let mut client = handshake::N2CClient::new(channel);
 
-        Ok(chainsync::Continuation::Proceed)
-    }
+    let confirmation = client
+        .handshake(handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC))
+        .unwrap();
 
-    fn on_intersect_found(
-        &mut self,
-        point: &Point,
-        tip: &chainsync::Tip,
-    ) -> Result<chainsync::Continuation, Box<dyn std::error::Error>> {
-        log::debug!("intersect was found {:?} (tip: {:?})", point, tip);
-
-        Ok(chainsync::Continuation::Proceed)
-    }
-
-    fn on_rollback(
-        &mut self,
-        point: &Point,
-    ) -> Result<chainsync::Continuation, Box<dyn std::error::Error>> {
-        log::debug!("asked to roll back {:?}", point);
-
-        Ok(chainsync::Continuation::Proceed)
-    }
-
-    fn on_tip_reached(&mut self) -> Result<chainsync::Continuation, Box<dyn std::error::Error>> {
-        log::debug!("tip was reached");
-
-        Ok(chainsync::Continuation::Proceed)
+    match confirmation {
+        handshake::Confirmation::Accepted(v, _) => {
+            log::info!("hand-shake accepted, using version {}", v)
+        }
+        handshake::Confirmation::Rejected(x) => {
+            log::info!("hand-shake rejected with reason {:?}", x)
+        }
     }
 }
 
-fn do_handshake(mut channel: multiplexer::StdChannelBuffer) {
-    let versions = handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC);
-    let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
+fn do_localstate_query(channel: multiplexer::StdChannel) {
+    let mut client = localstate::ClientV10::new(channel);
+    client.acquire(None).unwrap();
+
+    let result = client
+        .query(localstate::queries::RequestV10::GetSystemStart)
+        .unwrap();
+
+    log::info!("system start result: {:?}", result);
 }
 
-fn do_localstate_query(mut channel: multiplexer::StdChannelBuffer) {
-    let agent = run_agent(
-        localstate::OneShotClient::<localstate::queries::QueryV10>::initial(
-            None,
-            localstate::queries::RequestV10::GetChainPoint,
-        ),
-        &mut channel,
-    );
-
-    log::info!("state query result: {:?}", agent);
-}
-
-fn do_chainsync(mut channel: multiplexer::StdChannelBuffer) {
+fn do_chainsync(channel: multiplexer::StdChannel) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
     )];
 
-    let agent = run_agent(
-        chainsync::Consumer::<chainsync::HeaderContent, _>::initial(
-            Some(known_points),
-            LoggingObserver {},
-        ),
-        &mut channel,
-    );
+    let mut client = chainsync::N2CClient::new(channel);
 
-    println!("{:?}", agent);
+    let (point, _) = client.find_intersect(known_points).unwrap();
+
+    log::info!("intersected point is {:?}", point);
+
+    for _ in 0..10 {
+        let next = client.request_next().unwrap();
+
+        match next {
+            chainsync::NextResponse::RollForward(h, _) => {
+                log::info!("rolling forward, block size: {}", h.len())
+            }
+            chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {:?}", x),
+            chainsync::NextResponse::Await => log::info!("tip of chaing reached"),
+        };
+    }
 }
 
 fn main() {
@@ -89,9 +71,9 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let channel0 = plexer.use_channel(0).into();
-    let channel7 = plexer.use_channel(7).into();
-    let channel5 = plexer.use_channel(5).into();
+    let channel0 = plexer.use_channel(0);
+    let channel7 = plexer.use_channel(7);
+    let channel5 = plexer.use_channel(5);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();

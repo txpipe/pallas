@@ -171,3 +171,5 @@ where
         self.recv_querying()
     }
 }
+
+pub type ClientV10<H> = Client<H, super::queries::QueryV10>;

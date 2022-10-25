@@ -71,8 +71,6 @@ fn do_chainsync(channel: StdChannel) {
             chainsync::NextResponse::Await => log::info!("tip of chaing reached"),
         };
     }
-
-    //client.send_done().unwrap();
 }
 
 fn main() {
