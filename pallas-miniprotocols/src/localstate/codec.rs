@@ -10,7 +10,7 @@ impl Encode<()> for AcquireFailure {
     ) -> Result<(), encode::Error<W::Error>> {
         let code = match self {
             AcquireFailure::PointTooOld => 0,
-            AcquireFailure::PointNotInChain => 1,
+            AcquireFailure::PointNotOnChain => 1,
         };
 
         e.u16(code)?;
@@ -28,7 +28,7 @@ impl<'b> Decode<'b, ()> for AcquireFailure {
 
         match code {
             0 => Ok(AcquireFailure::PointTooOld),
-            1 => Ok(AcquireFailure::PointNotInChain),
+            1 => Ok(AcquireFailure::PointNotOnChain),
             _ => Err(decode::Error::message(
                 "can't infer acquire failure from variant id",
             )),

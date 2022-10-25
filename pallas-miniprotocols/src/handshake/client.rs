@@ -7,10 +7,10 @@ use super::{Message, RefuseReason, State, VersionNumber, VersionTable};
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("attemted to receive message while agency is ours")]
+    #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
-    #[error("attemted to send message while agency is theirs")]
+    #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
     #[error("inbound message is not valid for current state")]
