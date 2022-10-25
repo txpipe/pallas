@@ -82,7 +82,6 @@ where
         match (&self.0, msg) {
             (State::Confirm, Message::Accept(..)) => Ok(()),
             (State::Confirm, Message::Refuse(..)) => Ok(()),
-            // from the spec it looks like we can receive a MsgReplyVersion (== MsgPropose)
             _ => Err(Error::InvalidInbound),
         }
     }
