@@ -159,7 +159,7 @@ where
     pub fn recv_querying(&mut self) -> Result<Q::Response, Error> {
         match self.recv_message()? {
             Message::Result(x) => {
-                self.0 = State::Idle;
+                self.0 = State::Acquired;
                 Ok(x)
             }
             _ => Err(Error::InvalidInbound),

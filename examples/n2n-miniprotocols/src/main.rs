@@ -39,13 +39,11 @@ fn do_blockfetch(channel: StdChannel) {
 
     let mut client = blockfetch::Client::new(channel);
 
-    client.request_range(range).unwrap();
+    let blocks = client.fetch_range(range);
 
-    while let Some(block) = client.recv_streaming().unwrap() {
+    for block in blocks {
         log::info!("received block of size: {}", block.len());
     }
-
-    //client.send_done().unwrap();
 }
 
 fn do_chainsync(channel: StdChannel) {

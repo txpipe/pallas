@@ -109,7 +109,7 @@ pub fn blockfetch_happy_path() {
     assert!(matches!(range_ok, Ok(_)));
 
     for _ in 0..1 {
-        let next = client.recv_streaming().unwrap();
+        let next = client.recv_while_streaming().unwrap();
 
         match next {
             Some(body) => assert_eq!(body.len(), 863),
@@ -119,7 +119,7 @@ pub fn blockfetch_happy_path() {
         assert!(matches!(client.state(), blockfetch::State::Streaming));
     }
 
-    let next = client.recv_streaming().unwrap();
+    let next = client.recv_while_streaming().unwrap();
 
     assert!(matches!(next, None));
 

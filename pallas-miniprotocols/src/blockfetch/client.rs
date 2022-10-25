@@ -29,6 +29,10 @@ pub enum Error {
 
 pub type Body = Vec<u8>;
 
+pub type Range = (Point, Point);
+
+pub type HasBlocks = Option<()>;
+
 pub struct Client<H>(State, ChannelBuffer<H>)
 where
     H: Channel,
@@ -118,31 +122,28 @@ where
         Ok(())
     }
 
-    pub fn recv_request_range(&mut self) -> Result<(), Error> {
+    pub fn recv_while_busy(&mut self) -> Result<HasBlocks, Error> {
         match self.recv_message()? {
             Message::StartBatch => {
                 self.0 = State::Streaming;
-                Ok(())
+                Ok(Some(()))
             }
             Message::NoBlocks => {
                 self.0 = State::Idle;
-                Err(Error::NoBlocks)
+                Ok(None)
             }
             _ => Err(Error::InvalidInbound),
         }
     }
 
-    pub fn request_range(&mut self, range: (Point, Point)) -> Result<(), Error> {
+    pub fn request_range(&mut self, range: Range) -> Result<HasBlocks, Error> {
         self.send_request_range(range)?;
-        self.recv_request_range()
+        self.recv_while_busy()
     }
 
-    pub fn recv_streaming(&mut self) -> Result<Option<Body>, Error> {
+    pub fn recv_while_streaming(&mut self) -> Result<Option<Body>, Error> {
         match self.recv_message()? {
-            Message::Block { body } => {
-                self.0 = State::Streaming;
-                Ok(Some(body))
-            }
+            Message::Block { body } => Ok(Some(body)),
             Message::BatchDone => {
                 self.0 = State::Idle;
                 Ok(None)
@@ -152,13 +153,27 @@ where
     }
 
     pub fn fetch_single(&mut self, point: Point) -> Result<Body, Error> {
-        self.request_range((point.clone(), point))?;
-        let body = self.recv_streaming()?.ok_or(Error::NoBlocks)?;
+        self.request_range((point.clone(), point))?
+            .ok_or(Error::NoBlocks)?;
 
-        match self.recv_streaming()? {
+        let body = self.recv_while_streaming()?.ok_or(Error::InvalidInbound)?;
+
+        match self.recv_while_streaming()? {
             Some(_) => Err(Error::InvalidInbound),
             None => Ok(body),
         }
+    }
+
+    pub fn fetch_range(&mut self, range: Range) -> Result<Vec<Body>, Error> {
+        self.request_range(range)?.ok_or(Error::NoBlocks)?;
+
+        let mut all = vec![];
+
+        while let Some(block) = self.recv_while_streaming()? {
+            all.push(block);
+        }
+
+        Ok(all)
     }
 
     pub fn send_done(&mut self) -> Result<(), Error> {
