@@ -158,7 +158,7 @@ where
         Ok(())
     }
 
-    pub fn recv_request_response(&mut self) -> Result<NextResponse<O>, Error> {
+    pub fn recv_while_can_await(&mut self) -> Result<NextResponse<O>, Error> {
         match self.recv_message()? {
             Message::AwaitReply => {
                 self.0 = State::MustReply;
@@ -176,9 +176,23 @@ where
         }
     }
 
+    pub fn recv_while_must_reply(&mut self) -> Result<NextResponse<O>, Error> {
+        match self.recv_message()? {
+            Message::RollForward(a, b) => {
+                self.0 = State::Idle;
+                Ok(NextResponse::RollForward(a, b))
+            }
+            Message::RollBackward(a, b) => {
+                self.0 = State::Idle;
+                Ok(NextResponse::RollBackward(a, b))
+            }
+            _ => Err(Error::InvalidInbound),
+        }
+    }
+
     pub fn request_next(&mut self) -> Result<NextResponse<O>, Error> {
         self.send_request_next()?;
-        self.recv_request_response()
+        self.recv_while_can_await()
     }
 
     pub fn intersect_origin(&mut self) -> Result<Point, Error> {
