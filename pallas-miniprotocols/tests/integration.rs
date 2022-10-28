@@ -4,16 +4,20 @@ use pallas_miniprotocols::{
     handshake::{self, Confirmation},
     Point,
 };
-use pallas_multiplexer::{bearers::Bearer, StdPlexer};
+use pallas_multiplexer::{bearers::Bearer, StdChannel, StdPlexer};
 
-#[test]
-#[ignore]
-pub fn chainsync_happy_path() {
+struct N2NChannels {
+    channel2: StdChannel,
+    channel3: StdChannel,
+}
+
+fn setup_n2n_connection() -> N2NChannels {
     let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
     let mut plexer = StdPlexer::new(bearer);
 
     let channel0 = plexer.use_channel(0);
     let channel2 = plexer.use_channel(2);
+    let channel3 = plexer.use_channel(3);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
@@ -29,6 +33,14 @@ pub fn chainsync_happy_path() {
     if let Confirmation::Accepted(v, _) = confirmation {
         assert!(v >= 7);
     }
+
+    N2NChannels { channel2, channel3 }
+}
+
+#[test]
+#[ignore]
+pub fn chainsync_history_happy_path() {
+    let N2NChannels { channel2, .. } = setup_n2n_connection();
 
     let known_point = Point::Specific(
         5953863,
@@ -73,27 +85,47 @@ pub fn chainsync_happy_path() {
 
 #[test]
 #[ignore]
-pub fn blockfetch_happy_path() {
-    let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
-    let mut plexer = StdPlexer::new(bearer);
+pub fn chainsync_tip_happy_path() {
+    let N2NChannels { channel2, .. } = setup_n2n_connection();
 
-    let channel0 = plexer.use_channel(0);
-    let channel3 = plexer.use_channel(3);
+    let mut client = chainsync::N2NClient::new(channel2);
 
-    plexer.muxer.spawn();
-    plexer.demuxer.spawn();
+    client.intersect_tip().unwrap();
 
-    let mut client = handshake::N2NClient::new(channel0);
+    assert!(matches!(client.state(), chainsync::State::Idle));
 
-    let confirmation = client
-        .handshake(handshake::n2n::VersionTable::v7_and_above(2))
-        .unwrap();
+    let next = client.request_next().unwrap();
 
-    assert!(matches!(confirmation, Confirmation::Accepted(..)));
+    assert!(matches!(next, NextResponse::RollBackward(..)));
 
-    if let Confirmation::Accepted(v, _) = confirmation {
-        assert!(v >= 7);
+    let mut await_count = 0;
+
+    for _ in 0..4 {
+        let next = if client.has_agency() {
+            client.request_next().unwrap()
+        } else {
+            await_count += 1;
+            client.recv_while_must_reply().unwrap()
+        };
+
+        match next {
+            NextResponse::RollForward(_, _) => (),
+            NextResponse::Await => (),
+            _ => panic!("expected roll-forward or await"),
+        }
     }
+
+    assert!(await_count > 0, "tip was never reached");
+
+    client.send_done().unwrap();
+
+    assert!(matches!(client.state(), chainsync::State::Done));
+}
+
+#[test]
+#[ignore]
+pub fn blockfetch_happy_path() {
+    let N2NChannels { channel3, .. } = setup_n2n_connection();
 
     let known_point = Point::Specific(
         5953863,
