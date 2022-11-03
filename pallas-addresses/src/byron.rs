@@ -194,7 +194,7 @@ impl ByronAddress {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        pallas_codec::minicbor::to_vec(&self).unwrap()
+        pallas_codec::minicbor::to_vec(self).unwrap()
     }
 
     pub fn to_base58(&self) -> String {
