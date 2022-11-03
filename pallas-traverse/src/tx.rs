@@ -251,6 +251,28 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Returns the *produced* output at the given index if one exists
+    ///
+    /// If the transaction is valid the outputs are produced, otherwise the
+    /// collateral return output is produced at index |outputs.len()| if one is
+    /// present. This function gets the *produced* output for an index if one
+    /// exists. It behaves exactly as `outputs_at` for valid transactions, but
+    /// for invalid transactions it returns None except for if the index points
+    /// to the collateral-return output and one is present in the transaction,
+    /// in which case it returns the collateral-return output.
+    pub fn produces_at(&self, index: usize) -> Option<MultiEraOutput> {
+        match self.is_valid() {
+            true => self.output_at(index),
+            false => {
+                if index == self.outputs().len() {
+                    self.collateral_return()
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     /// Returns the list of UTxO required by the Tx
     ///
     /// Helper method to yield all of the UTxO that the Tx requires in order to
