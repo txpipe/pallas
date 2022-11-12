@@ -868,7 +868,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for BigInt {
             | minicbor::data::Type::I8
             | minicbor::data::Type::I16
             | minicbor::data::Type::I32
-            | minicbor::data::Type::I64 => Ok(Self::Int(d.decode_with(ctx)?)),
+            | minicbor::data::Type::I64
+            | minicbor::data::Type::Int => Ok(Self::Int(d.decode_with(ctx)?)),
             minicbor::data::Type::Tag => {
                 let tag = d.tag()?;
 
@@ -946,7 +947,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
             | minicbor::data::Type::I8
             | minicbor::data::Type::I16
             | minicbor::data::Type::I32
-            | minicbor::data::Type::I64 => Ok(Self::BigInt(d.decode_with(ctx)?)),
+            | minicbor::data::Type::I64
+            | minicbor::data::Type::Int => Ok(Self::BigInt(d.decode_with(ctx)?)),
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
                 Ok(Self::Map(d.decode_with(ctx)?))
             }
