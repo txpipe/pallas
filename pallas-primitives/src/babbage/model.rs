@@ -599,6 +599,8 @@ mod tests {
             include_str!("../../../test_data/babbage5.block"),
             // peculiar block with map undef in plutus data
             include_str!("../../../test_data/babbage6.block"),
+            // block with generic int in cbor
+            include_str!("../../../test_data/babbage7.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
