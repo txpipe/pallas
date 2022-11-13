@@ -15,7 +15,7 @@ hex = "0.4"
 cryptoxide = { version = "0.4.1" }
 thiserror = "1.0"
 rand_core = "0.6"
-pallas-codec = { version = "0.14.0-alpha.0", path = "../pallas-codec" }
+pallas-codec = { version = "0.14.0", path = "../pallas-codec" }
 serde = "1.0.143"
 
 [dev-dependencies]
