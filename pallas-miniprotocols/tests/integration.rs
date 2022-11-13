@@ -43,8 +43,8 @@ pub fn chainsync_history_happy_path() {
     let N2NChannels { channel2, .. } = setup_n2n_connection();
 
     let known_point = Point::Specific(
-        5953863,
-        hex::decode("7e44cb1e230b686875ae6a256b95c9b4eea7c9e9a9d046b626ed69d4c1b9bfe1").unwrap(),
+        1654413,
+        hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2").unwrap(),
     );
 
     let mut client = chainsync::N2NClient::new(channel2);
@@ -128,8 +128,8 @@ pub fn blockfetch_happy_path() {
     let N2NChannels { channel3, .. } = setup_n2n_connection();
 
     let known_point = Point::Specific(
-        5953863,
-        hex::decode("7e44cb1e230b686875ae6a256b95c9b4eea7c9e9a9d046b626ed69d4c1b9bfe1").unwrap(),
+        1654413,
+        hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2").unwrap(),
     );
 
     let mut client = blockfetch::Client::new(channel3);
@@ -144,7 +144,7 @@ pub fn blockfetch_happy_path() {
         let next = client.recv_while_streaming().unwrap();
 
         match next {
-            Some(body) => assert_eq!(body.len(), 863),
+            Some(body) => assert_eq!(body.len(), 3251),
             _ => panic!("expected block body"),
         }
 
