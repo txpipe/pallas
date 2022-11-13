@@ -65,7 +65,7 @@ impl<C: Channel> ChannelBuffer<C> {
         M: Fragment,
     {
         let mut payload = Vec::new();
-        minicbor::encode(&msg, &mut payload)
+        minicbor::encode(msg, &mut payload)
             .map_err(|err| ChannelError::Encoding(err.to_string()))?;
 
         let chunks = payload.chunks(MAX_SEGMENT_PAYLOAD_LENGTH);

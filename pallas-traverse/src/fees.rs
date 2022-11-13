@@ -29,7 +29,7 @@ pub fn compute_linear_fee_policy(tx_size: u64, params: &PolicyParams) -> u64 {
 }
 
 pub fn compute_byron_fee(tx: &byron::MintedTxPayload, params: Option<&PolicyParams>) -> u64 {
-    let tx_size = to_vec(&tx).unwrap().len();
+    let tx_size = to_vec(tx).unwrap().len();
 
     match params {
         Some(params) => compute_linear_fee_policy(tx_size as u64, params),

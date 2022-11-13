@@ -58,7 +58,7 @@ fn read_segment(reader: &mut impl Read) -> Result<Segment, std::io::Error> {
     reader.read_exact(&mut header)?;
 
     if log_enabled!(log::Level::Trace) {
-        trace!("read segment header: {:?}", hex::encode(&header));
+        trace!("read segment header: {:?}", hex::encode(header));
     }
 
     let length = NetworkEndian::read_u16(&header[6..]) as usize;
