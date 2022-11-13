@@ -11,8 +11,8 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-codec = { version = "0.14.0-alpha.0", path = "../pallas-codec/" }
-pallas-multiplexer = { version = "0.14.0-alpha.0", path = "../pallas-multiplexer/" }
+pallas-codec = { version = "0.14.0", path = "../pallas-codec/" }
+pallas-multiplexer = { version = "0.14.0", path = "../pallas-multiplexer/" }
 log = "0.4.14"
 hex = "0.4.3"
 itertools = "0.10.3"
