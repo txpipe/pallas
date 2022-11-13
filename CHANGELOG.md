@@ -1,5 +1,5 @@
-<a name="v0.14.1"></a>
-## [v0.14.1] - 2022-11-13
+<a name="v0.15.0"></a>
+## [v0.15.0] - 2022-11-13
 ### Chore
 - Remove lagging pre-release ref ([#206](https://github.com/txpipe/pallas/issues/206))
 - Fix lint warnings ([#205](https://github.com/txpipe/pallas/issues/205))
@@ -666,8 +666,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.14.1...HEAD
-[v0.14.1]: https://github.com/txpipe/pallas/compare/v0.14.0...v0.14.1
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.15.0...HEAD
+[v0.15.0]: https://github.com/txpipe/pallas/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/txpipe/pallas/compare/v0.14.0-alpha.6...v0.14.0
 [v0.14.0-alpha.6]: https://github.com/txpipe/pallas/compare/v0.13.3...v0.14.0-alpha.6
 [v0.13.3]: https://github.com/txpipe/pallas/compare/v0.14.0-alpha.5...v0.13.3
