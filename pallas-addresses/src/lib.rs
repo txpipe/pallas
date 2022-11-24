@@ -242,6 +242,14 @@ impl StakePayload {
     pub fn is_script(&self) -> bool {
         matches!(self, StakePayload::Script(_))
     }
+
+    /// Get a reference to the inner hash of this address part
+    pub fn as_hash(&self) -> &Hash<28> {
+        match self {
+            StakePayload::Stake(x) => x,
+            StakePayload::Script(x) => x,
+        }
+    }
 }
 
 /// The network tag of an address
@@ -491,6 +499,20 @@ impl ShelleyAddress {
     /// Indicates if either the payment or delegation part is a script
     pub fn has_script(&self) -> bool {
         self.payment().is_script() || self.delegation().is_script()
+    }
+}
+
+impl TryFrom<ShelleyAddress> for StakeAddress {
+    type Error = Error;
+
+    fn try_from(value: ShelleyAddress) -> Result<Self, Self::Error> {
+        let payload = match value.delegation() {
+            ShelleyDelegationPart::Key(h) => StakePayload::Stake(*h),
+            ShelleyDelegationPart::Script(h) => StakePayload::Script(*h),
+            _ => return Err(Error::InvalidForContent),
+        };
+
+        Ok(StakeAddress(value.network(), payload))
     }
 }
 
@@ -859,5 +881,22 @@ mod tests {
     fn test_minted_invalid_pointed_address() {
         let addr = Address::from_hex("40C19D7D05E90EEB6394B53313FE79D47077DE33068C6B813BBE5C9D5681FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7F81FFFFFFFFFFFFFFFF7F81FFFFFFFFFFFFFFFF7F");
         assert!(matches!(addr, Ok(Address::Shelley(_))));
+    }
+
+    #[test]
+    fn test_shelley_into_stake() {
+        let addr = Address::from_bech32("addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x").unwrap();
+
+        match addr {
+            Address::Shelley(shelley_addr) => {
+                let stake_addr: StakeAddress = shelley_addr.clone().try_into().unwrap();
+                assert_eq!(stake_addr.network(), shelley_addr.network());
+
+                let stake_hash = stake_addr.payload().as_hash();
+                let shelley_hash = shelley_addr.delegation().as_hash().unwrap();
+                assert_eq!(stake_hash, shelley_hash);
+            }
+            _ => panic!(),
+        }
     }
 }
