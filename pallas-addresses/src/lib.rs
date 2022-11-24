@@ -38,6 +38,9 @@ pub enum Error {
     #[error("invalid operation for Byron address")]
     InvalidForByron,
 
+    #[error("invalid operation for address content")]
+    InvalidForContent,
+
     #[error("invalid CBOR for Byron address")]
     InvalidByronCbor,
 
@@ -192,8 +195,8 @@ impl ShelleyDelegationPart {
         match self {
             Self::Key(x) => Some(x),
             Self::Script(x) => Some(x),
-            Self::Pointer(_) => todo!(),
-            Self::Null => todo!(),
+            Self::Pointer(_) => None,
+            Self::Null => None,
         }
     }
 
@@ -215,8 +218,9 @@ impl ShelleyDelegationPart {
         let hrp = match self {
             Self::Key(_) => "stake_vkh",
             Self::Script(_) => "stake_shared_vkh",
-            _ => todo!(),
+            _ => return Err(Error::InvalidForContent),
         };
+
         let bytes = self.to_vec();
         encode_bech32(&bytes, hrp)
     }
