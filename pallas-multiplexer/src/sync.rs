@@ -28,7 +28,7 @@ impl SyncPlexer {
 
 pub type SyncChannel = ChannelBuffer<SyncPlexer>;
 
-impl<'a> agents::Channel for SyncPlexer {
+impl agents::Channel for SyncPlexer {
     fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
         let segment = Segment::new(self.clock, self.protocol, payload);
 
