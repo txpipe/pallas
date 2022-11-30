@@ -29,7 +29,7 @@ impl mux::Ingress for StdIngress {
 pub type StdEgress = Sender<Payload>;
 
 impl demux::Egress for StdEgress {
-    fn send(&self, payload: Payload) -> Result<(), demux::EgressError> {
+    fn send(&mut self, payload: Payload) -> Result<(), demux::EgressError> {
         match Sender::send(self, payload) {
             Ok(_) => Ok(()),
             Err(SendError(p)) => Err(demux::EgressError(p)),

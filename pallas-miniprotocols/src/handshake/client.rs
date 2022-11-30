@@ -132,6 +132,10 @@ where
         self.send_propose(versions)?;
         self.recv_while_confirm()
     }
+
+    pub fn unwrap(self) -> H {
+        self.1.unwrap()
+    }
 }
 
 pub type N2NClient<H> = Client<H, super::n2n::VersionData>;

@@ -6,6 +6,9 @@ pub mod mux;
 #[cfg(feature = "std")]
 mod std;
 
+#[cfg(feature = "sync")]
+pub mod sync;
+
 #[cfg(feature = "std")]
 pub use crate::std::*;
 

@@ -5,7 +5,7 @@ use crate::{bearers::Bearer, Payload};
 pub struct EgressError(pub Payload);
 
 pub trait Egress {
-    fn send(&self, payload: Payload) -> Result<(), EgressError>;
+    fn send(&mut self, payload: Payload) -> Result<(), EgressError>;
 }
 
 pub enum DemuxError {
@@ -40,8 +40,12 @@ where
         self.egress.insert(id, tx);
     }
 
-    fn dispatch(&self, protocol: u16, payload: Payload) -> Result<(), DemuxError> {
-        match self.egress.get(&protocol) {
+    pub fn unregister(&mut self, id: u16) -> Option<E> {
+        self.egress.remove(&id)
+    }
+
+    fn dispatch(&mut self, protocol: u16, payload: Payload) -> Result<(), DemuxError> {
+        match self.egress.get_mut(&protocol) {
             Some(tx) => match tx.send(payload) {
                 Err(EgressError(p)) => Err(DemuxError::EgressDisconnected(protocol, p)),
                 Ok(_) => Ok(()),
