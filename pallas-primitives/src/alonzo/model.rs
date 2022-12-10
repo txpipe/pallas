@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, PlutusBytes};
+use pallas_codec::utils::{
+    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, PlutusBytes,
+};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -974,22 +976,22 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
 }
 
 fn encode_list<C, W: minicbor::encode::Write, A: minicbor::encode::Encode<C>>(
-    a : &Vec<A>,
+    a: &Vec<A>,
     e: &mut minicbor::Encoder<W>,
     ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        // Mimics default haskell list encoding from cborg:
-        // We use indef array for non-empty arrays but definite 0-length array for empty 
-        if a.is_empty() {
-            e.array(0)?;
-        } else {
-            e.begin_array()?;
-            for v in a {
-                e.encode_with(v, ctx)?;
-            }
-            e.end()?;
+) -> Result<(), minicbor::encode::Error<W::Error>> {
+    // Mimics default haskell list encoding from cborg:
+    // We use indef array for non-empty arrays but definite 0-length array for empty
+    if a.is_empty() {
+        e.array(0)?;
+    } else {
+        e.begin_array()?;
+        for v in a {
+            e.encode_with(v, ctx)?;
         }
-        return Ok(());
+        e.end()?;
+    }
+    Ok(())
 }
 
 impl<C> minicbor::encode::Encode<C> for PlutusData {

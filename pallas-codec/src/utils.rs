@@ -853,20 +853,18 @@ impl<C> Encode<C> for PlutusBytes {
             }
             e.end()?;
         }
-        return Ok(());
+        Ok(())
     }
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusBytes
-where
-{
+impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusBytes {
     fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
         let mut res = Vec::new();
         for chunk in d.bytes_iter()? {
             let bs = chunk?;
             res.extend_from_slice(bs);
-        };
-        return Ok(PlutusBytes::from(res));
+        }
+        Ok(PlutusBytes::from(res))
     }
 }
 
