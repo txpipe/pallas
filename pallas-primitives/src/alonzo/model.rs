@@ -973,6 +973,25 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
     }
 }
 
+fn encode_list<C, W: minicbor::encode::Write, A: minicbor::encode::Encode<C>>(
+    a : &Vec<A>,
+    e: &mut minicbor::Encoder<W>,
+    ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // Mimics default haskell list encoding from cborg:
+        // We use indef array for non-empty arrays but definite 0-length array for empty 
+        if a.is_empty() {
+            e.array(0)?;
+        } else {
+            e.begin_array()?;
+            for v in a {
+                e.encode_with(v, ctx)?;
+            }
+            e.end()?;
+        }
+        return Ok(());
+}
+
 impl<C> minicbor::encode::Encode<C> for PlutusData {
     fn encode<W: minicbor::encode::Write>(
         &self,
@@ -984,13 +1003,12 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_map()?;
+                // we use def array to match the approach used by haskell's plutus implementation
+                e.map(a.len().try_into().unwrap())?;
                 for (k, v) in a.iter() {
                     k.encode(e, ctx)?;
                     v.encode(e, ctx)?;
                 }
-                e.end()?;
             }
             Self::BigInt(a) => {
                 e.encode_with(a, ctx)?;
@@ -999,14 +1017,9 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_array()?;
-                for v in a.iter() {
-                    e.encode_with(v, ctx)?;
-                }
-                e.end()?;
+                encode_list(a, e, ctx)?;
             }
-        }
+        };
 
         Ok(())
     }
@@ -1069,23 +1082,13 @@ where
                 e.array(2)?;
                 e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
 
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_array()?;
-                for v in self.fields.iter() {
-                    e.encode_with(v, ctx)?;
-                }
-                e.end()?;
-
+                // we use definite array for empty array or indef array otherwise to match haskell
+                encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
             _ => {
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_array()?;
-                for v in self.fields.iter() {
-                    e.encode_with(v, ctx)?;
-                }
-                e.end()?;
-
+                // we use definite array for empty array or indef array otherwise to match haskell
+                encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
         }
@@ -1569,7 +1572,7 @@ mod tests {
             // Constr 5 [List [], List [I 1], Map [], Map [(I 1, unit), (I 2, Constr 2 [I 2])]]
             "d87e9f809f01ffa0a201d8798002d87b9f02ffff", 
             // B (B.replicate 32 105)
-            "58206969696969696969696969696969696969696969696969696969696969696969", 
+            "58206969696969696969696969696969696969696969696969696969696969696969",
             // B (B.replicate 67 105)
             "5f58406969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696943696969ff"
         ];
