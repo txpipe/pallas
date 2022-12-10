@@ -786,6 +786,90 @@ impl fmt::Display for Bytes {
     }
 }
 
+/// Defined to encode PlutusData bytestring as it is done in the canonical plutus implementation
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(into = "String")]
+#[serde(try_from = "String")]
+pub struct PlutusBytes(Vec<u8>);
+
+impl From<Vec<u8>> for PlutusBytes {
+    fn from(xs: Vec<u8>) -> Self {
+        PlutusBytes(xs)
+    }
+}
+
+impl From<PlutusBytes> for Vec<u8> {
+    fn from(b: PlutusBytes) -> Self {
+        b.0
+    }
+}
+
+impl Deref for PlutusBytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for PlutusBytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let v = hex::decode(value)?;
+        Ok(PlutusBytes(v))
+    }
+}
+
+impl From<PlutusBytes> for String {
+    fn from(b: PlutusBytes) -> Self {
+        hex::encode(b.deref())
+    }
+}
+
+impl fmt::Display for PlutusBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes: Vec<u8> = self.clone().into();
+
+        f.write_str(&hex::encode(bytes))
+    }
+}
+
+impl<C> Encode<C> for PlutusBytes {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // we match the haskell implementation by encoding bytestrings longer than 64 bytes as indefinite lists of bytes
+        const CHUNK_SIZE: usize = 64;
+        let bs: &Vec<u8> = self.deref();
+        if bs.len() <= 64 {
+            e.bytes(bs)?;
+        } else {
+            e.begin_bytes()?;
+            for b in bs.chunks(CHUNK_SIZE) {
+                e.bytes(b)?;
+            }
+            e.end()?;
+        }
+        return Ok(());
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusBytes
+where
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let mut res = Vec::new();
+        for chunk in d.bytes_iter()? {
+            let bs = chunk?;
+            res.extend_from_slice(bs);
+        };
+        return Ok(PlutusBytes::from(res));
+    }
+}
+
 #[derive(
     Serialize, Deserialize, Clone, Copy, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord,
 )]

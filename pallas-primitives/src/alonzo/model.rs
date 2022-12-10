@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, PlutusBytes};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -917,7 +917,7 @@ pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(KeyValuePairs<PlutusData, PlutusData>),
     BigInt(BigInt),
-    BoundedBytes(Bytes),
+    BoundedBytes(PlutusBytes),
     Array(Vec<PlutusData>),
 }
 
@@ -960,7 +960,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
                     full.extend(slice?);
                 }
 
-                Ok(Self::BoundedBytes(Bytes::from(full)))
+                Ok(Self::BoundedBytes(PlutusBytes::from(full)))
             }
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
                 Ok(Self::Array(d.decode_with(ctx)?))
@@ -1003,7 +1003,8 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                // we use def array to match the approach used by haskell's plutus implementation
+                // we use definite array to match the approach used by haskell's plutus implementation
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
                 e.map(a.len().try_into().unwrap())?;
                 for (k, v) in a.iter() {
                     k.encode(e, ctx)?;
@@ -1017,6 +1018,10 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
+                // we use definite array for empty array or indef array otherwise to match haskell implementation
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L153
+                // default encoder for a list:
+                // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
                 encode_list(a, e, ctx)?;
             }
         };
@@ -1079,15 +1084,20 @@ where
 
         match self.tag {
             102 => {
+                // definite length array here
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
                 e.array(2)?;
                 e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
 
-                // we use definite array for empty array or indef array otherwise to match haskell
+                // we use definite array for empty array or indef array otherwise to match haskell implementation
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L144
+                // default encoder for a list:
+                // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
                 encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
             _ => {
-                // we use definite array for empty array or indef array otherwise to match haskell
+                // we use definite array for empty array or indef array otherwise to match haskell implementation. See above reference.
                 encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
@@ -1574,7 +1584,9 @@ mod tests {
             // B (B.replicate 32 105)
             "58206969696969696969696969696969696969696969696969696969696969696969",
             // B (B.replicate 67 105)
-            "5f58406969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696943696969ff"
+            "5f58406969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696943696969ff",
+            // B B.empty
+            "40"
         ];
         for data_hex in datas {
             let data_bytes = hex::decode(data_hex).unwrap();
