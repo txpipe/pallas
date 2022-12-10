@@ -1466,6 +1466,8 @@ pub struct MintedTx<'b> {
 mod tests {
     use pallas_codec::minicbor::{self, to_vec};
 
+    use crate::{alonzo::PlutusData, Fragment};
+
     use super::{Header, MintedBlock};
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
@@ -1550,6 +1552,31 @@ mod tests {
                 to_vec(header).expect(&format!("error encoding header cbor for file {}", idx));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
+
+    #[test]
+    fn plutus_data_isomorphic_decoding_encoding() {
+        let datas = [
+            // unit = Constr 0 []
+            "d87980", 
+            // pltmap = Map [(I 1, unit), (I 2, pltlist)]
+            "a201d87980029f000102ff", 
+            // pltlist = List [I 0, I 1, I 2]
+            "9f000102ff", 
+            // Constr 5 [pltmap, Constr 5 [Map [(pltmap, toData True), (pltlist, pltmap), (List [], List [I 1])], unit, toData (0, 1)]]
+            "d87e9fa201d87980029f000102ffd87e9fa3a201d87980029f000102ffd87a809f000102ffa201d87980029f000102ff809f01ffd87980d8799f0001ffffff", 
+            // Constr 5 [List [], List [I 1], Map [], Map [(I 1, unit), (I 2, Constr 2 [I 2])]]
+            "d87e9f809f01ffa0a201d8798002d87b9f02ffff", 
+            // B (B.replicate 32 105)
+            "58206969696969696969696969696969696969696969696969696969696969696969", 
+            // B (B.replicate 67 105)
+            "5f58406969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696943696969ff"
+        ];
+        for data_hex in datas {
+            let data_bytes = hex::decode(data_hex).unwrap();
+            let data = PlutusData::decode_fragment(&data_bytes).unwrap();
+            assert_eq!(data.encode_fragment().unwrap(), data_bytes);
         }
     }
 }
