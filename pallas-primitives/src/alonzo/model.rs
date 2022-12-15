@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{
+    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, PlutusBytes,
+};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -917,7 +919,7 @@ pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(KeyValuePairs<PlutusData, PlutusData>),
     BigInt(BigInt),
-    BoundedBytes(Bytes),
+    BoundedBytes(PlutusBytes),
     Array(Vec<PlutusData>),
 }
 
@@ -960,7 +962,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
                     full.extend(slice?);
                 }
 
-                Ok(Self::BoundedBytes(Bytes::from(full)))
+                Ok(Self::BoundedBytes(PlutusBytes::from(full)))
             }
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
                 Ok(Self::Array(d.decode_with(ctx)?))
@@ -971,6 +973,25 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
             )),
         }
     }
+}
+
+fn encode_list<C, W: minicbor::encode::Write, A: minicbor::encode::Encode<C>>(
+    a: &Vec<A>,
+    e: &mut minicbor::Encoder<W>,
+    ctx: &mut C,
+) -> Result<(), minicbor::encode::Error<W::Error>> {
+    // Mimics default haskell list encoding from cborg:
+    // We use indef array for non-empty arrays but definite 0-length array for empty
+    if a.is_empty() {
+        e.array(0)?;
+    } else {
+        e.begin_array()?;
+        for v in a {
+            e.encode_with(v, ctx)?;
+        }
+        e.end()?;
+    }
+    Ok(())
 }
 
 impl<C> minicbor::encode::Encode<C> for PlutusData {
@@ -984,13 +1005,13 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_map()?;
+                // we use definite array to match the approach used by haskell's plutus implementation
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
+                e.map(a.len().try_into().unwrap())?;
                 for (k, v) in a.iter() {
                     k.encode(e, ctx)?;
                     v.encode(e, ctx)?;
                 }
-                e.end()?;
             }
             Self::BigInt(a) => {
                 e.encode_with(a, ctx)?;
@@ -999,14 +1020,13 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_array()?;
-                for v in a.iter() {
-                    e.encode_with(v, ctx)?;
-                }
-                e.end()?;
+                // we use definite array for empty array or indef array otherwise to match haskell implementation
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L153
+                // default encoder for a list:
+                // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
+                encode_list(a, e, ctx)?;
             }
-        }
+        };
 
         Ok(())
     }
@@ -1066,26 +1086,21 @@ where
 
         match self.tag {
             102 => {
+                // definite length array here
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
                 e.array(2)?;
                 e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
 
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_array()?;
-                for v in self.fields.iter() {
-                    e.encode_with(v, ctx)?;
-                }
-                e.end()?;
-
+                // we use definite array for empty array or indef array otherwise to match haskell implementation
+                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L144
+                // default encoder for a list:
+                // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
+                encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
             _ => {
-                // we use indef array by default to match the approach used by the cardano-cli
-                e.begin_array()?;
-                for v in self.fields.iter() {
-                    e.encode_with(v, ctx)?;
-                }
-                e.end()?;
-
+                // we use definite array for empty array or indef array otherwise to match haskell implementation. See above reference.
+                encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
         }
@@ -1466,6 +1481,8 @@ pub struct MintedTx<'b> {
 mod tests {
     use pallas_codec::minicbor::{self, to_vec};
 
+    use crate::{alonzo::PlutusData, Fragment};
+
     use super::{Header, MintedBlock};
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
@@ -1550,6 +1567,33 @@ mod tests {
                 to_vec(header).expect(&format!("error encoding header cbor for file {}", idx));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
+
+    #[test]
+    fn plutus_data_isomorphic_decoding_encoding() {
+        let datas = [
+            // unit = Constr 0 []
+            "d87980", 
+            // pltmap = Map [(I 1, unit), (I 2, pltlist)]
+            "a201d87980029f000102ff", 
+            // pltlist = List [I 0, I 1, I 2]
+            "9f000102ff", 
+            // Constr 5 [pltmap, Constr 5 [Map [(pltmap, toData True), (pltlist, pltmap), (List [], List [I 1])], unit, toData (0, 1)]]
+            "d87e9fa201d87980029f000102ffd87e9fa3a201d87980029f000102ffd87a809f000102ffa201d87980029f000102ff809f01ffd87980d8799f0001ffffff", 
+            // Constr 5 [List [], List [I 1], Map [], Map [(I 1, unit), (I 2, Constr 2 [I 2])]]
+            "d87e9f809f01ffa0a201d8798002d87b9f02ffff", 
+            // B (B.replicate 32 105)
+            "58206969696969696969696969696969696969696969696969696969696969696969",
+            // B (B.replicate 67 105)
+            "5f58406969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696943696969ff",
+            // B B.empty
+            "40"
+        ];
+        for data_hex in datas {
+            let data_bytes = hex::decode(data_hex).unwrap();
+            let data = PlutusData::decode_fragment(&data_bytes).unwrap();
+            assert_eq!(data.encode_fragment().unwrap(), data_bytes);
         }
     }
 }
