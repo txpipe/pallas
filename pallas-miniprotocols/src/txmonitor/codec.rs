@@ -25,7 +25,7 @@ impl Encode<()> for Message {
                 response.encode(e, ctx)?;
             }
         }
-        log::debug!("encode message: {:?}", self);
+
         Ok(())
     }
 }
@@ -37,7 +37,7 @@ impl<'b> Decode<'b, ()> for Message {
     ) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
-        log::debug!("decode message: {:?}", label);
+
         match label {
             0 => Ok(Message::MsgDone),
             1 => Ok(Message::MsgAcquire),
@@ -48,18 +48,14 @@ impl<'b> Decode<'b, ()> for Message {
             3 => Ok(Message::MsgQuery(MsgRequest::MsgRelease)),
             5 => Ok(Message::MsgQuery(MsgRequest::MsgNextTx)),
             6 => {
-                log::trace!("Decoding 6, 1. Array: {:?}", d);
-                let de: Result<Option<u64>, pallas_codec::minicbor::decode::Error> = d.array();
-                log::trace!("Decoding 6, 2. Array: {:?}", de);
+                d.array()?;
                 let tag: Result<u8, pallas_codec::minicbor::decode::Error> = d.u8();
                 let mut tx = None;
+
                 if tag.is_ok() {
-                    log::trace!("Decoding 6, Tag: {:?}", tag);
-                    let det = d.tag();
-                    log::trace!("Decoding 6, Bytes: {:?}", det);
+                    d.tag()?;
                     let cbor = d.bytes()?;
                     tx = Some(hex::encode(cbor));
-                    log::trace!("Decoding 6, Tx: {:?}", tx);
                 }
                 Ok(Message::MsgResponse(MsgResponse::MsgReplyNextTx(tx)))
             }
@@ -119,7 +115,7 @@ impl Encode<()> for MsgRequest {
                 e.array(1)?.u16(3)?;
             }
         }
-        log::debug!("encode message: {:?}", self);
+
         Ok(())
     }
 }
