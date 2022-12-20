@@ -559,7 +559,7 @@ impl From<AnyUInt> for u64 {
             AnyUInt::U8(x) => x as u64,
             AnyUInt::U16(x) => x as u64,
             AnyUInt::U32(x) => x as u64,
-            AnyUInt::U64(x) => x as u64,
+            AnyUInt::U64(x) => x,
         }
     }
 }
