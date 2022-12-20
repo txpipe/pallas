@@ -76,19 +76,16 @@ where
         }
     }
 
-    fn on_acquired(self, s: Slot) -> Transition<Self> {
-        log::debug!("acquired Slot: '{:?}' ", s);
-
+    fn on_acquired(self, slot: Slot) -> Transition<Self> {
         Ok(Self {
             state: State::StAcquired,
-            snapshot: Some(s),
+            snapshot: Some(slot),
             output: None,
             ..self
         })
     }
 
     fn on_reply_next_tx(self, tx: Option<Tx>) -> Transition<Self> {
-        log::debug!("Next Transaction: {:?}", tx);
         Ok(Self {
             output: Some(MsgResponse::MsgReplyNextTx(tx)),
             ..self
@@ -96,18 +93,15 @@ where
     }
 
     fn on_reply_has_tx(self, arg: bool) -> Transition<Self> {
-        log::debug!("Mempool has transaction:   {:?}", arg);
         Ok(Self {
             output: Some(MsgResponse::MsgReplyHasTx(arg)),
             ..self
         })
     }
 
-    fn on_reply_get_size(self, msc: MempoolSizeAndCapacity) -> Transition<Self> {
-        log::debug!("Mempool Status: {:?}", msc);
-
+    fn on_reply_get_size(self, status: MempoolSizeAndCapacity) -> Transition<Self> {
         Ok(Self {
-            output: Some(MsgResponse::MsgReplyGetSizes(msc)),
+            output: Some(MsgResponse::MsgReplyGetSizes(status)),
             ..self
         })
     }
@@ -121,23 +115,14 @@ where
     type State = State;
 
     fn state(&self) -> &Self::State {
-        log::debug!("State: {:?}", &self.state);
         &self.state
     }
 
     fn is_done(&self) -> bool {
-        let done = self.state == State::StDone;
-        log::debug!("is_done: {:?}", done);
-        done
+        self.state == State::StDone
     }
 
     fn has_agency(&self) -> bool {
-        log::trace!(
-            "Hase Agency:  State: {:?}, Request: {:?}, Response: {:?}",
-            self.state,
-            self.request,
-            self.output
-        );
         match &self.state {
             State::StIdle => true,
             State::StAcquiring => false,
@@ -148,12 +133,6 @@ where
     }
 
     fn build_next(&self) -> Self::Message {
-        log::debug!(
-            "build next; State: {:?}, request: {:?}, output: {:?}",
-            &self.state,
-            &self.request,
-            &self.output
-        );
         match (&self.state, &self.request, &self.output) {
             (State::StIdle, None, None) => Message::MsgAcquire,
             (State::StAcquired, None, None) => Message::MsgAcquire,
@@ -174,20 +153,15 @@ where
     }
 
     fn apply_start(self) -> Transition<Self> {
-        log::debug!("apply start");
         Ok(self)
     }
 
     fn apply_outbound(self, msg: Self::Message) -> Transition<Self> {
-        log::debug!("apply outbound");
         match (self.state, msg) {
-            (State::StIdle, Message::MsgAcquire) => {
-                log::debug!("apply outbound : MsgAcquire");
-                Ok(Self {
-                    state: State::StAcquiring,
-                    ..self
-                })
-            }
+            (State::StIdle, Message::MsgAcquire) => Ok(Self {
+                state: State::StAcquiring,
+                ..self
+            }),
             (State::StAcquired, Message::MsgQuery(MsgRequest::MsgNextTx)) => Ok(Self {
                 state: State::StBusy(StBusyKind::NextTx),
                 ..self
@@ -219,7 +193,6 @@ where
     }
 
     fn apply_inbound(self, msg: Self::Message) -> Transition<Self> {
-        log::debug!("apply inbound");
         match (&self.state, msg) {
             (State::StAcquiring, Message::MsgAcquired(s)) => self.on_acquired(s),
             (

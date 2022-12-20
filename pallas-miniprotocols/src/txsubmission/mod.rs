@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use itertools::Itertools;
-use log::debug;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use tracing::debug;
 
 use crate::machines::{Agent, MachineError, Transition};
 

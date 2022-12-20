@@ -2,6 +2,7 @@ use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
 use std::{cell::Cell, fmt::Debug};
 use thiserror::Error;
+use tracing::trace;
 
 #[derive(Debug, Error)]
 pub enum MachineError {
@@ -101,7 +102,7 @@ where
     match agent.has_agency() {
         true => {
             let msg = agent.build_next();
-            log::trace!("processing outbound msg: {:?}", msg);
+            trace!(?msg, "processing outbound msg");
 
             channel
                 .send_msg_chunks(&msg)
@@ -112,7 +113,7 @@ where
         false => {
             let msg = channel.recv_full_msg().map_err(MachineError::channel)?;
 
-            log::trace!("procesing inbound msg: {:?}", msg);
+            trace!(?msg, "processing inbound msg");
 
             agent.apply_inbound(msg)
         }

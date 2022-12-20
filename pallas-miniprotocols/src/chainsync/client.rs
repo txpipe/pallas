@@ -2,6 +2,7 @@ use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
 use std::marker::PhantomData;
 use thiserror::Error;
+use tracing::{debug, info, instrument, trace};
 
 use crate::common::Point;
 
@@ -110,6 +111,7 @@ where
     pub fn send_message(&mut self, msg: &Message<O>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
+
         self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
 
         Ok(())
@@ -117,7 +119,9 @@ where
 
     pub fn recv_message(&mut self) -> Result<Message<O>, Error> {
         self.assert_agency_is_theirs()?;
+
         let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
@@ -145,6 +149,7 @@ where
         }
     }
 
+    #[instrument(skip_all)]
     pub fn find_intersect(&mut self, points: Vec<Point>) -> Result<IntersectResponse, Error> {
         self.send_find_intersect(points)?;
         self.recv_intersect_response()
@@ -190,19 +195,29 @@ where
         }
     }
 
+    #[instrument(skip_all)]
     pub fn request_next(&mut self) -> Result<NextResponse<O>, Error> {
+        debug!("requesting next block");
+
         self.send_request_next()?;
+
         self.recv_while_can_await()
     }
 
     pub fn intersect_origin(&mut self) -> Result<Point, Error> {
+        debug!("intersecting origin");
+
         let (point, _) = self.find_intersect(vec![Point::Origin])?;
 
         point.ok_or(Error::IntersectionNotFound)
     }
 
+    #[instrument(skip_all)]
     pub fn intersect_tip(&mut self) -> Result<Point, Error> {
         let (_, Tip(point, _)) = self.find_intersect(vec![Point::Origin])?;
+
+        debug!(?point, "found tip value");
+
         let (point, _) = self.find_intersect(vec![point])?;
 
         point.ok_or(Error::IntersectionNotFound)

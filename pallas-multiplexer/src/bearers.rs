@@ -1,8 +1,8 @@
 use byteorder::{ByteOrder, NetworkEndian, WriteBytesExt};
-use log::{debug, log_enabled, trace};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, ToSocketAddrs};
 use std::{net::TcpStream, time::Instant};
+use tracing::{debug, event_enabled, trace};
 
 use crate::Payload;
 
@@ -37,12 +37,12 @@ fn write_segment(writer: &mut impl Write, segment: Segment) -> Result<(), std::i
     msg.write_u16::<NetworkEndian>(protocol)?;
     msg.write_u16::<NetworkEndian>(payload.len() as u16)?;
 
-    if log_enabled!(log::Level::Trace) {
+    if event_enabled!(tracing::Level::TRACE) {
         trace!(
-            "sending segment, header {:?}, protocol id: {}, payload length: {}",
-            hex::encode(&msg),
             protocol,
-            payload.len()
+            length = payload.len(),
+            message = hex::encode(&msg),
+            "writing segment"
         );
     }
 
@@ -57,24 +57,21 @@ fn read_segment(reader: &mut impl Read) -> Result<Segment, std::io::Error> {
 
     reader.read_exact(&mut header)?;
 
-    if log_enabled!(log::Level::Trace) {
-        trace!("read segment header: {:?}", hex::encode(header));
+    if event_enabled!(tracing::Level::TRACE) {
+        trace!(header = hex::encode(header), "segment header read");
     }
 
     let length = NetworkEndian::read_u16(&header[6..]) as usize;
     let protocol = NetworkEndian::read_u16(&header[4..6]) as usize ^ 0x8000;
     let timestamp = NetworkEndian::read_u32(&header[0..4]);
 
-    debug!(
-        "parsed inbound msg, protocol id: {}, ts: {}, payload length: {}",
-        protocol, timestamp, length
-    );
+    debug!(protocol, timestamp, length, "parsed inbound msg");
 
     let mut payload = vec![0u8; length];
     reader.read_exact(&mut payload)?;
 
-    if log_enabled!(log::Level::Trace) {
-        trace!("read segment payload: {:?}", hex::encode(&payload));
+    if event_enabled!(tracing::Level::TRACE) {
+        trace!(payload = hex::encode(&payload), "segment payload read");
     }
 
     Ok(Segment {
