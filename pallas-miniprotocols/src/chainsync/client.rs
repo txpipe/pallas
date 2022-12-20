@@ -2,7 +2,7 @@ use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
 use std::marker::PhantomData;
 use thiserror::Error;
-use tracing::{debug, info, instrument, trace};
+use tracing::{debug, instrument};
 
 use crate::common::Point;
 
