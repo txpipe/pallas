@@ -684,6 +684,8 @@ mod tests {
             include_str!("../../../test_data/babbage6.block"),
             // block with generic int in cbor
             include_str!("../../../test_data/babbage7.block"),
+            // block with indef bytes for plutus data bignum
+            include_str!("../../../test_data/babbage8.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
