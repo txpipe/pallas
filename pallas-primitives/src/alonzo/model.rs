@@ -854,8 +854,8 @@ big_nint = #6.3(bounded_bytes) ; New
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum BigInt {
     Int(Int),
-    BigUInt(Bytes),
-    BigNInt(Bytes),
+    BigUInt(PlutusBytes),
+    BigNInt(PlutusBytes),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for BigInt {
@@ -1574,15 +1574,15 @@ mod tests {
     fn plutus_data_isomorphic_decoding_encoding() {
         let datas = [
             // unit = Constr 0 []
-            "d87980", 
+            "d87980",
             // pltmap = Map [(I 1, unit), (I 2, pltlist)]
-            "a201d87980029f000102ff", 
+            "a201d87980029f000102ff",
             // pltlist = List [I 0, I 1, I 2]
-            "9f000102ff", 
+            "9f000102ff",
             // Constr 5 [pltmap, Constr 5 [Map [(pltmap, toData True), (pltlist, pltmap), (List [], List [I 1])], unit, toData (0, 1)]]
-            "d87e9fa201d87980029f000102ffd87e9fa3a201d87980029f000102ffd87a809f000102ffa201d87980029f000102ff809f01ffd87980d8799f0001ffffff", 
+            "d87e9fa201d87980029f000102ffd87e9fa3a201d87980029f000102ffd87a809f000102ffa201d87980029f000102ff809f01ffd87980d8799f0001ffffff",
             // Constr 5 [List [], List [I 1], Map [], Map [(I 1, unit), (I 2, Constr 2 [I 2])]]
-            "d87e9f809f01ffa0a201d8798002d87b9f02ffff", 
+            "d87e9f809f01ffa0a201d8798002d87b9f02ffff",
             // B (B.replicate 32 105)
             "58206969696969696969696969696969696969696969696969696969696969696969",
             // B (B.replicate 67 105)
