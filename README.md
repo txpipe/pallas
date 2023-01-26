@@ -5,7 +5,7 @@
         <h3 align="center" style="border-bottom: none">Rust-native building blocks for the Cardano blockchain ecosystem</h3>
         <img alt="GitHub" src="https://img.shields.io/github/license/txpipe/pallas" />
         <img alt="Crates.io" src="https://img.shields.io/crates/v/pallas" />
-        <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/txpipe/pallas/Validate" />
+        <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/txpipe/pallas/validate.yml" />
     <hr/>
 </div>
 
