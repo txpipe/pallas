@@ -3,13 +3,12 @@
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
 use serde::{Deserialize, Serialize};
+use std::{fmt, ops::Deref};
 
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{
-    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, PlutusBytes,
-};
+use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -845,6 +844,88 @@ impl AsRef<[u8]> for PlutusScript {
     }
 }
 
+/// Defined to encode PlutusData bytestring as it is done in the canonical plutus implementation
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(into = "String")]
+#[serde(try_from = "String")]
+pub struct BoundedBytes(Vec<u8>);
+
+impl From<Vec<u8>> for BoundedBytes {
+    fn from(xs: Vec<u8>) -> Self {
+        BoundedBytes(xs)
+    }
+}
+
+impl From<BoundedBytes> for Vec<u8> {
+    fn from(b: BoundedBytes) -> Self {
+        b.0
+    }
+}
+
+impl Deref for BoundedBytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for BoundedBytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let v = hex::decode(value)?;
+        Ok(BoundedBytes(v))
+    }
+}
+
+impl From<BoundedBytes> for String {
+    fn from(b: BoundedBytes) -> Self {
+        hex::encode(b.deref())
+    }
+}
+
+impl fmt::Display for BoundedBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes: Vec<u8> = self.clone().into();
+
+        f.write_str(&hex::encode(bytes))
+    }
+}
+
+impl<C> Encode<C> for BoundedBytes {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // we match the haskell implementation by encoding bytestrings longer than 64 bytes as indefinite lists of bytes
+        const CHUNK_SIZE: usize = 64;
+        let bs: &Vec<u8> = self.deref();
+        if bs.len() <= 64 {
+            e.bytes(bs)?;
+        } else {
+            e.begin_bytes()?;
+            for b in bs.chunks(CHUNK_SIZE) {
+                e.bytes(b)?;
+            }
+            e.end()?;
+        }
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for BoundedBytes {
+    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let mut res = Vec::new();
+        for chunk in d.bytes_iter()? {
+            let bs = chunk?;
+            res.extend_from_slice(bs);
+        }
+        Ok(BoundedBytes::from(res))
+    }
+}
+
 /*
 big_int = int / big_uint / big_nint ; New
 big_uint = #6.2(bounded_bytes) ; New
@@ -854,8 +935,8 @@ big_nint = #6.3(bounded_bytes) ; New
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum BigInt {
     Int(Int),
-    BigUInt(Bytes),
-    BigNInt(Bytes),
+    BigUInt(BoundedBytes),
+    BigNInt(BoundedBytes),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for BigInt {
@@ -919,7 +1000,7 @@ pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(KeyValuePairs<PlutusData, PlutusData>),
     BigInt(BigInt),
-    BoundedBytes(PlutusBytes),
+    BoundedBytes(BoundedBytes),
     Array(Vec<PlutusData>),
 }
 
@@ -962,7 +1043,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
                     full.extend(slice?);
                 }
 
-                Ok(Self::BoundedBytes(PlutusBytes::from(full)))
+                Ok(Self::BoundedBytes(BoundedBytes::from(full)))
             }
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
                 Ok(Self::Array(d.decode_with(ctx)?))
@@ -1574,15 +1655,15 @@ mod tests {
     fn plutus_data_isomorphic_decoding_encoding() {
         let datas = [
             // unit = Constr 0 []
-            "d87980", 
+            "d87980",
             // pltmap = Map [(I 1, unit), (I 2, pltlist)]
-            "a201d87980029f000102ff", 
+            "a201d87980029f000102ff",
             // pltlist = List [I 0, I 1, I 2]
-            "9f000102ff", 
+            "9f000102ff",
             // Constr 5 [pltmap, Constr 5 [Map [(pltmap, toData True), (pltlist, pltmap), (List [], List [I 1])], unit, toData (0, 1)]]
-            "d87e9fa201d87980029f000102ffd87e9fa3a201d87980029f000102ffd87a809f000102ffa201d87980029f000102ff809f01ffd87980d8799f0001ffffff", 
+            "d87e9fa201d87980029f000102ffd87e9fa3a201d87980029f000102ffd87a809f000102ffa201d87980029f000102ff809f01ffd87980d8799f0001ffffff",
             // Constr 5 [List [], List [I 1], Map [], Map [(I 1, unit), (I 2, Constr 2 [I 2])]]
-            "d87e9f809f01ffa0a201d8798002d87b9f02ffff", 
+            "d87e9f809f01ffa0a201d8798002d87b9f02ffff",
             // B (B.replicate 32 105)
             "58206969696969696969696969696969696969696969696969696969696969696969",
             // B (B.replicate 67 105)
