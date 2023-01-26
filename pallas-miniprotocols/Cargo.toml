@@ -1,7 +1,7 @@
 [package]
 name = "pallas-miniprotocols"
 description = "Implementation of the Ouroboros network mini-protocols state-machines"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -11,8 +11,8 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-codec = { version = "0.16.0", path = "../pallas-codec/" }
-pallas-multiplexer = { version = "0.16.0", path = "../pallas-multiplexer/" }
+pallas-codec = { version = "0.17.0", path = "../pallas-codec/" }
+pallas-multiplexer = { version = "0.17.0", path = "../pallas-multiplexer/" }
 hex = "0.4.3"
 itertools = "0.10.3"
 thiserror = "1.0.31"
