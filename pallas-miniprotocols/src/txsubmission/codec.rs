@@ -34,7 +34,7 @@ impl Encode<()> for Message {
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::Init => {
-                e.array(1)?.u16(6);
+                e.array(1)?.u16(6)?;
                 Ok(())
             }
             Message::RequestTxIds(blocking, ack, req) => {
