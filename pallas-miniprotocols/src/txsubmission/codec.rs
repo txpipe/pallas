@@ -1,6 +1,6 @@
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
-use super::protocol::{Message, TxId, TxIdAndSize};
+use super::protocol::{Message, TxIdAndSize};
 
 impl Encode<()> for TxIdAndSize {
     fn encode<W: encode::Write>(
@@ -9,7 +9,7 @@ impl Encode<()> for TxIdAndSize {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
-        e.u64(self.0)?;
+        e.bytes(&self.0)?;
         e.u32(self.1)?;
 
         Ok(())
@@ -19,10 +19,10 @@ impl Encode<()> for TxIdAndSize {
 impl<'b> Decode<'b, ()> for TxIdAndSize {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
-        let id = d.u64()?;
+        let id = d.bytes()?;
         let size = d.u32()?;
 
-        Ok(Self(id, size))
+        Ok(Self(Vec::from(id), size))
     }
 }
 
@@ -33,6 +33,10 @@ impl Encode<()> for Message {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
+            Message::Init => {
+                e.array(1)?.u16(6);
+                Ok(())
+            }
             Message::RequestTxIds(blocking, ack, req) => {
                 e.array(4)?.u16(0)?;
                 e.bool(*blocking)?;
@@ -52,7 +56,7 @@ impl Encode<()> for Message {
                 e.array(2)?.u16(2)?;
                 e.array(ids.len() as u64)?;
                 for id in ids {
-                    e.u64(*id)?;
+                    e.bytes(id)?;
                 }
                 Ok(())
             }
@@ -89,13 +93,14 @@ impl<'b> Decode<'b, ()> for Message {
                 Ok(Message::ReplyTxIds(items))
             }
             2 => {
-                let ids = d.array_iter::<TxId>()?.try_collect()?;
+                let ids = d.decode()?;
                 Ok(Message::RequestTxs(ids))
             }
             3 => {
                 todo!()
             }
             4 => Ok(Message::Done),
+            6 => Ok(Message::Init),
             _ => Err(decode::Error::message(
                 "unknown variant for txsubmission message",
             )),

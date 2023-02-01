@@ -2,7 +2,7 @@ use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
 use thiserror::Error;
 
-use super::protocol::{Message, State, Tx, TxId};
+use super::protocol::{Message, State, TxBody, TxId, TxIdAndSize};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -23,8 +23,8 @@ pub enum Error {
 }
 
 pub enum Request {
-    TxIds(u32),
-    TxIdsNoneBlocking(u32),
+    TxIds(u16, u16),
+    TxIdsNonBlocking(u16, u16),
     Txs(Vec<TxId>),
 }
 
@@ -85,7 +85,6 @@ where
     fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Idle, Message::RequestTxIds(..)) => Ok(()),
-            (State::Idle, Message::RequestTxIdsNonBlocking(..)) => Ok(()),
             (State::Idle, Message::RequestTxs(..)) => Ok(()),
             _ => Err(Error::InvalidInbound),
         }
@@ -115,7 +114,7 @@ where
         Ok(())
     }
 
-    pub fn reply_tx_ids(&mut self, ids: Vec<TxId>) -> Result<(), Error> {
+    pub fn reply_tx_ids(&mut self, ids: Vec<TxIdAndSize>) -> Result<(), Error> {
         let msg = Message::ReplyTxIds(ids);
         self.send_message(&msg)?;
         self.0 = State::Idle;
@@ -123,7 +122,7 @@ where
         Ok(())
     }
 
-    pub fn reply_txs(&mut self, txs: Vec<Tx>) -> Result<(), Error> {
+    pub fn reply_txs(&mut self, txs: Vec<TxBody>) -> Result<(), Error> {
         let msg = Message::ReplyTxs(txs);
         self.send_message(&msg)?;
         self.0 = State::Idle;
@@ -131,15 +130,15 @@ where
         Ok(())
     }
 
-    pub fn next_request(&mut self) -> Result<Message, Error> {
+    pub fn next_request(&mut self) -> Result<Request, Error> {
         match self.recv_message()? {
-            Message::RequestTxIds(x) => {
+            Message::RequestTxIds(blocking, ack, req) => {
                 self.0 = State::TxIdsBlocking;
-                Ok(Request::TxIds(x))
-            }
-            Message::RequestTxIdsNonBlocking(x) => {
-                self.0 = State::TxIdsNonBlocking;
-                Ok(Request::TxIdsNoneBlocking(x))
+
+                match blocking {
+                    true => Ok(Request::TxIds(ack, req)),
+                    false => Ok(Request::TxIdsNonBlocking(ack, req)),
+                }
             }
             Message::ReplyTxs(x) => {
                 self.0 = State::Txs;
@@ -150,7 +149,7 @@ where
     }
 
     pub fn send_done(&mut self) -> Result<(), Error> {
-        let msg = Message::ClientDone;
+        let msg = Message::Done;
         self.send_message(&msg)?;
         self.0 = State::Done;
 

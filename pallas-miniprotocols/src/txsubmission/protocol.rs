@@ -8,11 +8,13 @@ pub enum State {
     Done,
 }
 
+pub type Blocking = bool;
+
 pub type TxCount = u16;
 
 pub type TxSizeInBytes = u32;
 
-pub type TxId = u64;
+pub type TxId = Vec<u8>;
 
 #[derive(Debug)]
 pub struct TxIdAndSize(pub TxId, pub TxSizeInBytes);
@@ -31,8 +33,7 @@ impl From<&Tx> for TxIdAndSize {
 #[derive(Debug)]
 pub enum Message {
     Init,
-    RequestTxIds(TxCount, TxCount),
-    RequestTxIdsNonBlocking(TxCount, TxCount),
+    RequestTxIds(Blocking, TxCount, TxCount),
     ReplyTxIds(Vec<TxIdAndSize>),
     RequestTxs(Vec<TxId>),
     ReplyTxs(Vec<TxBody>),
