@@ -98,8 +98,8 @@ where
 
 impl<'b, C, K, V> minicbor::decode::Decode<'b, C> for KeyValuePairs<K, V>
 where
-    K: Encode<C> + Decode<'b, C> + Clone,
-    V: Encode<C> + Decode<'b, C> + Clone,
+    K: Decode<'b, C> + Clone,
+    V: Decode<'b, C> + Clone,
 {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let datatype = d.datatype()?;
@@ -289,6 +289,12 @@ where
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
 #[serde(transparent)]
 pub struct CborWrap<T>(pub T);
+
+impl<T> CborWrap<T> {
+    pub fn unwrap(self) -> T {
+        self.0
+    }
+}
 
 impl<'b, C, T> minicbor::Decode<'b, C> for CborWrap<T>
 where
