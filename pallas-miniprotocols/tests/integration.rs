@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},

@@ -14,7 +14,7 @@ impl AssetFingerprint {
 
     pub fn from_parts(policy_id: &str, asset_name: &str) -> Result<AssetFingerprint, Box<dyn Err>> {
         let mut hasher = Blake2bVar::new(20).unwrap();
-        let c = format!("{}{}",policy_id,asset_name);
+        let c = format!("{policy_id}{asset_name}");
         let raw = hex::decode(c)?;
         hasher.update(raw.as_slice());
         let mut buf = [0u8; 20];

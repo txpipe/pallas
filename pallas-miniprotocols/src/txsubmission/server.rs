@@ -33,10 +33,7 @@ where
 
     // NOTE(pi): as of this writing, the network spec has a typo; this is the correct behavior
     fn has_agency(&self) -> bool {
-        match self.state() {
-            State::Idle => true,
-            _ => false,
-        }
+        matches!(self.state(), State::Idle)
     }
 
     fn assert_agency_is_ours(&self) -> Result<(), Error> {

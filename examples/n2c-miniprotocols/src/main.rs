@@ -66,7 +66,7 @@ fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
+    let bearer = Bearer::connect_tcp("/tmp/node.socket").unwrap();
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use

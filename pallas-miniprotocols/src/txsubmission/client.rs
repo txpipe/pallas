@@ -33,10 +33,7 @@ where
 
     // NOTE(pi): as of this writing, the network spec has a typo; this is the correct behavior
     fn has_agency(&self) -> bool {
-        match self.state() {
-            State::Idle => false,
-            _ => true,
-        }
+        !matches!(self.state(), State::Idle)
     }
 
     fn assert_agency_is_ours(&self) -> Result<(), Error> {
@@ -117,7 +114,6 @@ where
     }
 
     pub fn next_request(&mut self) -> Result<Request, Error> {
-        let mut v = vec![0, 1];
         match self.recv_message()? {
             Message::RequestTxIds(blocking, ack, req) => {
                 self.0 = State::TxIdsBlocking;

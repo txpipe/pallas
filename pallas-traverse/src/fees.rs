@@ -47,7 +47,7 @@ mod tests {
         let block_idx = 1;
         let block_str = include_str!("../../test_data/byron4.block");
 
-        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
+        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {block_idx}"));
         let block = crate::MultiEraBlock::decode_byron(&block_bytes).unwrap();
         let txs = block.txs();
 
