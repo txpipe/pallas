@@ -153,7 +153,7 @@ where
 }
 
 /// A struct that maintains a reference to whether a cbor array was indef or not
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum MaybeIndefArray<A> {
     Def(Vec<A>),
     Indef(Vec<A>),
