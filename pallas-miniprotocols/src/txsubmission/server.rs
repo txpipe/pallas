@@ -1,7 +1,7 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::protocol::{Message, State, TxBody, TxId, TxIdAndSize, Error, Blocking, TxCount};
+use super::protocol::{Blocking, Error, Message, State, TxBody, TxCount, TxId, TxIdAndSize};
 
 pub enum Reply {
     TxIds(Vec<TxIdAndSize>),
@@ -96,7 +96,7 @@ where
         if self.0 != State::Init {
             return Err(Error::AlreadyInitialized);
         }
-        
+
         // recv_message calls assert_inbound_state, which ensures we get an init message
         self.recv_message()?;
         self.0 = State::Idle;
@@ -104,7 +104,12 @@ where
         Ok(())
     }
 
-    pub fn acknowledge_and_request_tx_ids(&mut self, blocking: Blocking, acknowledge: TxCount, count: TxCount) -> Result<(), Error> {
+    pub fn acknowledge_and_request_tx_ids(
+        &mut self,
+        blocking: Blocking,
+        acknowledge: TxCount,
+        count: TxCount,
+    ) -> Result<(), Error> {
         let msg = Message::RequestTxIds(blocking, acknowledge, count);
         self.send_message(&msg)?;
         match blocking {
@@ -127,7 +132,7 @@ where
         match self.recv_message()? {
             Message::ReplyTxIds(ids_and_sizes) => {
                 self.0 = State::Idle;
-                
+
                 Ok(Reply::TxIds(ids_and_sizes))
             }
             Message::ReplyTxs(bodies) => {

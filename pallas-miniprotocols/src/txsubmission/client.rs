@@ -1,7 +1,7 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::protocol::{Message, State, TxBody, TxId, TxIdAndSize, Error};
+use super::protocol::{Error, Message, State, TxBody, TxId, TxIdAndSize};
 
 pub enum Request {
     TxIds(u16, u16),
@@ -117,7 +117,7 @@ where
     }
 
     pub fn next_request(&mut self) -> Result<Request, Error> {
-        let mut v = vec![0,1];
+        let mut v = vec![0, 1];
         match self.recv_message()? {
             Message::RequestTxIds(blocking, ack, req) => {
                 self.0 = State::TxIdsBlocking;

@@ -1,9 +1,9 @@
 mod client;
-mod server;
 mod codec;
 mod protocol;
+mod server;
 
 pub use client::*;
-pub use server::*;
 pub use codec::*;
 pub use protocol::*;
+pub use server::*;

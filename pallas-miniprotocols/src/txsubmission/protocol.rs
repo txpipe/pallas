@@ -39,7 +39,6 @@ impl From<TxIdAndSize> for TxId {
     }
 }
 
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("attempted to receive message while agency is ours")]
@@ -60,7 +59,6 @@ pub enum Error {
     #[error("error while sending or receiving data through the channel")]
     ChannelError(ChannelError),
 }
-
 
 #[derive(Debug)]
 pub enum Message {

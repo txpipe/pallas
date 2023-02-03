@@ -3,7 +3,8 @@ use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     handshake::{self, Confirmation},
-    Point, txsubmission::{self, Reply},
+    txsubmission::{self, Reply},
+    Point,
 };
 use pallas_multiplexer::{bearers::Bearer, StdChannel, StdPlexer};
 
@@ -37,7 +38,11 @@ fn setup_n2n_client_connection() -> N2NChannels {
         assert!(v >= 7);
     }
 
-    N2NChannels { channel2, channel3, channel4 }
+    N2NChannels {
+        channel2,
+        channel3,
+        channel4,
+    }
 }
 
 #[test]
@@ -167,7 +172,7 @@ pub fn blockfetch_happy_path() {
 #[ignore]
 pub fn txsubmission_server_happy_path() {
     // TODO(pi): Note that the below doesn't work; we need a node to connect *to us* during the integration test
-    // which seems awkward; 
+    // which seems awkward;
     // Alternatively, we can just set up both a client and server connecting to themselves for testing!
 
     let N2NChannels { channel4, .. } = setup_n2n_client_connection();
@@ -176,7 +181,10 @@ pub fn txsubmission_server_happy_path() {
 
     assert!(matches!(server.wait_for_init(), Ok(_)));
 
-    assert!(matches!(server.acknowledge_and_request_tx_ids(false, 0, 3), Ok(_)));
+    assert!(matches!(
+        server.acknowledge_and_request_tx_ids(false, 0, 3),
+        Ok(_)
+    ));
 
     let reply = server.receive_next_reply();
     assert!(matches!(reply, Ok(Reply::TxIds(_))));
@@ -184,13 +192,19 @@ pub fn txsubmission_server_happy_path() {
 
     assert!(tx_ids.len() <= 3);
 
-    assert!(matches!(server.request_txs(tx_ids.into_iter().map(Into::into).collect()), Ok(_)));
+    assert!(matches!(
+        server.request_txs(tx_ids.into_iter().map(Into::into).collect()),
+        Ok(_)
+    ));
 
     let reply = server.receive_next_reply();
     assert!(matches!(reply, Ok(Reply::Txs(_))));
     let Ok(Reply::Txs(first_txs)) = reply else { unreachable!() };
-    
-    assert!(matches!(server.acknowledge_and_request_tx_ids(false, 1, 3), Ok(_)));
+
+    assert!(matches!(
+        server.acknowledge_and_request_tx_ids(false, 1, 3),
+        Ok(_)
+    ));
 
     let reply = server.receive_next_reply();
     assert!(matches!(reply, Ok(Reply::Txs(_))));
@@ -200,7 +214,10 @@ pub fn txsubmission_server_happy_path() {
     assert_eq!(second_txs[0], first_txs[1]);
     assert_eq!(second_txs[1], first_txs[2]);
 
-    assert!(matches!(server.acknowledge_and_request_tx_ids(true, 3, 3), Ok(_)));
+    assert!(matches!(
+        server.acknowledge_and_request_tx_ids(true, 3, 3),
+        Ok(_)
+    ));
 
     match server.receive_next_reply() {
         Ok(Reply::Done) => return, // Server aint havin none of our sh*t
