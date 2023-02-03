@@ -15,18 +15,20 @@ impl<'b> MultiEraOutput<'b> {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn from_babbage(output: &'b babbage::TransactionOutput) -> Self {
+    pub fn from_babbage(output: &'b babbage::MintedTransactionOutput<'b>) -> Self {
         Self::Babbage(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn datum(&self) -> Option<babbage::DatumOption> {
+    pub fn datum(&self) -> Option<babbage::MintedDatumOption> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => x.datum_hash.map(babbage::DatumOption::Hash),
+            MultiEraOutput::AlonzoCompatible(x) => {
+                x.datum_hash.map(babbage::MintedDatumOption::Hash)
+            }
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::TransactionOutput::Legacy(x) => {
-                    x.datum_hash.map(babbage::DatumOption::Hash)
+                babbage::MintedTransactionOutput::Legacy(x) => {
+                    x.datum_hash.map(babbage::MintedDatumOption::Hash)
                 }
-                babbage::TransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+                babbage::MintedTransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
             },
             _ => None,
         }
@@ -35,8 +37,8 @@ impl<'b> MultiEraOutput<'b> {
     pub fn script_ref(&self) -> Option<&babbage::ScriptRef> {
         match &self {
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::TransactionOutput::Legacy(_) => None,
-                babbage::TransactionOutput::PostAlonzo(x) => x.script_ref.as_ref(),
+                babbage::MintedTransactionOutput::Legacy(_) => None,
+                babbage::MintedTransactionOutput::PostAlonzo(x) => x.script_ref.as_ref(),
             },
             _ => None,
         }
@@ -46,8 +48,8 @@ impl<'b> MultiEraOutput<'b> {
         match self {
             MultiEraOutput::AlonzoCompatible(x) => Address::from_bytes(&x.address),
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
-                babbage::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+                babbage::MintedTransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                babbage::MintedTransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
             },
             MultiEraOutput::Byron(x) => {
                 Ok(ByronAddress::new(&x.address.payload.0, x.address.crc).into())
@@ -55,7 +57,7 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::TransactionOutput> {
+    pub fn as_babbage(&self) -> Option<&babbage::MintedTransactionOutput> {
         match self {
             MultiEraOutput::AlonzoCompatible(_) => None,
             MultiEraOutput::Babbage(x) => Some(x),

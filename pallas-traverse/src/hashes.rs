@@ -127,6 +127,12 @@ impl OriginalHash<32> for KeepRaw<'_, babbage::TransactionBody> {
     }
 }
 
+impl OriginalHash<32> for KeepRaw<'_, babbage::MintedTransactionBody<'_>> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
 impl ComputeHash<32> for babbage::DatumOption {
     fn compute_hash(&self) -> Hash<32> {
         match self {
@@ -138,12 +144,13 @@ impl ComputeHash<32> for babbage::DatumOption {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Era, MultiEraTx};
+    use crate::{Era, MultiEraBlock, MultiEraTx};
 
     use super::{ComputeHash, OriginalHash};
     use pallas_codec::utils::Int;
     use pallas_codec::{minicbor, utils::Bytes};
     use pallas_crypto::hash::Hash;
+    use pallas_primitives::babbage::MintedDatumOption;
     use pallas_primitives::{alonzo, babbage, byron};
     use std::str::FromStr;
 
@@ -328,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn test_datum_hash_respects_original_cbor() {
+    fn test_witness_datum_hash_respects_original_cbor() {
         let expected = [
             "54ad3c112d58e8946480e21d6a35b2a215d1a9a8f540c13714ded86e4b0b6aea",
             "831a557bc2948e1b8c9f5e8e594d62299abff4eb1a11dc19da38bfaf9f2da407",
@@ -345,6 +352,21 @@ mod tests {
 
         for (datum, expected_hash) in data.iter().zip(expected) {
             assert_eq!(datum.original_hash().to_string(), expected_hash);
+        }
+    }
+
+    #[test]
+    fn test_inline_datum_hash_respects_original_cbor() {
+        let expected = "7607117edd3189347a2898defbb9042e9ea3bf094466718cdaf65f7f9bfeefdb";
+
+        let tx_hex = include_str!("../../test_data/babbage2.tx");
+        let tx_bytes = hex::decode(tx_hex).unwrap();
+        let tx = MultiEraTx::decode(Era::Babbage, &tx_bytes).unwrap();
+
+        for output in tx.outputs() {
+            if let Some(MintedDatumOption::Data(datum)) = output.datum() {
+                assert_eq!(datum.original_hash().to_string(), expected);
+            }
         }
     }
 }

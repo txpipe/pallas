@@ -230,14 +230,14 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct TransactionBody {
+pub struct PseudoTransactionBody<T1> {
     #[n(0)]
     pub inputs: Vec<TransactionInput>,
 
     #[n(1)]
-    pub outputs: Vec<TransactionOutput>,
+    pub outputs: Vec<T1>,
 
     #[n(2)]
     pub fee: u64,
@@ -276,7 +276,7 @@ pub struct TransactionBody {
     pub network_id: Option<NetworkId>,
 
     #[n(16)]
-    pub collateral_return: Option<TransactionOutput>,
+    pub collateral_return: Option<T1>,
 
     #[n(17)]
     pub total_collateral: Option<Coin>,
@@ -285,23 +285,51 @@ pub struct TransactionBody {
     pub reference_inputs: Option<Vec<TransactionInput>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum TransactionOutput {
-    Legacy(LegacyTransactionOutput),
-    PostAlonzo(PostAlonzoTransactionOutput),
+pub type TransactionBody = PseudoTransactionBody<TransactionOutput>;
+
+pub type MintedTransactionBody<'a> = PseudoTransactionBody<MintedTransactionOutput<'a>>;
+
+impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
+    fn from(value: MintedTransactionBody<'a>) -> Self {
+        Self {
+            inputs: value.inputs,
+            outputs: value.outputs.into_iter().map(|x| x.into()).collect(),
+            fee: value.fee,
+            ttl: value.ttl,
+            certificates: value.certificates,
+            withdrawals: value.withdrawals,
+            update: value.update,
+            auxiliary_data_hash: value.auxiliary_data_hash,
+            validity_interval_start: value.validity_interval_start,
+            mint: value.mint,
+            script_data_hash: value.script_data_hash,
+            collateral: value.collateral,
+            required_signers: value.required_signers,
+            network_id: value.network_id,
+            collateral_return: value.collateral_return.map(|x| x.into()),
+            total_collateral: value.total_collateral,
+            reference_inputs: value.reference_inputs,
+        }
+    }
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for TransactionOutput {
-    fn decode(
-        d: &mut minicbor::Decoder<'b>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
+#[derive(Debug, PartialEq, Clone)]
+pub enum PseudoTransactionOutput<T> {
+    Legacy(LegacyTransactionOutput),
+    PostAlonzo(T),
+}
+
+impl<'b, C, T> minicbor::Decode<'b, C> for PseudoTransactionOutput<T>
+where
+    T: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(TransactionOutput::Legacy(d.decode()?))
+                Ok(PseudoTransactionOutput::Legacy(d.decode_with(ctx)?))
             }
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(TransactionOutput::PostAlonzo(d.decode()?))
+                Ok(PseudoTransactionOutput::PostAlonzo(d.decode_with(ctx)?))
             }
             _ => Err(minicbor::decode::Error::message(
                 "invalid type for transaction output struct",
@@ -310,22 +338,39 @@ impl<'b, C> minicbor::Decode<'b, C> for TransactionOutput {
     }
 }
 
-impl<C> minicbor::Encode<C> for TransactionOutput {
+impl<C, T> minicbor::Encode<C> for PseudoTransactionOutput<T>
+where
+    T: minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            TransactionOutput::Legacy(x) => x.encode(e, ctx),
-            TransactionOutput::PostAlonzo(x) => x.encode(e, ctx),
+            PseudoTransactionOutput::Legacy(x) => x.encode(e, ctx),
+            PseudoTransactionOutput::PostAlonzo(x) => x.encode(e, ctx),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+pub type TransactionOutput = PseudoTransactionOutput<PostAlonzoTransactionOutput>;
+
+pub type MintedTransactionOutput<'b> =
+    PseudoTransactionOutput<MintedPostAlonzoTransactionOutput<'b>>;
+
+impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
+    fn from(value: MintedTransactionOutput<'b>) -> Self {
+        match value {
+            PseudoTransactionOutput::Legacy(x) => Self::Legacy(x),
+            PseudoTransactionOutput::PostAlonzo(x) => Self::PostAlonzo(x.into()),
+        }
+    }
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct PostAlonzoTransactionOutput {
+pub struct PseudoPostAlonzoTransactionOutput<T1> {
     #[n(0)]
     pub address: Bytes,
 
@@ -333,10 +378,26 @@ pub struct PostAlonzoTransactionOutput {
     pub value: Value,
 
     #[n(2)]
-    pub datum_option: Option<DatumOption>,
+    pub datum_option: Option<T1>,
 
     #[n(3)]
     pub script_ref: Option<ScriptRef>,
+}
+
+pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption>;
+
+pub type MintedPostAlonzoTransactionOutput<'b> =
+    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>>;
+
+impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
+    fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
+        Self {
+            address: value.address,
+            value: value.value,
+            datum_option: value.datum_option.map(|x| x.into()),
+            script_ref: value.script_ref,
+        }
+    }
 }
 
 pub use crate::alonzo::VKeyWitness;
@@ -455,25 +516,25 @@ pub struct PostAlonzoAuxiliaryData {
 
 pub type DatumHash = Hash<32>;
 
-pub type Data = CborWrap<PlutusData>;
+//pub type Data = CborWrap<PlutusData>;
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub enum DatumOption {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PseudoDatumOption<T1> {
     Hash(Hash<32>),
-    Data(Data),
+    Data(CborWrap<T1>),
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for DatumOption {
-    fn decode(
-        d: &mut minicbor::Decoder<'b>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C, T> minicbor::Decode<'b, C> for PseudoDatumOption<T>
+where
+    T: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         match d.u8()? {
-            0 => Ok(Self::Hash(d.decode()?)),
-            1 => Ok(Self::Data(d.decode()?)),
+            0 => Ok(Self::Hash(d.decode_with(ctx)?)),
+            1 => Ok(Self::Data(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for datum option enum",
             )),
@@ -481,7 +542,10 @@ impl<'b, C> minicbor::Decode<'b, C> for DatumOption {
     }
 }
 
-impl<C> minicbor::Encode<C> for DatumOption {
+impl<C, T> minicbor::Encode<C> for PseudoDatumOption<T>
+where
+    T: minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
@@ -493,6 +557,19 @@ impl<C> minicbor::Encode<C> for DatumOption {
         };
 
         Ok(())
+    }
+}
+
+pub type DatumOption = PseudoDatumOption<PlutusData>;
+
+pub type MintedDatumOption<'b> = PseudoDatumOption<KeepRaw<'b, PlutusData>>;
+
+impl<'b> From<MintedDatumOption<'b>> for DatumOption {
+    fn from(value: MintedDatumOption<'b>) -> Self {
+        match value {
+            PseudoDatumOption::Hash(x) => Self::Hash(x),
+            PseudoDatumOption::Data(x) => Self::Data(CborWrap(x.unwrap().unwrap())),
+        }
     }
 }
 
@@ -552,63 +629,60 @@ pub use crate::alonzo::AuxiliaryData;
 pub use crate::alonzo::TransactionIndex;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-pub struct Block {
+pub struct PseudoBlock<T1, T2, T3, T4>
+where
+    T4: std::clone::Clone,
+{
     #[n(0)]
-    pub header: Header,
+    pub header: T1,
 
     #[b(1)]
-    pub transaction_bodies: Vec<TransactionBody>,
+    pub transaction_bodies: MaybeIndefArray<T2>,
 
     #[n(2)]
-    pub transaction_witness_sets: Vec<WitnessSet>,
+    pub transaction_witness_sets: MaybeIndefArray<T3>,
 
     #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, T4>,
 
     #[n(4)]
-    pub invalid_transactions: Option<Vec<TransactionIndex>>,
+    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
+
+pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
 
 /// A memory representation of an already minted block
 ///
 /// This structure is analogous to [Block], but it allows to retrieve the
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct MintedBlock<'b> {
-    #[n(0)]
-    pub header: KeepRaw<'b, Header>,
-
-    #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
-
-    #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<KeepRaw<'b, MintedWitnessSet<'b>>>,
-
-    #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
-
-    #[n(4)]
-    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
-}
+pub type MintedBlock<'b> = PseudoBlock<
+    KeepRaw<'b, Header>,
+    KeepRaw<'b, MintedTransactionBody<'b>>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    KeepRaw<'b, AuxiliaryData>,
+>;
 
 impl<'b> From<MintedBlock<'b>> for Block {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
             header: x.header.unwrap(),
-            transaction_bodies: x
-                .transaction_bodies
-                .to_vec()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .collect(),
-            transaction_witness_sets: x
-                .transaction_witness_sets
-                .to_vec()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .map(WitnessSet::from)
-                .collect(),
+            transaction_bodies: MaybeIndefArray::Def(
+                x.transaction_bodies
+                    .iter()
+                    .cloned()
+                    .map(|x| x.unwrap())
+                    .map(TransactionBody::from)
+                    .collect(),
+            ),
+            transaction_witness_sets: MaybeIndefArray::Def(
+                x.transaction_witness_sets
+                    .iter()
+                    .cloned()
+                    .map(|x| x.unwrap())
+                    .map(WitnessSet::from)
+                    .collect(),
+            ),
             auxiliary_data_set: x
                 .auxiliary_data_set
                 .to_vec()
@@ -616,45 +690,43 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .map(|(k, v)| (k, v.unwrap()))
                 .collect::<Vec<_>>()
                 .into(),
-            invalid_transactions: x.invalid_transactions.map(|x| x.into()),
+            invalid_transactions: x.invalid_transactions,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
-pub struct Tx {
+#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
+pub struct PseudoTx<T1, T2, T3>
+where
+    T1: std::clone::Clone,
+    T2: std::clone::Clone,
+    T3: std::clone::Clone,
+{
     #[n(0)]
-    pub transaction_body: TransactionBody,
+    pub transaction_body: T1,
 
     #[n(1)]
-    pub transaction_witness_set: WitnessSet,
+    pub transaction_witness_set: T2,
 
     #[n(2)]
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Nullable<AuxiliaryData>,
+    pub auxiliary_data: Nullable<T3>,
 }
 
-#[derive(Encode, Decode, Debug, Clone)]
-pub struct MintedTx<'b> {
-    #[b(0)]
-    pub transaction_body: KeepRaw<'b, TransactionBody>,
+pub type Tx = PseudoTx<TransactionBody, WitnessSet, AuxiliaryData>;
 
-    #[n(1)]
-    pub transaction_witness_set: KeepRaw<'b, MintedWitnessSet<'b>>,
-
-    #[n(2)]
-    pub success: bool,
-
-    #[n(3)]
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
-}
+pub type MintedTx<'b> = PseudoTx<
+    KeepRaw<'b, MintedTransactionBody<'b>>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    KeepRaw<'b, AuxiliaryData>,
+>;
 
 impl<'b> From<MintedTx<'b>> for Tx {
     fn from(x: MintedTx<'b>) -> Self {
         Tx {
-            transaction_body: x.transaction_body.unwrap(),
+            transaction_body: x.transaction_body.unwrap().into(),
             transaction_witness_set: x.transaction_witness_set.unwrap().into(),
             success: x.success,
             auxiliary_data: x.auxiliary_data.map(|x| x.unwrap()),
@@ -686,6 +758,8 @@ mod tests {
             include_str!("../../../test_data/babbage7.block"),
             // block with indef bytes for plutus data bignum
             include_str!("../../../test_data/babbage8.block"),
+            // block with inline datum that fails hashes
+            include_str!("../../../test_data/babbage9.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
