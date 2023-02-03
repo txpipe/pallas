@@ -98,6 +98,7 @@ fn read_segment_with_timeout(reader: &mut impl Read) -> Result<Option<Segment>, 
 }
  */
 
+#[derive(Debug)]
 pub enum Bearer {
     Tcp(TcpStream),
 
