@@ -1,20 +1,20 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::protocol::{Message, State, TxBody, TxId, TxIdAndSize, Error};
+use super::protocol::{Message, State, TxBody, TxId, TxIdAndSize, Error, Blocking, TxCount};
 
-pub enum Request {
-    TxIds(u16, u16),
-    TxIdsNonBlocking(u16, u16),
-    Txs(Vec<TxId>),
+pub enum Reply {
+    TxIds(Vec<TxIdAndSize>),
+    Txs(Vec<TxBody>),
+    Done,
 }
 
-pub struct Client<H>(State, ChannelBuffer<H>)
+pub struct Server<H>(State, ChannelBuffer<H>)
 where
     H: Channel,
     Message: Fragment;
 
-impl<H> Client<H>
+impl<H> Server<H>
 where
     H: Channel,
     Message: Fragment,
@@ -34,8 +34,8 @@ where
     // NOTE(pi): as of this writing, the network spec has a typo; this is the correct behavior
     fn has_agency(&self) -> bool {
         match self.state() {
-            State::Idle => false,
-            _ => true,
+            State::Idle => true,
+            _ => false,
         }
     }
 
@@ -55,8 +55,17 @@ where
         }
     }
 
-    /// As a client in a specific state, am I allowed to send this message?
+    /// As a server in a specific state, am I allowed to send this message?
     fn assert_outbound_state(&self, msg: &Message) -> Result<(), Error> {
+        match (&self.0, msg) {
+            (State::Idle, Message::RequestTxIds(..)) => Ok(()),
+            (State::Idle, Message::RequestTxs(..)) => Ok(()),
+            _ => Err(Error::InvalidInbound),
+        }
+    }
+
+    /// As a server in a specific state, am I allowed to receive this message?
+    fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Init, Message::Init) => Ok(()),
             (State::TxIdsBlocking, Message::ReplyTxIds(..)) => Ok(()),
@@ -64,15 +73,6 @@ where
             (State::TxIdsNonBlocking, Message::ReplyTxIds(..)) => Ok(()),
             (State::Txs, Message::ReplyTxs(..)) => Ok(()),
             _ => Err(Error::InvalidOutbound),
-        }
-    }
-
-    /// As a client in a specific state, am I allowed to receive this message?
-    fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
-        match (&self.0, msg) {
-            (State::Idle, Message::RequestTxIds(..)) => Ok(()),
-            (State::Idle, Message::RequestTxs(..)) => Ok(()),
-            _ => Err(Error::InvalidInbound),
         }
     }
 
@@ -92,54 +92,53 @@ where
         Ok(msg)
     }
 
-    pub fn send_init(&mut self) -> Result<(), Error> {
-        let msg = Message::Init;
-        self.send_message(&msg)?;
+    pub fn wait_for_init(&mut self) -> Result<(), Error> {
+        if self.0 != State::Init {
+            return Err(Error::AlreadyInitialized);
+        }
+        
+        // recv_message calls assert_inbound_state, which ensures we get an init message
+        self.recv_message()?;
         self.0 = State::Idle;
 
         Ok(())
     }
 
-    pub fn reply_tx_ids(&mut self, ids: Vec<TxIdAndSize>) -> Result<(), Error> {
-        let msg = Message::ReplyTxIds(ids);
+    pub fn acknowledge_and_request_tx_ids(&mut self, blocking: Blocking, acknowledge: TxCount, count: TxCount) -> Result<(), Error> {
+        let msg = Message::RequestTxIds(blocking, acknowledge, count);
         self.send_message(&msg)?;
-        self.0 = State::Idle;
+        match blocking {
+            true => self.0 = State::TxIdsBlocking,
+            false => self.0 = State::TxIdsNonBlocking,
+        }
 
         Ok(())
     }
 
-    pub fn reply_txs(&mut self, txs: Vec<TxBody>) -> Result<(), Error> {
-        let msg = Message::ReplyTxs(txs);
+    pub fn request_txs(&mut self, ids: Vec<TxId>) -> Result<(), Error> {
+        let msg = Message::RequestTxs(ids);
         self.send_message(&msg)?;
-        self.0 = State::Idle;
+        self.0 = State::Txs;
 
         Ok(())
     }
 
-    pub fn next_request(&mut self) -> Result<Request, Error> {
-        let mut v = vec![0,1];
+    pub fn receive_next_reply(&mut self) -> Result<Reply, Error> {
         match self.recv_message()? {
-            Message::RequestTxIds(blocking, ack, req) => {
-                self.0 = State::TxIdsBlocking;
-
-                match blocking {
-                    true => Ok(Request::TxIds(ack, req)),
-                    false => Ok(Request::TxIdsNonBlocking(ack, req)),
-                }
+            Message::ReplyTxIds(ids_and_sizes) => {
+                self.0 = State::Idle;
+                
+                Ok(Reply::TxIds(ids_and_sizes))
             }
-            Message::RequestTxs(x) => {
+            Message::ReplyTxs(bodies) => {
                 self.0 = State::Txs;
-                Ok(Request::Txs(x))
+                Ok(Reply::Txs(bodies))
+            }
+            Message::Done => {
+                self.0 = State::Done;
+                Ok(Reply::Done)
             }
             _ => Err(Error::InvalidInbound),
         }
-    }
-
-    pub fn send_done(&mut self) -> Result<(), Error> {
-        let msg = Message::Done;
-        self.send_message(&msg)?;
-        self.0 = State::Done;
-
-        Ok(())
     }
 }

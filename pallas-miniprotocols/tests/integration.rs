@@ -1,23 +1,26 @@
+use itertools::Itertools;
 use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     handshake::{self, Confirmation},
-    Point,
+    Point, txsubmission::{self, Reply},
 };
 use pallas_multiplexer::{bearers::Bearer, StdChannel, StdPlexer};
 
 struct N2NChannels {
     channel2: StdChannel,
     channel3: StdChannel,
+    channel4: StdChannel,
 }
 
-fn setup_n2n_connection() -> N2NChannels {
+fn setup_n2n_client_connection() -> N2NChannels {
     let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
     let mut plexer = StdPlexer::new(bearer);
 
     let channel0 = plexer.use_channel(0);
     let channel2 = plexer.use_channel(2);
     let channel3 = plexer.use_channel(3);
+    let channel4 = plexer.use_channel(4);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
@@ -34,13 +37,13 @@ fn setup_n2n_connection() -> N2NChannels {
         assert!(v >= 7);
     }
 
-    N2NChannels { channel2, channel3 }
+    N2NChannels { channel2, channel3, channel4 }
 }
 
 #[test]
 #[ignore]
 pub fn chainsync_history_happy_path() {
-    let N2NChannels { channel2, .. } = setup_n2n_connection();
+    let N2NChannels { channel2, .. } = setup_n2n_client_connection();
 
     let known_point = Point::Specific(
         1654413,
@@ -86,7 +89,7 @@ pub fn chainsync_history_happy_path() {
 #[test]
 #[ignore]
 pub fn chainsync_tip_happy_path() {
-    let N2NChannels { channel2, .. } = setup_n2n_connection();
+    let N2NChannels { channel2, .. } = setup_n2n_client_connection();
 
     let mut client = chainsync::N2NClient::new(channel2);
 
@@ -125,7 +128,7 @@ pub fn chainsync_tip_happy_path() {
 #[test]
 #[ignore]
 pub fn blockfetch_happy_path() {
-    let N2NChannels { channel3, .. } = setup_n2n_connection();
+    let N2NChannels { channel3, .. } = setup_n2n_client_connection();
 
     let known_point = Point::Specific(
         1654413,
@@ -158,4 +161,50 @@ pub fn blockfetch_happy_path() {
     client.send_done().unwrap();
 
     assert!(matches!(client.state(), blockfetch::State::Done));
+}
+
+#[test]
+#[ignore]
+pub fn txsubmission_server_happy_path() {
+    // TODO(pi): Note that the below doesn't work; we need a node to connect *to us* during the integration test
+    // which seems awkward; 
+    // Alternatively, we can just set up both a client and server connecting to themselves for testing!
+
+    let N2NChannels { channel4, .. } = setup_n2n_client_connection();
+
+    let mut server = txsubmission::Server::new(channel4);
+
+    assert!(matches!(server.wait_for_init(), Ok(_)));
+
+    assert!(matches!(server.acknowledge_and_request_tx_ids(false, 0, 3), Ok(_)));
+
+    let reply = server.receive_next_reply();
+    assert!(matches!(reply, Ok(Reply::TxIds(_))));
+    let Ok(Reply::TxIds(tx_ids)) = reply else { unreachable!() };
+
+    assert!(tx_ids.len() <= 3);
+
+    assert!(matches!(server.request_txs(tx_ids.into_iter().map(Into::into).collect()), Ok(_)));
+
+    let reply = server.receive_next_reply();
+    assert!(matches!(reply, Ok(Reply::Txs(_))));
+    let Ok(Reply::Txs(first_txs)) = reply else { unreachable!() };
+    
+    assert!(matches!(server.acknowledge_and_request_tx_ids(false, 1, 3), Ok(_)));
+
+    let reply = server.receive_next_reply();
+    assert!(matches!(reply, Ok(Reply::Txs(_))));
+    let Ok(Reply::Txs(second_txs)) = reply else { unreachable!() };
+
+    // Make sure we receive the second and third tx again, indicating we sent the `acknowledge 1` bit correctly
+    assert_eq!(second_txs[0], first_txs[1]);
+    assert_eq!(second_txs[1], first_txs[2]);
+
+    assert!(matches!(server.acknowledge_and_request_tx_ids(true, 3, 3), Ok(_)));
+
+    match server.receive_next_reply() {
+        Ok(Reply::Done) => return, // Server aint havin none of our sh*t
+        Ok(Reply::TxIds(tx_ids)) => assert_eq!(tx_ids.len(), 3),
+        Ok(_) | Err(_) => assert!(false),
+    }
 }

@@ -1,3 +1,6 @@
+use pallas_multiplexer::agents::ChannelError;
+use thiserror::Error;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Init,
@@ -29,6 +32,35 @@ impl From<Tx> for TxIdAndSize {
         TxIdAndSize(other.0, other.1.len() as u32)
     }
 }
+
+impl From<TxIdAndSize> for TxId {
+    fn from(value: TxIdAndSize) -> Self {
+        value.0
+    }
+}
+
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("attempted to receive message while agency is ours")]
+    AgencyIsOurs,
+
+    #[error("attempted to send message while agency is theirs")]
+    AgencyIsTheirs,
+
+    #[error("inbound message is not valid for current state")]
+    InvalidInbound,
+
+    #[error("outbound message is not valid for current state")]
+    InvalidOutbound,
+
+    #[error("protocol is already initialized, no need to wait for init message")]
+    AlreadyInitialized,
+
+    #[error("error while sending or receiving data through the channel")]
+    ChannelError(ChannelError),
+}
+
 
 #[derive(Debug)]
 pub enum Message {
