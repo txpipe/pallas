@@ -669,14 +669,14 @@ impl<'b> From<MintedBlock<'b>> for Block {
             header: x.header.unwrap(),
             transaction_bodies: x
                 .transaction_bodies
-                .to_vec()
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(|x| x.unwrap().into())
                 .collect(),
             transaction_witness_sets: x
                 .transaction_witness_sets
-                .to_vec()
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(|x| x.unwrap())
                 .map(WitnessSet::from)
                 .collect(),
@@ -687,7 +687,7 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .map(|(k, v)| (k, v.unwrap()))
                 .collect::<Vec<_>>()
                 .into(),
-            invalid_transactions: x.invalid_transactions.map(|x| x.into()),
+            invalid_transactions: x.invalid_transactions,
         }
     }
 }
@@ -755,6 +755,8 @@ mod tests {
             include_str!("../../../test_data/babbage7.block"),
             // block with indef bytes for plutus data bignum
             include_str!("../../../test_data/babbage8.block"),
+            // block with inline datum that fails hashes
+            include_str!("../../../test_data/babbage9.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
