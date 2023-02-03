@@ -55,11 +55,11 @@ impl<'b> MultiEraOutput<'b> {
         match self {
             MultiEraOutput::Byron(x) => x.amount,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::TransactionOutput::Legacy(x) => match x.amount {
+                babbage::MintedTransactionOutput::Legacy(x) => match x.amount {
                     babbage::Value::Coin(c) => c,
                     babbage::Value::Multiasset(c, _) => c,
                 },
-                babbage::TransactionOutput::PostAlonzo(x) => match x.value {
+                babbage::MintedTransactionOutput::PostAlonzo(x) => match x.value {
                     babbage::Value::Coin(c) => c,
                     babbage::Value::Multiasset(c, _) => c,
                 },
@@ -80,11 +80,11 @@ impl<'b> MultiEraOutput<'b> {
         match self {
             MultiEraOutput::Byron(_) => vec![],
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::TransactionOutput::Legacy(x) => match &x.amount {
+                babbage::MintedTransactionOutput::Legacy(x) => match &x.amount {
                     babbage::Value::Coin(_) => vec![],
                     babbage::Value::Multiasset(_, x) => collect_multiassets(x),
                 },
-                babbage::TransactionOutput::PostAlonzo(x) => match &x.value {
+                babbage::MintedTransactionOutput::PostAlonzo(x) => match &x.value {
                     babbage::Value::Coin(_) => vec![],
                     babbage::Value::Multiasset(_, x) => collect_multiassets(x),
                 },

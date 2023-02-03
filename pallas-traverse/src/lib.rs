@@ -80,7 +80,7 @@ pub enum MultiEraTx<'b> {
 #[non_exhaustive]
 pub enum MultiEraOutput<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
-    Babbage(Box<Cow<'b, babbage::TransactionOutput>>),
+    Babbage(Box<Cow<'b, babbage::MintedTransactionOutput<'b>>>),
     Byron(Box<Cow<'b, byron::TxOut>>),
 }
 
