@@ -159,7 +159,7 @@ pub enum Error {
 
 impl Error {
     pub fn invalid_cbor(error: impl Display) -> Self {
-        Error::InvalidCbor(format!("{}", error))
+        Error::InvalidCbor(format!("{error}"))
     }
 
     pub fn unknown_cbor(bytes: &[u8]) -> Self {

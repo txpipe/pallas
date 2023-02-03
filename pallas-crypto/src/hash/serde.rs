@@ -21,7 +21,7 @@ impl<'de, const BYTES: usize> Visitor<'de> for HashVisitor<BYTES> {
     type Value = Hash<BYTES>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a hex string representing {} bytes", BYTES)
+        write!(formatter, "a hex string representing {BYTES} bytes")
     }
 
     fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
