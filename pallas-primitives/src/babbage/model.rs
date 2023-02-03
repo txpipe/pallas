@@ -745,19 +745,19 @@ mod tests {
     #[test]
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = vec![
-            //include_str!("../../../test_data/babbage1.block"),
-            //include_str!("../../../test_data/babbage2.block"),
-            //include_str!("../../../test_data/babbage3.block"),
-            //// peculiar block with single plutus cost model
-            //include_str!("../../../test_data/babbage4.block"),
-            //// peculiar block with i32 overlfow
-            //include_str!("../../../test_data/babbage5.block"),
-            //// peculiar block with map undef in plutus data
-            //include_str!("../../../test_data/babbage6.block"),
-            //// block with generic int in cbor
-            //include_str!("../../../test_data/babbage7.block"),
-            //// block with indef bytes for plutus data bignum
-            //include_str!("../../../test_data/babbage8.block"),
+            include_str!("../../../test_data/babbage1.block"),
+            include_str!("../../../test_data/babbage2.block"),
+            include_str!("../../../test_data/babbage3.block"),
+            // peculiar block with single plutus cost model
+            include_str!("../../../test_data/babbage4.block"),
+            // peculiar block with i32 overlfow
+            include_str!("../../../test_data/babbage5.block"),
+            // peculiar block with map undef in plutus data
+            include_str!("../../../test_data/babbage6.block"),
+            // block with generic int in cbor
+            include_str!("../../../test_data/babbage7.block"),
+            // block with indef bytes for plutus data bignum
+            include_str!("../../../test_data/babbage8.block"),
             // block with inline datum that fails hashes
             include_str!("../../../test_data/babbage9.block"),
         ];
@@ -771,12 +771,6 @@ mod tests {
 
             let bytes2 = minicbor::to_vec(block)
                 .expect(&format!("error encoding block cbor for file {}", idx));
-
-            //let hex1 = hex::encode(&bytes);
-            //println!("{hex1}");
-
-            let hex2 = hex::encode(&bytes2);
-            println!("{hex2}");
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
