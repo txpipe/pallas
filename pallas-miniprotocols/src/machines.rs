@@ -26,7 +26,7 @@ impl MachineError {
     }
 
     pub fn invalid_msg<A: Agent>(state: &A::State, msg: &A::Message) -> Self {
-        Self::InvalidMsgForState(format!("{:?}", state), format!("{:?}", msg))
+        Self::InvalidMsgForState(format!("{state:?}"), format!("{msg:?}"))
     }
 }
 

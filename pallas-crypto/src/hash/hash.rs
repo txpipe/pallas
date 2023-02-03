@@ -46,7 +46,7 @@ impl<const BYTES: usize> PartialEq<[u8]> for Hash<BYTES> {
 
 impl<const BYTES: usize> fmt::Debug for Hash<BYTES> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple(&format!("Hash<{size}>", size = BYTES))
+        f.debug_tuple(&format!("Hash<{BYTES}>"))
             .field(&hex::encode(self))
             .finish()
     }
