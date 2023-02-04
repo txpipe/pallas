@@ -314,6 +314,30 @@ impl From<[u8; Self::SIZE]> for Signature {
     }
 }
 
+impl From<[u8; Self::SIZE]> for SecretKey {
+    fn from(bytes: [u8; Self::SIZE]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<SecretKey> for [u8; SecretKey::SIZE] {
+    fn from(sk: SecretKey) -> Self {
+        sk.0
+    }
+}
+
+impl From<[u8; Self::SIZE]> for SecretKeyExtended {
+    fn from(bytes: [u8; Self::SIZE]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<SecretKeyExtended> for [u8; SecretKeyExtended::SIZE] {
+    fn from(ske: SecretKeyExtended) -> Self {
+        ske.0
+    }
+}
+
 impl<'a> TryFrom<&'a [u8]> for PublicKey {
     type Error = TryFromPublicKeyError;
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
