@@ -81,5 +81,5 @@ let agent = handshake::Client::initial(VersionTable::v4_and_above(MAINNET_MAGIC)
 let agent = run_agent(agent, &mut channel).unwrap();
 
 // print the final state of the agent
-println!("{:?}", agent);
+println!("{agent:?}");
 ```

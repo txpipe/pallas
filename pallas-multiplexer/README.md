@@ -64,7 +64,7 @@ thread::spawn(move || {
     // whatever get received for this mini-protocol.
     loop {
         let payload = rx.recv().unwrap();
-        println!("id:{}, length:{}", protocol, payload.len());
+        println!("id:{protocol}, length:{}", payload.len());
     }
 });
 ```

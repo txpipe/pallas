@@ -13,7 +13,7 @@ impl<'b, C, const N: usize> minicbor::Decode<'b, C> for SkipCbor<N> {
     ) -> Result<Self, minicbor::decode::Error> {
         {
             let probe = d.probe();
-            println!("skipped cbor value {}: {:?}", N, probe.datatype()?);
+            println!("skipped cbor value {N}: {:?}", probe.datatype()?);
         }
 
         d.skip()?;

@@ -54,7 +54,7 @@ fn do_chainsync(channel: multiplexer::StdChannel) {
                 log::info!("rolling forward, block size: {}", h.len())
             }
             chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {:?}", x),
-            chainsync::NextResponse::Await => log::info!("tip of chaing reached"),
+            chainsync::NextResponse::Await => log::info!("tip of chain reached"),
         };
     }
 }
@@ -66,7 +66,11 @@ fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
+    #[cfg(target_family = "unix")]
     let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
+
+    #[cfg(not(target_family = "unix"))]
+    panic!("can't use n2c unix socket on non-unix systems");
 
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use

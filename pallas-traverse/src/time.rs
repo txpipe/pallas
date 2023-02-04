@@ -20,9 +20,9 @@ mod tests {
         let block_idx = 1;
         let block_str = include_str!("../../test_data/byron1.block");
 
-        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {}", block_idx));
+        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {block_idx}"));
         let (_, block): BlockWrapper = minicbor::decode(&block_bytes[..])
-            .expect(&format!("error decoding cbor for file {}", block_idx));
+            .expect(&format!("error decoding cbor for file {block_idx}"));
 
         let computed_slot = byron_epoch_slot_to_absolute(
             block.header.consensus_data.0.epoch,
