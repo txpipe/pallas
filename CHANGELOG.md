@@ -1,3 +1,99 @@
+<a name="unreleased"></a>
+## [Unreleased]
+
+
+<a name="v0.18.0"></a>
+## [v0.18.0] - 2023-02-04
+### Build
+- **deps:** update env_logger requirement from 0.9.0 to 0.10.0 ([#209](https://github.com/txpipe/pallas/issues/209))
+- **deps:** update minicbor requirement from 0.18 to 0.19 ([#213](https://github.com/txpipe/pallas/issues/213))
+
+### Chore
+- Fix lint issues ([#222](https://github.com/txpipe/pallas/issues/222))
+- Fix README badge ([#217](https://github.com/txpipe/pallas/issues/217))
+
+### Feat
+- Derive Debug for Bearer ([#219](https://github.com/txpipe/pallas/issues/219))
+- **miniprotocols:** Implement tx submission client & server ([#220](https://github.com/txpipe/pallas/issues/220))
+
+### Fix
+- Provide original hash for inline datum ([#221](https://github.com/txpipe/pallas/issues/221))
+
+
+<a name="v0.17.0"></a>
+## [v0.17.0] - 2023-01-26
+### Fix
+- use PlutusBytes to encode BigUInt/BigNInt ([#216](https://github.com/txpipe/pallas/issues/216))
+
+
+<a name="v0.16.0"></a>
+## [v0.16.0] - 2023-01-06
+### Chore
+- Remove lagging pre-release ref ([#206](https://github.com/txpipe/pallas/issues/206))
+- Fix lint warnings ([#205](https://github.com/txpipe/pallas/issues/205))
+- Remove pre-release ref from deps ([#204](https://github.com/txpipe/pallas/issues/204))
+- Fix address lint issue ([#201](https://github.com/txpipe/pallas/issues/201))
+- **miniprotocols:** Fix integration tests after preview respin ([#203](https://github.com/txpipe/pallas/issues/203))
+- **miniprotocols:** Add chain-sync tip test ([#199](https://github.com/txpipe/pallas/issues/199))
+
+### Feat
+- Migrate to dumb agents ([#198](https://github.com/txpipe/pallas/issues/198))
+- **addresses:** Add helper for shelley into stake address ([#208](https://github.com/txpipe/pallas/issues/208))
+- **miniprotocols:** Introduce tracing ([#214](https://github.com/txpipe/pallas/issues/214))
+- **multiplexer:** Introduce sync multiplexer option ([#210](https://github.com/txpipe/pallas/issues/210))
+- **traverse:** produces_at method for MultiEraTx ([#200](https://github.com/txpipe/pallas/issues/200))
+
+### Fix
+- Match CBOR encoding of plutus data with the haskell implementation. ([#212](https://github.com/txpipe/pallas/issues/212))
+- **addresses:** Remove bad todo in bech32 logic ([#207](https://github.com/txpipe/pallas/issues/207))
+- **primitives:** Handle generic int in Plutus data ([#202](https://github.com/txpipe/pallas/issues/202))
+
+### BREAKING CHANGE
+
+handshake, chainsync, localstate and blockfetch mini-protocols changed the API surface
+
+
+<a name="v0.14.2"></a>
+## [v0.14.2] - 2022-11-14
+### Build
+- **deps:** update minicbor requirement from 0.17 to 0.18 ([#134](https://github.com/txpipe/pallas/issues/134))
+- **deps:** update bech32 requirement from 0.8.1 to 0.9.1 ([#177](https://github.com/txpipe/pallas/issues/177))
+
+### Chore
+- Fix linter warnings ([#194](https://github.com/txpipe/pallas/issues/194))
+- Fix lint warnings ([#190](https://github.com/txpipe/pallas/issues/190))
+- Move fee logic out of primitives ([#174](https://github.com/txpipe/pallas/issues/174))
+- Move time logic out of primitives ([#173](https://github.com/txpipe/pallas/issues/173))
+- Move hash logic out of primitives ([#172](https://github.com/txpipe/pallas/issues/172))
+- **primitives:** Remove redundant address logic ([#171](https://github.com/txpipe/pallas/issues/171))
+
+### Feat
+- return indexes along with outputs returned by produces() ([#193](https://github.com/txpipe/pallas/issues/193))
+- Provide access to all assets at a tx out ([#180](https://github.com/txpipe/pallas/issues/180))
+- Add magic constants for preview and preprod environments ([#179](https://github.com/txpipe/pallas/issues/179))
+- Introduce Bech32 crate ([#176](https://github.com/txpipe/pallas/issues/176))
+- **addresses:** Add hex and bech32 for Shelley parts ([#181](https://github.com/txpipe/pallas/issues/181))
+- **primitives:** Preserve order of map structures ([#192](https://github.com/txpipe/pallas/issues/192))
+- **primitives:** Enable serde of ledger structs ([#169](https://github.com/txpipe/pallas/issues/169))
+- **traverse:** Add helper methods to Asset data ([#195](https://github.com/txpipe/pallas/issues/195))
+- **traverse:** Provide access to original Datum hash ([#189](https://github.com/txpipe/pallas/issues/189))
+- **traverse:** Introduce new MultiEraTx helpers ([#184](https://github.com/txpipe/pallas/issues/184))
+
+### Fix
+- Stop double CBOR encoding of Plutus script used for hashing ([#188](https://github.com/txpipe/pallas/issues/188))
+- use correct prefix when hashing plutus v2 script ([#182](https://github.com/txpipe/pallas/issues/182))
+- **codec:** Make Int struct copy ([#170](https://github.com/txpipe/pallas/issues/170))
+- **primitives:** Handle generic int in Plutus data ([#202](https://github.com/txpipe/pallas/issues/202))
+- **primitives:** Add missing PartialOrd and Ord to TransactionInput ([#191](https://github.com/txpipe/pallas/issues/191))
+- **traverse:** Make ToHash trait public outside crate ([#186](https://github.com/txpipe/pallas/issues/186))
+
+
+<a name="v0.13.4"></a>
+## [v0.13.4] - 2022-11-14
+### Fix
+- **primitives:** Handle generic int in Plutus data ([#202](https://github.com/txpipe/pallas/issues/202))
+
+
 <a name="v0.15.0"></a>
 ## [v0.15.0] - 2022-11-13
 ### Chore
@@ -377,11 +473,11 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - **miniprotocols:** Use pure functions for state machines ([#84](https://github.com/txpipe/pallas/issues/84))
 
 
-<a name="pallas-codec@0.7.1"></a>
-## [pallas-codec@0.7.1] - 2022-03-16
-
 <a name="pallas-miniprotocols@0.7.1"></a>
 ## [pallas-miniprotocols@0.7.1] - 2022-03-16
+
+<a name="pallas-codec@0.7.1"></a>
+## [pallas-codec@0.7.1] - 2022-03-16
 ### Fix
 - **miniprotocols:** Handle regression related to multi-msg payloads ([#76](https://github.com/txpipe/pallas/issues/76))
 
@@ -666,7 +762,12 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.18.0...HEAD
+[v0.18.0]: https://github.com/txpipe/pallas/compare/v0.17.0...v0.18.0
+[v0.17.0]: https://github.com/txpipe/pallas/compare/v0.16.0...v0.17.0
+[v0.16.0]: https://github.com/txpipe/pallas/compare/v0.14.2...v0.16.0
+[v0.14.2]: https://github.com/txpipe/pallas/compare/v0.13.4...v0.14.2
+[v0.13.4]: https://github.com/txpipe/pallas/compare/v0.15.0...v0.13.4
 [v0.15.0]: https://github.com/txpipe/pallas/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/txpipe/pallas/compare/v0.14.0-alpha.6...v0.14.0
 [v0.14.0-alpha.6]: https://github.com/txpipe/pallas/compare/v0.13.3...v0.14.0-alpha.6
@@ -697,9 +798,9 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 [v0.9.0-alpha.0]: https://github.com/txpipe/pallas/compare/v0.8.0...v0.9.0-alpha.0
 [v0.8.0]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.1...v0.8.0
 [v0.8.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.0...v0.8.0-alpha.1
-[v0.8.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-codec@0.7.1...v0.8.0-alpha.0
-[pallas-codec@0.7.1]: https://github.com/txpipe/pallas/compare/pallas-miniprotocols@0.7.1...pallas-codec@0.7.1
-[pallas-miniprotocols@0.7.1]: https://github.com/txpipe/pallas/compare/v0.7.0...pallas-miniprotocols@0.7.1
+[v0.8.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-miniprotocols@0.7.1...v0.8.0-alpha.0
+[pallas-miniprotocols@0.7.1]: https://github.com/txpipe/pallas/compare/pallas-codec@0.7.1...pallas-miniprotocols@0.7.1
+[pallas-codec@0.7.1]: https://github.com/txpipe/pallas/compare/v0.7.0...pallas-codec@0.7.1
 [v0.7.0]: https://github.com/txpipe/pallas/compare/v0.7.0-alpha.1...v0.7.0
 [v0.7.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.7.0-alpha.0...v0.7.0-alpha.1
 [v0.7.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-primitives@0.6.4...v0.7.0-alpha.0
