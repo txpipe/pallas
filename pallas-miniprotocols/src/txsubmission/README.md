@@ -175,8 +175,7 @@ All-together, this event loop could look something like this:
 ```rust
     let mut server = txsubmission::Server::new(channel4);
     server.wait_for_init()?;
-    let mut previous_count = 0;
-    server.acknowledge_and_request_ids(true, previous_count, 16);
+    server.acknowledge_and_request_ids(true, 0, 16)?;
     loop {
         match server.receive_next_reply()? {
             Reply::TxIds(ids_and_sizes) => {
