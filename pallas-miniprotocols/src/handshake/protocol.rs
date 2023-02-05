@@ -1,6 +1,26 @@
 use itertools::Itertools;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_multiplexer::agents::ChannelError;
 use std::{collections::HashMap, fmt::Debug};
+use thiserror::*;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("attempted to receive message while agency is ours")]
+    AgencyIsOurs,
+
+    #[error("attempted to send message while agency is theirs")]
+    AgencyIsTheirs,
+
+    #[error("inbound message is not valid for current state")]
+    InvalidInbound,
+
+    #[error("outbound message is not valid for current state")]
+    InvalidOutbound,
+
+    #[error("error while sending or receiving data through the channel")]
+    ChannelError(ChannelError),
+}
 
 #[derive(Debug, Clone)]
 pub struct VersionTable<T>
