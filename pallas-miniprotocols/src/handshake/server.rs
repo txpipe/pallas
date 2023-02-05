@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use pallas_codec::Fragment;
-use pallas_multiplexer::agents::{ChannelBuffer, Channel};
+use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::{State, Message, Error, VersionTable, Confirmation, VersionNumber, RefuseReason};
+use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
 
 pub struct Server<H, D>(State, ChannelBuffer<H>, PhantomData<D>)
 where
@@ -80,15 +80,19 @@ where
 
     pub fn receive_proposed_versions(&mut self) -> Result<VersionTable<D>, Error> {
         match self.recv_message()? {
-          Message::Propose(v) => {
-            self.0 = State::Confirm;
-            Ok(v)
-          }
-          _ => Err(Error::InvalidOutbound),
+            Message::Propose(v) => {
+                self.0 = State::Confirm;
+                Ok(v)
+            }
+            _ => Err(Error::InvalidOutbound),
         }
     }
 
-    pub fn send_accept_version(&mut self, version: VersionNumber, extra_params: D) -> Result<(), Error> {
+    pub fn send_accept_version(
+        &mut self,
+        version: VersionNumber,
+        extra_params: D,
+    ) -> Result<(), Error> {
         let message = Message::Accept(version, extra_params);
         self.send_message(&message)?;
         self.0 = State::Done;
@@ -97,11 +101,11 @@ where
     }
 
     pub fn send_refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
-      let message = Message::Refuse(reason);
-      self.send_message(&message)?;
-      self.0 = State::Done;
+        let message = Message::Refuse(reason);
+        self.send_message(&message)?;
+        self.0 = State::Done;
 
-      Ok(())
+        Ok(())
     }
 
     pub fn unwrap(self) -> H {

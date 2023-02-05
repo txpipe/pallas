@@ -2,7 +2,7 @@ use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 use std::marker::PhantomData;
 
-use super::{Message, RefuseReason, State, VersionNumber, VersionTable, Error};
+use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
 
 #[derive(Debug)]
 pub enum Confirmation<D> {

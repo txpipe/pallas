@@ -7,7 +7,6 @@
 //!
 //! However, only the [`SecretKeyExtended`] can be used for HD derivation
 //! (using [ed25519_bip32] or otherwise).
-//!
 
 use crate::memsec::Scrubbed as _;
 use cryptoxide::ed25519::{
@@ -18,13 +17,13 @@ use std::{any::type_name, convert::TryFrom, fmt, str::FromStr};
 use thiserror::Error;
 
 /// Ed25519 Secret Key
-///
 #[derive(Clone)]
 pub struct SecretKey([u8; Self::SIZE]);
 
 /// Ed25519 Extended Secret Key
 ///
-/// unlike [`SecretKey`], an extended key can be derived see [`pallas_crypto::derivation`]
+/// unlike [`SecretKey`], an extended key can be derived see
+/// [`pallas_crypto::derivation`]
 #[derive(Clone)]
 pub struct SecretKeyExtended([u8; Self::SIZE]);
 
@@ -77,7 +76,6 @@ impl_size_zero!(Signature, SIGNATURE_LENGTH);
 
 impl SecretKey {
     /// generate a new [`SecretKey`] with the given random number generator
-    ///
     pub fn new<Rng>(mut rng: Rng) -> Self
     where
         Rng: RngCore + CryptoRng,
@@ -106,8 +104,8 @@ impl SecretKey {
 
     /// create a [`Signature`] for the given message with this [`SecretKey`].
     ///
-    /// The [`Signature`] can then be verified against the associated [`PublicKey`]
-    /// and the original message.
+    /// The [`Signature`] can then be verified against the associated
+    /// [`PublicKey`] and the original message.
     pub fn sign<T>(&self, msg: T) -> Signature
     where
         T: AsRef<[u8]>,
@@ -125,8 +123,8 @@ impl SecretKey {
 }
 
 impl SecretKeyExtended {
-    /// generate a new [`SecretKeyExtended`] with the given random number generator
-    ///
+    /// generate a new [`SecretKeyExtended`] with the given random number
+    /// generator
     pub fn new<Rng>(mut rng: Rng) -> Self
     where
         Rng: RngCore + CryptoRng,
@@ -180,7 +178,6 @@ impl SecretKeyExtended {
 impl PublicKey {
     /// verify the cryptographic [`Signature`] against the `message` and the
     /// [`PublicKey`] `self`.
-    ///
     #[inline]
     pub fn verify<T>(&self, message: T, signature: &Signature) -> bool
     where
@@ -438,11 +435,12 @@ mod tests {
         signature: Signature,
         message: Vec<u8>,
     ) -> bool {
-        // NOTE: this test may fail but it is impossible to see this happening in normal condition.
-        //       we are generating 32 random bytes of public key and 64 random bytes
-        //       of signature with an randomly generated message of a random number
-        //       of bytes in. If the message were empty, the probability to have
-        //       a signature that matches the verify key would still be 1 out of 2^96.
+        // NOTE: this test may fail but it is impossible to see this happening in normal
+        // condition.       we are generating 32 random bytes of public key and
+        // 64 random bytes       of signature with an randomly generated message
+        // of a random number       of bytes in. If the message were empty, the
+        // probability to have       a signature that matches the verify key
+        // would still be 1 out of 2^96.
         //
         //       if this test fails and it is not a bug, go buy a lottery ticket.
         !public_key.verify(message, &signature)

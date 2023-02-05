@@ -170,9 +170,10 @@ pub fn blockfetch_happy_path() {
 #[test]
 #[ignore]
 pub fn txsubmission_server_happy_path() {
-    // TODO(pi): Note that the below doesn't work; we need a node to connect *to us* during the integration test
-    // which seems awkward;
-    // Alternatively, we can just set up both a client and server connecting to themselves for testing!
+    // TODO(pi): Note that the below doesn't work; we need a node to connect *to us*
+    // during the integration test which seems awkward;
+    // Alternatively, we can just set up both a client and server connecting to
+    // themselves for testing!
 
     let N2NChannels { channel4, .. } = setup_n2n_client_connection();
 
@@ -209,7 +210,8 @@ pub fn txsubmission_server_happy_path() {
     assert!(matches!(reply, Ok(Reply::Txs(_))));
     let Ok(Reply::Txs(second_txs)) = reply else { unreachable!() };
 
-    // Make sure we receive the second and third tx again, indicating we sent the `acknowledge 1` bit correctly
+    // Make sure we receive the second and third tx again, indicating we sent the
+    // `acknowledge 1` bit correctly
     assert_eq!(second_txs[0], first_txs[1]);
     assert_eq!(second_txs[1], first_txs[2]);
 
