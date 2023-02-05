@@ -12,7 +12,7 @@ fn setup_passive_muxer<const P: u16>() -> JoinHandle<StdPlexer> {
         let server = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P)).unwrap();
         info!("listening for connections on port {}", P);
 
-        let bearer = Bearer::accept_tcp(server).unwrap();
+        let (bearer, _) = Bearer::accept_tcp(server).unwrap();
 
         StdPlexer::new(bearer)
     })

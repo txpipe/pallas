@@ -31,7 +31,8 @@ where
         self.0 == State::Done
     }
 
-    // NOTE(pi): as of this writing, the network spec has a typo; this is the correct behavior
+    // NOTE(pi): as of this writing, the network spec has a typo; this is the
+    // correct behavior
     fn has_agency(&self) -> bool {
         !matches!(self.state(), State::Idle)
     }
