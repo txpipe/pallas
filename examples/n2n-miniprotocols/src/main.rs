@@ -1,5 +1,8 @@
 use pallas::network::{
-    miniprotocols::{blockfetch, chainsync, handshake, Point, MAINNET_MAGIC},
+    miniprotocols::{
+        blockfetch, chainsync, handshake, Point, MAINNET_MAGIC, PROTOCOL_N2N_BLOCK_FETCH,
+        PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
+    },
     multiplexer::{bearers::Bearer, StdChannel, StdPlexer},
 };
 
@@ -83,19 +86,19 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = StdPlexer::new(bearer);
-    let channel0 = plexer.use_channel(0);
-    let channel3 = plexer.use_channel(3);
-    let channel2 = plexer.use_channel(2);
+    let handshake = plexer.use_channel(PROTOCOL_N2N_HANDSHAKE);
+    let blockfetch = plexer.use_channel(PROTOCOL_N2N_BLOCK_FETCH);
+    let chainsync = plexer.use_channel(PROTOCOL_N2N_CHAIN_SYNC);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
 
     // execute the required handshake against the relay
-    do_handshake(channel0);
+    do_handshake(handshake);
 
     // fetch an arbitrary batch of block
-    do_blockfetch(channel3);
+    do_blockfetch(blockfetch);
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(channel2);
+    do_chainsync(chainsync);
 }

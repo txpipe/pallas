@@ -14,6 +14,33 @@ pub const PREVIEW_MAGIC: u64 = 2;
 /// Well-known magic for pre-production
 pub const PRE_PRODUCTION_MAGIC: u64 = 1;
 
+/// Protocol channel number for node-to-node handshakes
+pub const PROTOCOL_N2N_HANDSHAKE: u16 = 0;
+
+/// Protocol channel number for node-to-node chain-sync
+pub const PROTOCOL_N2N_CHAIN_SYNC: u16 = 2;
+
+/// Protocol channel number for node-to-node block-fetch
+pub const PROTOCOL_N2N_BLOCK_FETCH: u16 = 3;
+
+/// Protocol channel number for node-to-node tx-submission
+pub const PROTOCOL_N2N_TX_SUBMISSION: u16 = 4;
+
+/// Protocol channel number for node-to-node Keep-alive
+pub const PROTOCOL_N2N_KEEP_ALIVE: u16 = 8;
+
+/// Protocol channel number for node-to-client handshakes
+pub const PROTOCOL_N2C_HANDSHAKE: u16 = 0;
+
+/// Protocol channel number for node-to-client chain-sync
+pub const PROTOCOL_N2C_CHAIN_SYNC: u16 = 5;
+
+/// Protocol channel number for node-to-client tx-submission
+pub const PROTOCOL_N2C_TX_SUBMISSION: u16 = 6;
+
+// Protocol channel number for node-to-client state queries
+pub const PROTOCOL_N2C_STATE_QUERY: u16 = 7;
+
 /// A point within a chain
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Point {
