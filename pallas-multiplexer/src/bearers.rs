@@ -124,11 +124,11 @@ impl Bearer {
         Ok(Bearer::Tcp(bearer))
     }
 
-    pub fn accept_tcp(server: TcpListener) -> Result<Self, std::io::Error> {
-        let (bearer, _) = server.accept().unwrap();
+    pub fn accept_tcp(server: TcpListener) -> Result<(Self, SocketAddr), std::io::Error> {
+        let (bearer, remote_addr) = server.accept().unwrap();
         bearer.set_nodelay(true)?;
 
-        Ok(Bearer::Tcp(bearer))
+        Ok((Bearer::Tcp(bearer), remote_addr))
     }
 
     #[cfg(target_family = "unix")]
