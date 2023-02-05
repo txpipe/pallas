@@ -54,8 +54,10 @@ impl<'b, T> Decode<'b, ()> for VersionTable<T>
 where
     T: Debug + Clone + Decode<'b, ()>,
 {
-    fn decode(_d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        todo!()
+    fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
+        let values: Result<HashMap<u64, T>, decode::Error> = d.map_iter_with(ctx)?.collect();
+        let values = values?;
+        Ok(VersionTable{ values })
     }
 }
 
@@ -113,7 +115,10 @@ where
         d.array()?;
 
         match d.u16()? {
-            0 => todo!(),
+            0 => {
+                let version_table = d.decode()?;
+                Ok(Message::Propose(version_table))
+            },
             1 => {
                 let version_number = d.u64()?;
                 let version_data = d.decode()?;
