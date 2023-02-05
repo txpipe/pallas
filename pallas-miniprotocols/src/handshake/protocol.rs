@@ -55,8 +55,7 @@ where
     T: Debug + Clone + Decode<'b, ()>,
 {
     fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
-        let values: Result<HashMap<u64, T>, decode::Error> = d.map_iter_with(ctx)?.collect();
-        let values = values?;
+        let values = d.map_iter_with(ctx)?.collect::<Result<_, _>>()?;
         Ok(VersionTable{ values })
     }
 }
