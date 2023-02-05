@@ -43,6 +43,8 @@ pub struct StdPlexer {
     pub mux_tx: Sender<Message>,
 }
 
+const PROTOCOL_SERVER_BIT: u16 = 0x8000;
+
 impl StdPlexer {
     pub fn new(bearer: Bearer) -> Self {
         let (mux_tx, mux_rx) = channel::<Message>();
@@ -61,6 +63,20 @@ impl StdPlexer {
         let mux_tx = self.mux_tx.clone();
 
         (protocol, mux_tx, demux_rx)
+    }
+
+    /// Use the client-side channel for a given protocol
+    /// Explicitly unsets the most significant bit, forcing use of the client
+    /// side channel
+    pub fn use_client_channel(&mut self, protocol: u16) -> StdChannel {
+        self.use_channel(protocol & !PROTOCOL_SERVER_BIT)
+    }
+
+    /// Use the server-side channel for a given protocol
+    /// Explicitly sets the most significant bit, forcing use of the server side
+    /// channel
+    pub fn use_server_channel(&mut self, protocol: u16) -> StdChannel {
+        self.use_channel(protocol | PROTOCOL_SERVER_BIT)
     }
 }
 

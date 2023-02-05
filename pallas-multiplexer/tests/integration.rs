@@ -44,8 +44,8 @@ fn one_way_small_sequence_of_payloads() {
     let mut active_plexer = active.join().unwrap();
     let mut passive_plexer = passive.join().unwrap();
 
-    let mut sender_channel = active_plexer.use_channel(0x0003u16);
-    let mut receiver_channel = passive_plexer.use_channel(0x8003u16);
+    let mut sender_channel = active_plexer.use_client_channel(0x0003u16);
+    let mut receiver_channel = passive_plexer.use_server_channel(0x0003u16);
 
     active_plexer.muxer.spawn();
     passive_plexer.demuxer.spawn();
