@@ -56,7 +56,7 @@ where
 {
     fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
         let values = d.map_iter_with(ctx)?.collect::<Result<_, _>>()?;
-        Ok(VersionTable{ values })
+        Ok(VersionTable { values })
     }
 }
 
@@ -117,7 +117,7 @@ where
             0 => {
                 let version_table = d.decode()?;
                 Ok(Message::Propose(version_table))
-            },
+            }
             1 => {
                 let version_number = d.u64()?;
                 let version_data = d.decode()?;
