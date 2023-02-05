@@ -8,7 +8,10 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-machines"
 license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
+authors = [
+  "Santiago Carmuega <santiago@carmuega.me>",
+  "Pi Lanningham <pi.lanningham@gmail.com>"
+]
 
 [dependencies]
 pallas-codec = { version = "0.18.0", path = "../pallas-codec/" }

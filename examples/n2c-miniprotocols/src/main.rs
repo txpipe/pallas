@@ -1,5 +1,8 @@
 use pallas::network::{
-    miniprotocols::{chainsync, handshake, localstate, Point, MAINNET_MAGIC},
+    miniprotocols::{
+        chainsync, handshake, localstate, Point, MAINNET_MAGIC, PROTOCOL_N2C_CHAIN_SYNC,
+        PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
+    },
     multiplexer::{self, bearers::Bearer},
 };
 
@@ -75,19 +78,19 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let channel0 = plexer.use_channel(0);
-    let channel7 = plexer.use_channel(7);
-    let channel5 = plexer.use_channel(5);
+    let handshake = plexer.use_channel(PROTOCOL_N2C_HANDSHAKE);
+    let statequery = plexer.use_channel(PROTOCOL_N2C_STATE_QUERY);
+    let chainsync = plexer.use_channel(PROTOCOL_N2C_CHAIN_SYNC);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
 
     // execute the required handshake against the relay
-    do_handshake(channel0);
+    do_handshake(handshake);
 
     // execute an arbitrary "Local State" query against the node
-    do_localstate_query(channel7);
+    do_localstate_query(statequery);
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(channel5);
+    do_chainsync(chainsync);
 }
