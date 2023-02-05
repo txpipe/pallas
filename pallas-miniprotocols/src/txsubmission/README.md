@@ -161,7 +161,7 @@ And wait for a response
 
 You can download those transactions with
 ```rust
-server.request_txs(ids.iter().map(|tx_and_size| tx_and_size.0).collect());
+server.request_txs(ids.iter().map(|tx_and_size| tx_and_size.0.clone()).collect());
 ```
 
 After you receive some transaction Ids, if you request more you should acknowledge the ones you received
@@ -179,11 +179,11 @@ All-together, this event loop could look something like this:
     loop {
         match server.receive_next_reply()? {
             Reply::TxIds(ids_and_sizes) => {
-                server.request_txs(ids_and_sizes.iter().map(|tx| tx.0).collect())?;
+                server.request_txs(ids_and_sizes.iter().map(|tx| tx.0.clone()).collect())?;
             },
             Reply::Txs(txs) => {
                 tx_channel.send(txs);
-                server.acknowledge_and_request_ids(true, txs.len(), 16)?;
+                server.acknowledge_and_request_ids(true, txs.len() as usize, 16)?;
             },
             Reply::Done => {
                 break;
