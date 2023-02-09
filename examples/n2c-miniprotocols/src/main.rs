@@ -78,9 +78,9 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let handshake = plexer.use_channel(PROTOCOL_N2C_HANDSHAKE);
-    let statequery = plexer.use_channel(PROTOCOL_N2C_STATE_QUERY);
-    let chainsync = plexer.use_channel(PROTOCOL_N2C_CHAIN_SYNC);
+    let handshake = plexer.use_client_channel(PROTOCOL_N2C_HANDSHAKE);
+    let statequery = plexer.use_client_channel(PROTOCOL_N2C_STATE_QUERY);
+    let chainsync = plexer.use_client_channel(PROTOCOL_N2C_CHAIN_SYNC);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();

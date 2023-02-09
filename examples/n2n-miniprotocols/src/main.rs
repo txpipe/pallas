@@ -86,9 +86,9 @@ fn main() {
     // setup the multiplexer by specifying the bearer and the IDs of the
     // miniprotocols to use
     let mut plexer = StdPlexer::new(bearer);
-    let handshake = plexer.use_channel(PROTOCOL_N2N_HANDSHAKE);
-    let blockfetch = plexer.use_channel(PROTOCOL_N2N_BLOCK_FETCH);
-    let chainsync = plexer.use_channel(PROTOCOL_N2N_CHAIN_SYNC);
+    let handshake = plexer.use_client_channel(PROTOCOL_N2N_HANDSHAKE);
+    let blockfetch = plexer.use_client_channel(PROTOCOL_N2N_BLOCK_FETCH);
+    let chainsync = plexer.use_client_channel(PROTOCOL_N2N_CHAIN_SYNC);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();

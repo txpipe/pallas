@@ -13,8 +13,8 @@ fn main() {
     let bearer = Bearer::connect_tcp("relays-new.cardano-testnet.iohkdev.io:3001").unwrap();
 
     let mut plexer = StdPlexer::new(bearer);
-    let handshake = plexer.use_channel(PROTOCOL_N2N_HANDSHAKE);
-    let blockfetch = plexer.use_channel(PROTOCOL_N2N_BLOCK_FETCH);
+    let handshake = plexer.use_client_channel(PROTOCOL_N2N_HANDSHAKE);
+    let blockfetch = plexer.use_client_channel(PROTOCOL_N2N_BLOCK_FETCH);
 
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
