@@ -34,13 +34,13 @@ let bearer = UnixStream::connect("/tmp/pallas").unwrap();
 let muxer = Multiplexer::setup(tcp, &[0, 2])
 
 // Ask the multiplexer to provide us with the channel for the miniprotocol #0.
-let mut channel_0 = muxer.use_channel(0);
+let mut handshake = muxer.use_client_channel(PROTOCOL_N2N_HANDSHAKE);
 
 // Spawn a thread and pass the ownership of the channel.
 thread::spawn(move || {
     // Deconstruct the channel to get a handle for sending data into the muxer
     // ingress and a handle to receive data from the demuxer egress.
-    let Channel(mux_tx, demux_rx) = channel_0;
+    let Channel(mux_tx, demux_rx) = handshake;
 
     // Do something with the channel. In this case, we just keep sending
     // dumb data every 50 millis.
@@ -51,14 +51,14 @@ thread::spawn(move || {
     }
 });
 
-// Ask the multiplexer to provide us with the channel for the miniprotocol #2.
-let mut channel_2 = muxer.use_channel(2);
+// Ask the multiplexer to provide us with the channel for the chainsync miniprotocol.
+let mut chainsync = muxer.use_client_channel(PROTOCOL_N2N_CHAINSYNC);
 
 // Spawn a different thread and pass the ownership of the 2nd channel.
 thread::spawn(move || {
     // Deconstruct the channel to get a handle for sending data into the muxer
     // ingress and a handle to receive data from the demuxer egress.
-    let Channel(mux_tx, demux_rx) = channel_2;
+    let Channel(mux_tx, demux_rx) = chainsync;
     
     // Do something with the channel. In this case, we just print in stdout
     // whatever get received for this mini-protocol.

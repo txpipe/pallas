@@ -12,15 +12,15 @@ The following architectural decisions were made for this particular Rust impleme
 
 ## Development Status
 
-| mini-protocol       | initiator | responder |
-| ------------------- | --------- | --------- |
-| block-fetch         | done      | planned   |
-| chain-sync          | done      | planned   |
-| handshake           | done      | planned   |
-| local-state         | done      | planned   |
-| tx-submission       | planned   | minimal   |
-| local tx monitor    | done      | planned   |
-| local-tx-submission | ongoing   | planned   |
+| mini-protocol                                     | initiator | responder |
+| ------------------------------------------------- | --------- | --------- |
+| block-fetch                                       | done      | planned   |
+| chain-sync                                        | done      | planned   |
+| handshake                                         | done      | planned   |
+| local-state                                       | done      | planned   |
+| [tx-submission](src/txsubmission/README.md)       | done      | done      |
+| local tx monitor                                  | done      | planned   |
+| local-tx-submission                               | ongoing   | planned   |
 
 ## Implementation Details
 
@@ -70,8 +70,8 @@ bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
 // create a new multiplexer, specifying which mini-protocol IDs we want to sue
 let mut muxer = Multiplexer::setup(bearer, &[0]).unwrap();
 
-// get a handle for the handhsake mini-protocol handle
-let mut channel = muxer.use_channel(0);
+// get a handle for the (client-side) handhsake mini-protocol handle
+let mut channel = muxer.use_client_channel(pallas_miniprotocols::PROTOCOL_N2N_HANDSHAKE);
 
 // create a handshake client agent with an initial state 
 let agent = handshake::Client::initial(VersionTable::v4_and_above(MAINNET_MAGIC));
