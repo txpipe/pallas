@@ -14,6 +14,22 @@ pub const PREVIEW_MAGIC: u64 = 2;
 /// Well-known magic for pre-production
 pub const PRE_PRODUCTION_MAGIC: u64 = 1;
 
+/// Bitflag for client-side version of a known protocol
+/// # Example
+/// ```
+/// use pallas_miniprotocols::*;
+/// let channel = PROTOCOL_CLIENT | PROTOCOL_N2N_HANDSHAKE;
+/// ```
+pub const PROTOCOL_CLIENT: u16 = 0x0;
+
+/// Bitflag for server-side version of a known protocol
+/// # Example
+/// ```
+/// use pallas_miniprotocols::*;
+/// let channel = PROTOCOL_SERVER | PROTOCOL_N2N_CHAIN_SYNC;
+/// ```
+pub const PROTOCOL_SERVER: u16 = 0x8000;
+
 /// Protocol channel number for node-to-node handshakes
 pub const PROTOCOL_N2N_HANDSHAKE: u16 = 0;
 

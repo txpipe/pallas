@@ -34,7 +34,7 @@ let bearer = UnixStream::connect("/tmp/pallas").unwrap();
 let muxer = Multiplexer::setup(tcp, &[0, 2])
 
 // Ask the multiplexer to provide us with the channel for the miniprotocol #0.
-let mut handshake = muxer.use_channel(PROTOCOL_N2N_HANDSHAKE);
+let mut handshake = muxer.use_client_channel(PROTOCOL_N2N_HANDSHAKE);
 
 // Spawn a thread and pass the ownership of the channel.
 thread::spawn(move || {
@@ -52,7 +52,7 @@ thread::spawn(move || {
 });
 
 // Ask the multiplexer to provide us with the channel for the chainsync miniprotocol.
-let mut chainsync = muxer.use_channel(PROTOCOL_N2N_CHAINSYNC);
+let mut chainsync = muxer.use_client_channel(PROTOCOL_N2N_CHAINSYNC);
 
 // Spawn a different thread and pass the ownership of the 2nd channel.
 thread::spawn(move || {
