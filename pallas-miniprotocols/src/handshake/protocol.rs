@@ -1,6 +1,26 @@
 use itertools::Itertools;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_multiplexer::agents::ChannelError;
 use std::{collections::HashMap, fmt::Debug};
+use thiserror::*;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("attempted to receive message while agency is ours")]
+    AgencyIsOurs,
+
+    #[error("attempted to send message while agency is theirs")]
+    AgencyIsTheirs,
+
+    #[error("inbound message is not valid for current state")]
+    InvalidInbound,
+
+    #[error("outbound message is not valid for current state")]
+    InvalidOutbound,
+
+    #[error("error while sending or receiving data through the channel")]
+    ChannelError(ChannelError),
+}
 
 #[derive(Debug, Clone)]
 pub struct VersionTable<T>
@@ -34,8 +54,9 @@ impl<'b, T> Decode<'b, ()> for VersionTable<T>
 where
     T: Debug + Clone + Decode<'b, ()>,
 {
-    fn decode(_d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        todo!()
+    fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
+        let values = d.map_iter_with(ctx)?.collect::<Result<_, _>>()?;
+        Ok(VersionTable { values })
     }
 }
 
@@ -93,7 +114,10 @@ where
         d.array()?;
 
         match d.u16()? {
-            0 => todo!(),
+            0 => {
+                let version_table = d.decode()?;
+                Ok(Message::Propose(version_table))
+            }
             1 => {
                 let version_number = d.u64()?;
                 let version_data = d.decode()?;

@@ -1,20 +1,15 @@
+use std::marker::PhantomData;
+
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
-use std::marker::PhantomData;
 
 use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
 
-#[derive(Debug)]
-pub enum Confirmation<D> {
-    Accepted(VersionNumber, D),
-    Rejected(RefuseReason),
-}
-
-pub struct Client<H, D>(State, ChannelBuffer<H>, PhantomData<D>)
+pub struct Server<H, D>(State, ChannelBuffer<H>, PhantomData<D>)
 where
     H: Channel;
 
-impl<H, D> Client<H, D>
+impl<H, D> Server<H, D>
 where
     H: Channel,
     D: std::fmt::Debug + Clone,
@@ -33,11 +28,7 @@ where
     }
 
     pub fn has_agency(&self) -> bool {
-        match self.state() {
-            State::Propose => true,
-            State::Confirm => false,
-            State::Done => false,
-        }
+        matches!(self.state(), State::Confirm)
     }
 
     fn assert_agency_is_ours(&self) -> Result<(), Error> {
@@ -58,15 +49,15 @@ where
 
     fn assert_outbound_state(&self, msg: &Message<D>) -> Result<(), Error> {
         match (&self.0, msg) {
-            (State::Propose, Message::Propose(_)) => Ok(()),
+            (State::Confirm, Message::Accept(..)) => Ok(()),
+            (State::Confirm, Message::Refuse(_)) => Ok(()),
             _ => Err(Error::InvalidOutbound),
         }
     }
 
     fn assert_inbound_state(&self, msg: &Message<D>) -> Result<(), Error> {
         match (&self.0, msg) {
-            (State::Confirm, Message::Accept(..)) => Ok(()),
-            (State::Confirm, Message::Refuse(..)) => Ok(()),
+            (State::Propose, Message::Propose(..)) => Ok(()),
             _ => Err(Error::InvalidInbound),
         }
     }
@@ -87,31 +78,30 @@ where
         Ok(msg)
     }
 
-    pub fn send_propose(&mut self, versions: VersionTable<D>) -> Result<(), Error> {
-        let msg = Message::Propose(versions);
-        self.send_message(&msg)?;
-        self.0 = State::Confirm;
+    pub fn receive_proposed_versions(&mut self) -> Result<VersionTable<D>, Error> {
+        match self.recv_message()? {
+            Message::Propose(v) => {
+                self.0 = State::Confirm;
+                Ok(v)
+            }
+            _ => Err(Error::InvalidOutbound),
+        }
+    }
+
+    pub fn accept_version(&mut self, version: VersionNumber, extra_params: D) -> Result<(), Error> {
+        let message = Message::Accept(version, extra_params);
+        self.send_message(&message)?;
+        self.0 = State::Done;
 
         Ok(())
     }
 
-    pub fn recv_while_confirm(&mut self) -> Result<Confirmation<D>, Error> {
-        match self.recv_message()? {
-            Message::Accept(v, m) => {
-                self.0 = State::Done;
-                Ok(Confirmation::Accepted(v, m))
-            }
-            Message::Refuse(r) => {
-                self.0 = State::Done;
-                Ok(Confirmation::Rejected(r))
-            }
-            _ => Err(Error::InvalidInbound),
-        }
-    }
+    pub fn refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
+        let message = Message::Refuse(reason);
+        self.send_message(&message)?;
+        self.0 = State::Done;
 
-    pub fn handshake(&mut self, versions: VersionTable<D>) -> Result<Confirmation<D>, Error> {
-        self.send_propose(versions)?;
-        self.recv_while_confirm()
+        Ok(())
     }
 
     pub fn unwrap(self) -> H {
@@ -119,6 +109,6 @@ where
     }
 }
 
-pub type N2NClient<H> = Client<H, super::n2n::VersionData>;
+pub type N2NServer<H> = Server<H, super::n2n::VersionData>;
 
-pub type N2CClient<H> = Client<H, super::n2c::VersionData>;
+pub type N2CServer<H> = Server<H, super::n2c::VersionData>;

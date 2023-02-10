@@ -2,7 +2,7 @@ use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     handshake::{self, Confirmation},
-    txsubmission::{self, Reply},
+    txsubmission::{self, EraTxId, Reply, TxIdAndSize},
     Point, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
     PROTOCOL_N2N_TX_SUBMISSION,
 };
@@ -194,7 +194,12 @@ pub fn txsubmission_server_happy_path() {
     assert!(tx_ids.len() <= 3);
 
     assert!(matches!(
-        server.request_txs(tx_ids.into_iter().map(Into::into).collect()),
+        server.request_txs(
+            tx_ids
+                .into_iter()
+                .map(|txid: TxIdAndSize<EraTxId>| txid.0)
+                .collect()
+        ),
         Ok(_)
     ));
 
