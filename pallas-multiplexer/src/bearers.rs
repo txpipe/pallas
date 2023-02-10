@@ -47,7 +47,6 @@ fn write_segment(writer: &mut impl Write, segment: Segment) -> Result<(), std::i
         );
     }
 
-
     writer.write_all(&msg)?;
     writer.flush()
 }

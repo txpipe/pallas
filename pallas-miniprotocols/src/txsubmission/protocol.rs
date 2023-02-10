@@ -32,7 +32,7 @@ pub struct Tx<TxId>(pub TxId, pub TxBody);
 
 impl<TxId> From<Tx<TxId>> for TxIdAndSize<TxId> {
     fn from(other: Tx<TxId>) -> Self {
-        TxIdAndSize(other.0, other.1.0.len() as u32)
+        TxIdAndSize(other.0, other.1 .0.len() as u32)
     }
 }
 

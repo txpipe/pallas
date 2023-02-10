@@ -1,8 +1,11 @@
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
-use super::{protocol::{Message, TxIdAndSize}, TxBody, EraTxId};
+use super::{
+    protocol::{Message, TxIdAndSize},
+    EraTxId, TxBody,
+};
 
-impl<TxId : Encode<()>> Encode<()> for TxIdAndSize<TxId> {
+impl<TxId: Encode<()>> Encode<()> for TxIdAndSize<TxId> {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
@@ -19,7 +22,7 @@ impl<TxId : Encode<()>> Encode<()> for TxIdAndSize<TxId> {
 impl<'b, TxId: Decode<'b, ()>> Decode<'b, ()> for TxIdAndSize<TxId> {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
-        
+
         let tx_id = d.decode()?;
 
         let size = d.u32()?;
@@ -84,7 +87,8 @@ impl<TxId: Encode<()>> Encode<()> for Message<TxId> {
 impl<'b> Decode<'b, ()> for TxBody {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
-        // TODO: the TxBody encoding here needs to be pinned down and parameterized, the same way we did TxId!
+        // TODO: the TxBody encoding here needs to be pinned down and parameterized, the
+        // same way we did TxId!
         d.u16()?; // Era?
         d.tag()?; // tag 24?
         Ok(TxBody(d.bytes()?.to_vec()))
@@ -111,9 +115,9 @@ impl<'b, TxId: Decode<'b, ()>> Decode<'b, ()> for Message<TxId> {
                 let ids = d.decode()?;
                 Ok(Message::RequestTxs(ids))
             }
-            3 => {
-                Ok(Message::ReplyTxs(d.array_iter()?.collect::<Result<_, _>>()?))
-            }
+            3 => Ok(Message::ReplyTxs(
+                d.array_iter()?.collect::<Result<_, _>>()?,
+            )),
             4 => Ok(Message::Done),
             6 => Ok(Message::Init),
             _ => Err(decode::Error::message(
@@ -130,7 +134,7 @@ impl Encode<()> for EraTxId {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
-        e.encode(&self.0)?;
+        e.encode(self.0)?;
         e.bytes(&self.1)?;
 
         Ok(())
@@ -140,7 +144,7 @@ impl Encode<()> for EraTxId {
 impl<'b> Decode<'b, ()> for EraTxId {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
-        
+
         let era = d.u16()?;
 
         let tx_id = d.bytes()?;

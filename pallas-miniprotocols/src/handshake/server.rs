@@ -88,11 +88,7 @@ where
         }
     }
 
-    pub fn send_accept_version(
-        &mut self,
-        version: VersionNumber,
-        extra_params: D,
-    ) -> Result<(), Error> {
+    pub fn accept_version(&mut self, version: VersionNumber, extra_params: D) -> Result<(), Error> {
         let message = Message::Accept(version, extra_params);
         self.send_message(&message)?;
         self.0 = State::Done;
@@ -100,7 +96,7 @@ where
         Ok(())
     }
 
-    pub fn send_refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
+    pub fn refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
         let message = Message::Refuse(reason);
         self.send_message(&message)?;
         self.0 = State::Done;
