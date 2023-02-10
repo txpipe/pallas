@@ -36,6 +36,7 @@ fn write_segment(writer: &mut impl Write, segment: Segment) -> Result<(), std::i
     msg.write_u32::<NetworkEndian>(timestamp)?;
     msg.write_u16::<NetworkEndian>(protocol)?;
     msg.write_u16::<NetworkEndian>(payload.len() as u16)?;
+    msg.write_all(&payload)?;
 
     if event_enabled!(tracing::Level::TRACE) {
         trace!(
@@ -46,7 +47,6 @@ fn write_segment(writer: &mut impl Write, segment: Segment) -> Result<(), std::i
         );
     }
 
-    msg.write_all(&payload)?;
 
     writer.write_all(&msg)?;
     writer.flush()
