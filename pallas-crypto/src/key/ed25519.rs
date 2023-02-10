@@ -436,13 +436,13 @@ mod tests {
         message: Vec<u8>,
     ) -> bool {
         // NOTE: this test may fail but it is impossible to see this happening in normal
-        // condition.       we are generating 32 random bytes of public key and
-        // 64 random bytes       of signature with an randomly generated message
-        // of a random number       of bytes in. If the message were empty, the
-        // probability to have       a signature that matches the verify key
+        // condition. We are generating 32 random bytes of public key and
+        // 64 random bytes of signature with an randomly generated message
+        // of a random number of bytes in. If the message were empty, the
+        // probability to have a signature that matches the verify key
         // would still be 1 out of 2^96.
         //
-        //       if this test fails and it is not a bug, go buy a lottery ticket.
+        // if this test fails and it is not a bug, go buy a lottery ticket.
         !public_key.verify(message, &signature)
     }
 
