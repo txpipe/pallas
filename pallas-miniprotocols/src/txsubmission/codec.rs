@@ -84,6 +84,7 @@ impl<TxId: Encode<()>> Encode<()> for Message<TxId> {
 impl<'b> Decode<'b, ()> for TxBody {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
+        // TODO: the TxBody encoding here needs to be pinned down and parameterized, the same way we did TxId!
         d.u16()?; // Era?
         d.tag()?; // tag 24?
         Ok(TxBody(d.bytes()?.to_vec()))
