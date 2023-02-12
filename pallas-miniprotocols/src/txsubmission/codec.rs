@@ -2,7 +2,7 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::{
     protocol::{Message, TxIdAndSize},
-    EraTxId, TxBody,
+    EraTxId, EraTxBody,
 };
 
 impl<TxId: Encode<()>> Encode<()> for TxIdAndSize<TxId> {
@@ -31,7 +31,7 @@ impl<'b, TxId: Decode<'b, ()>> Decode<'b, ()> for TxIdAndSize<TxId> {
     }
 }
 
-impl<TxId: Encode<()>> Encode<()> for Message<TxId> {
+impl<TxId: Encode<()>, TxBody: Encode<()>> Encode<()> for Message<TxId, TxBody> {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
@@ -71,7 +71,7 @@ impl<TxId: Encode<()>> Encode<()> for Message<TxId> {
                 e.array(2)?.u16(3)?;
                 e.begin_array()?;
                 for tx in txs {
-                    e.bytes(&tx.0)?;
+                    e.encode(tx);
                 }
                 e.end()?;
                 Ok(())
@@ -84,18 +84,26 @@ impl<TxId: Encode<()>> Encode<()> for Message<TxId> {
     }
 }
 
-impl<'b> Decode<'b, ()> for TxBody {
+impl<'b> Decode<'b, ()> for EraTxBody {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
-        // TODO: the TxBody encoding here needs to be pinned down and parameterized, the
-        // same way we did TxId!
-        d.u16()?; // Era?
-        d.tag()?; // tag 24?
-        Ok(TxBody(d.bytes()?.to_vec()))
+        let era = d.u16()?;
+        let tag = d.tag()?; // tag 24? TODO(pi): Not sure what the 24 here means
+        Ok(EraTxBody(era, tag, d.bytes()?.to_vec()))
     }
 }
 
-impl<'b, TxId: Decode<'b, ()>> Decode<'b, ()> for Message<TxId> {
+impl Encode<()> for EraTxBody {
+    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>, _ctx: &mut ()) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+        e.u16(self.0)?;
+        e.tag(self.1)?;
+        e.bytes(&self.2)?;
+        Ok(())
+    }
+}
+
+impl<'b, TxId: Decode<'b, ()>, TxBody: Decode<'b, ()>> Decode<'b, ()> for Message<TxId, TxBody> {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;

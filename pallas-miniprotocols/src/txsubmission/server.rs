@@ -3,26 +3,26 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::protocol::{Blocking, Error, Message, State, TxBody, TxCount, TxIdAndSize};
+use super::{protocol::{Blocking, Error, Message, State, TxCount, TxIdAndSize}, EraTxId, EraTxBody};
 
-pub enum Reply<TxId> {
+pub enum Reply<TxId = EraTxId, TxBody = EraTxBody> {
     TxIds(Vec<TxIdAndSize<TxId>>),
     Txs(Vec<TxBody>),
     Done,
 }
 
-pub struct Server<H, TxId>(State, ChannelBuffer<H>, PhantomData<TxId>)
+pub struct Server<H, TxId = EraTxId, TxBody = EraTxBody>(State, ChannelBuffer<H>, PhantomData<TxId>, PhantomData<TxBody>)
 where
     H: Channel,
-    Message<TxId>: Fragment;
+    Message: Fragment;
 
-impl<H, TxId> Server<H, TxId>
+impl<H, TxId, TxBody> Server<H, TxId, TxBody>
 where
     H: Channel,
-    Message<TxId>: Fragment,
+    Message: Fragment,
 {
     pub fn new(channel: H) -> Self {
-        Self(State::Init, ChannelBuffer::new(channel), PhantomData {})
+        Self(State::Init, ChannelBuffer::new(channel), PhantomData {}, PhantomData {})
     }
 
     pub fn state(&self) -> &State {
@@ -54,7 +54,7 @@ where
     }
 
     /// As a server in a specific state, am I allowed to send this message?
-    fn assert_outbound_state(&self, msg: &Message<TxId>) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Idle, Message::RequestTxIds(..)) => Ok(()),
             (State::Idle, Message::RequestTxs(..)) => Ok(()),
@@ -63,7 +63,7 @@ where
     }
 
     /// As a server in a specific state, am I allowed to receive this message?
-    fn assert_inbound_state(&self, msg: &Message<TxId>) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Init, Message::Init) => Ok(()),
             (State::TxIdsBlocking, Message::ReplyTxIds(..)) => Ok(()),
@@ -74,7 +74,7 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<TxId>) -> Result<(), Error> {
+    pub fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
         self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
@@ -82,7 +82,7 @@ where
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<TxId>, Error> {
+    pub fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
@@ -126,7 +126,7 @@ where
         Ok(())
     }
 
-    pub fn receive_next_reply(&mut self) -> Result<Reply<TxId>, Error> {
+    pub fn receive_next_reply(&mut self) -> Result<Reply<TxId, TxBody>, Error> {
         match self.recv_message()? {
             Message::ReplyTxIds(ids_and_sizes) => {
                 self.0 = State::Idle;
