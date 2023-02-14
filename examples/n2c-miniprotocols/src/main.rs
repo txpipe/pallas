@@ -3,7 +3,7 @@ use pallas::network::{
         chainsync, handshake, localstate, Point, MAINNET_MAGIC, PROTOCOL_N2C_CHAIN_SYNC,
         PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
     },
-    multiplexer::{self, bearers::Bearer},
+    multiplexer,
 };
 
 #[derive(Debug)]
@@ -67,30 +67,33 @@ fn main() {
         .filter_level(log::LevelFilter::Trace)
         .init();
 
+    #[cfg(not(target_family = "unix"))]
+    {
+        panic!("can't use n2c unix socket on non-unix systems");
+    }
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
     #[cfg(target_family = "unix")]
-    let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
+    {
+        let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
 
-    #[cfg(not(target_family = "unix"))]
-    panic!("can't use n2c unix socket on non-unix systems");
+        // setup the multiplexer by specifying the bearer and the IDs of the
+        // miniprotocols to use
+        let mut plexer = multiplexer::StdPlexer::new(bearer);
+        let handshake = plexer.use_client_channel(PROTOCOL_N2C_HANDSHAKE);
+        let statequery = plexer.use_client_channel(PROTOCOL_N2C_STATE_QUERY);
+        let chainsync = plexer.use_client_channel(PROTOCOL_N2C_CHAIN_SYNC);
 
-    // setup the multiplexer by specifying the bearer and the IDs of the
-    // miniprotocols to use
-    let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let handshake = plexer.use_client_channel(PROTOCOL_N2C_HANDSHAKE);
-    let statequery = plexer.use_client_channel(PROTOCOL_N2C_STATE_QUERY);
-    let chainsync = plexer.use_client_channel(PROTOCOL_N2C_CHAIN_SYNC);
+        plexer.muxer.spawn();
+        plexer.demuxer.spawn();
 
-    plexer.muxer.spawn();
-    plexer.demuxer.spawn();
+        // execute the required handshake against the relay
+        do_handshake(handshake);
 
-    // execute the required handshake against the relay
-    do_handshake(handshake);
+        // execute an arbitrary "Local State" query against the node
+        do_localstate_query(statequery);
 
-    // execute an arbitrary "Local State" query against the node
-    do_localstate_query(statequery);
-
-    // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(chainsync);
+        // execute the chainsync flow from an arbitrary point in the chain
+        do_chainsync(chainsync);
+    }
 }
