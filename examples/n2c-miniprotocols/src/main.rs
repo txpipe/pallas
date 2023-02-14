@@ -1,14 +1,12 @@
 use pallas::network::{
-    miniprotocols::{
-        chainsync, handshake, localstate, Point, MAINNET_MAGIC, PROTOCOL_N2C_CHAIN_SYNC,
-        PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-    },
+    miniprotocols::{chainsync, handshake, localstate, Point, MAINNET_MAGIC},
     multiplexer,
 };
 
 #[derive(Debug)]
 struct LoggingObserver;
 
+#[allow(dead_code)]
 fn do_handshake(channel: multiplexer::StdChannel) {
     let mut client = handshake::N2CClient::new(channel);
 
@@ -26,6 +24,7 @@ fn do_handshake(channel: multiplexer::StdChannel) {
     }
 }
 
+#[allow(dead_code)]
 fn do_localstate_query(channel: multiplexer::StdChannel) {
     let mut client = localstate::ClientV10::new(channel);
     client.acquire(None).unwrap();
@@ -37,6 +36,7 @@ fn do_localstate_query(channel: multiplexer::StdChannel) {
     log::info!("system start result: {:?}", result);
 }
 
+#[allow(dead_code)]
 fn do_chainsync(channel: multiplexer::StdChannel) {
     let known_points = vec![Point::Specific(
         43847831u64,
@@ -75,6 +75,12 @@ fn main() {
     // path for your environment
     #[cfg(target_family = "unix")]
     {
+        use pallas::network::{
+            miniprotocols::{
+                PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
+            },
+            multiplexer::bearers::Bearer,
+        };
         let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
 
         // setup the multiplexer by specifying the bearer and the IDs of the
