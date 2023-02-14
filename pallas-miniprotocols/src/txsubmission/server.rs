@@ -8,14 +8,14 @@ use super::{
     EraTxBody, EraTxId,
 };
 
-pub enum Reply<TxId = EraTxId, TxBody = EraTxBody> {
+pub enum Reply<TxId, TxBody> {
     TxIds(Vec<TxIdAndSize<TxId>>),
     Txs(Vec<TxBody>),
     Done,
 }
 
 /// A generic implementation of an ouroboros server protocol ready to request and receive transactions from a client
-pub struct GenericServer<H, TxId = EraTxId, TxBody = EraTxBody>(
+pub struct GenericServer<H, TxId, TxBody>(
     State,
     ChannelBuffer<H>,
     PhantomData<TxId>,

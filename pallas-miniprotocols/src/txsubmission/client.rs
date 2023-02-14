@@ -8,14 +8,14 @@ use super::{
     EraTxBody, EraTxId,
 };
 
-pub enum Request<TxId = EraTxId> {
+pub enum Request<TxId> {
     TxIds(u16, u16),
     TxIdsNonBlocking(u16, u16),
     Txs(Vec<TxId>),
 }
 
 /// A generic Ouroboros client for submitting a generic notion of "transactions" to another server
-pub struct GenericClient<H, TxId = EraTxId, TxBody = EraTxBody>(
+pub struct GenericClient<H, TxId, TxBody>(
     State,
     ChannelBuffer<H>,
     PhantomData<TxId>,
