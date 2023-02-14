@@ -22,9 +22,9 @@ pub type TxSizeInBytes = u32;
 #[derive(Debug, Clone)]
 pub struct EraTxId(pub u16, pub Vec<u8>);
 
-// The bytes of a transaction, with an era number and some kind of cbor tag; TODO(pi): identify the significance of this tag
+// The bytes of a transaction, with an era number and some raw CBOR
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct EraTxBody(pub u16, pub Tag, pub Vec<u8>);
+pub struct EraTxBody(pub u16, pub Vec<u8>);
 
 #[derive(Debug)]
 pub struct TxIdAndSize<TxID>(pub TxID, pub TxSizeInBytes);

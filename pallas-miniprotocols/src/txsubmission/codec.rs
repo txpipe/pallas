@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder, data::Tag};
 
 use super::{
     protocol::{Message, TxIdAndSize},
@@ -88,8 +88,11 @@ impl<'b> Decode<'b, ()> for EraTxBody {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let era = d.u16()?;
-        let tag = d.tag()?; // tag 24? TODO(pi): Not sure what the 24 here means
-        Ok(EraTxBody(era, tag, d.bytes()?.to_vec()))
+        let tag = d.tag()?;
+        if tag != Tag::Cbor {
+            return Err(decode::Error::message("Expected encoded CBOR data item"))
+        }
+        Ok(EraTxBody(era, d.bytes()?.to_vec()))
     }
 }
 
@@ -101,8 +104,8 @@ impl Encode<()> for EraTxBody {
     ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
         e.u16(self.0)?;
-        e.tag(self.1)?;
-        e.bytes(&self.2)?;
+        e.tag(Tag::Cbor)?;
+        e.bytes(&self.1)?;
         Ok(())
     }
 }
