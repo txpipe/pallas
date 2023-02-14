@@ -1,4 +1,3 @@
-use pallas_codec::minicbor::data::Tag;
 use pallas_multiplexer::agents::ChannelError;
 use thiserror::Error;
 

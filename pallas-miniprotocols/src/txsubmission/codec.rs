@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder, data::Tag};
+use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::{
     protocol::{Message, TxIdAndSize},
@@ -90,7 +90,7 @@ impl<'b> Decode<'b, ()> for EraTxBody {
         let era = d.u16()?;
         let tag = d.tag()?;
         if tag != Tag::Cbor {
-            return Err(decode::Error::message("Expected encoded CBOR data item"))
+            return Err(decode::Error::message("Expected encoded CBOR data item"));
         }
         Ok(EraTxBody(era, d.bytes()?.to_vec()))
     }
