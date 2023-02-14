@@ -2,7 +2,7 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::{
     protocol::{Message, TxIdAndSize},
-    EraTxId, EraTxBody,
+    EraTxBody, EraTxId,
 };
 
 impl<TxId: Encode<()>> Encode<()> for TxIdAndSize<TxId> {
@@ -94,7 +94,11 @@ impl<'b> Decode<'b, ()> for EraTxBody {
 }
 
 impl Encode<()> for EraTxBody {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>, _ctx: &mut ()) -> Result<(), encode::Error<W::Error>> {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
         e.u16(self.0)?;
         e.tag(self.1)?;

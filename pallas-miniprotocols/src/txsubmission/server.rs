@@ -3,7 +3,10 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::{protocol::{Blocking, Error, Message, State, TxCount, TxIdAndSize}, EraTxId, EraTxBody};
+use super::{
+    protocol::{Blocking, Error, Message, State, TxCount, TxIdAndSize},
+    EraTxBody, EraTxId,
+};
 
 pub enum Reply<TxId = EraTxId, TxBody = EraTxBody> {
     TxIds(Vec<TxIdAndSize<TxId>>),
@@ -11,18 +14,32 @@ pub enum Reply<TxId = EraTxId, TxBody = EraTxBody> {
     Done,
 }
 
-pub struct Server<H, TxId = EraTxId, TxBody = EraTxBody>(State, ChannelBuffer<H>, PhantomData<TxId>, PhantomData<TxBody>)
+/// A generic implementation of an ouroboros server protocol ready to request and receive transactions from a client
+pub struct GenericServer<H, TxId = EraTxId, TxBody = EraTxBody>(
+    State,
+    ChannelBuffer<H>,
+    PhantomData<TxId>,
+    PhantomData<TxBody>,
+)
 where
     H: Channel,
-    Message: Fragment;
+    Message<TxId, TxBody>: Fragment;
 
-impl<H, TxId, TxBody> Server<H, TxId, TxBody>
+/// A Cardano specific server for the ouroboros TxSubmission protocol
+pub type Server<H> = GenericServer<H, EraTxId, EraTxBody>;
+
+impl<H, TxId, TxBody> GenericServer<H, TxId, TxBody>
 where
     H: Channel,
-    Message: Fragment,
+    Message<TxId, TxBody>: Fragment,
 {
     pub fn new(channel: H) -> Self {
-        Self(State::Init, ChannelBuffer::new(channel), PhantomData {}, PhantomData {})
+        Self(
+            State::Init,
+            ChannelBuffer::new(channel),
+            PhantomData {},
+            PhantomData {},
+        )
     }
 
     pub fn state(&self) -> &State {

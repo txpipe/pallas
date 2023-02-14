@@ -2,7 +2,7 @@ use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     handshake::{self, Confirmation},
-    txsubmission::{self, EraTxId, Reply, TxIdAndSize, EraTxBody, Server},
+    txsubmission::{self, EraTxBody, EraTxId, Reply, Server, TxIdAndSize},
     Point, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
     PROTOCOL_N2N_TX_SUBMISSION,
 };
@@ -178,7 +178,7 @@ pub fn txsubmission_server_happy_path() {
 
     let N2NChannels { txsubmission, .. } = setup_n2n_client_connection();
 
-    let mut server: Server<_, EraTxId, EraTxBody> = txsubmission::Server::new(txsubmission);
+    let mut server = txsubmission::Server::new(txsubmission);
 
     assert!(matches!(server.wait_for_init(), Ok(_)));
 

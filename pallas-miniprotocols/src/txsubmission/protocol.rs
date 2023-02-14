@@ -51,7 +51,7 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub enum Message<TxId = EraTxId, TxBody = EraTxBody> {
+pub enum Message<TxId, TxBody> {
     Init,
     RequestTxIds(Blocking, TxCount, TxCount),
     ReplyTxIds(Vec<TxIdAndSize<TxId>>),
