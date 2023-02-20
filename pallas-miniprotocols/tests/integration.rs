@@ -2,7 +2,7 @@ use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     handshake::{self, Confirmation},
-    txsubmission::{self, EraTxId, Reply, TxIdAndSize},
+    txsubmission::{self, EraTxBody, EraTxId, Reply, Server, TxIdAndSize},
     Point, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
     PROTOCOL_N2N_TX_SUBMISSION,
 };
@@ -187,7 +187,7 @@ pub fn txsubmission_server_happy_path() {
         Ok(_)
     ));
 
-    let reply = server.receive_next_reply();
+    let reply: Result<_, _> = server.receive_next_reply();
     assert!(matches!(reply, Ok(Reply::TxIds(_))));
     let Ok(Reply::TxIds(tx_ids)) = reply else { unreachable!() };
 

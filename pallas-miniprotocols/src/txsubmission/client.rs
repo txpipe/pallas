@@ -3,7 +3,10 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 
-use super::protocol::{Error, Message, State, TxBody, TxIdAndSize};
+use super::{
+    protocol::{Error, Message, State, TxIdAndSize},
+    EraTxBody, EraTxId,
+};
 
 pub enum Request<TxId> {
     TxIds(u16, u16),
@@ -11,18 +14,32 @@ pub enum Request<TxId> {
     Txs(Vec<TxId>),
 }
 
-pub struct Client<H, TxId>(State, ChannelBuffer<H>, PhantomData<TxId>)
+/// A generic Ouroboros client for submitting a generic notion of "transactions" to another server
+pub struct GenericClient<H, TxId, TxBody>(
+    State,
+    ChannelBuffer<H>,
+    PhantomData<TxId>,
+    PhantomData<TxBody>,
+)
 where
     H: Channel,
-    Message<TxId>: Fragment;
+    Message<TxId, TxBody>: Fragment;
 
-impl<H, TxId> Client<H, TxId>
+/// A cardano specific instantiation of the ouroboros protocol
+pub type Client<H> = GenericClient<H, EraTxId, EraTxBody>;
+
+impl<H, TxId, TxBody> GenericClient<H, TxId, TxBody>
 where
     H: Channel,
-    Message<TxId>: Fragment,
+    Message<TxId, TxBody>: Fragment,
 {
     pub fn new(channel: H) -> Self {
-        Self(State::Init, ChannelBuffer::new(channel), PhantomData {})
+        Self(
+            State::Init,
+            ChannelBuffer::new(channel),
+            PhantomData {},
+            PhantomData {},
+        )
     }
 
     pub fn state(&self) -> &State {
@@ -54,7 +71,7 @@ where
     }
 
     /// As a client in a specific state, am I allowed to send this message?
-    fn assert_outbound_state(&self, msg: &Message<TxId>) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Init, Message::Init) => Ok(()),
             (State::TxIdsBlocking, Message::ReplyTxIds(..)) => Ok(()),
@@ -66,7 +83,7 @@ where
     }
 
     /// As a client in a specific state, am I allowed to receive this message?
-    fn assert_inbound_state(&self, msg: &Message<TxId>) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Idle, Message::RequestTxIds(..)) => Ok(()),
             (State::Idle, Message::RequestTxs(..)) => Ok(()),
@@ -74,7 +91,7 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<TxId>) -> Result<(), Error> {
+    pub fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
         self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
@@ -82,7 +99,7 @@ where
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<TxId>, Error> {
+    pub fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;

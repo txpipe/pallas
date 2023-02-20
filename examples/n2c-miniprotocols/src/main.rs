@@ -1,14 +1,12 @@
 use pallas::network::{
-    miniprotocols::{
-        chainsync, handshake, localstate, Point, MAINNET_MAGIC, PROTOCOL_N2C_CHAIN_SYNC,
-        PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-    },
-    multiplexer::{self, bearers::Bearer},
+    miniprotocols::{chainsync, handshake, localstate, Point, MAINNET_MAGIC},
+    multiplexer,
 };
 
 #[derive(Debug)]
 struct LoggingObserver;
 
+#[allow(dead_code)]
 fn do_handshake(channel: multiplexer::StdChannel) {
     let mut client = handshake::N2CClient::new(channel);
 
@@ -26,6 +24,7 @@ fn do_handshake(channel: multiplexer::StdChannel) {
     }
 }
 
+#[allow(dead_code)]
 fn do_localstate_query(channel: multiplexer::StdChannel) {
     let mut client = localstate::ClientV10::new(channel);
     client.acquire(None).unwrap();
@@ -37,6 +36,7 @@ fn do_localstate_query(channel: multiplexer::StdChannel) {
     log::info!("system start result: {:?}", result);
 }
 
+#[allow(dead_code)]
 fn do_chainsync(channel: multiplexer::StdChannel) {
     let known_points = vec![Point::Specific(
         43847831u64,
@@ -67,30 +67,39 @@ fn main() {
         .filter_level(log::LevelFilter::Trace)
         .init();
 
+    #[cfg(not(target_family = "unix"))]
+    {
+        panic!("can't use n2c unix socket on non-unix systems");
+    }
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
     #[cfg(target_family = "unix")]
-    let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
+    {
+        use pallas::network::{
+            miniprotocols::{
+                PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
+            },
+            multiplexer::bearers::Bearer,
+        };
+        let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
 
-    #[cfg(not(target_family = "unix"))]
-    panic!("can't use n2c unix socket on non-unix systems");
+        // setup the multiplexer by specifying the bearer and the IDs of the
+        // miniprotocols to use
+        let mut plexer = multiplexer::StdPlexer::new(bearer);
+        let handshake = plexer.use_client_channel(PROTOCOL_N2C_HANDSHAKE);
+        let statequery = plexer.use_client_channel(PROTOCOL_N2C_STATE_QUERY);
+        let chainsync = plexer.use_client_channel(PROTOCOL_N2C_CHAIN_SYNC);
 
-    // setup the multiplexer by specifying the bearer and the IDs of the
-    // miniprotocols to use
-    let mut plexer = multiplexer::StdPlexer::new(bearer);
-    let handshake = plexer.use_client_channel(PROTOCOL_N2C_HANDSHAKE);
-    let statequery = plexer.use_client_channel(PROTOCOL_N2C_STATE_QUERY);
-    let chainsync = plexer.use_client_channel(PROTOCOL_N2C_CHAIN_SYNC);
+        plexer.muxer.spawn();
+        plexer.demuxer.spawn();
 
-    plexer.muxer.spawn();
-    plexer.demuxer.spawn();
+        // execute the required handshake against the relay
+        do_handshake(handshake);
 
-    // execute the required handshake against the relay
-    do_handshake(handshake);
+        // execute an arbitrary "Local State" query against the node
+        do_localstate_query(statequery);
 
-    // execute an arbitrary "Local State" query against the node
-    do_localstate_query(statequery);
-
-    // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(chainsync);
+        // execute the chainsync flow from an arbitrary point in the chain
+        do_chainsync(chainsync);
+    }
 }
