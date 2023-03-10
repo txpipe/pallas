@@ -1,0 +1,23 @@
+[package]
+name = "pallas-upstream"
+description = "Opinionated implementation of component that pulls chain data from an upstream node"
+version = "0.18.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-upstream"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
+
+[dependencies]
+gasket = { git = "https://github.com/construkts/gasket-rs", version = "0.1.0" }
+pallas-codec = { version = "0.18.0", path = "../pallas-codec" }
+pallas-crypto = { version = "0.18.0", path = "../pallas-crypto" }
+pallas-miniprotocols = { version = "0.18.0", path = "../pallas-miniprotocols" }
+pallas-multiplexer = { version = "0.18.0", path = "../pallas-multiplexer" }
+pallas-traverse = { version = "0.18.0", path = "../pallas-traverse" }
+rayon = "1.7.0"
+serde = { version = "1.0.154", features = ["derive"] }
+thiserror = "1.0.31"
+tracing = "0.1.37"
