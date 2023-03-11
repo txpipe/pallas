@@ -5,7 +5,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
 
 use crate::{
-    Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraMint, MultiEraOutput, MultiEraSigners,
+    Era, MultiEraAsset, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraSigners,
     MultiEraTx, MultiEraWithdrawals, OriginalHash,
 };
 
@@ -170,21 +170,21 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn mint(&self) -> MultiEraMint {
+    pub fn mints(&self) -> Vec<MultiEraAsset> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .mint
                 .as_ref()
-                .map(MultiEraMint::AlonzoCompatible)
+                .map(MultiEraAsset::collect_alonzo_compatible_mint)
                 .unwrap_or_default(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .mint
                 .as_ref()
-                .map(MultiEraMint::AlonzoCompatible)
+                .map(MultiEraAsset::collect_alonzo_compatible_mint)
                 .unwrap_or_default(),
-            MultiEraTx::Byron(_) => MultiEraMint::NotApplicable,
+            MultiEraTx::Byron(_) => vec![],
         }
     }
 

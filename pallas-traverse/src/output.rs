@@ -4,7 +4,7 @@ use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::{Era, MultiEraOutput};
+use crate::{Era, MultiEraAsset, MultiEraOutput};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -108,5 +108,73 @@ impl<'b> MultiEraOutput<'b> {
                 Ok(Self::Babbage(tx))
             }
         }
+    }
+
+    /// The amount of ADA asset expressed in Lovelace unit
+    ///
+    /// The value returned provides the amount of the ADA in a particular
+    /// output. The value is expressed in 'lovelace' (1 ADA = 1,000,000
+    /// lovelace).
+    pub fn lovelace_amount(&self) -> u64 {
+        match self {
+            MultiEraOutput::Byron(x) => x.amount,
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::MintedTransactionOutput::Legacy(x) => match x.amount {
+                    babbage::Value::Coin(c) => c,
+                    babbage::Value::Multiasset(c, _) => c,
+                },
+                babbage::MintedTransactionOutput::PostAlonzo(x) => match x.value {
+                    babbage::Value::Coin(c) => c,
+                    babbage::Value::Multiasset(c, _) => c,
+                },
+            },
+            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
+                alonzo::Value::Coin(c) => c,
+                alonzo::Value::Multiasset(c, _) => c,
+            },
+        }
+    }
+
+    /// List of native assets in the output
+    ///
+    /// Returns a list of Asset structs where each one represent a native asset
+    /// present in the output of the tx. ADA assets are not included in this
+    /// list.
+    pub fn non_ada_assets(&self) -> Vec<MultiEraAsset> {
+        match self {
+            MultiEraOutput::Byron(_) => vec![],
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::MintedTransactionOutput::Legacy(x) => match &x.amount {
+                    babbage::Value::Coin(_) => vec![],
+                    babbage::Value::Multiasset(_, x) => {
+                        MultiEraAsset::collect_alonzo_compatible_output(x)
+                    }
+                },
+                babbage::MintedTransactionOutput::PostAlonzo(x) => match &x.value {
+                    babbage::Value::Coin(_) => vec![],
+                    babbage::Value::Multiasset(_, x) => {
+                        MultiEraAsset::collect_alonzo_compatible_output(x)
+                    }
+                },
+            },
+            MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
+                alonzo::Value::Coin(_) => vec![],
+                alonzo::Value::Multiasset(_, x) => {
+                    MultiEraAsset::collect_alonzo_compatible_output(x)
+                }
+            },
+        }
+    }
+
+    /// List of all assets in the output
+    ///
+    /// Returns a list of Asset structs where each one represent either ADA or a
+    /// native asset present in the output of the tx.
+    pub fn assets(&self) -> Vec<MultiEraAsset> {
+        [
+            vec![MultiEraAsset::Lovelace(self.lovelace_amount())],
+            self.non_ada_assets(),
+        ]
+        .concat()
     }
 }

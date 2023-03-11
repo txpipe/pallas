@@ -1,110 +1,63 @@
-use std::ops::Deref;
-
-use pallas_codec::utils::{Bytes, KeyValuePairs};
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage};
+use pallas_primitives::alonzo;
 
-use crate::{Asset, MultiEraOutput};
+use crate::MultiEraAsset;
 
-fn iter_policy_assets<'b>(
-    policy: &'b Hash<28>,
-    assets: &'b KeyValuePairs<Bytes, u64>,
-) -> impl Iterator<Item = Asset> + 'b {
-    assets
-        .iter()
-        .map(|(name, amount)| Asset::NativeAsset(*policy, Vec::<u8>::clone(name), *amount))
-}
+impl<'b> MultiEraAsset<'b> {
+    pub fn collect_alonzo_compatible_output(source: &'b alonzo::Multiasset<u64>) -> Vec<Self> {
+        source
+            .iter()
+            .flat_map(|(policy, assets)| {
+                assets.iter().map(|(name, amount)| {
+                    MultiEraAsset::AlonzoCompatible(policy, name, *amount as i64)
+                })
+            })
+            .collect::<Vec<_>>()
+    }
 
-fn collect_multiassets(multiassets: &alonzo::Multiasset<alonzo::Coin>) -> Vec<Asset> {
-    multiassets
-        .iter()
-        .flat_map(|(p, a)| iter_policy_assets(p, a))
-        .collect::<Vec<_>>()
-}
+    pub fn collect_alonzo_compatible_mint(source: &'b alonzo::Multiasset<i64>) -> Vec<Self> {
+        source
+            .iter()
+            .flat_map(|(policy, assets)| {
+                assets
+                    .iter()
+                    .map(|(name, amount)| MultiEraAsset::AlonzoCompatible(policy, name, *amount))
+            })
+            .collect::<Vec<_>>()
+    }
 
-impl Asset {
-    pub fn subject(&self) -> String {
+    pub fn policy_id(&self) -> Option<&Hash<28>> {
         match self {
-            Self::Ada(_) => String::from("ada"),
-            Self::NativeAsset(p, n, _) => format!("{p}.{}", hex::encode(n)),
+            Self::AlonzoCompatible(x, ..) => Some(*x),
+            Self::Lovelace(_) => None,
         }
     }
 
-    pub fn ascii_name(&self) -> Option<String> {
+    pub fn coin(&self) -> i64 {
         match self {
-            Self::Ada(_) => None,
-            Self::NativeAsset(_, n, _) => String::from_utf8(n.clone()).ok(),
+            Self::AlonzoCompatible(_, _, x) => *x,
+            Self::Lovelace(x) => *x as i64,
         }
     }
 
-    pub fn policy_hex(&self) -> Option<String> {
+    pub fn as_alonzo(&self) -> Option<(&alonzo::PolicyId, &alonzo::AssetName, i64)> {
         match self {
-            Asset::Ada(_) => None,
-            Asset::NativeAsset(p, _, _) => Some(p.to_string()),
-        }
-    }
-}
-
-impl<'b> MultiEraOutput<'b> {
-    /// The amount of ADA asset expressed in Lovelace unit
-    ///
-    /// The value returned provides the amount of the ADA in a particular
-    /// output. The value is expressed in 'lovelace' (1 ADA = 1,000,000
-    /// lovelace).
-    pub fn lovelace_amount(&self) -> u64 {
-        match self {
-            MultiEraOutput::Byron(x) => x.amount,
-            MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::MintedTransactionOutput::Legacy(x) => match x.amount {
-                    babbage::Value::Coin(c) => c,
-                    babbage::Value::Multiasset(c, _) => c,
-                },
-                babbage::MintedTransactionOutput::PostAlonzo(x) => match x.value {
-                    babbage::Value::Coin(c) => c,
-                    babbage::Value::Multiasset(c, _) => c,
-                },
-            },
-            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
-                alonzo::Value::Coin(c) => c,
-                alonzo::Value::Multiasset(c, _) => c,
-            },
+            Self::AlonzoCompatible(a, b, c) => Some((*a, *b, *c)),
+            _ => None,
         }
     }
 
-    /// List of native assets in the output
-    ///
-    /// Returns a list of Asset structs where each one represent a native asset
-    /// present in the output of the tx. ADA assets are not included in this
-    /// list.
-    pub fn non_ada_assets(&self) -> Vec<Asset> {
+    pub fn to_subject(&self) -> Option<String> {
         match self {
-            MultiEraOutput::Byron(_) => vec![],
-            MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::MintedTransactionOutput::Legacy(x) => match &x.amount {
-                    babbage::Value::Coin(_) => vec![],
-                    babbage::Value::Multiasset(_, x) => collect_multiassets(x),
-                },
-                babbage::MintedTransactionOutput::PostAlonzo(x) => match &x.value {
-                    babbage::Value::Coin(_) => vec![],
-                    babbage::Value::Multiasset(_, x) => collect_multiassets(x),
-                },
-            },
-            MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
-                alonzo::Value::Coin(_) => vec![],
-                alonzo::Value::Multiasset(_, x) => collect_multiassets(x),
-            },
+            Self::AlonzoCompatible(p, n, _) => Some(format!("{p}.{}", hex::encode(n.to_vec()))),
+            _ => None,
         }
     }
 
-    /// List of all assets in the output
-    ///
-    /// Returns a list of Asset structs where each one represent either ADA or a
-    /// native asset present in the output of the tx.
-    pub fn assets(&self) -> Vec<Asset> {
-        [
-            vec![Asset::Ada(self.lovelace_amount())],
-            self.non_ada_assets(),
-        ]
-        .concat()
+    pub fn to_ascii_name(&self) -> Option<String> {
+        match self {
+            Self::AlonzoCompatible(_, n, _) => String::from_utf8(n.to_vec()).ok(),
+            _ => None,
+        }
     }
 }
