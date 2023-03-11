@@ -18,7 +18,6 @@ pub mod hashes;
 pub mod header;
 pub mod input;
 pub mod meta;
-pub mod mint;
 pub mod output;
 pub mod probe;
 pub mod signers;
@@ -108,10 +107,9 @@ pub enum MultiEraMeta<'b> {
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub enum MultiEraMint<'b> {
-    NotApplicable,
-    Empty,
-    AlonzoCompatible(&'b alonzo::Mint),
+pub enum MultiEraAsset<'b> {
+    Lovelace(u64),
+    AlonzoCompatible(&'b alonzo::PolicyId, &'b alonzo::AssetName, i64),
 }
 
 #[derive(Debug, Clone)]
@@ -132,12 +130,6 @@ pub enum MultiEraSigners<'b> {
 
 #[derive(Debug, Clone)]
 pub struct OutputRef(Hash<32>, u64);
-
-#[derive(Debug, Clone)]
-pub enum Asset {
-    Ada(u64),
-    NativeAsset(Hash<28>, Vec<u8>, u64),
-}
 
 #[derive(Debug, Error)]
 pub enum Error {
