@@ -319,7 +319,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    fn aux_data(&self) -> Option<&KeepRaw<'_, alonzo::AuxiliaryData>> {
+    pub(crate) fn aux_data(&self) -> Option<&KeepRaw<'_, alonzo::AuxiliaryData>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
                 pallas_codec::utils::Nullable::Some(x) => Some(x),

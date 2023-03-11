@@ -9,7 +9,10 @@ use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
 
+mod support;
+
 pub mod assets;
+pub mod aux;
 pub mod block;
 pub mod cert;
 pub mod era;
@@ -21,7 +24,6 @@ pub mod meta;
 pub mod output;
 pub mod probe;
 pub mod signers;
-mod support;
 pub mod time;
 pub mod tx;
 pub mod withdrawals;
