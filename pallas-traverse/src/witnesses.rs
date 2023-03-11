@@ -7,114 +7,123 @@ use pallas_primitives::{
 use crate::MultiEraTx;
 
 impl<'b> MultiEraTx<'b> {
-    pub fn vkey_witnesses(&self) -> Option<&[VKeyWitness]> {
+    pub fn vkey_witnesses(&self) -> &[VKeyWitness] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .vkeywitness
                 .as_ref()
-                .map(|x| x.as_ref()),
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .vkeywitness
                 .as_ref()
-                .map(|x| x.as_ref()),
-            _ => None,
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 
-    pub fn native_scripts(&self) -> Option<&[NativeScript]> {
+    pub fn native_scripts(&self) -> &[NativeScript] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .native_script
                 .as_ref()
-                .map(|x| x.as_ref()),
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .native_script
                 .as_ref()
-                .map(|x| x.as_ref()),
-            _ => None,
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 
-    pub fn bootstrap_witnesses(&self) -> Option<&[BootstrapWitness]> {
+    pub fn bootstrap_witnesses(&self) -> &[BootstrapWitness] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .bootstrap_witness
                 .as_ref()
-                .map(|x| x.as_ref()),
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .bootstrap_witness
                 .as_ref()
-                .map(|x| x.as_ref()),
-            _ => None,
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 
-    pub fn plutus_v1_scripts(&self) -> Vec<&alonzo::PlutusScript> {
+    pub fn plutus_v1_scripts(&self) -> &[alonzo::PlutusScript] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .plutus_script
-                .iter()
-                .flatten()
-                .collect(),
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .plutus_v1_script
-                .iter()
-                .flatten()
-                .collect(),
-            _ => vec![],
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 
-    pub fn plutus_data(&self) -> Vec<&KeepRaw<'b, PlutusData>> {
+    pub fn plutus_data(&self) -> &[KeepRaw<'b, PlutusData>] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .plutus_data
-                .iter()
-                .flatten()
-                .collect(),
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .plutus_data
-                .iter()
-                .flatten()
-                .collect(),
-            _ => std::iter::empty().collect(),
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 
-    pub fn redeemers(&self) -> Option<&[Redeemer]> {
+    pub fn redeemers(&self) -> &[Redeemer] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .redeemer
                 .as_ref()
-                .map(|x| x.as_ref()),
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .redeemer
                 .as_ref()
-                .map(|x| x.as_ref()),
-            _ => None,
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 
-    pub fn plutus_v2_scripts(&self) -> Option<&[PlutusV2Script]> {
+    pub fn plutus_v2_scripts(&self) -> &[PlutusV2Script] {
         match self {
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .plutus_v2_script
                 .as_ref()
-                .map(|x| x.as_ref()),
-            _ => None,
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            _ => &[],
         }
     }
 }
