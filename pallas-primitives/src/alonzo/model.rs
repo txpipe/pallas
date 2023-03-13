@@ -623,7 +623,9 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy,
+)]
 #[cbor(index_only)]
 pub enum NetworkId {
     #[n(0)]

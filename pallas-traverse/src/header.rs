@@ -77,6 +77,33 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
+    pub fn previous_hash(&self) -> Option<Hash<32>> {
+        match self {
+            MultiEraHeader::AlonzoCompatible(x) => x.header_body.prev_hash,
+            MultiEraHeader::Babbage(x) => x.header_body.prev_hash,
+            MultiEraHeader::EpochBoundary(x) => Some(x.prev_block),
+            MultiEraHeader::Byron(x) => Some(x.prev_block),
+        }
+    }
+
+    pub fn vrf_vkey(&self) -> Option<&[u8]> {
+        match self {
+            MultiEraHeader::AlonzoCompatible(x) => Some(x.header_body.vrf_vkey.as_ref()),
+            MultiEraHeader::Babbage(x) => Some(x.header_body.vrf_vkey.as_ref()),
+            MultiEraHeader::EpochBoundary(_) => None,
+            MultiEraHeader::Byron(_) => None,
+        }
+    }
+
+    pub fn issuer_vkey(&self) -> Option<&[u8]> {
+        match self {
+            MultiEraHeader::AlonzoCompatible(x) => Some(x.header_body.issuer_vkey.as_ref()),
+            MultiEraHeader::Babbage(x) => Some(x.header_body.issuer_vkey.as_ref()),
+            MultiEraHeader::EpochBoundary(_) => None,
+            MultiEraHeader::Byron(_) => None,
+        }
+    }
+
     pub fn leader_vrf_output(&self) -> Result<Vec<u8>, Error> {
         match self {
             MultiEraHeader::EpochBoundary(_) => Err(Error::InvalidEra(Era::Byron)),

@@ -26,9 +26,16 @@ impl<'b> MultiEraAsset<'b> {
             .collect::<Vec<_>>()
     }
 
-    pub fn policy_id(&self) -> Option<&Hash<28>> {
+    pub fn policy(&self) -> Option<&Hash<28>> {
         match self {
             Self::AlonzoCompatible(x, ..) => Some(*x),
+            Self::Lovelace(_) => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&[u8]> {
+        match self {
+            Self::AlonzoCompatible(_, n, _) => Some(n.as_ref()),
             Self::Lovelace(_) => None,
         }
     }
