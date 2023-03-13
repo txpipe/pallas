@@ -24,6 +24,7 @@ pub mod meta;
 pub mod output;
 pub mod probe;
 pub mod signers;
+pub mod size;
 pub mod time;
 pub mod tx;
 pub mod withdrawals;

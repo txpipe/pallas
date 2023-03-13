@@ -2,7 +2,11 @@ use std::{borrow::Cow, ops::Deref};
 
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{
+    alonzo,
+    babbage::{self, NetworkId},
+    byron,
+};
 
 use crate::{
     Era, MultiEraAsset, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraSigners,
@@ -305,6 +309,14 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    pub fn ttl(&self) -> Option<u64> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.ttl,
+            MultiEraTx::Babbage(x) => x.transaction_body.ttl,
+            MultiEraTx::Byron(_) => None,
+        }
+    }
+
     /// Returns the fee or attempts to compute it
     ///
     /// If the fee is available as part of the tx data (post-byron), this
@@ -367,6 +379,22 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraSigners::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,
+        }
+    }
+
+    pub fn validity_start(&self) -> Option<u64> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.validity_interval_start,
+            MultiEraTx::Babbage(x) => x.transaction_body.validity_interval_start,
+            MultiEraTx::Byron(_) => None,
+        }
+    }
+
+    pub fn network_id(&self) -> Option<NetworkId> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.network_id,
+            MultiEraTx::Babbage(x) => x.transaction_body.network_id,
+            MultiEraTx::Byron(_) => None,
         }
     }
 
