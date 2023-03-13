@@ -1,8 +1,10 @@
-use crate::wellknown::GenesisValues;
+use crate::{wellknown::GenesisValues, MultiEraBlock};
 
 pub type Epoch = u64;
 
 pub type Slot = u64;
+
+pub type SubSlot = u64;
 
 #[inline]
 fn compute_linear_timestamp(
@@ -112,6 +114,30 @@ impl GenesisValues {
 
             byron_slots + shelley_slots
         }
+    }
+}
+
+impl<'a> MultiEraBlock<'a> {
+    pub fn epoch(&self, genesis: &GenesisValues) -> (Epoch, SubSlot) {
+        match self {
+            MultiEraBlock::EpochBoundary(x) => (x.header.consensus_data.epoch_id, 0),
+            MultiEraBlock::Byron(x) => (
+                x.header.consensus_data.0.epoch,
+                x.header.consensus_data.0.slot,
+            ),
+            MultiEraBlock::AlonzoCompatible(x, _) => {
+                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+            }
+            MultiEraBlock::Babbage(x) => {
+                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+            }
+        }
+    }
+
+    /// Computes the unix timestamp for the slot of the tx
+    pub fn wallclock(&self, genesis: &GenesisValues) -> u64 {
+        let slot = self.slot();
+        genesis.slot_to_wallclock(slot)
     }
 }
 
