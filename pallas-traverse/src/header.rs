@@ -5,7 +5,7 @@ use pallas_codec::minicbor;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::{time, Era, Error, MultiEraHeader, OriginalHash};
+use crate::{wellknown::GenesisValues, Era, Error, MultiEraHeader, OriginalHash};
 
 impl<'b> MultiEraHeader<'b> {
     pub fn decode(tag: u8, subtag: Option<u8>, cbor: &'b [u8]) -> Result<Self, Error> {
@@ -56,15 +56,16 @@ impl<'b> MultiEraHeader<'b> {
 
     pub fn slot(&self) -> u64 {
         match self {
-            MultiEraHeader::EpochBoundary(x) => {
-                time::byron_epoch_slot_to_absolute(x.consensus_data.epoch_id, 0)
-            }
             MultiEraHeader::AlonzoCompatible(x) => x.header_body.slot,
             MultiEraHeader::Babbage(x) => x.header_body.slot,
-            MultiEraHeader::Byron(x) => time::byron_epoch_slot_to_absolute(
-                x.consensus_data.0.epoch,
-                x.consensus_data.0.slot,
-            ),
+            MultiEraHeader::EpochBoundary(x) => {
+                let genesis = GenesisValues::default();
+                genesis.relative_slot_to_absolute(x.consensus_data.epoch_id, 0)
+            }
+            MultiEraHeader::Byron(x) => {
+                let genesis = GenesisValues::default();
+                genesis.relative_slot_to_absolute(x.consensus_data.0.epoch, x.consensus_data.0.slot)
+            }
         }
     }
 

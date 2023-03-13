@@ -1,20 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-use pallas_miniprotocols::{
-    MAINNET_MAGIC,
-    TESTNET_MAGIC,
-    // PREVIEW_MAGIC, PRE_PRODUCTION_MAGIC,
-};
+/// Well-known magic for testnet
+pub const TESTNET_MAGIC: u64 = 1097911063;
 
-use crate::framework::*;
+/// Well-known magic for mainnet
+pub const MAINNET_MAGIC: u64 = 764824073;
 
-// TODO: use from pallas once available
-pub const PRE_PRODUCTION_MAGIC: u64 = 1;
+/// Well-known magic for preview
 pub const PREVIEW_MAGIC: u64 = 2;
+
+/// Well-known magic for pre-production
+pub const PRE_PRODUCTION_MAGIC: u64 = 1;
 
 /// Well-known information about specific networks
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WellKnownChainInfo {
+pub struct GenesisValues {
     pub magic: u64,
     pub byron_epoch_length: u32,
     pub byron_slot_length: u32,
@@ -28,10 +28,10 @@ pub struct WellKnownChainInfo {
     pub shelley_known_time: u64,
 }
 
-impl WellKnownChainInfo {
+impl GenesisValues {
     /// Hardcoded values for mainnet
     pub fn mainnet() -> Self {
-        WellKnownChainInfo {
+        GenesisValues {
             magic: MAINNET_MAGIC,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
@@ -50,7 +50,7 @@ impl WellKnownChainInfo {
 
     /// Hardcoded values for testnet
     pub fn testnet() -> Self {
-        WellKnownChainInfo {
+        GenesisValues {
             magic: TESTNET_MAGIC,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
@@ -68,7 +68,7 @@ impl WellKnownChainInfo {
     }
 
     pub fn preview() -> Self {
-        WellKnownChainInfo {
+        GenesisValues {
             magic: PREVIEW_MAGIC,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
@@ -86,7 +86,7 @@ impl WellKnownChainInfo {
 
     /// Hardcoded values for the "pre-prod" testnet
     pub fn preprod() -> Self {
-        WellKnownChainInfo {
+        GenesisValues {
             magic: PRE_PRODUCTION_MAGIC,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
@@ -105,20 +105,18 @@ impl WellKnownChainInfo {
 
     /// Uses the value of the magic to return either mainnet or testnet
     /// hardcoded values.
-    pub fn try_from_magic(magic: u64) -> Result<WellKnownChainInfo, Error> {
+    pub fn from_magic(magic: u64) -> Option<GenesisValues> {
         match magic {
-            MAINNET_MAGIC => Ok(Self::mainnet()),
-            TESTNET_MAGIC => Ok(Self::testnet()),
-            PREVIEW_MAGIC => Ok(Self::preview()),
-            PRE_PRODUCTION_MAGIC => Ok(Self::preprod()),
-            _ => Err(Error::message(
-                "can't infer well-known chain from specified magic",
-            )),
+            MAINNET_MAGIC => Some(Self::mainnet()),
+            TESTNET_MAGIC => Some(Self::testnet()),
+            PREVIEW_MAGIC => Some(Self::preview()),
+            PRE_PRODUCTION_MAGIC => Some(Self::preprod()),
+            _ => None,
         }
     }
 }
 
-impl Default for WellKnownChainInfo {
+impl Default for GenesisValues {
     fn default() -> Self {
         Self::mainnet()
     }

@@ -30,6 +30,9 @@ pub mod tx;
 pub mod withdrawals;
 pub mod witnesses;
 
+// TODO: move to genesis crate
+pub mod wellknown;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum Era {
