@@ -18,5 +18,8 @@ pallas-codec = { version = "0.18.0", path = "../pallas-codec" }
 hex = "0.4.3"
 thiserror = "1.0.31"
 
+# TODO: remove once GenesisValue moves into new genesis crate
+serde = "1.0.155"
+
 [features]
 unstable = []

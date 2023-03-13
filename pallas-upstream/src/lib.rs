@@ -4,7 +4,6 @@ pub(crate) mod framework;
 pub(crate) mod plexer;
 
 pub mod cursor;
-pub mod wellknown;
 
 mod api;
 
