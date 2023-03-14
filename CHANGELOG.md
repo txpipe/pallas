@@ -1,7 +1,5 @@
 <a name="unreleased"></a>
 ## [Unreleased]
-### Feat
-- Derive Hash for Address ([#235](https://github.com/txpipe/pallas/pull/235))
 
 <a name="v0.18.0"></a>
 ## [v0.18.0] - 2023-02-04
