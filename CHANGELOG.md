@@ -1,6 +1,7 @@
 <a name="unreleased"></a>
 ## [Unreleased]
-
+### Feat
+- Derive Hash for Address ([#235](https://github.com/txpipe/pallas/pull/235))
 
 <a name="v0.18.0"></a>
 ## [v0.18.0] - 2023-02-04
@@ -13,7 +14,6 @@
 - Fix README badge ([#217](https://github.com/txpipe/pallas/issues/217))
 
 ### Feat
-- Derive Hash for Address ([#235](https://github.com/txpipe/pallas/pull/235))
 - Derive Debug for Bearer ([#219](https://github.com/txpipe/pallas/issues/219))
 - **miniprotocols:** Implement tx submission client & server ([#220](https://github.com/txpipe/pallas/issues/220))
 
