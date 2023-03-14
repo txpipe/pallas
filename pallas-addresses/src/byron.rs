@@ -161,7 +161,7 @@ pub struct AddressPayload {
 }
 
 /// New type wrapping a Byron address primitive
-#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ByronAddress {
     #[n(0)]
     payload: TagWrap<ByteVec, 24>,
