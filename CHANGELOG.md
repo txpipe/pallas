@@ -13,6 +13,7 @@
 - Fix README badge ([#217](https://github.com/txpipe/pallas/issues/217))
 
 ### Feat
+- Derive Hash for Address ([#235](https://github.com/txpipe/pallas/pull/235))
 - Derive Debug for Bearer ([#219](https://github.com/txpipe/pallas/issues/219))
 - **miniprotocols:** Implement tx submission client & server ([#220](https://github.com/txpipe/pallas/issues/220))
 
