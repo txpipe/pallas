@@ -66,7 +66,7 @@ pub type TxIdx = u64;
 pub type CertIdx = u64;
 
 /// An on-chain pointer to a stake key
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pointer(Slot, TxIdx, CertIdx);
 
 fn slice_to_hash(slice: &[u8]) -> Result<Hash<28>, Error> {
@@ -116,7 +116,7 @@ impl Pointer {
 }
 
 /// The payment part of a Shelley address
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum ShelleyPaymentPart {
     Key(PaymentKeyHash),
     Script(ScriptHash),
@@ -168,7 +168,7 @@ impl ShelleyPaymentPart {
 }
 
 /// The delegation part of a Shelley address
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum ShelleyDelegationPart {
     Key(StakeKeyHash),
     Script(ScriptHash),
@@ -253,7 +253,7 @@ impl StakePayload {
 }
 
 /// The network tag of an address
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub enum Network {
     Testnet,
     Mainnet,
@@ -271,24 +271,24 @@ impl From<u8> for Network {
 }
 
 /// A decoded Shelley address
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub struct ShelleyAddress(Network, ShelleyPaymentPart, ShelleyDelegationPart);
 
 /// The payload of a Stake address
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum StakePayload {
     Stake(StakeKeyHash),
     Script(ScriptHash),
 }
 
 /// A decoded Stake address
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub struct StakeAddress(Network, StakePayload);
 
 pub use byron::ByronAddress;
 
 /// A decoded Cardano address of any type
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum Address {
     Byron(ByronAddress),
     Shelley(ShelleyAddress),

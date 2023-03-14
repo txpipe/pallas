@@ -337,7 +337,7 @@ impl<T> Deref for CborWrap<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TagWrap<I, const T: u64>(pub I);
 
 impl<I, const T: u64> TagWrap<I, T> {
