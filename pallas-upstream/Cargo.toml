@@ -11,7 +11,8 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-gasket = { git = "https://github.com/construkts/gasket-rs", version = "0.1.0" }
+gasket = { git = "https://github.com/construkts/gasket-rs" }
+# gasket = { version = "0.1.0", path = "../../../construkts/gasket-rs" }
 pallas-codec = { version = "0.18.0", path = "../pallas-codec" }
 pallas-crypto = { version = "0.18.0", path = "../pallas-crypto" }
 pallas-miniprotocols = { version = "0.18.0", path = "../pallas-miniprotocols" }

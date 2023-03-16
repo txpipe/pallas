@@ -1,8 +1,15 @@
 pub use crate::cursor;
 
+pub use crate::framework::BlockFetchEvent;
+
+pub use crate::framework::DownstreamPort;
+
 pub mod n2n {
     use crate::{blockfetch, chainsync, cursor::Cursor, framework::*, plexer};
-    use gasket::runtime::Tether;
+    use gasket::{
+        messaging::{SendAdapter, SendPort},
+        runtime::Tether,
+    };
 
     pub struct Runtime {
         pub plexer_tether: Tether,
@@ -10,25 +17,31 @@ pub mod n2n {
         pub blockfetch_tether: Tether,
     }
 
-    pub struct Bootstrapper {
+    pub struct Bootstrapper<A>
+    where
+        A: SendAdapter<BlockFetchEvent>,
+    {
         cursor: Cursor,
         peer_address: String,
         network_magic: u64,
-        output: blockfetch::DownstreamPort,
+        output: super::DownstreamPort<A>,
     }
 
-    impl Bootstrapper {
+    impl<A> Bootstrapper<A>
+    where
+        A: SendAdapter<BlockFetchEvent> + 'static,
+    {
         pub fn new(cursor: Cursor, peer_address: String, network_magic: u64) -> Self {
             Bootstrapper {
                 cursor,
                 peer_address,
                 network_magic,
-                output: blockfetch::DownstreamPort::default(),
+                output: Default::default(),
             }
         }
 
-        pub fn borrow_output_port(&mut self) -> &mut blockfetch::DownstreamPort {
-            &mut self.output
+        pub fn connect_output(&mut self, adapter: A) {
+            self.output.connect(adapter);
         }
 
         pub fn spawn(self) -> Result<Runtime, Error> {
@@ -54,15 +67,15 @@ pub mod n2n {
 
             let mut demux2_out = DemuxOutputPort::default();
             let mut demux2_in = DemuxInputPort::default();
-            gasket::messaging::connect_ports(&mut demux2_out, &mut demux2_in, 1000);
+            gasket::messaging::crossbeam::connect_ports(&mut demux2_out, &mut demux2_in, 1000);
 
             let mut demux3_out = DemuxOutputPort::default();
             let mut demux3_in = DemuxInputPort::default();
-            gasket::messaging::connect_ports(&mut demux3_out, &mut demux3_in, 1000);
+            gasket::messaging::crossbeam::connect_ports(&mut demux3_out, &mut demux3_in, 1000);
 
             let mut mux2_out = MuxOutputPort::default();
             let mut mux3_out = MuxOutputPort::default();
-            gasket::messaging::funnel_ports(
+            gasket::messaging::crossbeam::funnel_ports(
                 vec![&mut mux2_out, &mut mux3_out],
                 &mut mux_input,
                 1000,
@@ -70,7 +83,7 @@ pub mod n2n {
 
             let mut chainsync_downstream = chainsync::DownstreamPort::default();
             let mut blockfetch_upstream = blockfetch::UpstreamPort::default();
-            gasket::messaging::connect_ports(
+            gasket::messaging::crossbeam::connect_ports(
                 &mut chainsync_downstream,
                 &mut blockfetch_upstream,
                 20,
