@@ -17,7 +17,7 @@ fn to_traverse(header: &chainsync::HeaderContent) -> Result<MultiEraHeader<'_>, 
     out.map_err(Error::parse)
 }
 
-pub type DownstreamPort = gasket::messaging::OutputPort<ChainSyncEvent>;
+pub type DownstreamPort = gasket::messaging::crossbeam::OutputPort<ChainSyncEvent>;
 
 pub type OuroborosClient = chainsync::N2NClient<ProtocolChannel>;
 

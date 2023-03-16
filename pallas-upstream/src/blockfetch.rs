@@ -1,3 +1,4 @@
+use gasket::messaging::SendAdapter;
 use tracing::{debug, error, instrument};
 
 use pallas_crypto::hash::Hash;
@@ -6,23 +7,27 @@ use pallas_miniprotocols::Point;
 
 use crate::framework::*;
 
-pub type UpstreamPort = gasket::messaging::TwoPhaseInputPort<ChainSyncEvent>;
-pub type DownstreamPort = gasket::messaging::OutputPort<BlockFetchEvent>;
-
+pub type UpstreamPort = gasket::messaging::crossbeam::TwoPhaseInputPort<ChainSyncEvent>;
 pub type OuroborosClient = blockfetch::Client<ProtocolChannel>;
 
-pub struct Worker {
+pub struct Worker<T>
+where
+    T: Send + Sync,
+{
     client: OuroborosClient,
     upstream: UpstreamPort,
-    downstream: DownstreamPort,
+    downstream: DownstreamPort<T>,
     block_count: gasket::metrics::Counter,
 }
 
-impl Worker {
+impl<T> Worker<T>
+where
+    T: Send + Sync,
+{
     pub fn new(
         plexer: ProtocolChannel,
         upstream: UpstreamPort,
-        downstream: DownstreamPort,
+        downstream: DownstreamPort<T>,
     ) -> Self {
         let client = OuroborosClient::new(plexer);
 
@@ -56,7 +61,10 @@ impl Worker {
     }
 }
 
-impl gasket::runtime::Worker for Worker {
+impl<A> gasket::runtime::Worker for Worker<A>
+where
+    A: SendAdapter<BlockFetchEvent>,
+{
     fn metrics(&self) -> gasket::metrics::Registry {
         gasket::metrics::Builder::new()
             .with_counter("fetched_blocks", &self.block_count)

@@ -21,14 +21,16 @@ pub enum BlockFetchEvent {
 }
 
 // ports used by plexer
-pub type MuxOutputPort = gasket::messaging::OutputPort<(u16, multiplexer::Payload)>;
-pub type DemuxInputPort = gasket::messaging::InputPort<multiplexer::Payload>;
+pub type MuxOutputPort = gasket::messaging::crossbeam::OutputPort<(u16, multiplexer::Payload)>;
+pub type DemuxInputPort = gasket::messaging::crossbeam::InputPort<multiplexer::Payload>;
 
 // ports used by mini-protocols
-pub type MuxInputPort = gasket::messaging::InputPort<(u16, multiplexer::Payload)>;
-pub type DemuxOutputPort = gasket::messaging::OutputPort<multiplexer::Payload>;
+pub type MuxInputPort = gasket::messaging::crossbeam::InputPort<(u16, multiplexer::Payload)>;
+pub type DemuxOutputPort = gasket::messaging::crossbeam::OutputPort<multiplexer::Payload>;
 
-#[derive(Debug)]
+// final output port
+pub type DownstreamPort<A> = gasket::messaging::OutputPort<A, BlockFetchEvent>;
+
 pub struct ProtocolChannel(pub u16, pub MuxOutputPort, pub DemuxInputPort);
 
 impl multiplexer::agents::Channel for ProtocolChannel {
@@ -61,14 +63,14 @@ impl multiplexer::agents::Channel for ProtocolChannel {
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("client error: {0}")]
-    ClientError(String),
+    #[error("{0}")]
+    Client(String),
 
-    #[error("parse error: {0}")]
-    ParseError(String),
+    #[error("{0}")]
+    Parse(String),
 
-    #[error("server error: {0}")]
-    ServerError(String),
+    #[error("{0}")]
+    Server(String),
 
     #[error("{0}")]
     Message(String),
@@ -79,15 +81,15 @@ pub enum Error {
 
 impl Error {
     pub fn client(error: impl ToString) -> Error {
-        Error::ClientError(error.to_string())
+        Error::Client(error.to_string())
     }
 
     pub fn parse(error: impl ToString) -> Error {
-        Error::ParseError(error.to_string())
+        Error::Parse(error.to_string())
     }
 
     pub fn server(error: impl ToString) -> Error {
-        Error::ServerError(error.to_string())
+        Error::Server(error.to_string())
     }
 
     pub fn message(error: impl ToString) -> Error {
