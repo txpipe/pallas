@@ -6,7 +6,7 @@ use crate::common::Point;
 
 use super::{Message, State};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum Error {
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
