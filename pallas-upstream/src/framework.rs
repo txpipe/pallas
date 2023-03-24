@@ -97,7 +97,7 @@ impl Error {
     }
 
     pub fn custom(error: Box<dyn std::error::Error>) -> Error {
-        Error::Custom(format!("{}", error))
+        Error::Custom(format!("{error}"))
     }
 }
 

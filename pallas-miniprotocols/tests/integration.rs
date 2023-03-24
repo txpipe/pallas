@@ -2,7 +2,7 @@ use pallas_miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     handshake::{self, Confirmation},
-    txsubmission::{self, EraTxBody, EraTxId, Reply, Server, TxIdAndSize},
+    txsubmission::{self, EraTxId, Reply, TxIdAndSize},
     Point, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
     PROTOCOL_N2N_TX_SUBMISSION,
 };
@@ -62,14 +62,14 @@ pub fn chainsync_history_happy_path() {
     assert!(matches!(client.state(), chainsync::State::Idle));
 
     match point {
-        Some(point) => assert_eq!(point, known_point.clone()),
+        Some(point) => assert_eq!(point, known_point),
         None => panic!("expected point"),
     }
 
     let next = client.request_next().unwrap();
 
     match next {
-        NextResponse::RollBackward(point, _) => assert_eq!(point, known_point.clone()),
+        NextResponse::RollBackward(point, _) => assert_eq!(point, known_point),
         _ => panic!("expected rollback"),
     }
 
@@ -142,7 +142,7 @@ pub fn blockfetch_happy_path() {
 
     let mut client = blockfetch::Client::new(blockfetch);
 
-    let range_ok = client.request_range((known_point.clone(), known_point.clone()));
+    let range_ok = client.request_range((known_point.clone(), known_point));
 
     assert!(matches!(client.state(), blockfetch::State::Streaming));
 
@@ -227,8 +227,8 @@ pub fn txsubmission_server_happy_path() {
     ));
 
     match server.receive_next_reply() {
-        Ok(Reply::Done) => return, // Server aint havin none of our sh*t
+        Ok(Reply::Done) => (), // Server aint havin none of our sh*t
         Ok(Reply::TxIds(tx_ids)) => assert_eq!(tx_ids.len(), 3),
-        Ok(_) | Err(_) => assert!(false),
+        Ok(_) | Err(_) => unreachable!(),
     }
 }

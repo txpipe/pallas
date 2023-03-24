@@ -44,19 +44,18 @@ mod tests {
     #[test]
     fn known_fee_matches() {
         // TODO: expand this test to include more test blocks
-        let block_idx = 1;
         let block_str = include_str!("../../test_data/byron4.block");
 
-        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {block_idx}"));
+        let block_bytes = hex::decode(block_str).expect("bad block file");
         let block = crate::MultiEraBlock::decode_byron(&block_bytes).unwrap();
         let txs = block.txs();
 
         // don't want to pass if we don't have tx in the block
-        assert!(txs.len() > 0);
+        assert!(!txs.is_empty());
 
         for tx in txs.iter().take(1) {
             let byron = tx.as_byron().unwrap();
-            let fee = compute_byron_fee(&byron, None);
+            let fee = compute_byron_fee(byron, None);
             assert_eq!(fee, 171070);
         }
     }

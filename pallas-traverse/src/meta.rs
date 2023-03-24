@@ -2,12 +2,6 @@ use pallas_primitives::alonzo;
 
 use crate::MultiEraMeta;
 
-impl Default for MultiEraMeta<'_> {
-    fn default() -> Self {
-        MultiEraMeta::Empty
-    }
-}
-
 impl<'b> MultiEraMeta<'b> {
     pub fn as_alonzo(&self) -> Option<&alonzo::Metadata> {
         match self {

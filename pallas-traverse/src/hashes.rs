@@ -144,7 +144,7 @@ impl ComputeHash<32> for babbage::DatumOption {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Era, MultiEraBlock, MultiEraTx};
+    use crate::{Era, MultiEraTx};
 
     use super::{ComputeHash, OriginalHash};
     use pallas_codec::utils::Int;
@@ -159,12 +159,11 @@ mod tests {
         type BlockWrapper<'b> = (u16, byron::MintedBlock<'b>);
 
         // TODO: expand this test to include more test blocks
-        let block_idx = 1;
         let block_str = include_str!("../../test_data/byron1.block");
 
-        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {block_idx}"));
-        let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
-            .expect(&format!("error decoding cbor for file {block_idx}"));
+        let block_bytes = hex::decode(block_str).expect("bad block file");
+        let (_, block_model): BlockWrapper =
+            minicbor::decode(&block_bytes[..]).expect("error decoding cbor for file");
 
         let computed_hash = block_model.header.original_hash();
 
@@ -179,12 +178,11 @@ mod tests {
         type BlockWrapper<'b> = (u16, alonzo::MintedBlock<'b>);
 
         // TODO: expand this test to include more test blocks
-        let block_idx = 1;
         let block_str = include_str!("../../test_data/alonzo1.block");
 
-        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {block_idx}"));
-        let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
-            .expect(&format!("error decoding cbor for file {block_idx}"));
+        let block_bytes = hex::decode(block_str).expect("bad block file");
+        let (_, block_model): BlockWrapper =
+            minicbor::decode(&block_bytes[..]).expect("error decoding cbor for file");
 
         let valid_hashes = vec![
             "8ae0cd531635579a9b52b954a840782d12235251fb1451e5c699e864c677514a",
@@ -209,9 +207,10 @@ mod tests {
         let block_idx = 1;
         let block_str = include_str!("../../test_data/babbage1.block");
 
-        let block_bytes = hex::decode(block_str).expect(&format!("bad block file {block_idx}"));
+        let block_bytes =
+            hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {block_idx}"));
         let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
-            .expect(&format!("error decoding cbor for file {block_idx}"));
+            .unwrap_or_else(|_| panic!("error decoding cbor for file {block_idx}"));
 
         let valid_hashes = vec!["3fad302595665b004971a6b76909854a39a0a7ecdbff3692f37b77ae37dbe882"];
 
