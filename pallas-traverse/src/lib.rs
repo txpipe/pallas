@@ -103,11 +103,12 @@ pub enum MultiEraCert<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub enum MultiEraMeta<'b> {
-    NotApplicable,
+    #[default]
     Empty,
+    NotApplicable,
     AlonzoCompatible(&'b alonzo::Metadata),
 }
 

@@ -50,7 +50,7 @@ fn one_way_small_sequence_of_payloads() {
     active_plexer.muxer.spawn();
     passive_plexer.demuxer.spawn();
 
-    for _ in [0..100] {
+    for _ in 0..100 {
         let payload = random_payload(50);
         sender_channel.enqueue_chunk(payload.clone()).unwrap();
         let received_payload = receiver_channel.dequeue_chunk().unwrap();

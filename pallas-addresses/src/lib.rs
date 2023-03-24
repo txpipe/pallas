@@ -734,17 +734,17 @@ mod tests {
     use super::*;
 
     const MAINNET_TEST_VECTORS: &[(&str, u8)] = &[
-        ("addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x", 00u8),
-        ("addr1z8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gten0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgs9yc0hh", 01u8),
-        ("addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve", 02u8),
-        ("addr1x8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gt7r0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shskhj42g", 03u8),
-        ("addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k", 04u8),
-        ("addr128phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtupnz75xxcrtw79hu", 05u8),
-        ("addr1vx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzers66hrl8", 06u8),
-        ("addr1w8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcyjy7wx", 07u8),
+        ("addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x", 0u8),
+        ("addr1z8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gten0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgs9yc0hh", 1u8),
+        ("addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve", 2u8),
+        ("addr1x8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gt7r0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shskhj42g", 3u8),
+        ("addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k", 4u8),
+        ("addr128phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtupnz75xxcrtw79hu", 5u8),
+        ("addr1vx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzers66hrl8", 6u8),
+        ("addr1w8phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcyjy7wx", 7u8),
         ("stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw", 14u8),
         ("stake178phkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcccycj5", 15u8),
-        ("37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na", 08u8),
+        ("37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na", 8u8),
     ];
 
     const PAYMENT_PUBLIC_KEY: &str =
@@ -820,7 +820,7 @@ mod tests {
                         }
                         ShelleyPaymentPart::Script(hash) => {
                             let (_, expected) = &decode_bech32(SCRIPT_HASH).unwrap();
-                            let expected = &Hash::<28>::from_str(&hex::encode(&expected)).unwrap();
+                            let expected = &Hash::<28>::from_str(&hex::encode(expected)).unwrap();
                             assert_eq!(hash, expected);
                         }
                     };
@@ -832,7 +832,7 @@ mod tests {
                         }
                         ShelleyDelegationPart::Script(hash) => {
                             let (_, expected) = &decode_bech32(SCRIPT_HASH).unwrap();
-                            let expected = &Hash::<28>::from_str(&hex::encode(&expected)).unwrap();
+                            let expected = &Hash::<28>::from_str(&hex::encode(expected)).unwrap();
                             assert_eq!(hash, expected);
                         }
                         ShelleyDelegationPart::Pointer(ptr) => {
@@ -850,13 +850,12 @@ mod tests {
                     }
                     StakePayload::Script(hash) => {
                         let (_, expected) = &decode_bech32(SCRIPT_HASH).unwrap();
-                        let expected = &Hash::<28>::from_str(&hex::encode(&expected)).unwrap();
+                        let expected = &Hash::<28>::from_str(&hex::encode(expected)).unwrap();
                         assert_eq!(hash, expected);
                     }
                 },
                 Address::Byron(_) => {
                     // byron has it's own payload tests
-                    ()
                 }
             };
         }

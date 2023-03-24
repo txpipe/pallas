@@ -764,13 +764,13 @@ mod tests {
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
-            let bytes = hex::decode(block_str).expect(&format!("bad block file {idx}"));
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-            let block: BlockWrapper =
-                minicbor::decode(&bytes[..]).expect(&format!("error decoding cbor for file {idx}"));
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
             let bytes2 = minicbor::to_vec(block)
-                .expect(&format!("error encoding block cbor for file {idx}"));
+                .unwrap_or_else(|_| panic!("error encoding block cbor for file {idx}"));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }

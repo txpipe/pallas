@@ -96,10 +96,10 @@ mod tests {
         for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
             println!("decoding json block {}", idx + 1);
 
-            let bytes = hex::decode(block_str).expect(&format!("bad block file {idx}"));
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-            let (_, block): BlockWrapper =
-                minicbor::decode(&bytes[..]).expect(&format!("error decoding cbor for file {idx}"));
+            let (_, block): BlockWrapper = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
             let mut datums = jsonl_str.lines();
 
@@ -126,10 +126,10 @@ mod tests {
         for (idx, (block_str, jsonl_str)) in test_blocks.iter().enumerate() {
             println!("decoding json block {}", idx + 1);
 
-            let bytes = hex::decode(block_str).expect(&format!("bad block file {idx}"));
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-            let (_, block): BlockWrapper =
-                minicbor::decode(&bytes[..]).expect(&format!("error decoding cbor for file {idx}"));
+            let (_, block): BlockWrapper = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
             let mut scripts = jsonl_str.lines();
 

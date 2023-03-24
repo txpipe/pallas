@@ -2,7 +2,7 @@ use pallas::network::{
     miniprotocols::{
         blockfetch,
         handshake::{self, n2n::VersionTable},
-        Point, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_HANDSHAKE, TESTNET_MAGIC,
+        Point, MAINNET_MAGIC, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_HANDSHAKE,
     },
     multiplexer::{bearers::Bearer, StdPlexer},
 };
@@ -10,7 +10,7 @@ use pallas::network::{
 fn main() {
     env_logger::init();
 
-    let bearer = Bearer::connect_tcp("relays-new.cardano-testnet.iohkdev.io:3001").unwrap();
+    let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
 
     let mut plexer = StdPlexer::new(bearer);
     let handshake = plexer.use_client_channel(PROTOCOL_N2N_HANDSHAKE);
@@ -19,15 +19,15 @@ fn main() {
     plexer.muxer.spawn();
     plexer.demuxer.spawn();
 
-    let versions = VersionTable::v4_and_above(TESTNET_MAGIC);
+    let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
     let mut hs_client = handshake::N2NClient::new(handshake);
     let handshake = hs_client.handshake(versions).unwrap();
 
     assert!(matches!(handshake, handshake::Confirmation::Accepted(..)));
 
     let point = Point::Specific(
-        63528597,
-        hex::decode("3f3d81c7b88f0fa28867541c5fea8794125cccf6d6c9ee0037a1dbb064130dfd").unwrap(),
+        49159253,
+        hex::decode("d034a2d0e4c3076f57368ed59319010c265718f0923057f8ff914a3b6bfd1314").unwrap(),
     );
 
     let mut bf_client = blockfetch::Client::new(blockfetch);
