@@ -51,7 +51,7 @@ impl multiplexer::agents::Channel for ProtocolChannel {
     }
 
     fn dequeue_chunk(&mut self) -> Result<multiplexer::Payload, multiplexer::agents::ChannelError> {
-        match self.2.recv_or_idle() {
+        match self.2.recv() {
             Ok(msg) => Ok(msg.payload),
             Err(error) => {
                 error!(?error, "dequeue chunk failed");
