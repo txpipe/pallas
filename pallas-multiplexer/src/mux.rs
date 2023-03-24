@@ -44,7 +44,7 @@ where
     }
 
     pub fn tick(&mut self) -> TickOutcome {
-        match self.ingress.recv_timeout(Duration::from_millis(500)) {
+        match self.ingress.recv_timeout(Duration::from_millis(1)) {
             Ok((id, payload)) => {
                 let segment = Segment::new(self.clock, id, payload);
 
