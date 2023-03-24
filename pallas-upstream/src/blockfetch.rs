@@ -1,5 +1,5 @@
 use gasket::messaging::SendAdapter;
-use tracing::{debug, error, instrument};
+use tracing::{error, info, instrument};
 
 use pallas_crypto::hash::Hash;
 use pallas_miniprotocols::blockfetch;
@@ -39,14 +39,16 @@ where
         }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(slot, %hash))]
     fn fetch_block(&mut self, slot: u64, hash: Hash<32>) -> Result<Vec<u8>, gasket::error::Error> {
+        info!("fetching block");
+
         match self
             .client
             .fetch_single(Point::Specific(slot, hash.to_vec()))
         {
             Ok(x) => {
-                debug!("block fetch succeded");
+                info!("block fetch succeeded");
                 Ok(x)
             }
             Err(blockfetch::Error::ChannelError(x)) => {
@@ -77,6 +79,7 @@ where
         let msg = match msg.payload {
             ChainSyncEvent::RollForward(s, h) => {
                 let body = self.fetch_block(s, h)?;
+                self.block_count.inc(1);
                 BlockFetchEvent::RollForward(s, h, body)
             }
             ChainSyncEvent::Rollback(x) => BlockFetchEvent::Rollback(x),

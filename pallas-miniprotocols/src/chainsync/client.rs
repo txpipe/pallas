@@ -149,7 +149,6 @@ where
         }
     }
 
-    #[instrument(skip_all)]
     pub fn find_intersect(&mut self, points: Vec<Point>) -> Result<IntersectResponse, Error> {
         self.send_find_intersect(points)?;
         self.recv_intersect_response()
@@ -195,7 +194,6 @@ where
         }
     }
 
-    #[instrument(skip_all)]
     pub fn request_next(&mut self) -> Result<NextResponse<O>, Error> {
         debug!("requesting next block");
 
@@ -212,7 +210,6 @@ where
         point.ok_or(Error::IntersectionNotFound)
     }
 
-    #[instrument(skip_all)]
     pub fn intersect_tip(&mut self) -> Result<Point, Error> {
         let (_, Tip(point, _)) = self.find_intersect(vec![Point::Origin])?;
 

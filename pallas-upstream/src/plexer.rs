@@ -92,6 +92,7 @@ pub struct Worker {
     channel3_out: Option<DemuxOutputPort>,
     demuxer: Option<Demuxer<GasketEgress>>,
     muxer: Option<Muxer<GasketIngress>>,
+    ops_count: gasket::metrics::Counter,
 }
 
 impl Worker {
@@ -110,6 +111,7 @@ impl Worker {
             channel3_out,
             demuxer: None,
             muxer: None,
+            ops_count: Default::default(),
         }
     }
 
@@ -141,7 +143,9 @@ impl Worker {
 impl gasket::runtime::Worker for Worker {
     fn metrics(&self) -> gasket::metrics::Registry {
         // TODO: define networking metrics (bytes in / out, etc)
-        gasket::metrics::Builder::new().build()
+        gasket::metrics::Builder::new()
+            .with_counter("ops_count", &self.ops_count)
+            .build()
     }
 
     fn bootstrap(&mut self) -> Result<(), gasket::error::Error> {
@@ -195,6 +199,8 @@ impl gasket::runtime::Worker for Worker {
 
         mux_res.unwrap()?;
         demux_res.unwrap()?;
+
+        self.ops_count.inc(1);
 
         Ok(gasket::runtime::WorkOutcome::Partial)
     }

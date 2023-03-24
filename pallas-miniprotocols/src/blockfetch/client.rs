@@ -1,6 +1,7 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
 use thiserror::Error;
+use tracing::{debug, info, warn};
 
 use crate::common::Point;
 
@@ -125,10 +126,12 @@ where
     pub fn recv_while_busy(&mut self) -> Result<HasBlocks, Error> {
         match self.recv_message()? {
             Message::StartBatch => {
+                info!("batch start");
                 self.0 = State::Streaming;
                 Ok(Some(()))
             }
             Message::NoBlocks => {
+                warn!("no blocks");
                 self.0 = State::Idle;
                 Ok(None)
             }
@@ -138,6 +141,7 @@ where
 
     pub fn request_range(&mut self, range: Range) -> Result<HasBlocks, Error> {
         self.send_request_range(range)?;
+        debug!("range requested");
         self.recv_while_busy()
     }
 
@@ -157,6 +161,7 @@ where
             .ok_or(Error::NoBlocks)?;
 
         let body = self.recv_while_streaming()?.ok_or(Error::InvalidInbound)?;
+        debug!("body received");
 
         match self.recv_while_streaming()? {
             Some(_) => Err(Error::InvalidInbound),
@@ -170,6 +175,7 @@ where
         let mut all = vec![];
 
         while let Some(block) = self.recv_while_streaming()? {
+            debug!("body received");
             all.push(block);
         }
 
