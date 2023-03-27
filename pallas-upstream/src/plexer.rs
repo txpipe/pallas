@@ -1,97 +1,68 @@
+use std::borrow::Cow;
+use std::time::Duration;
+
 use gasket::error::AsWorkError;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use pallas_miniprotocols::handshake;
-use pallas_multiplexer as multiplexer;
-use pallas_multiplexer::bearers::Bearer;
-use pallas_multiplexer::demux::{Demuxer, Egress};
-use pallas_multiplexer::mux::{Ingress, Muxer};
-use pallas_multiplexer::sync::SyncPlexer;
 
-use crate::framework::*;
+use crate::newplexer::MioPlexer;
+use crate::{framework::*, newplexer};
 
-struct GasketEgress(DemuxOutputPort);
+struct GasketPlexerQueue {
+    input: MuxInputPort,
+    channel2_out: Option<DemuxOutputPort>,
+    channel3_out: Option<DemuxOutputPort>,
+}
 
-impl Egress for GasketEgress {
-    fn send(
+impl newplexer::PlexerQueue for GasketPlexerQueue {
+    fn demux_dispatch(
         &mut self,
-        payload: multiplexer::Payload,
-    ) -> Result<(), multiplexer::demux::EgressError> {
-        self.0
-            .send(gasket::messaging::Message::from(payload))
-            .map_err(|_| multiplexer::demux::EgressError(vec![]))
-    }
-}
-
-struct GasketIngress(MuxInputPort);
-
-impl Ingress for GasketIngress {
-    fn recv_timeout(
-        &mut self,
-        duration: std::time::Duration,
-    ) -> Result<multiplexer::Message, multiplexer::mux::IngressError> {
-        self.0
-            .recv_timeout(duration)
-            .map(|msg| msg.payload)
-            .map_err(|err| match err {
-                gasket::error::Error::RecvIdle => multiplexer::mux::IngressError::Empty,
-                _ => multiplexer::mux::IngressError::Disconnected,
-            })
-    }
-}
-
-type IsBusy = bool;
-
-fn handle_demux_outcome(
-    outcome: Result<multiplexer::demux::TickOutcome, multiplexer::demux::DemuxError>,
-) -> Result<IsBusy, gasket::error::Error> {
-    match outcome {
-        Ok(x) => match x {
-            multiplexer::demux::TickOutcome::Busy => Ok(true),
-            multiplexer::demux::TickOutcome::Idle => Ok(false),
-        },
-        Err(err) => match err {
-            multiplexer::demux::DemuxError::BearerError(err) => {
-                error!("{}", err.kind());
-                Err(gasket::error::Error::ShouldRestart)
-            }
-            multiplexer::demux::DemuxError::EgressDisconnected(x, _) => {
-                error!(protocol = x, "egress disconnected");
-                Err(gasket::error::Error::WorkPanic)
-            }
-            multiplexer::demux::DemuxError::EgressUnknown(x, _) => {
-                error!(protocol = x, "unknown egress");
-                Err(gasket::error::Error::WorkPanic)
-            }
-        },
-    }
-}
-
-fn handle_mux_outcome(
-    outcome: multiplexer::mux::TickOutcome,
-) -> Result<IsBusy, gasket::error::Error> {
-    match outcome {
-        multiplexer::mux::TickOutcome::Busy => Ok(true),
-        multiplexer::mux::TickOutcome::Idle => Ok(false),
-        multiplexer::mux::TickOutcome::BearerError(err) => {
-            warn!(%err);
-            Err(gasket::error::Error::ShouldRestart)
+        protocol: newplexer::Protocol,
+        payload: newplexer::Payload,
+    ) -> Result<(), newplexer::Error> {
+        match protocol {
+            2 => match &mut self.channel2_out {
+                Some(output) => output
+                    .send(payload.into_owned().into())
+                    .map_err(|_| newplexer::Error::InvalidProtocol(2)),
+                None => Err(newplexer::Error::InvalidProtocol(2)),
+            },
+            3 => match &mut self.channel3_out {
+                Some(output) => output
+                    .send(payload.into_owned().into())
+                    .map_err(|_| newplexer::Error::InvalidProtocol(2)),
+                None => Err(newplexer::Error::InvalidProtocol(2)),
+            },
+            x => Err(newplexer::Error::InvalidProtocol(x)),
         }
-        multiplexer::mux::TickOutcome::IngressDisconnected => {
-            error!("ingress disconnected");
-            Err(gasket::error::Error::WorkPanic)
+    }
+
+    fn mux_peek(&mut self) -> Option<(newplexer::Protocol, newplexer::Payload)> {
+        match self.input.try_recv() {
+            Ok(x) => {
+                let (protocol, payload) = x.payload;
+                debug!(protocol, "mux request");
+                Some((protocol, Cow::Owned(payload)))
+            }
+            Err(x) => match x {
+                gasket::error::Error::RecvIdle => None,
+                _ => todo!(),
+            },
         }
+    }
+
+    fn mux_commit(&mut self) {
+        // TODO
     }
 }
 
 pub struct Worker {
     peer_address: String,
     network_magic: u64,
-    input: MuxInputPort,
-    channel2_out: Option<DemuxOutputPort>,
-    channel3_out: Option<DemuxOutputPort>,
-    demuxer: Option<Demuxer<GasketEgress>>,
-    muxer: Option<Muxer<GasketIngress>>,
+    plexer: MioPlexer,
+    queue: GasketPlexerQueue,
+    bearer: Option<mio::Token>,
     ops_count: gasket::metrics::Counter,
 }
 
@@ -106,31 +77,45 @@ impl Worker {
         Self {
             peer_address,
             network_magic,
-            input,
-            channel2_out,
-            channel3_out,
-            demuxer: None,
-            muxer: None,
+            queue: GasketPlexerQueue {
+                input,
+                channel2_out,
+                channel3_out,
+            },
+            bearer: None,
+            plexer: MioPlexer::new(),
             ops_count: Default::default(),
         }
     }
 
-    fn handshake(&self, bearer: Bearer) -> Result<Bearer, gasket::error::Error> {
-        info!("excuting handshake");
+    fn handshake(&mut self) -> Result<(), gasket::error::Error> {
+        info!("executing handshake");
 
-        let plexer = SyncPlexer::new(bearer, 0);
+        let (channel_to_plexer, plexer_from_channel) = std::sync::mpsc::channel();
+        let (plexer_to_channel, channel_from_plexer) = std::sync::mpsc::channel();
+        let channel = newplexer::SimpleChannel(0, channel_to_plexer, channel_from_plexer);
+
+        let mut queue = newplexer::SimplePlexerQueue::new(plexer_from_channel);
+        queue.register_channel(0, plexer_to_channel);
+
         let versions = handshake::n2n::VersionTable::v7_and_above(self.network_magic);
-        let mut client = handshake::Client::new(plexer);
+        let mut client = handshake::Client::new(channel);
 
-        let output = client.handshake(versions).or_panic()?;
+        let thread = std::thread::spawn(move || client.handshake(versions));
+
+        while !thread.is_finished() {
+            self.plexer
+                .poll(&mut queue, Duration::from_millis(50))
+                .or_panic()?;
+        }
+
+        let output = thread.join().unwrap().or_panic()?;
         debug!("handshake output: {:?}", output);
-
-        let bearer = client.unwrap().unwrap();
 
         match output {
             handshake::Confirmation::Accepted(version, _) => {
                 info!(version, "connected to upstream peer");
-                Ok(bearer)
+                Ok(())
             }
             _ => {
                 error!("couldn't agree on handshake version");
@@ -151,56 +136,21 @@ impl gasket::runtime::Worker for Worker {
     fn bootstrap(&mut self) -> Result<(), gasket::error::Error> {
         debug!("connecting muxer");
 
-        let bearer = multiplexer::bearers::Bearer::connect_tcp(&self.peer_address).or_restart()?;
+        self.bearer = self
+            .plexer
+            .connect_tcp_bearer(&self.peer_address)
+            .or_panic()?
+            .into();
 
-        let bearer = self.handshake(bearer)?;
-
-        let mut demuxer = Demuxer::new(bearer.clone());
-
-        if let Some(c2) = &self.channel2_out {
-            demuxer.register(2, GasketEgress(c2.clone()));
-        }
-
-        if let Some(c3) = &self.channel3_out {
-            demuxer.register(3, GasketEgress(c3.clone()));
-        }
-
-        self.demuxer = Some(demuxer);
-
-        let muxer = Muxer::new(bearer, GasketIngress(self.input.clone()));
-        self.muxer = Some(muxer);
+        self.handshake()?;
 
         Ok(())
     }
 
     fn work(&mut self) -> gasket::runtime::WorkResult {
-        let muxer = self.muxer.as_mut().unwrap();
-        let demuxer = self.demuxer.as_mut().unwrap();
-
-        let span = tracing::span::Span::current();
-
-        let mut mux_res = None;
-        let mut demux_res = None;
-
-        rayon::scope(|s| {
-            s.spawn(|_| {
-                let _guard = span.enter();
-                info!("mux ticking");
-                let outcome = muxer.tick();
-                mux_res = Some(handle_mux_outcome(outcome));
-            });
-            s.spawn(|_| {
-                let _guard = span.enter();
-                info!("demux ticking");
-                let outcome = demuxer.tick();
-                demux_res = Some(handle_demux_outcome(outcome));
-            });
-        });
-
-        mux_res.unwrap()?;
-        demux_res.unwrap()?;
-
-        self.ops_count.inc(1);
+        self.plexer
+            .poll(&mut self.queue, Duration::from_millis(50))
+            .or_restart()?;
 
         Ok(gasket::runtime::WorkOutcome::Partial)
     }

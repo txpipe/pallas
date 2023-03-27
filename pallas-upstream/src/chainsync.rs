@@ -47,16 +47,19 @@ impl Worker {
 
         match value {
             Intersection::Origin => {
+                info!("intersecting origin");
                 let point = self.client.intersect_origin().or_restart()?;
 
                 Ok(Some(point))
             }
             Intersection::Tip => {
+                info!("intersecting tip");
                 let point = self.client.intersect_tip().or_restart()?;
 
                 Ok(Some(point))
             }
             Intersection::Breadcrumbs(points) => {
+                info!("intersecting breadcrumbs");
                 let (point, _) = self.client.find_intersect(Vec::from(points)).or_restart()?;
 
                 Ok(point)

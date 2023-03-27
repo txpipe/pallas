@@ -3,6 +3,7 @@
 use crate::Payload;
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
+use tracing::error;
 
 #[derive(Debug, Error)]
 pub enum ChannelError {
@@ -41,7 +42,11 @@ where
     match maybe_msg {
         Ok(msg) => Decoding::Done(msg, decoder.position()),
         Err(err) if err.is_end_of_input() => Decoding::NotEnoughData,
-        Err(err) => Decoding::UnexpectedError(Box::new(err)),
+        Err(err) => {
+            error!(?err);
+            error!("{}", hex::encode(buffer));
+            Decoding::UnexpectedError(Box::new(err))
+        }
     }
 }
 

@@ -96,8 +96,8 @@ impl Error {
         Error::Message(error.to_string())
     }
 
-    pub fn custom(error: Box<dyn std::error::Error>) -> Error {
-        Error::Custom(format!("{error}"))
+    pub fn custom(error: impl Into<Box<dyn std::error::Error>>) -> Error {
+        Error::Custom(format!("{}", error.into()))
     }
 }
 
