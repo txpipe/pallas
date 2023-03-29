@@ -1,3 +1,9 @@
+use std::ops::Index;
+use bech32::{self, ToBase32, Variant};
+use blake2::digest::{Update, VariableOutput};
+use blake2::{Blake2bVar};
+use hex::{self};
+
 const ACCT_SK: &'static str = "acct_sk";
 const ACCT_VK: &'static str = "acct_vk";
 const ACCT_XSK: &'static str = "acct_xsk";
@@ -125,15 +131,15 @@ pub const KEYS: Keys<'static> = Keys {
     vrf_vk: VRF_VK
 };
 
-const ASSET: &'static str = "asset";
-const POOL: &'static str = "pool";
-const SCRIPT: &'static str = "script";
-const ADDR_VKH: &'static str = "addr_vkh";
-const ADDR_SHARED_VKH: &'static str = "addr_shared_vkh";
-const POLICY_VKH: &'static str = "policy_vkh";
-const STAKE_VKH: &'static str = "stake_vkh";
-const STAKE_SHARED_VKH: &'static str = "stake_shared_vkh";
-const VRF_VKH: &'static str = "vrf_vkh";
+const ASSET: &str = "asset";
+const POOL: &str = "pool";
+const SCRIPT: &str = "script";
+const ADDR_VKH: &str = "addr_vkh";
+const ADDR_SHARED_VKH: &str = "addr_shared_vkh";
+const POLICY_VKH: &str = "policy_vkh";
+const STAKE_VKH: &str = "stake_vkh";
+const STAKE_SHARED_VKH: &str = "stake_shared_vkh";
+const VRF_VKH: &str = "vrf_vkh";
 pub struct Hashes<'a> {
     asset: &'a str,
     pool: &'a str,
@@ -159,25 +165,49 @@ pub const HASHES: Hashes<'static> = Hashes {
 };
 
 
-const ADDR: &'static str = "addr";
-const ADDR_TEST: &'static str = "addr_test";
-const STAKE: &'static str = "stake";
-const STAKE_TEST: &'static str = "stake_test";
+const ADDR: &str = "addr";
+const ADDR_TEST: &str = "addr_test";
+const ASSET_FINGERPRINT: &str = "asset"; // CIP-14
+const STAKE: &str = "stake";
+const STAKE_TEST: &str = "stake_test";
 
 pub struct Miscellaneous<'a> {
     addr: &'a str,
     addr_test: &'a str,
+    asset: &'a str, // CIP-14
     stake: &'a str,
     stake_test: &'a str
 }
 
-
 pub const MISCELLANEOUS: Miscellaneous<'static> = Miscellaneous {
     addr: ADDR,
     addr_test: ADDR_TEST,
+    asset: ASSET_FINGERPRINT, // CIP-14
     stake: STAKE,
-    stake_test: STAKE_TEST
+    stake_test: STAKE_TEST,
 };
+
+pub fn user_facing_representation(
+    prefix: &str,
+    data_list: [&str; 2],
+) -> Result<String, bech32::Error> {
+
+    let combined_parts = data_list.join("");
+    let raw = hex::decode(combined_parts).unwrap();
+
+    let base32_combined: Vec<bech32::u5> = match prefix {
+        ASSET_FINGERPRINT => { // CIP-14
+            let mut hasher = Blake2bVar::new(20).unwrap();
+            hasher.update(&raw);
+            let mut buf = [0u8; 20];
+            hasher.finalize_variable(&mut buf).unwrap();
+            buf.to_base32()
+        },
+        _ => ToBase32::to_base32(&raw)
+    };
+
+    bech32::encode(prefix, base32_combined, Variant::Bech32)
+}
 
 #[cfg(test)]
 mod tests {
@@ -188,7 +218,6 @@ mod tests {
         assert_eq!(HASHES.asset, "asset");
     }
 
-
     #[test]
     fn keys_prefix_is_properly_set() {
         assert_eq!(KEYS.acct_shared_sk, "acct_shared_sk");
@@ -198,4 +227,28 @@ mod tests {
     fn asset_prefix_is_properly_set() {
         assert_eq!(MISCELLANEOUS.addr, "addr");
     }
+
+    #[test]
+    fn asset_generate_bech32_string_raw() {
+        let known_asset_fingerprint = "asset1gc4ekrawml97fm68l9sjd43lrf68ksdjttxh2y";
+
+        let society_asset_name = hex::encode("SOCIETY25LMB9259");
+        let society_policy = "023cec350597bdf2a2b6945e62e0111d9808caf7a9353a2ab91e8beb";
+
+        let data_list = [
+            society_policy,
+            society_asset_name.as_str(),
+        ];
+
+        if let Ok(af) = user_facing_representation(
+            MISCELLANEOUS.asset,
+            data_list,
+        ) {
+            let (decoded_prefix, _, _) = bech32::decode(&af).unwrap();
+            assert_eq!(decoded_prefix, MISCELLANEOUS.asset);
+            assert_eq!(af, known_asset_fingerprint);
+        }
+
+    }
+
 }
