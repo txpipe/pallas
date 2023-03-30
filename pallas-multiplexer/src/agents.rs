@@ -4,7 +4,7 @@ use crate::Payload;
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum ChannelError {
     #[error("channel is not connected, failed to send payload")]
     NotConnected(Option<Payload>),
