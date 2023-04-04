@@ -1,11 +1,8 @@
-pub use crate::cursor;
-
-pub use crate::framework::BlockFetchEvent;
-
-pub use crate::framework::DownstreamPort;
+pub use crate::framework::{BlockFetchEvent, Cursor, DownstreamPort, Intersection};
 
 pub mod n2n {
-    use crate::{blockfetch, chainsync, cursor::Cursor, framework::*, plexer};
+    use crate::{blockfetch, chainsync, framework::*, plexer};
+
     use gasket::{
         messaging::{SendAdapter, SendPort},
         runtime::Tether,
@@ -17,21 +14,23 @@ pub mod n2n {
         pub blockfetch_tether: Tether,
     }
 
-    pub struct Bootstrapper<A>
+    pub struct Bootstrapper<A, C>
     where
         A: SendAdapter<BlockFetchEvent>,
+        C: Cursor,
     {
-        cursor: Cursor,
+        cursor: C,
         peer_address: String,
         network_magic: u64,
         output: super::DownstreamPort<A>,
     }
 
-    impl<A> Bootstrapper<A>
+    impl<A, C> Bootstrapper<A, C>
     where
         A: SendAdapter<BlockFetchEvent> + 'static,
+        C: Cursor + 'static,
     {
-        pub fn new(cursor: Cursor, peer_address: String, network_magic: u64) -> Self {
+        pub fn new(cursor: C, peer_address: String, network_magic: u64) -> Self {
             Bootstrapper {
                 cursor,
                 peer_address,

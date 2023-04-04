@@ -5,7 +5,6 @@ use pallas_miniprotocols::chainsync::{HeaderContent, NextResponse};
 use pallas_miniprotocols::{chainsync, Point};
 use pallas_traverse::MultiEraHeader;
 
-use crate::cursor::{Cursor, Intersection};
 use crate::framework::*;
 
 fn to_traverse(header: &chainsync::HeaderContent) -> Result<MultiEraHeader<'_>, Error> {
@@ -21,16 +20,22 @@ pub type DownstreamPort = gasket::messaging::crossbeam::OutputPort<ChainSyncEven
 
 pub type OuroborosClient = chainsync::N2NClient<ProtocolChannel>;
 
-pub struct Worker {
-    chain_cursor: Cursor,
+pub struct Worker<C>
+where
+    C: Cursor,
+{
+    chain_cursor: C,
     client: OuroborosClient,
     downstream: DownstreamPort,
     block_count: gasket::metrics::Counter,
     chain_tip: gasket::metrics::Gauge,
 }
 
-impl Worker {
-    pub fn new(chain_cursor: Cursor, plexer: ProtocolChannel, downstream: DownstreamPort) -> Self {
+impl<C> Worker<C>
+where
+    C: Cursor,
+{
+    pub fn new(chain_cursor: C, plexer: ProtocolChannel, downstream: DownstreamPort) -> Self {
         let client = OuroborosClient::new(plexer);
 
         Self {
@@ -43,7 +48,7 @@ impl Worker {
     }
 
     fn intersect(&mut self) -> Result<Option<Point>, gasket::error::Error> {
-        let value = self.chain_cursor.read();
+        let value = self.chain_cursor.intersection();
 
         match value {
             Intersection::Origin => {
@@ -78,12 +83,12 @@ impl Worker {
                     .send(ChainSyncEvent::RollForward(h.slot(), h.hash()).into())?;
 
                 debug!(slot = h.slot(), hash = %h.hash(), "chain sync roll forward");
-                self.chain_tip.set(t.1 as i64);
+                self.chain_tip.set(t.0.slot_or_default() as i64);
                 Ok(())
             }
             chainsync::NextResponse::RollBackward(p, t) => {
                 self.downstream.send(ChainSyncEvent::Rollback(p).into())?;
-                self.chain_tip.set(t.1 as i64);
+                self.chain_tip.set(t.0.slot_or_default() as i64);
                 Ok(())
             }
             chainsync::NextResponse::Await => {
@@ -106,7 +111,10 @@ impl Worker {
     }
 }
 
-impl gasket::runtime::Worker for Worker {
+impl<C> gasket::runtime::Worker for Worker<C>
+where
+    C: Cursor + Sync + Send,
+{
     fn metrics(&self) -> gasket::metrics::Registry {
         gasket::metrics::Builder::new()
             .with_counter("received_blocks", &self.block_count)

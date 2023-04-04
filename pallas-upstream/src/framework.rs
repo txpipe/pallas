@@ -8,6 +8,17 @@ pub type BlockSlot = u64;
 pub type BlockHash = Hash<32>;
 pub type RawBlock = Vec<u8>;
 
+#[derive(Clone)]
+pub enum Intersection {
+    Tip,
+    Origin,
+    Breadcrumbs(Vec<Point>),
+}
+
+pub trait Cursor: Send + Sync {
+    fn intersection(&self) -> Intersection;
+}
+
 #[derive(Debug, Clone)]
 pub enum ChainSyncEvent {
     RollForward(BlockSlot, BlockHash),
