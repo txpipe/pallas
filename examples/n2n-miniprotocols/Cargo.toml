@@ -9,7 +9,5 @@ publish = false
 [dependencies]
 pallas = { path = "../../pallas" }
 net2 = "0.2.37"
-env_logger = "0.10.0"
 hex = "0.4.3"
 log = "0.4.16"
-

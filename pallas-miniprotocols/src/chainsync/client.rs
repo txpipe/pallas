@@ -108,35 +108,38 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<O>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<O>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
 
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<O>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<O>, Error> {
         self.assert_agency_is_theirs()?;
 
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
 
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn send_find_intersect(&mut self, points: Vec<Point>) -> Result<(), Error> {
+    pub async fn send_find_intersect(&mut self, points: Vec<Point>) -> Result<(), Error> {
         let msg = Message::FindIntersect(points);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Intersect;
 
         Ok(())
     }
 
-    pub fn recv_intersect_response(&mut self) -> Result<IntersectResponse, Error> {
-        match self.recv_message()? {
+    pub async fn recv_intersect_response(&mut self) -> Result<IntersectResponse, Error> {
+        match self.recv_message().await? {
             Message::IntersectFound(point, tip) => {
                 self.0 = State::Idle;
                 Ok((Some(point), tip))
@@ -149,21 +152,21 @@ where
         }
     }
 
-    pub fn find_intersect(&mut self, points: Vec<Point>) -> Result<IntersectResponse, Error> {
-        self.send_find_intersect(points)?;
-        self.recv_intersect_response()
+    pub async fn find_intersect(&mut self, points: Vec<Point>) -> Result<IntersectResponse, Error> {
+        self.send_find_intersect(points).await?;
+        self.recv_intersect_response().await
     }
 
-    pub fn send_request_next(&mut self) -> Result<(), Error> {
+    pub async fn send_request_next(&mut self) -> Result<(), Error> {
         let msg = Message::RequestNext;
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::CanAwait;
 
         Ok(())
     }
 
-    pub fn recv_while_can_await(&mut self) -> Result<NextResponse<O>, Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_can_await(&mut self) -> Result<NextResponse<O>, Error> {
+        match self.recv_message().await? {
             Message::AwaitReply => {
                 self.0 = State::MustReply;
                 Ok(NextResponse::Await)
@@ -180,8 +183,8 @@ where
         }
     }
 
-    pub fn recv_while_must_reply(&mut self) -> Result<NextResponse<O>, Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_must_reply(&mut self) -> Result<NextResponse<O>, Error> {
+        match self.recv_message().await? {
             Message::RollForward(a, b) => {
                 self.0 = State::Idle;
                 Ok(NextResponse::RollForward(a, b))
@@ -194,35 +197,35 @@ where
         }
     }
 
-    pub fn request_next(&mut self) -> Result<NextResponse<O>, Error> {
+    pub async fn request_next(&mut self) -> Result<NextResponse<O>, Error> {
         debug!("requesting next block");
 
-        self.send_request_next()?;
+        self.send_request_next().await?;
 
-        self.recv_while_can_await()
+        self.recv_while_can_await().await
     }
 
-    pub fn intersect_origin(&mut self) -> Result<Point, Error> {
+    pub async fn intersect_origin(&mut self) -> Result<Point, Error> {
         debug!("intersecting origin");
 
-        let (point, _) = self.find_intersect(vec![Point::Origin])?;
+        let (point, _) = self.find_intersect(vec![Point::Origin]).await?;
 
         point.ok_or(Error::IntersectionNotFound)
     }
 
-    pub fn intersect_tip(&mut self) -> Result<Point, Error> {
-        let (_, Tip(point, _)) = self.find_intersect(vec![Point::Origin])?;
+    pub async fn intersect_tip(&mut self) -> Result<Point, Error> {
+        let (_, Tip(point, _)) = self.find_intersect(vec![Point::Origin]).await?;
 
         debug!(?point, "found tip value");
 
-        let (point, _) = self.find_intersect(vec![point])?;
+        let (point, _) = self.find_intersect(vec![point]).await?;
 
         point.ok_or(Error::IntersectionNotFound)
     }
 
-    pub fn send_done(&mut self) -> Result<(), Error> {
+    pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::Done;
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Done;
 
         Ok(())

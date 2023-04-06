@@ -14,7 +14,8 @@ pub enum Reply<TxId, TxBody> {
     Done,
 }
 
-/// A generic implementation of an ouroboros server protocol ready to request and receive transactions from a client
+/// A generic implementation of an ouroboros server protocol ready to request
+/// and receive transactions from a client
 pub struct GenericServer<H, TxId, TxBody>(
     State,
     ChannelBuffer<H>,
@@ -91,42 +92,45 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn wait_for_init(&mut self) -> Result<(), Error> {
+    pub async fn wait_for_init(&mut self) -> Result<(), Error> {
         if self.0 != State::Init {
             return Err(Error::AlreadyInitialized);
         }
 
         // recv_message calls assert_inbound_state, which ensures we get an init message
-        self.recv_message()?;
+        self.recv_message().await?;
         self.0 = State::Idle;
 
         Ok(())
     }
 
-    pub fn acknowledge_and_request_tx_ids(
+    pub async fn acknowledge_and_request_tx_ids(
         &mut self,
         blocking: Blocking,
         acknowledge: TxCount,
         count: TxCount,
     ) -> Result<(), Error> {
         let msg = Message::RequestTxIds(blocking, acknowledge, count);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         match blocking {
             true => self.0 = State::TxIdsBlocking,
             false => self.0 = State::TxIdsNonBlocking,
@@ -135,16 +139,16 @@ where
         Ok(())
     }
 
-    pub fn request_txs(&mut self, ids: Vec<TxId>) -> Result<(), Error> {
+    pub async fn request_txs(&mut self, ids: Vec<TxId>) -> Result<(), Error> {
         let msg = Message::RequestTxs(ids);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Txs;
 
         Ok(())
     }
 
-    pub fn receive_next_reply(&mut self) -> Result<Reply<TxId, TxBody>, Error> {
-        match self.recv_message()? {
+    pub async fn receive_next_reply(&mut self) -> Result<Reply<TxId, TxBody>, Error> {
+        match self.recv_message().await? {
             Message::ReplyTxIds(ids_and_sizes) => {
                 self.0 = State::Idle;
 

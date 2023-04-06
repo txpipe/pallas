@@ -1,3 +1,5 @@
+#![feature(async_fn_in_trait)]
+
 pub mod agents;
 pub mod bearers;
 pub mod demux;

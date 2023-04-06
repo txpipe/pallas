@@ -1,7 +1,7 @@
 use gasket::error::AsWorkError;
 use tracing::{debug, info};
 
-use pallas_miniprotocols::chainsync::{HeaderContent, NextResponse};
+use pallas_miniprotocols::chainsync::{HeaderContent, NextResponse, Tip};
 use pallas_miniprotocols::{chainsync, Point};
 use pallas_traverse::MultiEraHeader;
 
@@ -16,7 +16,7 @@ fn to_traverse(header: &chainsync::HeaderContent) -> Result<MultiEraHeader<'_>, 
     out.map_err(Error::parse)
 }
 
-pub type DownstreamPort = gasket::messaging::crossbeam::OutputPort<ChainSyncEvent>;
+pub type DownstreamPort = gasket::messaging::tokio::OutputPort<ChainSyncEvent>;
 
 pub type OuroborosClient = chainsync::N2NClient<ProtocolChannel>;
 
@@ -47,48 +47,71 @@ where
         }
     }
 
-    fn intersect(&mut self) -> Result<Option<Point>, gasket::error::Error> {
+    fn notify_tip(&self, tip: Tip) {
+        self.chain_tip.set(tip.0.slot_or_default() as i64);
+    }
+
+    async fn intersect(&mut self) -> Result<(), gasket::error::Error> {
         let value = self.chain_cursor.intersection();
 
-        match value {
+        let intersect = match value {
             Intersection::Origin => {
                 info!("intersecting origin");
-                let point = self.client.intersect_origin().or_restart()?;
-
-                Ok(Some(point))
+                self.client.intersect_origin().await.or_restart()?.into()
             }
             Intersection::Tip => {
                 info!("intersecting tip");
-                let point = self.client.intersect_tip().or_restart()?;
-
-                Ok(Some(point))
+                self.client.intersect_tip().await.or_restart()?.into()
             }
             Intersection::Breadcrumbs(points) => {
                 info!("intersecting breadcrumbs");
-                let (point, _) = self.client.find_intersect(Vec::from(points)).or_restart()?;
+                let (point, tip) = self
+                    .client
+                    .find_intersect(Vec::from(points))
+                    .await
+                    .or_restart()?;
 
-                Ok(point)
+                self.notify_tip(tip);
+
+                point
             }
-        }
+        };
+
+        info!(?intersect, "intersected");
+
+        Ok(())
     }
 
-    fn process_next(
+    async fn process_next(
         &mut self,
         next: NextResponse<HeaderContent>,
     ) -> Result<(), gasket::error::Error> {
         match next {
-            chainsync::NextResponse::RollForward(h, t) => {
-                let h = to_traverse(&h).or_panic()?;
-                self.downstream
-                    .send(ChainSyncEvent::RollForward(h.slot(), h.hash()).into())?;
+            chainsync::NextResponse::RollForward(header, tip) => {
+                let header = to_traverse(&header).or_panic()?;
 
-                debug!(slot = h.slot(), hash = %h.hash(), "chain sync roll forward");
-                self.chain_tip.set(t.0.slot_or_default() as i64);
+                debug!(slot = header.slot(), hash = %header.hash(), "chain sync roll forward");
+
+                self.downstream
+                    .send(ChainSyncEvent::RollForward(header.slot(), header.hash()).into())
+                    .await?;
+
+                self.notify_tip(tip);
+
                 Ok(())
             }
-            chainsync::NextResponse::RollBackward(p, t) => {
-                self.downstream.send(ChainSyncEvent::Rollback(p).into())?;
-                self.chain_tip.set(t.0.slot_or_default() as i64);
+            chainsync::NextResponse::RollBackward(point, tip) => {
+                match &point {
+                    Point::Origin => debug!("rollback to origin"),
+                    Point::Specific(slot, _) => debug!(slot, "rollback"),
+                };
+
+                self.downstream
+                    .send(ChainSyncEvent::Rollback(point).into())
+                    .await?;
+
+                self.notify_tip(tip);
+
                 Ok(())
             }
             chainsync::NextResponse::Await => {
@@ -98,23 +121,31 @@ where
         }
     }
 
-    fn request_next(&mut self) -> Result<(), gasket::error::Error> {
+    async fn request_next(&mut self) -> Result<(), gasket::error::Error> {
         info!("requesting next block");
-        let next = self.client.request_next().or_restart()?;
-        self.process_next(next)
+        let next = self.client.request_next().await.or_restart()?;
+        self.process_next(next).await
     }
 
-    fn await_next(&mut self) -> Result<(), gasket::error::Error> {
+    async fn await_next(&mut self) -> Result<(), gasket::error::Error> {
         info!("awaiting next block (blocking)");
-        let next = self.client.recv_while_must_reply().or_restart()?;
-        self.process_next(next)
+        let next = self.client.recv_while_must_reply().await.or_restart()?;
+        self.process_next(next).await
     }
+}
+
+pub enum WorkUnit {
+    Intersect,
+    RequestNext,
+    AwaitNext,
 }
 
 impl<C> gasket::runtime::Worker for Worker<C>
 where
     C: Cursor + Sync + Send,
 {
+    type WorkUnit = WorkUnit;
+
     fn metrics(&self) -> gasket::metrics::Registry {
         gasket::metrics::Builder::new()
             .with_counter("received_blocks", &self.block_count)
@@ -122,19 +153,24 @@ where
             .build()
     }
 
-    fn bootstrap(&mut self) -> Result<(), gasket::error::Error> {
-        let intersect = self.intersect()?;
-        info!(?intersect, "chain-sync intersected");
-
-        Ok(())
+    async fn bootstrap(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
+        Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::Intersect))
     }
 
-    fn work(&mut self) -> gasket::runtime::WorkResult {
+    async fn schedule(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
         match self.client.has_agency() {
-            true => self.request_next()?,
-            false => self.await_next()?,
+            true => Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::RequestNext)),
+            false => Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::AwaitNext)),
+        }
+    }
+
+    async fn execute(&mut self, unit: &Self::WorkUnit) -> Result<(), gasket::error::Error> {
+        match unit {
+            WorkUnit::Intersect => self.intersect().await?,
+            WorkUnit::RequestNext => self.request_next().await?,
+            WorkUnit::AwaitNext => self.await_next().await?,
         };
 
-        Ok(gasket::runtime::WorkOutcome::Partial)
+        Ok(())
     }
 }

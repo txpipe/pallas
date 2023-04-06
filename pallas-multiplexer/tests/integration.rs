@@ -31,8 +31,8 @@ fn random_payload(size: usize) -> Vec<u8> {
     rand::thread_rng().sample_iter(&range).take(size).collect()
 }
 
-#[test]
-fn one_way_small_sequence_of_payloads() {
+#[tokio::test]
+async fn one_way_small_sequence_of_payloads() {
     let passive = setup_passive_muxer::<50301>();
 
     // HACK: a small sleep seems to be required for Github actions runner to
@@ -52,8 +52,8 @@ fn one_way_small_sequence_of_payloads() {
 
     for _ in 0..100 {
         let payload = random_payload(50);
-        sender_channel.enqueue_chunk(payload.clone()).unwrap();
-        let received_payload = receiver_channel.dequeue_chunk().unwrap();
+        sender_channel.enqueue_chunk(payload.clone()).await.unwrap();
+        let received_payload = receiver_channel.dequeue_chunk().await.unwrap();
         assert_eq!(payload, received_payload);
     }
 }

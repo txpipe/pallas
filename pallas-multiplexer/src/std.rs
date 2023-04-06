@@ -138,14 +138,14 @@ pub type StdChannel = (u16, Sender<Message>, Receiver<Payload>);
 pub type StdChannelBuffer = ChannelBuffer<StdChannel>;
 
 impl agents::Channel for StdChannel {
-    fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
+    async fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
         match self.1.send((self.0, payload)) {
             Ok(_) => Ok(()),
             Err(SendError((_, payload))) => Err(agents::ChannelError::NotConnected(Some(payload))),
         }
     }
 
-    fn dequeue_chunk(&mut self) -> Result<Payload, agents::ChannelError> {
+    async fn dequeue_chunk(&mut self) -> Result<Payload, agents::ChannelError> {
         match self.2.recv() {
             Ok(payload) => Ok(payload),
             Err(_) => Err(agents::ChannelError::NotConnected(None)),

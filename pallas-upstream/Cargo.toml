@@ -25,4 +25,8 @@ pallas-traverse = { version = "0.18.0", path = "../pallas-traverse" }
 rayon = "1.7.0"
 serde = { version = "1.0.154", features = ["derive"] }
 thiserror = "1.0.31"
+tokio = { version = "1", features = ["net", "macros", "io-util"] }
 tracing = "0.1.37"
+
+[dev-dependencies]
+tracing-subscriber = "0.3.16"

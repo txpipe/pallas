@@ -74,9 +74,9 @@ where
         Ok(())
     }
 
-    pub fn run_step(&mut self) -> Result<bool, MachineError> {
+    pub async fn run_step(&mut self) -> Result<bool, MachineError> {
         let prev = self.agent.take().unwrap();
-        let next = run_agent_step(prev, &mut self.buffer)?;
+        let next = run_agent_step(prev, &mut self.buffer).await?;
         let is_done = next.is_done();
 
         self.agent.set(Some(next));
@@ -84,16 +84,16 @@ where
         Ok(is_done)
     }
 
-    pub fn fulfill(mut self) -> Result<(), MachineError> {
+    pub async fn fulfill(mut self) -> Result<(), MachineError> {
         self.start()?;
 
-        while self.run_step()? {}
+        while self.run_step().await? {}
 
         Ok(())
     }
 }
 
-pub fn run_agent_step<A, C>(agent: A, channel: &mut ChannelBuffer<C>) -> Transition<A>
+pub async fn run_agent_step<A, C>(agent: A, channel: &mut ChannelBuffer<C>) -> Transition<A>
 where
     A: Agent,
     A::Message: Fragment + std::fmt::Debug,
@@ -106,12 +106,16 @@ where
 
             channel
                 .send_msg_chunks(&msg)
+                .await
                 .map_err(MachineError::channel)?;
 
             agent.apply_outbound(msg)
         }
         false => {
-            let msg = channel.recv_full_msg().map_err(MachineError::channel)?;
+            let msg = channel
+                .recv_full_msg()
+                .await
+                .map_err(MachineError::channel)?;
 
             trace!(?msg, "processing inbound msg");
 
@@ -120,7 +124,7 @@ where
     }
 }
 
-pub fn run_agent<A, C>(agent: A, buffer: &mut ChannelBuffer<C>) -> Transition<A>
+pub async fn run_agent<A, C>(agent: A, buffer: &mut ChannelBuffer<C>) -> Transition<A>
 where
     A: Agent,
     A::Message: Fragment + std::fmt::Debug,
@@ -129,7 +133,7 @@ where
     let mut agent = agent.apply_start()?;
 
     while !agent.is_done() {
-        agent = run_agent_step(agent, buffer)?;
+        agent = run_agent_step(agent, buffer).await?;
     }
 
     Ok(agent)
