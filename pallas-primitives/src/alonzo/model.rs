@@ -129,6 +129,8 @@ pub enum Value {
 impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
+            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::Array => {
@@ -844,7 +846,8 @@ impl AsRef<[u8]> for PlutusScript {
     }
 }
 
-/// Defined to encode PlutusData bytestring as it is done in the canonical plutus implementation
+/// Defined to encode PlutusData bytestring as it is done in the canonical
+/// plutus implementation
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
@@ -899,7 +902,8 @@ impl<C> Encode<C> for BoundedBytes {
         e: &mut minicbor::Encoder<W>,
         _: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        // we match the haskell implementation by encoding bytestrings longer than 64 bytes as indefinite lists of bytes
+        // we match the haskell implementation by encoding bytestrings longer than 64
+        // bytes as indefinite lists of bytes
         const CHUNK_SIZE: usize = 64;
         let bs: &Vec<u8> = self.deref();
         if bs.len() <= 64 {
@@ -1086,8 +1090,8 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                // we use definite array to match the approach used by haskell's plutus implementation
-                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
+                // we use definite array to match the approach used by haskell's plutus
+                // implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
                 e.map(a.len().try_into().unwrap())?;
                 for (k, v) in a.iter() {
                     k.encode(e, ctx)?;
@@ -1101,8 +1105,8 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                // we use definite array for empty array or indef array otherwise to match haskell implementation
-                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L153
+                // we use definite array for empty array or indef array otherwise to match
+                // haskell implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L153
                 // default encoder for a list:
                 // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
                 encode_list(a, e, ctx)?;
@@ -1172,15 +1176,16 @@ where
                 e.array(2)?;
                 e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
 
-                // we use definite array for empty array or indef array otherwise to match haskell implementation
-                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L144
+                // we use definite array for empty array or indef array otherwise to match
+                // haskell implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L144
                 // default encoder for a list:
                 // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
                 encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
             _ => {
-                // we use definite array for empty array or indef array otherwise to match haskell implementation. See above reference.
+                // we use definite array for empty array or indef array otherwise to match
+                // haskell implementation. See above reference.
                 encode_list(&self.fields, e, ctx)?;
                 Ok(())
             }
@@ -1564,7 +1569,7 @@ mod tests {
 
     use crate::{alonzo::PlutusData, Fragment};
 
-    use super::{Header, MintedBlock};
+    use super::{Header, MintedBlock, TransactionOutput};
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
