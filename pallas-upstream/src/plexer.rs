@@ -375,7 +375,7 @@ impl gasket::runtime::Worker for Worker {
         select! {
             Ok(msg) = self.mux_input.recv() => { Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::Mux(msg.payload))) }
             Ok(true) = bearer.has_segment() => Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::Demux)),
-            _ = tokio::time::sleep(tokio::time::Duration::from_millis(1)) => Ok(gasket::runtime::WorkSchedule::Idle),
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => Ok(gasket::runtime::WorkSchedule::Idle),
         }
     }
 
