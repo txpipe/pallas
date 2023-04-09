@@ -12,8 +12,8 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 byteorder = "1.4.3"
-# gasket = { git = "https://github.com/construkts/gasket-rs" }
-gasket = { path = "../../../construkts/gasket-rs" }
+gasket = { git = "https://github.com/construkts/gasket-rs" }
+# gasket = { path = "../../../construkts/gasket-rs" }
 hex = "0.4.3"
 mio = { version = "0.8.6", features = ["net", "os-poll"] }
 # gasket = { version = "0.1.0", path = "../../../construkts/gasket-rs" }
