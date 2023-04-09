@@ -14,7 +14,7 @@ struct N2NChannels {
     txsubmission: StdChannel,
 }
 
-fn setup_n2n_client_connection() -> N2NChannels {
+async fn setup_n2n_client_connection() -> N2NChannels {
     let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
     let mut plexer = StdPlexer::new(bearer);
 
@@ -30,6 +30,7 @@ fn setup_n2n_client_connection() -> N2NChannels {
 
     let confirmation = client
         .handshake(handshake::n2n::VersionTable::v7_and_above(2))
+        .await
         .unwrap();
 
     assert!(matches!(confirmation, Confirmation::Accepted(..)));
@@ -45,10 +46,10 @@ fn setup_n2n_client_connection() -> N2NChannels {
     }
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-pub fn chainsync_history_happy_path() {
-    let N2NChannels { chainsync, .. } = setup_n2n_client_connection();
+pub async fn chainsync_history_happy_path() {
+    let N2NChannels { chainsync, .. } = setup_n2n_client_connection().await;
 
     let known_point = Point::Specific(
         1654413,
@@ -57,7 +58,10 @@ pub fn chainsync_history_happy_path() {
 
     let mut client = chainsync::N2NClient::new(chainsync);
 
-    let (point, _) = client.find_intersect(vec![known_point.clone()]).unwrap();
+    let (point, _) = client
+        .find_intersect(vec![known_point.clone()])
+        .await
+        .unwrap();
 
     assert!(matches!(client.state(), chainsync::State::Idle));
 
@@ -66,7 +70,7 @@ pub fn chainsync_history_happy_path() {
         None => panic!("expected point"),
     }
 
-    let next = client.request_next().unwrap();
+    let next = client.request_next().await.unwrap();
 
     match next {
         NextResponse::RollBackward(point, _) => assert_eq!(point, known_point),
@@ -76,7 +80,7 @@ pub fn chainsync_history_happy_path() {
     assert!(matches!(client.state(), chainsync::State::Idle));
 
     for _ in 0..10 {
-        let next = client.request_next().unwrap();
+        let next = client.request_next().await.unwrap();
 
         match next {
             NextResponse::RollForward(_, _) => (),
@@ -86,23 +90,23 @@ pub fn chainsync_history_happy_path() {
         assert!(matches!(client.state(), chainsync::State::Idle));
     }
 
-    client.send_done().unwrap();
+    client.send_done().await.unwrap();
 
     assert!(matches!(client.state(), chainsync::State::Done));
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-pub fn chainsync_tip_happy_path() {
-    let N2NChannels { chainsync, .. } = setup_n2n_client_connection();
+pub async fn chainsync_tip_happy_path() {
+    let N2NChannels { chainsync, .. } = setup_n2n_client_connection().await;
 
     let mut client = chainsync::N2NClient::new(chainsync);
 
-    client.intersect_tip().unwrap();
+    client.intersect_tip().await.unwrap();
 
     assert!(matches!(client.state(), chainsync::State::Idle));
 
-    let next = client.request_next().unwrap();
+    let next = client.request_next().await.unwrap();
 
     assert!(matches!(next, NextResponse::RollBackward(..)));
 
@@ -110,10 +114,10 @@ pub fn chainsync_tip_happy_path() {
 
     for _ in 0..4 {
         let next = if client.has_agency() {
-            client.request_next().unwrap()
+            client.request_next().await.unwrap()
         } else {
             await_count += 1;
-            client.recv_while_must_reply().unwrap()
+            client.recv_while_must_reply().await.unwrap()
         };
 
         match next {
@@ -125,15 +129,15 @@ pub fn chainsync_tip_happy_path() {
 
     assert!(await_count > 0, "tip was never reached");
 
-    client.send_done().unwrap();
+    client.send_done().await.unwrap();
 
     assert!(matches!(client.state(), chainsync::State::Done));
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-pub fn blockfetch_happy_path() {
-    let N2NChannels { blockfetch, .. } = setup_n2n_client_connection();
+pub async fn blockfetch_happy_path() {
+    let N2NChannels { blockfetch, .. } = setup_n2n_client_connection().await;
 
     let known_point = Point::Specific(
         1654413,
@@ -142,14 +146,16 @@ pub fn blockfetch_happy_path() {
 
     let mut client = blockfetch::Client::new(blockfetch);
 
-    let range_ok = client.request_range((known_point.clone(), known_point));
+    let range_ok = client
+        .request_range((known_point.clone(), known_point))
+        .await;
 
     assert!(matches!(client.state(), blockfetch::State::Streaming));
 
     assert!(matches!(range_ok, Ok(_)));
 
     for _ in 0..1 {
-        let next = client.recv_while_streaming().unwrap();
+        let next = client.recv_while_streaming().await.unwrap();
 
         match next {
             Some(body) => assert_eq!(body.len(), 3251),
@@ -159,60 +165,62 @@ pub fn blockfetch_happy_path() {
         assert!(matches!(client.state(), blockfetch::State::Streaming));
     }
 
-    let next = client.recv_while_streaming().unwrap();
+    let next = client.recv_while_streaming().await.unwrap();
 
     assert!(matches!(next, None));
 
-    client.send_done().unwrap();
+    client.send_done().await.unwrap();
 
     assert!(matches!(client.state(), blockfetch::State::Done));
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-pub fn txsubmission_server_happy_path() {
+pub async fn txsubmission_server_happy_path() {
     // TODO(pi): Note that the below doesn't work; we need a node to connect *to us*
     // during the integration test which seems awkward;
     // Alternatively, we can just set up both a client and server connecting to
     // themselves for testing!
 
-    let N2NChannels { txsubmission, .. } = setup_n2n_client_connection();
+    let N2NChannels { txsubmission, .. } = setup_n2n_client_connection().await;
 
     let mut server = txsubmission::Server::new(txsubmission);
 
-    assert!(matches!(server.wait_for_init(), Ok(_)));
+    assert!(matches!(server.wait_for_init().await, Ok(_)));
 
     assert!(matches!(
-        server.acknowledge_and_request_tx_ids(false, 0, 3),
+        server.acknowledge_and_request_tx_ids(false, 0, 3).await,
         Ok(_)
     ));
 
-    let reply: Result<_, _> = server.receive_next_reply();
+    let reply: Result<_, _> = server.receive_next_reply().await;
     assert!(matches!(reply, Ok(Reply::TxIds(_))));
     let Ok(Reply::TxIds(tx_ids)) = reply else { unreachable!() };
 
     assert!(tx_ids.len() <= 3);
 
     assert!(matches!(
-        server.request_txs(
-            tx_ids
-                .into_iter()
-                .map(|txid: TxIdAndSize<EraTxId>| txid.0)
-                .collect()
-        ),
+        server
+            .request_txs(
+                tx_ids
+                    .into_iter()
+                    .map(|txid: TxIdAndSize<EraTxId>| txid.0)
+                    .collect()
+            )
+            .await,
         Ok(_)
     ));
 
-    let reply = server.receive_next_reply();
+    let reply = server.receive_next_reply().await;
     assert!(matches!(reply, Ok(Reply::Txs(_))));
     let Ok(Reply::Txs(first_txs)) = reply else { unreachable!() };
 
     assert!(matches!(
-        server.acknowledge_and_request_tx_ids(false, 1, 3),
+        server.acknowledge_and_request_tx_ids(false, 1, 3).await,
         Ok(_)
     ));
 
-    let reply = server.receive_next_reply();
+    let reply = server.receive_next_reply().await;
     assert!(matches!(reply, Ok(Reply::Txs(_))));
     let Ok(Reply::Txs(second_txs)) = reply else { unreachable!() };
 
@@ -222,11 +230,11 @@ pub fn txsubmission_server_happy_path() {
     assert_eq!(second_txs[1], first_txs[2]);
 
     assert!(matches!(
-        server.acknowledge_and_request_tx_ids(true, 3, 3),
+        server.acknowledge_and_request_tx_ids(true, 3, 3).await,
         Ok(_)
     ));
 
-    match server.receive_next_reply() {
+    match server.receive_next_reply().await {
         Ok(Reply::Done) => (), // Server aint havin none of our sh*t
         Ok(Reply::TxIds(tx_ids)) => assert_eq!(tx_ids.len(), 3),
         Ok(_) | Err(_) => unreachable!(),

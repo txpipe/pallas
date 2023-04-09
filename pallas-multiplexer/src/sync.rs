@@ -29,7 +29,7 @@ impl SyncPlexer {
 pub type SyncChannel = ChannelBuffer<SyncPlexer>;
 
 impl agents::Channel for SyncPlexer {
-    fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
+    async fn enqueue_chunk(&mut self, payload: Payload) -> Result<(), agents::ChannelError> {
         let segment = Segment::new(self.clock, self.protocol, payload);
 
         self.bearer
@@ -37,7 +37,7 @@ impl agents::Channel for SyncPlexer {
             .map_err(|_| agents::ChannelError::NotConnected(None))
     }
 
-    fn dequeue_chunk(&mut self) -> Result<Payload, agents::ChannelError> {
+    async fn dequeue_chunk(&mut self) -> Result<Payload, agents::ChannelError> {
         match self.bearer.read_segment() {
             Ok(segment) => match segment {
                 Some(x) => {

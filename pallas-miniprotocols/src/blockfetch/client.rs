@@ -99,32 +99,35 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn send_request_range(&mut self, range: (Point, Point)) -> Result<(), Error> {
+    pub async fn send_request_range(&mut self, range: (Point, Point)) -> Result<(), Error> {
         let msg = Message::RequestRange { range };
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Busy;
 
         Ok(())
     }
 
-    pub fn recv_while_busy(&mut self) -> Result<HasBlocks, Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_busy(&mut self) -> Result<HasBlocks, Error> {
+        match self.recv_message().await? {
             Message::StartBatch => {
                 info!("batch start");
                 self.0 = State::Streaming;
@@ -139,14 +142,14 @@ where
         }
     }
 
-    pub fn request_range(&mut self, range: Range) -> Result<HasBlocks, Error> {
-        self.send_request_range(range)?;
+    pub async fn request_range(&mut self, range: Range) -> Result<HasBlocks, Error> {
+        self.send_request_range(range).await?;
         debug!("range requested");
-        self.recv_while_busy()
+        self.recv_while_busy().await
     }
 
-    pub fn recv_while_streaming(&mut self) -> Result<Option<Body>, Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_streaming(&mut self) -> Result<Option<Body>, Error> {
+        match self.recv_message().await? {
             Message::Block { body } => Ok(Some(body)),
             Message::BatchDone => {
                 self.0 = State::Idle;
@@ -156,25 +159,30 @@ where
         }
     }
 
-    pub fn fetch_single(&mut self, point: Point) -> Result<Body, Error> {
-        self.request_range((point.clone(), point))?
+    pub async fn fetch_single(&mut self, point: Point) -> Result<Body, Error> {
+        self.request_range((point.clone(), point))
+            .await?
             .ok_or(Error::NoBlocks)?;
 
-        let body = self.recv_while_streaming()?.ok_or(Error::InvalidInbound)?;
+        let body = self
+            .recv_while_streaming()
+            .await?
+            .ok_or(Error::InvalidInbound)?;
+
         debug!("body received");
 
-        match self.recv_while_streaming()? {
+        match self.recv_while_streaming().await? {
             Some(_) => Err(Error::InvalidInbound),
             None => Ok(body),
         }
     }
 
-    pub fn fetch_range(&mut self, range: Range) -> Result<Vec<Body>, Error> {
-        self.request_range(range)?.ok_or(Error::NoBlocks)?;
+    pub async fn fetch_range(&mut self, range: Range) -> Result<Vec<Body>, Error> {
+        self.request_range(range).await?.ok_or(Error::NoBlocks)?;
 
         let mut all = vec![];
 
-        while let Some(block) = self.recv_while_streaming()? {
+        while let Some(block) = self.recv_while_streaming().await? {
             debug!("body received");
             all.push(block);
         }
@@ -182,9 +190,9 @@ where
         Ok(all)
     }
 
-    pub fn send_done(&mut self) -> Result<(), Error> {
+    pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::ClientDone;
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Done;
 
         Ok(())

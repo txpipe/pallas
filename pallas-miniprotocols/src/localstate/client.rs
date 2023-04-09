@@ -105,32 +105,35 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<Q>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<Q>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<Q>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<Q>, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn send_acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
+    pub async fn send_acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
         let msg = Message::<Q>::Acquire(point);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Acquiring;
 
         Ok(())
     }
 
-    pub fn recv_while_acquiring(&mut self) -> Result<(), Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_acquiring(&mut self) -> Result<(), Error> {
+        match self.recv_message().await? {
             Message::Acquired => {
                 self.0 = State::Acquired;
                 Ok(())
@@ -143,21 +146,21 @@ where
         }
     }
 
-    pub fn acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
-        self.send_acquire(point)?;
-        self.recv_while_acquiring()
+    pub async fn acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
+        self.send_acquire(point).await?;
+        self.recv_while_acquiring().await
     }
 
-    pub fn send_query(&mut self, request: Q::Request) -> Result<(), Error> {
+    pub async fn send_query(&mut self, request: Q::Request) -> Result<(), Error> {
         let msg = Message::<Q>::Query(request);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Querying;
 
         Ok(())
     }
 
-    pub fn recv_while_querying(&mut self) -> Result<Q::Response, Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_querying(&mut self) -> Result<Q::Response, Error> {
+        match self.recv_message().await? {
             Message::Result(x) => {
                 self.0 = State::Acquired;
                 Ok(x)
@@ -166,9 +169,9 @@ where
         }
     }
 
-    pub fn query(&mut self, request: Q::Request) -> Result<Q::Response, Error> {
-        self.send_query(request)?;
-        self.recv_while_querying()
+    pub async fn query(&mut self, request: Q::Request) -> Result<Q::Response, Error> {
+        self.send_query(request).await?;
+        self.recv_while_querying().await
     }
 }
 

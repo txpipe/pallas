@@ -1,4 +1,5 @@
 use gasket::messaging::SendAdapter;
+use gasket::runtime::WorkSchedule;
 use tracing::{error, info, instrument};
 
 use pallas_crypto::hash::Hash;
@@ -7,7 +8,7 @@ use pallas_miniprotocols::Point;
 
 use crate::framework::*;
 
-pub type UpstreamPort = gasket::messaging::crossbeam::TwoPhaseInputPort<ChainSyncEvent>;
+pub type UpstreamPort = gasket::messaging::tokio::InputPort<ChainSyncEvent>;
 pub type OuroborosClient = blockfetch::Client<ProtocolChannel>;
 
 pub struct Worker<T>
@@ -40,12 +41,17 @@ where
     }
 
     #[instrument(skip(self), fields(slot, %hash))]
-    fn fetch_block(&mut self, slot: u64, hash: Hash<32>) -> Result<Vec<u8>, gasket::error::Error> {
+    async fn fetch_block(
+        &mut self,
+        slot: u64,
+        hash: &Hash<32>,
+    ) -> Result<Vec<u8>, gasket::error::Error> {
         info!("fetching block");
 
         match self
             .client
             .fetch_single(Point::Specific(slot, hash.to_vec()))
+            .await
         {
             Ok(x) => {
                 info!("block fetch succeeded");
@@ -73,23 +79,28 @@ where
             .build()
     }
 
-    fn work(&mut self) -> gasket::runtime::WorkResult {
-        let msg = self.upstream.recv_or_idle()?;
+    type WorkUnit = ChainSyncEvent;
 
-        let msg = match msg.payload {
+    async fn schedule(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
+        let msg = self.upstream.recv().await?;
+        info!("scheduling block betch");
+        Ok(WorkSchedule::Unit(msg.payload))
+    }
+
+    async fn execute(&mut self, unit: &Self::WorkUnit) -> Result<(), gasket::error::Error> {
+        let output = match unit {
             ChainSyncEvent::RollForward(s, h) => {
-                let body = self.fetch_block(s, h)?;
+                let body = self.fetch_block(*s, h).await?;
+
                 self.block_count.inc(1);
-                BlockFetchEvent::RollForward(s, h, body)
+
+                BlockFetchEvent::RollForward(*s, h.clone(), body)
             }
-            ChainSyncEvent::Rollback(x) => BlockFetchEvent::Rollback(x),
+            ChainSyncEvent::Rollback(x) => BlockFetchEvent::Rollback(x.clone()),
         };
 
-        self.downstream.send(msg.into())?;
+        self.downstream.send(output.into()).await?;
 
-        // remove the processed event from the queue
-        self.upstream.commit();
-
-        Ok(gasket::runtime::WorkOutcome::Partial)
+        Ok(())
     }
 }

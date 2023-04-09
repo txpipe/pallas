@@ -2,11 +2,22 @@ use pallas_crypto::hash::Hash;
 use pallas_miniprotocols::Point;
 use pallas_multiplexer as multiplexer;
 use thiserror::Error;
-use tracing::error;
+use tracing::{error, trace};
 
 pub type BlockSlot = u64;
 pub type BlockHash = Hash<32>;
 pub type RawBlock = Vec<u8>;
+
+#[derive(Clone)]
+pub enum Intersection {
+    Tip,
+    Origin,
+    Breadcrumbs(Vec<Point>),
+}
+
+pub trait Cursor: Send + Sync {
+    fn intersection(&self) -> Intersection;
+}
 
 #[derive(Debug, Clone)]
 pub enum ChainSyncEvent {
@@ -21,12 +32,12 @@ pub enum BlockFetchEvent {
 }
 
 // ports used by plexer
-pub type MuxOutputPort = gasket::messaging::crossbeam::OutputPort<(u16, multiplexer::Payload)>;
-pub type DemuxInputPort = gasket::messaging::crossbeam::InputPort<multiplexer::Payload>;
+pub type MuxOutputPort = gasket::messaging::tokio::OutputPort<(u16, multiplexer::Payload)>;
+pub type DemuxInputPort = gasket::messaging::tokio::InputPort<multiplexer::Payload>;
 
 // ports used by mini-protocols
-pub type MuxInputPort = gasket::messaging::crossbeam::InputPort<(u16, multiplexer::Payload)>;
-pub type DemuxOutputPort = gasket::messaging::crossbeam::OutputPort<multiplexer::Payload>;
+pub type MuxInputPort = gasket::messaging::tokio::InputPort<(u16, multiplexer::Payload)>;
+pub type DemuxOutputPort = gasket::messaging::tokio::OutputPort<multiplexer::Payload>;
 
 // final output port
 pub type DownstreamPort<A> = gasket::messaging::OutputPort<A, BlockFetchEvent>;
@@ -34,14 +45,22 @@ pub type DownstreamPort<A> = gasket::messaging::OutputPort<A, BlockFetchEvent>;
 pub struct ProtocolChannel(pub u16, pub MuxOutputPort, pub DemuxInputPort);
 
 impl multiplexer::agents::Channel for ProtocolChannel {
-    fn enqueue_chunk(
+    async fn enqueue_chunk(
         &mut self,
         payload: multiplexer::Payload,
     ) -> Result<(), multiplexer::agents::ChannelError> {
-        match self
+        trace!(
+            protocol = self.0,
+            payload = hex::encode(&payload),
+            "enqueing"
+        );
+
+        let res = self
             .1
             .send(gasket::messaging::Message::from((self.0, payload)))
-        {
+            .await;
+
+        match res {
             Ok(_) => Ok(()),
             Err(error) => {
                 error!(?error, "enqueue chunk failed");
@@ -50,8 +69,12 @@ impl multiplexer::agents::Channel for ProtocolChannel {
         }
     }
 
-    fn dequeue_chunk(&mut self) -> Result<multiplexer::Payload, multiplexer::agents::ChannelError> {
-        match self.2.recv() {
+    async fn dequeue_chunk(
+        &mut self,
+    ) -> Result<multiplexer::Payload, multiplexer::agents::ChannelError> {
+        let res = self.2.recv().await;
+
+        match res {
             Ok(msg) => Ok(msg.payload),
             Err(error) => {
                 error!(?error, "dequeue chunk failed");
@@ -96,8 +119,8 @@ impl Error {
         Error::Message(error.to_string())
     }
 
-    pub fn custom(error: Box<dyn std::error::Error>) -> Error {
-        Error::Custom(format!("{error}"))
+    pub fn custom(error: impl Into<Box<dyn std::error::Error>>) -> Error {
+        Error::Custom(format!("{}", error.into()))
     }
 }
 

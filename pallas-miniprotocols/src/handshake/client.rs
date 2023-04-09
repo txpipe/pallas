@@ -1,6 +1,7 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer};
 use std::marker::PhantomData;
+use tracing::debug;
 
 use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
 
@@ -71,47 +72,56 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<D>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<D>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<D>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<D>, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn send_propose(&mut self, versions: VersionTable<D>) -> Result<(), Error> {
+    pub async fn send_propose(&mut self, versions: VersionTable<D>) -> Result<(), Error> {
         let msg = Message::Propose(versions);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Confirm;
+
+        debug!("version proposed");
 
         Ok(())
     }
 
-    pub fn recv_while_confirm(&mut self) -> Result<Confirmation<D>, Error> {
-        match self.recv_message()? {
+    pub async fn recv_while_confirm(&mut self) -> Result<Confirmation<D>, Error> {
+        match self.recv_message().await? {
             Message::Accept(v, m) => {
                 self.0 = State::Done;
+                debug!("handshake accepted");
+
                 Ok(Confirmation::Accepted(v, m))
             }
             Message::Refuse(r) => {
                 self.0 = State::Done;
+                debug!("handshake refused");
+
                 Ok(Confirmation::Rejected(r))
             }
             _ => Err(Error::InvalidInbound),
         }
     }
 
-    pub fn handshake(&mut self, versions: VersionTable<D>) -> Result<Confirmation<D>, Error> {
-        self.send_propose(versions)?;
-        self.recv_while_confirm()
+    pub async fn handshake(&mut self, versions: VersionTable<D>) -> Result<Confirmation<D>, Error> {
+        self.send_propose(versions).await?;
+        self.recv_while_confirm().await
     }
 
     pub fn unwrap(self) -> H {

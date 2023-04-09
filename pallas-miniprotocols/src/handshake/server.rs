@@ -62,24 +62,27 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<D>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<D>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<D>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<D>, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn receive_proposed_versions(&mut self) -> Result<VersionTable<D>, Error> {
-        match self.recv_message()? {
+    pub async fn receive_proposed_versions(&mut self) -> Result<VersionTable<D>, Error> {
+        match self.recv_message().await? {
             Message::Propose(v) => {
                 self.0 = State::Confirm;
                 Ok(v)
@@ -88,17 +91,21 @@ where
         }
     }
 
-    pub fn accept_version(&mut self, version: VersionNumber, extra_params: D) -> Result<(), Error> {
+    pub async fn accept_version(
+        &mut self,
+        version: VersionNumber,
+        extra_params: D,
+    ) -> Result<(), Error> {
         let message = Message::Accept(version, extra_params);
-        self.send_message(&message)?;
+        self.send_message(&message).await?;
         self.0 = State::Done;
 
         Ok(())
     }
 
-    pub fn refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
+    pub async fn refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
         let message = Message::Refuse(reason);
-        self.send_message(&message)?;
+        self.send_message(&message).await?;
         self.0 = State::Done;
 
         Ok(())

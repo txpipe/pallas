@@ -14,7 +14,8 @@ pub enum Request<TxId> {
     Txs(Vec<TxId>),
 }
 
-/// A generic Ouroboros client for submitting a generic notion of "transactions" to another server
+/// A generic Ouroboros client for submitting a generic notion of "transactions"
+/// to another server
 pub struct GenericClient<H, TxId, TxBody>(
     State,
     ChannelBuffer<H>,
@@ -91,48 +92,51 @@ where
         }
     }
 
-    pub fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).map_err(Error::ChannelError)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(Error::ChannelError)?;
 
         Ok(())
     }
 
-    pub fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().map_err(Error::ChannelError)?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::ChannelError)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub fn send_init(&mut self) -> Result<(), Error> {
+    pub async fn send_init(&mut self) -> Result<(), Error> {
         let msg = Message::Init;
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Idle;
 
         Ok(())
     }
 
-    pub fn reply_tx_ids(&mut self, ids: Vec<TxIdAndSize<TxId>>) -> Result<(), Error> {
+    pub async fn reply_tx_ids(&mut self, ids: Vec<TxIdAndSize<TxId>>) -> Result<(), Error> {
         let msg = Message::ReplyTxIds(ids);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Idle;
 
         Ok(())
     }
 
-    pub fn reply_txs(&mut self, txs: Vec<TxBody>) -> Result<(), Error> {
+    pub async fn reply_txs(&mut self, txs: Vec<TxBody>) -> Result<(), Error> {
         let msg = Message::ReplyTxs(txs);
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Idle;
 
         Ok(())
     }
 
-    pub fn next_request(&mut self) -> Result<Request<TxId>, Error> {
-        match self.recv_message()? {
+    pub async fn next_request(&mut self) -> Result<Request<TxId>, Error> {
+        match self.recv_message().await? {
             Message::RequestTxIds(blocking, ack, req) => {
                 self.0 = State::TxIdsBlocking;
 
@@ -149,9 +153,9 @@ where
         }
     }
 
-    pub fn send_done(&mut self) -> Result<(), Error> {
+    pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::Done;
-        self.send_message(&msg)?;
+        self.send_message(&msg).await?;
         self.0 = State::Done;
 
         Ok(())
