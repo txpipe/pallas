@@ -4,7 +4,7 @@ use thiserror::Error;
 use tracing::debug;
 
 use crate::miniprotocols::Point;
-use crate::plexer;
+use crate::multiplexer;
 
 use super::{BlockContent, HeaderContent, Message, State, Tip};
 
@@ -26,7 +26,7 @@ pub enum Error {
     IntersectionNotFound,
 
     #[error("error while sending or receiving data through the channel")]
-    Plexer(plexer::Error),
+    Plexer(multiplexer::Error),
 }
 
 pub type IntersectResponse = (Option<Point>, Tip);
@@ -38,7 +38,7 @@ pub enum NextResponse<CONTENT> {
     Await,
 }
 
-pub struct Client<O>(State, plexer::ChannelBuffer, PhantomData<O>)
+pub struct Client<O>(State, multiplexer::ChannelBuffer, PhantomData<O>)
 where
     Message<O>: Fragment;
 
@@ -46,10 +46,10 @@ impl<O> Client<O>
 where
     Message<O>: Fragment,
 {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Idle,
-            plexer::ChannelBuffer::new(channel),
+            multiplexer::ChannelBuffer::new(channel),
             PhantomData {},
         )
     }

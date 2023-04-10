@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::plexer;
+use crate::multiplexer;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -47,7 +47,7 @@ pub enum Error {
     AlreadyInitialized,
 
     #[error("error while sending or receiving data through the channel")]
-    Plexer(plexer::Error),
+    Plexer(multiplexer::Error),
 }
 
 #[derive(Debug)]

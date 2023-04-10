@@ -1,6 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 
-use pallas_network::{bearer::Bearer, plexer::Plexer};
+use pallas_network::multiplexer::{Bearer, Plexer};
 use rand::{distributions::Uniform, Rng};
 use tokio::net::TcpListener;
 

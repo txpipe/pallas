@@ -7,7 +7,7 @@ use thiserror::*;
 
 use super::{AcquireFailure, Message, Query, State};
 use crate::miniprotocols::Point;
-use crate::plexer;
+use crate::multiplexer;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -24,7 +24,7 @@ pub enum Error {
     #[error("failure acquiring point, too old")]
     AcquirePointTooOld,
     #[error("error while sending or receiving data through the channel")]
-    Plexer(plexer::Error),
+    Plexer(multiplexer::Error),
 }
 
 impl From<AcquireFailure> for Error {
@@ -36,7 +36,7 @@ impl From<AcquireFailure> for Error {
     }
 }
 
-pub struct Client<Q>(State, plexer::ChannelBuffer, PhantomData<Q>)
+pub struct Client<Q>(State, multiplexer::ChannelBuffer, PhantomData<Q>)
 where
     Q: Query,
     Message<Q>: Fragment;
@@ -46,10 +46,10 @@ where
     Q: Query,
     Message<Q>: Fragment,
 {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Idle,
-            plexer::ChannelBuffer::new(channel),
+            multiplexer::ChannelBuffer::new(channel),
             PhantomData {},
         )
     }

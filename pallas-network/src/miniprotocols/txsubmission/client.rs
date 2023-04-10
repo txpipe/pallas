@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::plexer;
+use crate::multiplexer;
 use pallas_codec::Fragment;
 
 use super::{
@@ -18,7 +18,7 @@ pub enum Request<TxId> {
 /// to another server
 pub struct GenericClient<TxId, TxBody>(
     State,
-    plexer::ChannelBuffer,
+    multiplexer::ChannelBuffer,
     PhantomData<TxId>,
     PhantomData<TxBody>,
 )
@@ -32,10 +32,10 @@ impl<TxId, TxBody> GenericClient<TxId, TxBody>
 where
     Message<TxId, TxBody>: Fragment,
 {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Init,
-            plexer::ChannelBuffer::new(channel),
+            multiplexer::ChannelBuffer::new(channel),
             PhantomData {},
             PhantomData {},
         )

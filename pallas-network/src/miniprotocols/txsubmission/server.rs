@@ -6,7 +6,7 @@ use super::{
     protocol::{Blocking, Error, Message, State, TxCount, TxIdAndSize},
     EraTxBody, EraTxId,
 };
-use crate::plexer;
+use crate::multiplexer;
 
 pub enum Reply<TxId, TxBody> {
     TxIds(Vec<TxIdAndSize<TxId>>),
@@ -18,7 +18,7 @@ pub enum Reply<TxId, TxBody> {
 /// and receive transactions from a client
 pub struct GenericServer<TxId, TxBody>(
     State,
-    plexer::ChannelBuffer,
+    multiplexer::ChannelBuffer,
     PhantomData<TxId>,
     PhantomData<TxBody>,
 )
@@ -32,10 +32,10 @@ impl<TxId, TxBody> GenericServer<TxId, TxBody>
 where
     Message<TxId, TxBody>: Fragment,
 {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Init,
-            plexer::ChannelBuffer::new(channel),
+            multiplexer::ChannelBuffer::new(channel),
             PhantomData {},
             PhantomData {},
         )

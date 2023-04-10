@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use tracing::debug;
 
 use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
-use crate::plexer;
+use crate::multiplexer;
 
 #[derive(Debug)]
 pub enum Confirmation<D> {
@@ -11,17 +11,17 @@ pub enum Confirmation<D> {
     Rejected(RefuseReason),
 }
 
-pub struct Client<D>(State, plexer::ChannelBuffer, PhantomData<D>);
+pub struct Client<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
 
 impl<D> Client<D>
 where
     D: std::fmt::Debug + Clone,
     Message<D>: Fragment,
 {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Propose,
-            plexer::ChannelBuffer::new(channel),
+            multiplexer::ChannelBuffer::new(channel),
             PhantomData {},
         )
     }
@@ -122,7 +122,7 @@ where
         self.recv_while_confirm().await
     }
 
-    pub fn unwrap(self) -> plexer::AgentChannel {
+    pub fn unwrap(self) -> multiplexer::AgentChannel {
         self.1.unwrap()
     }
 }
