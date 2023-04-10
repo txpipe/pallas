@@ -73,10 +73,7 @@ where
             }
             Intersection::Breadcrumbs(points) => {
                 info!("intersecting breadcrumbs");
-                let (point, tip) = chainsync
-                    .find_intersect(Vec::from(points))
-                    .await
-                    .or_restart()?;
+                let (point, tip) = chainsync.find_intersect(points).await.or_restart()?;
 
                 self.notify_tip(&tip);
 

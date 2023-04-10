@@ -192,7 +192,7 @@ impl SegmentBuffer {
 
         let buf: [u8; 8] = header.into();
         self.0.write_all(&buf).await?;
-        self.0.write_all(&payload).await?;
+        self.0.write_all(payload).await?;
 
         self.0.flush().await?;
 
