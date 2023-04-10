@@ -1,0 +1,260 @@
+use pallas_network::bearer::Bearer;
+use pallas_network::miniprotocols::PROTOCOL_SERVER;
+use pallas_network::miniprotocols::{
+    blockfetch,
+    chainsync::{self, NextResponse},
+    handshake::{self, Confirmation},
+    txsubmission::{self, EraTxId, Reply, TxIdAndSize},
+    Point, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
+    PROTOCOL_N2N_TX_SUBMISSION,
+};
+use pallas_network::plexer::{AgentChannel, Plexer};
+use tokio::task::JoinHandle;
+
+struct N2NChannels {
+    plexer: JoinHandle<tokio::io::Result<()>>,
+    chainsync: AgentChannel,
+    blockfetch: AgentChannel,
+    txsubmission: AgentChannel,
+}
+
+async fn setup_n2n_client_connection() -> N2NChannels {
+    let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002")
+        .await
+        .unwrap();
+
+    let mut plexer = Plexer::new(bearer);
+
+    let handshake = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
+    let chainsync = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
+    let blockfetch = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
+    let txsubmission = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
+
+    let plexer = tokio::spawn(async move { plexer.run().await });
+
+    let mut client = handshake::N2NClient::new(handshake);
+
+    let confirmation = client
+        .handshake(handshake::n2n::VersionTable::v7_and_above(2))
+        .await
+        .unwrap();
+
+    assert!(matches!(confirmation, Confirmation::Accepted(..)));
+
+    if let Confirmation::Accepted(v, _) = confirmation {
+        assert!(v >= 7);
+    }
+
+    N2NChannels {
+        plexer,
+        chainsync,
+        blockfetch,
+        txsubmission,
+    }
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn chainsync_history_happy_path() {
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
+
+    let N2NChannels { chainsync, .. } = setup_n2n_client_connection().await;
+
+    let known_point = Point::Specific(
+        1654413,
+        hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2").unwrap(),
+    );
+
+    let mut client = chainsync::N2NClient::new(chainsync);
+
+    let (point, _) = client
+        .find_intersect(vec![known_point.clone()])
+        .await
+        .unwrap();
+
+    println!("{:?}", point);
+
+    assert!(matches!(client.state(), chainsync::State::Idle));
+
+    match point {
+        Some(point) => assert_eq!(point, known_point),
+        None => panic!("expected point"),
+    }
+
+    let next = client.request_next().await.unwrap();
+
+    match next {
+        NextResponse::RollBackward(point, _) => assert_eq!(point, known_point),
+        _ => panic!("expected rollback"),
+    }
+
+    assert!(matches!(client.state(), chainsync::State::Idle));
+
+    for _ in 0..10 {
+        let next = client.request_next().await.unwrap();
+
+        match next {
+            NextResponse::RollForward(_, _) => (),
+            _ => panic!("expected roll-forward"),
+        }
+
+        assert!(matches!(client.state(), chainsync::State::Idle));
+    }
+
+    client.send_done().await.unwrap();
+
+    assert!(matches!(client.state(), chainsync::State::Done));
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn chainsync_tip_happy_path() {
+    let N2NChannels { chainsync, .. } = setup_n2n_client_connection().await;
+
+    let mut client = chainsync::N2NClient::new(chainsync);
+
+    client.intersect_tip().await.unwrap();
+
+    assert!(matches!(client.state(), chainsync::State::Idle));
+
+    let next = client.request_next().await.unwrap();
+
+    assert!(matches!(next, NextResponse::RollBackward(..)));
+
+    let mut await_count = 0;
+
+    for _ in 0..4 {
+        let next = if client.has_agency() {
+            client.request_next().await.unwrap()
+        } else {
+            await_count += 1;
+            client.recv_while_must_reply().await.unwrap()
+        };
+
+        match next {
+            NextResponse::RollForward(_, _) => (),
+            NextResponse::Await => (),
+            _ => panic!("expected roll-forward or await"),
+        }
+    }
+
+    assert!(await_count > 0, "tip was never reached");
+
+    client.send_done().await.unwrap();
+
+    assert!(matches!(client.state(), chainsync::State::Done));
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn blockfetch_happy_path() {
+    let N2NChannels { blockfetch, .. } = setup_n2n_client_connection().await;
+
+    let known_point = Point::Specific(
+        1654413,
+        hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2").unwrap(),
+    );
+
+    let mut client = blockfetch::Client::new(blockfetch);
+
+    let range_ok = client
+        .request_range((known_point.clone(), known_point))
+        .await;
+
+    assert!(matches!(client.state(), blockfetch::State::Streaming));
+
+    println!("streaming...");
+
+    assert!(matches!(range_ok, Ok(_)));
+
+    for _ in 0..1 {
+        let next = client.recv_while_streaming().await.unwrap();
+
+        match next {
+            Some(body) => assert_eq!(body.len(), 3251),
+            _ => panic!("expected block body"),
+        }
+
+        assert!(matches!(client.state(), blockfetch::State::Streaming));
+    }
+
+    let next = client.recv_while_streaming().await.unwrap();
+
+    assert!(matches!(next, None));
+
+    client.send_done().await.unwrap();
+
+    assert!(matches!(client.state(), blockfetch::State::Done));
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn txsubmission_server_happy_path() {
+    // TODO(pi): Note that the below doesn't work; we need a node to connect *to us*
+    // during the integration test which seems awkward;
+    // Alternatively, we can just set up both a client and server connecting to
+    // themselves for testing!
+
+    let N2NChannels { txsubmission, .. } = setup_n2n_client_connection().await;
+
+    let mut server = txsubmission::Server::new(txsubmission);
+
+    assert!(matches!(server.wait_for_init().await, Ok(_)));
+
+    assert!(matches!(
+        server.acknowledge_and_request_tx_ids(false, 0, 3).await,
+        Ok(_)
+    ));
+
+    let reply: Result<_, _> = server.receive_next_reply().await;
+    assert!(matches!(reply, Ok(Reply::TxIds(_))));
+    let Ok(Reply::TxIds(tx_ids)) = reply else { unreachable!() };
+
+    assert!(tx_ids.len() <= 3);
+
+    assert!(matches!(
+        server
+            .request_txs(
+                tx_ids
+                    .into_iter()
+                    .map(|txid: TxIdAndSize<EraTxId>| txid.0)
+                    .collect()
+            )
+            .await,
+        Ok(_)
+    ));
+
+    let reply = server.receive_next_reply().await;
+    assert!(matches!(reply, Ok(Reply::Txs(_))));
+    let Ok(Reply::Txs(first_txs)) = reply else { unreachable!() };
+
+    assert!(matches!(
+        server.acknowledge_and_request_tx_ids(false, 1, 3).await,
+        Ok(_)
+    ));
+
+    let reply = server.receive_next_reply().await;
+    assert!(matches!(reply, Ok(Reply::Txs(_))));
+    let Ok(Reply::Txs(second_txs)) = reply else { unreachable!() };
+
+    // Make sure we receive the second and third tx again, indicating we sent the
+    // `acknowledge 1` bit correctly
+    assert_eq!(second_txs[0], first_txs[1]);
+    assert_eq!(second_txs[1], first_txs[2]);
+
+    assert!(matches!(
+        server.acknowledge_and_request_tx_ids(true, 3, 3).await,
+        Ok(_)
+    ));
+
+    match server.receive_next_reply().await {
+        Ok(Reply::Done) => (), // Server aint havin none of our sh*t
+        Ok(Reply::TxIds(tx_ids)) => assert_eq!(tx_ids.len(), 3),
+        Ok(_) | Err(_) => unreachable!(),
+    }
+}

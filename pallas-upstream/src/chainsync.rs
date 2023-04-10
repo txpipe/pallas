@@ -24,6 +24,8 @@ pub struct Worker<C>
 where
     C: Cursor,
 {
+    peer_address: String,
+    network_magic: u64,
     chain_cursor: C,
     client: OuroborosClient,
     downstream: DownstreamPort,
@@ -134,17 +136,11 @@ where
     }
 }
 
-pub enum WorkUnit {
-    Intersect,
-    RequestNext,
-    AwaitNext,
-}
-
 impl<C> gasket::runtime::Worker for Worker<C>
 where
     C: Cursor + Sync + Send,
 {
-    type WorkUnit = WorkUnit;
+    type WorkUnit = ();
 
     fn metrics(&self) -> gasket::metrics::Registry {
         gasket::metrics::Builder::new()
@@ -153,23 +149,54 @@ where
             .build()
     }
 
-    async fn bootstrap(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
-        Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::Intersect))
+    async fn bootstrap(&mut self) -> Result<(), gasket::error::Error> {
+        debug!("connecting");
+        let bearer = AsyncBearer::connect_tcp(&self.peer_address)
+            .await
+            .or_retry()?;
+
+        let mut plexer = bearer.into();
+
+        let channel0 = plexer.subscribe_client(0);
+        let channel2 = plexer.subscribe_client(2);
+        let channel3 = plexer.subscribe_client(3);
+
+        let plexer_handle = tokio::spawn(plexer.run());
+
+        let versions = handshake::n2n::VersionTable::v7_and_above(network_magic);
+        let mut client = handshake::Client::new(channel0);
+
+        let confirmation = client.handshake(versions).await.or_restart()?;
+
+        match confirmation {
+            handshake::Confirmation::Accepted(version, _) => {
+                info!(version, "connected to upstream peer");
+                Ok(())
+            }
+            _ => {
+                error!("couldn't agree on handshake version");
+                Err(gasket::error::Error::WorkPanic)
+            }
+        }
+
+        self.intersect().await?;
+
+        Ok(())
+    }
+
+    async fn teardown(&mut self) -> Result<(), gasket::error::Error> {
+        self.plexer_handle.abort();
     }
 
     async fn schedule(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
-        match self.client.has_agency() {
-            true => Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::RequestNext)),
-            false => Ok(gasket::runtime::WorkSchedule::Unit(WorkUnit::AwaitNext)),
-        }
+        Ok(gasket::runtime::WorkSchedule::Unit(()))
     }
 
     async fn execute(&mut self, unit: &Self::WorkUnit) -> Result<(), gasket::error::Error> {
-        match unit {
-            WorkUnit::Intersect => self.intersect().await?,
-            WorkUnit::RequestNext => self.request_next().await?,
-            WorkUnit::AwaitNext => self.await_next().await?,
-        };
+        match self.client.has_agency() {
+            true => self.request_next().await?,
+            false => self.await_next().await?,
+        }
 
         Ok(())
     }

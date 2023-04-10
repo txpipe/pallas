@@ -19,6 +19,10 @@ pub trait Cursor: Send + Sync {
     fn intersection(&self) -> Intersection;
 }
 
+pub enum PlexerEvent {
+    Connected,
+}
+
 #[derive(Debug, Clone)]
 pub enum ChainSyncEvent {
     RollForward(BlockSlot, BlockHash),

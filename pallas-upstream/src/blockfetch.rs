@@ -83,7 +83,7 @@ where
 
     async fn schedule(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
         let msg = self.upstream.recv().await?;
-        info!("scheduling block betch");
+        info!("scheduling block fetch");
         Ok(WorkSchedule::Unit(msg.payload))
     }
 

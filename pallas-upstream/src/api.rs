@@ -1,6 +1,8 @@
 pub use crate::framework::{BlockFetchEvent, Cursor, DownstreamPort, Intersection};
 
 pub mod n2n {
+    use std::time::Duration;
+
     use crate::{blockfetch, chainsync, framework::*, plexer};
 
     use gasket::{
@@ -66,18 +68,18 @@ pub mod n2n {
 
             let mut demux2_out = DemuxOutputPort::default();
             let mut demux2_in = DemuxInputPort::default();
-            gasket::messaging::tokio::connect_ports(&mut demux2_out, &mut demux2_in, 1000);
+            gasket::messaging::tokio::connect_ports(&mut demux2_out, &mut demux2_in, 1);
 
             let mut demux3_out = DemuxOutputPort::default();
             let mut demux3_in = DemuxInputPort::default();
-            gasket::messaging::tokio::connect_ports(&mut demux3_out, &mut demux3_in, 1000);
+            gasket::messaging::tokio::connect_ports(&mut demux3_out, &mut demux3_in, 1);
 
             let mut mux2_out = MuxOutputPort::default();
             let mut mux3_out = MuxOutputPort::default();
             gasket::messaging::tokio::funnel_ports(
                 vec![&mut mux2_out, &mut mux3_out],
                 &mut mux_input,
-                1000,
+                1,
             );
 
             let mut chainsync_downstream = chainsync::DownstreamPort::default();
@@ -96,7 +98,21 @@ pub mod n2n {
                     Some(demux2_out),
                     Some(demux3_out),
                 ),
-                gasket::runtime::Policy::default(),
+                gasket::runtime::Policy {
+                    bootstrap_retry: gasket::retries::Policy {
+                        max_retries: 10,
+                        backoff_unit: Duration::from_secs(2),
+                        backoff_factor: 2,
+                        max_backoff: Duration::from_secs(30),
+                    },
+                    work_retry: gasket::retries::Policy {
+                        max_retries: 10,
+                        backoff_unit: Duration::from_secs(2),
+                        backoff_factor: 2,
+                        max_backoff: Duration::from_secs(30),
+                    },
+                    ..Default::default()
+                },
                 Some("plexer"),
             );
 
