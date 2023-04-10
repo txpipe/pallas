@@ -1,32 +1,10 @@
 use pallas::network::{
-    miniprotocols::{
-        blockfetch, chainsync, handshake, Point, MAINNET_MAGIC, PROTOCOL_N2N_BLOCK_FETCH,
-        PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
-    },
-    multiplexer::{bearers::Bearer, StdChannel, StdPlexer},
+    facades::PeerClient,
+    miniprotocols::{chainsync, Point, MAINNET_MAGIC},
 };
+use tracing::info;
 
-#[derive(Debug)]
-struct LoggingObserver;
-
-fn do_handshake(channel: StdChannel) {
-    let mut client = handshake::N2NClient::new(channel);
-
-    let confirmation = client
-        .handshake(handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC))
-        .unwrap();
-
-    match confirmation {
-        handshake::Confirmation::Accepted(v, _) => {
-            log::info!("hand-shake accepted, using version {}", v)
-        }
-        handshake::Confirmation::Rejected(x) => {
-            log::info!("hand-shake rejected with reason {:?}", x)
-        }
-    }
-}
-
-fn do_blockfetch(channel: StdChannel) {
+async fn do_blockfetch(peer: &mut PeerClient) {
     let range = (
         Point::Specific(
             43847831,
@@ -40,29 +18,25 @@ fn do_blockfetch(channel: StdChannel) {
         ),
     );
 
-    let mut client = blockfetch::Client::new(channel);
-
-    let blocks = client.fetch_range(range).unwrap();
+    let blocks = peer.blockfetch().fetch_range(range).await.unwrap();
 
     for block in blocks {
-        log::info!("received block of size: {}", block.len());
+        info!("received block of size: {}", block.len());
     }
 }
 
-fn do_chainsync(channel: StdChannel) {
+async fn do_chainsync(peer: &mut PeerClient) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
     )];
 
-    let mut client = chainsync::N2NClient::new(channel);
+    let (point, _) = peer.chainsync().find_intersect(known_points).await.unwrap();
 
-    let (point, _) = client.find_intersect(known_points).unwrap();
-
-    log::info!("intersected point is {:?}", point);
+    info!("intersected point is {:?}", point);
 
     for _ in 0..10 {
-        let next = client.request_next().unwrap();
+        let next = peer.chainsync().request_next().await.unwrap();
 
         match next {
             chainsync::NextResponse::RollForward(h, _) => {
@@ -74,31 +48,24 @@ fn do_chainsync(channel: StdChannel) {
     }
 }
 
-fn main() {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+#[tokio::main]
+async fn main() {
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
 
     // setup a TCP socket to act as data bearer between our agents and the remote
     // relay.
-    let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
-
-    // setup the multiplexer by specifying the bearer and the IDs of the
-    // miniprotocols to use
-    let mut plexer = StdPlexer::new(bearer);
-    let handshake = plexer.use_client_channel(PROTOCOL_N2N_HANDSHAKE);
-    let blockfetch = plexer.use_client_channel(PROTOCOL_N2N_BLOCK_FETCH);
-    let chainsync = plexer.use_client_channel(PROTOCOL_N2N_CHAIN_SYNC);
-
-    plexer.muxer.spawn();
-    plexer.demuxer.spawn();
-
-    // execute the required handshake against the relay
-    do_handshake(handshake);
+    let mut peer = PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
+        .await
+        .unwrap();
 
     // fetch an arbitrary batch of block
-    do_blockfetch(blockfetch);
+    do_blockfetch(&mut peer).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(chainsync);
+    do_chainsync(&mut peer).await;
 }

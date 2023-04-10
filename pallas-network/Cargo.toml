@@ -1,0 +1,29 @@
+[package]
+name = "pallas-network"
+description = "Ouroboros networking stack using async IO"
+version = "0.18.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-upstream"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+    "Santiago Carmuega <santiago@carmuega.me>",
+    "Pi Lanningham <pi.lanningham@gmail.com>",
+]
+
+[dependencies]
+byteorder = "1.4.3"
+hex = "0.4.3"
+itertools = "0.10.5"
+pallas-codec = { version = "0.18.0", path = "../pallas-codec" }
+pallas-crypto = { version = "0.18.0", path = "../pallas-crypto" }
+thiserror = "1.0.31"
+tokio = { version = "1", features = ["net", "io-util", "time", "sync"] }
+tracing = "0.1.37"
+
+[dev-dependencies]
+tracing-subscriber = "0.3.16"
+tokio = { version = "1", features = ["full"] }
+rand = "0.8.5"

@@ -11,8 +11,7 @@ readme = "../README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-multiplexer = { version = "0.18.0", path = "../pallas-multiplexer/" }
-pallas-miniprotocols = { version = "0.18.0", path = "../pallas-miniprotocols/" }
+pallas-network = { version = "0.18.0", path = "../pallas-network/" }
 pallas-primitives = { version = "0.18.0", path = "../pallas-primitives/" }
 pallas-traverse = { version = "0.18.0", path = "../pallas-traverse/" }
 pallas-addresses = { version = "0.18.0", path = "../pallas-addresses/" }

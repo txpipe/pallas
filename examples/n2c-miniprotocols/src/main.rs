@@ -1,56 +1,37 @@
 use pallas::network::{
-    miniprotocols::{chainsync, handshake, localstate, Point, MAINNET_MAGIC},
-    multiplexer,
+    facades::NodeClient,
+    miniprotocols::{chainsync, localstate, Point, MAINNET_MAGIC},
 };
+use tracing::info;
 
-#[derive(Debug)]
-struct LoggingObserver;
-
-#[allow(dead_code)]
-fn do_handshake(channel: multiplexer::StdChannel) {
-    let mut client = handshake::N2CClient::new(channel);
-
-    let confirmation = client
-        .handshake(handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC))
-        .unwrap();
-
-    match confirmation {
-        handshake::Confirmation::Accepted(v, _) => {
-            log::info!("hand-shake accepted, using version {}", v)
-        }
-        handshake::Confirmation::Rejected(x) => {
-            log::info!("hand-shake rejected with reason {:?}", x)
-        }
-    }
-}
-
-#[allow(dead_code)]
-fn do_localstate_query(channel: multiplexer::StdChannel) {
-    let mut client = localstate::ClientV10::new(channel);
-    client.acquire(None).unwrap();
+async fn do_localstate_query(client: &mut NodeClient) {
+    client.statequery().acquire(None).await.unwrap();
 
     let result = client
+        .statequery()
         .query(localstate::queries::RequestV10::GetSystemStart)
+        .await
         .unwrap();
 
-    log::info!("system start result: {:?}", result);
+    info!("system start result: {:?}", result);
 }
 
-#[allow(dead_code)]
-fn do_chainsync(channel: multiplexer::StdChannel) {
+async fn do_chainsync(client: &mut NodeClient) {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
     )];
 
-    let mut client = chainsync::N2CClient::new(channel);
+    let (point, _) = client
+        .chainsync()
+        .find_intersect(known_points)
+        .await
+        .unwrap();
 
-    let (point, _) = client.find_intersect(known_points).unwrap();
-
-    log::info!("intersected point is {:?}", point);
+    info!("intersected point is {:?}", point);
 
     for _ in 0..10 {
-        let next = client.request_next().unwrap();
+        let next = client.chainsync().request_next().await.unwrap();
 
         match next {
             chainsync::NextResponse::RollForward(h, _) => {
@@ -62,44 +43,29 @@ fn do_chainsync(channel: multiplexer::StdChannel) {
     }
 }
 
-fn main() {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Trace)
-        .init();
+#[tokio::main]
+async fn main() {
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
 
-    #[cfg(not(target_family = "unix"))]
-    {
-        panic!("can't use n2c unix socket on non-unix systems");
-    }
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    #[cfg(target_family = "unix")]
-    {
-        use pallas::network::{
-            miniprotocols::{
-                PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-            },
-            multiplexer::bearers::Bearer,
-        };
-        let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
+    let mut client = NodeClient::connect("/tmp/node.socket", MAINNET_MAGIC)
+        .await
+        .unwrap();
 
-        // setup the multiplexer by specifying the bearer and the IDs of the
-        // miniprotocols to use
-        let mut plexer = multiplexer::StdPlexer::new(bearer);
-        let handshake = plexer.use_client_channel(PROTOCOL_N2C_HANDSHAKE);
-        let statequery = plexer.use_client_channel(PROTOCOL_N2C_STATE_QUERY);
-        let chainsync = plexer.use_client_channel(PROTOCOL_N2C_CHAIN_SYNC);
+    // execute an arbitrary "Local State" query against the node
+    do_localstate_query(&mut client).await;
 
-        plexer.muxer.spawn();
-        plexer.demuxer.spawn();
+    // execute the chainsync flow from an arbitrary point in the chain
+    do_chainsync(&mut client).await;
+}
 
-        // execute the required handshake against the relay
-        do_handshake(handshake);
-
-        // execute an arbitrary "Local State" query against the node
-        do_localstate_query(statequery);
-
-        // execute the chainsync flow from an arbitrary point in the chain
-        do_chainsync(chainsync);
-    }
+#[cfg(not(target_family = "unix"))]
+fn main() {
+    panic!("can't use n2c unix socket on non-unix systems");
 }

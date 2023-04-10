@@ -3,8 +3,7 @@
 members = [
     "pallas-codec",
     "pallas-addresses",
-    "pallas-multiplexer",
-    "pallas-miniprotocols",
+    "pallas-network",
     "pallas-crypto",
     "pallas-primitives",
     "pallas-traverse",
