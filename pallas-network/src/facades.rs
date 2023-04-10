@@ -5,12 +5,11 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
 use crate::{
-    bearer,
     miniprotocols::{
         blockfetch, chainsync, handshake, localstate, PROTOCOL_N2C_CHAIN_SYNC,
         PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
     },
-    plexer,
+    multiplexer::{self, Bearer},
 };
 
 #[derive(Debug, Error)]
@@ -35,11 +34,11 @@ pub struct PeerClient {
 impl PeerClient {
     pub async fn connect(address: &str, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
-        let bearer = bearer::Bearer::connect_tcp(address)
+        let bearer = Bearer::connect_tcp(address)
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut plexer = plexer::Plexer::new(bearer);
+        let mut plexer = multiplexer::Plexer::new(bearer);
 
         let channel0 = plexer.subscribe_client(0);
         let channel2 = plexer.subscribe_client(2);
@@ -92,11 +91,11 @@ impl NodeClient {
     pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
 
-        let bearer = bearer::Bearer::connect_unix(path)
+        let bearer = Bearer::connect_unix(path)
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut plexer = plexer::Plexer::new(bearer);
+        let mut plexer = multiplexer::Plexer::new(bearer);
 
         let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
         let cs_channel = plexer.subscribe_client(PROTOCOL_N2C_CHAIN_SYNC);

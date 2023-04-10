@@ -3,19 +3,19 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 
 use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
-use crate::plexer;
+use crate::multiplexer;
 
-pub struct Server<D>(State, plexer::ChannelBuffer, PhantomData<D>);
+pub struct Server<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
 
 impl<D> Server<D>
 where
     D: std::fmt::Debug + Clone,
     Message<D>: Fragment,
 {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Propose,
-            plexer::ChannelBuffer::new(channel),
+            multiplexer::ChannelBuffer::new(channel),
             PhantomData {},
         )
     }
@@ -109,7 +109,7 @@ where
         Ok(())
     }
 
-    pub fn unwrap(self) -> plexer::AgentChannel {
+    pub fn unwrap(self) -> multiplexer::AgentChannel {
         self.1.unwrap()
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use thiserror::*;
 
 use super::protocol::*;
-use crate::plexer;
+use crate::multiplexer;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -19,14 +19,14 @@ pub enum Error {
     InvalidOutbound,
 
     #[error("error while sending or receiving data through the channel")]
-    Plexer(plexer::Error),
+    Plexer(multiplexer::Error),
 }
 
-pub struct Client(State, plexer::ChannelBuffer);
+pub struct Client(State, multiplexer::ChannelBuffer);
 
 impl Client {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
-        Self(State::Idle, plexer::ChannelBuffer::new(channel))
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
+        Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
     pub fn state(&self) -> &State {

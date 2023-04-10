@@ -30,3 +30,6 @@ pub use pallas_crypto as crypto;
 
 #[doc(inline)]
 pub use pallas_codec as codec;
+
+#[doc(inline)]
+pub use pallas_upstream as upstream;

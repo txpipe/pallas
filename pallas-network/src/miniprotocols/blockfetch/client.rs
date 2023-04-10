@@ -2,7 +2,7 @@ use thiserror::Error;
 use tracing::{debug, info, warn};
 
 use crate::miniprotocols::common::Point;
-use crate::plexer;
+use crate::multiplexer;
 
 use super::{Message, State};
 
@@ -24,7 +24,7 @@ pub enum Error {
     NoBlocks,
 
     #[error("error while sending or receiving data through the multiplexer")]
-    Plexer(plexer::Error),
+    Plexer(multiplexer::Error),
 }
 
 pub type Body = Vec<u8>;
@@ -33,11 +33,11 @@ pub type Range = (Point, Point);
 
 pub type HasBlocks = Option<()>;
 
-pub struct Client(State, plexer::ChannelBuffer);
+pub struct Client(State, multiplexer::ChannelBuffer);
 
 impl Client {
-    pub fn new(channel: plexer::AgentChannel) -> Self {
-        Self(State::Idle, plexer::ChannelBuffer::new(channel))
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
+        Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
     pub fn state(&self) -> &State {
