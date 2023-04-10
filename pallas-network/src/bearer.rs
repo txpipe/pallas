@@ -2,9 +2,11 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 use byteorder::{ByteOrder, NetworkEndian};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufStream};
+use thiserror::Error;
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs, UnixStream};
 use tokio::time::Instant;
+use tracing::trace;
 
 const HEADER_LEN: usize = 8;
 
@@ -14,39 +16,6 @@ pub type Payload = Vec<u8>;
 
 pub type Protocol = u16;
 
-/// A `Header` struct represents an Ouroboros segment header.
-///
-/// # Examples
-///
-/// Converting a `Header` to bytes:
-///
-/// ```
-/// use byteorder::{BigEndian, ByteOrder};
-/// use pallas_upstream::plexer::Header;
-///
-/// let header = Header {
-///     protocol: 0x01,
-///     timestamp: 1619804871,
-///     payload_len: 42,
-/// };
-///
-/// let header_bytes: [u8; 8] = header.into();
-/// assert_eq!(header_bytes, [97, 75, 168, 15, 128, 1, 0, 42]);
-/// ```
-///
-/// Converting bytes to a `Header`:
-///
-/// ```
-/// use byteorder::{BigEndian, ByteOrder};
-/// use pallas_upstream::plexer::Header;
-///
-/// let bytes = [97, 75, 168, 15, 128, 1, 0, 42];
-/// let header: Header = (&bytes[..]).into();
-///
-/// assert_eq!(header.protocol, 0x01);
-/// assert_eq!(header.timestamp, 1619804871);
-/// assert_eq!(header.payload_len, 42);
-/// ```
 #[derive(Debug)]
 pub struct Header {
     pub protocol: Protocol,
@@ -85,130 +54,126 @@ pub struct Segment {
 }
 
 pub enum Bearer {
-    Tcp(BufStream<TcpStream>, Instant),
-    Unix(BufStream<UnixStream>, Instant),
+    Tcp(TcpStream),
+    Unix(UnixStream),
 }
+
+const BUFFER_LEN: usize = 1024 * 10;
 
 impl Bearer {
     pub async fn connect_tcp(addr: impl ToSocketAddrs) -> Result<Self, tokio::io::Error> {
         let stream = TcpStream::connect(addr).await?;
-        let buf = BufStream::new(stream);
-        Ok(Self::Tcp(buf, Instant::now()))
+        Ok(Self::Tcp(stream))
     }
 
     pub async fn accept_tcp(listener: TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
-        let buf = BufStream::new(stream);
-        Ok((Self::Tcp(buf, Instant::now()), addr))
+        Ok((Self::Tcp(stream), addr))
     }
 
     pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
         let stream = UnixStream::connect(path).await?;
-        let buf = BufStream::new(stream);
-        Ok(Self::Unix(buf, Instant::now()))
-    }
-
-    fn clock(&self) -> &Instant {
-        match self {
-            Bearer::Tcp(_, x) => x,
-            Bearer::Unix(_, x) => x,
-        }
+        Ok(Self::Unix(stream))
     }
 
     pub async fn readable(&self) -> tokio::io::Result<()> {
         match self {
-            Bearer::Tcp(x, _) => x.get_ref().readable().await,
-            Bearer::Unix(x, _) => x.get_ref().readable().await,
+            Bearer::Tcp(x) => x.readable().await,
+            Bearer::Unix(x) => x.readable().await,
         }
     }
 
-    async fn fill_buf(&mut self) -> tokio::io::Result<&[u8]> {
+    fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
         match self {
-            Bearer::Tcp(x, _) => x.fill_buf().await,
-            Bearer::Unix(x, _) => x.fill_buf().await,
-        }
-    }
-
-    async fn read_exact(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
-        match self {
-            Bearer::Tcp(x, _) => x.read_exact(buf).await,
-            Bearer::Unix(x, _) => x.read_exact(buf).await,
+            Bearer::Tcp(x) => x.try_read(buf),
+            Bearer::Unix(x) => x.try_read(buf),
         }
     }
 
     async fn write_all(&mut self, buf: &[u8]) -> tokio::io::Result<()> {
         match self {
-            Bearer::Tcp(x, _) => {
-                println!("writing: {}", hex::encode(buf));
-                x.write_all(buf).await
-            }
-            Bearer::Unix(x, _) => x.write_all(buf).await,
+            Bearer::Tcp(x) => x.write_all(buf).await,
+            Bearer::Unix(x) => x.write_all(buf).await,
         }
     }
 
     async fn flush(&mut self) -> tokio::io::Result<()> {
         match self {
-            Bearer::Tcp(x, _) => x.flush().await,
-            Bearer::Unix(x, _) => x.flush().await,
+            Bearer::Tcp(x) => x.flush().await,
+            Bearer::Unix(x) => x.flush().await,
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("no data available in bearer to complete segment")]
+    NoData,
+
+    #[error("unexpected I/O error")]
+    Io(#[source] tokio::io::Error),
+}
+
+pub struct SegmentBuffer(Bearer, Vec<u8>);
+
+impl SegmentBuffer {
+    pub fn new(bearer: Bearer) -> Self {
+        Self(bearer, Vec::with_capacity(BUFFER_LEN))
+    }
+
+    /// Cancel-safe loop that reads from bearer until certain len
+    async fn cancellable_read(&mut self, required: usize) -> Result<(), Error> {
+        loop {
+            self.0.readable().await.map_err(Error::Io)?;
+            trace!("bearer is readable");
+
+            let remaining = required - self.1.len();
+            let mut buf = vec![0u8; remaining];
+
+            match self.0.try_read(&mut buf) {
+                Ok(0) => break Err(Error::NoData),
+                Ok(n) => {
+                    trace!(n, "found data on bearer");
+                    self.1.extend_from_slice(&buf[0..n]);
+
+                    if self.1.len() >= required {
+                        break Ok(());
+                    }
+                }
+                Err(ref e) if e.kind() == tokio::io::ErrorKind::WouldBlock => {
+                    trace!("reading from bearer would block");
+                    continue;
+                }
+                Err(e) => {
+                    return Err(Error::Io(e));
+                }
+            }
         }
     }
 
     /// Peek the available data in search for a frame header
-    async fn peek_header(&mut self) -> tokio::io::Result<Option<Header>> {
-        let temp = self.fill_buf().await?;
+    async fn peek_header(&mut self) -> Result<Header, Error> {
+        trace!("waiting for header buf");
+        self.cancellable_read(HEADER_LEN).await?;
 
-        if temp.is_empty() {
-            panic!("unexpected eof");
-        }
+        trace!("found enough data for header");
+        let header = &self.1[..HEADER_LEN];
 
-        if temp.len() < HEADER_LEN {
-            println!("len: {}, {}", temp.len(), hex::encode(temp));
-            return Ok(None);
-        }
-
-        let header = &temp[..HEADER_LEN];
-
-        Ok(Some(Header::from(header)))
+        Ok(Header::from(header))
     }
 
-    async fn has_payload(&mut self, payload_len: usize) -> tokio::io::Result<bool> {
-        let segment_size = HEADER_LEN + payload_len;
+    // Cancel-safe read of a full segment from the bearer
+    pub async fn read_segment(&mut self) -> Result<(Protocol, Payload), Error> {
+        let header = self.peek_header().await?;
 
-        let temp = self.fill_buf().await?;
+        trace!("waiting for full segment buf");
+        let segment_size = HEADER_LEN + header.payload_len as usize;
 
-        if temp.is_empty() {
-            panic!("unexpected eof");
-        }
+        self.cancellable_read(segment_size).await?;
 
-        return Ok(temp.len() >= segment_size);
-    }
-
-    /// Peeks the bearer to see if a full segment is available to be read
-    pub async fn has_segment(&mut self) -> std::io::Result<bool> {
-        let header = match self.peek_header().await? {
-            Some(x) => x,
-            None => return Ok(false),
-        };
-
-        self.has_payload(header.payload_len as usize).await
-    }
-
-    /// Reads a full segment from the bearer while consuming the bytes
-    ///
-    /// This function is NOT "cancel safe", meaning that it shouldn't be used
-    /// inside the context of a select!. Only call this function once you're
-    /// sure that you can await until all the required bytes are available.
-    pub async fn read_segment(&mut self) -> tokio::io::Result<(Protocol, Payload)> {
-        let mut buf = [0u8; HEADER_LEN];
-        self.read_exact(&mut buf).await?;
-        println!("read header: {}", hex::encode(buf));
-
-        let header = Header::from(buf.as_slice());
-
-        // TODO: assert any business invariants regarding timestamp from the other party
-
-        let mut payload = vec![0u8; header.payload_len as usize];
-        self.read_exact(&mut payload).await?;
+        trace!("draining segment buffer");
+        let segment = self.1.drain(..segment_size);
+        let payload = segment.skip(HEADER_LEN).collect();
 
         Ok((header.protocol, payload))
     }
@@ -216,19 +181,20 @@ impl Bearer {
     pub async fn write_segment(
         &mut self,
         protocol: u16,
+        clock: &Instant,
         payload: &[u8],
     ) -> Result<(), std::io::Error> {
         let header = Header {
             protocol,
-            timestamp: self.clock().elapsed().as_micros() as u32,
+            timestamp: clock.elapsed().as_micros() as u32,
             payload_len: payload.len() as u16,
         };
 
         let buf: [u8; 8] = header.into();
-        self.write_all(&buf).await?;
-        self.write_all(&payload).await?;
+        self.0.write_all(&buf).await?;
+        self.0.write_all(&payload).await?;
 
-        self.flush().await?;
+        self.0.flush().await?;
 
         Ok(())
     }

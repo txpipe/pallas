@@ -1,13 +1,10 @@
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
-use tokio::select;
 use tokio::sync::mpsc::error::SendError;
+use tokio::{select, time::Instant};
 use tracing::{debug, error, trace};
 
-use crate::{
-    bearer::{Bearer, Payload, Protocol},
-    miniprotocols::PROTOCOL_SERVER,
-};
+use crate::bearer::{Bearer, Payload, Protocol, SegmentBuffer};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -72,9 +69,10 @@ impl AgentChannel {
                 .from_plexer
                 .recv()
                 .await
-                .map_err(|err| Error::AgentDequeue)?;
+                .map_err(|_| Error::AgentDequeue)?;
 
             if protocol == self.dequeue_protocol {
+                trace!(protocol, "message for our protocol");
                 break Ok(payload);
             }
         }
@@ -92,7 +90,8 @@ type Egress = (
 );
 
 pub struct Plexer {
-    bearer: Bearer,
+    clock: Instant,
+    bearer: SegmentBuffer,
     ingress: Ingress,
     egress: Egress,
 }
@@ -100,22 +99,33 @@ pub struct Plexer {
 impl Plexer {
     pub fn new(bearer: Bearer) -> Self {
         Self {
-            bearer,
+            clock: Instant::now(),
+            bearer: SegmentBuffer::new(bearer),
             ingress: tokio::sync::mpsc::channel(100), // TODO: define buffer
             egress: tokio::sync::broadcast::channel(100),
         }
     }
 
     async fn mux(&mut self, msg: (Protocol, Payload)) -> tokio::io::Result<()> {
-        self.bearer.write_segment(msg.0, &msg.1).await?;
+        self.bearer
+            .write_segment(msg.0, &self.clock, &msg.1)
+            .await?;
+
+        if tracing::event_enabled!(tracing::Level::TRACE) {
+            trace!(
+                protocol = msg.0,
+                data = hex::encode(&msg.1),
+                "write to bearer"
+            );
+        }
 
         Ok(())
     }
 
-    async fn demux(&mut self) -> tokio::io::Result<()> {
-        println!("demuxing");
-        let (protocol, payload) = self.bearer.read_segment().await?;
-        println!("demuxed {}", protocol);
+    async fn demux(&mut self, protocol: Protocol, payload: Payload) -> tokio::io::Result<()> {
+        if tracing::event_enabled!(tracing::Level::TRACE) {
+            trace!(protocol, data = hex::encode(&payload), "read from bearer");
+        }
 
         self.egress.0.send((protocol, payload)).unwrap();
 
@@ -132,10 +142,11 @@ impl Plexer {
 
     pub async fn run(&mut self) -> tokio::io::Result<()> {
         loop {
+            trace!("selecting");
             select! {
-                Ok(true) = self.bearer.has_segment() => {
+                Ok(x) = self.bearer.read_segment() => {
                     trace!("demux selected");
-                    self.demux().await?;
+                    self.demux(x.0, x.1).await?
                 },
                 Some(x) = self.ingress.1.recv() => {
                     trace!("mux selected");
@@ -144,20 +155,11 @@ impl Plexer {
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
                     trace!("idle plexer");
                 }
+                else => {
+                    error!("something else happened");
+                }
             }
         }
-    }
-}
-
-impl From<Bearer> for Plexer {
-    fn from(value: Bearer) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<Plexer> for Bearer {
-    fn from(value: Plexer) -> Self {
-        value.bearer
     }
 }
 
@@ -222,7 +224,11 @@ impl ChannelBuffer {
     where
         M: Fragment,
     {
+        trace!(len = self.temp.len(), "waiting for full message");
+
         if !self.temp.is_empty() {
+            trace!("buffer has data from previous payload");
+
             if let Some(msg) = try_decode_message::<M>(&mut self.temp)? {
                 debug!("decoding done");
                 return Ok(msg);
@@ -272,7 +278,7 @@ mod tests {
 
         let channel = AgentChannel::for_client(0, &ingress, &egress);
 
-        egress.0.send((0, input)).unwrap();
+        egress.0.send((0 ^ 0x8000, input)).unwrap();
 
         let mut buf = ChannelBuffer::new(channel);
 
@@ -296,7 +302,7 @@ mod tests {
 
         while !input.is_empty() {
             let chunk = Vec::from(input.drain(0..2).as_slice());
-            egress.0.send((0, chunk)).unwrap();
+            egress.0.send((0 ^ 0x8000, chunk)).unwrap();
         }
 
         let mut buf = ChannelBuffer::new(channel);

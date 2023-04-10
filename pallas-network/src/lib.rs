@@ -1,5 +1,4 @@
-#![feature(async_fn_in_trait)]
-
 pub mod bearer;
+pub mod facades;
 pub mod miniprotocols;
 pub mod plexer;

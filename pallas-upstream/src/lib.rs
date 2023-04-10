@@ -1,10 +1,8 @@
-#![feature(async_fn_in_trait)]
-
-pub(crate) mod blockfetch;
-pub(crate) mod chainsync;
 pub(crate) mod framework;
-pub(crate) mod plexer;
+pub(crate) mod worker;
 
-mod api;
+pub use crate::framework::{Cursor, DownstreamPort, Intersection, UpstreamEvent};
 
-pub use api::*;
+pub mod n2n {
+    pub use crate::worker::Worker;
+}

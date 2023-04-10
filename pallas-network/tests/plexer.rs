@@ -2,8 +2,7 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 
 use pallas_network::{bearer::Bearer, plexer::Plexer};
 use rand::{distributions::Uniform, Rng};
-use tokio::{net::TcpListener, task::JoinHandle};
-use tracing::info;
+use tokio::net::TcpListener;
 
 async fn setup_passive_muxer<const P: u16>() -> Plexer {
     let server = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P))

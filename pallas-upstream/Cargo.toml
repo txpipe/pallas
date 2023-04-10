@@ -11,6 +11,7 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
+async-trait = "0.1.68"
 byteorder = "1.4.3"
 gasket = { git = "https://github.com/construkts/gasket-rs" }
 # gasket = { path = "../../../construkts/gasket-rs" }
