@@ -1,8 +1,5 @@
 use gasket::{
-    messaging::{
-        tokio::{InputPort, OutputPort},
-        RecvPort, SendPort,
-    },
+    messaging::{tokio::InputPort, RecvPort, SendPort},
     runtime::{WorkSchedule, Worker},
 };
 
@@ -13,7 +10,7 @@ struct Witness {
     input: InputPort<UpstreamEvent>,
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl Worker for Witness {
     type WorkUnit = UpstreamEvent;
 
@@ -54,15 +51,13 @@ fn test_mainnet_upstream() {
 
     let (send, receive) = gasket::messaging::tokio::channel(200);
 
-    let mut output_port = OutputPort::default();
-    output_port.connect(send);
-
-    let upstream = pallas_upstream::n2n::Worker::new(
+    let mut upstream = pallas_upstream::n2n::Worker::new(
         "relays-new.cardano-mainnet.iohk.io:3001".into(),
         764824073,
         StaticCursor,
-        output_port,
     );
+
+    upstream.downstream_port().connect(send);
 
     let mut witness = Witness {
         input: Default::default(),
