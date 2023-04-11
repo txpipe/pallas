@@ -25,7 +25,7 @@ pub enum Error {
 }
 
 pub struct PeerClient {
-    plexer_handle: JoinHandle<tokio::io::Result<()>>,
+    plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub handshake: handshake::Confirmation<handshake::n2n::VersionData>,
     chainsync: chainsync::N2NClient,
     blockfetch: blockfetch::Client,
@@ -81,7 +81,7 @@ impl PeerClient {
 }
 
 pub struct NodeClient {
-    plexer_handle: JoinHandle<tokio::io::Result<()>>,
+    plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub handshake: handshake::Confirmation<handshake::n2c::VersionData>,
     chainsync: chainsync::N2CClient,
     statequery: localstate::ClientV10,
