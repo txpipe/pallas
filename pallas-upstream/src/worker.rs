@@ -1,4 +1,5 @@
 use gasket::error::AsWorkError;
+use gasket::messaging::SendAdapter;
 use tracing::{debug, info};
 
 use pallas_network::facades::PeerClient;
@@ -17,40 +18,41 @@ fn to_traverse(header: &HeaderContent) -> Result<MultiEraHeader<'_>, gasket::err
     out.or_panic()
 }
 
-pub type DownstreamPort = gasket::messaging::tokio::OutputPort<UpstreamEvent>;
+pub type DownstreamPort<A> = gasket::messaging::OutputPort<A, UpstreamEvent>;
 
-pub struct Worker<C>
+pub struct Worker<C, A>
 where
     C: Cursor,
+    A: SendAdapter<UpstreamEvent>,
 {
     peer_address: String,
     network_magic: u64,
     chain_cursor: C,
     peer_session: Option<PeerClient>,
-    downstream: DownstreamPort,
+    downstream: DownstreamPort<A>,
     block_count: gasket::metrics::Counter,
     chain_tip: gasket::metrics::Gauge,
 }
 
-impl<C> Worker<C>
+impl<C, A> Worker<C, A>
 where
     C: Cursor,
+    A: SendAdapter<UpstreamEvent>,
 {
-    pub fn new(
-        peer_address: String,
-        network_magic: u64,
-        chain_cursor: C,
-        downstream: DownstreamPort,
-    ) -> Self {
+    pub fn new(peer_address: String, network_magic: u64, chain_cursor: C) -> Self {
         Self {
             peer_address,
             network_magic,
             chain_cursor,
-            downstream,
+            downstream: Default::default(),
             peer_session: None,
             block_count: Default::default(),
             chain_tip: Default::default(),
         }
+    }
+
+    pub fn downstream_port(&mut self) -> &mut DownstreamPort<A> {
+        &mut self.downstream
     }
 
     fn notify_tip(&self, tip: &Tip) {
@@ -140,10 +142,11 @@ where
     }
 }
 
-#[async_trait::async_trait]
-impl<C> gasket::runtime::Worker for Worker<C>
+#[async_trait::async_trait(?Send)]
+impl<C, A> gasket::runtime::Worker for Worker<C, A>
 where
     C: Cursor + Sync + Send,
+    A: SendAdapter<UpstreamEvent>,
 {
     type WorkUnit = NextResponse<HeaderContent>;
 

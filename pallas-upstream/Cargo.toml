@@ -13,10 +13,7 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 [dependencies]
 async-trait = "0.1.68"
 byteorder = "1.4.3"
-gasket = { git = "https://github.com/construkts/gasket-rs" }
-# gasket = { path = "../../../construkts/gasket-rs" }
 hex = "0.4.3"
-# gasket = { version = "0.1.0", path = "../../../construkts/gasket-rs" }
 pallas-codec = { version = "0.18.0", path = "../pallas-codec" }
 pallas-crypto = { version = "0.18.0", path = "../pallas-crypto" }
 pallas-network = { version = "0.18.0", path = "../pallas-network" }
@@ -25,6 +22,9 @@ serde = { version = "1.0.154", features = ["derive"] }
 thiserror = "1.0.31"
 tokio = { version = "1", features = ["net", "macros", "io-util"] }
 tracing = "0.1.37"
+
+gasket = { git = "https://github.com/construkts/gasket-rs" }
+# gasket = { path = "../../../construkts/gasket-rs" }
 
 [dev-dependencies]
 tracing-subscriber = "0.3.16"
