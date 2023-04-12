@@ -778,6 +778,7 @@ mod tests {
         }
     }
 
+
     #[test]
     fn fragments_decoding() {
         // peculiar array of outputs used in an hydra transaction
@@ -789,4 +790,5 @@ mod tests {
 
         // add any loose fragment tests here
     }
+
 }

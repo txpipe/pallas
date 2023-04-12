@@ -144,7 +144,7 @@ impl ComputeHash<32> for babbage::DatumOption {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Era, MultiEraBlock, MultiEraTx};
+    use crate::{Era, MultiEraTx};
 
     use super::{ComputeHash, OriginalHash};
     use pallas_codec::utils::Int;
