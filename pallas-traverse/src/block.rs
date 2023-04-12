@@ -187,8 +187,9 @@ impl<'b> MultiEraBlock<'b> {
 
 #[cfg(test)]
 mod tests {
+    use pallas_codec::utils::KeepRaw;
     use pallas_primitives::{
-        babbage::{TransactionInput, TransactionOutput},
+        babbage::{TransactionInput, TransactionOutput, PseudoTx},
         Fragment,
     };
     
@@ -221,6 +222,9 @@ mod tests {
 
         let tx_bytes: &[u8] = tx_bytes.as_slice();
     
+        let pseudo: PseudoTx<KeepRaw<babbage::PseudoTransactionBody<babbage::PseudoTransactionOutput<babbage::PseudoPostAlonzoTransactionOutput<babbage::PseudoDatumOption<KeepRaw<babbage::PlutusData>>>>>>, KeepRaw<babbage::MintedWitnessSet>, KeepRaw<babbage::AuxiliaryData>> = minicbor::decode(&tx_bytes).unwrap();
+        dbg!(pseudo);
+
         let tx: MultiEraTx = MultiEraTx::decode(Era::Babbage, &tx_bytes)
             .or_else(|_| MultiEraTx::decode(Era::Alonzo, &tx_bytes))
             .unwrap();

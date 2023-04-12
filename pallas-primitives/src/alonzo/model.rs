@@ -133,14 +133,18 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
             minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            // minicbor::data::Type::I32 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            // minicbor::data::Type::Map => {
+            //     Ok(Value::Coin(d.decode_with(ctx)?))
+            // }
             minicbor::data::Type::Array => {
                 d.array()?;
                 let coin = d.decode_with(ctx)?;
                 let multiasset = d.decode_with(ctx)?;
                 Ok(Value::Multiasset(coin, multiasset))
             }
-            _ => Err(minicbor::decode::Error::message(
-                "unknown cbor data type for Alonzo Value enum",
+            unknown_type => Err(minicbor::decode::Error::message(
+                format!("unknown cbor data type:{} for Alonzo Value enum.", unknown_type),
             )),
         }
     }

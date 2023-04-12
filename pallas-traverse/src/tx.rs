@@ -32,6 +32,7 @@ impl<'b> MultiEraTx<'b> {
     }
 
     pub fn decode(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
+        println!("{:?}", cbor);
         match era {
             Era::Byron => {
                 let tx = minicbor::decode(cbor)?;
@@ -44,7 +45,7 @@ impl<'b> MultiEraTx<'b> {
                 Ok(MultiEraTx::AlonzoCompatible(tx, era))
             }
             Era::Babbage => {
-                let tx = minicbor::decode(cbor)?;
+                let tx: babbage::PseudoTx<KeepRaw<babbage::PseudoTransactionBody<babbage::PseudoTransactionOutput<babbage::PseudoPostAlonzoTransactionOutput<babbage::PseudoDatumOption<KeepRaw<babbage::PlutusData>>>>>>, KeepRaw<babbage::MintedWitnessSet>, KeepRaw<babbage::AuxiliaryData>> = minicbor::decode(cbor)?;
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(MultiEraTx::Babbage(tx))
             }
