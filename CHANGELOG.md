@@ -2,6 +2,52 @@
 ## [Unreleased]
 
 
+<a name="v0.19.0-alpha.0"></a>
+## [v0.19.0-alpha.0] - 2023-04-13
+### Chore
+- Use gasket dep from crates.io ([#249](https://github.com/txpipe/pallas/issues/249))
+- Fix lint warnings for all targets ([#240](https://github.com/txpipe/pallas/issues/240))
+- Improve network tracing messages ([#237](https://github.com/txpipe/pallas/issues/237))
+- **traverse:** Improve API ergonomics ([#233](https://github.com/txpipe/pallas/issues/233))
+
+### Docs
+- Small crate readme tweaks
+
+### Feat
+- Migrate to asynchronous I/O ([#241](https://github.com/txpipe/pallas/issues/241))
+- Allow creation of secret key from bytes ([#224](https://github.com/txpipe/pallas/issues/224))
+- Add client/server use_channel variants ([#228](https://github.com/txpipe/pallas/issues/228))
+- Add constants for known miniprotocols
+- Introduce Upstream crate ([#230](https://github.com/txpipe/pallas/issues/230))
+- Make the underlying TxBody type generic
+- **addresses:** Derive Hash on Address ([#235](https://github.com/txpipe/pallas/issues/235))
+- **traverse:** Expose aux data scripts ([#232](https://github.com/txpipe/pallas/issues/232))
+- **traverse:** Introduce time helpers ([#234](https://github.com/txpipe/pallas/issues/234))
+- **upstream:** Make output generic by adapter ([#236](https://github.com/txpipe/pallas/issues/236))
+
+### Fix
+- Handle bearer I/O errors ([#247](https://github.com/txpipe/pallas/issues/247))
+- Make upstream worker easy to connect ([#246](https://github.com/txpipe/pallas/issues/246))
+- **upstream:** Use sync read for chunk dequeue ([#239](https://github.com/txpipe/pallas/issues/239))
+
+### Refactor
+- Improve network module naming ([#245](https://github.com/txpipe/pallas/issues/245))
+- Merge multiplexer & miniprotocols into single crate ([#244](https://github.com/txpipe/pallas/issues/244))
+- **traverse:** Unify mint and output asset artifacts ([#231](https://github.com/txpipe/pallas/issues/231))
+
+### BREAKING CHANGE
+
+The signature for Bearer.accept_tcp now returns the bearer, and the address that connected.
+
+This can, for example, be used to implement allow and deny lists for accepting or rejecting incoming connections.
+
+* Return the remote address from accept_unix
+
+* cargo fmt
+
+* Fix comment formatting
+
+
 <a name="v0.18.0"></a>
 ## [v0.18.0] - 2023-02-04
 ### Build
@@ -14,7 +60,7 @@
 
 ### Feat
 - Derive Debug for Bearer ([#219](https://github.com/txpipe/pallas/issues/219))
-- **miniprotocols:** Implement tx submission client & server ([#220](https://github.com/txpipe/pallas/issues/220))
+- **miniprotocols:** Implement tx submission client ([#220](https://github.com/txpipe/pallas/issues/220))
 
 ### Fix
 - Provide original hash for inline datum ([#221](https://github.com/txpipe/pallas/issues/221))
@@ -762,7 +808,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.19.0-alpha.0...HEAD
+[v0.19.0-alpha.0]: https://github.com/txpipe/pallas/compare/v0.18.0...v0.19.0-alpha.0
 [v0.18.0]: https://github.com/txpipe/pallas/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/txpipe/pallas/compare/v0.16.0...v0.17.0
 [v0.16.0]: https://github.com/txpipe/pallas/compare/v0.14.2...v0.16.0
