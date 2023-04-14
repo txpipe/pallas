@@ -23,7 +23,8 @@ thiserror = "1.0.31"
 tokio = { version = "1", features = ["net", "macros", "io-util"] }
 tracing = "0.1.37"
 
-gasket = { git = "https://github.com/construkts/gasket-rs" }
+gasket = "0.2.0"
+# gasket = { git = "https://github.com/construkts/gasket-rs" }
 # gasket = { path = "../../../construkts/gasket-rs" }
 
 [dev-dependencies]
