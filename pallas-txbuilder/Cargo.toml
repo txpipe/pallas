@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 pallas-codec = { path = "../pallas-codec", version = "0.18.0" }
 pallas-primitives = { path = "../pallas-primitives", version = "0.18.0" }
+
+[dev-dependencies]
+hex = "0.4.3"
