@@ -7,6 +7,7 @@ members = [
     "pallas-crypto",
     "pallas-primitives",
     "pallas-traverse",
+    "pallas-txbuilder",
     "pallas-upstream",
     "pallas",
     "examples/block-download",
