@@ -1,3 +1,5 @@
+//! BlockFetch mini-protocol implementation
+
 mod client;
 mod codec;
 mod protocol;

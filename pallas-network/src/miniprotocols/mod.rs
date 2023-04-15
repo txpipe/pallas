@@ -1,3 +1,5 @@
+//! Implementations for the different Ouroboros mini-protocols
+
 mod common;
 
 pub mod blockfetch;

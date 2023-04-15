@@ -33,17 +33,34 @@ pub type Range = (Point, Point);
 
 pub type HasBlocks = Option<()>;
 
+/// Represents the client for the BlockFetch mini-protocol.
+///
+/// This struct is used to interact with the Cardano network and fetch blocks
+/// from a remote node. It handles the state transitions and message exchange
+/// required to communicate with the network using the BlockFetch mini-protocol.
 pub struct Client(State, multiplexer::ChannelBuffer);
 
 impl Client {
+    /// Create a new BlockFetch client from a multiplexer agent channel.
+    ///
+    /// # Arguments
+    ///
+    /// * `channel` - A multiplexer agent channel used for communication with
+    ///   the remote node.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
+    /// Get the current state of the client.
+    ///
+    /// Returns the current state of the client.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// Check if the client is done.
+    ///
+    /// Returns true if the client is in the `Done` state, false otherwise.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
@@ -131,12 +148,22 @@ impl Client {
         }
     }
 
+    /// Send a request for a specific range of blocks to the remote node.
+    ///
+    /// # Arguments
+    ///
+    /// * `range` - A tuple of two `Point` instances representing the start and
+    ///   end of the requested block range.
     pub async fn request_range(&mut self, range: Range) -> Result<HasBlocks, Error> {
         self.send_request_range(range).await?;
         debug!("range requested");
         self.recv_while_busy().await
     }
 
+    /// Receive blocks while the client is in the `Streaming` state.
+    ///
+    /// Returns a block's body if a block is received, or `None` if the
+    /// streaming has ended.
     pub async fn recv_while_streaming(&mut self) -> Result<Option<Body>, Error> {
         debug!("waiting for stream");
 
@@ -150,6 +177,14 @@ impl Client {
         }
     }
 
+    /// Fetch a single block by its `Point`.
+    ///
+    /// # Arguments
+    ///
+    /// * `point` - The `Point` of the block to fetch.
+    ///
+    /// Returns the block's body if the block is found, or an `Error` if the
+    /// block is not found or an invalid message is received.
     pub async fn fetch_single(&mut self, point: Point) -> Result<Body, Error> {
         self.request_range((point.clone(), point))
             .await?
@@ -168,6 +203,15 @@ impl Client {
         }
     }
 
+    /// Fetch a range of blocks.
+    ///
+    /// # Arguments
+    ///
+    /// * `range` - A tuple of two `Point` instances representing the start and
+    ///   end of the requested block range.
+    ///
+    /// Returns a vector of block bodies for the requested range, or an `Error`
+    /// if the range is not found.
     pub async fn fetch_range(&mut self, range: Range) -> Result<Vec<Body>, Error> {
         self.request_range(range).await?.ok_or(Error::NoBlocks)?;
 
@@ -181,6 +225,11 @@ impl Client {
         Ok(all)
     }
 
+    /// Send a `ClientDone` message to the remote node and set the client's
+    /// state to `Done`.
+    ///
+    /// Returns `Ok(())` if the message is sent successfully, or an `Error` if
+    /// the agency is not ours.
     pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::ClientDone;
         self.send_message(&msg).await?;
