@@ -1,3 +1,5 @@
+//! A multiplexer of several mini-protocols through a single bearer
+
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use std::net::SocketAddr;

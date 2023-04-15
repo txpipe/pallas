@@ -25,10 +25,9 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 
 ### Ouroboros Network
 
-| Crates                                        | Description                                                            |
-| --------------------------------------------- | ---------------------------------------------------------------------- |
-| [pallas-multiplexer](/pallas-multiplexer)     | Multithreaded Ouroboros multiplexer implementation using mpsc channels |
-| [pallas-miniprotocols](/pallas-miniprotocols) | Implementation of the Ouroboros network mini-protocols state-machines  |
+| Crates                                        | Description                                                             |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| [pallas-network](/pallas-network)             | Network stack providing a multiplexer and mini-protocol implementations |
 
 ### Ouroboros Consensus
 
