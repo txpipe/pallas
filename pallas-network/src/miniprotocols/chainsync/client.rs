@@ -46,6 +46,12 @@ impl<O> Client<O>
 where
     Message<O>: Fragment,
 {
+    /// Constructs a new ChainSync `Client` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `channel` - An instance of `multiplexer::AgentChannel` to be used for
+    ///   communication.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Idle,
@@ -54,14 +60,17 @@ where
         )
     }
 
+    /// Returns the current state of the client.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// Checks if the client is done.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
 
+    /// Checks if the client has agency.
     pub fn has_agency(&self) -> bool {
         match self.state() {
             State::Idle => true,
@@ -110,6 +119,16 @@ where
         }
     }
 
+    /// Sends a message to the server
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - A reference to the `Message` to be sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the agency is not ours or if the outbound state is
+    /// invalid.
     pub async fn send_message(&mut self, msg: &Message<O>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -119,6 +138,12 @@ where
         Ok(())
     }
 
+    /// Receives the next message from the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the agency is not theirs or if the inbound state is
+    /// invalid.
     pub async fn recv_message(&mut self) -> Result<Message<O>, Error> {
         self.assert_agency_is_theirs()?;
 
@@ -129,6 +154,17 @@ where
         Ok(msg)
     }
 
+    /// Sends a FindIntersect message to the server.
+    ///
+    /// # Arguments
+    ///
+    /// * `points` - A vector of `Point` instances representing the points of
+    ///   intersection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be sent or if it's not valid for
+    /// the current state of the client.
     pub async fn send_find_intersect(&mut self, points: Vec<Point>) -> Result<(), Error> {
         let msg = Message::FindIntersect(points);
         self.send_message(&msg).await?;
@@ -139,6 +175,11 @@ where
         Ok(())
     }
 
+    /// Receives an IntersectResponse message from the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the inbound message is invalid.
     pub async fn recv_intersect_response(&mut self) -> Result<IntersectResponse, Error> {
         debug!("waiting for intersect response");
 
@@ -155,6 +196,17 @@ where
         }
     }
 
+    /// Finds the intersection point between the client's and server's chains.
+    ///
+    /// # Arguments
+    ///
+    /// * `points` - A vector of `Point` instances representing the points of
+    ///   intersection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the intersection point cannot be found or if there
+    /// is a communication error.
     pub async fn find_intersect(&mut self, points: Vec<Point>) -> Result<IntersectResponse, Error> {
         self.send_find_intersect(points).await?;
         self.recv_intersect_response().await
@@ -168,6 +220,11 @@ where
         Ok(())
     }
 
+    /// Receives a response while the client is in the CanAwait state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the inbound message is invalid.
     pub async fn recv_while_can_await(&mut self) -> Result<NextResponse<O>, Error> {
         match self.recv_message().await? {
             Message::AwaitReply => {
@@ -186,6 +243,11 @@ where
         }
     }
 
+    /// Receives a response while the client is in the MustReply state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the inbound message is invalid.
     pub async fn recv_while_must_reply(&mut self) -> Result<NextResponse<O>, Error> {
         match self.recv_message().await? {
             Message::RollForward(a, b) => {
@@ -200,6 +262,12 @@ where
         }
     }
 
+    /// Sends a RequestNext message to the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be sent or if the state is not
+    /// idle.
     pub async fn request_next(&mut self) -> Result<NextResponse<O>, Error> {
         debug!("requesting next block");
 
@@ -208,6 +276,12 @@ where
         self.recv_while_can_await().await
     }
 
+    /// Attempt to intersect the chain at its origin (genesis block)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the intersection point cannot be found or if there
+    /// is a communication error.
     pub async fn intersect_origin(&mut self) -> Result<Point, Error> {
         debug!("intersecting origin");
 
@@ -216,6 +290,12 @@ where
         point.ok_or(Error::IntersectionNotFound)
     }
 
+    /// Attempts to intersect the chain at the latest known tip
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the intersection point cannot be found or if there
+    /// is a communication error.
     pub async fn intersect_tip(&mut self) -> Result<Point, Error> {
         let (_, Tip(point, _)) = self.find_intersect(vec![Point::Origin]).await?;
 
