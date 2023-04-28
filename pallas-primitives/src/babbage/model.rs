@@ -738,7 +738,8 @@ impl<'b> From<MintedTx<'b>> for Tx {
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::MintedBlock;
+    use super::{MintedBlock, TransactionOutput};
+    use crate::Fragment;
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
@@ -774,5 +775,17 @@ mod tests {
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
+    }
+
+    #[test]
+    fn fragments_decoding() {
+        // peculiar array of outputs used in an hydra transaction
+        let hex = include_str!("../../../test_data/babbage1.fr");
+        let bytes = hex::decode(hex).unwrap();
+        let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
+
+        dbg!(outputs);
+
+        // add any loose fragment tests here
     }
 }

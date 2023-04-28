@@ -129,6 +129,8 @@ pub enum Value {
 impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
+            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::Array => {
