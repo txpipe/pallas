@@ -1,31 +1,46 @@
-use gasket::{
-    messaging::{tokio::InputPort, RecvPort, SendPort},
-    runtime::{WorkSchedule, Worker},
-};
+use gasket::{framework::*, messaging::*, runtime::Policy};
 
 use pallas_upstream::{Cursor, UpstreamEvent};
-use tracing::error;
+use tracing::{error, info};
 
-struct Witness {
-    input: InputPort<UpstreamEvent>,
+struct WitnessStage {
+    input: gasket::messaging::tokio::InputPort<UpstreamEvent>,
 }
 
-#[async_trait::async_trait(?Send)]
-impl Worker for Witness {
-    type WorkUnit = UpstreamEvent;
-
-    fn metrics(&self) -> gasket::metrics::Registry {
-        gasket::metrics::Registry::new()
+impl gasket::framework::Stage for WitnessStage {
+    fn name(&self) -> &str {
+        "witness"
     }
 
-    async fn schedule(&mut self) -> gasket::runtime::ScheduleResult<Self::WorkUnit> {
+    fn policy(&self) -> gasket::runtime::Policy {
+        Policy::default()
+    }
+
+    fn register_metrics(&self, _: &mut gasket::metrics::Registry) {}
+}
+
+struct WitnessWorker;
+
+#[async_trait::async_trait(?Send)]
+impl Worker for WitnessWorker {
+    type Unit = UpstreamEvent;
+    type Stage = WitnessStage;
+
+    async fn bootstrap(_: &Self::Stage) -> Result<Self, WorkerError> {
+        Ok(Self)
+    }
+
+    async fn schedule(
+        &mut self,
+        stage: &mut Self::Stage,
+    ) -> Result<WorkSchedule<Self::Unit>, WorkerError> {
         error!("dequeing form witness");
-        let msg = self.input.recv().await?;
+        let msg = stage.input.recv().await.or_panic()?;
         Ok(WorkSchedule::Unit(msg.payload))
     }
 
-    async fn execute(&mut self, _: &Self::WorkUnit) -> Result<(), gasket::error::Error> {
-        error!("witnessing block event");
+    async fn execute(&mut self, _: &Self::Unit, _: &mut Self::Stage) -> Result<(), WorkerError> {
+        info!("witnessing block event");
 
         Ok(())
     }
@@ -51,22 +66,23 @@ fn test_mainnet_upstream() {
 
     let (send, receive) = gasket::messaging::tokio::channel(200);
 
-    let mut upstream = pallas_upstream::n2n::Worker::new(
+    let mut upstream = pallas_upstream::n2n::Stage::new(
         "relays-new.cardano-mainnet.iohk.io:3001".into(),
         764824073,
         StaticCursor,
+        Policy::default(),
     );
 
     upstream.downstream_port().connect(send);
 
-    let mut witness = Witness {
+    let mut witness = WitnessStage {
         input: Default::default(),
     };
 
     witness.input.connect(receive);
 
-    let upstream = gasket::runtime::spawn_stage(upstream, Default::default(), Some("upstream"));
-    let witness = gasket::runtime::spawn_stage(witness, Default::default(), Some("witness"));
+    let upstream = gasket::runtime::spawn_stage::<pallas_upstream::n2n::Worker<_, _>>(upstream);
+    let witness = gasket::runtime::spawn_stage::<WitnessWorker>(witness);
 
     let daemon = gasket::daemon::Daemon(vec![upstream, witness]);
 
