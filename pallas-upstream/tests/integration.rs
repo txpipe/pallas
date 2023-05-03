@@ -8,38 +8,36 @@ struct WitnessStage {
 }
 
 impl gasket::framework::Stage for WitnessStage {
+    type Unit = UpstreamEvent;
+    type Worker = WitnessWorker;
+
     fn name(&self) -> &str {
         "witness"
     }
-
-    fn policy(&self) -> gasket::runtime::Policy {
-        Policy::default()
-    }
-
-    fn register_metrics(&self, _: &mut gasket::metrics::Registry) {}
 }
 
 struct WitnessWorker;
 
 #[async_trait::async_trait(?Send)]
-impl Worker for WitnessWorker {
-    type Unit = UpstreamEvent;
-    type Stage = WitnessStage;
-
-    async fn bootstrap(_: &Self::Stage) -> Result<Self, WorkerError> {
+impl Worker<WitnessStage> for WitnessWorker {
+    async fn bootstrap(_: &WitnessStage) -> Result<Self, WorkerError> {
         Ok(Self)
     }
 
     async fn schedule(
         &mut self,
-        stage: &mut Self::Stage,
-    ) -> Result<WorkSchedule<Self::Unit>, WorkerError> {
+        stage: &mut WitnessStage,
+    ) -> Result<WorkSchedule<UpstreamEvent>, WorkerError> {
         error!("dequeing form witness");
         let msg = stage.input.recv().await.or_panic()?;
         Ok(WorkSchedule::Unit(msg.payload))
     }
 
-    async fn execute(&mut self, _: &Self::Unit, _: &mut Self::Stage) -> Result<(), WorkerError> {
+    async fn execute(
+        &mut self,
+        _: &UpstreamEvent,
+        _: &mut WitnessStage,
+    ) -> Result<(), WorkerError> {
         info!("witnessing block event");
 
         Ok(())
@@ -70,7 +68,6 @@ fn test_mainnet_upstream() {
         "relays-new.cardano-mainnet.iohk.io:3001".into(),
         764824073,
         StaticCursor,
-        Policy::default(),
     );
 
     upstream.downstream_port().connect(send);
@@ -81,8 +78,8 @@ fn test_mainnet_upstream() {
 
     witness.input.connect(receive);
 
-    let upstream = gasket::runtime::spawn_stage::<pallas_upstream::n2n::Worker<_, _>>(upstream);
-    let witness = gasket::runtime::spawn_stage::<WitnessWorker>(witness);
+    let upstream = gasket::runtime::spawn_stage(upstream, Policy::default());
+    let witness = gasket::runtime::spawn_stage(witness, Policy::default());
 
     let daemon = gasket::daemon::Daemon(vec![upstream, witness]);
 

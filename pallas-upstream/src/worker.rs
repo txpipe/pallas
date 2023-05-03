@@ -119,15 +119,12 @@ where
 }
 
 #[async_trait::async_trait(?Send)]
-impl<C, A> gasket::framework::Worker for Worker<C, A>
+impl<C, A> gasket::framework::Worker<Stage<C, A>> for Worker<C, A>
 where
     C: Cursor + Sync + Send,
     A: SendAdapter<UpstreamEvent>,
 {
-    type Unit = NextResponse<HeaderContent>;
-    type Stage = Stage<C, A>;
-
-    async fn bootstrap(stage: &Self::Stage) -> Result<Self, WorkerError> {
+    async fn bootstrap(stage: &Stage<C, A>) -> Result<Self, WorkerError> {
         debug!("connecting");
 
         let intersection = stage.chain_cursor.intersection();
@@ -149,8 +146,8 @@ where
 
     async fn schedule(
         &mut self,
-        _stage: &mut Self::Stage,
-    ) -> Result<WorkSchedule<Self::Unit>, WorkerError> {
+        _stage: &mut Stage<C, A>,
+    ) -> Result<WorkSchedule<NextResponse<HeaderContent>>, WorkerError> {
         let client = self.peer_session.chainsync();
 
         let next = match client.has_agency() {
@@ -169,8 +166,8 @@ where
 
     async fn execute(
         &mut self,
-        unit: &Self::Unit,
-        stage: &mut Self::Stage,
+        unit: &NextResponse<HeaderContent>,
+        stage: &mut Stage<C, A>,
     ) -> Result<(), WorkerError> {
         self.process_next(stage, unit).await
     }
@@ -190,7 +187,6 @@ where
     peer_address: String,
     network_magic: u64,
     chain_cursor: C,
-    policy: gasket::runtime::Policy,
     downstream: DownstreamPort<A>,
     block_count: gasket::metrics::Counter,
     chain_tip: gasket::metrics::Gauge,
@@ -201,17 +197,20 @@ where
     C: Cursor,
     A: SendAdapter<UpstreamEvent>,
 {
+    type Unit = NextResponse<HeaderContent>;
+    type Worker = Worker<C, A>;
+
     fn name(&self) -> &str {
         "upstream"
     }
 
-    fn policy(&self) -> gasket::runtime::Policy {
-        self.policy.clone()
-    }
+    fn metrics(&self) -> gasket::metrics::Registry {
+        let mut registry = gasket::metrics::Registry::default();
 
-    fn register_metrics(&self, registry: &mut gasket::metrics::Registry) {
         registry.track_counter("received_blocks", &self.block_count);
         registry.track_gauge("chain_tip", &self.chain_tip);
+
+        registry
     }
 }
 
@@ -220,12 +219,7 @@ where
     C: Cursor,
     A: SendAdapter<UpstreamEvent>,
 {
-    pub fn new(
-        peer_address: String,
-        network_magic: u64,
-        chain_cursor: C,
-        policy: gasket::runtime::Policy,
-    ) -> Self {
+    pub fn new(peer_address: String, network_magic: u64, chain_cursor: C) -> Self {
         Self {
             peer_address,
             network_magic,
@@ -233,7 +227,6 @@ where
             downstream: Default::default(),
             block_count: Default::default(),
             chain_tip: Default::default(),
-            policy,
         }
     }
 
