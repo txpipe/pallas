@@ -135,7 +135,7 @@ pub enum MultiEraSigners<'b> {
     AlonzoCompatible(&'b alonzo::RequiredSigners),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct OutputRef(Hash<32>, u64);
 
 #[derive(Debug, Error)]
