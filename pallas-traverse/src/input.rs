@@ -139,6 +139,36 @@ mod tests {
     }
 
     #[test]
+    fn test_duplicate_consumed_inputs() {
+        let tx_bytecode_hex = include_str!("../../test_data/duplicateinput.tx");
+        let bytecode = hex::decode(tx_bytecode_hex).unwrap();
+        let tx = MultiEraTx::decode(Era::Alonzo, &bytecode).unwrap();
+
+        let expected_inputs = vec![
+            "4d9cb6bf1c2e349f1bcd454a632d2b721d5badcf687220430c316588f39506ab#1",
+            "4d9cb6bf1c2e349f1bcd454a632d2b721d5badcf687220430c316588f39506ab#1",
+        ];
+
+        let inputs: Vec<String> = tx
+            .inputs()
+            .into_iter()
+            .map(|x| x.output_ref().to_string())
+            .collect();
+
+        let expected_consumed =
+            vec!["4d9cb6bf1c2e349f1bcd454a632d2b721d5badcf687220430c316588f39506ab#1"];
+
+        let consumed: Vec<String> = tx
+            .consumes()
+            .into_iter()
+            .map(|x| x.output_ref().to_string())
+            .collect();
+
+        assert_eq!(inputs, expected_inputs);
+        assert_eq!(consumed, expected_consumed);
+    }
+
+    #[test]
     fn test_utxo_ref_parsing() {
         let valid_vectors = [
             "da832fb5ef57df5b91817e9a7448d26e92552afb34f8ee5adb491b24bbe990d5#14",

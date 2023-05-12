@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, collections::HashSet, ops::Deref};
 
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
@@ -114,6 +114,10 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Return the transaction inputs
+    ///
+    /// NOTE: It is possible for this to return duplicates. See
+    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn inputs(&self) -> Vec<MultiEraInput> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
@@ -137,6 +141,10 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Return the transaction reference inputs
+    ///
+    /// NOTE: It is possible for this to return duplicates. See
+    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
         match self {
             MultiEraTx::Babbage(x) => x
@@ -192,6 +200,10 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Return the transaction collateral inputs
+    ///
+    /// NOTE: It is possible for this to return duplicates. See
+    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn collateral(&self) -> Vec<MultiEraInput> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
@@ -230,10 +242,17 @@ impl<'b> MultiEraTx<'b> {
     /// will return the list of inputs. If the tx is invalid, it will return the
     /// collateral.
     pub fn consumes(&self) -> Vec<MultiEraInput> {
-        match self.is_valid() {
+        let consumed = match self.is_valid() {
             true => self.inputs(),
             false => self.collateral(),
-        }
+        };
+
+        let mut unique_consumed = HashSet::new();
+
+        consumed
+            .into_iter()
+            .filter(|i| unique_consumed.insert(i.output_ref()))
+            .collect()
     }
 
     /// Returns a list of tuples of the outputs produced by the Tx with their
