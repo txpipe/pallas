@@ -9,8 +9,8 @@ use pallas_primitives::{
 };
 
 use crate::{
-    Era, MultiEraAsset, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraSigners,
-    MultiEraTx, MultiEraWithdrawals, OriginalHash,
+    Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
+    MultiEraSigners, MultiEraTx, MultiEraWithdrawals, OriginalHash,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -182,20 +182,22 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn mints(&self) -> Vec<MultiEraAsset> {
+    pub fn mints(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .mint
-                .as_ref()
-                .map(MultiEraAsset::collect_alonzo_compatible_mint)
-                .unwrap_or_default(),
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
+                .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .mint
-                .as_ref()
-                .map(MultiEraAsset::collect_alonzo_compatible_mint)
-                .unwrap_or_default(),
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
+                .collect(),
             MultiEraTx::Byron(_) => vec![],
         }
     }
@@ -231,6 +233,13 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return
                 .as_ref()
                 .map(MultiEraOutput::from_babbage),
+            _ => None,
+        }
+    }
+
+    pub fn total_collateral(&self) -> Option<u64> {
+        match self {
+            MultiEraTx::Babbage(x) => x.transaction_body.total_collateral.clone(),
             _ => None,
         }
     }

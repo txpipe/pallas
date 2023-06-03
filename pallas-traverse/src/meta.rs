@@ -25,12 +25,12 @@ impl<'b> MultiEraMeta<'b> {
 
     pub fn collect<'a, T>(&'a self) -> T
     where
-        T: FromIterator<(&'a alonzo::MetadatumLabel, &'a alonzo::Metadatum)>,
+        T: FromIterator<(alonzo::MetadatumLabel, &'a alonzo::Metadatum)>,
     {
         match self {
             MultiEraMeta::NotApplicable => std::iter::empty().collect(),
             MultiEraMeta::Empty => std::iter::empty().collect(),
-            MultiEraMeta::AlonzoCompatible(x) => x.iter().map(|(k, v)| (k, v)).collect(),
+            MultiEraMeta::AlonzoCompatible(x) => x.iter().map(|(k, v)| (*k, v)).collect(),
         }
     }
 }

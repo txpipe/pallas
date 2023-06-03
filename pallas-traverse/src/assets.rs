@@ -1,70 +1,95 @@
 use pallas_crypto::hash::Hash;
-use pallas_primitives::alonzo;
 
-use crate::MultiEraAsset;
+use crate::{MultiEraAsset, MultiEraPolicyAssets};
+
+impl<'b> MultiEraPolicyAssets<'b> {
+    pub fn policy(&self) -> &Hash<28> {
+        match self {
+            MultiEraPolicyAssets::AlonzoCompatibleMint(x, _) => x,
+            MultiEraPolicyAssets::AlonzoCompatibleOutput(x, _) => x,
+        }
+    }
+
+    pub fn is_output(&self) -> bool {
+        match self {
+            MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => true,
+            MultiEraPolicyAssets::AlonzoCompatibleMint(_, _) => false,
+        }
+    }
+
+    pub fn is_mint(&self) -> bool {
+        match self {
+            MultiEraPolicyAssets::AlonzoCompatibleMint(_, _) => true,
+            MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => false,
+        }
+    }
+
+    pub fn assets(&self) -> Vec<MultiEraAsset> {
+        match self {
+            MultiEraPolicyAssets::AlonzoCompatibleMint(p, x) => x
+                .iter()
+                .map(|(k, v)| MultiEraAsset::AlonzoCompatibleMint(p, k, *v))
+                .collect(),
+            MultiEraPolicyAssets::AlonzoCompatibleOutput(p, x) => x
+                .iter()
+                .map(|(k, v)| MultiEraAsset::AlonzoCompatibleOutput(p, k, *v))
+                .collect(),
+        }
+    }
+
+    pub fn collect<'a, T>(&'a self) -> T
+    where
+        T: FromIterator<(&'a [u8], i128)>,
+    {
+        match self {
+            MultiEraPolicyAssets::AlonzoCompatibleMint(_, x) => {
+                x.iter().map(|(k, v)| (k.as_slice(), *v as i128)).collect()
+            }
+            MultiEraPolicyAssets::AlonzoCompatibleOutput(_, x) => {
+                x.iter().map(|(k, v)| (k.as_slice(), *v as i128)).collect()
+            }
+        }
+    }
+}
 
 impl<'b> MultiEraAsset<'b> {
-    pub fn collect_alonzo_compatible_output(source: &'b alonzo::Multiasset<u64>) -> Vec<Self> {
-        source
-            .iter()
-            .flat_map(|(policy, assets)| {
-                assets.iter().map(|(name, amount)| {
-                    MultiEraAsset::AlonzoCompatible(policy, name, *amount as i64)
-                })
-            })
-            .collect::<Vec<_>>()
-    }
-
-    pub fn collect_alonzo_compatible_mint(source: &'b alonzo::Multiasset<i64>) -> Vec<Self> {
-        source
-            .iter()
-            .flat_map(|(policy, assets)| {
-                assets
-                    .iter()
-                    .map(|(name, amount)| MultiEraAsset::AlonzoCompatible(policy, name, *amount))
-            })
-            .collect::<Vec<_>>()
-    }
-
-    pub fn policy(&self) -> Option<&Hash<28>> {
+    pub fn policy(&self) -> &Hash<28> {
         match self {
-            Self::AlonzoCompatible(x, ..) => Some(*x),
-            Self::Lovelace(_) => None,
+            MultiEraAsset::AlonzoCompatibleMint(x, ..) => x,
+            MultiEraAsset::AlonzoCompatibleOutput(x, ..) => x,
         }
     }
 
-    pub fn name(&self) -> Option<&[u8]> {
+    pub fn name(&self) -> &[u8] {
         match self {
-            Self::AlonzoCompatible(_, n, _) => Some(n.as_ref()),
-            Self::Lovelace(_) => None,
+            MultiEraAsset::AlonzoCompatibleOutput(_, x, _) => x,
+            MultiEraAsset::AlonzoCompatibleMint(_, x, _) => x,
         }
     }
 
-    pub fn coin(&self) -> i64 {
+    pub fn is_output(&self) -> bool {
         match self {
-            Self::AlonzoCompatible(_, _, x) => *x,
-            Self::Lovelace(x) => *x as i64,
+            MultiEraAsset::AlonzoCompatibleOutput(..) => true,
+            MultiEraAsset::AlonzoCompatibleMint(..) => false,
         }
     }
 
-    pub fn as_alonzo(&self) -> Option<(&alonzo::PolicyId, &alonzo::AssetName, i64)> {
+    pub fn is_mint(&self) -> bool {
         match self {
-            Self::AlonzoCompatible(a, b, c) => Some((*a, *b, *c)),
-            _ => None,
+            MultiEraAsset::AlonzoCompatibleMint(..) => true,
+            MultiEraAsset::AlonzoCompatibleOutput(..) => false,
         }
     }
 
-    pub fn to_subject(&self) -> Option<String> {
+    pub fn coin(&self) -> i128 {
         match self {
-            Self::AlonzoCompatible(p, n, _) => Some(format!("{p}.{}", hex::encode(n.to_vec()))),
-            _ => None,
+            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => *x as i128,
+            MultiEraAsset::AlonzoCompatibleMint(_, _, x) => *x as i128,
         }
     }
 
     pub fn to_ascii_name(&self) -> Option<String> {
-        match self {
-            Self::AlonzoCompatible(_, n, _) => String::from_utf8(n.to_vec()).ok(),
-            _ => None,
-        }
+        let name = self.name();
+        String::from_utf8(name.to_vec()).ok()
     }
 }
