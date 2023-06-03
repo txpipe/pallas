@@ -30,3 +30,10 @@ pub use pallas_crypto as crypto;
 
 #[doc(inline)]
 pub use pallas_codec as codec;
+
+pub mod interop {
+    //! Interoperability with other protocols, formats & systems
+
+    #[doc(inline)]
+    pub use pallas_utxorpc as utxorpc;
+}
