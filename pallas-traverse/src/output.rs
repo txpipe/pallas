@@ -4,7 +4,7 @@ use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron};
 
-use crate::{Era, MultiEraAsset, MultiEraOutput};
+use crate::{Era, MultiEraOutput, MultiEraPolicyAssets};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -140,41 +140,32 @@ impl<'b> MultiEraOutput<'b> {
     /// Returns a list of Asset structs where each one represent a native asset
     /// present in the output of the tx. ADA assets are not included in this
     /// list.
-    pub fn non_ada_assets(&self) -> Vec<MultiEraAsset> {
+    pub fn non_ada_assets(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
             MultiEraOutput::Byron(_) => vec![],
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(x) => match &x.amount {
                     babbage::Value::Coin(_) => vec![],
-                    babbage::Value::Multiasset(_, x) => {
-                        MultiEraAsset::collect_alonzo_compatible_output(x)
-                    }
+                    babbage::Value::Multiasset(_, x) => x
+                        .iter()
+                        .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                        .collect(),
                 },
                 babbage::MintedTransactionOutput::PostAlonzo(x) => match &x.value {
                     babbage::Value::Coin(_) => vec![],
-                    babbage::Value::Multiasset(_, x) => {
-                        MultiEraAsset::collect_alonzo_compatible_output(x)
-                    }
+                    babbage::Value::Multiasset(_, x) => x
+                        .iter()
+                        .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                        .collect(),
                 },
             },
             MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
                 alonzo::Value::Coin(_) => vec![],
-                alonzo::Value::Multiasset(_, x) => {
-                    MultiEraAsset::collect_alonzo_compatible_output(x)
-                }
+                alonzo::Value::Multiasset(_, x) => x
+                    .iter()
+                    .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                    .collect(),
             },
         }
-    }
-
-    /// List of all assets in the output
-    ///
-    /// Returns a list of Asset structs where each one represent either ADA or a
-    /// native asset present in the output of the tx.
-    pub fn assets(&self) -> Vec<MultiEraAsset> {
-        [
-            vec![MultiEraAsset::Lovelace(self.lovelace_amount())],
-            self.non_ada_assets(),
-        ]
-        .concat()
     }
 }

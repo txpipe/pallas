@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-use pallas_codec::utils::KeepRaw;
+use pallas_codec::utils::{KeepRaw, KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron};
 
@@ -114,9 +114,22 @@ pub enum MultiEraMeta<'b> {
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
+pub enum MultiEraPolicyAssets<'b> {
+    AlonzoCompatibleMint(
+        &'b alonzo::PolicyId,
+        &'b KeyValuePairs<alonzo::AssetName, i64>,
+    ),
+    AlonzoCompatibleOutput(
+        &'b alonzo::PolicyId,
+        &'b KeyValuePairs<alonzo::AssetName, u64>,
+    ),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum MultiEraAsset<'b> {
-    Lovelace(u64),
-    AlonzoCompatible(&'b alonzo::PolicyId, &'b alonzo::AssetName, i64),
+    AlonzoCompatibleOutput(&'b alonzo::PolicyId, &'b alonzo::AssetName, u64),
+    AlonzoCompatibleMint(&'b alonzo::PolicyId, &'b alonzo::AssetName, i64),
 }
 
 #[derive(Debug, Clone)]
