@@ -187,7 +187,7 @@ pub fn map_cert(x: &trv::MultiEraCert) -> u5c::Certificate {
                     _ => Default::default(),
                 },
                 other_pot: match &a.target {
-                    babbage::InstantaneousRewardTarget::OtherAccountingPot(_) => todo!(),
+                    babbage::InstantaneousRewardTarget::OtherAccountingPot(x) => *x,
                     _ => Default::default(),
                 },
             })
@@ -209,7 +209,8 @@ pub fn map_withdrawals(x: &(&[u8], u64)) -> u5c::Withdrawal {
 pub fn map_asset(x: &trv::MultiEraAsset) -> u5c::Asset {
     u5c::Asset {
         name: x.name().to_vec().into(),
-        quantity: x.coin(),
+        output_coin: x.output_coin().unwrap_or_default(),
+        mint_coin: x.mint_coin().unwrap_or_default(),
     }
 }
 
@@ -343,7 +344,9 @@ pub fn map_plutus_datum(x: &alonzo::PlutusData) -> u5c::PlutusData {
         babbage::PlutusData::BigInt(x) => {
             u5c::plutus_data::PlutusData::BigInt(map_plutus_bigint(x))
         }
-        babbage::PlutusData::BoundedBytes(x) => todo!(),
+        babbage::PlutusData::BoundedBytes(x) => {
+            u5c::plutus_data::PlutusData::BoundedBytes(x.to_vec().into())
+        }
     };
 
     u5c::PlutusData {
