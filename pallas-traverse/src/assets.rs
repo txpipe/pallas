@@ -81,7 +81,21 @@ impl<'b> MultiEraAsset<'b> {
         }
     }
 
-    pub fn coin(&self) -> i128 {
+    pub fn mint_coin(&self) -> Option<i64> {
+        match self {
+            MultiEraAsset::AlonzoCompatibleMint(_, _, x) => Some(*x),
+            MultiEraAsset::AlonzoCompatibleOutput(_, _, _) => None,
+        }
+    }
+
+    pub fn output_coin(&self) -> Option<u64> {
+        match self {
+            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => Some(*x),
+            MultiEraAsset::AlonzoCompatibleMint(_, _, _) => None,
+        }
+    }
+
+    pub fn any_coin(&self) -> i128 {
         match self {
             MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => *x as i128,
             MultiEraAsset::AlonzoCompatibleMint(_, _, x) => *x as i128,
