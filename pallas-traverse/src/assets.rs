@@ -84,14 +84,14 @@ impl<'b> MultiEraAsset<'b> {
     pub fn mint_coin(&self) -> Option<i64> {
         match self {
             MultiEraAsset::AlonzoCompatibleMint(_, _, x) => Some(*x),
-            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => None,
+            MultiEraAsset::AlonzoCompatibleOutput(_, _, _) => None,
         }
     }
 
     pub fn output_coin(&self) -> Option<u64> {
         match self {
             MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => Some(*x),
-            MultiEraAsset::AlonzoCompatibleMint(_, _, x) => None,
+            MultiEraAsset::AlonzoCompatibleMint(_, _, _) => None,
         }
     }
 
