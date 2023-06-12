@@ -58,7 +58,7 @@ pub fn map_tx_output(x: &trv::MultiEraOutput) -> u5c::TxOutput {
         },
         script: match x.script_ref().map(|x| x.deref()) {
             Some(babbage::Script::NativeScript(x)) => u5c::Script {
-                script: u5c::script::Script::Native(map_native_script(&x)).into(),
+                script: u5c::script::Script::Native(map_native_script(x)).into(),
             }
             .into(),
             Some(babbage::Script::PlutusV1Script(x)) => u5c::Script {
@@ -95,13 +95,13 @@ pub fn map_relay(x: &alonzo::Relay) -> u5c::Relay {
             ip_v4: v4.as_ref().map(|x| x.to_vec().into()).unwrap_or_default(),
             ip_v6: v6.as_ref().map(|x| x.to_vec().into()).unwrap_or_default(),
             dns_name: String::default(),
-            port: port.clone().unwrap_or_default(),
+            port: port.unwrap_or_default(),
         },
         babbage::Relay::SingleHostName(port, name) => u5c::Relay {
             ip_v4: Default::default(),
             ip_v6: Default::default(),
             dns_name: name.clone(),
-            port: port.clone().unwrap_or_default(),
+            port: port.unwrap_or_default(),
         },
         babbage::Relay::MultiHostName(name) => u5c::Relay {
             ip_v4: Default::default(),
@@ -149,13 +149,10 @@ pub fn map_cert(x: &trv::MultiEraCert) -> u5c::Certificate {
             reward_account: reward_account.to_vec().into(),
             pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
             relays: relays.iter().map(map_relay).collect(),
-            pool_metadata: pool_metadata
-                .as_ref()
-                .map(|x| u5c::PoolMetadata {
-                    url: x.url.clone(),
-                    hash: x.hash.to_vec().into(),
-                })
-                .into(),
+            pool_metadata: pool_metadata.as_ref().map(|x| u5c::PoolMetadata {
+                url: x.url.clone(),
+                hash: x.hash.to_vec().into(),
+            }),
         }),
         babbage::Certificate::PoolRetirement(a, b) => {
             u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
@@ -235,18 +232,18 @@ pub fn map_native_script(x: &alonzo::NativeScript) -> u5c::NativeScript {
         }
         babbage::NativeScript::ScriptAll(x) => {
             u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                items: x.iter().map(|x| map_native_script(x)).collect(),
+                items: x.iter().map(map_native_script).collect(),
             })
         }
         babbage::NativeScript::ScriptAny(x) => {
             u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                items: x.iter().map(|x| map_native_script(x)).collect(),
+                items: x.iter().map(map_native_script).collect(),
             })
         }
         babbage::NativeScript::ScriptNOfK(n, k) => {
             u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
                 k: *n,
-                scripts: k.iter().map(|x| map_native_script(x)).collect(),
+                scripts: k.iter().map(map_native_script).collect(),
             })
         }
         babbage::NativeScript::InvalidBefore(s) => {
@@ -293,8 +290,8 @@ fn collect_all_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
 pub fn map_plutus_constr(x: &alonzo::Constr<alonzo::PlutusData>) -> u5c::Constr {
     u5c::Constr {
         tag: x.tag as u32,
-        any_constructor: x.any_constructor.clone().unwrap_or_default(),
-        fields: x.fields.iter().map(|f| map_plutus_datum(f)).collect(),
+        any_constructor: x.any_constructor.unwrap_or_default(),
+        fields: x.fields.iter().map(map_plutus_datum).collect(),
     }
 }
 
@@ -312,7 +309,7 @@ pub fn map_plutus_map(
     }
 }
 
-pub fn map_plutus_array(x: &Vec<alonzo::PlutusData>) -> u5c::PlutusDataArray {
+pub fn map_plutus_array(x: &[alonzo::PlutusData]) -> u5c::PlutusDataArray {
     u5c::PlutusDataArray {
         items: x.iter().map(map_plutus_datum).collect(),
     }
@@ -362,7 +359,7 @@ pub fn map_metadatum(x: &alonzo::Metadatum) -> u5c::Metadatum {
         }
         babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
         babbage::Metadatum::Array(x) => u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
-            items: x.iter().map(|x| map_metadatum(x)).collect(),
+            items: x.iter().map(map_metadatum).collect(),
         }),
         babbage::Metadatum::Map(x) => u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
             pairs: x
@@ -383,7 +380,7 @@ pub fn map_metadatum(x: &alonzo::Metadatum) -> u5c::Metadatum {
 pub fn map_metadata(label: u64, datum: &alonzo::Metadatum) -> u5c::Metadata {
     u5c::Metadata {
         label,
-        value: map_metadatum(&datum).into(),
+        value: map_metadatum(datum).into(),
     }
 }
 
@@ -412,26 +409,22 @@ fn collect_all_aux_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
 pub fn map_tx(tx: &trv::MultiEraTx) -> u5c::Tx {
     u5c::Tx {
         inputs: tx.inputs().iter().map(|i| map_tx_input(i, tx)).collect(),
-        outputs: tx.outputs().iter().map(|o| map_tx_output(o)).collect(),
-        certificates: tx.certs().iter().map(|x| map_cert(x)).collect(),
+        outputs: tx.outputs().iter().map(map_tx_output).collect(),
+        certificates: tx.certs().iter().map(map_cert).collect(),
         withdrawals: tx
             .withdrawals()
             .collect::<Vec<_>>()
             .iter()
-            .map(|x| map_withdrawals(x))
+            .map(map_withdrawals)
             .collect(),
-        mint: tx.mints().iter().map(|x| map_policy_assets(x)).collect(),
+        mint: tx.mints().iter().map(map_policy_assets).collect(),
         reference_inputs: tx
             .reference_inputs()
             .iter()
             .map(|x| map_tx_input(x, tx))
             .collect(),
         witnesses: u5c::WitnessSet {
-            vkeywitness: tx
-                .vkey_witnesses()
-                .iter()
-                .map(|x| map_vkey_witness(x))
-                .collect(),
+            vkeywitness: tx.vkey_witnesses().iter().map(map_vkey_witness).collect(),
             script: collect_all_scripts(tx),
             plutus_datums: tx
                 .plutus_data()

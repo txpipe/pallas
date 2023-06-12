@@ -239,7 +239,7 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn total_collateral(&self) -> Option<u64> {
         match self {
-            MultiEraTx::Babbage(x) => x.transaction_body.total_collateral.clone(),
+            MultiEraTx::Babbage(x) => x.transaction_body.total_collateral,
             _ => None,
         }
     }
