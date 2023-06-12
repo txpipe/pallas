@@ -469,3 +469,22 @@ pub fn map_tx(tx: &trv::MultiEraTx) -> u5c::Tx {
         .into(),
     }
 }
+
+pub fn map_block(block: &trv::MultiEraBlock) -> u5c::Block {
+    u5c::Block {
+        header: u5c::BlockHeader {
+            slot: block.slot(),
+            hash: block.hash().to_vec().into(),
+        }
+        .into(),
+        body: u5c::BlockBody {
+            tx: block.txs().iter().map(map_tx).collect(),
+        }
+        .into(),
+    }
+}
+
+pub fn map_block_cbor(raw: &[u8]) -> u5c::Block {
+    let block = trv::MultiEraBlock::decode(raw).unwrap();
+    map_block(&block)
+}
