@@ -43,6 +43,7 @@ async fn do_chainsync(client: &mut NodeClient) {
     }
 }
 
+#[cfg(target_family = "unix")]
 #[tokio::main]
 async fn main() {
     tracing::subscriber::set_global_default(
@@ -66,6 +67,7 @@ async fn main() {
 }
 
 #[cfg(not(target_family = "unix"))]
+
 fn main() {
     panic!("can't use n2c unix socket on non-unix systems");
 }
