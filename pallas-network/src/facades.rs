@@ -88,6 +88,8 @@ pub struct NodeClient {
 }
 
 impl NodeClient {
+
+    #[cfg(not(target_os = "windows"))]    
     pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
 
