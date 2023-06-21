@@ -12,7 +12,7 @@ use pallas_primitives::{alonzo, babbage, byron};
 mod support;
 
 pub mod assets;
-pub mod aux;
+pub mod auxiliary;
 pub mod block;
 pub mod cert;
 pub mod era;
