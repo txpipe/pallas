@@ -34,8 +34,17 @@ impl<'b, T> Decode<'b, ()> for VersionTable<T>
 where
     T: Debug + Clone + Decode<'b, ()>,
 {
-    fn decode(_d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        todo!()
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let len = d.map()?.ok_or(decode::Error::message("expected def-length map for versiontable"))?;
+        let mut values = HashMap::new();
+
+        for _ in 0..len {
+            let key = d.u64()?;
+            let value = d.decode()?;
+            values.insert(key, value);
+        }
+
+        Ok(VersionTable { values })
     }
 }
 
@@ -51,6 +60,7 @@ where
     Propose(VersionTable<D>),
     Accept(VersionNumber, D),
     Refuse(RefuseReason),
+    QueryReply(VersionTable<D>),
 }
 
 impl<D> Encode<()> for Message<D>
@@ -78,6 +88,10 @@ where
                 e.array(2)?.u16(2)?;
                 e.encode(reason)?;
             }
+            Message::QueryReply(version_table) => {
+                e.array(2)?.u16(3)?;
+                e.encode(version_table)?;
+            }
         };
 
         Ok(())
@@ -93,7 +107,10 @@ where
         d.array()?;
 
         match d.u16()? {
-            0 => todo!(),
+            0 => {
+                let version_table = d.decode()?;
+                Ok(Message::Propose(version_table))
+            },
             1 => {
                 let version_number = d.u64()?;
                 let version_data = d.decode()?;
@@ -102,6 +119,10 @@ where
             2 => {
                 let reason: RefuseReason = d.decode()?;
                 Ok(Message::Refuse(reason))
+            }
+            3 => {
+                let version_table = d.decode()?;
+                Ok(Message::QueryReply(version_table))
             }
             _ => Err(decode::Error::message(
                 "unknown variant for handshake message",

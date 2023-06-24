@@ -5,10 +5,11 @@ use crate::{Agent, Transition};
 use super::protocol::{Message, RefuseReason, State, VersionNumber, VersionTable};
 
 #[derive(Debug)]
-pub enum Output<D> {
+pub enum Output<D: Debug + Clone> {
     Pending,
     Accepted(VersionNumber, D),
     Refused(RefuseReason),
+    QueryReply(VersionTable<D>),
 }
 
 #[derive(Debug)]
@@ -90,7 +91,12 @@ where
                 output: Output::Refused(reason),
                 ..self
             }),
-            _ => panic!("Current state does't expect to receive a message"),
+            (State::Confirm, Message::QueryReply(version_table)) => Ok(Self {
+                state: State::Done,
+                output: Output::QueryReply(version_table),
+                ..self
+            }),
+            _ => panic!("Current state doesn't expect to receive a message"),
         }
     }
 }

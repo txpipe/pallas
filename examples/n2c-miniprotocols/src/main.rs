@@ -43,6 +43,12 @@ impl chainsync::Observer<chainsync::HeaderContent> for LoggingObserver {
     }
 }
 
+fn do_handshake_query(mut channel: multiplexer::StdChannelBuffer) {
+    let versions = handshake::n2c::VersionTable::v15_with_query(MAINNET_MAGIC);
+    let last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
+    log::info!("handshake query result: {:?}", last);
+}
+
 fn do_handshake(mut channel: multiplexer::StdChannelBuffer) {
     let versions = handshake::n2c::VersionTable::v1_and_above(MAINNET_MAGIC);
     let _last = run_agent(handshake::Initiator::initial(versions), &mut channel).unwrap();
@@ -104,4 +110,27 @@ fn main() {
 
     // execute the chainsync flow from an arbitrary point in the chain
     do_chainsync(channel5);
+}
+
+#[test]
+#[ignore]
+fn handshake_query_test() {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Trace)
+        .init();
+
+    // we connect to the unix socket of the local node. Make sure you have the right
+    // path for your environment
+    let bearer = Bearer::connect_unix("/tmp/node.socket").unwrap();
+
+    // setup the multiplexer by specifying the bearer and the IDs of the
+    // miniprotocols to use
+    let mut plexer = multiplexer::StdPlexer::new(bearer);
+    let channel0 = plexer.use_channel(0).into();
+
+    plexer.muxer.spawn();
+    plexer.demuxer.spawn();
+
+    // query the node for the supported versions
+    do_handshake_query(channel0);
 }
