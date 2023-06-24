@@ -13,7 +13,7 @@ use tokio::time::Instant;
 use tracing::{debug, error, trace};
 
 #[cfg(not(target_os = "windows"))]    
-use UnixStream;
+use tokio::net::UnixStream;
 
 const HEADER_LEN: usize = 8;
 

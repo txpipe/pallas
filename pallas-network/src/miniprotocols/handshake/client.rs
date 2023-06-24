@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use pallas_codec::Fragment;
 use std::marker::PhantomData;
 use tracing::debug;
@@ -6,16 +7,17 @@ use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
 use crate::multiplexer;
 
 #[derive(Debug)]
-pub enum Confirmation<D> {
+pub enum Confirmation<D: Debug + Clone> {
     Accepted(VersionNumber, D),
     Rejected(RefuseReason),
+    QueryReply(VersionTable<D>),
 }
 
 pub struct Client<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
 
 impl<D> Client<D>
 where
-    D: std::fmt::Debug + Clone,
+    D: Debug + Clone,
     Message<D>: Fragment,
 {
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
@@ -69,6 +71,7 @@ where
         match (&self.0, msg) {
             (State::Confirm, Message::Accept(..)) => Ok(()),
             (State::Confirm, Message::Refuse(..)) => Ok(()),
+            (State::Confirm, Message::QueryReply(..)) => Ok(()),
             _ => Err(Error::InvalidInbound),
         }
     }
@@ -112,6 +115,11 @@ where
                 debug!("handshake refused");
 
                 Ok(Confirmation::Rejected(r))
+            }
+            Message::QueryReply(version_table) => {
+                debug!("handshake query reply");
+
+                Ok(Confirmation::QueryReply(version_table))
             }
             _ => Err(Error::InvalidInbound),
         }
