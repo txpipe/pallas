@@ -55,7 +55,15 @@ async fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let mut client = NodeClient::connect("/tmp/node.socket", MAINNET_MAGIC)
+    let socket_path = "/tmp/node.socket";
+
+    // we connect to the unix socket of the local node and perform a handshake query
+    let version_table = NodeClient::handshake_query(socket_path, MAINNET_MAGIC)
+        .await
+        .unwrap();
+    info!("handshake query result: {:?}", version_table);
+
+    let mut client = NodeClient::connect(socket_path, MAINNET_MAGIC)
         .await
         .unwrap();
 
