@@ -762,6 +762,8 @@ mod tests {
             include_str!("../../../test_data/babbage8.block"),
             // block with inline datum that fails hashes
             include_str!("../../../test_data/babbage9.block"),
+            // block with pool margin numerator greater than i64::MAX
+            include_str!("../../../test_data/babbage10.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
