@@ -375,7 +375,7 @@ pub type Scripthash = Hash<28>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct RationalNumber {
-    pub numerator: i64,
+    pub numerator: u64,
     pub denominator: u64,
 }
 
