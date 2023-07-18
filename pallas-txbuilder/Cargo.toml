@@ -1,0 +1,18 @@
+[package]
+name = "pallas-txbuilder"
+version = "0.19.0-alpha.1"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-txbuilder"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+  "Santiago Carmuega <santiago@carmuega.me>",
+  "Cainã Costa <me@cfcosta.com>"
+]
+
+[dependencies]
+minicbor = { version = "0.19.1", features = ["minicbor-derive"] }
+pallas-codec = { path = "../pallas-codec", version = "0.19.0-alpha.1" }
+pallas-primitives = { path = "../pallas-primitives", version = "0.19.0-alpha.1" }
