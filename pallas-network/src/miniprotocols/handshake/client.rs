@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use pallas_codec::Fragment;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use tracing::debug;
 

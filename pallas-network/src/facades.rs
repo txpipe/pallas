@@ -4,6 +4,7 @@ use thiserror::Error;
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
+use crate::miniprotocols::handshake::Confirmation;
 use crate::{
     miniprotocols::{
         blockfetch, chainsync, handshake, localstate, PROTOCOL_N2C_CHAIN_SYNC,
@@ -11,7 +12,6 @@ use crate::{
     },
     multiplexer::{self, Bearer},
 };
-use crate::miniprotocols::handshake::Confirmation;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -89,8 +89,7 @@ pub struct NodeClient {
 }
 
 impl NodeClient {
-
-    #[cfg(not(target_os = "windows"))]    
+    #[cfg(not(target_os = "windows"))]
     pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
 
@@ -128,7 +127,10 @@ impl NodeClient {
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub async fn handshake_query(path: impl AsRef<Path>, magic: u64) -> Result<handshake::n2c::VersionTable, Error> {
+    pub async fn handshake_query(
+        path: impl AsRef<Path>,
+        magic: u64,
+    ) -> Result<handshake::n2c::VersionTable, Error> {
         debug!("connecting");
 
         let bearer = Bearer::connect_unix(path)
