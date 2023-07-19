@@ -14,8 +14,8 @@ pub type StakeholderId = Blake2b224;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddrDistr {
-    Variant0(StakeholderId),
-    Variant1,
+    SingleKeyDistribution(StakeholderId),
+    BootstrapEraDistribution,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for AddrDistr {
@@ -24,8 +24,8 @@ impl<'b, C> minicbor::Decode<'b, C> for AddrDistr {
         let variant = d.u32()?;
 
         match variant {
-            0 => Ok(AddrDistr::Variant0(d.decode_with(ctx)?)),
-            1 => Ok(AddrDistr::Variant1),
+            0 => Ok(AddrDistr::SingleKeyDistribution(d.decode_with(ctx)?)),
+            1 => Ok(AddrDistr::BootstrapEraDistribution),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for addrdstr",
             )),
@@ -40,14 +40,14 @@ impl minicbor::Encode<()> for AddrDistr {
         _ctx: &mut (),
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            AddrDistr::Variant0(x) => {
+            AddrDistr::SingleKeyDistribution(x) => {
                 e.array(2)?;
                 e.u32(0)?;
                 e.encode(x)?;
 
                 Ok(())
             }
-            AddrDistr::Variant1 => {
+            AddrDistr::BootstrapEraDistribution => {
                 e.array(1)?;
                 e.u32(1)?;
 
@@ -101,8 +101,8 @@ impl<C> minicbor::Encode<C> for AddrType {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
-    Bytes(ByteVec),
-    Unparsed(u8, ByteVec),
+    DerivationPath(ByteVec),
+    NetworkTag(u32),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for AddrAttrProperty {
@@ -111,8 +111,8 @@ impl<'b, C> minicbor::Decode<'b, C> for AddrAttrProperty {
 
         match key {
             0 => Ok(AddrAttrProperty::AddrDistr(d.decode_with(ctx)?)),
-            1 => Ok(AddrAttrProperty::Bytes(d.decode_with(ctx)?)),
-            x => Ok(AddrAttrProperty::Unparsed(x, d.decode_with(ctx)?)),
+            1 => Ok(AddrAttrProperty::DerivationPath(d.decode_with(ctx)?)),
+            2 => Ok(AddrAttrProperty::NetworkTag(d.decode_with(ctx)?)),
         }
     }
 }
@@ -125,19 +125,19 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             AddrAttrProperty::AddrDistr(x) => {
-                e.u32(0)?;
+                e.u8(0)?;
                 e.encode(x)?;
 
                 Ok(())
             }
-            AddrAttrProperty::Bytes(x) => {
-                e.u32(1)?;
+            AddrAttrProperty::DerivationPath(x) => {
+                e.u8(1)?;
                 e.encode(x)?;
 
                 Ok(())
             }
-            AddrAttrProperty::Unparsed(a, b) => {
-                e.encode(a)?;
+            AddrAttrProperty::NetworkTag(b) => {
+                e.u8(2)?;
                 e.encode(b)?;
 
                 Ok(())
@@ -146,7 +146,12 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
     }
 }
 
-pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
+/* BYRON_ADDRESS_ATTRIBUTES =
+{ 1 : <<bytes .cbor BYRON_DERIVATION_PATH_CIPHERTEXT>>  ; Double CBOR-encoded ChaCha20/Poly1305 encrypted digest, see CIP for details.
+, 2 : <<uint32>>                             ; CBOR-encoded network discriminant
+} */
+
+pub type AddrAttrs = OrderPreservingProperties<AddrAttrProperty>;
 
 #[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd)]
 pub struct AddressPayload {
@@ -154,7 +159,7 @@ pub struct AddressPayload {
     pub root: AddressId,
 
     #[n(1)]
-    pub attributes: AddrAttr,
+    pub attributes: AddrAttrs,
 
     #[n(2)]
     pub addrtype: AddrType,
@@ -176,6 +181,28 @@ impl ByronAddress {
             payload: TagWrap(ByteVec::from(Vec::from(payload))),
             crc,
         }
+    }
+
+    pub fn new_bootstrap(root: AddressId, addrtype: AddrType, network_tag: Option<u32>) -> Self {
+        let payload = AddressPayload {
+            root,
+            attributes: match network_tag {
+                Some(x) => vec![
+                    AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
+                    AddrAttrProperty::NetworkTag(x),
+                ]
+                .into(),
+                None => vec![AddrAttrProperty::AddrDistr(
+                    AddrDistr::BootstrapEraDistribution,
+                )]
+                .into(),
+            },
+            addrtype,
+        };
+
+        let payload = minicbor::to_vec(payload).unwrap();
+
+        ByronAddress::new(&payload, crc)
     }
 
     pub fn from_bytes(value: &[u8]) -> Result<Self, Error> {

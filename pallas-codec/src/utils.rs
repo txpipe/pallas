@@ -254,6 +254,12 @@ impl<P> Deref for OrderPreservingProperties<P> {
     }
 }
 
+impl<P> From<Vec<P>> for OrderPreservingProperties<P> {
+    fn from(value: Vec<P>) -> Self {
+        OrderPreservingProperties(value)
+    }
+}
+
 impl<'b, C, P> minicbor::decode::Decode<'b, C> for OrderPreservingProperties<P>
 where
     P: Decode<'b, C>,
