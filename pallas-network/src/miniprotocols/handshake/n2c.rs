@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use pallas_codec::minicbor::{decode, Decode, Decoder, encode, Encode, Encoder};
 use pallas_codec::minicbor::data::Type;
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::protocol::NetworkMagic;
 
@@ -72,11 +72,9 @@ impl VersionTable {
     }
 
     pub fn v15_with_query(network_magic: u64) -> VersionTable {
-        let values = vec![
-            (PROTOCOL_V15, VersionData(network_magic, Some(true))),
-        ]
-        .into_iter()
-        .collect::<HashMap<u64, VersionData>>();
+        let values = vec![(PROTOCOL_V15, VersionData(network_magic, Some(true)))]
+            .into_iter()
+            .collect::<HashMap<u64, VersionData>>();
 
         VersionTable { values }
     }
@@ -92,7 +90,9 @@ impl Encode<()> for VersionData {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self.1 {
-            None => { e.u64(self.0)?; }
+            None => {
+                e.u64(self.0)?;
+            }
             Some(is_query) => {
                 e.array(2)?;
                 e.u64(self.0)?;
@@ -117,9 +117,7 @@ impl<'b> Decode<'b, ()> for VersionData {
                 let is_query = d.bool()?;
                 Ok(Self(network_magic, Some(is_query)))
             }
-            _ => Err(decode::Error::message(
-                "unknown type for VersionData",
-            )),
+            _ => Err(decode::Error::message("unknown type for VersionData")),
         }
     }
 }

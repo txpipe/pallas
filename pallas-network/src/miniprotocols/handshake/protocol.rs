@@ -56,7 +56,9 @@ where
     T: Debug + Clone + Decode<'b, ()>,
 {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let len = d.map()?.ok_or(decode::Error::message("expected def-length map for versiontable"))?;
+        let len = d.map()?.ok_or(decode::Error::message(
+            "expected def-length map for versiontable",
+        ))?;
         let mut values = HashMap::new();
 
         for _ in 0..len {

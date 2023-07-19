@@ -12,7 +12,7 @@ use tokio::sync::mpsc::error::SendError;
 use tokio::time::Instant;
 use tracing::{debug, error, trace};
 
-#[cfg(not(target_os = "windows"))]    
+#[cfg(not(target_os = "windows"))]
 use tokio::net::UnixStream;
 
 const HEADER_LEN: usize = 8;
@@ -62,7 +62,7 @@ pub struct Segment {
 
 #[cfg(target_os = "windows")]
 pub enum Bearer {
-    Tcp(TcpStream)
+    Tcp(TcpStream),
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -84,7 +84,7 @@ impl Bearer {
         Ok((Self::Tcp(stream), addr))
     }
 
-    #[cfg(not(target_os = "windows"))]    
+    #[cfg(not(target_os = "windows"))]
     pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
         let stream = UnixStream::connect(path).await?;
         Ok(Self::Unix(stream))
@@ -93,7 +93,7 @@ impl Bearer {
     pub async fn readable(&self) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.readable().await,
-            #[cfg(not(target_os = "windows"))]    
+            #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.readable().await,
         }
     }
@@ -101,7 +101,7 @@ impl Bearer {
     fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
         match self {
             Bearer::Tcp(x) => x.try_read(buf),
-            #[cfg(not(target_os = "windows"))]    
+            #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.try_read(buf),
         }
     }
@@ -109,7 +109,7 @@ impl Bearer {
     async fn write_all(&mut self, buf: &[u8]) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.write_all(buf).await,
-            #[cfg(not(target_os = "windows"))]    
+            #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.write_all(buf).await,
         }
     }
@@ -117,7 +117,7 @@ impl Bearer {
     async fn flush(&mut self) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.flush().await,
-            #[cfg(not(target_os = "windows"))]    
+            #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.flush().await,
         }
     }
