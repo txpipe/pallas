@@ -1,5 +1,3 @@
-use std::time::{Duration, Instant, UNIX_EPOCH};
-
 use pallas_txbuilder::prelude::*;
 
 #[test]

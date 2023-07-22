@@ -58,7 +58,7 @@ impl Output {
     }
 }
 
-#[derive(Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Transaction {
     #[n(0)]
     pub body: TransactionBody,

@@ -35,10 +35,14 @@ impl NetworkParams {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
-    TransactionUnbalanced,
+    /// The built transaction has no given inputs
+    NoInputs,
 
-    // The timestamp provided for either the `.valid_after` or `.valid_until` methods of the
-    // builder are not valid. This usually happens because the provided timestamp comes before the
-    // Shelley hardfork, hence it is not possible to generate a slot number for it.
+    /// The built transaction has no outputs
+    NoOutputs,
+
+    /// The timestamp provided for either the `.valid_after` or `.valid_until` methods of the
+    /// builder are not valid. This usually happens because the provided timestamp comes before the
+    /// Shelley hardfork, hence it is not possible to generate a slot number for it.
     InvalidTimestamp,
 }

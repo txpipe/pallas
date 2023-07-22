@@ -16,6 +16,14 @@ pub struct Manual {
 
 impl Strategy for Manual {
     fn resolve(&self) -> Result<(Vec<TransactionInput>, Vec<TransactionOutput>), ValidationError> {
+        if self.inputs.is_empty() {
+            return Err(ValidationError::NoInputs);
+        }
+
+        if self.outputs.is_empty() {
+            return Err(ValidationError::NoOutputs);
+        }
+
         Ok((
             self.inputs.iter().map(|x| x.0.clone()).collect(),
             self.outputs.clone(),
