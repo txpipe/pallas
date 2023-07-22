@@ -1,13 +1,14 @@
 use pallas_primitives::babbage::NetworkId;
 
 mod builder;
-mod prelude;
 mod strategy;
 mod transaction;
 
+pub mod prelude;
+
 pub struct NetworkParams {
-    network_id: NetworkId,
-    min_utxo_value: u64,
+    pub network_id: NetworkId,
+    pub min_utxo_value: u64,
 }
 
 impl Default for NetworkParams {
@@ -17,4 +18,9 @@ impl Default for NetworkParams {
             min_utxo_value: 1000000,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValidationError {
+    TransactionUnbalanced,
 }

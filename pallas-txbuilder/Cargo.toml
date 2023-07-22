@@ -13,6 +13,7 @@ authors = [
 ]
 
 [dependencies]
+hex = "0.4.3"
 minicbor = { version = "0.19.1", features = ["minicbor-derive"] }
 pallas-codec = { path = "../pallas-codec", version = "0.19.0-alpha.2" }
 pallas-primitives = { path = "../pallas-primitives", version = "0.19.0-alpha.2" }

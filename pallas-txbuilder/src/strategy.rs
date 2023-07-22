@@ -1,37 +1,34 @@
 use pallas_primitives::babbage::{TransactionInput, TransactionOutput};
 
-use crate::{transaction, ValidationError};
+use crate::prelude::*;
 
 pub trait Strategy {
     fn resolve(&self) -> Result<(Vec<TransactionInput>, Vec<TransactionOutput>), ValidationError>;
 }
 
 #[derive(Default)]
-/// The simple strategy automatically calculates the inputs and outputs to a transaction, taking
-/// care of balancing the utxos between them.
-///
-/// TODO: Find a better name, the `simple` strategy is much smarter than the normal one, as it
-/// balances (and hopefully unfracks) the outputs.
-pub struct Automatic {
-    pub inputs: Vec<transaction::Input>,
-    pub outputs: Vec<transaction::Output>,
+/// Receives low-level inputs and outputs, do not resolve anything differently.
+// TODO: document this better
+pub struct Manual {
+    pub inputs: Vec<(TransactionInput, TransactionOutput)>,
+    pub outputs: Vec<TransactionOutput>,
 }
-
-impl Strategy for Automatic {
-    fn resolve(&self) -> Result<(Vec<TransactionInput>, Vec<TransactionOutput>), ValidationError> {
-        todo!()
-    }
-}
-
-#[derive(Default)]
-/// The graph strategy allows control on where/how the utxos are consumed, and what kind of output
-/// they generate.
-///
-/// TODO: Find a better name.
-pub struct Manual;
 
 impl Strategy for Manual {
     fn resolve(&self) -> Result<(Vec<TransactionInput>, Vec<TransactionOutput>), ValidationError> {
-        todo!()
+        Ok((
+            self.inputs.iter().map(|x| x.0.clone()).collect(),
+            self.outputs.clone(),
+        ))
+    }
+}
+
+impl Manual {
+    pub fn input(&mut self, input: TransactionInput, resolved: TransactionOutput) {
+        self.inputs.push((input, resolved));
+    }
+
+    pub fn output(&mut self, output: TransactionOutput) {
+        self.outputs.push(output);
     }
 }

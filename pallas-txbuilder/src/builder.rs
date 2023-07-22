@@ -2,10 +2,11 @@ use std::{collections::HashMap, time::Duration};
 
 use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
-    AddrKeyhash, Certificate, PolicyId, TransactionBody, Value, WitnessSet,
+    AddrKeyhash, Certificate, PolicyId, TransactionBody, TransactionInput, TransactionOutput,
+    Value, WitnessSet,
 };
 
-use crate::{strategy::*, NetworkParams};
+use crate::{strategy::*, transaction, NetworkParams, ValidationError};
 
 #[derive(Default)]
 pub struct TransactionBuilder<T: Default> {
@@ -21,18 +22,10 @@ pub struct TransactionBuilder<T: Default> {
     certificates: Vec<Certificate>,
 }
 
-pub enum ValidationError {
-    TransactionUnbalanced,
-}
-
 impl<T: Default + Strategy> TransactionBuilder<T> {
-    pub fn new() -> TransactionBuilder<Automatic> {
-        Default::default()
-    }
-
-    pub fn manual(strategy: Manual) -> TransactionBuilder<Manual> {
+    pub fn new(network_params: NetworkParams) -> TransactionBuilder<T> {
         TransactionBuilder {
-            strategy,
+            network_params,
             ..Default::default()
         }
     }
@@ -75,24 +68,24 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
             body: TransactionBody {
                 inputs,
                 outputs,
-                fee: todo!(),
+                fee: 0,
                 ttl: self.valid_until.map(convert_slot),
                 certificates: opt_if_empty(self.certificates),
                 withdrawals: None,
                 update: None,
                 auxiliary_data_hash: None,
                 validity_interval_start: self.valid_after.map(convert_slot),
-                mint: todo!(),
+                mint: None,
                 script_data_hash: None,
                 collateral: None,
                 required_signers: opt_if_empty(self.required_signers),
-                network_id: Some(self.network_params.network_id),
+                network_id: None,
                 collateral_return: None,
                 total_collateral: None,
                 reference_inputs: None,
             },
             witness_set: WitnessSet {
-                vkeywitness: todo!(),
+                vkeywitness: None,
                 native_script: None,
                 bootstrap_witness: None,
                 plutus_v1_script: None,
@@ -106,22 +99,15 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
     }
 }
 
-impl TransactionBuilder<Automatic> {
-    /// Add an input UTXO into the transaction
-    pub fn input(mut self, input: transaction::Input) -> Self {
-        self.strategy.inputs.push(input);
+impl TransactionBuilder<Manual> {
+    pub fn input(mut self, input: TransactionInput, resolved: TransactionOutput) -> Self {
+        self.strategy.input(input, resolved);
         self
     }
 
-    /// Add an output UTXO into the transaction
-    pub fn output(mut self, output: transaction::Output) -> Self {
-        self.strategy.outputs.push(output);
+    pub fn output(mut self, output: TransactionOutput) -> Self {
+        self.strategy.output(output);
         self
-    }
-
-    /// Defines where change outputs go in the transaction
-    pub fn change_address(self, _address: AddrKeyhash) -> Self {
-        todo!()
     }
 }
 
@@ -133,8 +119,8 @@ fn convert_slot(_duration: Duration) -> u64 {
 #[inline(always)]
 fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
     if v.is_empty() {
-        Some(v)
-    } else {
         None
+    } else {
+        Some(v)
     }
 }
