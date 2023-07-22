@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
@@ -8,18 +8,33 @@ use pallas_primitives::babbage::{
 
 use crate::{strategy::*, transaction, NetworkParams, ValidationError};
 
-#[derive(Default)]
-pub struct TransactionBuilder<T: Default> {
+pub struct TransactionBuilder<T> {
     strategy: T,
 
     network_params: NetworkParams,
     mint: Option<Value>,
     required_signers: Vec<AddrKeyhash>,
     signatures: HashMap<AddrKeyhash, Bytes>,
-    valid_after: Option<Duration>,
-    valid_until: Option<Duration>,
+    valid_after: Option<u64>,
+    valid_until: Option<u64>,
 
     certificates: Vec<Certificate>,
+}
+
+impl<T: Default> Default for TransactionBuilder<T> {
+    fn default() -> Self {
+        Self {
+            network_params: NetworkParams::mainnet(),
+
+            strategy: Default::default(),
+            mint: Default::default(),
+            required_signers: Default::default(),
+            signatures: Default::default(),
+            valid_after: Default::default(),
+            valid_until: Default::default(),
+            certificates: Default::default(),
+        }
+    }
 }
 
 impl<T: Default + Strategy> TransactionBuilder<T> {
@@ -42,13 +57,13 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
         self
     }
 
-    pub fn valid_after(mut self, duration: Duration) -> Self {
-        self.valid_after = Some(duration);
+    pub fn valid_after(mut self, timestamp: u64) -> Self {
+        self.valid_after = Some(timestamp);
         self
     }
 
-    pub fn valid_until(mut self, duration: Duration) -> Self {
-        self.valid_until = Some(duration);
+    pub fn valid_until(mut self, timestamp: u64) -> Self {
+        self.valid_until = Some(timestamp);
         self
     }
 
@@ -68,13 +83,13 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
             body: TransactionBody {
                 inputs,
                 outputs,
+                ttl: self.convert_timestamp(self.valid_until)?,
+                validity_interval_start: self.convert_timestamp(self.valid_after)?,
                 fee: 0,
-                ttl: self.valid_until.map(convert_slot),
                 certificates: opt_if_empty(self.certificates),
                 withdrawals: None,
                 update: None,
                 auxiliary_data_hash: None,
-                validity_interval_start: self.valid_after.map(convert_slot),
                 mint: None,
                 script_data_hash: None,
                 collateral: None,
@@ -97,6 +112,16 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
             auxiliary_data: None,
         })
     }
+
+    fn convert_timestamp(&self, timestamp: Option<u64>) -> Result<Option<u64>, ValidationError> {
+        match timestamp {
+            Some(v) => match self.network_params.timestamp_to_slot(v) {
+                Some(v) => Ok(Some(v)),
+                None => return Err(ValidationError::InvalidTimestamp),
+            },
+            _ => Ok(None),
+        }
+    }
 }
 
 impl TransactionBuilder<Manual> {
@@ -109,11 +134,6 @@ impl TransactionBuilder<Manual> {
         self.strategy.output(output);
         self
     }
-}
-
-/// Converts a duration into a slot for the transaction to use.
-fn convert_slot(_duration: Duration) -> u64 {
-    todo!()
 }
 
 #[inline(always)]

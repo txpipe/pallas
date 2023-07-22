@@ -1,9 +1,12 @@
 use minicbor::{Decode, Encode};
 use pallas_codec::utils::Bytes;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::babbage::{
-    AuxiliaryData, PseudoPostAlonzoTransactionOutput, TransactionBody, TransactionInput,
-    TransactionOutput, Value, WitnessSet,
+use pallas_primitives::{
+    babbage::{
+        AuxiliaryData, PseudoPostAlonzoTransactionOutput, TransactionBody, TransactionInput,
+        TransactionOutput, Value, WitnessSet,
+    },
+    Fragment,
 };
 
 #[derive(Debug, Clone)]
@@ -65,4 +68,10 @@ pub struct Transaction {
     pub is_valid: bool,
     #[n(3)]
     pub auxiliary_data: Option<AuxiliaryData>,
+}
+
+impl Transaction {
+    pub fn hex_encoded(self) -> Result<String, pallas_primitives::Error> {
+        self.encode_fragment().map(hex::encode)
+    }
 }

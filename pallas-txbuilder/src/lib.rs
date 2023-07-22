@@ -1,4 +1,4 @@
-use pallas_primitives::babbage::NetworkId;
+use pallas_traverse::wellknown::GenesisValues;
 
 mod builder;
 mod strategy;
@@ -6,21 +6,39 @@ mod transaction;
 
 pub mod prelude;
 
+#[derive(Debug, Clone)]
 pub struct NetworkParams {
-    pub network_id: NetworkId,
+    pub genesis_values: GenesisValues,
     pub min_utxo_value: u64,
 }
 
-impl Default for NetworkParams {
-    fn default() -> Self {
+impl NetworkParams {
+    pub fn mainnet() -> Self {
         Self {
-            network_id: NetworkId::One,
+            genesis_values: GenesisValues::mainnet(),
             min_utxo_value: 1000000,
         }
+    }
+
+    pub fn testnet() -> Self {
+        Self {
+            genesis_values: GenesisValues::testnet(),
+            min_utxo_value: 1000000,
+        }
+    }
+
+    pub fn timestamp_to_slot(&self, timestamp: u64) -> Option<u64> {
+        (timestamp / self.genesis_values.shelley_slot_length as u64)
+            .checked_sub(self.genesis_values.shelley_known_time)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
     TransactionUnbalanced,
+
+    // The timestamp provided for either the `.valid_after` or `.valid_until` methods of the
+    // builder are not valid. This usually happens because the provided timestamp comes before the
+    // Shelley hardfork, hence it is not possible to generate a slot number for it.
+    InvalidTimestamp,
 }
