@@ -761,6 +761,8 @@ mod tests {
             include_str!("../../../test_data/babbage8.block"),
             // block with inline datum that fails hashes
             include_str!("../../../test_data/babbage9.block"),
+            // block with pool margin numerator greater than i64::MAX
+            include_str!("../../../test_data/babbage10.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
@@ -768,10 +770,10 @@ mod tests {
             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
             let block: BlockWrapper = minicbor::decode(&bytes[..])
-                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
 
             let bytes2 = minicbor::to_vec(block)
-                .unwrap_or_else(|_| panic!("error encoding block cbor for file {idx}"));
+                .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }

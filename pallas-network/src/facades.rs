@@ -4,6 +4,7 @@ use thiserror::Error;
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
+use crate::miniprotocols::handshake::Confirmation;
 use crate::{
     miniprotocols::{
         blockfetch, chainsync, handshake, localstate, PROTOCOL_N2C_CHAIN_SYNC,
@@ -88,6 +89,7 @@ pub struct NodeClient {
 }
 
 impl NodeClient {
+    #[cfg(not(target_os = "windows"))]
     pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
 
@@ -122,6 +124,47 @@ impl NodeClient {
             chainsync: chainsync::Client::new(cs_channel),
             statequery: localstate::Client::new(sq_channel),
         })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn handshake_query(
+        path: impl AsRef<Path>,
+        magic: u64,
+    ) -> Result<handshake::n2c::VersionTable, Error> {
+        debug!("connecting");
+
+        let bearer = Bearer::connect_unix(path)
+            .await
+            .map_err(Error::ConnectFailure)?;
+
+        let mut plexer = multiplexer::Plexer::new(bearer);
+
+        let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
+
+        let plexer_handle = tokio::spawn(async move { plexer.run().await });
+
+        let versions = handshake::n2c::VersionTable::v15_with_query(magic);
+        let mut client = handshake::Client::new(hs_channel);
+
+        let handshake = client
+            .handshake(versions)
+            .await
+            .map_err(Error::HandshakeProtocol)?;
+
+        match handshake {
+            Confirmation::Accepted(_, _) => {
+                error!("handshake accepted when we expected query reply");
+                Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
+            }
+            Confirmation::Rejected(reason) => {
+                error!(?reason, "handshake refused");
+                Err(Error::IncompatibleVersion)
+            }
+            Confirmation::QueryReply(version_table) => {
+                plexer_handle.abort();
+                Ok(version_table)
+            }
+        }
     }
 
     pub fn chainsync(&mut self) -> &mut chainsync::N2CClient {
