@@ -1,8 +1,6 @@
 use minicbor::{Decode, Encode};
 use pallas_primitives::babbage::{AuxiliaryData, TransactionBody, WitnessSet};
 
-pub type Amount = u128;
-
 pub struct Input;
 pub struct Output;
 

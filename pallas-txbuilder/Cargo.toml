@@ -16,3 +16,4 @@ authors = [
 minicbor = { version = "0.19.1", features = ["minicbor-derive"] }
 pallas-codec = { path = "../pallas-codec", version = "0.19.0-alpha.1" }
 pallas-primitives = { path = "../pallas-primitives", version = "0.19.0-alpha.1" }
+pallas-traverse = { path = "../pallas-traverse", version = "0.19.0-alpha.1" }

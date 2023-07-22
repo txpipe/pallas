@@ -1,7 +1,9 @@
-use std::{collections::HashMap, time::Duration};
+use std::{cmp::max, collections::HashMap, time::Duration};
 
 use pallas_codec::utils::Bytes;
-use pallas_primitives::babbage::{AddrKeyhash, Certificate, PolicyId, TransactionBody, WitnessSet};
+use pallas_primitives::babbage::{
+    AddrKeyhash, Certificate, NetworkId, PolicyId, TransactionBody, Value, WitnessSet,
+};
 
 use crate::strategy::*;
 
@@ -9,17 +11,17 @@ pub mod prelude;
 pub mod strategy;
 pub mod transaction;
 
-/// Converts a duration into a slot for the transaction to use.
-fn convert_slot(_duration: Duration) -> u64 {
-    todo!()
+pub struct NetworkParams {
+    network_id: NetworkId,
+    min_utxo_value: u64,
 }
 
-#[inline(always)]
-fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
-    if v.is_empty() {
-        Some(v)
-    } else {
-        None
+impl Default for NetworkParams {
+    fn default() -> Self {
+        Self {
+            network_id: NetworkId::One,
+            min_utxo_value: 1000000,
+        }
     }
 }
 
@@ -27,8 +29,10 @@ fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
 pub struct TransactionBuilder<T: Default> {
     strategy: T,
 
-    mint: HashMap<PolicyId, Vec<Vec<(Bytes, u64)>>>,
+    network_params: NetworkParams,
+    mint: Option<Value>,
     required_signers: Vec<AddrKeyhash>,
+    signatures: HashMap<AddrKeyhash, Bytes>,
     valid_after: Option<Duration>,
     valid_until: Option<Duration>,
 
@@ -40,19 +44,20 @@ pub enum ValidationError {
 }
 
 impl<T: Default + Strategy> TransactionBuilder<T> {
-    pub fn new() -> TransactionBuilder<Simple> {
+    pub fn new() -> TransactionBuilder<Automatic> {
         Default::default()
     }
 
-    pub fn new_graph() -> TransactionBuilder<Graph> {
-        Default::default()
+    pub fn manual(strategy: Manual) -> TransactionBuilder<Manual> {
+        TransactionBuilder {
+            strategy,
+            ..Default::default()
+        }
     }
 
-    pub fn mint(mut self, policy: PolicyId, assets: Vec<(Bytes, u64)>) -> Self {
-        self.mint
-            .entry(policy)
-            .and_modify(|v| v.push(assets.clone()))
-            .or_insert(vec![assets]);
+    pub fn mint_assets(mut self, policy: PolicyId, assets: Vec<(Bytes, u64)>) -> Self {
+        let mint = vec![(policy, assets.into())].into();
+        self.mint = Some(Value::Multiasset(0, mint));
 
         self
     }
@@ -82,28 +87,30 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
     }
 
     pub fn build(self) -> Result<transaction::Transaction, ValidationError> {
+        let (inputs, outputs) = self.strategy.resolve()?;
+
         Ok(transaction::Transaction {
             body: TransactionBody {
-                inputs: self.strategy.inputs(),
-                outputs: self.strategy.outputs()?,
-                fee: 0,
+                inputs,
+                outputs,
+                fee: todo!(),
                 ttl: self.valid_until.map(convert_slot),
                 certificates: opt_if_empty(self.certificates),
                 withdrawals: None,
                 update: None,
                 auxiliary_data_hash: None,
                 validity_interval_start: self.valid_after.map(convert_slot),
-                mint: None,
+                mint: todo!(),
                 script_data_hash: None,
                 collateral: None,
                 required_signers: opt_if_empty(self.required_signers),
-                network_id: None,
+                network_id: Some(self.network_params.network_id),
                 collateral_return: None,
                 total_collateral: None,
                 reference_inputs: None,
             },
             witness_set: WitnessSet {
-                vkeywitness: None,
+                vkeywitness: todo!(),
                 native_script: None,
                 bootstrap_witness: None,
                 plutus_v1_script: None,
@@ -117,7 +124,7 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
     }
 }
 
-impl TransactionBuilder<Simple> {
+impl TransactionBuilder<Automatic> {
     /// Add an input UTXO into the transaction
     pub fn input(mut self, input: transaction::Input) -> Self {
         self.strategy.inputs.push(input);
@@ -133,5 +140,19 @@ impl TransactionBuilder<Simple> {
     /// Defines where change outputs go in the transaction
     pub fn change_address(self, _address: AddrKeyhash) -> Self {
         todo!()
+    }
+}
+
+/// Converts a duration into a slot for the transaction to use.
+fn convert_slot(_duration: Duration) -> u64 {
+    todo!()
+}
+
+#[inline(always)]
+fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
+    if v.is_empty() {
+        Some(v)
+    } else {
+        None
     }
 }
