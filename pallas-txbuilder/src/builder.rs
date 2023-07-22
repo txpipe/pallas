@@ -6,7 +6,7 @@ use pallas_primitives::babbage::{
     Value, WitnessSet,
 };
 
-use crate::{strategy::*, transaction, NetworkParams, ValidationError};
+use crate::{fee::Fee, strategy::*, transaction, NetworkParams, ValidationError};
 
 pub struct TransactionBuilder<T> {
     strategy: T,
@@ -78,8 +78,7 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
 
     pub fn build(self) -> Result<transaction::Transaction, ValidationError> {
         let (inputs, outputs) = self.strategy.resolve()?;
-
-        Ok(transaction::Transaction {
+        let mut tx = transaction::Transaction {
             body: TransactionBody {
                 inputs,
                 outputs,
@@ -110,7 +109,11 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
             },
             is_valid: true,
             auxiliary_data: None,
-        })
+        };
+
+        tx.body.fee = Fee::linear().calculate(&tx);
+
+        Ok(tx)
     }
 
     fn convert_timestamp(&self, timestamp: Option<u64>) -> Result<Option<u64>, ValidationError> {
