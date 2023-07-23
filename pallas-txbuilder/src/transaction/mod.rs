@@ -44,7 +44,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn hex_encoded(self) -> Result<String, pallas_primitives::Error> {
+    pub fn hex_encoded(&self) -> Result<String, pallas_primitives::Error> {
         self.encode_fragment().map(hex::encode)
     }
 }

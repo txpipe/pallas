@@ -46,4 +46,9 @@ pub enum ValidationError {
     /// builder are not valid. This usually happens because the provided timestamp comes before the
     /// Shelley hardfork, hence it is not possible to generate a slot number for it.
     InvalidTimestamp,
+
+    /// The transaction can not be encoded to CBOR.
+    /// This should not happen usually, only if it is invalid UTF-8. We don't want to panic in those
+    /// unusual cases, just return to callee so they can retry.
+    UnencodableTransaction,
 }

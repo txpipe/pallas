@@ -111,7 +111,7 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
             auxiliary_data: None,
         };
 
-        tx.body.fee = Fee::linear().calculate(&tx);
+        tx.body.fee = Fee::linear().calculate(&tx)?;
 
         Ok(tx)
     }
