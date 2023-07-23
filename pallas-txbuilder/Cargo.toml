@@ -19,3 +19,5 @@ pallas-codec = { path = "../pallas-codec", version = "0.19.0-alpha.2" }
 pallas-primitives = { path = "../pallas-primitives", version = "0.19.0-alpha.2" }
 pallas-traverse = { path = "../pallas-traverse", version = "0.19.0-alpha.2" }
 pallas-crypto = { path = "../pallas-crypto", version = "0.19.0-alpha.2" }
+indexmap = "2.0.0"
+thiserror = "1.0.44"

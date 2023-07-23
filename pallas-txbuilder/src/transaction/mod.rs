@@ -1,13 +1,13 @@
 use minicbor::{Decode, Encode};
-use pallas_codec::utils::Bytes;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
-    babbage::{
-        AuxiliaryData, PseudoPostAlonzoTransactionOutput, TransactionBody, TransactionInput,
-        TransactionOutput, Value, WitnessSet,
-    },
+    babbage::{AuxiliaryData, TransactionBody, TransactionInput, WitnessSet},
     Fragment,
 };
+
+mod output;
+
+pub use output::*;
 
 #[derive(Debug, Clone)]
 pub struct Input {
@@ -27,33 +27,6 @@ impl Input {
         TransactionInput {
             transaction_id: self.transaction_id,
             index: self.index,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Output {
-    Lovelaces { address: Bytes, value: u64 },
-}
-
-impl Output {
-    pub fn lovelaces(address: impl Into<Bytes>, value: u64) -> Self {
-        Self::Lovelaces {
-            address: address.into(),
-            value,
-        }
-    }
-
-    pub fn build(self) -> TransactionOutput {
-        match self {
-            Self::Lovelaces { address, value } => {
-                TransactionOutput::PostAlonzo(PseudoPostAlonzoTransactionOutput {
-                    address,
-                    value: Value::Coin(value),
-                    datum_option: None,
-                    script_ref: None,
-                })
-            }
         }
     }
 }

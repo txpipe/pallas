@@ -62,3 +62,27 @@ fn test_build_manual_transaction_with_valid_after() {
 
     assert_eq!(tx, expected)
 }
+
+#[test]
+fn test_build_manual_multiasset_transaction() {
+    let input = Input::new([0; 32], 0);
+
+    let assets = MultiAsset::new(1000000)
+        .add([0; 28].into(), "MyAsset", 1000000)
+        .expect("Failed to create asset");
+
+    let resolved = Output::multiasset(vec![], assets.clone()).build();
+    let output = Output::multiasset(vec![], assets).build();
+
+    let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+        .input(input.build(), resolved)
+        .output(output)
+        .build()
+        .expect("Failed to create transaction")
+        .hex_encoded()
+        .expect("Failed to encode transaction to hex");
+
+    let expected =  "83a300818258200000000000000000000000000000000000000000000000000000000000000000000181a2004001821a000f4240a1581c00000000000000000000000000000000000000000000000000000000a1474d7941737365741a000f42400200a0f5";
+
+    assert_eq!(tx, expected)
+}
