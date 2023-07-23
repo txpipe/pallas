@@ -784,6 +784,14 @@ impl TryFrom<String> for Bytes {
     }
 }
 
+impl<'a> TryFrom<&'a str> for Bytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Bytes::try_from(value.to_string())
+    }
+}
+
 impl From<Bytes> for String {
     fn from(b: Bytes) -> Self {
         hex::encode(b.deref())
