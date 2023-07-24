@@ -41,8 +41,8 @@ pub enum Error {
     #[error("invalid operation for address content")]
     InvalidForContent,
 
-    #[error("invalid CBOR for Byron address")]
-    InvalidByronCbor,
+    #[error("invalid CBOR for Byron address {0}")]
+    InvalidByronCbor(pallas_codec::minicbor::decode::Error),
 
     #[error("unkown hrp for network {0:08b}")]
     UnknownNetworkHrp(u8),
@@ -377,7 +377,7 @@ parse_shelley_fn!(parse_type_7, script_hash);
 // type 8 (1000) are Byron addresses
 fn parse_type_8(header: u8, payload: &[u8]) -> Result<Address, Error> {
     let vec = [&[header], payload].concat();
-    let inner = pallas_codec::minicbor::decode(&vec).map_err(|_| Error::InvalidByronCbor)?;
+    let inner = pallas_codec::minicbor::decode(&vec).map_err(Error::InvalidByronCbor)?;
     Ok(Address::Byron(inner))
 }
 

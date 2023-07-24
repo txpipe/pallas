@@ -102,7 +102,7 @@ impl<C> minicbor::Encode<C> for AddrType {
 pub enum AddrAttrProperty {
     AddrDistr(AddrDistr),
     DerivationPath(ByteVec),
-    NetworkTag(u32),
+    NetworkTag(ByteVec),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for AddrAttrProperty {
@@ -113,6 +113,9 @@ impl<'b, C> minicbor::Decode<'b, C> for AddrAttrProperty {
             0 => Ok(AddrAttrProperty::AddrDistr(d.decode_with(ctx)?)),
             1 => Ok(AddrAttrProperty::DerivationPath(d.decode_with(ctx)?)),
             2 => Ok(AddrAttrProperty::NetworkTag(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
+                "unknown tag for address attribute",
+            )),
         }
     }
 }
@@ -146,11 +149,6 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
     }
 }
 
-/* BYRON_ADDRESS_ATTRIBUTES =
-{ 1 : <<bytes .cbor BYRON_DERIVATION_PATH_CIPHERTEXT>>  ; Double CBOR-encoded ChaCha20/Poly1305 encrypted digest, see CIP for details.
-, 2 : <<uint32>>                             ; CBOR-encoded network discriminant
-} */
-
 pub type AddrAttrs = OrderPreservingProperties<AddrAttrProperty>;
 
 #[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd)]
@@ -172,24 +170,30 @@ pub struct ByronAddress {
     payload: TagWrap<ByteVec, 24>,
 
     #[n(1)]
-    crc: u64,
+    crc: u32,
 }
 
+const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+
 impl ByronAddress {
-    pub fn new(payload: &[u8], crc: u64) -> Self {
+    pub fn new(payload: &[u8], crc: u32) -> Self {
         Self {
             payload: TagWrap(ByteVec::from(Vec::from(payload))),
             crc,
         }
     }
 
-    pub fn new_bootstrap(root: AddressId, addrtype: AddrType, network_tag: Option<u32>) -> Self {
+    pub fn new_bootstrap(
+        root: AddressId,
+        addrtype: AddrType,
+        network_tag: Option<Vec<u8>>,
+    ) -> Self {
         let payload = AddressPayload {
             root,
             attributes: match network_tag {
                 Some(x) => vec![
                     AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
-                    AddrAttrProperty::NetworkTag(x),
+                    AddrAttrProperty::NetworkTag(x.into()),
                 ]
                 .into(),
                 None => vec![AddrAttrProperty::AddrDistr(
@@ -202,11 +206,13 @@ impl ByronAddress {
 
         let payload = minicbor::to_vec(payload).unwrap();
 
-        ByronAddress::new(&payload, crc)
+        let c = CRC.checksum(&payload);
+
+        ByronAddress::new(&payload, c)
     }
 
     pub fn from_bytes(value: &[u8]) -> Result<Self, Error> {
-        pallas_codec::minicbor::decode(value).map_err(|_| Error::InvalidByronCbor)
+        pallas_codec::minicbor::decode(value).map_err(Error::InvalidByronCbor)
     }
 
     // Tries to decode an address from its hex representation
@@ -235,7 +241,7 @@ impl ByronAddress {
     }
 
     pub fn decode(&self) -> Result<AddressPayload, Error> {
-        minicbor::decode(&self.payload.0).map_err(|_| Error::InvalidByronCbor)
+        minicbor::decode(&self.payload.0).map_err(Error::InvalidByronCbor)
     }
 }
 
@@ -257,6 +263,10 @@ mod tests {
     #[test]
     fn payload_matches() {
         let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
+
+        let crc2 = CRC.checksum(addr.payload.as_ref());
+        assert_eq!(crc2, addr.crc);
+
         let payload = addr.decode().unwrap();
         assert_eq!(payload.root.to_string(), ROOT_HASH);
     }
