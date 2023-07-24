@@ -53,7 +53,7 @@ pub enum TryFromSignatureError {
     InvalidSize,
 }
 
-macro_rules! impl_size_zero {
+macro_rules! impl_basic {
     ($Type:ty, $Size:expr) => {
         impl $Type {
             /// This is the size of the type in bytes.
@@ -65,14 +65,19 @@ macro_rules! impl_size_zero {
             fn zero() -> Self {
                 Self([0; Self::SIZE])
             }
+
+            #[inline]
+            pub fn bytes(&self) -> &[u8; Self::SIZE] {
+                &self.0
+            }
         }
     };
 }
 
-impl_size_zero!(SecretKey, PRIVATE_KEY_LENGTH);
-impl_size_zero!(SecretKeyExtended, EXTENDED_KEY_LENGTH);
-impl_size_zero!(PublicKey, PUBLIC_KEY_LENGTH);
-impl_size_zero!(Signature, SIGNATURE_LENGTH);
+impl_basic!(SecretKey, PRIVATE_KEY_LENGTH);
+impl_basic!(SecretKeyExtended, EXTENDED_KEY_LENGTH);
+impl_basic!(PublicKey, PUBLIC_KEY_LENGTH);
+impl_basic!(Signature, SIGNATURE_LENGTH);
 
 impl SecretKey {
     /// generate a new [`SecretKey`] with the given random number generator
