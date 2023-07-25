@@ -9,6 +9,7 @@ members = [
     "pallas-traverse",
     "pallas-utxorpc",
     "pallas",
+    "pallas-ticking",
     "examples/block-download",
     "examples/block-decode",
     "examples/n2n-miniprotocols",
