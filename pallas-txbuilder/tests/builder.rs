@@ -1,9 +1,13 @@
 use pallas_txbuilder::prelude::*;
 
 macro_rules! assert_transaction {
-    ($code:expr) => {
-        insta::assert_snapshot!($code);
-    };
+    ($code:expr) => {{
+        let bytes = hex::decode($code).expect("Failed to decode transaction CBOR");
+        let cbor: serde_cbor::Value =
+            serde_cbor::from_slice(&bytes).expect("Failed to parse transaction CBOR");
+
+        insta::assert_yaml_snapshot!(&cbor);
+    }};
 }
 
 #[test]
