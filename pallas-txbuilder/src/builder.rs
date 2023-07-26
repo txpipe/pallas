@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
     AddrKeyhash, Certificate, PolicyId, TransactionBody, TransactionInput, TransactionOutput,
@@ -14,7 +12,6 @@ pub struct TransactionBuilder<T> {
     network_params: NetworkParams,
     mint: Option<Value>,
     required_signers: Vec<AddrKeyhash>,
-    signatures: HashMap<AddrKeyhash, Bytes>,
     valid_after: Option<u64>,
     valid_until: Option<u64>,
 
@@ -29,7 +26,6 @@ impl<T: Default> Default for TransactionBuilder<T> {
             strategy: Default::default(),
             mint: Default::default(),
             required_signers: Default::default(),
-            signatures: Default::default(),
             valid_after: Default::default(),
             valid_until: Default::default(),
             certificates: Default::default(),
@@ -52,7 +48,7 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
         self
     }
 
-    pub fn required_signer(mut self, signer: AddrKeyhash) -> Self {
+    pub fn require_signer(mut self, signer: AddrKeyhash) -> Self {
         self.required_signers.push(signer);
         self
     }
@@ -70,10 +66,6 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
     pub fn certificate(mut self, cert: Certificate) -> Self {
         self.certificates.push(cert);
         self
-    }
-
-    pub fn sign(self) -> Self {
-        todo!()
     }
 
     pub fn build(self) -> Result<transaction::Transaction, ValidationError> {
