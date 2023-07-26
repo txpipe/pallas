@@ -1,5 +1,6 @@
 use pallas_traverse::wellknown::GenesisValues;
 
+mod asset;
 mod builder;
 mod fee;
 mod strategy;

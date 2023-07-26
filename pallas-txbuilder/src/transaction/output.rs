@@ -1,60 +1,7 @@
-use std::marker::PhantomData;
+use pallas_codec::utils::Bytes;
+use pallas_primitives::babbage::{PseudoPostAlonzoTransactionOutput, TransactionOutput, Value};
 
-use indexmap::IndexMap;
-use pallas_codec::utils::{Bytes, KeyValuePairs};
-use pallas_primitives::babbage::{
-    PolicyId, PseudoPostAlonzoTransactionOutput, TransactionOutput, Value,
-};
-
-#[derive(Debug, Clone)]
-pub enum OutputError {
-    InvalidAssetName(String),
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct MultiAsset<T> {
-    assets: IndexMap<PolicyId, Vec<(Bytes, T)>>,
-    _marker: PhantomData<T>,
-}
-
-impl<T: Default + Copy> MultiAsset<T>
-where
-    KeyValuePairs<Bytes, u64>: From<Vec<(Bytes, T)>>,
-{
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn add(
-        mut self,
-        policy_id: PolicyId,
-        name: impl Into<String> + Clone,
-        amount: T,
-    ) -> Result<Self, OutputError> {
-        let name: Bytes = hex::encode(name.clone().into())
-            .try_into()
-            .map_err(|_| OutputError::InvalidAssetName(name.into()))?;
-
-        self.assets
-            .entry(policy_id)
-            .and_modify(|v| v.push((name.clone(), amount)))
-            .or_insert(vec![(name, amount)]);
-
-        Ok(self)
-    }
-
-    pub(crate) fn build(
-        self,
-    ) -> pallas_primitives::babbage::Multiasset<pallas_primitives::babbage::Coin> {
-        let assets = self
-            .assets
-            .into_iter()
-            .map(|(policy_id, pair)| (policy_id, pair.into()))
-            .collect::<Vec<_>>();
-
-        assets.into()
-    }
-}
+use crate::asset::MultiAsset;
 
 #[derive(Debug, Clone)]
 pub enum Output {
