@@ -10,22 +10,23 @@ pub mod prelude;
 #[derive(Debug, Clone)]
 pub struct NetworkParams {
     pub genesis_values: GenesisValues,
-    pub min_utxo_value: u64,
 }
 
 impl NetworkParams {
     pub fn mainnet() -> Self {
         Self {
             genesis_values: GenesisValues::mainnet(),
-            min_utxo_value: 1000000,
         }
     }
 
     pub fn testnet() -> Self {
         Self {
             genesis_values: GenesisValues::testnet(),
-            min_utxo_value: 1000000,
         }
+    }
+
+    pub fn network_id(&self) -> u64 {
+        self.genesis_values.network_id
     }
 
     pub fn timestamp_to_slot(&self, timestamp: u64) -> Option<u64> {
