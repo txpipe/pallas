@@ -98,3 +98,19 @@ fn test_build_mint() -> Result<(), ValidationError> {
 
     assert_transaction!(tx)
 }
+
+#[test]
+fn test_build_with_reference_inputs() -> Result<(), ValidationError> {
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+    let output = Output::lovelaces(vec![], 1000000).build();
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input.clone(), resolved)
+        .output(output)
+        .reference_input(input)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}

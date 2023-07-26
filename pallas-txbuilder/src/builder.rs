@@ -9,6 +9,7 @@ pub struct TransactionBuilder {
     inputs: Vec<(TransactionInput, TransactionOutput)>,
     outputs: Vec<TransactionOutput>,
 
+    reference_inputs: Vec<TransactionInput>,
     network_params: NetworkParams,
     mint: Option<MultiAsset<i64>>,
     required_signers: Vec<AddrKeyhash>,
@@ -23,6 +24,7 @@ impl Default for TransactionBuilder {
         Self {
             network_params: NetworkParams::mainnet(),
 
+            reference_inputs: Default::default(),
             inputs: Default::default(),
             outputs: Default::default(),
             mint: Default::default(),
@@ -44,6 +46,11 @@ impl TransactionBuilder {
 
     pub fn input(mut self, input: TransactionInput, resolved: TransactionOutput) -> Self {
         self.inputs.push((input, resolved));
+        self
+    }
+
+    pub fn reference_input(mut self, input: TransactionInput) -> Self {
+        self.reference_inputs.push(input);
         self
     }
 
@@ -108,7 +115,7 @@ impl TransactionBuilder {
                 network_id: NetworkId::from_u64(self.network_params.network_id()),
                 collateral_return: None,
                 total_collateral: None,
-                reference_inputs: None,
+                reference_inputs: opt_if_empty(self.reference_inputs),
             },
             witness_set: WitnessSet {
                 vkeywitness: None,
