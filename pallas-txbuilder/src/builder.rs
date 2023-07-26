@@ -1,16 +1,16 @@
-use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
-    AddrKeyhash, Certificate, PolicyId, TransactionBody, TransactionInput, TransactionOutput,
-    Value, WitnessSet,
+    AddrKeyhash, Certificate, TransactionBody, TransactionInput, TransactionOutput, WitnessSet,
 };
 
-use crate::{fee::Fee, strategy::*, transaction, NetworkParams, ValidationError};
+use crate::{
+    fee::Fee, prelude::MultiAsset, strategy::*, transaction, NetworkParams, ValidationError,
+};
 
 pub struct TransactionBuilder<T> {
     strategy: T,
 
     network_params: NetworkParams,
-    mint: Option<Value>,
+    mint: Option<MultiAsset<i64>>,
     required_signers: Vec<AddrKeyhash>,
     valid_after: Option<u64>,
     valid_until: Option<u64>,
@@ -41,9 +41,8 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
         }
     }
 
-    pub fn mint_assets(mut self, policy: PolicyId, assets: Vec<(Bytes, u64)>) -> Self {
-        let mint = vec![(policy, assets.into())].into();
-        self.mint = Some(Value::Multiasset(0, mint));
+    pub fn mint(mut self, assets: MultiAsset<i64>) -> Self {
+        self.mint = Some(assets);
 
         self
     }
@@ -81,7 +80,7 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
                 withdrawals: None,
                 update: None,
                 auxiliary_data_hash: None,
-                mint: None,
+                mint: self.mint.map(|x| x.build()),
                 script_data_hash: None,
                 collateral: None,
                 required_signers: opt_if_empty(self.required_signers),

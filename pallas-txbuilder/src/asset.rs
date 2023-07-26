@@ -41,9 +41,7 @@ where
         Ok(self)
     }
 
-    pub(crate) fn build(
-        self,
-    ) -> pallas_primitives::babbage::Multiasset<pallas_primitives::babbage::Coin> {
+    pub(crate) fn build(self) -> pallas_primitives::babbage::Multiasset<T> {
         let assets = self
             .assets
             .into_iter()
