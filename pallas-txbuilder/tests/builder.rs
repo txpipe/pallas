@@ -1,5 +1,11 @@
 use pallas_txbuilder::prelude::*;
 
+macro_rules! assert_transaction {
+    ($code:expr) => {
+        insta::assert_snapshot!($code);
+    };
+}
+
 #[test]
 fn test_build_simplest_transaction() {
     let input = Input::build([0; 32], 0);
@@ -14,9 +20,7 @@ fn test_build_simplest_transaction() {
         .hex_encoded()
         .expect("Failed to encode transaction to hex");
 
-    let expected = "83a400818258200000000000000000000000000000000000000000000000000000000000000000000181a20040011a000f4240021a000272870f01a0f5";
-
-    assert_eq!(tx, expected)
+    assert_transaction!(tx);
 }
 
 #[test]
@@ -36,13 +40,11 @@ fn test_build_transaction_with_ttl() {
         .hex_encoded()
         .expect("Failed to encode transaction to hex");
 
-    let expected = "83a500818258200000000000000000000000000000000000000000000000000000000000000000000181a20040011a000f4240021a00027497031a01555a5d0f01a0f5";
-
-    assert_eq!(tx, expected)
+    assert_transaction!(tx);
 }
 
 #[test]
-fn test_build_transaction_with_jalid_after() {
+fn test_build_transaction_with_valid_after() {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
@@ -58,9 +60,7 @@ fn test_build_transaction_with_jalid_after() {
         .hex_encoded()
         .expect("Failed to encode transaction to hex");
 
-    let expected = "83a500818258200000000000000000000000000000000000000000000000000000000000000000000181a20040011a000f4240021a00027497081a01555a5d0f01a0f5";
-
-    assert_eq!(tx, expected)
+    assert_transaction!(tx);
 }
 
 #[test]
@@ -82,9 +82,7 @@ fn test_build_multiasset_transaction() {
         .hex_encoded()
         .expect("Failed to encode transaction to hex");
 
-    let expected =  "83a400818258200000000000000000000000000000000000000000000000000000000000000000000181a2004001821a000f4240a1581c00000000000000000000000000000000000000000000000000000000a1474d7941737365741a000f4240021a000282520f01a0f5";
-
-    assert_eq!(tx, expected)
+    assert_transaction!(tx);
 }
 
 #[test]
@@ -106,7 +104,5 @@ fn test_build_mint() {
         .hex_encoded()
         .expect("Failed to encode transaction to hex");
 
-    let expected =  "83a500818258200000000000000000000000000000000000000000000000000000000000000000000181a20040011a000f4240021a0002830209a1581c00000000000000000000000000000000000000000000000000000000a1494d79417373657420321a000f42400f01a0f5";
-
-    assert_eq!(tx, expected)
+    assert_transaction!(tx);
 }
