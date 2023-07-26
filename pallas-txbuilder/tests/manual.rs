@@ -2,12 +2,12 @@ use pallas_txbuilder::prelude::*;
 
 #[test]
 fn test_build_manual_simplest_transaction() {
-    let input = Input::new([0; 32], 0);
+    let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
-        .input(input.build(), resolved)
+        .input(input, resolved)
         .output(output)
         .build()
         .expect("Failed to create transaction")
@@ -21,14 +21,14 @@ fn test_build_manual_simplest_transaction() {
 
 #[test]
 fn test_build_manual_transaction_with_ttl() {
-    let input = Input::new([0; 32], 0);
+    let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
     let valid_until = 1618430000;
 
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
-        .input(input.build(), resolved)
+        .input(input, resolved)
         .output(output)
         .valid_until(valid_until)
         .build()
@@ -43,14 +43,14 @@ fn test_build_manual_transaction_with_ttl() {
 
 #[test]
 fn test_build_manual_transaction_with_valid_after() {
-    let input = Input::new([0; 32], 0);
+    let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
     let valid_after = 1618430000;
 
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
-        .input(input.build(), resolved)
+        .input(input, resolved)
         .output(output)
         .valid_after(valid_after)
         .build()
@@ -65,7 +65,7 @@ fn test_build_manual_transaction_with_valid_after() {
 
 #[test]
 fn test_build_manual_multiasset_transaction() {
-    let input = Input::new([0; 32], 0);
+    let input = Input::build([0; 32], 0);
 
     let assets = MultiAsset::new(1000000)
         .add([0; 28].into(), "MyAsset", 1000000)
@@ -75,7 +75,7 @@ fn test_build_manual_multiasset_transaction() {
     let output = Output::multiasset(vec![], assets).build();
 
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
-        .input(input.build(), resolved)
+        .input(input, resolved)
         .output(output)
         .build()
         .expect("Failed to create transaction")
