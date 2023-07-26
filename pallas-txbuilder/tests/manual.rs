@@ -67,12 +67,12 @@ fn test_build_manual_transaction_with_valid_after() {
 fn test_build_manual_multiasset_transaction() {
     let input = Input::build([0; 32], 0);
 
-    let assets = MultiAsset::new(1000000)
+    let assets = MultiAsset::new()
         .add([0; 28].into(), "MyAsset", 1000000)
         .expect("Failed to create asset");
 
-    let resolved = Output::multiasset(vec![], assets.clone()).build();
-    let output = Output::multiasset(vec![], assets).build();
+    let resolved = Output::multiasset(vec![], 1000000, assets.clone()).build();
+    let output = Output::multiasset(vec![], 1000000, assets).build();
 
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
         .input(input, resolved)

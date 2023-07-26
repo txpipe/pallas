@@ -1,5 +1,7 @@
+use std::marker::PhantomData;
+
 use indexmap::IndexMap;
-use pallas_codec::utils::Bytes;
+use pallas_codec::utils::{Bytes, KeyValuePairs};
 use pallas_primitives::babbage::{
     PolicyId, PseudoPostAlonzoTransactionOutput, TransactionOutput, Value,
 };
@@ -10,24 +12,24 @@ pub enum OutputError {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct MultiAsset {
-    lovelace_amount: u64,
-    assets: IndexMap<PolicyId, Vec<(Bytes, u64)>>,
+pub struct MultiAsset<T> {
+    assets: IndexMap<PolicyId, Vec<(Bytes, T)>>,
+    _marker: PhantomData<T>,
 }
 
-impl MultiAsset {
-    pub fn new(lovelace_amount: u64) -> Self {
-        Self {
-            lovelace_amount,
-            ..Default::default()
-        }
+impl<T: Default + Copy> MultiAsset<T>
+where
+    KeyValuePairs<Bytes, u64>: From<Vec<(Bytes, T)>>,
+{
+    pub fn new() -> Self {
+        Default::default()
     }
 
     pub fn add(
         mut self,
         policy_id: PolicyId,
         name: impl Into<String> + Clone,
-        amount: u64,
+        amount: T,
     ) -> Result<Self, OutputError> {
         let name: Bytes = hex::encode(name.clone().into())
             .try_into()
@@ -41,21 +43,30 @@ impl MultiAsset {
         Ok(self)
     }
 
-    fn build(self) -> Value {
+    pub(crate) fn build(
+        self,
+    ) -> pallas_primitives::babbage::Multiasset<pallas_primitives::babbage::Coin> {
         let assets = self
             .assets
             .into_iter()
             .map(|(policy_id, pair)| (policy_id, pair.into()))
             .collect::<Vec<_>>();
 
-        Value::Multiasset(self.lovelace_amount, assets.into())
+        assets.into()
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Output {
-    Lovelaces { address: Bytes, value: u64 },
-    MultiAsset { address: Bytes, assets: MultiAsset },
+    Lovelaces {
+        address: Bytes,
+        value: u64,
+    },
+    MultiAsset {
+        address: Bytes,
+        value: u64,
+        assets: MultiAsset<u64>,
+    },
 }
 
 impl Output {
@@ -66,9 +77,10 @@ impl Output {
         }
     }
 
-    pub fn multiasset(address: impl Into<Bytes>, assets: MultiAsset) -> Self {
+    pub fn multiasset(address: impl Into<Bytes>, lovelaces: u64, assets: MultiAsset<u64>) -> Self {
         Self::MultiAsset {
             address: address.into(),
+            value: lovelaces,
             assets,
         }
     }
@@ -83,14 +95,16 @@ impl Output {
                     script_ref: None,
                 })
             }
-            Self::MultiAsset { address, assets } => {
-                TransactionOutput::PostAlonzo(PseudoPostAlonzoTransactionOutput {
-                    address,
-                    value: assets.build(),
-                    datum_option: None,
-                    script_ref: None,
-                })
-            }
+            Self::MultiAsset {
+                address,
+                assets,
+                value,
+            } => TransactionOutput::PostAlonzo(PseudoPostAlonzoTransactionOutput {
+                address,
+                value: Value::Multiasset(value, assets.build()),
+                datum_option: None,
+                script_ref: None,
+            }),
         }
     }
 }
