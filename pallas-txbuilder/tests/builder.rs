@@ -18,7 +18,7 @@ fn test_build_simplest_transaction() -> Result<(), ValidationError> {
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
         .build()?
@@ -35,7 +35,7 @@ fn test_build_transaction_with_ttl() -> Result<(), ValidationError> {
 
     let valid_until = 1618430000;
 
-    let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
         .valid_until(valid_until)
@@ -53,7 +53,7 @@ fn test_build_transaction_with_valid_after() -> Result<(), ValidationError> {
 
     let valid_after = 1618430000;
 
-    let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
         .valid_after(valid_after)
@@ -72,7 +72,7 @@ fn test_build_multiasset_transaction() -> Result<(), ValidationError> {
     let resolved = Output::multiasset(vec![], 1000000, assets.clone()).build();
     let output = Output::multiasset(vec![], 1000000, assets).build();
 
-    let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
         .build()?
@@ -89,7 +89,7 @@ fn test_build_mint() -> Result<(), ValidationError> {
 
     let assets = MultiAsset::new().add([0; 28].into(), "MyAsset 2", 1000000)?;
 
-    let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
         .mint(assets)

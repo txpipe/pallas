@@ -2,7 +2,7 @@ use pallas_txbuilder::prelude::*;
 
 #[test]
 fn test_transaction_building_fails_without_inputs() {
-    match TransactionBuilder::<Manual>::new(NetworkParams::mainnet()).build() {
+    match TransactionBuilder::new(NetworkParams::mainnet()).build() {
         Ok(_) => panic!("Transaction should be invalid without inputs"),
         Err(e) => assert_eq!(e, ValidationError::NoInputs),
     }
@@ -13,7 +13,7 @@ fn test_transaction_building_fails_without_outputs() {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
 
-    match TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
+    match TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .build()
     {

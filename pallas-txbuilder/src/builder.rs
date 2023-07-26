@@ -3,12 +3,11 @@ use pallas_primitives::babbage::{
     WitnessSet,
 };
 
-use crate::{
-    fee::Fee, prelude::MultiAsset, strategy::*, transaction, NetworkParams, ValidationError,
-};
+use crate::{asset::MultiAsset, fee::Fee, transaction, NetworkParams, ValidationError};
 
-pub struct TransactionBuilder<T> {
-    strategy: T,
+pub struct TransactionBuilder {
+    inputs: Vec<(TransactionInput, TransactionOutput)>,
+    outputs: Vec<TransactionOutput>,
 
     network_params: NetworkParams,
     mint: Option<MultiAsset<i64>>,
@@ -19,12 +18,13 @@ pub struct TransactionBuilder<T> {
     certificates: Vec<Certificate>,
 }
 
-impl<T: Default> Default for TransactionBuilder<T> {
+impl Default for TransactionBuilder {
     fn default() -> Self {
         Self {
             network_params: NetworkParams::mainnet(),
 
-            strategy: Default::default(),
+            inputs: Default::default(),
+            outputs: Default::default(),
             mint: Default::default(),
             required_signers: Default::default(),
             valid_after: Default::default(),
@@ -34,12 +34,22 @@ impl<T: Default> Default for TransactionBuilder<T> {
     }
 }
 
-impl<T: Default + Strategy> TransactionBuilder<T> {
-    pub fn new(network_params: NetworkParams) -> TransactionBuilder<T> {
+impl TransactionBuilder {
+    pub fn new(network_params: NetworkParams) -> TransactionBuilder {
         TransactionBuilder {
             network_params,
             ..Default::default()
         }
+    }
+
+    pub fn input(mut self, input: TransactionInput, resolved: TransactionOutput) -> Self {
+        self.inputs.push((input, resolved));
+        self
+    }
+
+    pub fn output(mut self, output: TransactionOutput) -> Self {
+        self.outputs.push(output);
+        self
     }
 
     pub fn mint(mut self, assets: MultiAsset<i64>) -> Self {
@@ -69,7 +79,17 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
     }
 
     pub fn build(self) -> Result<transaction::Transaction, ValidationError> {
-        let (inputs, outputs) = self.strategy.resolve()?;
+        if self.inputs.is_empty() {
+            return Err(ValidationError::NoInputs);
+        }
+
+        if self.outputs.is_empty() {
+            return Err(ValidationError::NoOutputs);
+        }
+
+        let inputs = self.inputs.iter().map(|x| x.0.clone()).collect();
+        let outputs = self.outputs.clone();
+
         let mut tx = transaction::Transaction {
             body: TransactionBody {
                 inputs,
@@ -116,18 +136,6 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
             },
             _ => Ok(None),
         }
-    }
-}
-
-impl TransactionBuilder<Manual> {
-    pub fn input(mut self, input: TransactionInput, resolved: TransactionOutput) -> Self {
-        self.strategy.input(input, resolved);
-        self
-    }
-
-    pub fn output(mut self, output: TransactionOutput) -> Self {
-        self.strategy.output(output);
-        self
     }
 }
 
