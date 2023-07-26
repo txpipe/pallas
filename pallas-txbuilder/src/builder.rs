@@ -1,7 +1,10 @@
+use pallas_codec::utils::Bytes;
+use pallas_crypto::hash::Hash;
 use pallas_primitives::babbage::{
     AddrKeyhash, Certificate, NetworkId, TransactionBody, TransactionInput, TransactionOutput,
     WitnessSet,
 };
+use pallas_traverse::ComputeHash;
 
 use crate::{asset::MultiAsset, fee::Fee, transaction, NetworkParams, ValidationError};
 
@@ -131,6 +134,7 @@ impl TransactionBuilder {
         };
 
         tx.body.fee = Fee::linear().calculate(&tx)?;
+        tx.body.auxiliary_data_hash = tx.auxiliary_data.clone().map(hash_to_bytes);
 
         Ok(tx)
     }
@@ -153,4 +157,10 @@ fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
     } else {
         Some(v)
     }
+}
+
+#[inline(always)]
+fn hash_to_bytes<const N: usize, T: ComputeHash<N>>(input: T) -> Bytes {
+    let b = input.compute_hash().as_ref().to_vec();
+    b.into()
 }
