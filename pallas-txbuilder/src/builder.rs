@@ -1,5 +1,6 @@
 use pallas_primitives::babbage::{
-    AddrKeyhash, Certificate, TransactionBody, TransactionInput, TransactionOutput, WitnessSet,
+    AddrKeyhash, Certificate, NetworkId, TransactionBody, TransactionInput, TransactionOutput,
+    WitnessSet,
 };
 
 use crate::{
@@ -84,7 +85,7 @@ impl<T: Default + Strategy> TransactionBuilder<T> {
                 script_data_hash: None,
                 collateral: None,
                 required_signers: opt_if_empty(self.required_signers),
-                network_id: None,
+                network_id: NetworkId::from_u64(self.network_params.network_id()),
                 collateral_return: None,
                 total_collateral: None,
                 reference_inputs: None,

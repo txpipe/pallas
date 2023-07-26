@@ -636,6 +636,16 @@ pub enum NetworkId {
     Two,
 }
 
+impl NetworkId {
+    pub fn from_u64(value: u64) -> Option<Self> {
+        match value {
+            0 => Some(NetworkId::One),
+            1 => Some(NetworkId::Two),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[cbor(index_only)]
 pub enum Language {
