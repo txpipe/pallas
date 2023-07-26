@@ -152,3 +152,23 @@ fn test_build_with_reference_inputs() -> Result<(), ValidationError> {
 
     assert_transaction!(tx)
 }
+
+#[test]
+fn test_build_with_collateral_inputs() -> Result<(), ValidationError> {
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+    let output = Output::lovelaces(vec![], 999998).build();
+
+    let collateral = Input::build([0; 32], 1);
+    let collateral_return = Output::lovelaces(vec![], 2).build();
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input.clone(), resolved)
+        .output(output)
+        .collateral(collateral)
+        .collateral_return(collateral_return)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}

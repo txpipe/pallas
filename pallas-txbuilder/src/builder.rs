@@ -13,6 +13,8 @@ pub struct TransactionBuilder {
     outputs: Vec<TransactionOutput>,
 
     reference_inputs: Vec<TransactionInput>,
+    collaterals: Vec<TransactionInput>,
+    collateral_return: Option<TransactionOutput>,
     network_params: NetworkParams,
     mint: Option<MultiAsset<i64>>,
     required_signers: Vec<AddrKeyhash>,
@@ -22,28 +24,21 @@ pub struct TransactionBuilder {
     certificates: Vec<Certificate>,
 }
 
-impl Default for TransactionBuilder {
-    fn default() -> Self {
-        Self {
-            network_params: NetworkParams::mainnet(),
+impl TransactionBuilder {
+    pub fn new(network_params: NetworkParams) -> TransactionBuilder {
+        TransactionBuilder {
+            network_params,
 
-            reference_inputs: Default::default(),
             inputs: Default::default(),
             outputs: Default::default(),
+            reference_inputs: Default::default(),
+            collaterals: Default::default(),
+            collateral_return: Default::default(),
             mint: Default::default(),
             required_signers: Default::default(),
             valid_after: Default::default(),
             valid_until: Default::default(),
             certificates: Default::default(),
-        }
-    }
-}
-
-impl TransactionBuilder {
-    pub fn new(network_params: NetworkParams) -> TransactionBuilder {
-        TransactionBuilder {
-            network_params,
-            ..Default::default()
         }
     }
 
@@ -54,6 +49,16 @@ impl TransactionBuilder {
 
     pub fn reference_input(mut self, input: TransactionInput) -> Self {
         self.reference_inputs.push(input);
+        self
+    }
+
+    pub fn collateral(mut self, input: TransactionInput) -> Self {
+        self.collaterals.push(input);
+        self
+    }
+
+    pub fn collateral_return(mut self, output: TransactionOutput) -> Self {
+        self.collateral_return = Some(output);
         self
     }
 
@@ -113,10 +118,10 @@ impl TransactionBuilder {
                 auxiliary_data_hash: None,
                 mint: self.mint.map(|x| x.build()),
                 script_data_hash: None,
-                collateral: None,
+                collateral: opt_if_empty(self.collaterals),
                 required_signers: opt_if_empty(self.required_signers),
                 network_id: NetworkId::from_u64(self.network_params.network_id()),
-                collateral_return: None,
+                collateral_return: self.collateral_return,
                 total_collateral: None,
                 reference_inputs: opt_if_empty(self.reference_inputs),
             },
