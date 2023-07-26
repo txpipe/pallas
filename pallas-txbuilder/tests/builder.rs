@@ -28,6 +28,44 @@ fn test_build_simplest_transaction() -> Result<(), ValidationError> {
 }
 
 #[test]
+fn test_build_transaction_with_multiple_inputs() -> Result<(), ValidationError> {
+    let input_a = Input::build([0; 32], 0);
+    let resolved_a = Output::lovelaces(vec![], 1000000).build();
+
+    let input_b = Input::build([0; 32], 1);
+    let resolved_b = Output::lovelaces(vec![], 1000001).build();
+
+    let output = Output::lovelaces(vec![], 1000000).build();
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input_a, resolved_a)
+        .input(input_b, resolved_b)
+        .output(output)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}
+
+#[test]
+fn test_build_transaction_with_multiple_outputs() -> Result<(), ValidationError> {
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+
+    let output_a = Output::lovelaces(vec![], 499999).build();
+    let output_b = Output::lovelaces(vec![], 500001).build();
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input, resolved)
+        .output(output_a)
+        .output(output_b)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}
+
+#[test]
 fn test_build_transaction_with_ttl() -> Result<(), ValidationError> {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();

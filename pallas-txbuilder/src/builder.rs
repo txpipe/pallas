@@ -1,5 +1,5 @@
 use pallas_codec::utils::Bytes;
-use pallas_crypto::hash::Hash;
+
 use pallas_primitives::babbage::{
     AddrKeyhash, Certificate, NetworkId, TransactionBody, TransactionInput, TransactionOutput,
     WitnessSet,
