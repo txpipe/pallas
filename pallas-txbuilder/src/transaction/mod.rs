@@ -11,6 +11,8 @@ mod output;
 pub use input::*;
 pub use output::*;
 
+use crate::ValidationError;
+
 #[derive(Debug, Encode, Decode, Clone)]
 pub struct Transaction {
     #[n(0)]
@@ -46,7 +48,9 @@ impl Transaction {
         self
     }
 
-    pub fn hex_encoded(&self) -> Result<String, pallas_primitives::Error> {
-        self.encode_fragment().map(hex::encode)
+    pub fn hex_encoded(&self) -> Result<String, ValidationError> {
+        self.encode_fragment()
+            .map(hex::encode)
+            .map_err(|_| ValidationError::UnencodableTransaction)
     }
 }

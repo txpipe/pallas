@@ -36,21 +36,28 @@ impl NetworkParams {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ValidationError {
     /// The built transaction has no given inputs
+    #[error("Transaction has no inputs")]
     NoInputs,
 
     /// The built transaction has no outputs
+    #[error("Transaction has no outputs")]
     NoOutputs,
 
     /// The timestamp provided for either the `.valid_after` or `.valid_until` methods of the
     /// builder are not valid. This usually happens because the provided timestamp comes before the
     /// Shelley hardfork, hence it is not possible to generate a slot number for it.
+    #[error("Invalid timestamp")]
     InvalidTimestamp,
 
     /// The transaction can not be encoded to CBOR.
     /// This should not happen usually, only if it is invalid UTF-8. We don't want to panic in those
     /// unusual cases, just return to callee so they can retry.
+    #[error("Unencodable transaction")]
     UnencodableTransaction,
+
+    #[error("Asset error {0}")]
+    AssetError(#[from] asset::AssetError),
 }

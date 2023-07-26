@@ -7,11 +7,13 @@ macro_rules! assert_transaction {
             serde_cbor::from_slice(&bytes).expect("Failed to parse transaction CBOR");
 
         insta::assert_yaml_snapshot!(&cbor);
+
+        Ok(())
     }};
 }
 
 #[test]
-fn test_build_simplest_transaction() {
+fn test_build_simplest_transaction() -> Result<(), ValidationError> {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
@@ -19,16 +21,14 @@ fn test_build_simplest_transaction() {
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
-        .build()
-        .expect("Failed to create transaction")
-        .hex_encoded()
-        .expect("Failed to encode transaction to hex");
+        .build()?
+        .hex_encoded()?;
 
-    assert_transaction!(tx);
+    assert_transaction!(tx)
 }
 
 #[test]
-fn test_build_transaction_with_ttl() {
+fn test_build_transaction_with_ttl() -> Result<(), ValidationError> {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
@@ -39,16 +39,14 @@ fn test_build_transaction_with_ttl() {
         .input(input, resolved)
         .output(output)
         .valid_until(valid_until)
-        .build()
-        .expect("Failed to create transaction")
-        .hex_encoded()
-        .expect("Failed to encode transaction to hex");
+        .build()?
+        .hex_encoded()?;
 
-    assert_transaction!(tx);
+    assert_transaction!(tx)
 }
 
 #[test]
-fn test_build_transaction_with_valid_after() {
+fn test_build_transaction_with_valid_after() -> Result<(), ValidationError> {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
@@ -59,21 +57,17 @@ fn test_build_transaction_with_valid_after() {
         .input(input, resolved)
         .output(output)
         .valid_after(valid_after)
-        .build()
-        .expect("Failed to create transaction")
-        .hex_encoded()
-        .expect("Failed to encode transaction to hex");
+        .build()?
+        .hex_encoded()?;
 
-    assert_transaction!(tx);
+    assert_transaction!(tx)
 }
 
 #[test]
-fn test_build_multiasset_transaction() {
+fn test_build_multiasset_transaction() -> Result<(), ValidationError> {
     let input = Input::build([0; 32], 0);
 
-    let assets = MultiAsset::new()
-        .add([0; 28].into(), "MyAsset", 1000000)
-        .expect("Failed to create asset");
+    let assets = MultiAsset::new().add([0; 28].into(), "MyAsset", 1000000)?;
 
     let resolved = Output::multiasset(vec![], 1000000, assets.clone()).build();
     let output = Output::multiasset(vec![], 1000000, assets).build();
@@ -81,32 +75,26 @@ fn test_build_multiasset_transaction() {
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
-        .build()
-        .expect("Failed to create transaction")
-        .hex_encoded()
-        .expect("Failed to encode transaction to hex");
+        .build()?
+        .hex_encoded()?;
 
-    assert_transaction!(tx);
+    assert_transaction!(tx)
 }
 
 #[test]
-fn test_build_mint() {
+fn test_build_mint() -> Result<(), ValidationError> {
     let input = Input::build([0; 32], 0);
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let assets = MultiAsset::new()
-        .add([0; 28].into(), "MyAsset 2", 1000000)
-        .expect("Failed to create asset");
+    let assets = MultiAsset::new().add([0; 28].into(), "MyAsset 2", 1000000)?;
 
     let tx = TransactionBuilder::<Manual>::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
         .mint(assets)
-        .build()
-        .expect("Failed to create transaction")
-        .hex_encoded()
-        .expect("Failed to encode transaction to hex");
+        .build()?
+        .hex_encoded()?;
 
-    assert_transaction!(tx);
+    assert_transaction!(tx)
 }

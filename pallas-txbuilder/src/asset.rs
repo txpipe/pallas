@@ -4,8 +4,9 @@ use indexmap::IndexMap;
 use pallas_codec::utils::{Bytes, KeyValuePairs};
 use pallas_primitives::babbage::PolicyId;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AssetError {
+    #[error("Invalid asset name")]
     InvalidAssetName(String),
 }
 
