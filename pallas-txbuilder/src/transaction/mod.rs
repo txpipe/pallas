@@ -1,5 +1,5 @@
 use minicbor::{Decode, Encode};
-use pallas_crypto::{hash::Hasher, key::ed25519::SecretKey};
+use pallas_crypto::key::ed25519::SecretKey;
 use pallas_primitives::{
     babbage::{AuxiliaryData, TransactionBody, WitnessSet},
     Fragment,
@@ -10,6 +10,7 @@ mod output;
 
 pub use input::*;
 pub use output::*;
+use pallas_traverse::ComputeHash;
 
 use crate::ValidationError;
 
@@ -33,7 +34,7 @@ impl Transaction {
     pub fn sign(mut self, secret_key: SecretKey) -> Self {
         let pubkey: Vec<u8> = Vec::from(secret_key.public_key().as_ref());
 
-        let hash = Hasher::<256>::hash_cbor(&self.body);
+        let hash = self.body.compute_hash();
         let signature = Vec::from(secret_key.sign(hash).as_ref());
 
         let mut vkey_witnesses = self.witness_set.vkeywitness.unwrap_or(vec![]);
