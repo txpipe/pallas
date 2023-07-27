@@ -55,3 +55,19 @@ impl Output {
         }
     }
 }
+
+pub trait OutputExt {
+    fn is_multiasset(&self) -> bool;
+}
+
+impl OutputExt for TransactionOutput {
+    fn is_multiasset(&self) -> bool {
+        matches!(
+            self,
+            Self::PostAlonzo(PseudoPostAlonzoTransactionOutput {
+                value: Value::Multiasset(..),
+                ..
+            })
+        )
+    }
+}

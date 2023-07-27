@@ -6,7 +6,12 @@ use pallas_primitives::babbage::{
 };
 use pallas_traverse::ComputeHash;
 
-use crate::{asset::MultiAsset, fee::Fee, transaction, NetworkParams, ValidationError};
+use crate::{
+    asset::MultiAsset,
+    fee::Fee,
+    transaction::{self, OutputExt},
+    NetworkParams, ValidationError,
+};
 
 pub struct TransactionBuilder {
     inputs: Vec<(TransactionInput, TransactionOutput)>,
@@ -100,6 +105,15 @@ impl TransactionBuilder {
 
         if self.outputs.is_empty() {
             return Err(ValidationError::NoOutputs);
+        }
+
+        if self
+            .collateral_return
+            .as_ref()
+            .map(|x| x.is_multiasset())
+            .unwrap_or(false)
+        {
+            return Err(ValidationError::InvalidCollateral);
         }
 
         let inputs = self.inputs.iter().map(|x| x.0.clone()).collect();
