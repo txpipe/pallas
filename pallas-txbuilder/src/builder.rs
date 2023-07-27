@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use pallas_codec::utils::Bytes;
 
 use pallas_primitives::babbage::{
@@ -14,7 +15,7 @@ use crate::{
 };
 
 pub struct TransactionBuilder {
-    inputs: Vec<(TransactionInput, TransactionOutput)>,
+    inputs: IndexMap<TransactionInput, TransactionOutput>,
     outputs: Vec<TransactionOutput>,
 
     reference_inputs: Vec<TransactionInput>,
@@ -48,7 +49,7 @@ impl TransactionBuilder {
     }
 
     pub fn input(mut self, input: TransactionInput, resolved: TransactionOutput) -> Self {
-        self.inputs.push((input, resolved));
+        self.inputs.insert(input, resolved);
         self
     }
 
@@ -107,16 +108,25 @@ impl TransactionBuilder {
             return Err(ValidationError::NoOutputs);
         }
 
+        if self.collaterals.iter().any(|c| {
+            self.inputs
+                .get(c)
+                .map(|i| i.is_multiasset())
+                .unwrap_or(false)
+        }) {
+            return Err(ValidationError::InvalidCollateralInput);
+        }
+
         if self
             .collateral_return
             .as_ref()
-            .map(|x| x.is_multiasset())
+            .map(|i| i.is_multiasset())
             .unwrap_or(false)
         {
-            return Err(ValidationError::InvalidCollateral);
+            return Err(ValidationError::InvalidCollateralReturn);
         }
 
-        let inputs = self.inputs.iter().map(|x| x.0.clone()).collect();
+        let inputs = self.inputs.iter().map(|(k, _)| k.clone()).collect();
         let outputs = self.outputs.clone();
 
         let mut tx = transaction::Transaction {

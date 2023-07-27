@@ -25,3 +25,4 @@ thiserror = "1.0.44"
 [dev-dependencies]
 serde_cbor = "0.11.2"
 insta = { version = "1.31.0", features = ["yaml"] }
+assert_matches = "1.5.0"

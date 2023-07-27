@@ -60,9 +60,17 @@ pub enum ValidationError {
     #[error("Asset error {0}")]
     AssetError(#[from] asset::AssetError),
 
-    #[error("Invalid collateral")]
-    /// The transaction has invalid collaterals set
+    /// The transaction at least one invalid collateral input
+    ///
+    /// Transactions can only have pure-ada UTXOs as collateral returns, this happens if any are
+    /// multi-asset.
+    #[error("Invalid collateral input")]
+    InvalidCollateralInput,
+
+    /// The transaction has an invalid collateral return UTXO
+    ///
     /// Transactions can only have pure-ada UTXOs as collaterals, this happens if any are
     /// multi-asset.
-    InvalidCollateral,
+    #[error("Invalid collateral return output")]
+    InvalidCollateralReturn,
 }

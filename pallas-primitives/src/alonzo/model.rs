@@ -78,7 +78,9 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash,
+)]
 pub struct TransactionInput {
     #[n(0)]
     pub transaction_id: Hash<32>,
