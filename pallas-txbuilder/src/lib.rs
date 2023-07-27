@@ -5,6 +5,7 @@ mod builder;
 mod fee;
 mod transaction;
 
+pub mod plutus;
 pub mod prelude;
 
 #[derive(Debug, Clone)]
