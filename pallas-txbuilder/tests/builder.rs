@@ -172,3 +172,23 @@ fn test_build_with_collateral_inputs() -> Result<(), ValidationError> {
 
     assert_transaction!(tx)
 }
+
+#[test]
+fn test_build_with_plutus_data() -> Result<(), ValidationError> {
+    use plutus::*;
+
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+    let output = Output::lovelaces(vec![], 1000000).build();
+
+    let data = map().item(int(1), int(2));
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input, resolved)
+        .output(output)
+        .plutus_data(data)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}

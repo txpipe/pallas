@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 use pallas_codec::utils::Bytes;
 
 use pallas_primitives::babbage::{
-    AddrKeyhash, Certificate, NetworkId, TransactionBody, TransactionInput, TransactionOutput,
-    WitnessSet,
+    AddrKeyhash, Certificate, NetworkId, PlutusData, TransactionBody, TransactionInput,
+    TransactionOutput, WitnessSet,
 };
 use pallas_traverse::ComputeHash;
 
@@ -26,8 +26,8 @@ pub struct TransactionBuilder {
     required_signers: Vec<AddrKeyhash>,
     valid_after: Option<u64>,
     valid_until: Option<u64>,
-
     certificates: Vec<Certificate>,
+    plutus_data: Vec<PlutusData>,
 }
 
 impl TransactionBuilder {
@@ -45,6 +45,7 @@ impl TransactionBuilder {
             valid_after: Default::default(),
             valid_until: Default::default(),
             certificates: Default::default(),
+            plutus_data: Default::default(),
         }
     }
 
@@ -96,6 +97,11 @@ impl TransactionBuilder {
 
     pub fn certificate(mut self, cert: Certificate) -> Self {
         self.certificates.push(cert);
+        self
+    }
+
+    pub fn plutus_data(mut self, data: impl Into<PlutusData>) -> Self {
+        self.plutus_data.push(data.into());
         self
     }
 
@@ -154,7 +160,7 @@ impl TransactionBuilder {
                 native_script: None,
                 bootstrap_witness: None,
                 plutus_v1_script: None,
-                plutus_data: None,
+                plutus_data: opt_if_empty(self.plutus_data),
                 redeemer: None,
                 plutus_v2_script: None,
             },
