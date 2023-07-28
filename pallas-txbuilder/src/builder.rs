@@ -169,20 +169,7 @@ impl TransactionBuilder {
         };
 
         tx.body.auxiliary_data_hash = tx.auxiliary_data.clone().map(hash_to_bytes);
-
-        let mut calculated_fee = 0;
-
-        loop {
-            calculated_fee = Fee::linear().calculate(&tx)?;
-
-            if tx.body.fee == calculated_fee {
-                break;
-            }
-
-            tx.body.fee = calculated_fee;
-        }
-
-        tx.body.fee = calculated_fee;
+        tx = Fee::linear().with_fee(tx)?;
 
         Ok(tx)
     }
