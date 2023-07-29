@@ -58,7 +58,7 @@ pub struct Address {
     pub payload: TagWrap<ByteVec, 24>,
 
     #[n(1)]
-    pub crc: u64,
+    pub crc: u32,
 }
 
 // Transactions
