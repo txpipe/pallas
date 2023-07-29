@@ -9,9 +9,31 @@
 #![warn(missing_docs)]
 #![warn(missing_doc_code_examples)]
 
-pub mod network;
+#[doc(inline)]
+pub use pallas_network as network;
 
-pub mod ledger;
+pub mod ledger {
+    //! Ledger primitives and cbor codecs for different Cardano eras
+
+    #[doc(inline)]
+    pub use pallas_primitives as primitives;
+
+    #[doc(inline)]
+    pub use pallas_traverse as traverse;
+
+    #[doc(inline)]
+    pub use pallas_addresses as addresses;
+}
 
 #[doc(inline)]
 pub use pallas_crypto as crypto;
+
+#[doc(inline)]
+pub use pallas_codec as codec;
+
+pub mod interop {
+    //! Interoperability with other protocols, formats & systems
+
+    #[doc(inline)]
+    pub use pallas_utxorpc as utxorpc;
+}

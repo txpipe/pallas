@@ -2,13 +2,15 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Byron CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/byron/cddl-spec/byron.cddl) file in IOHK repo.
 
-use minicbor::bytes::ByteVec;
-use minicbor_derive::{Decode, Encode};
+use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use crate::utils::{
-    CborWrap, EmptyMap, KeyValuePairs, MaybeIndefArray, OrderPreservingProperties, TagWrap,
+use pallas_codec::utils::{
+    CborWrap, EmptyMap, KeepRaw, KeyValuePairs, MaybeIndefArray, TagWrap, ZeroOrOneArray,
 };
+
+// required for derive attrs to work
+use pallas_codec::minicbor;
 
 // Basic Cardano Types
 
@@ -26,7 +28,7 @@ pub type StakeholderId = Blake2b224;
 
 pub type EpochId = u64;
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct SlotId {
     #[n(0)]
     pub epoch: EpochId,
@@ -46,159 +48,23 @@ pub type Signature = ByteVec;
 // attributes = {* any => any}
 pub type Attributes = EmptyMap;
 
-// Addresses
-
-#[derive(Debug)]
-pub enum AddrDistr {
-    Variant0(StakeholderId),
-    Variant1,
-}
-
-impl<'b> minicbor::Decode<'b> for AddrDistr {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(AddrDistr::Variant0(d.decode()?)),
-            1 => Ok(AddrDistr::Variant1),
-            _ => Err(minicbor::decode::Error::Message(
-                "invalid variant for addrdstr",
-            )),
-        }
-    }
-}
-
-impl minicbor::Encode for AddrDistr {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            AddrDistr::Variant0(x) => {
-                e.array(2)?;
-                e.u32(0)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            AddrDistr::Variant1 => {
-                e.array(1)?;
-                e.u32(1)?;
-
-                Ok(())
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum AddrType {
-    PubKey,
-    Script,
-    Redeem,
-    Other(u64),
-}
-
-impl<'b> minicbor::Decode<'b> for AddrType {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        let variant = d.u64()?;
-
-        match variant {
-            0 => Ok(AddrType::PubKey),
-            1 => Ok(AddrType::Script),
-            2 => Ok(AddrType::Redeem),
-            x => Ok(AddrType::Other(x)),
-        }
-    }
-}
-
-impl minicbor::Encode for AddrType {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            AddrType::PubKey => e.u64(0)?,
-            AddrType::Script => e.u64(1)?,
-            AddrType::Redeem => e.u64(2)?,
-            AddrType::Other(x) => e.u64(*x)?,
-        };
-
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub enum AddrAttrProperty {
-    AddrDistr(AddrDistr),
-    Bytes(ByteVec),
-}
-
-impl<'b> minicbor::Decode<'b> for AddrAttrProperty {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        let key = d.u8()?;
-
-        match key {
-            0 => Ok(AddrAttrProperty::AddrDistr(d.decode()?)),
-            1 => Ok(AddrAttrProperty::Bytes(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
-                "unknown variant for addrattr property",
-            )),
-        }
-    }
-}
-
-impl minicbor::Encode for AddrAttrProperty {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            AddrAttrProperty::AddrDistr(x) => {
-                e.u32(0)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            AddrAttrProperty::Bytes(x) => {
-                e.u32(1)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-        }
-    }
-}
-
-pub type AddrAttr = OrderPreservingProperties<AddrAttrProperty>;
-
-#[derive(Debug, Encode, Decode)]
-pub struct AddressPayload {
-    #[n(0)]
-    pub root: AddressId,
-
-    #[n(1)]
-    pub attributes: AddrAttr,
-
-    #[n(2)]
-    pub addrtype: AddrType,
-}
+// The cbor struct of the address payload is now defined in pallas-addresses.
+// The primitives crate will treat addresses as a black-box vec of bytes.
 
 // address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Address {
     #[n(0)]
-    pub payload: CborWrap<AddressPayload>,
+    pub payload: TagWrap<ByteVec, 24>,
 
     #[n(1)]
-    pub crc: u64,
+    pub crc: u32,
 }
 
 // Transactions
 
 // txout = [address, u64]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct TxOut {
     #[n(0)]
     pub address: Address,
@@ -207,7 +73,7 @@ pub struct TxOut {
     pub amount: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxIn {
     // [0, #6.24(bytes .cbor ([txid, u32]))]
     Variant0(CborWrap<(TxId, u32)>),
@@ -216,36 +82,37 @@ pub enum TxIn {
     Other(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for TxIn {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for TxIn {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(TxIn::Variant0(d.decode()?)),
-            x => Ok(TxIn::Other(x, d.decode()?)),
+            0 => Ok(TxIn::Variant0(d.decode_with(ctx)?)),
+            x => Ok(TxIn::Other(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for TxIn {
+impl<C> minicbor::Encode<C> for TxIn {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             TxIn::Variant0(x) => {
                 e.array(2)?;
                 e.u8(0)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
             TxIn::Other(a, b) => {
                 e.array(2)?;
                 e.u8(*a)?;
-                e.encode(b)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
@@ -254,7 +121,7 @@ impl minicbor::Encode for TxIn {
 }
 
 // tx = [[+ txin], [+ txout], attributes]
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Tx {
     #[n(0)]
     pub inputs: MaybeIndefArray<TxIn>,
@@ -272,7 +139,7 @@ pub type TxProof = (u32, ByronHash, ByronHash);
 pub type ValidatorScript = (u16, ByteVec);
 pub type RedeemerScript = (u16, ByteVec);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Twit {
     // [0, #6.24(bytes .cbor ([pubkey, signature]))]
     PkWitness(CborWrap<(PubKey, Signature)>),
@@ -287,38 +154,39 @@ pub enum Twit {
     Other(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for Twit {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for Twit {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(Twit::PkWitness(d.decode()?)),
-            1 => Ok(Twit::ScriptWitness(d.decode()?)),
-            2 => Ok(Twit::RedeemWitness(d.decode()?)),
-            x => Ok(Twit::Other(x, d.decode()?)),
+            0 => Ok(Twit::PkWitness(d.decode_with(ctx)?)),
+            1 => Ok(Twit::ScriptWitness(d.decode_with(ctx)?)),
+            2 => Ok(Twit::RedeemWitness(d.decode_with(ctx)?)),
+            x => Ok(Twit::Other(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for Twit {
+impl<C> minicbor::Encode<C> for Twit {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Twit::PkWitness(x) => {
                 e.array(2)?;
                 e.u8(0)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
             Twit::ScriptWitness(x) => {
                 e.array(2)?;
                 e.u8(1)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
@@ -382,7 +250,7 @@ pub type SscComms = TagWrap<MaybeIndefArray<SscComm>, 258>;
 pub type SscOpens = KeyValuePairs<StakeholderId, VssSec>;
 
 // sscshares = {addressid => [addressid, [* vssdec]]}
-pub type SscShares = KeyValuePairs<AddressId, (AddressId, MaybeIndefArray<VssDec>)>;
+pub type SscShares = KeyValuePairs<AddressId, KeyValuePairs<AddressId, MaybeIndefArray<VssDec>>>;
 
 // CDDL says: ssccert = [vsspubkey, pubkey, epochid, signature]
 // this is what seems to work: ssccert = [vsspubkey, epochid, pubkey, signature]
@@ -391,7 +259,7 @@ pub type SscCert = (VssPubKey, EpochId, PubKey, Signature);
 // ssccerts = #6.258([* ssccert])
 pub type SscCerts = TagWrap<MaybeIndefArray<SscCert>, 258>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ssc {
     Variant0(SscComms, SscCerts),
     Variant1(SscOpens, SscCerts),
@@ -399,56 +267,57 @@ pub enum Ssc {
     Variant3(SscCerts),
 }
 
-impl<'b> minicbor::Decode<'b> for Ssc {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for Ssc {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(Ssc::Variant0(d.decode()?, d.decode()?)),
-            1 => Ok(Ssc::Variant1(d.decode()?, d.decode()?)),
-            2 => Ok(Ssc::Variant2(d.decode()?, d.decode()?)),
-            3 => Ok(Ssc::Variant3(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message("invalid variant for ssc")),
+            0 => Ok(Ssc::Variant0(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            1 => Ok(Ssc::Variant1(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            2 => Ok(Ssc::Variant2(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            3 => Ok(Ssc::Variant3(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message("invalid variant for ssc")),
         }
     }
 }
 
-impl minicbor::Encode for Ssc {
+impl<C> minicbor::Encode<C> for Ssc {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             Ssc::Variant0(a, b) => {
                 e.array(3)?;
                 e.u8(0)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Ssc::Variant1(a, b) => {
                 e.array(3)?;
                 e.u8(1)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Ssc::Variant2(a, b) => {
                 e.array(3)?;
                 e.u8(2)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             Ssc::Variant3(x) => {
                 e.array(2)?;
                 e.u8(3)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
@@ -456,7 +325,7 @@ impl minicbor::Encode for Ssc {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SscProof {
     Variant0(ByronHash, ByronHash),
     Variant1(ByronHash, ByronHash),
@@ -464,58 +333,59 @@ pub enum SscProof {
     Variant3(ByronHash),
 }
 
-impl<'b> minicbor::Decode<'b> for SscProof {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for SscProof {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(SscProof::Variant0(d.decode()?, d.decode()?)),
-            1 => Ok(SscProof::Variant1(d.decode()?, d.decode()?)),
-            2 => Ok(SscProof::Variant2(d.decode()?, d.decode()?)),
-            3 => Ok(SscProof::Variant3(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            0 => Ok(SscProof::Variant0(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            1 => Ok(SscProof::Variant1(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            2 => Ok(SscProof::Variant2(d.decode_with(ctx)?, d.decode_with(ctx)?)),
+            3 => Ok(SscProof::Variant3(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
                 "invalid variant for sscproof",
             )),
         }
     }
 }
 
-impl minicbor::Encode for SscProof {
+impl<C> minicbor::Encode<C> for SscProof {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             SscProof::Variant0(a, b) => {
                 e.array(3)?;
                 e.u8(0)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             SscProof::Variant1(a, b) => {
                 e.array(3)?;
                 e.u8(1)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             SscProof::Variant2(a, b) => {
                 e.array(3)?;
                 e.u8(2)?;
-                e.encode(a)?;
-                e.encode(b)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
             SscProof::Variant3(x) => {
                 e.array(2)?;
                 e.u8(3)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
@@ -525,7 +395,7 @@ impl minicbor::Encode for SscProof {
 
 // Delegation
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Dlg {
     #[n(0)]
     pub epoch: EpochId,
@@ -542,7 +412,7 @@ pub struct Dlg {
 
 pub type DlgSig = (Dlg, Signature);
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Lwdlg {
     #[n(0)]
     pub epoch_range: (EpochId, EpochId),
@@ -563,7 +433,7 @@ pub type LwdlgSig = (Lwdlg, Signature);
 
 pub type BVer = (u16, u16, u8);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TxFeePol {
     //[0, #6.24(bytes .cbor ([bigint, bigint]))]
     Variant0(CborWrap<(i64, i64)>),
@@ -572,36 +442,37 @@ pub enum TxFeePol {
     Other(u8, ByteVec),
 }
 
-impl<'b> minicbor::Decode<'b> for TxFeePol {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for TxFeePol {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(TxFeePol::Variant0(d.decode()?)),
-            x => Ok(TxFeePol::Other(x, d.decode()?)),
+            0 => Ok(TxFeePol::Variant0(d.decode_with(ctx)?)),
+            x => Ok(TxFeePol::Other(x, d.decode_with(ctx)?)),
         }
     }
 }
 
-impl minicbor::Encode for TxFeePol {
+impl<C> minicbor::Encode<C> for TxFeePol {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             TxFeePol::Variant0(x) => {
                 e.array(2)?;
                 e.u8(0)?;
-                e.encode(x)?;
+                e.encode_with(x, ctx)?;
 
                 Ok(())
             }
             TxFeePol::Other(a, b) => {
                 e.array(2)?;
                 e.u8(*a)?;
-                e.encode(b)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }
@@ -609,54 +480,54 @@ impl minicbor::Encode for TxFeePol {
     }
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct BVerMod {
     #[n(0)]
-    pub script_version: (Option<u16>,),
+    pub script_version: ZeroOrOneArray<u16>,
 
     #[n(1)]
-    pub slot_duration: (Option<u64>,),
+    pub slot_duration: ZeroOrOneArray<u64>,
 
     #[n(2)]
-    pub max_block_size: (Option<u64>,),
+    pub max_block_size: ZeroOrOneArray<u64>,
 
     #[n(3)]
-    pub max_header_size: (Option<u64>,),
+    pub max_header_size: ZeroOrOneArray<u64>,
 
     #[n(4)]
-    pub max_tx_size: (Option<u64>,),
+    pub max_tx_size: ZeroOrOneArray<u64>,
 
     #[n(5)]
-    pub max_proposal_size: (Option<u64>,),
+    pub max_proposal_size: ZeroOrOneArray<u64>,
 
     #[n(6)]
-    pub mpc_thd: (Option<u64>,),
+    pub mpc_thd: ZeroOrOneArray<u64>,
 
     #[n(7)]
-    pub heavy_del_thd: (Option<u64>,),
+    pub heavy_del_thd: ZeroOrOneArray<u64>,
 
     #[n(8)]
-    pub update_vote_thd: (Option<u64>,),
+    pub update_vote_thd: ZeroOrOneArray<u64>,
 
     #[n(9)]
-    pub update_proposal_thd: (Option<u64>,),
+    pub update_proposal_thd: ZeroOrOneArray<u64>,
 
     #[n(10)]
-    pub update_implicit: (Option<u64>,),
+    pub update_implicit: ZeroOrOneArray<u64>,
 
     #[n(11)]
-    pub soft_fork_rule: (Option<(u64, u64, u64)>,),
+    pub soft_fork_rule: ZeroOrOneArray<(u64, u64, u64)>,
 
     #[n(12)]
-    pub tx_fee_policy: (Option<TxFeePol>,),
+    pub tx_fee_policy: ZeroOrOneArray<TxFeePol>,
 
     #[n(13)]
-    pub unlock_stake_epoch: (Option<EpochId>,),
+    pub unlock_stake_epoch: ZeroOrOneArray<EpochId>,
 }
 
 pub type UpData = (ByronHash, ByronHash, ByronHash, ByronHash);
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct UpProp {
     #[n(0)]
     pub block_version: Option<BVer>,
@@ -668,7 +539,9 @@ pub struct UpProp {
     pub software_version: Option<(String, u32)>,
 
     #[n(3)]
-    pub data: Option<TagWrap<(String, UpData), 258>>,
+    // HACK: CDDL show a tag wrap 258, but chain data doesn't present the tag
+    //pub data: TagWrap<(String, UpData), 258>,
+    pub data: KeyValuePairs<String, UpData>,
 
     #[n(4)]
     pub attributes: Option<Attributes>,
@@ -680,7 +553,7 @@ pub struct UpProp {
     pub signature: Option<Signature>,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct UpVote {
     #[n(0)]
     pub voter: PubKey,
@@ -695,10 +568,10 @@ pub struct UpVote {
     pub signature: Signature,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct Up {
     #[n(0)]
-    pub proposal: Option<UpProp>,
+    pub proposal: ZeroOrOneArray<UpProp>,
 
     #[n(1)]
     pub votes: MaybeIndefArray<UpVote>,
@@ -708,34 +581,35 @@ pub struct Up {
 
 pub type Difficulty = MaybeIndefArray<u64>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BlockSig {
     Signature(Signature),
     LwdlgSig(LwdlgSig),
     DlgSig(DlgSig),
 }
 
-impl<'b> minicbor::Decode<'b> for BlockSig {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> minicbor::Decode<'b, C> for BlockSig {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
         let variant = d.u8()?;
 
         match variant {
-            0 => Ok(BlockSig::Signature(d.decode()?)),
-            1 => Ok(BlockSig::LwdlgSig(d.decode()?)),
-            2 => Ok(BlockSig::DlgSig(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
+            0 => Ok(BlockSig::Signature(d.decode_with(ctx)?)),
+            1 => Ok(BlockSig::LwdlgSig(d.decode_with(ctx)?)),
+            2 => Ok(BlockSig::DlgSig(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
                 "unknown variant for blocksig",
             )),
         }
     }
 }
 
-impl minicbor::Encode for BlockSig {
+impl<C> minicbor::Encode<C> for BlockSig {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
             BlockSig::Signature(x) => {
@@ -763,7 +637,7 @@ impl minicbor::Encode for BlockSig {
     }
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockCons(
     #[n(0)] pub SlotId,
     #[n(1)] pub PubKey,
@@ -771,7 +645,7 @@ pub struct BlockCons(
     #[n(3)] pub BlockSig,
 );
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockHeadEx {
     #[n(0)]
     pub block_version: BVer,
@@ -786,7 +660,7 @@ pub struct BlockHeadEx {
     pub extra_proof: ByronHash,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockProof {
     #[n(0)]
     pub tx_proof: TxProof,
@@ -801,7 +675,7 @@ pub struct BlockProof {
     pub upd_proof: ByronHash,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockHead {
     #[n(0)]
     pub protocol_magic: u32,
@@ -819,14 +693,24 @@ pub struct BlockHead {
     pub extra_data: BlockHeadEx,
 }
 
-// [tx, [* twit]]
+pub type Witnesses = MaybeIndefArray<Twit>;
+
 #[derive(Debug, Encode, Decode)]
 pub struct TxPayload {
     #[n(0)]
     pub transaction: Tx,
 
     #[n(1)]
-    pub witness: MaybeIndefArray<Twit>,
+    pub witness: Witnesses,
+}
+
+#[derive(Debug, Encode, Decode, Clone)]
+pub struct MintedTxPayload<'b> {
+    #[b(0)]
+    pub transaction: KeepRaw<'b, Tx>,
+
+    #[n(1)]
+    pub witness: KeepRaw<'b, Witnesses>,
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -844,9 +728,24 @@ pub struct BlockBody {
     pub upd_payload: Up,
 }
 
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct MintedBlockBody<'b> {
+    #[b(0)]
+    pub tx_payload: MaybeIndefArray<MintedTxPayload<'b>>,
+
+    #[b(1)]
+    pub ssc_payload: Ssc,
+
+    #[b(2)]
+    pub dlg_payload: MaybeIndefArray<Dlg>,
+
+    #[b(3)]
+    pub upd_payload: Up,
+}
+
 // Epoch Boundary Blocks
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbbCons {
     #[n(0)]
     pub epoch_id: EpochId,
@@ -855,7 +754,7 @@ pub struct EbbCons {
     pub difficulty: Difficulty,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbbHead {
     #[n(0)]
     pub protocol_magic: u32,
@@ -874,7 +773,7 @@ pub struct EbbHead {
 }
 
 #[derive(Encode, Decode, Debug)]
-pub struct MainBlock {
+pub struct Block {
     #[n(0)]
     pub header: BlockHead,
 
@@ -885,7 +784,19 @@ pub struct MainBlock {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct MintedBlock<'b> {
+    #[b(0)]
+    pub header: KeepRaw<'b, BlockHead>,
+
+    #[b(1)]
+    pub body: MintedBlockBody<'b>,
+
+    #[n(2)]
+    pub extra: MaybeIndefArray<Attributes>,
+}
+
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct EbBlock {
     #[n(0)]
     pub header: EbbHead,
@@ -897,79 +808,67 @@ pub struct EbBlock {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum Block {
-    MainBlock(MainBlock),
-    EbBlock(EbBlock),
-}
+#[derive(Encode, Decode, Debug, Clone)]
+pub struct MintedEbBlock<'b> {
+    #[b(0)]
+    pub header: KeepRaw<'b, EbbHead>,
 
-impl<'b> minicbor::Decode<'b> for Block {
-    fn decode(d: &mut minicbor::Decoder<'b>) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
+    #[n(1)]
+    pub body: MaybeIndefArray<StakeholderId>,
 
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(Block::EbBlock(d.decode()?)),
-            1 => Ok(Block::MainBlock(d.decode()?)),
-            _ => Err(minicbor::decode::Error::Message(
-                "unknown variant for block",
-            )),
-        }
-    }
-}
-
-impl minicbor::Encode for Block {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Block::EbBlock(x) => {
-                e.array(2)?;
-                e.encode(0)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            Block::MainBlock(x) => {
-                e.array(2)?;
-                e.encode(1)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-        }
-    }
+    #[n(2)]
+    pub extra: MaybeIndefArray<Attributes>,
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::byron::{Block, BlockHead};
-    use crate::Fragment;
-
-    use minicbor::{self, to_vec};
+    use super::{BlockHead, EbBlock, MintedBlock};
+    use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
-    fn block_isomorphic_decoding_encoding() {
+    fn boundary_block_isomorphic_decoding_encoding() {
+        type BlockWrapper = (u16, EbBlock);
+
+        let test_blocks = vec![include_str!("../../../test_data/genesis.block")];
+
+        for (idx, block_str) in test_blocks.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
+
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
+
+            let bytes2 = to_vec(block)
+                .unwrap_or_else(|_| panic!("error encoding block cbor for file {idx}"));
+
+            assert_eq!(hex::encode(bytes), hex::encode(bytes2));
+        }
+    }
+
+    #[test]
+    fn main_block_isomorphic_decoding_encoding() {
+        type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+
         let test_blocks = vec![
-            include_str!("test_data/genesis.block"),
-            include_str!("test_data/test1.block"),
-            include_str!("test_data/test2.block"),
-            include_str!("test_data/test3.block"),
-            include_str!("test_data/test4.block"),
+            //include_str!("../../../test_data/genesis.block"),
+            include_str!("../../../test_data/byron1.block"),
+            include_str!("../../../test_data/byron2.block"),
+            include_str!("../../../test_data/byron3.block"),
+            include_str!("../../../test_data/byron4.block"),
+            include_str!("../../../test_data/byron5.block"),
+            include_str!("../../../test_data/byron6.block"),
+            include_str!("../../../test_data/byron7.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
-            let bytes = hex::decode(block_str).expect(&format!("bad block file {}", idx));
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-            let block = Block::decode_fragment(&bytes[..])
-                .expect(&format!("error decoding cbor for file {}", idx));
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
-            let bytes2 =
-                to_vec(block).expect(&format!("error encoding block cbor for file {}", idx));
+            let bytes2 = to_vec(block)
+                .unwrap_or_else(|_| panic!("error encoding block cbor for file {idx}"));
 
             assert_eq!(hex::encode(bytes), hex::encode(bytes2));
         }
@@ -977,17 +876,17 @@ mod tests {
 
     #[test]
     fn header_isomorphic_decoding_encoding() {
-        let subjects = vec![include_str!("test_data/test1.header")];
+        let subjects = vec![include_str!("../../../test_data/byron1.header")];
 
         for (idx, str) in subjects.iter().enumerate() {
             println!("decoding test header {}", idx + 1);
-            let bytes = hex::decode(str).expect(&format!("bad header file {}", idx));
+            let bytes = hex::decode(str).unwrap_or_else(|_| panic!("bad header file {idx}"));
 
-            let block = BlockHead::decode_fragment(&bytes[..])
-                .expect(&format!("error decoding cbor for file {}", idx));
+            let block: BlockHead = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
-            let bytes2 =
-                to_vec(block).expect(&format!("error encoding header cbor for file {}", idx));
+            let bytes2 = to_vec(block)
+                .unwrap_or_else(|_| panic!("error encoding header cbor for file {idx}"));
 
             assert_eq!(bytes, bytes2);
         }

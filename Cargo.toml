@@ -1,11 +1,16 @@
 [workspace]
 
 members = [
-    "pallas-multiplexer",
-    "pallas-miniprotocols",
+    "pallas-codec",
+    "pallas-addresses",
+    "pallas-network",
     "pallas-crypto",
     "pallas-primitives",
+    "pallas-traverse",
+    "pallas-utxorpc",
     "pallas",
     "examples/block-download",
-    "examples/byron-decoder",
+    "examples/block-decode",
+    "examples/n2n-miniprotocols",
+    "examples/n2c-miniprotocols",
 ]

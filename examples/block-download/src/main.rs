@@ -1,60 +1,28 @@
-use net2::TcpStreamExt;
-
 use pallas::network::{
-    miniprotocols::{
-        handshake::n2n::{Client, VersionTable},
-        run_agent, Point, MAINNET_MAGIC,
-    },
-    multiplexer::Multiplexer,
+    facades::PeerClient,
+    miniprotocols::{Point, MAINNET_MAGIC},
 };
 
-use pallas::{
-    ledger::primitives::{alonzo::*, Fragment},
-    network::miniprotocols::blockfetch::{BatchClient, Observer},
-};
+#[tokio::main]
+async fn main() {
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
 
-use std::net::TcpStream;
+    let mut peer = PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
+        .await
+        .unwrap();
 
-#[derive(Debug)]
-struct BlockPrinter;
-
-impl Observer for BlockPrinter {
-    fn on_block_received(&self, body: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
-        println!("{}", hex::encode(&body));
-        println!("----------");
-        BlockWrapper::decode_fragment(&body[..])?;
-        Ok(())
-    }
-}
-
-fn main() {
-    env_logger::init();
-
-    let bearer = TcpStream::connect("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
-    bearer.set_nodelay(true).unwrap();
-    bearer.set_keepalive_ms(Some(30_000u32)).unwrap();
-
-    let mut muxer = Multiplexer::setup(bearer, &[0, 3]).unwrap();
-
-    let mut hs_channel = muxer.use_channel(0);
-    let versions = VersionTable::v4_and_above(MAINNET_MAGIC);
-    let _last = run_agent(Client::initial(versions), &mut hs_channel).unwrap();
-
-    let range = (
-        Point::Specific(
-            4492794,
-            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
-                .unwrap(),
-        ),
-        Point::Specific(
-            4492794,
-            hex::decode("5c196e7394ace0449ba5a51c919369699b13896e97432894b4f0354dce8670b6")
-                .unwrap(),
-        ),
+    let point = Point::Specific(
+        49159253,
+        hex::decode("d034a2d0e4c3076f57368ed59319010c265718f0923057f8ff914a3b6bfd1314").unwrap(),
     );
 
-    let mut bf_channel = muxer.use_channel(3);
-    let bf = BatchClient::initial(range, BlockPrinter {});
-    let bf_last = run_agent(bf, &mut bf_channel);
-    println!("{:?}", bf_last);
+    let block = peer.blockfetch().fetch_single(point).await.unwrap();
+
+    println!("downloaded block of size: {}", block.len());
+    println!("{}", hex::encode(&block));
 }

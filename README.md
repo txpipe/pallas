@@ -5,17 +5,17 @@
         <h3 align="center" style="border-bottom: none">Rust-native building blocks for the Cardano blockchain ecosystem</h3>
         <img alt="GitHub" src="https://img.shields.io/github/license/txpipe/pallas" />
         <img alt="Crates.io" src="https://img.shields.io/crates/v/pallas" />
-        <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/txpipe/pallas/Validate" />
+        <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/txpipe/pallas/validate.yml" />
     <hr/>
 </div>
 
 ## Introduction
 
 Pallas is an expanding collection of modules that re-implements common
-Cardano logic in native Rust. This crate doesn't provide any particular
+Ouroboros / Cardano logic in native Rust. This crate doesn't provide any particular
 application, it is meant to be used as a base layer to facilitate the
 development of higher-level use-cases, such as explorers, wallets, etc (who
-knows, maybe even a full node in the far away future).
+knows, maybe even a full node in a far away future).
 
 ## Unboxing
 
@@ -25,10 +25,9 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 
 ### Ouroboros Network
 
-| Crates                                        | Description                                                            |
-| --------------------------------------------- | ---------------------------------------------------------------------- |
-| [pallas-multiplexer](/pallas-multiplexer)     | Multithreaded Ouroboros multiplexer implementation using mpsc channels |
-| [pallas-miniprotocols](/pallas-miniprotocols) | Implementation of the Ouroboros network mini-protocols state-machines  |
+| Crates                                        | Description                                                             |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| [pallas-network](/pallas-network)             | Network stack providing a multiplexer and mini-protocol implementations |
 
 ### Ouroboros Consensus
 
@@ -37,14 +36,23 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 | pallas-leadership | Implementation of the slot leadership selection algorithm |
 | pallas-selection  | Implementation of the consensus chain-selection algorithm |
 
-### Ouroboros Ledger
+### Cardano Ledger
 
 | Crates                                  | Description                                                             |
 | --------------------------------------- | ----------------------------------------------------------------------- |
 | [pallas-primitives](/pallas-primitives) | Ledger primitives and cbor codec for the different Cardano eras         |
+| [pallas-traverse](/pallas-traverse)     | Utilities to traverse over multi-era block data                         |
+| [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                           |
 | pallas-ticking                          | Time passage implementation for consensus algorithm                     |
 | pallas-applying                         | Logic for validating and applying new blocks and txs to the chain state |
 | pallas-forecasting                      | Ledger forecasting algorithm to be used by the consensus layer          |
+
+### Shared
+
+| Crates                          | Description                                        |
+| ------------------------------- | -------------------------------------------------- |
+| [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                    |
+| [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib |
 
 ## Etymology
 

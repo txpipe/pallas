@@ -1,25 +1,25 @@
 [package]
 name = "pallas-crypto"
 description = "Cryptographic primitives for Cardano"
-version = "0.5.0"
+version = "0.19.0-alpha.2"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-crypto"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Nicolas Di Prima <nicolas@primetype.co.uk>"
-]
+authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
 
 [dependencies]
-minicbor = { version = "0.13" }
 hex = "0.4"
 cryptoxide = { version = "0.4.1" }
 thiserror = "1.0"
 rand_core = "0.6"
+pallas-codec = { version = "0.19.0-alpha.0", path = "../pallas-codec" }
+serde = "1.0.143"
 
 [dev-dependencies]
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rand = "0.8"
+serde_test = "1.0.143"
