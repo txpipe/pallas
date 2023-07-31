@@ -2,6 +2,4 @@
 
 mod model;
 
-pub mod config;
-
 pub use model::*;

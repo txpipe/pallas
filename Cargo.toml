@@ -5,6 +5,7 @@ members = [
     "pallas-addresses",
     "pallas-network",
     "pallas-crypto",
+    "pallas-configs",
     "pallas-primitives",
     "pallas-traverse",
     "pallas-utxorpc",
