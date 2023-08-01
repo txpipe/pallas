@@ -158,6 +158,7 @@ pub enum SpendingData {
 
 impl<'b, C> minicbor::Decode<'b, C> for SpendingData {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
         let key = d.u8()?;
 
         match key {
@@ -177,6 +178,8 @@ impl<C> minicbor::Encode<C> for SpendingData {
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(2)?;
+
         match self {
             Self::PubKey(x) => {
                 e.u8(0)?;
@@ -248,13 +251,15 @@ impl AddressPayload {
 
         let attributes = match network_tag {
             Some(x) => vec![
-                AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
+                //AddrAttrProperty::DerivationPath(ByteVec::from(vec![])),
+                //AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
                 AddrAttrProperty::NetworkTag(x.into()),
             ]
             .into(),
-            None => vec![AddrAttrProperty::AddrDistr(
-                AddrDistr::BootstrapEraDistribution,
-            )]
+            None => vec![
+                //AddrAttrProperty::DerivationPath(ByteVec::from(vec![])),
+                //AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
+            ]
             .into(),
         };
 
@@ -332,9 +337,11 @@ impl ByronAddress {
 mod tests {
     use super::*;
 
-    const TEST_VECTOR: &str = "37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na";
-    const TEST_VECTOR2: &str = "DdzFFzCqrht7PQiAhzrn6rNNoADJieTWBt8KeK9BZdUsGyX9ooYD9NpMCTGjQoUKcHN47g8JMXhvKogsGpQHtiQ65fZwiypjrC6d3a4Q";
-    const TEST_VECTOR3: &str = "Ae2tdPwUPEZLs4HtbuNey7tK4hTKrwNwYtGqp7bDfCy2WdR3P6735W5Yfpe";
+    const TEST_VECTORS: [&str; 3] = [
+        "37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na",
+        "DdzFFzCqrht7PQiAhzrn6rNNoADJieTWBt8KeK9BZdUsGyX9ooYD9NpMCTGjQoUKcHN47g8JMXhvKogsGpQHtiQ65fZwiypjrC6d3a4Q",
+        "Ae2tdPwUPEZLs4HtbuNey7tK4hTKrwNwYtGqp7bDfCy2WdR3P6735W5Yfpe",
+    ];
 
     const ROOT_HASH: &str = "7e9ee4a9527dea9091e2d580edd6716888c42f75d96276290f98fe0b";
 
@@ -343,17 +350,31 @@ mod tests {
 
     #[test]
     fn roundtrip_base58() {
-        let addr = ByronAddress::from_base58(TEST_VECTOR2).unwrap();
-        let ours = addr.to_base58();
-        assert_eq!(TEST_VECTOR2, ours);
+        for vector in TEST_VECTORS {
+            let addr = ByronAddress::from_base58(vector).unwrap();
+            let ours = addr.to_base58();
+            assert_eq!(vector, ours);
+        }
+    }
+
+    #[test]
+    fn roundtrip_cbor() {
+        for vector in TEST_VECTORS {
+            let addr = ByronAddress::from_base58(vector).unwrap();
+            let addr = addr.decode().unwrap();
+            let addr = ByronAddress::from_decoded(addr);
+            let ours = addr.to_base58();
+            assert_eq!(vector, ours);
+        }
     }
 
     #[test]
     fn payload_crc_matches() {
-        let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
-
-        let crc2 = CRC.checksum(addr.payload.as_ref());
-        assert_eq!(crc2, addr.crc);
+        for vector in TEST_VECTORS {
+            let addr = ByronAddress::from_base58(vector).unwrap();
+            let crc2 = CRC.checksum(addr.payload.as_ref());
+            assert_eq!(crc2, addr.crc);
+        }
     }
 
     // #[test]

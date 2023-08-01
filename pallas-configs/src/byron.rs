@@ -109,8 +109,11 @@ pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, u64)> {
             //let network_tag = Some(config.protocol_consts.protocol_magic);
             let network_tag = None;
 
-            let addr: pallas_addresses::ByronAddress =
-                pallas_addresses::byron::AddressPayload::new_redeem(pubkey, network_tag).into();
+            let addr = pallas_addresses::byron::AddressPayload::new_redeem(pubkey, network_tag);
+
+            let addr: pallas_addresses::ByronAddress = addr.into();
+
+            dbg!(addr.to_base58());
 
             let txid = pallas_crypto::hash::Hasher::<256>::hash_cbor(&addr);
 
@@ -179,6 +182,7 @@ mod tests {
 
         for (hash, _) in utxos {
             let hs = format!("{}", hash);
+            println!("{}", hs);
             assert_ne!(
                 hs,
                 "3a33ff3e51cf2a67b973945442c35181d5a21b6c657d760acba62f48ad7d1d69"
