@@ -154,64 +154,65 @@ pub async fn blockfetch_happy_path() {
 #[tokio::test]
 #[ignore]
 pub async fn blockfetch_server_and_client_happy_path() {
-    let server = tokio::spawn(async move {
-        // server setup
+    let block_bodies = vec![
+        hex::decode("deadbeefdeadbeef").unwrap(),
+        hex::decode("c0ffeec0ffeec0ffee").unwrap(),
+    ];
 
-        let block_bodies = vec![
-            hex::decode("deadbeefdeadbeef").unwrap(),
-            hex::decode("c0ffeec0ffeec0ffee").unwrap(),
-        ];
+    let point = Point::Specific(
+        1337,
+        hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap(),
+    );
 
-        let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
-            .await
-            .unwrap();
+    let server = tokio::spawn({
+        let bodies = block_bodies.clone();
+        let point = point.clone();
+        async move {
+            // server setup
 
-        let (bearer, _) = Bearer::accept_tcp(server_listener).await.unwrap();
+            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
+                .await
+                .unwrap();
 
-        let mut server_plexer = Plexer::new(bearer);
+            let (bearer, _) = Bearer::accept_tcp(server_listener).await.unwrap();
 
-        let mut server_hs: handshake::Server<VersionData> =
-            handshake::Server::new(server_plexer.subscribe_server(0));
-        let mut server_bf = blockfetch::Server::new(server_plexer.subscribe_server(3));
+            let mut server_plexer = Plexer::new(bearer);
 
-        tokio::spawn(async move { server_plexer.run().await });
+            let mut server_hs: handshake::Server<VersionData> =
+                handshake::Server::new(server_plexer.subscribe_server(0));
+            let mut server_bf = blockfetch::Server::new(server_plexer.subscribe_server(3));
 
-        server_hs.receive_proposed_versions().await.unwrap();
-        server_hs
-            .accept_version(10, VersionData::new(0, false))
-            .await
-            .unwrap();
+            tokio::spawn(async move { server_plexer.run().await });
 
-        // server receives range from client, sends blocks
+            server_hs.receive_proposed_versions().await.unwrap();
+            server_hs
+                .accept_version(10, VersionData::new(0, false))
+                .await
+                .unwrap();
 
-        let BlockRequest(range_request) = server_bf.recv_while_idle().await.unwrap().unwrap();
+            // server receives range from client, sends blocks
 
-        assert_eq!(*server_bf.state(), blockfetch::State::Busy);
+            let BlockRequest(range_request) = server_bf.recv_while_idle().await.unwrap().unwrap();
 
-        println!("server received range request: {range_request:?}");
-        println!("server responding with {} blocks", block_bodies.len());
+            assert_eq!(range_request, (point.clone(), point.clone()));
+            assert_eq!(*server_bf.state(), blockfetch::State::Busy);
 
-        server_bf.send_block_range(block_bodies).await.unwrap();
+            server_bf.send_block_range(bodies).await.unwrap();
 
-        assert_eq!(*server_bf.state(), blockfetch::State::Idle);
+            assert_eq!(*server_bf.state(), blockfetch::State::Idle);
 
-        // server receives range from client, sends NoBlocks
+            // server receives range from client, sends NoBlocks
 
-        let BlockRequest(range_request) = server_bf.recv_while_idle().await.unwrap().unwrap();
+            let BlockRequest(_) = server_bf.recv_while_idle().await.unwrap().unwrap();
 
-        println!("server received range request: {range_request:?}");
-        println!("server responding with no blocks (NoBlocks message)");
+            server_bf.send_block_range(vec![]).await.unwrap();
 
-        server_bf.send_block_range(vec![]).await.unwrap();
+            assert_eq!(*server_bf.state(), blockfetch::State::Idle);
 
-        assert_eq!(*server_bf.state(), blockfetch::State::Idle);
+            assert!(server_bf.recv_while_idle().await.unwrap().is_none());
 
-        println!(
-            "server received: {:?}",
-            server_bf.recv_while_idle().await.unwrap()
-        );
-
-        assert_eq!(*server_bf.state(), blockfetch::State::Done);
+            assert_eq!(*server_bf.state(), blockfetch::State::Done);
+        }
     });
 
     let client = tokio::spawn(async move {
@@ -225,52 +226,34 @@ pub async fn blockfetch_server_and_client_happy_path() {
 
         // client sends request range
 
-        let point = Point::Specific(
-            1337,
-            hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
-                .unwrap(),
-        );
-
-        println!(
-            "client sending request range: {:?}",
-            (point.clone(), point.clone())
-        );
-
         client_bf
             .send_request_range((point.clone(), point.clone()))
             .await
             .unwrap();
 
-        println!(
-            "client received: {:?}, now in {:?}",
-            client_bf.recv_while_busy().await.unwrap(),
-            client_bf.state()
-        );
+        assert!(client_bf.recv_while_busy().await.unwrap().is_some());
 
         // client receives blocks until idle
 
+        let mut received_bodies = Vec::new();
+
         while let Some(received_body) = client_bf.recv_while_streaming().await.unwrap() {
-            println!("client received body: {}", hex::encode(received_body))
+            received_bodies.push(received_body)
         }
 
-        // client sends request range
+        assert_eq!(received_bodies, block_bodies);
 
-        println!(
-            "client sending request range: {:?}",
-            (point.clone(), point.clone())
-        );
+        // client sends request range
 
         client_bf
             .send_request_range((point.clone(), point.clone()))
             .await
             .unwrap();
 
-        // client sends done
+        // recv_while_busy returns None for NoBlocks message
+        assert!(client_bf.recv_while_busy().await.unwrap().is_none());
 
-        println!(
-            "client received: {:?}",
-            client_bf.recv_while_busy().await.unwrap()
-        );
+        // client sends done
 
         client_bf.send_done().await.unwrap();
     });

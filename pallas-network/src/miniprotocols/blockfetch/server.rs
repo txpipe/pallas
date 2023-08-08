@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::multiplexer;
 
-use super::{Message, State, Range, Body};
+use super::{Body, Message, Range, State};
 
 #[derive(Error, Debug)]
 pub enum Error {
