@@ -1,9 +1,17 @@
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::time::Duration;
+
 use pallas_network::facades::PeerClient;
+use pallas_network::miniprotocols::blockfetch::BlockRequest;
+use pallas_network::miniprotocols::handshake;
+use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     Point,
 };
+use pallas_network::multiplexer::{Bearer, Plexer};
+use tokio::net::TcpListener;
 
 #[tokio::test]
 #[ignore]
@@ -141,6 +149,116 @@ pub async fn blockfetch_happy_path() {
     client.send_done().await.unwrap();
 
     assert!(matches!(client.state(), blockfetch::State::Done));
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn blockfetch_server_and_client_happy_path() {
+    let block_bodies = vec![
+        hex::decode("deadbeefdeadbeef").unwrap(),
+        hex::decode("c0ffeec0ffeec0ffee").unwrap(),
+    ];
+
+    let point = Point::Specific(
+        1337,
+        hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap(),
+    );
+
+    let server = tokio::spawn({
+        let bodies = block_bodies.clone();
+        let point = point.clone();
+        async move {
+            // server setup
+
+            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
+                .await
+                .unwrap();
+
+            let (bearer, _) = Bearer::accept_tcp(server_listener).await.unwrap();
+
+            let mut server_plexer = Plexer::new(bearer);
+
+            let mut server_hs: handshake::Server<VersionData> =
+                handshake::Server::new(server_plexer.subscribe_server(0));
+            let mut server_bf = blockfetch::Server::new(server_plexer.subscribe_server(3));
+
+            tokio::spawn(async move { server_plexer.run().await });
+
+            server_hs.receive_proposed_versions().await.unwrap();
+            server_hs
+                .accept_version(10, VersionData::new(0, false))
+                .await
+                .unwrap();
+
+            // server receives range from client, sends blocks
+
+            let BlockRequest(range_request) = server_bf.recv_while_idle().await.unwrap().unwrap();
+
+            assert_eq!(range_request, (point.clone(), point.clone()));
+            assert_eq!(*server_bf.state(), blockfetch::State::Busy);
+
+            server_bf.send_block_range(bodies).await.unwrap();
+
+            assert_eq!(*server_bf.state(), blockfetch::State::Idle);
+
+            // server receives range from client, sends NoBlocks
+
+            let BlockRequest(_) = server_bf.recv_while_idle().await.unwrap().unwrap();
+
+            server_bf.send_block_range(vec![]).await.unwrap();
+
+            assert_eq!(*server_bf.state(), blockfetch::State::Idle);
+
+            assert!(server_bf.recv_while_idle().await.unwrap().is_none());
+
+            assert_eq!(*server_bf.state(), blockfetch::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+
+        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+
+        let client_bf = client_to_server_conn.blockfetch();
+
+        // client sends request range
+
+        client_bf
+            .send_request_range((point.clone(), point.clone()))
+            .await
+            .unwrap();
+
+        assert!(client_bf.recv_while_busy().await.unwrap().is_some());
+
+        // client receives blocks until idle
+
+        let mut received_bodies = Vec::new();
+
+        while let Some(received_body) = client_bf.recv_while_streaming().await.unwrap() {
+            received_bodies.push(received_body)
+        }
+
+        assert_eq!(received_bodies, block_bodies);
+
+        // client sends request range
+
+        client_bf
+            .send_request_range((point.clone(), point.clone()))
+            .await
+            .unwrap();
+
+        // recv_while_busy returns None for NoBlocks message
+        assert!(client_bf.recv_while_busy().await.unwrap().is_none());
+
+        // client sends done
+
+        client_bf.send_done().await.unwrap();
+    });
+
+    _ = tokio::join!(client, server);
 }
 
 // TODO: redo txsubmission client test
