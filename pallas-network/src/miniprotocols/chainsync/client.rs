@@ -6,7 +6,7 @@ use tracing::debug;
 use crate::miniprotocols::Point;
 use crate::multiplexer;
 
-use super::{BlockContent, HeaderContent, Message, State, Tip};
+use super::{BlockContent, HeaderContent, IntersectResponse, Message, State, Tip};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -28,8 +28,6 @@ pub enum Error {
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
-
-pub type IntersectResponse = (Option<Point>, Tip);
 
 #[derive(Debug)]
 pub enum NextResponse<CONTENT> {
