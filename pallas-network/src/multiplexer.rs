@@ -2,10 +2,14 @@
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
-use std::net::SocketAddr;
-use std::path::Path;
-use thiserror::Error;
+
 use tokio::io::AsyncWriteExt;
+
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::NamedPipeClient;
+
+use std::net::SocketAddr;
+use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio::select;
 use tokio::sync::mpsc::error::SendError;
@@ -63,6 +67,7 @@ pub struct Segment {
 #[cfg(target_os = "windows")]
 pub enum Bearer {
     Tcp(TcpStream),
+    Socket(NamedPipeClient)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -84,25 +89,45 @@ impl Bearer {
         Ok((Self::Tcp(stream), addr))
     }
 
+    #[cfg(windows)]
+    pub async fn connect_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> Result<Self, tokio::io::Error>{
+        let client = loop {
+            match tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name) {
+                Ok(client) => break client,
+                Err(e) if e.raw_os_error() == Some(windows_sys::Win32::Foundation::ERROR_PIPE_BUSY as i32) => (),
+                Err(e) => return Err(e),
+            }
+        
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        };
+        Ok(Self::Socket(client))
+    }
+
     #[cfg(not(target_os = "windows"))]
     pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
         let stream = UnixStream::connect(path).await?;
         Ok(Self::Unix(stream))
     }
 
-    pub async fn readable(&self) -> tokio::io::Result<()> {
+    pub async fn readable(&mut self) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.readable().await,
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.readable().await,
+
+            #[cfg(target_os = "windows")]
+            Bearer::Socket(x) => x.readable().await
+            
         }
     }
 
-    fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
+    async fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
         match self {
             Bearer::Tcp(x) => x.try_read(buf),
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.try_read(buf),
+            #[cfg(target_os = "windows")]
+            Bearer::Socket(x) => x.try_read(buf)
         }
     }
 
@@ -111,6 +136,8 @@ impl Bearer {
             Bearer::Tcp(x) => x.write_all(buf).await,
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.write_all(buf).await,
+            #[cfg(target_os = "windows")]
+            Bearer::Socket(x) => x.write_all(buf).await,
         }
     }
 
@@ -119,6 +146,8 @@ impl Bearer {
             Bearer::Tcp(x) => x.flush().await,
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.flush().await,
+            #[cfg(target_os = "windows")]
+            Bearer::Socket(x) => x.flush().await,
         }
     }
 }
@@ -166,7 +195,7 @@ impl SegmentBuffer {
             let remaining = required - self.1.len();
             let mut buf = vec![0u8; remaining];
 
-            match self.0.try_read(&mut buf) {
+            match self.0.try_read(&mut buf).await {
                 Ok(0) => {
                     error!("empty bearer");
                     break Err(Error::EmptyBearer);

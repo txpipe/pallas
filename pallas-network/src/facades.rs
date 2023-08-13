@@ -126,6 +126,43 @@ impl NodeClient {
         })
     }
 
+    #[cfg(target_os = "windows")]    
+    pub async fn connect(pipe_name: impl AsRef<std::ffi::OsStr>, magic: u64) -> Result<Self, Error> {
+        debug!("connecting");
+
+        let bearer = Bearer::connect_pipe(pipe_name)
+            .await
+            .map_err(Error::ConnectFailure)?;
+
+        let mut plexer = multiplexer::Plexer::new(bearer);
+
+        let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
+        let cs_channel = plexer.subscribe_client(PROTOCOL_N2C_CHAIN_SYNC);
+        let sq_channel = plexer.subscribe_client(PROTOCOL_N2C_STATE_QUERY);
+
+        let plexer_handle = tokio::spawn(async move { plexer.run().await });
+
+        let versions = handshake::n2c::VersionTable::only_v10(magic);
+        let mut client = handshake::Client::new(hs_channel);
+
+        let handshake = client
+            .handshake(versions)
+            .await
+            .map_err(Error::HandshakeProtocol)?;
+
+        if let handshake::Confirmation::Rejected(reason) = handshake {
+            error!(?reason, "handshake refused");
+            return Err(Error::IncompatibleVersion);
+        }
+
+        Ok(Self {
+            plexer_handle,
+            handshake,
+            chainsync: chainsync::Client::new(cs_channel),
+            statequery: localstate::Client::new(sq_channel),
+        })
+    }
+
     #[cfg(not(target_os = "windows"))]
     pub async fn handshake_query(
         path: impl AsRef<Path>,
