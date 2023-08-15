@@ -9,7 +9,7 @@ pub enum BlockQuery {
     GetLedgerTip,
     GetEpochNo,
     // GetNonMyopicMemberRewards(()),
-    // GetCurrentPParams,
+    GetCurrentPParams,
     // GetProposedPParamsUpdates,
     // GetStakeDistribution,
     // GetUTxOByAddress(()),
@@ -22,7 +22,7 @@ pub enum BlockQuery {
     // DebugChainDepState,
     // GetRewardProvenance,
     // GetUTxOByTxIn(()),
-    // GetStakePools,
+    GetStakePools,
     // GetStakePoolParams(()),
     // GetRewardInfoPools,
     // GetPoolState(()),
@@ -38,29 +38,68 @@ impl Encode<()> for BlockQuery {
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+        e.u16(0)?;
+        e.array(2)?;
+        // TODO: Think this is era or something?
+        e.u16(5)?;
         match self {
             BlockQuery::GetLedgerTip => {
                 e.array(1)?;
                 e.u16(0)?;
-                Ok(())
             }
             BlockQuery::GetEpochNo => {
                 e.array(1)?;
                 e.u16(1)?;
-                Ok(())
+            }
+            BlockQuery::GetCurrentPParams => {
+                e.array(1)?;
+                e.u16(3)?;
+
+            }
+            BlockQuery::GetStakePools => {
+                e.array(1)?;
+                e.u16(16)?;
             }
         }
+        Ok(())
     }
 }
 
 impl<'b> Decode<'b, ()> for BlockQuery {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
+        d.u16()?;
+        d.array()?;
+        d.u16()?;
+        d.array()?;
 
         match d.u16()? {
             0 => Ok(Self::GetLedgerTip),
             1 => Ok(Self::GetEpochNo),
-            _ => todo!(),
+            // 2 => Ok(Self::GetNonMyopicMemberRewards(())),
+            3 => Ok(Self::GetCurrentPParams),
+            // 4 => Ok(Self::GetProposedPParamsUpdates),
+            // 5 => Ok(Self::GetStakeDistribution),
+            // 6 => Ok(Self::GetUTxOByAddress(())),
+            // 7 => Ok(Self::GetUTxOWhole),
+            // 8 => Ok(Self::DebugEpochState),
+            // 9 => Ok(Self::GetCBOR(())),
+            // 10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(())),
+            // 11 => Ok(Self::GetGenesisConfig),
+            // 12 => Ok(Self::DebugNewEpochState),
+            // 13 => Ok(Self::DebugChainDepState),
+            // 14 => Ok(Self::GetRewardProvenance),
+            // 15 => Ok(Self::GetUTxOByTxIn(())),
+            16 => Ok(Self::GetStakePools),
+            // 17 => Ok(Self::GetStakePoolParams(())),
+            // 18 => Ok(Self::GetRewardInfoPools),
+            // 19 => Ok(Self::GetPoolState(())),
+            // 20 => Ok(Self::GetStakeSnapshots(())),
+            // 21 => Ok(Self::GetPoolDistr(())),
+            // 22 => Ok(Self::GetStakeDelegDeposits(())),
+            // 23 => Ok(Self::GetConstitutionHash),
+            _ => unreachable!(),
         }
     }
 }
@@ -116,7 +155,7 @@ impl<'b> Decode<'b, ()> for Request {
         let tag = d.u16()?;
 
         match (size, tag) {
-            (2, 0) => Ok(Self::BlockQuery(d.decode()?)), // decode block query
+            (2, 0) => Ok(Self::BlockQuery(d.decode()?)),
             (1, 1) => Ok(Self::GetSystemStart),
             (1, 2) => Ok(Self::GetChainBlockNo),
             (1, 3) => Ok(Self::GetChainPoint),
