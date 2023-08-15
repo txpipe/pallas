@@ -36,12 +36,12 @@ impl From<AcquireFailure> for Error {
     }
 }
 
-pub struct Client<Q>(State, multiplexer::ChannelBuffer, PhantomData<Q>)
+pub struct GenericClient<Q>(State, multiplexer::ChannelBuffer, PhantomData<Q>)
 where
     Q: Query,
     Message<Q>: Fragment;
 
-impl<Q> Client<Q>
+impl<Q> GenericClient<Q>
 where
     Q: Query,
     Message<Q>: Fragment,
@@ -92,6 +92,7 @@ where
             (State::Idle, Message::Acquire(_)) => Ok(()),
             (State::Idle, Message::Done) => Ok(()),
             (State::Acquired, Message::Query(_)) => Ok(()),
+            (State::Acquired, Message::ReAcquire(_)) => Ok(()),
             (State::Acquired, Message::Release) => Ok(()),
             _ => Err(Error::InvalidOutbound),
         }
@@ -173,4 +174,4 @@ where
     }
 }
 
-pub type ClientV10 = Client<super::queries::QueryV10>;
+pub type Client = GenericClient<super::queries::QueryV16>;

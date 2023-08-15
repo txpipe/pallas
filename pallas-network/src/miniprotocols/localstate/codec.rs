@@ -68,7 +68,6 @@ where
             }
             Message::Query(query) => {
                 e.array(2)?.u16(3)?;
-                e.array(1)?;
                 e.encode(query)?;
                 Ok(())
             }

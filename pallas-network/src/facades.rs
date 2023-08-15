@@ -85,7 +85,7 @@ pub struct NodeClient {
     plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub handshake: handshake::Confirmation<handshake::n2c::VersionData>,
     chainsync: chainsync::N2CClient,
-    statequery: localstate::ClientV10,
+    statequery: localstate::Client,
 }
 
 impl NodeClient {
@@ -171,7 +171,7 @@ impl NodeClient {
         &mut self.chainsync
     }
 
-    pub fn statequery(&mut self) -> &mut localstate::ClientV10 {
+    pub fn statequery(&mut self) -> &mut localstate::Client {
         &mut self.statequery
     }
 
