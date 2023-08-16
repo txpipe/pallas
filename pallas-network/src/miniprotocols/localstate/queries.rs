@@ -3,7 +3,7 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use super::Query;
 
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]
 pub enum BlockQuery {
     GetLedgerTip,
@@ -55,7 +55,6 @@ impl Encode<()> for BlockQuery {
             BlockQuery::GetCurrentPParams => {
                 e.array(1)?;
                 e.u16(3)?;
-
             }
             BlockQuery::GetStakePools => {
                 e.array(1)?;
@@ -104,7 +103,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Request {
     BlockQuery(BlockQuery),
     GetSystemStart,
@@ -168,8 +167,15 @@ impl<'b> Decode<'b, ()> for Request {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GenericResponse(Vec<u8>);
+
+impl GenericResponse {
+    /// "bytes" must be valid CBOR
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+}
 
 impl Encode<()> for GenericResponse {
     fn encode<W: encode::Write>(

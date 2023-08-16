@@ -131,6 +131,30 @@ where
         Ok(())
     }
 
+    pub async fn send_reacquire(&mut self, point: Option<Point>) -> Result<(), Error> {
+        let msg = Message::<Q>::ReAcquire(point);
+        self.send_message(&msg).await?;
+        self.0 = State::Acquiring;
+
+        Ok(())
+    }
+
+    pub async fn send_release(&mut self) -> Result<(), Error> {
+        let msg = Message::<Q>::Release;
+        self.send_message(&msg).await?;
+        self.0 = State::Idle;
+
+        Ok(())
+    }
+
+    pub async fn send_done(&mut self) -> Result<(), Error> {
+        let msg = Message::<Q>::Done;
+        self.send_message(&msg).await?;
+        self.0 = State::Done;
+
+        Ok(())
+    }
+
     pub async fn recv_while_acquiring(&mut self) -> Result<(), Error> {
         match self.recv_message().await? {
             Message::Acquired => {

@@ -24,16 +24,17 @@ pub enum Error {
 }
 
 /// Request received from the client to acquire the ledger
-pub struct ClientAcquireRequest(Option<Point>);
+pub struct ClientAcquireRequest(pub Option<Point>);
 
 /// Request received from the client when in the Acquired state
+#[derive(Debug)]
 pub enum ClientQueryRequest<Q: Query> {
     ReAcquire(Option<Point>),
     Query(Q::Request),
     Release,
 }
 
-pub struct GenericServer<Q>(State, multiplexer::ChannelBuffer, u8, PhantomData<Q>)
+pub struct GenericServer<Q>(State, multiplexer::ChannelBuffer, PhantomData<Q>)
 where
     Q: Query,
     Message<Q>: Fragment;
@@ -43,11 +44,10 @@ where
     Q: Query,
     Message<Q>: Fragment,
 {
-    pub fn new(channel: multiplexer::AgentChannel, ntc_version: u8) -> Self {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Idle,
             multiplexer::ChannelBuffer::new(channel),
-            ntc_version,
             PhantomData {},
         )
     }
