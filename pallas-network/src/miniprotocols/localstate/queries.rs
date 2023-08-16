@@ -4,32 +4,32 @@ use super::Query;
 
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs
 #[derive(Debug, Clone, PartialEq)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum BlockQuery {
     GetLedgerTip,
     GetEpochNo,
     // GetNonMyopicMemberRewards(()),
     GetCurrentPParams,
-    // GetProposedPParamsUpdates,
-    // GetStakeDistribution,
+    GetProposedPParamsUpdates,
+    GetStakeDistribution,
     // GetUTxOByAddress(()),
-    // GetUTxOWhole,
-    // DebugEpochState,
+    GetUTxOWhole,
+    DebugEpochState,
     // GetCBOR(()),
     // GetFilteredDelegationsAndRewardAccounts(()),
-    // GetGenesisConfig,
-    // DebugNewEpochState,
-    // DebugChainDepState,
-    // GetRewardProvenance,
+    GetGenesisConfig,
+    DebugNewEpochState,
+    DebugChainDepState,
+    GetRewardProvenance,
     // GetUTxOByTxIn(()),
     GetStakePools,
     // GetStakePoolParams(()),
-    // GetRewardInfoPools,
+    GetRewardInfoPools,
     // GetPoolState(()),
     // GetStakeSnapshots(()),
     // GetPoolDistr(()),
     // GetStakeDelegDeposits(()),
-    // GetConstitutionHash,
+    GetConstitutionHash,
 }
 
 impl Encode<()> for BlockQuery {
@@ -41,7 +41,10 @@ impl Encode<()> for BlockQuery {
         e.array(2)?;
         e.u16(0)?;
         e.array(2)?;
-        // TODO: Think this is era or something?
+        /*
+            TODO: Think this is era or something? First fetch era with
+            [3, [0, [2, [1]]]], then use it here?
+        */
         e.u16(5)?;
         match self {
             BlockQuery::GetLedgerTip => {
@@ -52,13 +55,93 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(1)?;
             }
+            // BlockQuery::GetNonMyopicMemberRewards(()) => {
+            //     e.array(X)?;
+            //     e.u16(2)?;
+            // }
             BlockQuery::GetCurrentPParams => {
                 e.array(1)?;
                 e.u16(3)?;
             }
+            BlockQuery::GetProposedPParamsUpdates => {
+                e.array(1)?;
+                e.u16(4)?;
+            }
+            BlockQuery::GetStakeDistribution => {
+                e.array(1)?;
+                e.u16(5)?;
+            }
+            // BlockQuery::GetUTxOByAddress(()) => {
+            //     e.array(X)?;
+            //     e.u16(6)?;
+            // }
+            BlockQuery::GetUTxOWhole => {
+                e.array(1)?;
+                e.u16(7)?;
+            }
+            BlockQuery::DebugEpochState => {
+                e.array(1)?;
+                e.u16(8)?;
+            }
+            // BlockQuery::GetCBOR(()) => {
+            //     e.array(X)?;
+            //     e.u16(9)?;
+            // }
+            // BlockQuery::GetFilteredDelegationsAndRewardAccounts(()) => {
+            //     e.array(X)?;
+            //     e.u16(10)?;
+            // }
+            BlockQuery::GetGenesisConfig => {
+                e.array(1)?;
+                e.u16(11)?;
+            }
+            BlockQuery::DebugNewEpochState => {
+                e.array(1)?;
+                e.u16(12)?;
+            }
+            BlockQuery::DebugChainDepState => {
+                e.array(1)?;
+                e.u16(13)?;
+            }
+            BlockQuery::GetRewardProvenance => {
+                e.array(1)?;
+                e.u16(14)?;
+            }
+            // BlockQuery::GetUTxOByTxIn(()) => {
+            //     e.array(X)?;
+            //     e.u16(15)?;
+            // }
             BlockQuery::GetStakePools => {
                 e.array(1)?;
                 e.u16(16)?;
+            }
+            // BlockQuery::GetStakePoolParams(()) => {
+            //     e.array(X)?;
+            //     e.u16(17)?;
+            // }
+            BlockQuery::GetRewardInfoPools => {
+                e.array(1)?;
+                e.u16(18)?;
+            }
+            // BlockQuery::GetPoolState(()) => {
+            //     e.array(X)?;
+            //     e.u16(19)?;
+            // }
+            // BlockQuery::GetStakeSnapshots(()) => {
+            //     e.array(X)?;
+            //     e.u16(20)?;
+            // }
+            // BlockQuery::GetPoolDistr(()) => {
+            //     e.array(X)?;
+            //     e.u16(21)?;
+            // }
+            // BlockQuery::GetStakeDelegDeposits(()) => {
+            //     e.array(X)?;
+            //     e.u16(22)?;
+            // }
+            BlockQuery::GetConstitutionHash => {
+                e.array(1)?;
+                e.u16(23)?;
             }
         }
         Ok(())
@@ -78,26 +161,26 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             1 => Ok(Self::GetEpochNo),
             // 2 => Ok(Self::GetNonMyopicMemberRewards(())),
             3 => Ok(Self::GetCurrentPParams),
-            // 4 => Ok(Self::GetProposedPParamsUpdates),
-            // 5 => Ok(Self::GetStakeDistribution),
+            4 => Ok(Self::GetProposedPParamsUpdates),
+            5 => Ok(Self::GetStakeDistribution),
             // 6 => Ok(Self::GetUTxOByAddress(())),
-            // 7 => Ok(Self::GetUTxOWhole),
-            // 8 => Ok(Self::DebugEpochState),
+            7 => Ok(Self::GetUTxOWhole),
+            8 => Ok(Self::DebugEpochState),
             // 9 => Ok(Self::GetCBOR(())),
             // 10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(())),
-            // 11 => Ok(Self::GetGenesisConfig),
-            // 12 => Ok(Self::DebugNewEpochState),
-            // 13 => Ok(Self::DebugChainDepState),
-            // 14 => Ok(Self::GetRewardProvenance),
+            11 => Ok(Self::GetGenesisConfig),
+            12 => Ok(Self::DebugNewEpochState),
+            13 => Ok(Self::DebugChainDepState),
+            14 => Ok(Self::GetRewardProvenance),
             // 15 => Ok(Self::GetUTxOByTxIn(())),
             16 => Ok(Self::GetStakePools),
             // 17 => Ok(Self::GetStakePoolParams(())),
-            // 18 => Ok(Self::GetRewardInfoPools),
+            18 => Ok(Self::GetRewardInfoPools),
             // 19 => Ok(Self::GetPoolState(())),
             // 20 => Ok(Self::GetStakeSnapshots(())),
             // 21 => Ok(Self::GetPoolDistr(())),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
-            // 23 => Ok(Self::GetConstitutionHash),
+            23 => Ok(Self::GetConstitutionHash),
             _ => unreachable!(),
         }
     }
