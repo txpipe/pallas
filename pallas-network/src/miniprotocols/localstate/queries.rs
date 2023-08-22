@@ -13,12 +13,12 @@ pub enum BlockQuery {
     GetProposedPParamsUpdates,
     GetStakeDistribution,
     // GetUTxOByAddress(()),
-    GetUTxOWhole,
-    DebugEpochState,
+    // GetUTxOWhole, (Response too large for now)
+    // DebugEpochState, (Response too large for now)
     // GetCBOR(()),
     // GetFilteredDelegationsAndRewardAccounts(()),
     GetGenesisConfig,
-    DebugNewEpochState,
+    // DebugNewEpochState, (Response too large for now)
     DebugChainDepState,
     GetRewardProvenance,
     // GetUTxOByTxIn(()),
@@ -29,7 +29,7 @@ pub enum BlockQuery {
     // GetStakeSnapshots(()),
     // GetPoolDistr(()),
     // GetStakeDelegDeposits(()),
-    GetConstitutionHash,
+    // GetConstitutionHash,
 }
 
 impl Encode<()> for BlockQuery {
@@ -75,14 +75,14 @@ impl Encode<()> for BlockQuery {
             //     e.array(X)?;
             //     e.u16(6)?;
             // }
-            BlockQuery::GetUTxOWhole => {
-                e.array(1)?;
-                e.u16(7)?;
-            }
-            BlockQuery::DebugEpochState => {
-                e.array(1)?;
-                e.u16(8)?;
-            }
+            // BlockQuery::GetUTxOWhole => {
+            //     e.array(1)?;
+            //     e.u16(7)?;
+            // }
+            // BlockQuery::DebugEpochState => {
+            //     e.array(1)?;
+            //     e.u16(8)?;
+            // }
             // BlockQuery::GetCBOR(()) => {
             //     e.array(X)?;
             //     e.u16(9)?;
@@ -95,10 +95,10 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(11)?;
             }
-            BlockQuery::DebugNewEpochState => {
-                e.array(1)?;
-                e.u16(12)?;
-            }
+            // BlockQuery::DebugNewEpochState => {
+            //     e.array(1)?;
+            //     e.u16(12)?;
+            // }
             BlockQuery::DebugChainDepState => {
                 e.array(1)?;
                 e.u16(13)?;
@@ -139,10 +139,10 @@ impl Encode<()> for BlockQuery {
             //     e.array(X)?;
             //     e.u16(22)?;
             // }
-            BlockQuery::GetConstitutionHash => {
-                e.array(1)?;
-                e.u16(23)?;
-            }
+            // BlockQuery::GetConstitutionHash => {
+            //     e.array(1)?;
+            //     e.u16(23)?;
+            // }
         }
         Ok(())
     }
@@ -164,12 +164,12 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
             // 6 => Ok(Self::GetUTxOByAddress(())),
-            7 => Ok(Self::GetUTxOWhole),
-            8 => Ok(Self::DebugEpochState),
+            // 7 => Ok(Self::GetUTxOWhole),
+            // 8 => Ok(Self::DebugEpochState),
             // 9 => Ok(Self::GetCBOR(())),
             // 10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(())),
             11 => Ok(Self::GetGenesisConfig),
-            12 => Ok(Self::DebugNewEpochState),
+            // 12 => Ok(Self::DebugNewEpochState),
             13 => Ok(Self::DebugChainDepState),
             14 => Ok(Self::GetRewardProvenance),
             // 15 => Ok(Self::GetUTxOByTxIn(())),
@@ -180,7 +180,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             // 20 => Ok(Self::GetStakeSnapshots(())),
             // 21 => Ok(Self::GetPoolDistr(())),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
-            23 => Ok(Self::GetConstitutionHash),
+            // 23 => Ok(Self::GetConstitutionHash),
             _ => unreachable!(),
         }
     }
