@@ -5,6 +5,8 @@ use crate::miniprotocols::Point;
 #[derive(Debug, Clone)]
 pub struct Tip(pub Point, pub u64);
 
+pub type IntersectResponse = (Option<Point>, Tip);
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,

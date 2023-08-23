@@ -1,4 +1,5 @@
 use pallas_codec::minicbor;
+use pallas_codec::minicbor::encode::Error;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use super::{BlockContent, HeaderContent, Message, SkippedContent, Tip};
@@ -167,10 +168,32 @@ impl<'b> Decode<'b, ()> for HeaderContent {
 impl Encode<()> for HeaderContent {
     fn encode<W: encode::Write>(
         &self,
-        _e: &mut Encoder<W>,
+        e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        todo!()
+        e.array(2)?;
+        e.u8(self.variant)?;
+
+        // variant 0 is byron
+        if self.variant == 0 {
+            e.array(2)?;
+
+            if let Some((a, b)) = self.byron_prefix {
+                e.array(2)?;
+                e.u8(a)?;
+                e.u64(b)?;
+            } else {
+                return Err(Error::message("header variant 0 but no byron prefix"));
+            }
+
+            e.tag(minicbor::data::Tag::Cbor)?;
+            e.bytes(&self.cbor)?;
+        } else {
+            e.tag(minicbor::data::Tag::Cbor)?;
+            e.bytes(&self.cbor)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -185,10 +208,13 @@ impl<'b> Decode<'b, ()> for BlockContent {
 impl Encode<()> for BlockContent {
     fn encode<W: encode::Write>(
         &self,
-        _e: &mut Encoder<W>,
+        e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        todo!()
+        e.tag(minicbor::data::Tag::Cbor)?;
+        e.bytes(&self.0)?;
+
+        Ok(())
     }
 }
 
@@ -202,9 +228,11 @@ impl<'b> Decode<'b, ()> for SkippedContent {
 impl Encode<()> for SkippedContent {
     fn encode<W: encode::Write>(
         &self,
-        _e: &mut Encoder<W>,
+        e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        todo!()
+        e.null()?;
+
+        Ok(())
     }
 }
