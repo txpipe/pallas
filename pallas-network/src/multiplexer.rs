@@ -67,7 +67,7 @@ pub struct Segment {
 #[cfg(target_os = "windows")]
 pub enum Bearer {
     Tcp(TcpStream),
-    Socket(NamedPipeClient)
+    NamedPipe(NamedPipeClient)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -90,7 +90,7 @@ impl Bearer {
     }
 
     #[cfg(windows)]
-    pub async fn connect_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> Result<Self, tokio::io::Error>{
+    pub async fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> Result<Self, tokio::io::Error>{
         let client = loop {
             match tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name) {
                 Ok(client) => break client,
@@ -100,7 +100,7 @@ impl Bearer {
         
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         };
-        Ok(Self::Socket(client))
+        Ok(Self::NamedPipe(client))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -116,7 +116,7 @@ impl Bearer {
             Bearer::Unix(x) => x.readable().await,
 
             #[cfg(target_os = "windows")]
-            Bearer::Socket(x) => x.readable().await
+            Bearer::NamedPipe(x) => x.readable().await
             
         }
     }
@@ -127,7 +127,7 @@ impl Bearer {
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.try_read(buf),
             #[cfg(target_os = "windows")]
-            Bearer::Socket(x) => x.try_read(buf)
+            Bearer::NamedPipe(x) => x.try_read(buf)
         }
     }
 
@@ -137,7 +137,7 @@ impl Bearer {
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.write_all(buf).await,
             #[cfg(target_os = "windows")]
-            Bearer::Socket(x) => x.write_all(buf).await,
+            Bearer::NamedPipe(x) => x.write_all(buf).await,
         }
     }
 
@@ -147,7 +147,7 @@ impl Bearer {
             #[cfg(not(target_os = "windows"))]
             Bearer::Unix(x) => x.flush().await,
             #[cfg(target_os = "windows")]
-            Bearer::Socket(x) => x.flush().await,
+            Bearer::NamedPipe(x) => x.flush().await,
         }
     }
 }

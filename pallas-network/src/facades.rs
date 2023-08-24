@@ -130,7 +130,7 @@ impl NodeClient {
     pub async fn connect(pipe_name: impl AsRef<std::ffi::OsStr>, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
 
-        let bearer = Bearer::connect_pipe(pipe_name)
+        let bearer = Bearer::connect_named_pipe(pipe_name)
             .await
             .map_err(Error::ConnectFailure)?;
 
