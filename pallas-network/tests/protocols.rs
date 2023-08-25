@@ -1,17 +1,14 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_network::facades::PeerClient;
+use pallas_network::facades::{PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
-use pallas_network::miniprotocols::handshake;
-use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     Point,
 };
-use pallas_network::multiplexer::{Bearer, Plexer};
 use tokio::net::TcpListener;
 
 #[tokio::test]
@@ -175,21 +172,9 @@ pub async fn blockfetch_server_and_client_happy_path() {
                 .await
                 .unwrap();
 
-            let (bearer, _) = Bearer::accept_tcp(server_listener).await.unwrap();
+            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
 
-            let mut server_plexer = Plexer::new(bearer);
-
-            let mut server_hs: handshake::Server<VersionData> =
-                handshake::Server::new(server_plexer.subscribe_server(0));
-            let mut server_bf = blockfetch::Server::new(server_plexer.subscribe_server(3));
-
-            tokio::spawn(async move { server_plexer.run().await });
-
-            server_hs.receive_proposed_versions().await.unwrap();
-            server_hs
-                .accept_version(10, VersionData::new(0, false))
-                .await
-                .unwrap();
+            let server_bf = peer_server.blockfetch();
 
             // server receives range from client, sends blocks
 
@@ -278,21 +263,9 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
                 .await
                 .unwrap();
 
-            let (bearer, _) = Bearer::accept_tcp(server_listener).await.unwrap();
+            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
 
-            let mut server_plexer = Plexer::new(bearer);
-
-            let mut server_hs: handshake::Server<VersionData> =
-                handshake::Server::new(server_plexer.subscribe_server(0));
-            let mut server_cs = chainsync::N2NServer::new(server_plexer.subscribe_server(2));
-
-            tokio::spawn(async move { server_plexer.run().await });
-
-            server_hs.receive_proposed_versions().await.unwrap();
-            server_hs
-                .accept_version(10, VersionData::new(0, false))
-                .await
-                .unwrap();
+            let server_cs = peer_server.chainsync();
 
             // server receives find intersect from client, sends intersect point
 
@@ -386,7 +359,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
     });
 
     let client = tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
         // client setup
 

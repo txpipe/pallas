@@ -79,7 +79,7 @@ impl Bearer {
         Ok(Self::Tcp(stream))
     }
 
-    pub async fn accept_tcp(listener: TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
+    pub async fn accept_tcp(listener: &TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Tcp(stream), addr))
     }
