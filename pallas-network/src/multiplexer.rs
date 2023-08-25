@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs, UnixListener};
 use tokio::select;
 use tokio::sync::mpsc::error::SendError;
 use tokio::time::Instant;
@@ -82,6 +82,14 @@ impl Bearer {
     pub async fn accept_tcp(listener: &TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Tcp(stream), addr))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn accept_unix(
+        listener: &UnixListener,
+    ) -> tokio::io::Result<(Self, tokio::net::unix::SocketAddr)> {
+        let (stream, addr) = listener.accept().await?;
+        Ok((Self::Unix(stream), addr))
     }
 
     #[cfg(not(target_os = "windows"))]
