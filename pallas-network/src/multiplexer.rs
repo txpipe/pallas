@@ -104,7 +104,7 @@ impl Bearer {
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
+    pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> Result<Self, tokio::io::Error> {
         let stream = UnixStream::connect(path).await?;
         Ok(Self::Unix(stream))
     }
