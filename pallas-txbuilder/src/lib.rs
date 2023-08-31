@@ -1,4 +1,4 @@
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 use pallas_traverse::wellknown::GenesisValues;
 
@@ -10,8 +10,10 @@ mod transaction;
 
 pub mod plutus;
 pub mod prelude;
+pub mod util;
 
 use self::native_script::NativeScriptError;
+use self::util::*;
 
 #[derive(Debug, Clone)]
 pub struct NetworkParams {
@@ -90,11 +92,4 @@ pub enum ValidationError {
     /// The provided native script is invalid
     #[error("Invalid native script: {0}")]
     InvalidNativeScript(#[from] NativeScriptError),
-}
-
-fn unix_epoch() -> Option<Instant> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|d| Instant::now().checked_sub(d))
 }

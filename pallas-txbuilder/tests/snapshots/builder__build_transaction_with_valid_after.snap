@@ -40,7 +40,7 @@ expression: "&cbor"
     - 0: []
       1: 1000000
   2: 161270
-  8: 101938047
+  8: valid_after
   15: 1
 - {}
 - true

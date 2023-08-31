@@ -1,19 +1,18 @@
 use std::time::Instant;
 
 use indexmap::IndexMap;
-use pallas_codec::utils::Bytes;
 
 use pallas_primitives::babbage::{
     AddrKeyhash, Certificate, NativeScript, NetworkId, PlutusData, TransactionBody,
     TransactionInput, TransactionOutput, WitnessSet,
 };
-use pallas_traverse::ComputeHash;
 
 use crate::{
     asset::MultiAsset,
     fee::Fee,
     native_script::{BuildNativeScript, NativeScriptBuilder},
     transaction::{self, OutputExt},
+    util::*,
     NetworkParams, ValidationError,
 };
 
@@ -207,19 +206,4 @@ impl TransactionBuilder {
     pub fn build_hex(self) -> Result<String, ValidationError> {
         Ok(self.build()?.hex_encoded()?)
     }
-}
-
-#[inline]
-fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
-    if v.is_empty() {
-        None
-    } else {
-        Some(v)
-    }
-}
-
-#[inline]
-fn hash_to_bytes<const N: usize, T: ComputeHash<N>>(input: T) -> Bytes {
-    let b = input.compute_hash().as_ref().to_vec();
-    b.into()
 }

@@ -1,21 +1,6 @@
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 use pallas_txbuilder::prelude::*;
-
-fn unix_epoch() -> Instant {
-    let instant = Instant::now();
-
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|d| instant.checked_sub(d))
-        .unwrap()
-}
-
-fn beginning_of_2023() -> Instant {
-    let start = Duration::new(1672531200, 0);
-    unix_epoch() + start
-}
 
 macro_rules! assert_transaction {
     ($code:expr) => {{
@@ -23,7 +8,13 @@ macro_rules! assert_transaction {
         let cbor: serde_cbor::Value =
             serde_cbor::from_slice(&bytes).expect("Failed to parse transaction CBOR");
 
-        insta::assert_yaml_snapshot!(&cbor);
+        insta::assert_yaml_snapshot!(
+            &cbor,
+            {
+                "[0][3]" => "valid_until",
+                "[0][8]" => "valid_after",
+            }
+        );
 
         Ok(())
     }};
@@ -102,7 +93,7 @@ fn test_build_transaction_with_timestamp_ttl() -> Result<(), ValidationError> {
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let valid_until = beginning_of_2023();
+    let valid_until = Instant::now();
 
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
@@ -136,7 +127,7 @@ fn test_build_transaction_with_timestamp_valid_after() -> Result<(), ValidationE
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let valid_after = beginning_of_2023();
+    let valid_after = Instant::now();
 
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
@@ -240,7 +231,9 @@ fn test_build_with_native_script() -> Result<(), ValidationError> {
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let script = NativeScript::all().add(NativeScript::pubkey([0; 28]));
+    let script = NativeScript::all()
+        .add(NativeScript::pubkey([0; 28]))
+        .add(NativeScript::pubkey([1; 28]));
 
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)

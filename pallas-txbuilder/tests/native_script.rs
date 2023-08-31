@@ -1,22 +1,12 @@
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use pallas_primitives::babbage::NativeScript as ExternalNativeScript;
-use pallas_txbuilder::prelude::*;
+use pallas_txbuilder::{prelude::*, util::*};
 use rand::{distributions::Standard, prelude::Distribution, rngs::OsRng, Rng, RngCore};
-
-fn unix_epoch() -> Instant {
-    let instant = Instant::now();
-
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|d| instant.checked_sub(d))
-        .unwrap()
-}
 
 fn beginning_of_2023() -> Instant {
     let start = Duration::new(1672531200, 0);
-    unix_epoch() + start
+    unix_epoch().unwrap() + start
 }
 
 fn gen<T>() -> T
