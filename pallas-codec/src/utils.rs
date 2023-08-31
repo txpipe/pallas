@@ -755,6 +755,18 @@ where
 #[serde(try_from = "String")]
 pub struct Bytes(#[n(0)] minicbor::bytes::ByteVec);
 
+impl Default for Bytes {
+    fn default() -> Self {
+        Self(Vec::default().into())
+    }
+}
+
+impl<'a> From<&'a [u8]> for Bytes {
+    fn from(value: &'a [u8]) -> Self {
+        Self(value.to_vec().into())
+    }
+}
+
 impl From<Vec<u8>> for Bytes {
     fn from(xs: Vec<u8>) -> Self {
         Bytes(minicbor::bytes::ByteVec::from(xs))

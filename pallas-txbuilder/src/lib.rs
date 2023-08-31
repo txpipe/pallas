@@ -6,6 +6,7 @@ mod asset;
 mod builder;
 mod fee;
 mod native_script;
+mod plutus_script;
 mod transaction;
 
 pub mod plutus;

@@ -3,14 +3,15 @@ use std::time::Instant;
 use indexmap::IndexMap;
 
 use pallas_primitives::babbage::{
-    AddrKeyhash, Certificate, NativeScript, NetworkId, PlutusData, TransactionBody,
-    TransactionInput, TransactionOutput, WitnessSet,
+    AddrKeyhash, Certificate, NativeScript, NetworkId, PlutusData, PlutusV1Script, PlutusV2Script,
+    TransactionBody, TransactionInput, TransactionOutput, WitnessSet,
 };
 
 use crate::{
     asset::MultiAsset,
     fee::Fee,
     native_script::{BuildNativeScript, NativeScriptBuilder},
+    plutus_script::{V1Script, V2Script},
     transaction::{self, OutputExt},
     util::*,
     NetworkParams, ValidationError,
@@ -31,6 +32,8 @@ pub struct TransactionBuilder {
     certificates: Vec<Certificate>,
     plutus_data: Vec<PlutusData>,
     native_scripts: Vec<NativeScript>,
+    plutus_v1_scripts: Vec<PlutusV1Script>,
+    plutus_v2_scripts: Vec<PlutusV2Script>,
 }
 
 impl TransactionBuilder {
@@ -50,6 +53,8 @@ impl TransactionBuilder {
             certificates: Default::default(),
             plutus_data: Default::default(),
             native_scripts: Default::default(),
+            plutus_v1_scripts: Default::default(),
+            plutus_v2_scripts: Default::default(),
         }
     }
 
@@ -134,6 +139,16 @@ impl TransactionBuilder {
         self
     }
 
+    pub fn plutus_v1_script(mut self, script: V1Script) -> Self {
+        self.plutus_v1_scripts.push(script.build());
+        self
+    }
+
+    pub fn plutus_v2_script(mut self, script: V2Script) -> Self {
+        self.plutus_v2_scripts.push(script.build());
+        self
+    }
+
     pub fn build(self) -> Result<transaction::Transaction, ValidationError> {
         if self.inputs.is_empty() {
             return Err(ValidationError::NoInputs);
@@ -188,10 +203,10 @@ impl TransactionBuilder {
                 vkeywitness: None,
                 native_script: opt_if_empty(self.native_scripts),
                 bootstrap_witness: None,
-                plutus_v1_script: None,
+                plutus_v1_script: opt_if_empty(self.plutus_v1_scripts),
+                plutus_v2_script: opt_if_empty(self.plutus_v2_scripts),
                 plutus_data: opt_if_empty(self.plutus_data),
                 redeemer: None,
-                plutus_v2_script: None,
             },
             is_valid: true,
             auxiliary_data: None,
