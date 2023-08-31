@@ -31,8 +31,9 @@ impl NetworkParams {
     }
 
     pub fn timestamp_to_slot(&self, timestamp: u64) -> Option<u64> {
-        (timestamp / self.genesis_values.shelley_slot_length as u64)
+        timestamp
             .checked_sub(self.genesis_values.shelley_known_time)
+            .map(|x| x / self.genesis_values.shelley_slot_length as u64)
     }
 }
 
