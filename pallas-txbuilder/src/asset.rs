@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use indexmap::IndexMap;
 use pallas_codec::utils::{Bytes, KeyValuePairs};
 use pallas_primitives::babbage::PolicyId;
@@ -13,7 +11,6 @@ pub enum AssetError {
 #[derive(Debug, Clone, Default)]
 pub struct MultiAsset<T> {
     assets: IndexMap<PolicyId, Vec<(Bytes, T)>>,
-    _marker: PhantomData<T>,
 }
 
 impl<T: Default + Copy> MultiAsset<T>
