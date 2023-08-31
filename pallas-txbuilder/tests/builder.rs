@@ -245,3 +245,27 @@ fn test_build_with_plutus_data() -> Result<(), ValidationError> {
 
     assert_transaction!(tx)
 }
+
+#[test]
+fn test_build_with_native_script() -> Result<(), ValidationError> {
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+    let output = Output::lovelaces(vec![], 1000000).build();
+
+    let script =
+        NativeScript::all()
+            .add(NativeScript::pubkey([0; 28]))
+            .add(NativeScript::invalid_before(
+                NetworkParams::mainnet(),
+                beginning_of_2023(),
+            )?);
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input, resolved)
+        .output(output)
+        .native_script(script)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}

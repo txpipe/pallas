@@ -4,14 +4,15 @@ use indexmap::IndexMap;
 use pallas_codec::utils::Bytes;
 
 use pallas_primitives::babbage::{
-    AddrKeyhash, Certificate, NetworkId, PlutusData, TransactionBody, TransactionInput,
-    TransactionOutput, WitnessSet,
+    AddrKeyhash, Certificate, NativeScript, NetworkId, PlutusData, TransactionBody,
+    TransactionInput, TransactionOutput, WitnessSet,
 };
 use pallas_traverse::ComputeHash;
 
 use crate::{
     asset::MultiAsset,
     fee::Fee,
+    native_script::{BuildNativeScript, NativeScriptBuilder},
     transaction::{self, OutputExt},
     NetworkParams, ValidationError,
 };
@@ -30,6 +31,7 @@ pub struct TransactionBuilder {
     valid_until_slot: Option<u64>,
     certificates: Vec<Certificate>,
     plutus_data: Vec<PlutusData>,
+    native_scripts: Vec<NativeScript>,
 }
 
 impl TransactionBuilder {
@@ -48,6 +50,7 @@ impl TransactionBuilder {
             valid_until_slot: Default::default(),
             certificates: Default::default(),
             plutus_data: Default::default(),
+            native_scripts: Default::default(),
         }
     }
 
@@ -127,6 +130,11 @@ impl TransactionBuilder {
         self
     }
 
+    pub fn native_script<T: BuildNativeScript>(mut self, script: NativeScriptBuilder<T>) -> Self {
+        self.native_scripts.push(script.build());
+        self
+    }
+
     pub fn build(self) -> Result<transaction::Transaction, ValidationError> {
         if self.inputs.is_empty() {
             return Err(ValidationError::NoInputs);
@@ -179,7 +187,7 @@ impl TransactionBuilder {
             },
             witness_set: WitnessSet {
                 vkeywitness: None,
-                native_script: None,
+                native_script: opt_if_empty(self.native_scripts),
                 bootstrap_witness: None,
                 plutus_v1_script: None,
                 plutus_data: opt_if_empty(self.plutus_data),

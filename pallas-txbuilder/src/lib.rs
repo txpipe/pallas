@@ -5,10 +5,13 @@ use pallas_traverse::wellknown::GenesisValues;
 mod asset;
 mod builder;
 mod fee;
+mod native_script;
 mod transaction;
 
 pub mod plutus;
 pub mod prelude;
+
+use self::native_script::NativeScriptError;
 
 #[derive(Debug, Clone)]
 pub struct NetworkParams {
@@ -83,6 +86,10 @@ pub enum ValidationError {
     /// multi-asset.
     #[error("Invalid collateral return output")]
     InvalidCollateralReturn,
+
+    /// The provided native script is invalid
+    #[error("Invalid native script: {0}")]
+    InvalidNativeScript(#[from] NativeScriptError),
 }
 
 fn unix_epoch() -> Option<Instant> {

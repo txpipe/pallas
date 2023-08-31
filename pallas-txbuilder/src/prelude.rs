@@ -1,6 +1,7 @@
 pub use crate::asset::*;
 pub use crate::builder::TransactionBuilder;
 pub use crate::fee::Fee;
+pub use crate::native_script::{NativeScript, NativeScriptError};
 pub use crate::plutus;
 pub use crate::transaction::*;
 pub use crate::{NetworkParams, ValidationError};
