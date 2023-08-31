@@ -1,4 +1,21 @@
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
 use pallas_txbuilder::prelude::*;
+
+fn unix_epoch() -> Instant {
+    let instant = Instant::now();
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| instant.checked_sub(d))
+        .unwrap()
+}
+
+fn beginning_of_2023() -> Instant {
+    let start = Duration::new(1672531200, 0);
+    unix_epoch() + start
+}
 
 macro_rules! assert_transaction {
     ($code:expr) => {{
@@ -71,12 +88,30 @@ fn test_build_transaction_with_ttl() -> Result<(), ValidationError> {
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let valid_until = 1618430000;
+    let slot = 101938047;
 
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
-        .valid_until(valid_until)
+        .valid_until_slot(slot)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}
+
+#[test]
+fn test_build_transaction_with_timestamp_ttl() -> Result<(), ValidationError> {
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+    let output = Output::lovelaces(vec![], 1000000).build();
+
+    let valid_until = beginning_of_2023();
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input, resolved)
+        .output(output)
+        .valid_until(valid_until)?
         .build()?
         .hex_encoded()?;
 
@@ -89,12 +124,30 @@ fn test_build_transaction_with_valid_after() -> Result<(), ValidationError> {
     let resolved = Output::lovelaces(vec![], 1000000).build();
     let output = Output::lovelaces(vec![], 1000000).build();
 
-    let valid_after = 1618430000;
+    let slot = 101938047;
 
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
-        .valid_after(valid_after)
+        .valid_after_slot(slot)
+        .build()?
+        .hex_encoded()?;
+
+    assert_transaction!(tx)
+}
+
+#[test]
+fn test_build_transaction_with_timestamp_valid_after() -> Result<(), ValidationError> {
+    let input = Input::build([0; 32], 0);
+    let resolved = Output::lovelaces(vec![], 1000000).build();
+    let output = Output::lovelaces(vec![], 1000000).build();
+
+    let valid_after = beginning_of_2023();
+
+    let tx = TransactionBuilder::new(NetworkParams::mainnet())
+        .input(input, resolved)
+        .output(output)
+        .valid_after(valid_after)?
         .build()?
         .hex_encoded()?;
 

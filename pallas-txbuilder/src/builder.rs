@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use indexmap::IndexMap;
 use pallas_codec::utils::Bytes;
 
@@ -24,8 +26,8 @@ pub struct TransactionBuilder {
     network_params: NetworkParams,
     mint: Option<MultiAsset<i64>>,
     required_signers: Vec<AddrKeyhash>,
-    valid_after: Option<u64>,
-    valid_until: Option<u64>,
+    valid_after_slot: Option<u64>,
+    valid_until_slot: Option<u64>,
     certificates: Vec<Certificate>,
     plutus_data: Vec<PlutusData>,
 }
@@ -42,8 +44,8 @@ impl TransactionBuilder {
             collateral_return: Default::default(),
             mint: Default::default(),
             required_signers: Default::default(),
-            valid_after: Default::default(),
-            valid_until: Default::default(),
+            valid_after_slot: Default::default(),
+            valid_until_slot: Default::default(),
             certificates: Default::default(),
             plutus_data: Default::default(),
         }
@@ -85,13 +87,33 @@ impl TransactionBuilder {
         self
     }
 
-    pub fn valid_after(mut self, timestamp: u64) -> Self {
-        self.valid_after = Some(timestamp);
+    pub fn valid_after(mut self, timestamp: Instant) -> Result<Self, ValidationError> {
+        self.valid_after_slot = Some(
+            self.network_params
+                .timestamp_to_slot(timestamp)
+                .ok_or(ValidationError::InvalidTimestamp)?,
+        );
+
+        Ok(self)
+    }
+
+    pub fn valid_after_slot(mut self, slot: u64) -> Self {
+        self.valid_after_slot = Some(slot);
         self
     }
 
-    pub fn valid_until(mut self, timestamp: u64) -> Self {
-        self.valid_until = Some(timestamp);
+    pub fn valid_until(mut self, timestamp: Instant) -> Result<Self, ValidationError> {
+        self.valid_until_slot = Some(
+            self.network_params
+                .timestamp_to_slot(timestamp)
+                .ok_or(ValidationError::InvalidTimestamp)?,
+        );
+
+        Ok(self)
+    }
+
+    pub fn valid_until_slot(mut self, slot: u64) -> Self {
+        self.valid_until_slot = Some(slot);
         self
     }
 
@@ -139,8 +161,8 @@ impl TransactionBuilder {
             body: TransactionBody {
                 inputs,
                 outputs,
-                ttl: self.convert_timestamp(self.valid_until)?,
-                validity_interval_start: self.convert_timestamp(self.valid_after)?,
+                ttl: self.valid_until_slot,
+                validity_interval_start: self.valid_after_slot,
                 fee: 0,
                 certificates: opt_if_empty(self.certificates),
                 withdrawals: None,
@@ -173,19 +195,9 @@ impl TransactionBuilder {
 
         Ok(tx)
     }
-
-    fn convert_timestamp(&self, timestamp: Option<u64>) -> Result<Option<u64>, ValidationError> {
-        match timestamp {
-            Some(v) => match self.network_params.timestamp_to_slot(v) {
-                Some(v) => Ok(Some(v)),
-                None => return Err(ValidationError::InvalidTimestamp),
-            },
-            _ => Ok(None),
-        }
-    }
 }
 
-#[inline(always)]
+#[inline]
 fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
     if v.is_empty() {
         None
@@ -194,7 +206,7 @@ fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
     }
 }
 
-#[inline(always)]
+#[inline]
 fn hash_to_bytes<const N: usize, T: ComputeHash<N>>(input: T) -> Bytes {
     let b = input.compute_hash().as_ref().to_vec();
     b.into()

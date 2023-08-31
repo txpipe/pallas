@@ -17,6 +17,9 @@ impl LinearFee {
         let mut len;
         let mut calculated_fee;
 
+        // We calculate a fee to the transaction, then recalculate the fee using the new amount,
+        // until it stops changing. This is necessary because the fee is part of the transaction
+        // bytes, and re-doing it multiple times it the most accurate we can get.
         loop {
             len = tx.hex_encoded()?.len() as u64;
             calculated_fee = compute_linear_fee_policy(len, &PolicyParams::default());

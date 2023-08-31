@@ -1,3 +1,5 @@
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
 use pallas_traverse::wellknown::GenesisValues;
 
 mod asset;
@@ -30,10 +32,16 @@ impl NetworkParams {
         self.genesis_values.network_id
     }
 
-    pub fn timestamp_to_slot(&self, timestamp: u64) -> Option<u64> {
+    pub fn unix_timestamp_to_slot(&self, timestamp: u64) -> Option<u64> {
         timestamp
             .checked_sub(self.genesis_values.shelley_known_time)
             .map(|x| x / self.genesis_values.shelley_slot_length as u64)
+    }
+
+    pub fn timestamp_to_slot(&self, timestamp: Instant) -> Option<u64> {
+        timestamp
+            .checked_duration_since(unix_epoch()?)
+            .and_then(|x| self.unix_timestamp_to_slot(x.as_secs()))
     }
 }
 
@@ -75,4 +83,11 @@ pub enum ValidationError {
     /// multi-asset.
     #[error("Invalid collateral return output")]
     InvalidCollateralReturn,
+}
+
+fn unix_epoch() -> Option<Instant> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| Instant::now().checked_sub(d))
 }
