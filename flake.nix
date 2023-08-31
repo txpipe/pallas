@@ -16,8 +16,12 @@
         pallas-scripts = with pkgs;
           [
             (writeShellScriptBin "pallas-test" ''
+              # Make sure cargo-nextest is on path
+              nextest=${cargo-nextest}
+
               ${cargo-watch}/bin/cargo-watch watch \
-                -s "${cargo-nextest}/bin/cargo-nextest nextest run"
+                -i "*.snap*" \
+                -s "${cargo-insta}/bin/cargo-insta test --test-runner nextest --unreferenced auto"
             '')
           ];
       in {
