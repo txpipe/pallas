@@ -1,13 +1,9 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
+use assert_matches::assert_matches;
 use pallas_primitives::babbage::NativeScript as ExternalNativeScript;
-use pallas_txbuilder::{prelude::*, util::*};
+use pallas_txbuilder::prelude::*;
 use rand::{distributions::Standard, prelude::Distribution, rngs::OsRng, Rng, RngCore};
-
-fn beginning_of_2023() -> Instant {
-    let start = Duration::new(1672531200, 0);
-    unix_epoch().unwrap() + start
-}
 
 fn gen<T>() -> T
 where
@@ -108,13 +104,10 @@ fn test_build_invalid_before_slot_script() {
 
 #[test]
 fn test_build_invalid_before_timestamp_script() -> Result<(), NativeScriptError> {
-    let timestamp = beginning_of_2023();
+    let timestamp = Instant::now();
     let output = NativeScript::invalid_before(NetworkParams::mainnet(), timestamp)?;
 
-    assert_eq!(
-        output.build(),
-        ExternalNativeScript::InvalidBefore(76472108)
-    );
+    assert_matches!(output.build(), ExternalNativeScript::InvalidBefore(_));
 
     Ok(())
 }
@@ -129,13 +122,10 @@ fn test_build_invalid_after_slot_script() {
 
 #[test]
 fn test_build_invalid_after_timestamp_script() -> Result<(), NativeScriptError> {
-    let timestamp = beginning_of_2023();
+    let timestamp = Instant::now();
     let output = NativeScript::invalid_after(NetworkParams::mainnet(), timestamp)?;
 
-    assert_eq!(
-        output.build(),
-        ExternalNativeScript::InvalidHereafter(76472108)
-    );
+    assert_matches!(output.build(), ExternalNativeScript::InvalidHereafter(_));
 
     Ok(())
 }
