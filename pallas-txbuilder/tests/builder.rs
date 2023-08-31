@@ -38,8 +38,7 @@ fn test_build_simplest_transaction() -> Result<(), ValidationError> {
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -58,8 +57,7 @@ fn test_build_transaction_with_multiple_inputs() -> Result<(), ValidationError> 
         .input(input_a, resolved_a)
         .input(input_b, resolved_b)
         .output(output)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -76,8 +74,7 @@ fn test_build_transaction_with_multiple_outputs() -> Result<(), ValidationError>
         .input(input, resolved)
         .output(output_a)
         .output(output_b)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -94,8 +91,7 @@ fn test_build_transaction_with_ttl() -> Result<(), ValidationError> {
         .input(input, resolved)
         .output(output)
         .valid_until_slot(slot)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -112,8 +108,7 @@ fn test_build_transaction_with_timestamp_ttl() -> Result<(), ValidationError> {
         .input(input, resolved)
         .output(output)
         .valid_until(valid_until)?
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -130,8 +125,7 @@ fn test_build_transaction_with_valid_after() -> Result<(), ValidationError> {
         .input(input, resolved)
         .output(output)
         .valid_after_slot(slot)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -148,8 +142,7 @@ fn test_build_transaction_with_timestamp_valid_after() -> Result<(), ValidationE
         .input(input, resolved)
         .output(output)
         .valid_after(valid_after)?
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -166,8 +159,7 @@ fn test_build_multiasset_transaction() -> Result<(), ValidationError> {
     let tx = TransactionBuilder::new(NetworkParams::mainnet())
         .input(input, resolved)
         .output(output)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -184,8 +176,7 @@ fn test_build_mint() -> Result<(), ValidationError> {
         .input(input, resolved)
         .output(output)
         .mint(assets)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -200,8 +191,7 @@ fn test_build_with_reference_inputs() -> Result<(), ValidationError> {
         .input(input.clone(), resolved)
         .output(output)
         .reference_input(input)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -220,8 +210,7 @@ fn test_build_with_collateral_inputs() -> Result<(), ValidationError> {
         .output(output)
         .collateral(collateral)
         .collateral_return(collateral_return)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -240,8 +229,7 @@ fn test_build_with_plutus_data() -> Result<(), ValidationError> {
         .input(input, resolved)
         .output(output)
         .plutus_data(data)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }
@@ -264,8 +252,7 @@ fn test_build_with_native_script() -> Result<(), ValidationError> {
         .input(input, resolved)
         .output(output)
         .native_script(script)
-        .build()?
-        .hex_encoded()?;
+        .build_hex()?;
 
     assert_transaction!(tx)
 }

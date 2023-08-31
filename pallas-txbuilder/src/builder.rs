@@ -203,6 +203,10 @@ impl TransactionBuilder {
 
         Ok(tx)
     }
+
+    pub fn build_hex(self) -> Result<String, ValidationError> {
+        Ok(self.build()?.hex_encoded()?)
+    }
 }
 
 #[inline]
