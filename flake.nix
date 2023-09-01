@@ -21,7 +21,7 @@
 
               ${cargo-watch}/bin/cargo-watch watch \
                 -i "*.snap*" \
-                -s "${cargo-insta}/bin/cargo-insta test --test-runner nextest --unreferenced auto"
+                -s "${cargo-insta}/bin/cargo-insta test --test-runner nextest"
             '')
           ];
       in {
