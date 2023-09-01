@@ -80,7 +80,7 @@ impl VersionTable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VersionData(NetworkMagic, Option<bool>);
 
 impl Encode<()> for VersionData {

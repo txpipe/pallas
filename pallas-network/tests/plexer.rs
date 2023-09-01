@@ -11,7 +11,7 @@ async fn setup_passive_muxer<const P: u16>() -> Plexer {
 
     println!("listening for connections on port {}", P);
 
-    let (bearer, _) = Bearer::accept_tcp(server).await.unwrap();
+    let (bearer, _) = Bearer::accept_tcp(&server).await.unwrap();
 
     Plexer::new(bearer)
 }

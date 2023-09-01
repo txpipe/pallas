@@ -2,14 +2,9 @@
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
-
-use tokio::io::AsyncWriteExt;
-
-#[cfg(windows)]
-use tokio::net::windows::named_pipe::NamedPipeClient;
-
 use std::net::SocketAddr;
 use thiserror::Error;
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio::select;
 use tokio::sync::mpsc::error::SendError;
@@ -18,6 +13,12 @@ use tracing::{debug, error, trace};
 
 #[cfg(not(target_os = "windows"))]
 use tokio::net::UnixStream;
+
+#[cfg(not(target_os = "windows"))]
+use tokio::net::UnixListener;
+
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::NamedPipeClient;
 
 const HEADER_LEN: usize = 8;
 
@@ -84,9 +85,17 @@ impl Bearer {
         Ok(Self::Tcp(stream))
     }
 
-    pub async fn accept_tcp(listener: TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
+    pub async fn accept_tcp(listener: &TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Tcp(stream), addr))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn accept_unix(
+        listener: &UnixListener,
+    ) -> tokio::io::Result<(Self, tokio::net::unix::SocketAddr)> {
+        let (stream, addr) = listener.accept().await?;
+        Ok((Self::Unix(stream), addr))
     }
 
     #[cfg(windows)]
