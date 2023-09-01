@@ -14,6 +14,7 @@ pub mod prelude;
 pub mod util;
 
 use self::native_script::NativeScriptError;
+use self::plutus_script::PlutusScriptError;
 use self::util::*;
 
 #[derive(Debug, Clone)]
@@ -51,7 +52,7 @@ impl NetworkParams {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ValidationError {
     /// The built transaction has no given inputs
     #[error("Transaction has no inputs")]
@@ -93,4 +94,8 @@ pub enum ValidationError {
     /// The provided native script is invalid
     #[error("Invalid native script: {0}")]
     InvalidNativeScript(#[from] NativeScriptError),
+
+    /// The provided native script is invalid
+    #[error("Invalid native script: {0}")]
+    InvalidPlutusScript(#[from] PlutusScriptError),
 }

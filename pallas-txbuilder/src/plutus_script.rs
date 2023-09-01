@@ -7,7 +7,7 @@ use pallas_primitives::babbage::{PlutusV1Script, PlutusV2Script};
 pub(crate) type V1Script = PlutusScriptBuilder<V1>;
 pub(crate) type V2Script = PlutusScriptBuilder<V2>;
 
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq)]
 pub enum PlutusScriptError {
     #[error("Invalid hex value: {0}")]
     InvalidHexValue(#[from] FromHexError),
