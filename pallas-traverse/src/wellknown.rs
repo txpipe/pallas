@@ -1,21 +1,26 @@
 use serde::{Deserialize, Serialize};
 
-/// Well-known magic for testnet
+/// Well-known params for testnet
 pub const TESTNET_MAGIC: u64 = 1097911063;
+pub const TESTNET_NETWORK_ID: u64 = 0;
 
-/// Well-known magic for mainnet
+/// Well-known params for mainnet
 pub const MAINNET_MAGIC: u64 = 764824073;
+pub const MAINNET_NETWORK_ID: u64 = 1;
 
-/// Well-known magic for preview
+/// Well-known params for preview
 pub const PREVIEW_MAGIC: u64 = 2;
+pub const PREVIEW_NETWORK_ID: u64 = 0;
 
-/// Well-known magic for pre-production
+/// Well-known params for pre-production
 pub const PRE_PRODUCTION_MAGIC: u64 = 1;
+pub const PRE_PRODUCTION_NETWORK_ID: u64 = 0;
 
 /// Well-known information about specific networks
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GenesisValues {
     pub magic: u64,
+    pub network_id: u64,
     pub byron_epoch_length: u32,
     pub byron_slot_length: u32,
     pub byron_known_slot: u64,
@@ -33,6 +38,7 @@ impl GenesisValues {
     pub fn mainnet() -> Self {
         GenesisValues {
             magic: MAINNET_MAGIC,
+            network_id: MAINNET_NETWORK_ID,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
             byron_known_slot: 0,
@@ -52,6 +58,7 @@ impl GenesisValues {
     pub fn testnet() -> Self {
         GenesisValues {
             magic: TESTNET_MAGIC,
+            network_id: TESTNET_NETWORK_ID,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
             byron_known_slot: 0,
@@ -70,6 +77,7 @@ impl GenesisValues {
     pub fn preview() -> Self {
         GenesisValues {
             magic: PREVIEW_MAGIC,
+            network_id: PREVIEW_NETWORK_ID,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
             byron_known_slot: 0,
@@ -88,6 +96,7 @@ impl GenesisValues {
     pub fn preprod() -> Self {
         GenesisValues {
             magic: PRE_PRODUCTION_MAGIC,
+            network_id: PRE_PRODUCTION_NETWORK_ID,
             byron_epoch_length: 432000,
             byron_slot_length: 20,
             byron_known_slot: 0,
