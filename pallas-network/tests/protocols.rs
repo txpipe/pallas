@@ -30,7 +30,7 @@ pub async fn chainsync_history_happy_path() {
         .await
         .unwrap();
 
-    println!("{:?}", point);
+    println!("{point:?}");
 
     assert!(matches!(client.state(), chainsync::State::Idle));
 
