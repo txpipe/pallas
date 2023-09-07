@@ -1639,7 +1639,7 @@ mod tests {
 
     #[test]
     fn header_isomorphic_decoding_encoding() {
-        let test_headers = vec![
+        let test_headers = [
             // peculiar alonzo header used as origin for a vasil devnet
             include_str!("../../../test_data/alonzo26.header"),
         ];

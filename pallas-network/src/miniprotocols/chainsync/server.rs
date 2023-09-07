@@ -9,7 +9,7 @@ use crate::multiplexer;
 use super::{BlockContent, HeaderContent, Message, State, Tip};
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ServerError {
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
@@ -75,23 +75,23 @@ where
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), Error> {
+    fn assert_agency_is_ours(&self) -> Result<(), ServerError> {
         if !self.has_agency() {
-            Err(Error::AgencyIsTheirs)
+            Err(ServerError::AgencyIsTheirs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
+    fn assert_agency_is_theirs(&self) -> Result<(), ServerError> {
         if self.has_agency() {
-            Err(Error::AgencyIsOurs)
+            Err(ServerError::AgencyIsOurs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message<O>) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message<O>) -> Result<(), ServerError> {
         match (&self.0, msg) {
             (State::CanAwait, Message::RollForward(_, _)) => Ok(()),
             (State::CanAwait, Message::RollBackward(_, _)) => Ok(()),
@@ -100,16 +100,16 @@ where
             (State::MustReply, Message::RollBackward(_, _)) => Ok(()),
             (State::Intersect, Message::IntersectFound(_, _)) => Ok(()),
             (State::Intersect, Message::IntersectNotFound(_)) => Ok(()),
-            _ => Err(Error::InvalidOutbound),
+            _ => Err(ServerError::InvalidOutbound),
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message<O>) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message<O>) -> Result<(), ServerError> {
         match (&self.0, msg) {
             (State::Idle, Message::RequestNext) => Ok(()),
             (State::Idle, Message::FindIntersect(_)) => Ok(()),
             (State::Idle, Message::Done) => Ok(()),
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ServerError::InvalidInbound),
         }
     }
 
@@ -123,11 +123,14 @@ where
     ///
     /// Returns an error if the agency is not ours or if the outbound state is
     /// invalid.
-    pub async fn send_message(&mut self, msg: &Message<O>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<O>) -> Result<(), ServerError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
 
-        self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(ServerError::Plexer)?;
 
         Ok(())
     }
@@ -138,10 +141,10 @@ where
     ///
     /// Returns an error if the agency is not theirs or if the inbound state is
     /// invalid.
-    async fn recv_message(&mut self) -> Result<Message<O>, Error> {
+    async fn recv_message(&mut self) -> Result<Message<O>, ServerError> {
         self.assert_agency_is_theirs()?;
 
-        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        let msg = self.1.recv_full_msg().await.map_err(ServerError::Plexer)?;
 
         self.assert_inbound_state(&msg)?;
 
@@ -154,7 +157,7 @@ where
     ///
     /// Returns an error if the agency is not theirs or if the inbound message
     /// is invalid for Idle protocol state.
-    pub async fn recv_while_idle(&mut self) -> Result<Option<ClientRequest>, Error> {
+    pub async fn recv_while_idle(&mut self) -> Result<Option<ClientRequest>, ServerError> {
         match self.recv_message().await? {
             Message::FindIntersect(points) => {
                 self.0 = State::Intersect;
@@ -169,7 +172,7 @@ where
 
                 Ok(None)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ServerError::InvalidInbound),
         }
     }
 
@@ -183,7 +186,7 @@ where
     ///
     /// Returns an error if the message cannot be sent or if it's not valid for
     /// the current state of the server.
-    pub async fn send_intersect_not_found(&mut self, tip: Tip) -> Result<(), Error> {
+    pub async fn send_intersect_not_found(&mut self, tip: Tip) -> Result<(), ServerError> {
         debug!("send intersect not found");
 
         let msg = Message::IntersectNotFound(tip);
@@ -205,7 +208,11 @@ where
     ///
     /// Returns an error if the message cannot be sent or if it's not valid for
     /// the current state of the server.
-    pub async fn send_intersect_found(&mut self, point: Point, tip: Tip) -> Result<(), Error> {
+    pub async fn send_intersect_found(
+        &mut self,
+        point: Point,
+        tip: Tip,
+    ) -> Result<(), ServerError> {
         debug!("send intersect found ({point:?}");
 
         let msg = Message::IntersectFound(point, tip);
@@ -227,7 +234,7 @@ where
     ///
     /// Returns an error if the message cannot be sent or if it's not valid for
     /// the current state of the server.
-    pub async fn send_roll_forward(&mut self, content: O, tip: Tip) -> Result<(), Error> {
+    pub async fn send_roll_forward(&mut self, content: O, tip: Tip) -> Result<(), ServerError> {
         debug!("send roll forward");
 
         let msg = Message::RollForward(content, tip);
@@ -248,7 +255,7 @@ where
     ///
     /// Returns an error if the message cannot be sent or if it's not valid for
     /// the current state of the server.
-    pub async fn send_roll_backward(&mut self, point: Point, tip: Tip) -> Result<(), Error> {
+    pub async fn send_roll_backward(&mut self, point: Point, tip: Tip) -> Result<(), ServerError> {
         debug!("send roll backward {point:?}");
 
         let msg = Message::RollBackward(point, tip);
@@ -269,7 +276,7 @@ where
     ///
     /// Returns an error if the message cannot be sent or if it's not valid for
     /// the current state of the server.
-    pub async fn send_await_reply(&mut self) -> Result<(), Error> {
+    pub async fn send_await_reply(&mut self) -> Result<(), ServerError> {
         debug!("send await reply");
 
         let msg = Message::AwaitReply;

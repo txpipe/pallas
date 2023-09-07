@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn test_datums_serialize_as_expected() {
-        let test_blocks = vec![(
+        let test_blocks = [(
             include_str!("../../../test_data/alonzo9.block"),
             include_str!("../../../test_data/alonzo9.datums"),
         )];
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_native_scripts_serialize_as_expected() {
-        let test_blocks = vec![(
+        let test_blocks = [(
             include_str!("../../../test_data/alonzo9.block"),
             include_str!("../../../test_data/alonzo9.native"),
         )];

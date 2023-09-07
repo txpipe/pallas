@@ -745,7 +745,7 @@ mod tests {
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = vec![
+        let test_blocks = [
             include_str!("../../../test_data/babbage1.block"),
             include_str!("../../../test_data/babbage2.block"),
             include_str!("../../../test_data/babbage3.block"),

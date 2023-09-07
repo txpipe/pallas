@@ -829,7 +829,7 @@ mod tests {
     fn boundary_block_isomorphic_decoding_encoding() {
         type BlockWrapper = (u16, EbBlock);
 
-        let test_blocks = vec![include_str!("../../../test_data/genesis.block")];
+        let test_blocks = [include_str!("../../../test_data/genesis.block")];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
@@ -849,7 +849,7 @@ mod tests {
     fn main_block_isomorphic_decoding_encoding() {
         type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
-        let test_blocks = vec![
+        let test_blocks = [
             //include_str!("../../../test_data/genesis.block"),
             include_str!("../../../test_data/byron1.block"),
             include_str!("../../../test_data/byron2.block"),
@@ -876,7 +876,7 @@ mod tests {
 
     #[test]
     fn header_isomorphic_decoding_encoding() {
-        let subjects = vec![include_str!("../../../test_data/byron1.header")];
+        let subjects = [include_str!("../../../test_data/byron1.header")];
 
         for (idx, str) in subjects.iter().enumerate() {
             println!("decoding test header {}", idx + 1);
