@@ -7,7 +7,7 @@ use crate::multiplexer;
 use super::{Message, State};
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ClientError {
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
@@ -74,57 +74,60 @@ impl Client {
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), Error> {
+    fn assert_agency_is_ours(&self) -> Result<(), ClientError> {
         if !self.has_agency() {
-            Err(Error::AgencyIsTheirs)
+            Err(ClientError::AgencyIsTheirs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
+    fn assert_agency_is_theirs(&self) -> Result<(), ClientError> {
         if self.has_agency() {
-            Err(Error::AgencyIsOurs)
+            Err(ClientError::AgencyIsOurs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message) -> Result<(), ClientError> {
         match (&self.0, msg) {
             (State::Idle, Message::RequestRange { .. }) => Ok(()),
             (State::Idle, Message::ClientDone) => Ok(()),
-            _ => Err(Error::InvalidOutbound),
+            _ => Err(ClientError::InvalidOutbound),
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message) -> Result<(), ClientError> {
         match (&self.0, msg) {
             (State::Busy, Message::StartBatch) => Ok(()),
             (State::Busy, Message::NoBlocks) => Ok(()),
             (State::Streaming, Message::Block { .. }) => Ok(()),
             (State::Streaming, Message::BatchDone) => Ok(()),
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
-    pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message) -> Result<(), ClientError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(ClientError::Plexer)?;
 
         Ok(())
     }
 
-    pub async fn recv_message(&mut self) -> Result<Message, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message, ClientError> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        let msg = self.1.recv_full_msg().await.map_err(ClientError::Plexer)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub async fn send_request_range(&mut self, range: (Point, Point)) -> Result<(), Error> {
+    pub async fn send_request_range(&mut self, range: (Point, Point)) -> Result<(), ClientError> {
         let msg = Message::RequestRange { range };
         self.send_message(&msg).await?;
         self.0 = State::Busy;
@@ -132,7 +135,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn recv_while_busy(&mut self) -> Result<HasBlocks, Error> {
+    pub async fn recv_while_busy(&mut self) -> Result<HasBlocks, ClientError> {
         match self.recv_message().await? {
             Message::StartBatch => {
                 info!("batch start");
@@ -144,7 +147,7 @@ impl Client {
                 self.0 = State::Idle;
                 Ok(None)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
@@ -154,7 +157,7 @@ impl Client {
     ///
     /// * `range` - A tuple of two `Point` instances representing the start and
     ///   end of the requested block range.
-    pub async fn request_range(&mut self, range: Range) -> Result<HasBlocks, Error> {
+    pub async fn request_range(&mut self, range: Range) -> Result<HasBlocks, ClientError> {
         self.send_request_range(range).await?;
         debug!("range requested");
         self.recv_while_busy().await
@@ -164,7 +167,7 @@ impl Client {
     ///
     /// Returns a block's body if a block is received, or `None` if the
     /// streaming has ended.
-    pub async fn recv_while_streaming(&mut self) -> Result<Option<Body>, Error> {
+    pub async fn recv_while_streaming(&mut self) -> Result<Option<Body>, ClientError> {
         debug!("waiting for stream");
 
         match self.recv_message().await? {
@@ -173,7 +176,7 @@ impl Client {
                 self.0 = State::Idle;
                 Ok(None)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
@@ -185,20 +188,20 @@ impl Client {
     ///
     /// Returns the block's body if the block is found, or an `Error` if the
     /// block is not found or an invalid message is received.
-    pub async fn fetch_single(&mut self, point: Point) -> Result<Body, Error> {
+    pub async fn fetch_single(&mut self, point: Point) -> Result<Body, ClientError> {
         self.request_range((point.clone(), point))
             .await?
-            .ok_or(Error::NoBlocks)?;
+            .ok_or(ClientError::NoBlocks)?;
 
         let body = self
             .recv_while_streaming()
             .await?
-            .ok_or(Error::InvalidInbound)?;
+            .ok_or(ClientError::InvalidInbound)?;
 
         debug!("body received");
 
         match self.recv_while_streaming().await? {
-            Some(_) => Err(Error::InvalidInbound),
+            Some(_) => Err(ClientError::InvalidInbound),
             None => Ok(body),
         }
     }
@@ -212,8 +215,10 @@ impl Client {
     ///
     /// Returns a vector of block bodies for the requested range, or an `Error`
     /// if the range is not found.
-    pub async fn fetch_range(&mut self, range: Range) -> Result<Vec<Body>, Error> {
-        self.request_range(range).await?.ok_or(Error::NoBlocks)?;
+    pub async fn fetch_range(&mut self, range: Range) -> Result<Vec<Body>, ClientError> {
+        self.request_range(range)
+            .await?
+            .ok_or(ClientError::NoBlocks)?;
 
         let mut all = vec![];
 
@@ -230,7 +235,7 @@ impl Client {
     ///
     /// Returns `Ok(())` if the message is sent successfully, or an `Error` if
     /// the agency is not ours.
-    pub async fn send_done(&mut self) -> Result<(), Error> {
+    pub async fn send_done(&mut self) -> Result<(), ClientError> {
         let msg = Message::ClientDone;
         self.send_message(&msg).await?;
         self.0 = State::Done;

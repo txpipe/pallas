@@ -1,7 +1,7 @@
 use pallas::ledger::traverse::MultiEraBlock;
 
 fn main() {
-    let blocks = vec![
+    let blocks = [
         include_str!("blocks/byron.block"),
         include_str!("blocks/shelley.block"),
         include_str!("blocks/mary.block"),

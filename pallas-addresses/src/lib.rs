@@ -799,7 +799,7 @@ mod tests {
             let addr = Address::from_str(original).unwrap();
 
             match addr {
-                Address::Byron(_) => assert!(matches!(addr.network(), None)),
+                Address::Byron(_) => assert!(addr.network().is_none()),
                 _ => assert!(matches!(addr.network(), Some(Network::Mainnet))),
             }
         }

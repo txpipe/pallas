@@ -30,7 +30,7 @@ pub async fn chainsync_history_happy_path() {
         .await
         .unwrap();
 
-    println!("{:?}", point);
+    println!("{point:?}");
 
     assert!(matches!(client.state(), chainsync::State::Idle));
 
@@ -127,7 +127,7 @@ pub async fn blockfetch_happy_path() {
 
     println!("streaming...");
 
-    assert!(matches!(range_ok, Ok(_)));
+    assert!(range_ok.is_ok());
 
     for _ in 0..1 {
         let next = client.recv_while_streaming().await.unwrap();
@@ -142,7 +142,7 @@ pub async fn blockfetch_happy_path() {
 
     let next = client.recv_while_streaming().await.unwrap();
 
-    assert!(matches!(next, None));
+    assert!(next.is_none());
 
     client.send_done().await.unwrap();
 
