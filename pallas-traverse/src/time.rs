@@ -235,8 +235,12 @@ mod tests {
         // https://preprod.cardanoscan.io/block/1
         assert_slot_matches_timestamp(&genesis, 2, 1654041640, 0, 2);
 
-        // Can't make Byron block work, not sure what's going on here. Each block jumps
-        // several slot. // https://preprod.cardanoscan.io/block/11
+        // Can't make Byron blocks work, not sure what's going on here. Each block jumps
+        // several slots. Timestamps work but epoch calculation doesn't. Since anything
+        // interesting starts from Shelley, I'll commit to this logic and treat this as
+        // a known-issue for later fixing.
+
+        // https://preprod.cardanoscan.io/block/11
         // assert_slot_matches_timestamp(&genesis, 21600, 1654473600, 1, 0);
 
         // https://preprod.cardanoscan.io/block/46
