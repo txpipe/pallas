@@ -30,10 +30,10 @@ pub enum Error {
 
 /// Client of N2N Ouroboros
 pub struct PeerClient {
-    plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub handshake: handshake::Confirmation<handshake::n2n::VersionData>,
-    chainsync: chainsync::N2NClient,
-    blockfetch: blockfetch::Client,
+    pub chainsync: chainsync::N2NClient,
+    pub blockfetch: blockfetch::Client,
 }
 
 impl PeerClient {
@@ -87,10 +87,10 @@ impl PeerClient {
 
 /// Server of N2N Ouroboros
 pub struct PeerServer {
-    plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub version: (VersionNumber, n2n::VersionData),
-    chainsync: chainsync::N2NServer,
-    blockfetch: blockfetch::Server,
+    pub chainsync: chainsync::N2NServer,
+    pub blockfetch: blockfetch::Server,
 }
 
 impl PeerServer {
@@ -144,10 +144,10 @@ impl PeerServer {
 
 /// Client of N2C Ouroboros
 pub struct NodeClient {
-    plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub handshake: handshake::Confirmation<handshake::n2c::VersionData>,
-    chainsync: chainsync::N2CClient,
-    statequery: localstate::ClientV10,
+    pub chainsync: chainsync::N2CClient,
+    pub statequery: localstate::ClientV10,
 }
 
 impl NodeClient {
@@ -244,9 +244,9 @@ impl NodeClient {
 
 /// Server of N2C Ouroboros
 pub struct NodeServer {
-    plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub version: (VersionNumber, n2c::VersionData),
-    chainsync: chainsync::N2CServer,
+    pub chainsync: chainsync::N2CServer,
     // statequery: localstate::Server,
 }
 
