@@ -3,13 +3,19 @@
 on:
   push: {}
 
-
 name: Validate
 
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macOS-latest]
+        rust: [stable]
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -18,7 +24,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
           override: true
 
       - name: Run cargo check
