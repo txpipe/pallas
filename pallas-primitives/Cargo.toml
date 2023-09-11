@@ -1,7 +1,7 @@
 [package]
 name = "pallas-primitives"
 description = "Ledger primitives and cbor codec for the different Cardano eras"
-version = "0.19.0-alpha.2"
+version = "0.19.1"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -16,8 +16,8 @@ authors = [
 [dependencies]
 hex = "0.4.3"
 log = "0.4.14"
-pallas-crypto = { version = "0.19.0-alpha.0", path = "../pallas-crypto" }
-pallas-codec = { version = "0.19.0-alpha.0", path = "../pallas-codec" }
+pallas-crypto = { version = "=0.19.1", path = "../pallas-crypto" }
+pallas-codec = { version = "=0.19.1", path = "../pallas-codec" }
 base58 = "0.2.0"
 bech32 = "0.9.0"
 serde = { version = "1.0.136", optional = true, features = ["derive"] }

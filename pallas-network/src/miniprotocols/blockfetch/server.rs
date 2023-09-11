@@ -5,7 +5,7 @@ use crate::multiplexer;
 use super::{Body, Message, Range, State};
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ServerError {
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
@@ -62,57 +62,60 @@ impl Server {
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), Error> {
+    fn assert_agency_is_ours(&self) -> Result<(), ServerError> {
         if !self.has_agency() {
-            Err(Error::AgencyIsTheirs)
+            Err(ServerError::AgencyIsTheirs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
+    fn assert_agency_is_theirs(&self) -> Result<(), ServerError> {
         if self.has_agency() {
-            Err(Error::AgencyIsOurs)
+            Err(ServerError::AgencyIsOurs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message) -> Result<(), ServerError> {
         match (&self.0, msg) {
             (State::Busy, Message::NoBlocks) => Ok(()),
             (State::Busy, Message::StartBatch) => Ok(()),
             (State::Streaming, Message::Block { .. }) => Ok(()),
             (State::Streaming, Message::BatchDone) => Ok(()),
-            _ => Err(Error::InvalidOutbound),
+            _ => Err(ServerError::InvalidOutbound),
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message) -> Result<(), ServerError> {
         match (&self.0, msg) {
             (State::Idle, Message::RequestRange { .. }) => Ok(()),
             (State::Idle, Message::ClientDone) => Ok(()),
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ServerError::InvalidInbound),
         }
     }
 
-    pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message) -> Result<(), ServerError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(ServerError::Plexer)?;
 
         Ok(())
     }
 
-    pub async fn recv_message(&mut self) -> Result<Message, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message, ServerError> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        let msg = self.1.recv_full_msg().await.map_err(ServerError::Plexer)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub async fn send_start_batch(&mut self) -> Result<(), Error> {
+    pub async fn send_start_batch(&mut self) -> Result<(), ServerError> {
         let msg = Message::StartBatch;
         self.send_message(&msg).await?;
         self.0 = State::Streaming;
@@ -120,7 +123,7 @@ impl Server {
         Ok(())
     }
 
-    pub async fn send_no_blocks(&mut self) -> Result<(), Error> {
+    pub async fn send_no_blocks(&mut self) -> Result<(), ServerError> {
         let msg = Message::NoBlocks;
         self.send_message(&msg).await?;
         self.0 = State::Idle;
@@ -128,14 +131,14 @@ impl Server {
         Ok(())
     }
 
-    pub async fn send_block(&mut self, body: Body) -> Result<(), Error> {
+    pub async fn send_block(&mut self, body: Body) -> Result<(), ServerError> {
         let msg = Message::Block { body };
         self.send_message(&msg).await?;
 
         Ok(())
     }
 
-    pub async fn send_batch_done(&mut self) -> Result<(), Error> {
+    pub async fn send_batch_done(&mut self) -> Result<(), ServerError> {
         let msg = Message::BatchDone;
         self.send_message(&msg).await?;
         self.0 = State::Idle;
@@ -150,7 +153,7 @@ impl Server {
     /// progess the server state to `Busy`. If the message is a `ClientDone`,
     /// return None and progress the server state to `Done`. For any other
     /// incoming message type return an `Error`.
-    pub async fn recv_while_idle(&mut self) -> Result<Option<BlockRequest>, Error> {
+    pub async fn recv_while_idle(&mut self) -> Result<Option<BlockRequest>, ServerError> {
         match self.recv_message().await? {
             Message::RequestRange { range } => {
                 self.0 = State::Busy;
@@ -162,7 +165,7 @@ impl Server {
 
                 Ok(None)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ServerError::InvalidInbound),
         }
     }
 
@@ -174,7 +177,7 @@ impl Server {
     ///
     /// * `blocks` - Ordered list of block bodies corresponding to the client's
     /// requested range.
-    pub async fn send_block_range(&mut self, blocks: Vec<Body>) -> Result<(), Error> {
+    pub async fn send_block_range(&mut self, blocks: Vec<Body>) -> Result<(), ServerError> {
         if blocks.is_empty() {
             self.send_no_blocks().await
         } else {

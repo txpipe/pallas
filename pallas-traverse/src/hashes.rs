@@ -184,7 +184,7 @@ mod tests {
         let (_, block_model): BlockWrapper =
             minicbor::decode(&block_bytes[..]).expect("error decoding cbor for file");
 
-        let valid_hashes = vec![
+        let valid_hashes = [
             "8ae0cd531635579a9b52b954a840782d12235251fb1451e5c699e864c677514a",
             "bb5bb4e1c09c02aa199c60e9f330102912e3ef977bb73ecfd8f790945c6091d4",
             "8cdd88042ddb6c800714fb1469fb1a1a93152aae3c87a81f2a3016f2ee5c664a",
@@ -212,7 +212,7 @@ mod tests {
         let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
             .unwrap_or_else(|_| panic!("error decoding cbor for file {block_idx}"));
 
-        let valid_hashes = vec!["3fad302595665b004971a6b76909854a39a0a7ecdbff3692f37b77ae37dbe882"];
+        let valid_hashes = ["3fad302595665b004971a6b76909854a39a0a7ecdbff3692f37b77ae37dbe882"];
 
         for (tx_idx, tx) in block_model.transaction_bodies.iter().enumerate() {
             let original_hash = tx.original_hash();
