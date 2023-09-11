@@ -1,9 +1,12 @@
 use std::path::Path;
 
 use thiserror::Error;
-use tokio::net::{TcpListener, UnixListener};
+use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
+
+#[cfg(not(target_os = "windows"))]
+use tokio::net::UnixListener;
 
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
 use crate::miniprotocols::PROTOCOL_N2N_HANDSHAKE;
@@ -250,6 +253,7 @@ pub struct NodeServer {
     // statequery: localstate::Server,
 }
 
+#[cfg(not(target_os = "windows"))]
 impl NodeServer {
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
         let (bearer, _) = Bearer::accept_unix(listener)

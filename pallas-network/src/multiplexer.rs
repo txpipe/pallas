@@ -6,14 +6,14 @@ use std::net::SocketAddr;
 use std::path::Path;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs, UnixListener};
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio::select;
 use tokio::sync::mpsc::error::SendError;
 use tokio::time::Instant;
 use tracing::{debug, error, trace};
 
 #[cfg(not(target_os = "windows"))]
-use tokio::net::UnixStream;
+use tokio::net::{UnixListener, UnixStream};
 
 const HEADER_LEN: usize = 8;
 
