@@ -1,7 +1,7 @@
 use crate::{ComputeHash, OriginalHash};
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 impl ComputeHash<32> for byron::EbbHead {
     fn compute_hash(&self) -> Hash<32> {
@@ -139,6 +139,32 @@ impl ComputeHash<32> for babbage::DatumOption {
             babbage::DatumOption::Hash(hash) => *hash,
             babbage::DatumOption::Data(data) => data.compute_hash(),
         }
+    }
+}
+
+// conway
+
+impl ComputeHash<28> for conway::PlutusV3Script {
+    fn compute_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_tagged(&self.0, 3)
+    }
+}
+
+impl ComputeHash<32> for conway::TransactionBody {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+impl OriginalHash<32> for KeepRaw<'_, conway::TransactionBody> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+impl OriginalHash<32> for KeepRaw<'_, conway::MintedTransactionBody<'_>> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
     }
 }
 

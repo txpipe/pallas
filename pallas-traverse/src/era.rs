@@ -45,6 +45,7 @@ impl From<Era> for u16 {
             Era::Mary => 4,
             Era::Alonzo => 5,
             Era::Babbage => 6,
+            Era::Conway => 7,
         }
     }
 }
@@ -58,6 +59,7 @@ impl Display for Era {
             Era::Mary => write!(f, "Mary"),
             Era::Alonzo => write!(f, "Alonzo"),
             Era::Babbage => write!(f, "Babbage"),
+            Era::Conway => write!(f, "Babbage"),
         }
     }
 }

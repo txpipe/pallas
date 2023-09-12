@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use pallas_codec::utils::{KeepRaw, KeyValuePairs};
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 mod support;
 
@@ -42,6 +42,7 @@ pub enum Era {
     Mary,    // multi-assets
     Alonzo,  // smart-contracts
     Babbage, // CIP-31/32/33
+    Conway,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -71,6 +72,7 @@ pub enum MultiEraBlock<'b> {
     AlonzoCompatible(Box<alonzo::MintedBlock<'b>>, Era),
     Babbage(Box<babbage::MintedBlock<'b>>),
     Byron(Box<byron::MintedBlock<'b>>),
+    Conway(Box<conway::MintedBlock<'b>>),
 }
 
 #[derive(Debug, Clone)]
@@ -79,6 +81,7 @@ pub enum MultiEraTx<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::MintedTx<'b>>>, Era),
     Babbage(Box<Cow<'b, babbage::MintedTx<'b>>>),
     Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
+    Conway(Box<Cow<'b, conway::MintedTx<'b>>>),
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +104,7 @@ pub enum MultiEraInput<'b> {
 pub enum MultiEraCert<'b> {
     NotApplicable,
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
+    Conway(Box<Cow<'b, conway::Certificate>>),
 }
 
 #[derive(Debug, Clone, Default)]
