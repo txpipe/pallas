@@ -247,7 +247,7 @@ impl AddressPayload {
         pubkey: pallas_crypto::key::ed25519::PublicKey,
         network_tag: Option<Vec<u8>>,
     ) -> Self {
-        let spending_data = SpendingData::PubKey(ByteVec::from(Vec::from(pubkey.as_ref())));
+        let spending_data = SpendingData::Redeem(ByteVec::from(Vec::from(pubkey.as_ref())));
 
         let attributes = match network_tag {
             Some(x) => vec![

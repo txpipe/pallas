@@ -180,13 +180,13 @@ mod tests {
 
         let utxos = super::genesis_avvm_utxos(&f);
 
+        let mut found = false;
+
         for (hash, _) in utxos {
             let hs = format!("{}", hash);
-            println!("{}", hs);
-            assert_ne!(
-                hs,
-                "3a33ff3e51cf2a67b973945442c35181d5a21b6c657d760acba62f48ad7d1d69"
-            );
+            found |= hs == "3a33ff3e51cf2a67b973945442c35181d5a21b6c657d760acba62f48ad7d1d69"
         }
+
+        assert!(found == true)
     }
 }
