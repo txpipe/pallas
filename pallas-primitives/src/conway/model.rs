@@ -112,9 +112,9 @@ pub enum Certificate {
     },
     PoolRetirement(PoolKeyhash, Epoch),
 
-    Reg(StakeCredential, Coin),       // 7
-    UnReg(StakeCredential, Coin),     // 8
-    VoteDeleg(StakeCredential, DRep), // ...
+    Reg(StakeCredential, Coin),
+    UnReg(StakeCredential, Coin),
+    VoteDeleg(StakeCredential, DRep),
     StakeVoteDeleg(StakeCredential, PoolKeyhash, DRep),
     StakeRegDeleg(StakeCredential, PoolKeyhash, Coin),
     VoteRegDeleg(StakeCredential, DRep, Coin),
@@ -174,16 +174,72 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
                 let b = d.decode_with(ctx)?;
                 Ok(Certificate::PoolRetirement(a, b))
             }
-            // 5 => {
-            //     let a = d.decode_with(ctx)?;
-            //     let b = d.decode_with(ctx)?;
-            //     let c = d.decode_with(ctx)?;
-            //     Ok(Certificate::GenesisKeyDelegation(a, b, c))
-            // }
-            // 6 => {
-            //     let a = d.decode_with(ctx)?;
-            //     Ok(Certificate::MoveInstantaneousRewardsCert(a))
-            // }
+
+            7 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::Reg(a, b))
+            }
+            8 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UnReg(a, b))
+            }
+            9 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::VoteDeleg(a, b))
+            }
+            10 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::StakeVoteDeleg(a, b, c))
+            }
+            11 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::StakeRegDeleg(a, b, c))
+            }
+            12 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::VoteRegDeleg(a, b, c))
+            }
+            13 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                let d = d.decode_with(ctx)?;
+                Ok(Certificate::StakeVoteRegDeleg(a, b, c, d))
+            }
+            14 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::AuthCommitteeHot(a, b))
+            }
+            15 => {
+                let a = d.decode_with(ctx)?;
+                Ok(Certificate::ResignCommitteeCold(a))
+            }
+            16 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::RegDRepCert(a, b, c))
+            }
+            17 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UnRegDRepCert(a, b))
+            }
+            18 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UpdateDRepCert(a, b))
+            }
             _ => Err(minicbor::decode::Error::message(
                 "unknown variant id for certificate",
             )),
@@ -197,7 +253,134 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            Certificate::StakeRegistration(a) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode_with(a, ctx)?;
+            }
+            Certificate::StakeDeregistration(a) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode_with(a, ctx)?;
+            }
+            Certificate::StakeDelegation(a, b) => {
+                e.array(3)?;
+                e.u16(2)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::PoolRegistration {
+                operator,
+                vrf_keyhash,
+                pledge,
+                cost,
+                margin,
+                reward_account,
+                pool_owners,
+                relays,
+                pool_metadata,
+            } => {
+                e.array(10)?;
+                e.u16(3)?;
+
+                e.encode_with(operator, ctx)?;
+                e.encode_with(vrf_keyhash, ctx)?;
+                e.encode_with(pledge, ctx)?;
+                e.encode_with(cost, ctx)?;
+                e.encode_with(margin, ctx)?;
+                e.encode_with(reward_account, ctx)?;
+                e.encode_with(pool_owners, ctx)?;
+                e.encode_with(relays, ctx)?;
+                e.encode_with(pool_metadata, ctx)?;
+            }
+            Certificate::PoolRetirement(a, b) => {
+                e.array(3)?;
+                e.u16(4)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            // 5 and 6 removed in conway
+            Certificate::Reg(a, b) => {
+                e.array(3)?;
+                e.u16(7)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::UnReg(a, b) => {
+                e.array(3)?;
+                e.u16(8)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::VoteDeleg(a, b) => {
+                e.array(3)?;
+                e.u16(9)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::StakeVoteDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(10)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::StakeRegDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(11)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::VoteRegDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(12)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::StakeVoteRegDeleg(a, b, c, d) => {
+                e.array(5)?;
+                e.u16(13)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+                e.encode_with(d, ctx)?;
+            }
+            Certificate::AuthCommitteeHot(a, b) => {
+                e.array(3)?;
+                e.u16(14)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::ResignCommitteeCold(a) => {
+                e.array(2)?;
+                e.u16(15)?;
+                e.encode_with(a, ctx)?;
+            }
+            Certificate::RegDRepCert(a, b, c) => {
+                e.array(4)?;
+                e.u16(16)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::UnRegDRepCert(a, b) => {
+                e.array(3)?;
+                e.u16(17)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::UpdateDRepCert(a, b) => {
+                e.array(3)?;
+                e.u16(18)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -512,13 +695,6 @@ pub struct PseudoTransactionBody<T1> {
     pub reference_inputs: Option<Vec<TransactionInput>>, // TODO: NON EMPTY SET
 
     // -- NEW IN CONWAY
-
-    // withdrawals = { + reward_account => coin }
-    // voting_procedures = { + voter => { + gov_action_id => voting_procedure } }
-    //     voting_procedure =
-    //   [ vote
-    //   , anchor / null
-    //   ]
     #[n(19)]
     pub voting_procedures: Option<VotingProcedures>,
 
@@ -565,12 +741,24 @@ impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Vote {
-    Yes, // TODO
+    No,
+    Yes,
+    Abstain,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Vote {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        todo!()
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        match d.u8()? {
+            0 => Ok(Self::No),
+            1 => Ok(Self::Yes),
+            2 => Ok(Self::Abstain),
+            _ => Err(minicbor::decode::Error::message(
+                "invalid number for Vote kind",
+            )),
+        }
     }
 }
 
@@ -578,9 +766,15 @@ impl<C> minicbor::Encode<C> for Vote {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
+        _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match &self {
+            Self::No => e.u8(0)?,
+            Self::Yes => e.u8(1)?,
+            Self::Abstain => e.u8(2)?,
+        };
+
+        Ok(())
     }
 }
 
@@ -667,29 +861,153 @@ pub enum GovAction {
     Information,
 }
 
-// TODO
-impl<'b, C> minicbor::Decode<'b, C> for GovAction {
+impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        todo!()
+        d.array()?;
+        let variant = d.u16()?;
+
+        match variant {
+            0 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(GovAction::ParameterChange(a, b))
+            }
+            1 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(GovAction::HardForkInitiation(a, b))
+            }
+            2 => {
+                let a = d.decode_with(ctx)?;
+                Ok(GovAction::TreasuryWithdrawals(a))
+            }
+            3 => {
+                let a = d.decode_with(ctx)?;
+                Ok(GovAction::NoConfidence(a))
+            }
+            4 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(GovAction::NewCommittee(a, b, c))
+            }
+            5 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(GovAction::NewConstitution(a, b))
+            }
+            6 => Ok(GovAction::Information),
+            _ => Err(minicbor::decode::Error::message(
+                "unknown variant id for certificate",
+            )),
+        }
     }
 }
 
-// TODO
-impl<C> minicbor::Encode<C> for GovAction {
+impl<C> minicbor::encode::Encode<C> for GovAction {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        match self {
+            GovAction::ParameterChange(a, b) => {
+                e.array(3)?;
+                e.u16(0)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            GovAction::HardForkInitiation(a, b) => {
+                e.array(3)?;
+                e.u16(1)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            GovAction::TreasuryWithdrawals(a) => {
+                e.array(2)?;
+                e.u16(2)?;
+                e.encode_with(a, ctx)?;
+            }
+            GovAction::NoConfidence(a) => {
+                e.array(2)?;
+                e.u16(3)?;
+                e.encode_with(a, ctx)?;
+            }
+            GovAction::NewCommittee(a, b, c) => {
+                e.array(4)?;
+                e.u16(4)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            GovAction::NewConstitution(a, b) => {
+                e.array(3)?;
+                e.u16(5)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            // TODO: CDDL SAYS JUST "6", no group (array)
+            GovAction::Information => {
+                e.array(1)?;
+                e.u16(6)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct Committee(KeyValuePairs<CommitteeColdCredential, Epoch>, UnitInterval); // TODO ENCODING
+pub struct Committee(KeyValuePairs<CommitteeColdCredential, Epoch>, UnitInterval);
+
+impl<'b, C> minicbor::Decode<'b, C> for Committee {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
+    }
+}
+
+impl<C> minicbor::Encode<C> for Committee {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(2)?;
+
+        e.encode_with(&self.0, ctx)?;
+        e.encode_with(&self.1, ctx)?;
+
+        Ok(())
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub struct Constitution(Anchor, Option<ScriptHash>); // TODO ENCODING
+pub struct Constitution(Anchor, Option<ScriptHash>);
+
+impl<'b, C> minicbor::Decode<'b, C> for Constitution {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
+    }
+}
+
+impl<C> minicbor::Encode<C> for Constitution {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(2)?;
+
+        e.encode_with(&self.0, ctx)?;
+        e.encode_with(&self.1, ctx)?;
+
+        Ok(())
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 pub enum Voter {
@@ -762,11 +1080,13 @@ impl<C> minicbor::encode::Encode<C> for Voter {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub struct Anchor(String, Hash<32>); // TODO ENCODING
+pub struct Anchor(String, Hash<32>);
 
 impl<'b, C> minicbor::Decode<'b, C> for Anchor {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        todo!()
+        d.array()?;
+
+        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
     }
 }
 
@@ -776,7 +1096,12 @@ impl<C> minicbor::Encode<C> for Anchor {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        e.array(2)?;
+
+        e.encode_with(&self.0, ctx)?;
+        e.encode_with(&self.1, ctx)?;
+
+        Ok(())
     }
 }
 
@@ -785,7 +1110,9 @@ pub struct GovActionId(Hash<32>, u32);
 
 impl<'b, C> minicbor::Decode<'b, C> for GovActionId {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        todo!()
+        d.array()?;
+
+        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
     }
 }
 
@@ -795,7 +1122,12 @@ impl<C> minicbor::Encode<C> for GovActionId {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        e.array(2)?;
+
+        e.encode_with(&self.0, ctx)?;
+        e.encode_with(&self.1, ctx)?;
+
+        Ok(())
     }
 }
 
@@ -1212,43 +1544,43 @@ impl<'b> From<MintedTx<'b>> for Tx {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use pallas_codec::minicbor;
+// #[cfg(test)]
+// mod tests {
+//     use pallas_codec::minicbor;
 
-    use super::{MintedBlock, TransactionOutput};
-    use crate::Fragment;
+//     use super::{MintedBlock, TransactionOutput};
+//     use crate::Fragment;
 
-    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+//     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
-    // #[test]
-    // fn block_isomorphic_decoding_encoding() {
-    //     let test_blocks = [
-    //         // TODO
-    //     ];
+//     #[test]
+//     fn block_isomorphic_decoding_encoding() {
+//         let test_blocks = [
+//             // TODO
+//         ];
 
-    //     for (idx, block_str) in test_blocks.iter().enumerate() {
-    //         println!("decoding test block {}", idx + 1);
-    //         let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
+//         for (idx, block_str) in test_blocks.iter().enumerate() {
+//             println!("decoding test block {}", idx + 1);
+//             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-    //         let block: BlockWrapper = minicbor::decode(&bytes[..])
-    //             .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
+//             let block: BlockWrapper = minicbor::decode(&bytes[..])
+//                 .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
 
-    //         let bytes2 = minicbor::to_vec(block)
-    //             .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
+//             let bytes2 = minicbor::to_vec(block)
+//                 .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
 
-    //         assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
-    //     }
-    // }
+//             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+//         }
+//     }
 
-    // #[test]
-    // fn fragments_decoding() {
-    //     // peculiar array of outputs used in an hydra transaction
-    //     let bytes = hex::decode(hex).unwrap();
-    //     let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
+//     #[test]
+//     fn fragments_decoding() {
+//         // peculiar array of outputs used in an hydra transaction
+//         let bytes = hex::decode(hex).unwrap();
+//         let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
 
-    //     dbg!(outputs);
+//         dbg!(outputs);
 
-    //     // add any loose fragment tests here
-    // }
-}
+//         // add any loose fragment tests here
+//     }
+// }
