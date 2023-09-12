@@ -93,7 +93,7 @@ pub fn from_file(path: &std::path::Path) -> Result<GenesisFile, std::io::Error> 
 
 use base64::Engine;
 
-pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, u64)> {
+pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, ByronAddress, u64)> {
     config
         .avvm_distr
         .iter()
@@ -117,7 +117,7 @@ pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, u64)> {
 
             let txid = pallas_crypto::hash::Hasher::<256>::hash_cbor(&addr);
 
-            (txid, amount)
+            (txid, addr, amount)
         })
         .collect()
 }
@@ -141,8 +141,6 @@ pub fn genesis_non_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, u64)> {
 mod tests {
     use super::*;
 
-    const MAINNET_GENESIS_AVVM_PUBKEY: &str = &"-Eot4a-P3RKYYdZwisLhe7iflHhy9H6JwCsizjT0UQE=";
-
     #[test]
     pub fn test_preview_json_loads() {
         let path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
@@ -152,7 +150,7 @@ mod tests {
 
         println!("{:?}", path);
 
-        let f = from_file(&path).unwrap();
+        let _ = from_file(&path).unwrap();
     }
 
     #[test]
@@ -182,9 +180,21 @@ mod tests {
 
         let mut found = false;
 
-        for (hash, _) in utxos {
-            let hs = format!("{}", hash);
-            found |= hs == "3a33ff3e51cf2a67b973945442c35181d5a21b6c657d760acba62f48ad7d1d69"
+        // URVk8FxX6Ik9z-Cub09oOxMkp6FwNq27kJUXbjJnfsQ=
+        let target_hash = "0ae3da29711600e94a33fb7441d2e76876a9a1e98b5ebdefbf2e3bc535617616";
+        let target_addr = ByronAddress::from_base58(
+            "Ae2tdPwUPEZKQuZh2UndEoTKEakMYHGNjJVYmNZgJk2qqgHouxDsA5oT83n",
+        )
+        .unwrap();
+        let target_amt = 2463071701000000;
+
+        for (hash, addr, amount) in utxos {
+            if (hash.to_string(), &addr, amount)
+                == (target_hash.to_string(), &target_addr, target_amt)
+            {
+                found = true;
+                break;
+            }
         }
 
         assert!(found == true)

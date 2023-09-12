@@ -343,7 +343,7 @@ mod tests {
         "Ae2tdPwUPEZLs4HtbuNey7tK4hTKrwNwYtGqp7bDfCy2WdR3P6735W5Yfpe",
     ];
 
-    const ROOT_HASH: &str = "7e9ee4a9527dea9091e2d580edd6716888c42f75d96276290f98fe0b";
+    // const ROOT_HASH: &str = "7e9ee4a9527dea9091e2d580edd6716888c42f75d96276290f98fe0b";
 
     //const NON_AVVM_BYRON_ADDRESS_FROM_PREVIEW_GENESIS =
     // "FHnt4NL7yPXjpZtYj1YUiX9QYYUZGXDT9gA2PJXQFkTSMx3EgawXK5BUrCHdhe2";
