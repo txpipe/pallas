@@ -1,4 +1,4 @@
-//! Ledger primitives and cbor codec for the Alonzo era
+//! Ledger primitives and cbor codec for the Babbage era
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Babbage CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/babbage/test-suite/cddl-files/babbage.cddl) file in IOHK repo.
 
