@@ -20,7 +20,10 @@ pub struct GenericClient<Tx, Reject> {
     pd_reject: PhantomData<Reject>,
 }
 
-impl<Tx, Reject> GenericClient<Tx, Reject> where Message<Tx, Reject>: Fragment {
+impl<Tx, Reject> GenericClient<Tx, Reject>
+where
+    Message<Tx, Reject>: Fragment,
+{
     /// Constructs a new LocalTxSubmission `Client` instance.
     ///
     /// # Arguments
@@ -138,7 +141,11 @@ impl<Tx, Reject> GenericClient<Tx, Reject> where Message<Tx, Reject>: Fragment {
     async fn recv_message(&mut self) -> Result<Message<Tx, Reject>, Error<Reject>> {
         self.assert_agency_is_theirs()?;
 
-        let msg = self.muxer.recv_full_msg().await.map_err(Error::ChannelError)?;
+        let msg = self
+            .muxer
+            .recv_full_msg()
+            .await
+            .map_err(Error::ChannelError)?;
 
         self.assert_inbound_state(&msg)?;
 

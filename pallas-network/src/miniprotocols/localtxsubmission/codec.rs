@@ -1,10 +1,18 @@
-use pallas_codec::minicbor::{Decode, decode, Decoder, Encode, encode, Encoder};
 use pallas_codec::minicbor::data::Tag;
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::miniprotocols::localtxsubmission::{EraTx, Message};
 
-impl<Tx, Reject> Encode<()> for Message<Tx, Reject> where Tx: Encode<()>, Reject: Encode<()> {
-    fn encode<W: encode::Write>(&self, e: &mut Encoder<W>, _ctx: &mut ()) -> Result<(), encode::Error<W::Error>> {
+impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
+where
+    Tx: Encode<()>,
+    Reject: Encode<()>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::SubmitTx(tx) => {
                 e.array(2)?.u16(0)?;

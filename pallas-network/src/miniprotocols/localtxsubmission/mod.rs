@@ -1,6 +1,7 @@
 pub use client::*;
+pub use codec::*;
 pub use protocol::*;
 
-mod protocol;
 mod client;
 mod codec;
+mod protocol;
