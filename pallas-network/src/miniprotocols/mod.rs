@@ -8,5 +8,6 @@ pub mod handshake;
 pub mod localstate;
 pub mod txmonitor;
 pub mod txsubmission;
+pub mod localtxsubmission;
 
 pub use common::*;
