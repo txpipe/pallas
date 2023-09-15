@@ -201,6 +201,17 @@ impl<'b> MultiEraBlock<'b> {
             _ => None,
         }
     }
+
+    /// Return the size of the serialised block in bytes
+    pub fn size(&self) -> usize {
+        match self {
+            MultiEraBlock::EpochBoundary(b) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::Byron(b) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::AlonzoCompatible(b, _) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::Babbage(b) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::Conway(b) => minicbor::to_vec(b).unwrap().len(),
+        }
+    }
 }
 
 #[cfg(test)]
