@@ -14,9 +14,6 @@ pub const PREVIEW_MAGIC: u64 = 2;
 /// Well-known magic for pre-production
 pub const PRE_PRODUCTION_MAGIC: u64 = 1;
 
-/// Well-known magic for sanchonet
-pub const SANCHONET_MAGIC: u64 = 4;
-
 /// Bitflag for client-side version of a known protocol
 /// # Example
 /// ```

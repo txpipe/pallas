@@ -16,10 +16,6 @@ pub const PREVIEW_NETWORK_ID: u64 = 0;
 pub const PRE_PRODUCTION_MAGIC: u64 = 1;
 pub const PRE_PRODUCTION_NETWORK_ID: u64 = 0;
 
-/// Well-known params for sanchonet
-pub const SANCHONET_MAGIC: u64 = 4;
-pub const SANCHONET_NETWORK_ID: u64 = 0;
-
 /// Well-known information about specific networks
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GenesisValues {
@@ -116,25 +112,6 @@ impl GenesisValues {
         }
     }
 
-    /// Hardcoded values for the sanchonet testnet
-    pub fn sanchonet() -> Self {
-        GenesisValues {
-            magic: SANCHONET_MAGIC,
-            network_id: SANCHONET_NETWORK_ID,
-            byron_epoch_length: 432000,
-            byron_slot_length: 20,
-            byron_known_slot: 0,
-            byron_known_hash: "".to_string(),
-            byron_known_time: 1655769600,
-            shelley_epoch_length: 432000,
-            shelley_slot_length: 1,
-            shelley_known_slot: 86400,
-            shelley_known_hash: "ebce0332eba2994de467d3540a5df87f01b4942f604edd1465619a43f59aeb02"
-                .to_string(),
-            shelley_known_time: 1655769600,
-        }
-    }
-
     /// Uses the value of the magic to return either mainnet or testnet
     /// hardcoded values.
     pub fn from_magic(magic: u64) -> Option<GenesisValues> {
@@ -143,7 +120,6 @@ impl GenesisValues {
             TESTNET_MAGIC => Some(Self::testnet()),
             PREVIEW_MAGIC => Some(Self::preview()),
             PRE_PRODUCTION_MAGIC => Some(Self::preprod()),
-            SANCHONET_MAGIC => Some(Self::sanchonet()),
             _ => None,
         }
     }
