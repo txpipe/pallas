@@ -344,7 +344,7 @@ mod tests {
     fn tx_wits_plutus_v1_script_hashes_as_cli() {
         let tx_bytecode_hex = include_str!("../../test_data/scriptwit.tx");
         let bytecode = hex::decode(tx_bytecode_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Babbage, &bytecode).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Babbage, &bytecode).unwrap();
 
         let generated = tx
             .plutus_v1_scripts()
@@ -372,7 +372,7 @@ mod tests {
 
         let tx_hex = include_str!("../../test_data/babbage1.tx");
         let tx_bytes = hex::decode(tx_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Babbage, &tx_bytes).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Babbage, &tx_bytes).unwrap();
         let data = tx.plutus_data();
 
         for (datum, expected_hash) in data.iter().zip(expected) {
@@ -386,7 +386,7 @@ mod tests {
 
         let tx_hex = include_str!("../../test_data/babbage2.tx");
         let tx_bytes = hex::decode(tx_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Babbage, &tx_bytes).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Babbage, &tx_bytes).unwrap();
 
         for output in tx.outputs() {
             if let Some(MintedDatumOption::Data(datum)) = output.datum() {

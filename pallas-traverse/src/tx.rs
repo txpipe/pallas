@@ -10,7 +10,7 @@ use pallas_primitives::{
 
 use crate::{
     Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
-    MultiEraSigners, MultiEraTx, MultiEraWithdrawals, OriginalHash,
+    MultiEraSigners, MultiEraTx, MultiEraWithdrawals, OriginalHash, Error,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -36,7 +36,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn decode(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
+    pub fn decode_for_era(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
         match era {
             Era::Byron => {
                 let tx = minicbor::decode(cbor)?;
@@ -58,6 +58,30 @@ impl<'b> MultiEraTx<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(MultiEraTx::Conway(tx))
             }
+        }
+    }
+
+    /// Try decode a transaction via every era's encoding format, starting with
+    /// the most recent and returning on first success, or None if none are
+    /// successful
+    pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
+        if let Ok(tx) = minicbor::decode(cbor) {
+            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))))
+        }
+
+        if let Ok(tx) = minicbor::decode(cbor) {
+            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))))
+        }
+
+        if let Ok(tx) = minicbor::decode(cbor) {
+            // Shelley/Allegra/Mary/Alonzo will all decode to Alonzo
+            return Ok(MultiEraTx::AlonzoCompatible(Box::new(Cow::Owned(tx)), Era::Alonzo))
+        }
+
+        if let Ok(tx) = minicbor::decode(cbor) {
+            Ok(MultiEraTx::Byron(Box::new(Cow::Owned(tx))))
+        } else {
+            Err(Error::unknown_cbor(cbor))
         }
     }
 
