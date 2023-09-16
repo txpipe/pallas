@@ -13,6 +13,8 @@ pub enum Message<Tx, Reject> {
     Done,
 }
 
-pub type Tx = Vec<u8>;
+// The bytes of a transaction with an era number
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct EraTx(pub u16, pub Vec<u8>);
 
 pub type RejectReason = Vec<u8>;

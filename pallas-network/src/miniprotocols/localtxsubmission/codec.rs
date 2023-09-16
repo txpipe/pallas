@@ -1,11 +1,12 @@
-use pallas_codec::minicbor::{decode, Decode, Decoder, encode, Encode, Encoder};
+use pallas_codec::minicbor::data::Tag;
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
-use crate::miniprotocols::localtxsubmission::Message;
+use crate::miniprotocols::localtxsubmission::{EraTx, Message};
 
 impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
-    where
-        Tx: Encode<()>,
-        Reject: Encode<()>,
+where
+    Tx: Encode<()>,
+    Reject: Encode<()>,
 {
     fn encode<W: encode::Write>(
         &self,
@@ -36,7 +37,7 @@ impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
 }
 
 impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<Tx, Reject> {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
         d.array()?;
         let label = d.u16()?;
         match label {
@@ -52,5 +53,31 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             3 => Ok(Message::Done),
             _ => Err(decode::Error::message("can't decode Message")),
         }
+    }
+}
+
+impl<'b> Decode<'b, ()> for EraTx {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+        let era = d.u16()?;
+        let tag = d.tag()?;
+        if tag != Tag::Cbor {
+            return Err(decode::Error::message("Expected encoded CBOR data item"));
+        }
+        Ok(EraTx(era, d.bytes()?.to_vec()))
+    }
+}
+
+impl Encode<()> for EraTx {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+        e.u16(self.0)?;
+        e.tag(Tag::Cbor)?;
+        e.bytes(&self.1)?;
+        Ok(())
     }
 }
