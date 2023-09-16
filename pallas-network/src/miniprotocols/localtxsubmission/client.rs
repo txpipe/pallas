@@ -69,11 +69,6 @@ where
         &self.state
     }
 
-    /// Checks if the client is done.
-    fn is_done(&self) -> bool {
-        matches!(self.state, State::Done)
-    }
-
     /// Checks if the client has agency.
     fn has_agency(&self) -> bool {
         match self.state() {

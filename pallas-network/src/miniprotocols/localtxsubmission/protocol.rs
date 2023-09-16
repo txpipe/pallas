@@ -1,5 +1,3 @@
-use pallas_codec::minicbor::data::Int;
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,
@@ -17,4 +15,4 @@ pub enum Message<Tx, Reject> {
 
 pub type Tx = Vec<u8>;
 
-pub type RejectReason = Int;
+pub type RejectReason = Vec<u8>;
