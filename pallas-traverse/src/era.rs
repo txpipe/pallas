@@ -13,6 +13,7 @@ impl Era {
             Feature::CIP31 => self.ge(&Era::Babbage),
             Feature::CIP32 => self.ge(&Era::Babbage),
             Feature::CIP33 => self.ge(&Era::Babbage),
+            // TODO: Conway features
         }
     }
 }
@@ -31,6 +32,7 @@ impl TryFrom<u16> for Era {
             4 => Ok(Era::Mary),
             5 => Ok(Era::Alonzo),
             6 => Ok(Era::Babbage),
+            7 => Ok(Era::Conway),
             x => Err(crate::Error::UnknownEra(x)),
         }
     }
