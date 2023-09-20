@@ -13,14 +13,14 @@ The following architectural decisions were made for this particular Rust impleme
 ## Development Status
 
 | mini-protocol                               | initiator | responder |
-| ------------------------------------------- | --------- | --------- |
+| ------------------------------------------- |-----------| --------- |
 | block-fetch                                 | done      | planned   |
 | chain-sync                                  | done      | planned   |
 | [handshake](src/handshake/README.md)        | done      | done      |
 | local-state                                 | done      | planned   |
 | [tx-submission](src/txsubmission/README.md) | done      | done      |
 | local tx monitor                            | done      | planned   |
-| local-tx-submission                         | ongoing   | planned   |
+| local-tx-submission                         | done      | planned   |
 
 ## Implementation Details
 
