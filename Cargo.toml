@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "pallas-applying",
     "pallas-codec",
     "pallas-addresses",
     "pallas-network",
