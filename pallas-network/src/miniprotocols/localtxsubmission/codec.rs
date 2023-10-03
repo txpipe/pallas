@@ -1,12 +1,12 @@
-use pallas_codec::minicbor::{decode, Decode, Decoder, encode, Encode, Encoder};
 use pallas_codec::minicbor::data::Tag;
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
 
 impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
-    where
-        Tx: Encode<()>,
-        Reject: Encode<()>,
+where
+    Tx: Encode<()>,
+    Reject: Encode<()>,
 {
     fn encode<W: encode::Write>(
         &self,
@@ -97,14 +97,14 @@ impl Encode<()> for RejectReason {
     ) -> Result<(), encode::Error<W::Error>> {
         e.writer_mut()
             .write_all(&self.0)
-            .map_err(|w_err| encode::Error::write(w_err))?;
+            .map_err(encode::Error::write)?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use pallas_codec::{Fragment, minicbor};
+    use pallas_codec::{minicbor, Fragment};
 
     use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
     use crate::multiplexer::Error;
@@ -117,8 +117,8 @@ mod tests {
     }
 
     fn try_decode_message<M>(buffer: &mut Vec<u8>) -> Result<Option<M>, Error>
-        where
-            M: Fragment,
+    where
+        M: Fragment,
     {
         let mut decoder = minicbor::Decoder::new(buffer);
         let maybe_msg = decoder.decode();

@@ -1,29 +1,24 @@
-use std::{borrow::Cow, vec::Vec};
 use rand::Rng;
+use std::{borrow::Cow, vec::Vec};
 
 use pallas_applying::{
-    validate,
     types::{ByronProtParams, MultiEraProtParams},
-    UTxOs,
-    ValidationResult
+    validate, UTxOs, ValidationResult,
 };
 use pallas_codec::{
-    minicbor::{bytes::ByteVec, decode::{Decode, Decoder}, encode},
-    utils::{CborWrap, EmptyMap, KeepRaw, MaybeIndefArray, TagWrap}
+    minicbor::{
+        bytes::ByteVec,
+        decode::{Decode, Decoder},
+        encode,
+    },
+    utils::{CborWrap, EmptyMap, KeepRaw, MaybeIndefArray, TagWrap},
 };
 use pallas_crypto::hash::Hash;
 use pallas_primitives::byron::{
-    Address,
-    Attributes,
-    MintedTxPayload as ByronTxPayload,
-    Witnesses as ByronWitnesses,
-    Tx as ByronTx,
-    TxId as ByronTxId,
-    TxIn as ByronTxIn,
-    TxOut as ByronTxOut
+    Address, Attributes, MintedTxPayload as ByronTxPayload, Tx as ByronTx, TxId as ByronTxId,
+    TxIn as ByronTxIn, TxOut as ByronTxOut, Witnesses as ByronWitnesses,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
-
 
 #[cfg(test)]
 mod byron_tests {
@@ -31,7 +26,7 @@ mod byron_tests {
 
     #[test]
     // Note that:
-    //      i)   the transaction input contains 100000 lovelace, 
+    //      i)   the transaction input contains 100000 lovelace,
     //      ii)  the minimum_fee_constant protocol parameter is 7,
     //      iii) the minimum_fee_factor protocol parameter is 11, and
     //      iv)  the size of the transaction is 82 bytes—it is easy to verify that
@@ -48,20 +43,14 @@ mod byron_tests {
         add_byron_tx_out(&mut tx_outs, &tx_out);
         let mut utxos: UTxOs = new_utxos();
         // input_tx_out is the ByronTxOut associated with tx_in.
-        let input_tx_out: ByronTxOut = new_byron_tx_out(
-            new_address(random_address_payload(), 0),
-            100000
-        );
+        let input_tx_out: ByronTxOut =
+            new_byron_tx_out(new_address(random_address_payload(), 0), 100000);
         add_to_utxo(&mut utxos, tx_in, input_tx_out);
         let validation_result = mk_byron_tx_and_validate(
-            &new_byron_tx(
-                tx_ins,
-                tx_outs,
-                empty_byron_attributes()
-            ),
+            &new_byron_tx(tx_ins, tx_outs, empty_byron_attributes()),
             &empty_byron_witnesses(),
             &utxos,
-            &protocol_params
+            &protocol_params,
         );
         match validation_result {
             Ok(()) => (),
@@ -94,7 +83,7 @@ fn new_tx_in(tx_id: ByronTxId, index: u32) -> ByronTxIn {
 
 fn add_byron_tx_in(ins: &mut ByronTxIns, new_in: &ByronTxIn) {
     match ins {
-        MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_in.clone())
+        MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_in.clone()),
     }
 }
 
@@ -127,7 +116,7 @@ fn new_byron_tx_out(address: Address, amount: u64) -> ByronTxOut {
 
 fn add_byron_tx_out(outs: &mut ByronTxOuts, new_out: &ByronTxOut) {
     match outs {
-        MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_out.clone())
+        MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_out.clone()),
     }
 }
 
@@ -148,38 +137,42 @@ fn mk_byron_tx_and_validate(
     btx: &ByronTx,
     bwit: &ByronWitnesses,
     utxos: &UTxOs,
-    prot_pps: &ByronProtParams
+    prot_pps: &ByronProtParams,
 ) -> ValidationResult {
     // Encode btx and decode into a KeepRaw<ByronTx> value.
     let mut btx_buf: Vec<u8> = Vec::new();
     match encode(btx, &mut btx_buf) {
         Ok(_) => (),
-        Err(err) => assert!(false, "Unable to encode ByronTx ({:?}).", err)
+        Err(err) => assert!(false, "Unable to encode ByronTx ({:?}).", err),
     };
     let kpbtx: KeepRaw<ByronTx> =
         match Decode::decode(&mut Decoder::new(&btx_buf.as_slice()), &mut ()) {
             Ok(kp) => kp,
-            Err(err) => panic!("Unable to decode ByronTx ({:?}).", err)
-    };
+            Err(err) => panic!("Unable to decode ByronTx ({:?}).", err),
+        };
 
     // Encode bwit and decode into a KeepRaw<ByronWitnesses> value.
     let mut wit_buf: Vec<u8> = Vec::new();
     match encode(bwit, &mut wit_buf) {
         Ok(_) => (),
-        Err(err) => assert!(false, "Unable to encode ByronWitnesses ({:?}).", err)
+        Err(err) => assert!(false, "Unable to encode ByronWitnesses ({:?}).", err),
     };
     let kpbwit: KeepRaw<ByronWitnesses> =
         match Decode::decode(&mut Decoder::new(&wit_buf.as_slice()), &mut ()) {
             Ok(kp) => kp,
-            Err(err) => panic!("Unable to decode ByronWitnesses ({:?}).", err)
-    };
+            Err(err) => panic!("Unable to decode ByronWitnesses ({:?}).", err),
+        };
 
     let mtxp: ByronTxPayload = ByronTxPayload {
         transaction: kpbtx,
-        witness: kpbwit
+        witness: kpbwit,
     };
     let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
-    validate(&metx, utxos, &MultiEraProtParams::Byron(Box::new(Cow::Borrowed(&prot_pps))))
+    validate(
+        &metx,
+        utxos,
+        &MultiEraProtParams::Byron(Box::new(Cow::Borrowed(&prot_pps))),
+    )
 }
 
 fn new_byron_tx(ins: ByronTxIns, outs: ByronTxOuts, attrs: Attributes) -> ByronTx {
