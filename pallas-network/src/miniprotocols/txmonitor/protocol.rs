@@ -1,4 +1,4 @@
-use pallas_codec::utils::{CborWrap, TagWrap};
+use pallas_codec::utils::TagWrap;
 
 pub type Slot = u64;
 pub type TxId = String;
