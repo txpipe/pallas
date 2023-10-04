@@ -62,7 +62,7 @@ pub enum AddrType {
     PubKey,
     Script,
     Redeem,
-    Other(u64),
+    Other(u32),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for AddrType {
@@ -70,7 +70,7 @@ impl<'b, C> minicbor::Decode<'b, C> for AddrType {
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
     ) -> Result<Self, minicbor::decode::Error> {
-        let variant = d.u64()?;
+        let variant = d.u32()?;
 
         match variant {
             0 => Ok(AddrType::PubKey),
@@ -88,10 +88,10 @@ impl<C> minicbor::Encode<C> for AddrType {
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            AddrType::PubKey => e.u64(0)?,
-            AddrType::Script => e.u64(1)?,
-            AddrType::Redeem => e.u64(2)?,
-            AddrType::Other(x) => e.u64(*x)?,
+            AddrType::PubKey => e.u32(0)?,
+            AddrType::Script => e.u32(1)?,
+            AddrType::Redeem => e.u32(2)?,
+            AddrType::Other(x) => e.u32(*x)?,
         };
 
         Ok(())
@@ -149,6 +149,60 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+pub enum SpendingData {
+    PubKey(ByteVec),
+    Script(ByteVec),
+    Redeem(ByteVec),
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for SpendingData {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        let key = d.u8()?;
+
+        match key {
+            0 => Ok(Self::PubKey(d.decode_with(ctx)?)),
+            1 => Ok(Self::Script(d.decode_with(ctx)?)),
+            2 => Ok(Self::Redeem(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
+                "unknown tag for spending data",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for SpendingData {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(2)?;
+
+        match self {
+            Self::PubKey(x) => {
+                e.u8(0)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            Self::Script(x) => {
+                e.u8(1)?;
+                e.encode(x)?;
+
+                Ok(())
+            }
+            Self::Redeem(b) => {
+                e.u8(2)?;
+                e.encode(b)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
 pub type AddrAttrs = OrderPreservingProperties<AddrAttrProperty>;
 
 #[derive(Debug, Encode, Decode, Clone, PartialEq, Eq, PartialOrd)]
@@ -161,6 +215,62 @@ pub struct AddressPayload {
 
     #[n(2)]
     pub addrtype: AddrType,
+}
+
+use sha3::{Digest, Sha3_256};
+impl AddressPayload {
+    pub fn hash_address_id(
+        addrtype: &AddrType,
+        spending_data: &SpendingData,
+        attributes: &AddrAttrs,
+    ) -> Hash<28> {
+        let parts = (addrtype, spending_data, attributes);
+        let buf = minicbor::to_vec(parts).unwrap();
+
+        let mut sha = Sha3_256::new();
+        sha.update(buf);
+        let sha = sha.finalize();
+
+        pallas_crypto::hash::Hasher::<224>::hash(&sha)
+    }
+
+    pub fn new(addrtype: AddrType, spending_data: SpendingData, attributes: AddrAttrs) -> Self {
+        AddressPayload {
+            root: Self::hash_address_id(&addrtype, &spending_data, &attributes),
+            attributes,
+            addrtype,
+        }
+    }
+
+    // bootstrap era + no hdpayload address
+    pub fn new_redeem(
+        pubkey: pallas_crypto::key::ed25519::PublicKey,
+        network_tag: Option<Vec<u8>>,
+    ) -> Self {
+        let spending_data = SpendingData::Redeem(ByteVec::from(Vec::from(pubkey.as_ref())));
+
+        let attributes = match network_tag {
+            Some(x) => vec![
+                //AddrAttrProperty::DerivationPath(ByteVec::from(vec![])),
+                //AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
+                AddrAttrProperty::NetworkTag(x.into()),
+            ]
+            .into(),
+            None => vec![
+                //AddrAttrProperty::DerivationPath(ByteVec::from(vec![])),
+                //AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
+            ]
+            .into(),
+        };
+
+        Self::new(AddrType::Redeem, spending_data, attributes)
+    }
+}
+
+impl From<AddressPayload> for ByronAddress {
+    fn from(value: AddressPayload) -> Self {
+        ByronAddress::from_decoded(value)
+    }
 }
 
 /// New type wrapping a Byron address primitive
@@ -183,31 +293,9 @@ impl ByronAddress {
         }
     }
 
-    pub fn new_bootstrap(
-        root: AddressId,
-        addrtype: AddrType,
-        network_tag: Option<Vec<u8>>,
-    ) -> Self {
-        let payload = AddressPayload {
-            root,
-            attributes: match network_tag {
-                Some(x) => vec![
-                    AddrAttrProperty::AddrDistr(AddrDistr::BootstrapEraDistribution),
-                    AddrAttrProperty::NetworkTag(x.into()),
-                ]
-                .into(),
-                None => vec![AddrAttrProperty::AddrDistr(
-                    AddrDistr::BootstrapEraDistribution,
-                )]
-                .into(),
-            },
-            addrtype,
-        };
-
+    pub fn from_decoded(payload: AddressPayload) -> Self {
         let payload = minicbor::to_vec(payload).unwrap();
-
         let c = CRC.checksum(&payload);
-
         ByronAddress::new(&payload, c)
     }
 
@@ -249,25 +337,55 @@ impl ByronAddress {
 mod tests {
     use super::*;
 
-    const TEST_VECTOR: &str = "37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na";
+    const TEST_VECTORS: [&str; 3] = [
+        "37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na",
+        "DdzFFzCqrht7PQiAhzrn6rNNoADJieTWBt8KeK9BZdUsGyX9ooYD9NpMCTGjQoUKcHN47g8JMXhvKogsGpQHtiQ65fZwiypjrC6d3a4Q",
+        "Ae2tdPwUPEZLs4HtbuNey7tK4hTKrwNwYtGqp7bDfCy2WdR3P6735W5Yfpe",
+    ];
 
-    const ROOT_HASH: &str = "7e9ee4a9527dea9091e2d580edd6716888c42f75d96276290f98fe0b";
+    // const ROOT_HASH: &str = "7e9ee4a9527dea9091e2d580edd6716888c42f75d96276290f98fe0b";
+
+    //const NON_AVVM_BYRON_ADDRESS_FROM_PREVIEW_GENESIS =
+    // "FHnt4NL7yPXjpZtYj1YUiX9QYYUZGXDT9gA2PJXQFkTSMx3EgawXK5BUrCHdhe2";
 
     #[test]
     fn roundtrip_base58() {
-        let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
-        let ours = addr.to_base58();
-        assert_eq!(TEST_VECTOR, ours);
+        for vector in TEST_VECTORS {
+            let addr = ByronAddress::from_base58(vector).unwrap();
+            let ours = addr.to_base58();
+            assert_eq!(vector, ours);
+        }
     }
 
     #[test]
-    fn payload_matches() {
-        let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
-
-        let crc2 = CRC.checksum(addr.payload.as_ref());
-        assert_eq!(crc2, addr.crc);
-
-        let payload = addr.decode().unwrap();
-        assert_eq!(payload.root.to_string(), ROOT_HASH);
+    fn roundtrip_cbor() {
+        for vector in TEST_VECTORS {
+            let addr = ByronAddress::from_base58(vector).unwrap();
+            let addr = addr.decode().unwrap();
+            let addr = ByronAddress::from_decoded(addr);
+            let ours = addr.to_base58();
+            assert_eq!(vector, ours);
+        }
     }
+
+    #[test]
+    fn payload_crc_matches() {
+        for vector in TEST_VECTORS {
+            let addr = ByronAddress::from_base58(vector).unwrap();
+            let crc2 = CRC.checksum(addr.payload.as_ref());
+            assert_eq!(crc2, addr.crc);
+        }
+    }
+
+    // #[test]
+    // fn address_id_matches() {
+    //     let addr = ByronAddress::from_base58(TEST_VECTOR).unwrap();
+
+    //     let payload = addr.decode().unwrap();
+    //     let computed =
+    //         AddressPayload::hash_address_id(&payload.addrtype, spending_data,
+    // &payload.attributes);
+
+    //     assert_eq!(payload.root.to_string(), ROOT_HASH);
+    // }
 }
