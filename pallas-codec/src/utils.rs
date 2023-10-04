@@ -37,7 +37,7 @@ impl<C, const N: usize> minicbor::Encode<C> for SkipCbor<N> {
 /// canonicalization for isomorphic decoding / encoding operators, we use a Vec
 /// as the underlaying struct for storage of the items (as opposed to a BTreeMap
 /// or HashMap).
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(from = "Vec::<(K, V)>", into = "Vec::<(K, V)>")]
 pub enum KeyValuePairs<K, V>
 where
@@ -755,6 +755,18 @@ where
 #[serde(try_from = "String")]
 pub struct Bytes(#[n(0)] minicbor::bytes::ByteVec);
 
+impl Default for Bytes {
+    fn default() -> Self {
+        Self(Vec::default().into())
+    }
+}
+
+impl<'a> From<&'a [u8]> for Bytes {
+    fn from(value: &'a [u8]) -> Self {
+        Self(value.to_vec().into())
+    }
+}
+
 impl From<Vec<u8>> for Bytes {
     fn from(xs: Vec<u8>) -> Self {
         Bytes(minicbor::bytes::ByteVec::from(xs))
@@ -784,6 +796,14 @@ impl TryFrom<String> for Bytes {
     }
 }
 
+impl<'a> TryFrom<&'a str> for Bytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Bytes::try_from(value.to_string())
+    }
+}
+
 impl From<Bytes> for String {
     fn from(b: Bytes) -> Self {
         hex::encode(b.deref())
@@ -799,7 +819,7 @@ impl fmt::Display for Bytes {
 }
 
 #[derive(
-    Serialize, Deserialize, Clone, Copy, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord,
+    Serialize, Deserialize, Clone, Copy, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 #[cbor(transparent)]
 #[serde(into = "i128")]

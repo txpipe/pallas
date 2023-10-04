@@ -78,7 +78,9 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash,
+)]
 pub struct TransactionInput {
     #[n(0)]
     pub transaction_id: Hash<32>,
@@ -636,6 +638,16 @@ pub enum NetworkId {
     Two,
 }
 
+impl NetworkId {
+    pub fn from_u64(value: u64) -> Option<Self> {
+        match value {
+            0 => Some(NetworkId::One),
+            1 => Some(NetworkId::Two),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[cbor(index_only)]
 pub enum Language {
@@ -850,7 +862,7 @@ impl AsRef<[u8]> for PlutusScript {
 
 /// Defined to encode PlutusData bytestring as it is done in the canonical
 /// plutus implementation
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
 pub struct BoundedBytes(Vec<u8>);
@@ -938,7 +950,7 @@ big_uint = #6.2(bounded_bytes) ; New
 big_nint = #6.3(bounded_bytes) ; New
  */
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum BigInt {
     Int(Int),
     BigUInt(BoundedBytes),
@@ -1001,7 +1013,7 @@ impl<C> minicbor::encode::Encode<C> for BigInt {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
     Map(KeyValuePairs<PlutusData, PlutusData>),
@@ -1119,7 +1131,7 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct Constr<A> {
     pub tag: u64,
     pub any_constructor: Option<u64>,

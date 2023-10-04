@@ -1,0 +1,29 @@
+[package]
+name = "pallas-txbuilder"
+version = "0.19.0-alpha.2"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-txbuilder"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+  "Santiago Carmuega <santiago@carmuega.me>",
+  "Cainã Costa <me@cfcosta.com>"
+]
+
+[dependencies]
+hex = "0.4.3"
+indexmap = "2.0.0"
+minicbor = { version = "0.19.1", features = ["minicbor-derive"] }
+pallas-codec = { path = "../pallas-codec", version = "0.19.0-alpha.2" }
+pallas-crypto = { path = "../pallas-crypto", version = "0.19.0-alpha.2" }
+pallas-primitives = { path = "../pallas-primitives", version = "0.19.0-alpha.2" }
+pallas-traverse = { path = "../pallas-traverse", version = "0.19.0-alpha.2" }
+thiserror = "1.0.44"
+
+[dev-dependencies]
+serde_cbor = "0.11.2"
+insta = { version = "1.31.0", features = ["yaml", "redactions"] }
+assert_matches = "1.5.0"
+rand = "0.8.5"
