@@ -137,6 +137,13 @@ pub fn genesis_non_avvm_utxos(config: &GenesisFile) -> Vec<GenesisUtxo> {
         .collect()
 }
 
+pub fn genesis_utxos(config: &GenesisFile) -> Vec<GenesisUtxo> {
+    let avvm = genesis_avvm_utxos(config);
+    let non_avvm = genesis_non_avvm_utxos(config);
+
+    [avvm, non_avvm].concat().to_vec()
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
