@@ -18,3 +18,4 @@ pallas-addresses = { version = "=0.19.1", path = "../pallas-addresses/" }
 pallas-crypto = { version = "=0.19.1", path = "../pallas-crypto/" }
 pallas-codec = { version = "=0.19.1", path = "../pallas-codec/" }
 pallas-utxorpc = { version = "=0.19.1", path = "../pallas-utxorpc/" }
+pallas-configs = { version = "=0.19.1", path = "../pallas-configs/" }

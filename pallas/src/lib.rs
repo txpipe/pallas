@@ -23,6 +23,9 @@ pub mod ledger {
 
     #[doc(inline)]
     pub use pallas_addresses as addresses;
+
+    #[doc(inline)]
+    pub use pallas_configs as configs;
 }
 
 #[doc(inline)]
