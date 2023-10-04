@@ -93,7 +93,9 @@ pub fn from_file(path: &std::path::Path) -> Result<GenesisFile, std::io::Error> 
 
 use base64::Engine;
 
-pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, ByronAddress, u64)> {
+pub type GenesisUtxo = (Hash<32>, ByronAddress, u64);
+
+pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<GenesisUtxo> {
     config
         .avvm_distr
         .iter()
@@ -113,8 +115,6 @@ pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, ByronAddress, 
 
             let addr: pallas_addresses::ByronAddress = addr.into();
 
-            dbg!(addr.to_base58());
-
             let txid = pallas_crypto::hash::Hasher::<256>::hash_cbor(&addr);
 
             (txid, addr, amount)
@@ -122,7 +122,7 @@ pub fn genesis_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, ByronAddress, 
         .collect()
 }
 
-pub fn genesis_non_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, u64)> {
+pub fn genesis_non_avvm_utxos(config: &GenesisFile) -> Vec<GenesisUtxo> {
     config
         .non_avvm_balances
         .iter()
@@ -132,71 +132,87 @@ pub fn genesis_non_avvm_utxos(config: &GenesisFile) -> Vec<(Hash<32>, u64)> {
 
             let txid = pallas_crypto::hash::Hasher::<256>::hash_cbor(&addr);
 
-            (txid, amount)
+            (txid, addr, amount)
         })
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
-    #[test]
-    pub fn test_preview_json_loads() {
+    fn load_test_data_config(network: &str) -> GenesisFile {
         let path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
             .join("..")
             .join("test_data")
-            .join("preview-byron-genesis.json");
+            .join(format!("{network}-byron-genesis.json"));
 
-        println!("{:?}", path);
-
-        let _ = from_file(&path).unwrap();
+        from_file(&path).unwrap()
     }
 
     #[test]
-    pub fn test_preview_non_avvm_utxos() {
-        let path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
-            .join("..")
-            .join("test_data")
-            .join("preview-byron-genesis.json");
+    fn test_preview_json_loads() {
+        load_test_data_config("preview");
+    }
 
-        let f = from_file(&path).unwrap();
+    #[test]
+    fn test_mainnet_json_loads() {
+        load_test_data_config("mainnet");
+    }
+
+    fn utxo_exists(set: &[GenesisUtxo], expected: GenesisUtxo) -> bool {
+        set.iter().any(|(hash, addr, amount)| {
+            hash.eq(&expected.0) && addr.eq(&expected.1) && amount.eq(&expected.2)
+        })
+    }
+
+    fn genesis_utxo_from_raw(hash_hex: &str, addr_base58: &str, amount: u64) -> GenesisUtxo {
+        (
+            Hash::from_str(hash_hex).unwrap(),
+            ByronAddress::from_base58(addr_base58).unwrap(),
+            amount,
+        )
+    }
+
+    #[test]
+    fn test_preview_non_avvm_utxos() {
+        let f = load_test_data_config("preview");
 
         let utxos = super::genesis_non_avvm_utxos(&f);
+        assert_eq!(utxos.len(), 8);
 
-        dbg!(utxos);
+        // check known tx as seen: https://preview.cexplorer.io/tx/4843cf2e582b2f9ce37600e5ab4cc678991f988f8780fed05407f9537f7712bd
+        let expected = genesis_utxo_from_raw(
+            "4843cf2e582b2f9ce37600e5ab4cc678991f988f8780fed05407f9537f7712bd",
+            "FHnt4NL7yPXvDWHa8bVs73UEUdJd64VxWXSFNqetECtYfTd9TtJguJ14Lu3feth",
+            30_000_000_000_000_000,
+        );
+
+        assert!(utxo_exists(&utxos, expected));
     }
 
     #[test]
     pub fn test_mainnet_avvm_utxos() {
-        let path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
-            .join("..")
-            .join("test_data")
-            .join("mainnet-byron-genesis.json");
+        let f = load_test_data_config("mainnet");
 
-        let f = from_file(&path).unwrap();
+        let utxos = super::genesis_non_avvm_utxos(&f);
+
+        // there aren't non-avvm utxos in mainnet
+        assert!(utxos.is_empty());
 
         let utxos = super::genesis_avvm_utxos(&f);
 
-        let mut found = false;
+        assert_eq!(utxos.len(), 14505);
 
-        // URVk8FxX6Ik9z-Cub09oOxMkp6FwNq27kJUXbjJnfsQ=
-        let target_hash = "0ae3da29711600e94a33fb7441d2e76876a9a1e98b5ebdefbf2e3bc535617616";
-        let target_addr = ByronAddress::from_base58(
+        // check known tx as seen: https://cexplorer.io/tx/0ae3da29711600e94a33fb7441d2e76876a9a1e98b5ebdefbf2e3bc535617616
+        let expected = genesis_utxo_from_raw(
+            "0ae3da29711600e94a33fb7441d2e76876a9a1e98b5ebdefbf2e3bc535617616",
             "Ae2tdPwUPEZKQuZh2UndEoTKEakMYHGNjJVYmNZgJk2qqgHouxDsA5oT83n",
-        )
-        .unwrap();
-        let target_amt = 2463071701000000;
+            2_463_071_701_000_000,
+        );
 
-        for (hash, addr, amount) in utxos {
-            if (hash.to_string(), &addr, amount)
-                == (target_hash.to_string(), &target_addr, target_amt)
-            {
-                found = true;
-                break;
-            }
-        }
-
-        assert!(found == true)
+        assert!(utxo_exists(&utxos, expected));
     }
 }
