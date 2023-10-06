@@ -42,6 +42,8 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             // if the first element isn't an array, it's a plutus error
             // the node sends string data
             let rejection = d.decode()?;
+            // skip this cbor, because it doesn't recognize it with rejection decode
+            let _ = d.skip();
             return Ok(Message::RejectTx(rejection));
         }
         let label = d.u16()?;
