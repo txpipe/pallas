@@ -135,4 +135,15 @@ pub mod tests {
             unreachable!();
         }
     }
+    #[test]
+    fn test_empty_next_tx_response() {
+        let bytes = vec![129, 6];
+        let msg: super::Message = pallas_codec::minicbor::decode(&bytes).unwrap();
+
+        if let super::Message::ResponseNextTx(None) = msg {
+            assert_eq!(0u64, 0u64);
+        } else {
+            unreachable!();
+        }
+    }
 }
