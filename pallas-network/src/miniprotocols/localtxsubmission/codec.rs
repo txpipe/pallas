@@ -48,6 +48,8 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             1 => Ok(Message::AcceptTx),
             2 => {
                 let rejection = d.decode()?;
+                // skip this cbor, because it doesn't recognize it with rejection decode
+                let _ = d.skip();
                 Ok(Message::RejectTx(rejection))
             }
             3 => Ok(Message::Done),
