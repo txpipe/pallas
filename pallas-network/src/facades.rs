@@ -8,7 +8,13 @@ use tracing::{debug, error};
 #[cfg(not(target_os = "windows"))]
 use tokio::net::UnixListener;
 
-use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
+use crate::miniprotocols::handshake::{
+    n2c::VersionData, 
+    n2n, VersionTable,
+    Confirmation, 
+    VersionNumber
+};
+
 use crate::miniprotocols::PROTOCOL_N2N_HANDSHAKE;
 use crate::{
     miniprotocols::{
@@ -154,13 +160,8 @@ pub struct NodeClient {
 }
 
 impl NodeClient {
-    #[cfg(not(target_os = "windows"))]
-    pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
-        debug!("connecting");
-
-        let bearer = Bearer::connect_unix(path)
-            .await
-            .map_err(Error::ConnectFailure)?;
+    
+    async fn connect_bearer(bearer:Bearer,versions: VersionTable<VersionData>) -> Result<Self, Error> {
 
         let mut plexer = multiplexer::Plexer::new(bearer);
 
@@ -170,7 +171,6 @@ impl NodeClient {
 
         let plexer_handle = tokio::spawn(async move { plexer.run().await });
 
-        let versions = handshake::n2c::VersionTable::v10_and_above(magic);
         let mut client = handshake::Client::new(hs_channel);
 
         let handshake = client
@@ -191,6 +191,20 @@ impl NodeClient {
         })
     }
 
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
+        debug!("connecting");
+
+        let bearer = Bearer::connect_unix(path)
+            .await
+            .map_err(Error::ConnectFailure)?;
+
+        let versions = handshake::n2c::VersionTable::v10_and_above(magic);
+
+        Self::connect_bearer(bearer,versions).await
+    }
+
     #[cfg(target_os = "windows")]    
     pub async fn connect(pipe_name: impl AsRef<std::ffi::OsStr>, magic: u64) -> Result<Self, Error> {
         debug!("connecting");
@@ -198,34 +212,12 @@ impl NodeClient {
         let bearer = Bearer::connect_named_pipe(pipe_name)
             .await
             .map_err(Error::ConnectFailure)?;
+        
+        let versions = 
+            handshake::n2c::VersionTable::only_v10(magic);
 
-        let mut plexer = multiplexer::Plexer::new(bearer);
+        Self::connect_bearer(bearer,versions).await
 
-        let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
-        let cs_channel = plexer.subscribe_client(PROTOCOL_N2C_CHAIN_SYNC);
-        let sq_channel = plexer.subscribe_client(PROTOCOL_N2C_STATE_QUERY);
-
-        let plexer_handle = tokio::spawn(async move { plexer.run().await });
-
-        let versions = handshake::n2c::VersionTable::only_v10(magic);
-        let mut client = handshake::Client::new(hs_channel);
-
-        let handshake = client
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(Self {
-            plexer_handle,
-            handshake,
-            chainsync: chainsync::Client::new(cs_channel),
-            statequery: localstate::Client::new(sq_channel),
-        })
     }
 
     #[cfg(not(target_os = "windows"))]
