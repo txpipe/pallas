@@ -130,7 +130,7 @@ impl Bearer {
         }
     }
 
-    async fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
+    fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
         match self {
             Bearer::Tcp(x) => x.try_read(buf),
             #[cfg(not(target_os = "windows"))]
@@ -203,8 +203,8 @@ impl SegmentBuffer {
 
             let remaining = required - self.1.len();
             let mut buf = vec![0u8; remaining];
-
-            match self.0.try_read(&mut buf).await {
+            
+            match self.0.try_read(&mut buf) {
                 Ok(0) => {
                     error!("empty bearer");
                     break Err(Error::EmptyBearer);
