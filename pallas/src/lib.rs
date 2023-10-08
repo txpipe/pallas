@@ -40,3 +40,10 @@ pub mod interop {
     #[doc(inline)]
     pub use pallas_utxorpc as utxorpc;
 }
+
+pub mod storage {
+    //! Storage engines for chain-related persistence
+
+    #[doc(inline)]
+    pub use pallas_rolldb as rolldb;
+}
