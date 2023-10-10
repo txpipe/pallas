@@ -12,6 +12,8 @@ use pallas_codec::utils::{
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
+use std::hash::Hash as StdHash;
+
 // Basic Cardano Types
 
 pub type Blake2b256 = Hash<32>;
@@ -64,7 +66,7 @@ pub struct Address {
 // Transactions
 
 // txout = [address, u64]
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct TxOut {
     #[n(0)]
     pub address: Address,
@@ -73,7 +75,7 @@ pub struct TxOut {
     pub amount: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, StdHash)]
 pub enum TxIn {
     // [0, #6.24(bytes .cbor ([txid, u32]))]
     Variant0(CborWrap<(TxId, u32)>),
@@ -121,7 +123,7 @@ impl<C> minicbor::Encode<C> for TxIn {
 }
 
 // tx = [[+ txin], [+ txout], attributes]
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct Tx {
     #[n(0)]
     pub inputs: MaybeIndefArray<TxIn>,

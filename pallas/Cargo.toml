@@ -11,6 +11,7 @@ readme = "../README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
+pallas-applying = { version = "=0.19.1", path = "../pallas-applying/" }
 pallas-network = { version = "=0.19.1", path = "../pallas-network/" }
 pallas-primitives = { version = "=0.19.1", path = "../pallas-primitives/" }
 pallas-traverse = { version = "=0.19.1", path = "../pallas-traverse/" }

@@ -40,3 +40,5 @@ pub mod interop {
     #[doc(inline)]
     pub use pallas_utxorpc as utxorpc;
 }
+
+pub use pallas_applying as applying;
