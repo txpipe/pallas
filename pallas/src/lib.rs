@@ -48,3 +48,5 @@ pub mod storage {
     #[doc(inline)]
     pub use pallas_rolldb as rolldb;
 }
+
+pub use pallas_applying as applying;

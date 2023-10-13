@@ -1,0 +1,20 @@
+[package]
+name = "pallas-applying"
+description = "Logic for validating and applying new blocks and txs to the chain state"
+version = "0.19.1"
+edition = "2021"
+repository = "https://github.com/MaicoLeberle/pallas"
+homepage = "https://github.com/MaicoLeberle/pallas"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Maico Leberle <maico.leberle@gmail.com>"]
+
+[lib]
+doctest = false
+
+[dependencies]
+pallas-codec = { path = "../pallas-codec" }
+pallas-crypto = { path = "../pallas-crypto" }
+pallas-primitives = { path = "../pallas-primitives" }
+pallas-traverse = { path = "../pallas-traverse" }
+rand = "0.8"

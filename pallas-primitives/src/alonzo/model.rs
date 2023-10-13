@@ -3,7 +3,7 @@
 //! Handcrafted, idiomatic rust artifacts based on based on the [Alonzo CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl) file in IOHK repo.
 
 use serde::{Deserialize, Serialize};
-use std::{fmt, ops::Deref};
+use std::{fmt, hash::Hash as StdHash, ops::Deref};
 
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
@@ -78,7 +78,9 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, StdHash,
+)]
 pub struct TransactionInput {
     #[n(0)]
     pub transaction_id: Hash<32>,
