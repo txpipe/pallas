@@ -13,84 +13,94 @@ type BlockSlot = u64;
 type BlockHash = Hash<32>;
 type BlockBody = Vec<u8>;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum WalAction {
-    Apply,
-    Undo,
-    Mark,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Log {
+    Apply(BlockSlot, BlockHash, BlockBody),
+    Undo(BlockSlot, BlockHash, BlockBody),
+    Mark(BlockSlot, BlockHash, BlockBody),
     Origin,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Value(WalAction, BlockSlot, BlockHash);
-
-impl Value {
-    pub fn origin() -> Self {
-        Self(WalAction::Origin, 0, BlockHash::new([0; 32]))
+impl Log {
+    pub fn into_apply(
+        slot: impl Into<BlockSlot>,
+        hash: impl Into<BlockHash>,
+        block: impl Into<BlockBody>,
+    ) -> Self {
+        Self::Apply(slot.into(), hash.into(), block.into())
     }
 
-    pub fn into_apply(slot: impl Into<BlockSlot>, hash: impl Into<BlockHash>) -> Self {
-        Self(WalAction::Apply, slot.into(), hash.into())
+    pub fn slot(&self) -> Option<BlockSlot> {
+        match self {
+            Log::Apply(s, _, _) => Some(*s),
+            Log::Undo(s, _, _) => Some(*s),
+            Log::Mark(s, _, _) => Some(*s),
+            Log::Origin => None,
+        }
     }
 
-    pub fn action(&self) -> WalAction {
-        self.0
+    pub fn hash(&self) -> Option<&BlockHash> {
+        match self {
+            Log::Apply(_, h, _) => Some(h),
+            Log::Undo(_, h, _) => Some(h),
+            Log::Mark(_, h, _) => Some(h),
+            Log::Origin => None,
+        }
     }
 
-    pub fn slot(&self) -> BlockSlot {
-        self.1
-    }
-
-    pub fn hash(&self) -> &BlockHash {
-        &self.2
+    pub fn body(&self) -> Option<&BlockBody> {
+        match self {
+            Log::Apply(_, _, b) => Some(b),
+            Log::Undo(_, _, b) => Some(b),
+            Log::Mark(_, _, b) => Some(b),
+            Log::Origin => None,
+        }
     }
 
     pub fn into_undo(self) -> Option<Self> {
-        match self.0 {
-            WalAction::Apply => Some(Self(WalAction::Undo, self.1, self.2)),
-            WalAction::Undo => None,
-            WalAction::Mark => None,
-            WalAction::Origin => None,
+        match self {
+            Self::Apply(s, h, b) => Some(Self::Undo(s, h, b)),
+            _ => None,
         }
     }
 
     pub fn into_mark(self) -> Option<Self> {
-        match self.0 {
-            WalAction::Apply => Some(Self(WalAction::Mark, self.1, self.2)),
-            WalAction::Mark => Some(Self(WalAction::Mark, self.1, self.2)),
-            WalAction::Origin => Some(Self(WalAction::Origin, self.1, self.2)),
-            WalAction::Undo => None,
+        match self {
+            Log::Apply(s, h, b) => Some(Log::Mark(s, h, b)),
+            Log::Mark(s, h, b) => Some(Log::Mark(s, h, b)),
+            Log::Origin => Some(Log::Origin),
+            Log::Undo(..) => None,
         }
     }
 
     pub fn is_apply(&self) -> bool {
-        matches!(self.0, WalAction::Apply)
+        matches!(self, Log::Apply(..))
     }
 
     pub fn is_mark(&self) -> bool {
-        matches!(self.0, WalAction::Mark)
+        matches!(self, Log::Mark(..))
     }
 
     pub fn is_undo(&self) -> bool {
-        matches!(self.0, WalAction::Undo)
+        matches!(self, Log::Undo(..))
     }
 
     pub fn is_origin(&self) -> bool {
-        matches!(self.0, WalAction::Origin)
+        matches!(self, Log::Origin)
     }
 }
 
 // slot => block hash
 pub struct WalKV;
 
-impl KVTable<DBInt, DBSerde<Value>> for WalKV {
+impl KVTable<DBInt, DBSerde<Log>> for WalKV {
     const CF_NAME: &'static str = "WalKV";
 }
 
-pub struct WalIterator<'a>(pub EntryIterator<'a, DBInt, DBSerde<Value>>);
+pub struct WalIterator<'a>(pub EntryIterator<'a, DBInt, DBSerde<Log>>);
 
 impl Iterator for WalIterator<'_> {
-    type Item = Result<(u64, Value), Error>;
+    type Item = Result<(u64, Log), Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|v| v.map(|(seq, val)| (seq.0, val.0)))
@@ -111,24 +121,24 @@ impl WalKV {
     fn write_seed(db: &DB) -> Result<(), Error> {
         let mut batch = WriteBatch::default();
         let k = DBInt(0);
-        let v = DBSerde(Value::origin());
+        let v = DBSerde(Log::Origin);
         Self::stage_upsert(db, k, v, &mut batch);
 
         db.write(batch).map_err(|_| Error::IO)
     }
 }
 
-pub struct RollBatch<'a>(&'a mut DB, WriteBatch, Seq);
+pub struct RollBatch<'a>(&'a DB, WriteBatch, Seq);
 
 impl<'a> RollBatch<'a> {
-    fn new(db: &'a mut DB, last_seq: Seq) -> Self {
+    fn new(db: &'a DB, last_seq: Seq) -> Self {
         Self(db, Default::default(), last_seq)
     }
 
-    fn stage_append(&mut self, value: Value) {
+    fn stage_append(&mut self, log: Log) {
         let new_seq = self.2 + 1;
-
-        WalKV::stage_upsert(&self.0, DBInt(new_seq), DBSerde(value), &mut self.1);
+        WalKV::stage_upsert(&self.0, DBInt(new_seq), DBSerde(log), &mut self.1);
+        self.2 = new_seq;
     }
 
     fn apply(self) -> Result<Seq, Error> {
@@ -173,7 +183,7 @@ impl Wal {
     ) -> Result<(), Error> {
         let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
 
-        batch.stage_append(Value(WalAction::Apply, slot, hash));
+        batch.stage_append(Log::Apply(slot, hash, body));
 
         self.wal_seq = batch.apply()?;
         self.tip_change.notify_waiters();
@@ -182,14 +192,14 @@ impl Wal {
     }
 
     pub fn roll_back(&mut self, until: BlockSlot) -> Result<(), Error> {
-        let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
+        let mut batch = RollBatch::new(&self.db, self.wal_seq);
 
         let iter = WalKV::iter_values(&self.db, IteratorMode::End);
 
         for step in iter {
             let value = step.map_err(|_| Error::IO)?.0;
 
-            if value.slot() <= until {
+            if value.slot().unwrap_or(0) <= until {
                 batch.stage_append(value.into_mark().unwrap());
                 break;
             }
@@ -209,7 +219,7 @@ impl Wal {
     }
 
     pub fn roll_back_origin(&mut self) -> Result<(), Error> {
-        let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
+        let mut batch = RollBatch::new(&self.db, self.wal_seq);
 
         let iter = WalKV::iter_values(&self.db, IteratorMode::End);
 
@@ -238,7 +248,11 @@ impl Wal {
         let iter = WalKV::iter_values(&self.db, IteratorMode::End);
 
         for value in iter {
-            if let Value(WalAction::Apply | WalAction::Mark, slot, hash) = value?.0 {
+            let value = value?;
+
+            if value.is_apply() || value.is_mark() {
+                let slot = value.slot().unwrap();
+                let hash = *value.hash().unwrap();
                 return Ok(Some((slot, hash)));
             }
         }
@@ -258,7 +272,11 @@ impl Wal {
 
         // crawl the wal exponentially
         while let Some(val) = iter.next() {
-            out.push((val.slot(), *val.hash()));
+            if !val.is_apply() && !val.is_mark() {
+                continue;
+            }
+
+            out.push((val.slot().unwrap(), *val.hash().unwrap()));
 
             if out.len() >= max_items {
                 break;
@@ -304,7 +322,9 @@ impl Wal {
         // what if we have more than one Apply(cursor), how do we know
         // which is correct?
         let found = WalKV::scan_until(&self.db, rocksdb::IteratorMode::End, |v| {
-            v.slot() == slot && v.hash().eq(&hash) && v.is_apply()
+            (v.is_mark() || v.is_apply())
+                && v.slot().is_some_and(|s| s == slot)
+                && v.hash().is_some_and(|h| h.eq(&hash))
         })?;
 
         match found {
@@ -324,7 +344,7 @@ impl Wal {
 
         while let Some(Ok((wal_key, value))) = iter.next() {
             // get the number of slots that have passed since the wal point
-            let slot_delta = tip - value.slot();
+            let slot_delta = tip - value.slot().unwrap_or(0);
 
             if slot_delta <= self.k_param {
                 break;
@@ -379,14 +399,10 @@ mod tests {
     }
 
     #[test]
-    fn test_roll_forward_blackbox() {
+    fn test_basic_append() {
         with_tmp_db(30, |mut db| {
             let (slot, hash, body) = dummy_block(11);
             db.roll_forward(slot, hash, body.clone()).unwrap();
-
-            // ensure block body is persisted
-            let persisted = db.get_block(hash).unwrap().unwrap();
-            assert_eq!(persisted, body);
 
             // ensure tip matches
             let (tip_slot, tip_hash) = db.find_tip().unwrap().unwrap();
@@ -394,14 +410,21 @@ mod tests {
             assert_eq!(tip_hash, hash);
 
             // ensure chain has item
-            let (seq, log) = db.crawl_after(None).next().unwrap().unwrap();
-            assert_eq!(seq, slot);
-            assert_eq!(log, hash);
+            let mut iter = db.crawl_after(None);
+
+            // skip origin
+            iter.next();
+
+            let (seq, log) = iter.next().unwrap().unwrap();
+            assert_eq!(seq, 1);
+            assert_eq!(log.slot().unwrap(), slot);
+            assert_eq!(log.hash().unwrap(), &hash);
+            assert_eq!(log.body().unwrap(), &body);
         });
     }
 
     #[test]
-    fn test_roll_back_blackbox() {
+    fn test_rollback_undos() {
         with_tmp_db(30, |mut db| {
             for i in 0..=5 {
                 let (slot, hash, body) = dummy_block(i * 10);
@@ -415,15 +438,30 @@ mod tests {
             assert_eq!(tip_slot, 20);
 
             // ensure chain has items not rolled back
-            let mut chain = db.crawl_after(None);
+            let mut wal = db.crawl_after(None);
 
-            for i in 0..=2 {
-                let (slot, _) = chain.next().unwrap().unwrap();
-                assert_eq!(slot, i * 10);
+            let (seq, log) = wal.next().unwrap().unwrap();
+            assert_eq!(seq, 0);
+            assert!(log.is_origin());
+
+            for i in 0..=5 {
+                let (_, log) = wal.next().unwrap().unwrap();
+                assert!(log.is_apply());
+                assert_eq!(log.slot().unwrap(), i * 10);
             }
 
+            for i in (3..=5).rev() {
+                let (_, log) = wal.next().unwrap().unwrap();
+                assert!(log.is_undo());
+                assert_eq!(log.slot().unwrap(), i * 10);
+            }
+
+            let (_, log) = wal.next().unwrap().unwrap();
+            assert!(log.is_mark());
+            assert_eq!(log.slot().unwrap(), 20);
+
             // ensure chain stops here
-            assert!(chain.next().is_none());
+            assert!(wal.next().is_none());
         });
     }
 
@@ -444,7 +482,7 @@ mod tests {
 
             for i in 96..100 {
                 let (_, val) = wal.next().unwrap().unwrap();
-                assert_eq!(val.slot(), i * 10);
+                assert_eq!(val.slot().unwrap(), i * 10);
             }
 
             assert!(wal.next().is_none());
@@ -470,18 +508,18 @@ mod tests {
             for i in 77..100 {
                 let (_, val) = wal.next().unwrap().unwrap();
                 assert!(val.is_apply());
-                assert_eq!(val.slot(), i * 10);
+                assert_eq!(val.slot().unwrap(), i * 10);
             }
 
             for i in (81..100).rev() {
                 let (_, val) = wal.next().unwrap().unwrap();
                 assert!(val.is_undo());
-                assert_eq!(val.slot(), i * 10);
+                assert_eq!(val.slot().unwrap(), i * 10);
             }
 
             let (_, val) = wal.next().unwrap().unwrap();
             assert!(val.is_mark());
-            assert_eq!(val.slot(), 800);
+            assert_eq!(val.slot().unwrap(), 800);
 
             assert!(wal.next().is_none());
         });

@@ -97,6 +97,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct DBSerde<V>(pub V);
 
 impl<V> std::ops::Deref for DBSerde<V> {

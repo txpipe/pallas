@@ -1,18 +1,15 @@
 use futures_core::Stream;
 
-use super::{Seq, Wal};
-
-type Item = super::Value;
-type ItemWithBlock = (super::Value, super::BlockBody);
+use super::{Log, Seq, Wal};
 
 pub struct RollStream;
 
 impl RollStream {
-    pub fn start_after(db: Wal, seq: Option<Seq>) -> impl Stream<Item = Item> {
+    pub fn start_after(db: Wal, seq: Option<Seq>) -> impl Stream<Item = Log> {
         async_stream::stream! {
             let mut last_seq = seq;
 
-            let iter = db.crawl_wal_after(last_seq);
+            let iter = db.crawl_after(last_seq);
 
             for (seq, val) in iter.flatten() {
                 yield val;
@@ -21,48 +18,11 @@ impl RollStream {
 
             loop {
                 db.tip_change.notified().await;
-                let iter = db.crawl_wal_after(last_seq);
+                let iter = db.crawl_after(last_seq);
 
                 for (seq, val) in iter.flatten() {
                     yield val;
                     last_seq = Some(seq);
-                }
-            }
-        }
-    }
-
-    pub fn start_after_with_block(db: Wal, seq: Option<Seq>) -> impl Stream<Item = ItemWithBlock> {
-        async_stream::stream! {
-            let mut last_seq = seq;
-
-            let iter = db.crawl_wal_after(last_seq);
-
-            for x in iter {
-                let x = x.and_then(|(s,v)| {
-                    let b = db.get_block(*v.hash())?.unwrap();
-                    Ok((s,v,b))
-                });
-
-                if let Ok((seq, val, blo)) = x {
-                    yield (val, blo);
-                    last_seq = Some(seq);
-                }
-            }
-
-            loop {
-                db.tip_change.notified().await;
-                let iter = db.crawl_wal_after(last_seq);
-
-                for x in iter {
-                    let x = x.and_then(|(s,v)| {
-                        let b = db.get_block(*v.hash())?.unwrap();
-                        Ok((s,v,b))
-                    });
-
-                    if let Ok((seq, val, blo)) = x {
-                        yield (val, blo);
-                        last_seq = Some(seq);
-                    }
                 }
             }
         }
@@ -106,13 +66,12 @@ mod tests {
         let evt = s.next().await;
         let evt = evt.unwrap();
         assert!(evt.is_origin());
-        assert_eq!(evt.slot(), 0);
 
         for i in 0..=200 {
             let evt = s.next().await;
             let evt = evt.unwrap();
             assert!(evt.is_apply());
-            assert_eq!(evt.slot(), i * 10);
+            assert_eq!(evt.slot().unwrap(), i * 10);
         }
 
         background.abort();
