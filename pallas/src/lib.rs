@@ -41,4 +41,12 @@ pub mod interop {
     pub use pallas_utxorpc as utxorpc;
 }
 
+pub mod storage {
+    //! Storage engines for chain-related persistence
+
+    #[cfg(feature = "unstable")]
+    #[doc(inline)]
+    pub use pallas_rolldb as rolldb;
+}
+
 pub use pallas_applying as applying;

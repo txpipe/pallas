@@ -8,6 +8,7 @@ members = [
   "pallas-crypto",
   "pallas-configs",
   "pallas-primitives",
+  "pallas-rolldb",
   "pallas-traverse",
   "pallas-utxorpc",
   "pallas",
