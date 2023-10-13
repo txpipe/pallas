@@ -1,16 +1,14 @@
 use futures_core::Stream;
 
-use crate::prelude::RawBlock;
+use super::{Seq, Wal};
 
-use super::RollDB;
-
-type Item = super::wal::Value;
-type ItemWithBlock = (super::wal::Value, RawBlock);
+type Item = super::Value;
+type ItemWithBlock = (super::Value, super::BlockBody);
 
 pub struct RollStream;
 
 impl RollStream {
-    pub fn start_after(db: RollDB, seq: Option<super::wal::Seq>) -> impl Stream<Item = Item> {
+    pub fn start_after(db: Wal, seq: Option<Seq>) -> impl Stream<Item = Item> {
         async_stream::stream! {
             let mut last_seq = seq;
 
@@ -33,10 +31,7 @@ impl RollStream {
         }
     }
 
-    pub fn start_after_with_block(
-        db: RollDB,
-        seq: Option<super::wal::Seq>,
-    ) -> impl Stream<Item = ItemWithBlock> {
+    pub fn start_after_with_block(db: Wal, seq: Option<Seq>) -> impl Stream<Item = ItemWithBlock> {
         async_stream::stream! {
             let mut last_seq = seq;
 
@@ -78,17 +73,17 @@ impl RollStream {
 mod tests {
     use futures_util::{pin_mut, StreamExt};
 
-    use crate::storage::rolldb::{BlockBody, BlockHash, BlockSlot};
+    use crate::wal::{BlockBody, BlockHash, BlockSlot, Wal};
 
     fn dummy_block(slot: u64) -> (BlockSlot, BlockHash, BlockBody) {
-        let hash = pallas::crypto::hash::Hasher::<256>::hash(slot.to_be_bytes().as_slice());
+        let hash = pallas_crypto::hash::Hasher::<256>::hash(slot.to_be_bytes().as_slice());
         (slot, hash, slot.to_be_bytes().to_vec())
     }
 
     #[tokio::test]
     async fn test_stream_waiting() {
         let path = tempfile::tempdir().unwrap().into_path();
-        let mut db = super::RollDB::open(path.clone(), 30).unwrap();
+        let mut db = Wal::open(path.clone(), 30).unwrap();
 
         for i in 0..=100 {
             let (slot, hash, body) = dummy_block(i * 10);
@@ -121,6 +116,6 @@ mod tests {
         }
 
         background.abort();
-        let _ = super::RollDB::destroy(path); //.unwrap();
+        let _ = Wal::destroy(path); //.unwrap();
     }
 }

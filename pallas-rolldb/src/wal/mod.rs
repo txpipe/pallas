@@ -1,19 +1,17 @@
-use pallas::crypto::hash::Hash;
+use pallas_crypto::hash::Hash;
+use rocksdb::Options;
 use rocksdb::{IteratorMode, WriteBatch, DB};
-use rocksdb::{Options, WriteBatch, DB};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc};
-use tracing::warn;
-
-use self::wal::WalKV;
 
 use super::kvtable::*;
 
 pub mod stream;
 
-use crate::storage::kvtable::*;
-
 pub type Seq = u64;
+type BlockSlot = u64;
+type BlockHash = Hash<32>;
+type BlockBody = Vec<u8>;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum WalAction {
@@ -24,17 +22,14 @@ pub enum WalAction {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Value(WalAction, super::BlockSlot, super::BlockHash);
+pub struct Value(WalAction, BlockSlot, BlockHash);
 
 impl Value {
     pub fn origin() -> Self {
-        Self(WalAction::Origin, 0, super::BlockHash::new([0; 32]))
+        Self(WalAction::Origin, 0, BlockHash::new([0; 32]))
     }
 
-    pub fn into_apply(
-        slot: impl Into<super::BlockSlot>,
-        hash: impl Into<super::BlockHash>,
-    ) -> Self {
+    pub fn into_apply(slot: impl Into<BlockSlot>, hash: impl Into<BlockHash>) -> Self {
         Self(WalAction::Apply, slot.into(), hash.into())
     }
 
@@ -42,11 +37,11 @@ impl Value {
         self.0
     }
 
-    pub fn slot(&self) -> super::BlockSlot {
+    pub fn slot(&self) -> BlockSlot {
         self.1
     }
 
-    pub fn hash(&self) -> &super::BlockHash {
+    pub fn hash(&self) -> &BlockHash {
         &self.2
     }
 
@@ -121,23 +116,29 @@ impl WalKV {
 
         db.write(batch).map_err(|_| Error::IO)
     }
+}
 
-    fn stage_append(
-        db: &DB,
-        last_seq: Seq,
-        value: Value,
-        batch: &mut WriteBatch,
-    ) -> Result<u64, super::Error> {
-        let new_seq = last_seq + 1;
+pub struct RollBatch<'a>(&'a mut DB, WriteBatch, Seq);
 
-        Self::stage_upsert(db, DBInt(new_seq), DBSerde(value), batch);
+impl<'a> RollBatch<'a> {
+    fn new(db: &'a mut DB, last_seq: Seq) -> Self {
+        Self(db, Default::default(), last_seq)
+    }
 
-        Ok(new_seq)
+    fn stage_append(&mut self, value: Value) {
+        let new_seq = self.2 + 1;
+
+        WalKV::stage_upsert(&self.0, DBInt(new_seq), DBSerde(value), &mut self.1);
+    }
+
+    fn apply(self) -> Result<Seq, Error> {
+        self.0.write(self.1).map_err(|_| Error::IO)?;
+        Ok(self.2)
     }
 }
 
 #[derive(Clone)]
-pub struct RollDB {
+pub struct Wal {
     db: Arc<DB>,
     pub tip_change: Arc<tokio::sync::Notify>,
     wal_seq: u64,
@@ -152,7 +153,7 @@ impl Wal {
 
         let db = DB::open_cf(&opts, path, [WalKV::CF_NAME]).map_err(|_| Error::IO)?;
 
-        let wal_seq = wal::WalKV::initialize(&db)?;
+        let wal_seq = WalKV::initialize(&db)?;
 
         let out = Self {
             db: Arc::new(db),
@@ -170,61 +171,50 @@ impl Wal {
         hash: BlockHash,
         body: BlockBody,
     ) -> Result<(), Error> {
-        let mut batch = WriteBatch::default();
+        let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
 
-        // keep track of the new block body
-        BlockKV::stage_upsert(&self.db, DBHash(hash), DBBytes(body), &mut batch);
+        batch.stage_append(Value(WalAction::Apply, slot, hash));
 
-        // advance the WAL to the new point
-        let new_seq =
-            WalKV::stage_append((db, last_seq, Value(WalAction::Apply, slot, hash), batch))?;
-
-        self.db.write(batch).map_err(|_| Error::IO)?;
-        self.wal_seq = new_seq;
+        self.wal_seq = batch.apply()?;
         self.tip_change.notify_waiters();
 
         Ok(())
     }
 
     pub fn roll_back(&mut self, until: BlockSlot) -> Result<(), Error> {
-        let mut batch = WriteBatch::default();
+        let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
 
-        let mut new_seq = self.wal_seq;
-
-        let iter = WalKV::iter_values(db, IteratorMode::End);
+        let iter = WalKV::iter_values(&self.db, IteratorMode::End);
 
         for step in iter {
-            let value = step.map_err(|_| super::Error::IO)?.0;
+            let value = step.map_err(|_| Error::IO)?.0;
 
             if value.slot() <= until {
-                last_seq = Self::stage_append(db, last_seq, value.into_mark().unwrap(), batch)?;
+                batch.stage_append(value.into_mark().unwrap());
                 break;
             }
 
             match value.into_undo() {
                 Some(undo) => {
-                    last_seq = Self::stage_append(db, last_seq, undo, batch)?;
+                    batch.stage_append(undo);
                 }
                 None => continue,
             };
         }
 
-        self.db.write(batch).map_err(|_| Error::IO)?;
-        self.wal_seq = new_seq;
+        self.wal_seq = batch.apply()?;
         self.tip_change.notify_waiters();
 
         Ok(())
     }
 
     pub fn roll_back_origin(&mut self) -> Result<(), Error> {
-        let mut batch = WriteBatch::default();
+        let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
 
-        let mut new_seq = self.wal_seq;
-
-        let iter = WalKV::iter_values(db, IteratorMode::End);
+        let iter = WalKV::iter_values(&self.db, IteratorMode::End);
 
         for step in iter {
-            let value = step.map_err(|_| super::Error::IO)?.0;
+            let value = step.map_err(|_| Error::IO)?.0;
 
             if value.is_origin() {
                 break;
@@ -232,23 +222,20 @@ impl Wal {
 
             match value.into_undo() {
                 Some(undo) => {
-                    new_seq = Self::stage_append(db, last_seq, undo, batch)?;
+                    batch.stage_append(undo);
                 }
                 None => continue,
             };
         }
 
-        BlockKV::reset(&self.db)?;
-
-        self.db.write(batch).map_err(|_| Error::IO)?;
-        self.wal_seq = new_seq;
+        self.wal_seq = batch.apply()?;
         self.tip_change.notify_waiters();
 
         Ok(())
     }
 
-    pub fn find_tip(db: &DB) -> Result<Option<(super::BlockSlot, super::BlockHash)>, super::Error> {
-        let iter = WalKV::iter_values(db, IteratorMode::End);
+    pub fn find_tip(&self) -> Result<Option<(BlockSlot, BlockHash)>, Error> {
+        let iter = WalKV::iter_values(&self.db, IteratorMode::End);
 
         for value in iter {
             if let Value(WalAction::Apply | WalAction::Mark, slot, hash) = value?.0 {
@@ -263,7 +250,7 @@ impl Wal {
         &self,
         max_items: usize,
     ) -> Result<Vec<(BlockSlot, BlockHash)>, Error> {
-        let mut iter = wal::WalKV::iter_values(&self.db, rocksdb::IteratorMode::End)
+        let mut iter = WalKV::iter_values(&self.db, rocksdb::IteratorMode::End)
             .filter_map(|res| res.ok())
             .filter(|v| !v.is_undo());
 
@@ -287,24 +274,24 @@ impl Wal {
         Ok(out)
     }
 
-    pub fn crawl_after(&self, seq: Option<u64>) -> wal::WalIterator {
+    pub fn crawl_after(&self, seq: Option<u64>) -> WalIterator {
         if let Some(seq) = seq {
             let seq = Box::<[u8]>::from(DBInt(seq));
             let from = rocksdb::IteratorMode::From(&seq, rocksdb::Direction::Forward);
-            let mut iter = wal::WalKV::iter_entries(&self.db, from);
+            let mut iter = WalKV::iter_entries(&self.db, from);
 
             // skip current
             iter.next();
 
-            wal::WalIterator(iter)
+            WalIterator(iter)
         } else {
             let from = rocksdb::IteratorMode::Start;
-            let iter = wal::WalKV::iter_entries(&self.db, from);
-            wal::WalIterator(iter)
+            let iter = WalKV::iter_entries(&self.db, from);
+            WalIterator(iter)
         }
     }
 
-    pub fn find_wal_seq(&self, block: Option<(BlockSlot, BlockHash)>) -> Result<wal::Seq, Error> {
+    pub fn find_wal_seq(&self, block: Option<(BlockSlot, BlockHash)>) -> Result<Seq, Error> {
         if block.is_none() {
             return Ok(0);
         }
@@ -328,12 +315,10 @@ impl Wal {
 
     /// Prune the WAL of entries with slot values over `k_param` from the tip
     pub fn prune_wal(&self) -> Result<(), Error> {
-        let tip = wal::WalKV::find_tip(&self.db)?
-            .map(|(slot, _)| slot)
-            .unwrap_or_default();
+        let tip = self.find_tip()?.map(|(slot, _)| slot).unwrap_or_default();
 
         // iterate through all values in Wal from start
-        let mut iter = wal::WalKV::iter_entries(&self.db, rocksdb::IteratorMode::Start);
+        let mut iter = WalKV::iter_entries(&self.db, rocksdb::IteratorMode::Start);
 
         let mut batch = WriteBatch::default();
 
@@ -344,7 +329,7 @@ impl Wal {
             if slot_delta <= self.k_param {
                 break;
             } else {
-                wal::WalKV::stage_delete(&self.db, wal_key, &mut batch);
+                WalKV::stage_delete(&self.db, wal_key, &mut batch);
             }
         }
 
@@ -360,26 +345,26 @@ impl Wal {
 
 #[cfg(test)]
 mod tests {
-    use super::{BlockBody, BlockHash, BlockSlot, RollDB};
+    use super::{BlockBody, BlockHash, BlockSlot, Wal};
 
-    fn with_tmp_db<T>(k_param: u64, op: fn(db: RollDB) -> T) {
+    fn with_tmp_db<T>(k_param: u64, op: fn(db: Wal) -> T) {
         let path = tempfile::tempdir().unwrap().into_path();
-        let db = RollDB::open(path.clone(), k_param).unwrap();
+        let db = Wal::open(path.clone(), k_param).unwrap();
 
         op(db);
 
-        RollDB::destroy(path).unwrap();
+        Wal::destroy(path).unwrap();
     }
 
     fn dummy_block(slot: u64) -> (BlockSlot, BlockHash, BlockBody) {
-        let hash = pallas::crypto::hash::Hasher::<256>::hash(slot.to_be_bytes().as_slice());
+        let hash = pallas_crypto::hash::Hasher::<256>::hash(slot.to_be_bytes().as_slice());
         (slot, hash, slot.to_be_bytes().to_vec())
     }
 
     #[test]
     fn test_origin_event() {
         with_tmp_db(30, |db| {
-            let mut iter = db.crawl_wal_after(None);
+            let mut iter = db.crawl_after(None);
 
             let origin = iter.next();
             assert!(origin.is_some());
@@ -409,9 +394,9 @@ mod tests {
             assert_eq!(tip_hash, hash);
 
             // ensure chain has item
-            let (chain_slot, chain_hash) = db.crawl_chain().next().unwrap().unwrap();
-            assert_eq!(chain_slot, slot);
-            assert_eq!(chain_hash, hash);
+            let (seq, log) = db.crawl_after(None).next().unwrap().unwrap();
+            assert_eq!(seq, slot);
+            assert_eq!(log, hash);
         });
     }
 
@@ -430,7 +415,7 @@ mod tests {
             assert_eq!(tip_slot, 20);
 
             // ensure chain has items not rolled back
-            let mut chain = db.crawl_chain();
+            let mut chain = db.crawl_after(None);
 
             for i in 0..=2 {
                 let (slot, _) = chain.next().unwrap().unwrap();
@@ -455,16 +440,7 @@ mod tests {
 
             db.prune_wal().unwrap();
 
-            let mut chain = db.crawl_chain();
-
-            for i in 0..100 {
-                let (slot, _) = chain.next().unwrap().unwrap();
-                assert_eq!(i * 10, slot)
-            }
-
-            assert!(chain.next().is_none());
-
-            let mut wal = db.crawl_wal_after(None);
+            let mut wal = db.crawl_after(None);
 
             for i in 96..100 {
                 let (_, val) = wal.next().unwrap().unwrap();
@@ -489,16 +465,7 @@ mod tests {
 
             db.prune_wal().unwrap();
 
-            let mut chain = db.crawl_chain();
-
-            for i in 0..=80 {
-                let (slot, _) = chain.next().unwrap().unwrap();
-                assert_eq!(i * 10, slot)
-            }
-
-            assert!(chain.next().is_none());
-
-            let mut wal = db.crawl_wal_after(None);
+            let mut wal = db.crawl_after(None);
 
             for i in 77..100 {
                 let (_, val) = wal.next().unwrap().unwrap();
