@@ -1,15 +1,15 @@
 use futures_core::Stream;
 
-use super::{Log, Seq, Wal};
+use super::{Log, Seq, Store};
 
 pub struct RollStream;
 
 impl RollStream {
-    pub fn start_after(db: Wal, seq: Option<Seq>) -> impl Stream<Item = Log> {
+    pub fn start_after(store: Store, seq: Option<Seq>) -> impl Stream<Item = Log> {
         async_stream::stream! {
             let mut last_seq = seq;
 
-            let iter = db.crawl_after(last_seq);
+            let iter = store.crawl_after(last_seq);
 
             for (seq, val) in iter.flatten() {
                 yield val;
@@ -17,8 +17,8 @@ impl RollStream {
             }
 
             loop {
-                db.tip_change.notified().await;
-                let iter = db.crawl_after(last_seq);
+                store.tip_change.notified().await;
+                let iter = store.crawl_after(last_seq);
 
                 for (seq, val) in iter.flatten() {
                     yield val;
@@ -33,7 +33,7 @@ impl RollStream {
 mod tests {
     use futures_util::{pin_mut, StreamExt};
 
-    use crate::wal::{BlockBody, BlockHash, BlockSlot, Wal};
+    use crate::wal::{BlockBody, BlockHash, BlockSlot, Store};
 
     fn dummy_block(slot: u64) -> (BlockSlot, BlockHash, BlockBody) {
         let hash = pallas_crypto::hash::Hasher::<256>::hash(slot.to_be_bytes().as_slice());
@@ -43,7 +43,7 @@ mod tests {
     #[tokio::test]
     async fn test_stream_waiting() {
         let path = tempfile::tempdir().unwrap().into_path();
-        let mut db = Wal::open(path.clone(), 30).unwrap();
+        let mut db = Store::open(path.clone(), 30).unwrap();
 
         for i in 0..=100 {
             let (slot, hash, body) = dummy_block(i * 10);
@@ -75,6 +75,6 @@ mod tests {
         }
 
         background.abort();
-        let _ = Wal::destroy(path); //.unwrap();
+        let _ = Store::destroy(path); //.unwrap();
     }
 }
