@@ -20,3 +20,6 @@ pallas-codec = { version = "=0.19.1", path = "../pallas-codec/" }
 pallas-utxorpc = { version = "=0.19.1", path = "../pallas-utxorpc/" }
 pallas-configs = { version = "=0.19.1", path = "../pallas-configs/" }
 pallas-rolldb = { version = "=0.19.1", path = "../pallas-rolldb/" }
+
+[features]
+unstable = []
