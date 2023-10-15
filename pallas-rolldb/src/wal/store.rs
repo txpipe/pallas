@@ -303,9 +303,12 @@ impl Store {
         }
     }
 
-    pub fn find_wal_seq(&self, block: Option<(BlockSlot, BlockHash)>) -> Result<Seq, Error> {
+    pub fn find_wal_seq(
+        &self,
+        block: Option<(BlockSlot, BlockHash)>,
+    ) -> Result<Option<Seq>, Error> {
         if block.is_none() {
-            return Ok(0);
+            return Ok(None);
         }
 
         let (slot, hash) = block.unwrap();
@@ -322,7 +325,7 @@ impl Store {
         })?;
 
         match found {
-            Some(DBInt(seq)) => Ok(seq),
+            Some(DBInt(seq)) => Ok(Some(seq)),
             None => Err(Error::NotFound),
         }
     }
