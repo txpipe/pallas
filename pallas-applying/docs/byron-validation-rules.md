@@ -20,7 +20,6 @@ Refer to the [Byron's ledger white paper](https://github.com/input-output-hk/car
 	- ***fees: Tx → ℕ*** gives the fees paid by a transaction, defined as follows:
 		- ***fees(tx) := balance (txIns(tx) ◁ utxo) − balance (txOuts(tx))***, where
 			- ***balance : P(TxOut) → ℕ*** gives the summation of all the lovelaces in a set of transaction outputs.
-
 - **Serialization**:
 	- ***Bytes*** is the set of byte arrays (a.k.a. data, upon which signatures are built).
 	- ***⟦_⟧<sub>A</sub> : A -> Bytes*** takes an element of type ***A*** and returns a byte array resulting from serializing it.

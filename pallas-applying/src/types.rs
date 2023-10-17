@@ -22,6 +22,7 @@ pub enum MultiEraProtParams<'b> {
 #[non_exhaustive]
 pub enum ValidationError {
     TxInsEmpty,
+    TxOutsEmpty,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

@@ -89,6 +89,34 @@ mod byron_tests {
             },
         }
     }
+
+    #[test]
+    // Similar to empty_ins, except that this time no outputs are added to the
+    // transaction, which should raise a ValidationError:TxOutsEmpty error.
+    fn empty_outs() {
+        let protocol_params: ByronProtParams = ByronProtParams;
+        let mut tx_ins: ByronTxIns = empty_tx_ins();
+        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
+        add_byron_tx_in(&mut tx_ins, &tx_in);
+        let tx_outs: ByronTxOuts = new_tx_outs();
+        let mut utxos: UTxOs = new_utxos();
+        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
+        add_to_utxo(&mut utxos, tx_in, input_tx_out);
+        let validation_result = mk_byron_tx_and_validate(
+            &new_tx(tx_ins, tx_outs, empty_attributes()),
+            &empty_witnesses(),
+            &utxos,
+            &protocol_params,
+        );
+        match validation_result {
+            Ok(()) => assert!(false, "Outputs set should not be empty."),
+            Err(err) => match err {
+                ValidationError::TxOutsEmpty => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
 }
 
 // Types aliases.
