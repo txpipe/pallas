@@ -24,6 +24,7 @@ pub enum ValidationError {
     InputMissingInUTxO,
     TxInsEmpty,
     TxOutsEmpty,
+    OutputWithoutLovelace,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

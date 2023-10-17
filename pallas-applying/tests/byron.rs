@@ -148,6 +148,38 @@ mod byron_tests {
             },
         }
     }
+
+    #[test]
+    // All outputs must contain a non-zero number of lovelaces.
+    fn output_without_lovelace() {
+        let protocol_params: ByronProtParams = ByronProtParams;
+        let mut tx_ins: ByronTxIns = empty_tx_ins();
+        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
+        add_byron_tx_in(&mut tx_ins, &tx_in);
+        let mut tx_outs: ByronTxOuts = new_tx_outs();
+        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        // Note that this output has 0 lovelaces.
+        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 0);
+        add_tx_out(&mut tx_outs, &tx_out);
+        let mut utxos: UTxOs = new_utxos();
+        // input_tx_out is the ByronTxOut associated with tx_in.
+        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
+        add_to_utxo(&mut utxos, tx_in, input_tx_out);
+        let validation_result = mk_byron_tx_and_validate(
+            &new_tx(tx_ins, tx_outs, empty_attributes()),
+            &empty_witnesses(),
+            &utxos,
+            &protocol_params,
+        );
+        match validation_result {
+            Ok(()) => assert!(false, "All outputs must contain lovelace."),
+            Err(err) => match err {
+                ValidationError::OutputWithoutLovelace => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
 }
 
 // Types aliases.

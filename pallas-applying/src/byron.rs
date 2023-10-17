@@ -13,7 +13,8 @@ pub fn validate_byron_tx(
     let tx: &Tx = &mtxp.transaction;
     check_ins_not_empty(tx)?;
     check_outs_not_empty(tx)?;
-    check_ins_in_utxos(tx, utxos)
+    check_ins_in_utxos(tx, utxos)?;
+    check_outs_have_lovelace(tx)
 }
 
 fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
@@ -34,6 +35,15 @@ fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     for input in tx.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_byron(input))) {
             return Err(ValidationError::InputMissingInUTxO);
+        }
+    }
+    Ok(())
+}
+
+fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
+    for output in tx.outputs.iter() {
+        if output.amount == 0 {
+            return Err(ValidationError::OutputWithoutLovelace);
         }
     }
     Ok(())
