@@ -21,6 +21,7 @@ pub enum MultiEraProtParams<'b> {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ValidationError {
+    InputMissingInUTxO,
     TxInsEmpty,
     TxOutsEmpty,
 }
