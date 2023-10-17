@@ -1,6 +1,10 @@
 //! Utilities required for Byron-era transaction validation.
 
-use crate::types::{ByronProtParams, MultiEraInput, UTxOs, ValidationError, ValidationResult};
+use crate::types::{
+    ByronProtParams, MultiEraInput, MultiEraOutput, UTxOs, ValidationError, ValidationResult,
+};
+
+use pallas_codec::minicbor::encode;
 
 use pallas_primitives::byron::{MintedTxPayload, Tx};
 
@@ -8,13 +12,15 @@ use pallas_primitives::byron::{MintedTxPayload, Tx};
 pub fn validate_byron_tx(
     mtxp: &MintedTxPayload,
     utxos: &UTxOs,
-    _prot_pps: &ByronProtParams,
+    prot_pps: &ByronProtParams,
 ) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
+    let size: u64 = get_tx_size(tx)?;
     check_ins_not_empty(tx)?;
     check_outs_not_empty(tx)?;
     check_ins_in_utxos(tx, utxos)?;
-    check_outs_have_lovelace(tx)
+    check_outs_have_lovelace(tx)?;
+    check_fees(tx, &size, utxos, prot_pps)
 }
 
 fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
@@ -47,4 +53,35 @@ fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
         }
     }
     Ok(())
+}
+
+fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) -> ValidationResult {
+    let mut inputs_balance: u64 = 0;
+    for input in tx.inputs.iter() {
+        match utxos
+            .get(&MultiEraInput::from_byron(input))
+            .and_then(MultiEraOutput::as_byron)
+        {
+            Some(byron_utxo) => inputs_balance += byron_utxo.amount,
+            None => return Err(ValidationError::UnableToComputeFees),
+        }
+    }
+    let mut outputs_balance: u64 = 0;
+    for output in tx.outputs.iter() {
+        outputs_balance += output.amount
+    }
+    let total_balance: u64 = inputs_balance - outputs_balance;
+    let min_fees: u64 = prot_pps.min_fees_const + prot_pps.min_fees_factor * size;
+    if total_balance < min_fees {
+        return Err(ValidationError::FeesBelowMin);
+    }
+    Ok(())
+}
+
+fn get_tx_size(tx: &Tx) -> Result<u64, ValidationError> {
+    let mut buff: Vec<u8> = Vec::new();
+    match encode(tx, &mut buff) {
+        Ok(()) => Ok(buff.len() as u64),
+        Err(_) => Err(ValidationError::UnknownTxSize),
+    }
 }

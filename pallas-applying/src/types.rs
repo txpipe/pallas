@@ -8,7 +8,10 @@ pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
 // TODO: add a field for each protocol parameter in the Byron era.
 #[derive(Debug, Clone)]
-pub struct ByronProtParams;
+pub struct ByronProtParams {
+    pub min_fees_const: u64,
+    pub min_fees_factor: u64,
+}
 
 // TODO: add variants for the other eras.
 #[derive(Debug)]
@@ -25,6 +28,9 @@ pub enum ValidationError {
     TxInsEmpty,
     TxOutsEmpty,
     OutputWithoutLovelace,
+    UnknownTxSize,
+    UnableToComputeFees,
+    FeesBelowMin,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
