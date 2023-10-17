@@ -49,4 +49,6 @@ pub mod storage {
     pub use pallas_rolldb as rolldb;
 }
 
+#[doc(inline)]
+#[cfg(feature = "unstable")]
 pub use pallas_applying as applying;
