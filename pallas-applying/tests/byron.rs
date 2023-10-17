@@ -37,6 +37,7 @@ mod byron_tests {
         let protocol_params: ByronProtParams = ByronProtParams {
             min_fees_const: 7,
             min_fees_factor: 11,
+            max_tx_size: 82,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -69,6 +70,7 @@ mod byron_tests {
         let protocol_params: ByronProtParams = ByronProtParams {
             min_fees_const: 7,
             min_fees_factor: 11,
+            max_tx_size: 82,
         };
         let tx_ins: ByronTxIns = empty_tx_ins();
         // Note: tx_in is not added to tx_ins, it is only added to the UTxOs set
@@ -103,6 +105,7 @@ mod byron_tests {
         let protocol_params: ByronProtParams = ByronProtParams {
             min_fees_const: 7,
             min_fees_factor: 11,
+            max_tx_size: 82,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -135,6 +138,7 @@ mod byron_tests {
         let protocol_params: ByronProtParams = ByronProtParams {
             min_fees_const: 7,
             min_fees_factor: 11,
+            max_tx_size: 82,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -167,6 +171,7 @@ mod byron_tests {
         let protocol_params: ByronProtParams = ByronProtParams {
             min_fees_const: 7,
             min_fees_factor: 11,
+            max_tx_size: 82,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -204,6 +209,7 @@ mod byron_tests {
         let protocol_params: ByronProtParams = ByronProtParams {
             min_fees_const: 7,
             min_fees_factor: 11,
+            max_tx_size: 82,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -229,6 +235,43 @@ mod byron_tests {
             Ok(()) => assert!(false, "Fees should not be below minimum."),
             Err(err) => match err {
                 ValidationError::FeesBelowMin => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // The following is exactly the same as successful_case, except that the protocol parameters
+    // enforce that transaction sizes do not exceed the 81-byte limit. But, as explained in
+    // successful_case, this transaction is 82 bytes big, for which an error should be raised.
+    fn tx_size_exceeds_max() {
+        let protocol_params: ByronProtParams = ByronProtParams {
+            min_fees_const: 7,
+            min_fees_factor: 11,
+            max_tx_size: 81,
+        };
+        let mut tx_ins: ByronTxIns = empty_tx_ins();
+        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
+        add_byron_tx_in(&mut tx_ins, &tx_in);
+        let mut tx_outs: ByronTxOuts = new_tx_outs();
+        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
+        add_tx_out(&mut tx_outs, &tx_out);
+        let mut utxos: UTxOs = new_utxos();
+        // input_tx_out is the ByronTxOut associated with tx_in.
+        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
+        add_to_utxo(&mut utxos, tx_in, input_tx_out);
+        let validation_result = mk_byron_tx_and_validate(
+            &new_tx(tx_ins, tx_outs, empty_attributes()),
+            &empty_witnesses(),
+            &utxos,
+            &protocol_params,
+        );
+        match validation_result {
+            Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
+            Err(err) => match err {
+                ValidationError::MaxTxSizeExceeded => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }

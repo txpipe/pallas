@@ -20,7 +20,8 @@ pub fn validate_byron_tx(
     check_outs_not_empty(tx)?;
     check_ins_in_utxos(tx, utxos)?;
     check_outs_have_lovelace(tx)?;
-    check_fees(tx, &size, utxos, prot_pps)
+    check_fees(tx, &size, utxos, prot_pps)?;
+    check_size(&size, prot_pps)
 }
 
 fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
@@ -74,6 +75,13 @@ fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) ->
     let min_fees: u64 = prot_pps.min_fees_const + prot_pps.min_fees_factor * size;
     if total_balance < min_fees {
         return Err(ValidationError::FeesBelowMin);
+    }
+    Ok(())
+}
+
+fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
+    if *size > prot_pps.max_tx_size {
+        return Err(ValidationError::MaxTxSizeExceeded);
     }
     Ok(())
 }

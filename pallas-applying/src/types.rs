@@ -11,6 +11,7 @@ pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 pub struct ByronProtParams {
     pub min_fees_const: u64,
     pub min_fees_factor: u64,
+    pub max_tx_size: u64,
 }
 
 // TODO: add variants for the other eras.
@@ -31,6 +32,7 @@ pub enum ValidationError {
     UnknownTxSize,
     UnableToComputeFees,
     FeesBelowMin,
+    MaxTxSizeExceeded,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
