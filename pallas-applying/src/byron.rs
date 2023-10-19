@@ -13,6 +13,7 @@ pub fn validate_byron_tx(
     mtxp: &MintedTxPayload,
     utxos: &UTxOs,
     prot_pps: &ByronProtParams,
+    _prot_magic: &u32,
 ) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
     let size: u64 = get_tx_size(tx)?;

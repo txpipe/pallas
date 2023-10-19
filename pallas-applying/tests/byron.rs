@@ -2,7 +2,7 @@ use rand::Rng;
 use std::{borrow::Cow, vec::Vec};
 
 use pallas_applying::{
-    types::{ByronProtParams, MultiEraProtParams, ValidationError},
+    types::{ByronProtParams, Environment, MultiEraProtParams, ValidationError},
     validate, UTxOs, ValidationResult,
 };
 use pallas_codec::{
@@ -34,10 +34,13 @@ mod byron_tests {
     // The expected fees are therefore 7 + 11 * 82 = 909 lovelace, which is why
     // the output contains 100000 - 909 = 99091 lovelace.
     fn successful_case() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 82,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 82,
+            }),
+            prot_magic: 764824073,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -55,7 +58,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => (),
@@ -67,10 +70,13 @@ mod byron_tests {
     // Similar to successful_case, except that no inputs are added to the
     // transaction, which should raise a ValidationError:TxInsEmpty error.
     fn empty_ins() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 82,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 82,
+            }),
+            prot_magic: 764824073,
         };
         let tx_ins: ByronTxIns = empty_tx_ins();
         // Note: tx_in is not added to tx_ins, it is only added to the UTxOs set
@@ -87,7 +93,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
@@ -102,10 +108,13 @@ mod byron_tests {
     // Similar to empty_ins, except that this time no outputs are added to the
     // transaction, which should raise a ValidationError:TxOutsEmpty error.
     fn empty_outs() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 82,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 82,
+            }),
+            prot_magic: 764824073,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -119,7 +128,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => assert!(false, "Outputs set should not be empty."),
@@ -135,10 +144,13 @@ mod byron_tests {
     // represents the situation where a transaction tries to spend a non-existent UTxO (e.g., one
     // which has already been spent).
     fn unfound_utxo() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 82,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 82,
+            }),
+            prot_magic: 764824073,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -154,7 +166,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
@@ -168,10 +180,13 @@ mod byron_tests {
     #[test]
     // All outputs must contain a non-zero number of lovelaces.
     fn output_without_lovelace() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 82,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 82,
+            }),
+            prot_magic: 764824073,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -190,7 +205,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => assert!(false, "All outputs must contain lovelace."),
@@ -206,10 +221,13 @@ mod byron_tests {
     // fees are exactly 1 lovelace below the minimum allowed by protocol (refer to successful_case
     // for a deeper analysis on fees).
     fn not_enough_fees() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 82,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 82,
+            }),
+            prot_magic: 764824073,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -229,7 +247,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => assert!(false, "Fees should not be below minimum."),
@@ -245,10 +263,13 @@ mod byron_tests {
     // enforce that transaction sizes do not exceed the 81-byte limit. But, as explained in
     // successful_case, this transaction is 82 bytes big, for which an error should be raised.
     fn tx_size_exceeds_max() {
-        let protocol_params: ByronProtParams = ByronProtParams {
-            min_fees_const: 7,
-            min_fees_factor: 11,
-            max_tx_size: 81,
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 7,
+                min_fees_factor: 11,
+                max_tx_size: 81,
+            }),
+            prot_magic: 764824073,
         };
         let mut tx_ins: ByronTxIns = empty_tx_ins();
         let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
@@ -266,7 +287,7 @@ mod byron_tests {
             &new_tx(tx_ins, tx_outs, empty_attributes()),
             &empty_witnesses(),
             &utxos,
-            &protocol_params,
+            &env,
         );
         match validation_result {
             Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
@@ -357,7 +378,7 @@ fn mk_byron_tx_and_validate(
     btx: &ByronTx,
     bwit: &ByronWitnesses,
     utxos: &UTxOs,
-    prot_pps: &ByronProtParams,
+    env: &Environment,
 ) -> ValidationResult {
     // Encode btx and decode into a KeepRaw<ByronTx> value.
     let mut btx_buf: Vec<u8> = Vec::new();
@@ -388,11 +409,7 @@ fn mk_byron_tx_and_validate(
         witness: kpbwit,
     };
     let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
-    validate(
-        &metx,
-        utxos,
-        &MultiEraProtParams::Byron(Box::new(Cow::Borrowed(&prot_pps))),
-    )
+    validate(&metx, utxos, env)
 }
 
 fn new_tx(ins: ByronTxIns, outs: ByronTxOuts, attrs: Attributes) -> ByronTx {

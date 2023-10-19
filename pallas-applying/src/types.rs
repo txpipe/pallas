@@ -1,6 +1,6 @@
 //! Base types used for validating transactions in each era.
 
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 pub use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
@@ -17,8 +17,13 @@ pub struct ByronProtParams {
 // TODO: add variants for the other eras.
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum MultiEraProtParams<'b> {
-    Byron(Box<Cow<'b, ByronProtParams>>),
+pub enum MultiEraProtParams {
+    Byron(ByronProtParams),
+}
+
+pub struct Environment {
+    pub prot_params: MultiEraProtParams,
+    pub prot_magic: u32,
 }
 
 // TODO: replace this generic variant with validation-rule-specific ones.
