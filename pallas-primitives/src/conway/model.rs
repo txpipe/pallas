@@ -1525,43 +1525,40 @@ impl<'b> From<MintedTx<'b>> for Tx {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use pallas_codec::minicbor;
+#[cfg(test)]
+mod tests {
+    use pallas_codec::minicbor;
 
-//     use super::{MintedBlock, TransactionOutput};
-//     use crate::Fragment;
+    use super::{MintedBlock};
 
-//     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
-//     #[test]
-//     fn block_isomorphic_decoding_encoding() {
-//         let test_blocks = [
-//             // TODO
-//         ];
+    #[test]
+    fn block_isomorphic_decoding_encoding() {
+        let test_blocks = [include_str!("../../../test_data/conway1.artificial.block")];
 
-//         for (idx, block_str) in test_blocks.iter().enumerate() {
-//             println!("decoding test block {}", idx + 1);
-//             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
+        for (idx, block_str) in test_blocks.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-//             let block: BlockWrapper = minicbor::decode(&bytes[..])
-//                 .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
+            let block: BlockWrapper = minicbor::decode(&bytes)
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
 
-//             let bytes2 = minicbor::to_vec(block)
-//                 .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
+            let bytes2 = minicbor::to_vec(block)
+                .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
 
-//             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
-//         }
-//     }
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
 
-//     #[test]
-//     fn fragments_decoding() {
-//         // peculiar array of outputs used in an hydra transaction
-//         let bytes = hex::decode(hex).unwrap();
-//         let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
-
-//         dbg!(outputs);
-
-//         // add any loose fragment tests here
-//     }
-// }
+    // #[test]
+    // fn fragments_decoding() {
+    //     // peculiar array of outputs used in an hydra transaction
+    //     let bytes = hex::decode(hex).unwrap();
+    //     let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
+    //
+    //     dbg!(outputs);
+    //
+    //     // add any loose fragment tests here
+    // }
+}
