@@ -42,7 +42,7 @@ pub enum Era {
     Mary,    // multi-assets
     Alonzo,  // smart-contracts
     Babbage, // CIP-31/32/33
-    Conway,
+    Conway,  // governance CIP-1694
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -55,6 +55,7 @@ pub enum Feature {
     CIP31,
     CIP32,
     CIP33,
+    CIP1694,
 }
 
 #[derive(Debug)]
