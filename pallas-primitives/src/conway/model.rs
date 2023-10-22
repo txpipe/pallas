@@ -856,7 +856,12 @@ pub enum GovAction {
     HardForkInitiation(Option<GovActionId>, Vec<ProtocolVersion>),
     TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>),
     NoConfidence(Option<GovActionId>),
-    NewCommittee(Option<GovActionId>, Vec<CommitteeColdCredential>, Committee),
+    UpdateCommittee(
+        Option<GovActionId>,
+        Vec<CommitteeColdCredential>,
+        KeyValuePairs<CommitteeColdCredential, Epoch>,
+        UnitInterval,
+    ),
     NewConstitution(Option<GovActionId>, Constitution),
     Information,
 }
@@ -889,7 +894,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
                 let a = d.decode_with(ctx)?;
                 let b = d.decode_with(ctx)?;
                 let c = d.decode_with(ctx)?;
-                Ok(GovAction::NewCommittee(a, b, c))
+                let d = d.decode_with(ctx)?;
+                Ok(GovAction::UpdateCommittee(a, b, c, d))
             }
             5 => {
                 let a = d.decode_with(ctx)?;
@@ -933,12 +939,13 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.u16(3)?;
                 e.encode_with(a, ctx)?;
             }
-            GovAction::NewCommittee(a, b, c) => {
-                e.array(4)?;
+            GovAction::UpdateCommittee(a, b, c, d) => {
+                e.array(5)?;
                 e.u16(4)?;
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
                 e.encode_with(c, ctx)?;
+                e.encode_with(d, ctx)?;
             }
             GovAction::NewConstitution(a, b) => {
                 e.array(3)?;
@@ -952,32 +959,6 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.u16(6)?;
             }
         }
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct Committee(KeyValuePairs<CommitteeColdCredential, Epoch>, UnitInterval);
-
-impl<'b, C> minicbor::Decode<'b, C> for Committee {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
-    }
-}
-
-impl<C> minicbor::Encode<C> for Committee {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(&self.0, ctx)?;
-        e.encode_with(&self.1, ctx)?;
 
         Ok(())
     }
