@@ -1248,6 +1248,9 @@ pub struct WitnessSet {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+
+    #[n(7)]
+    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -1273,6 +1276,9 @@ pub struct MintedWitnessSet<'b> {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+
+    #[n(7)]
+    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -1287,6 +1293,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             redeemer: x.redeemer,
             plutus_v2_script: x.plutus_v2_script,
+            plutus_v3_script: x.plutus_v3_script,
         }
     }
 }
@@ -1305,6 +1312,9 @@ pub struct PostAlonzoAuxiliaryData {
 
     #[n(3)]
     pub plutus_v2_scripts: Option<Vec<PlutusV2Script>>,
+
+    #[n(4)]
+    pub plutus_v3_scripts: Option<Vec<PlutusV3Script>>,
 }
 
 pub type DatumHash = Hash<32>;
@@ -1375,6 +1385,7 @@ pub enum Script {
     NativeScript(NativeScript),
     PlutusV1Script(PlutusV1Script),
     PlutusV2Script(PlutusV2Script),
+    PlutusV3Script(PlutusV3Script),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Script {
@@ -1388,6 +1399,7 @@ impl<'b, C> minicbor::Decode<'b, C> for Script {
             0 => Ok(Self::NativeScript(d.decode()?)),
             1 => Ok(Self::PlutusV1Script(d.decode()?)),
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
+            3 => Ok(Self::PlutusV3Script(d.decode()?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for script enum",
             )),
@@ -1405,6 +1417,7 @@ impl<C> minicbor::Encode<C> for Script {
             Self::NativeScript(x) => e.encode_with((0, x), ctx)?,
             Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
             Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
+            Self::PlutusV3Script(x) => e.encode_with((3, x), ctx)?,
         };
 
         Ok(())
@@ -1531,7 +1544,7 @@ impl<'b> From<MintedTx<'b>> for Tx {
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::{MintedBlock};
+    use super::MintedBlock;
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
