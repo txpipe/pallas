@@ -1204,6 +1204,8 @@ pub enum RedeemerTag {
     Reward,
     #[n(4)]
     DRep,
+    #[n(5)]
+    VotingProposal,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
