@@ -1,3 +1,6 @@
+/// Flat encoding/decoding for Plutus Core
+pub mod flat;
+
 /// Shared re-export of minicbor lib across all Pallas
 pub use minicbor;
 

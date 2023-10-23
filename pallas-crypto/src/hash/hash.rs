@@ -22,6 +22,14 @@ impl<const BYTES: usize> From<[u8; BYTES]> for Hash<BYTES> {
     }
 }
 
+impl<const BYTES: usize> From<&[u8]> for Hash<BYTES> {
+    fn from(value: &[u8]) -> Self {
+        let mut hash = [0; BYTES];
+        hash.copy_from_slice(value);
+        Self::new(hash)
+    }
+}
+
 impl<const BYTES: usize> AsRef<[u8]> for Hash<BYTES> {
     #[inline]
     fn as_ref(&self) -> &[u8] {

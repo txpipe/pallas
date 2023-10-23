@@ -6,6 +6,7 @@ pub mod blockfetch;
 pub mod chainsync;
 pub mod handshake;
 pub mod localstate;
+pub mod localtxsubmission;
 pub mod txmonitor;
 pub mod txsubmission;
 

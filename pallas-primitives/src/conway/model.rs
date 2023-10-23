@@ -856,7 +856,12 @@ pub enum GovAction {
     HardForkInitiation(Option<GovActionId>, Vec<ProtocolVersion>),
     TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>),
     NoConfidence(Option<GovActionId>),
-    NewCommittee(Option<GovActionId>, Vec<CommitteeColdCredential>, Committee),
+    UpdateCommittee(
+        Option<GovActionId>,
+        Vec<CommitteeColdCredential>,
+        KeyValuePairs<CommitteeColdCredential, Epoch>,
+        UnitInterval,
+    ),
     NewConstitution(Option<GovActionId>, Constitution),
     Information,
 }
@@ -889,7 +894,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
                 let a = d.decode_with(ctx)?;
                 let b = d.decode_with(ctx)?;
                 let c = d.decode_with(ctx)?;
-                Ok(GovAction::NewCommittee(a, b, c))
+                let d = d.decode_with(ctx)?;
+                Ok(GovAction::UpdateCommittee(a, b, c, d))
             }
             5 => {
                 let a = d.decode_with(ctx)?;
@@ -933,12 +939,13 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.u16(3)?;
                 e.encode_with(a, ctx)?;
             }
-            GovAction::NewCommittee(a, b, c) => {
-                e.array(4)?;
+            GovAction::UpdateCommittee(a, b, c, d) => {
+                e.array(5)?;
                 e.u16(4)?;
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
                 e.encode_with(c, ctx)?;
+                e.encode_with(d, ctx)?;
             }
             GovAction::NewConstitution(a, b) => {
                 e.array(3)?;
@@ -952,32 +959,6 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.u16(6)?;
             }
         }
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct Committee(KeyValuePairs<CommitteeColdCredential, Epoch>, UnitInterval);
-
-impl<'b, C> minicbor::Decode<'b, C> for Committee {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
-    }
-}
-
-impl<C> minicbor::Encode<C> for Committee {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(&self.0, ctx)?;
-        e.encode_with(&self.1, ctx)?;
 
         Ok(())
     }
@@ -1223,6 +1204,8 @@ pub enum RedeemerTag {
     Reward,
     #[n(4)]
     DRep,
+    #[n(5)]
+    VotingProposal,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -1265,6 +1248,9 @@ pub struct WitnessSet {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+
+    #[n(7)]
+    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -1290,6 +1276,9 @@ pub struct MintedWitnessSet<'b> {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+
+    #[n(7)]
+    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -1304,6 +1293,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             redeemer: x.redeemer,
             plutus_v2_script: x.plutus_v2_script,
+            plutus_v3_script: x.plutus_v3_script,
         }
     }
 }
@@ -1322,6 +1312,9 @@ pub struct PostAlonzoAuxiliaryData {
 
     #[n(3)]
     pub plutus_v2_scripts: Option<Vec<PlutusV2Script>>,
+
+    #[n(4)]
+    pub plutus_v3_scripts: Option<Vec<PlutusV3Script>>,
 }
 
 pub type DatumHash = Hash<32>;
@@ -1392,6 +1385,7 @@ pub enum Script {
     NativeScript(NativeScript),
     PlutusV1Script(PlutusV1Script),
     PlutusV2Script(PlutusV2Script),
+    PlutusV3Script(PlutusV3Script),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Script {
@@ -1405,6 +1399,7 @@ impl<'b, C> minicbor::Decode<'b, C> for Script {
             0 => Ok(Self::NativeScript(d.decode()?)),
             1 => Ok(Self::PlutusV1Script(d.decode()?)),
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
+            3 => Ok(Self::PlutusV3Script(d.decode()?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for script enum",
             )),
@@ -1422,6 +1417,7 @@ impl<C> minicbor::Encode<C> for Script {
             Self::NativeScript(x) => e.encode_with((0, x), ctx)?,
             Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
             Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
+            Self::PlutusV3Script(x) => e.encode_with((3, x), ctx)?,
         };
 
         Ok(())
@@ -1544,43 +1540,40 @@ impl<'b> From<MintedTx<'b>> for Tx {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use pallas_codec::minicbor;
+#[cfg(test)]
+mod tests {
+    use pallas_codec::minicbor;
 
-//     use super::{MintedBlock, TransactionOutput};
-//     use crate::Fragment;
+    use super::MintedBlock;
 
-//     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
-//     #[test]
-//     fn block_isomorphic_decoding_encoding() {
-//         let test_blocks = [
-//             // TODO
-//         ];
+    #[test]
+    fn block_isomorphic_decoding_encoding() {
+        let test_blocks = [include_str!("../../../test_data/conway1.artificial.block")];
 
-//         for (idx, block_str) in test_blocks.iter().enumerate() {
-//             println!("decoding test block {}", idx + 1);
-//             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
+        for (idx, block_str) in test_blocks.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-//             let block: BlockWrapper = minicbor::decode(&bytes[..])
-//                 .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
+            let block: BlockWrapper = minicbor::decode(&bytes)
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
 
-//             let bytes2 = minicbor::to_vec(block)
-//                 .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
+            let bytes2 = minicbor::to_vec(block)
+                .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
 
-//             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
-//         }
-//     }
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
 
-//     #[test]
-//     fn fragments_decoding() {
-//         // peculiar array of outputs used in an hydra transaction
-//         let bytes = hex::decode(hex).unwrap();
-//         let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
-
-//         dbg!(outputs);
-
-//         // add any loose fragment tests here
-//     }
-// }
+    // #[test]
+    // fn fragments_decoding() {
+    //     // peculiar array of outputs used in an hydra transaction
+    //     let bytes = hex::decode(hex).unwrap();
+    //     let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
+    //
+    //     dbg!(outputs);
+    //
+    //     // add any loose fragment tests here
+    // }
+}

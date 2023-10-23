@@ -1,0 +1,24 @@
+[package]
+name = "pallas-configs"
+description = "Config structs and utilities matching the Haskell implementation"
+version = "0.19.1"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-configs"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
+
+[dependencies]
+hex = "0.4.3"
+pallas-addresses = { version = "=0.19.1", path = "../pallas-addresses" }
+pallas-crypto = { version = "=0.19.1", path = "../pallas-crypto" }
+pallas-codec = { version = "=0.19.1", path = "../pallas-codec" }
+serde = { version = "1.0.136", optional = true, features = ["derive"] }
+serde_json = { version = "1.0.79", optional = true }
+base64 = "0.21.2"
+
+[features]
+json = ["serde", "serde_json"]
+default = ["json"]

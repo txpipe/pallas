@@ -13,7 +13,7 @@ impl Era {
             Feature::CIP31 => self.ge(&Era::Babbage),
             Feature::CIP32 => self.ge(&Era::Babbage),
             Feature::CIP33 => self.ge(&Era::Babbage),
-            // TODO: Conway features
+            Feature::CIP1694 => self.ge(&Era::Conway),
         }
     }
 }
@@ -61,7 +61,7 @@ impl Display for Era {
             Era::Mary => write!(f, "Mary"),
             Era::Alonzo => write!(f, "Alonzo"),
             Era::Babbage => write!(f, "Babbage"),
-            Era::Conway => write!(f, "Babbage"),
+            Era::Conway => write!(f, "Conway"),
         }
     }
 }

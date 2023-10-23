@@ -11,6 +11,7 @@ readme = "../README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
+pallas-applying = { version = "=0.19.1", path = "../pallas-applying/" }
 pallas-network = { version = "=0.19.1", path = "../pallas-network/" }
 pallas-primitives = { version = "=0.19.1", path = "../pallas-primitives/" }
 pallas-traverse = { version = "=0.19.1", path = "../pallas-traverse/" }
@@ -18,3 +19,8 @@ pallas-addresses = { version = "=0.19.1", path = "../pallas-addresses/" }
 pallas-crypto = { version = "=0.19.1", path = "../pallas-crypto/" }
 pallas-codec = { version = "=0.19.1", path = "../pallas-codec/" }
 pallas-utxorpc = { version = "=0.19.1", path = "../pallas-utxorpc/" }
+pallas-configs = { version = "=0.19.1", path = "../pallas-configs/" }
+pallas-rolldb = { version = "=0.19.1", path = "../pallas-rolldb/" }
+
+[features]
+unstable = []

@@ -23,6 +23,9 @@ pub mod ledger {
 
     #[doc(inline)]
     pub use pallas_addresses as addresses;
+
+    #[doc(inline)]
+    pub use pallas_configs as configs;
 }
 
 #[doc(inline)]
@@ -37,3 +40,15 @@ pub mod interop {
     #[doc(inline)]
     pub use pallas_utxorpc as utxorpc;
 }
+
+pub mod storage {
+    //! Storage engines for chain-related persistence
+
+    #[cfg(feature = "unstable")]
+    #[doc(inline)]
+    pub use pallas_rolldb as rolldb;
+}
+
+#[doc(inline)]
+#[cfg(feature = "unstable")]
+pub use pallas_applying as applying;
