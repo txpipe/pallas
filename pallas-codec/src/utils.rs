@@ -1,6 +1,6 @@
 use minicbor::{data::Tag, Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::{fmt, ops::Deref};
+use std::{fmt, hash::Hash as StdHash, ops::Deref};
 
 /// Utility for skipping parts of the CBOR payload, use only for debugging
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -292,7 +292,7 @@ where
 }
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, StdHash)]
 #[serde(transparent)]
 pub struct CborWrap<T>(pub T);
 
@@ -390,7 +390,7 @@ impl<I, const T: u64> Deref for TagWrap<I, T> {
 /// An empty map
 ///
 /// don't ask me why, that's what the CDDL asks for.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyMap;
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for EmptyMap {

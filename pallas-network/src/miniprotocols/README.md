@@ -1,6 +1,6 @@
 # Pallas Mini-protocols
 
-This crate provides an implementation of the different Ouroboros mini-protocols as defined in the [The Shelley Networking Protocol](https://hydra.iohk.io/build/1070091/download/1/network.pdf#chapter.3) specs.
+This crate provides an implementation of the different Ouroboros mini-protocols as defined in the [The Shelley Networking Protocol](https://input-output-hk.github.io/ouroboros-network/pdfs/network-spec/network-spec.pdf#chapter.3) specs.
 
 ## Architectural Decisions
 
@@ -13,14 +13,14 @@ The following architectural decisions were made for this particular Rust impleme
 ## Development Status
 
 | mini-protocol                               | initiator | responder |
-| ------------------------------------------- | --------- | --------- |
+| ------------------------------------------- |-----------| --------- |
 | block-fetch                                 | done      | planned   |
 | chain-sync                                  | done      | planned   |
 | [handshake](src/handshake/README.md)        | done      | done      |
 | local-state                                 | done      | planned   |
 | [tx-submission](src/txsubmission/README.md) | done      | done      |
 | local tx monitor                            | done      | planned   |
-| local-tx-submission                         | ongoing   | planned   |
+| local-tx-submission                         | done      | planned   |
 
 ## Implementation Details
 
