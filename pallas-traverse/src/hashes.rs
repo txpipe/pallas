@@ -115,6 +115,11 @@ impl ComputeHash<28> for babbage::PlutusV2Script {
     }
 }
 
+impl ComputeHash<28> for babbage::PlutusV3Script {
+    fn compute_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_tagged(&self.0, 2)
+    }
+}
 impl ComputeHash<32> for babbage::TransactionBody {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
