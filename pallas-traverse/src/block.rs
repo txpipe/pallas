@@ -68,6 +68,7 @@ impl<'b> MultiEraBlock<'b> {
                 Era::Mary => Self::decode_mary(cbor),
                 Era::Alonzo => Self::decode_alonzo(cbor),
                 Era::Babbage => Self::decode_babbage(cbor),
+                Era::Conway => Self::decode_babbage(cbor),
             },
             probe::Outcome::Inconclusive => Err(Error::unknown_cbor(cbor)),
         }

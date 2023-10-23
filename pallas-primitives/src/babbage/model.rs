@@ -169,6 +169,9 @@ pub struct CostMdls {
 
     #[n(1)]
     pub plutus_v2: Option<CostModel>,
+
+    #[n(3)]
+    pub plutus_v3: Option<CostModel>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -416,6 +419,16 @@ impl AsRef<[u8]> for PlutusV2Script {
     }
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(transparent)]
+pub struct PlutusV3Script(#[n(0)] pub Bytes);
+
+impl AsRef<[u8]> for PlutusV3Script {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
 pub use crate::alonzo::BigInt;
 
 pub use crate::alonzo::PlutusData;
@@ -455,6 +468,9 @@ pub struct WitnessSet {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+
+    #[n(7)]
+    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -480,6 +496,9 @@ pub struct MintedWitnessSet<'b> {
 
     #[n(6)]
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+
+    #[n(7)]
+    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -494,6 +513,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             redeemer: x.redeemer,
             plutus_v2_script: x.plutus_v2_script,
+            plutus_v3_script: x.plutus_v3_script,
         }
     }
 }
@@ -512,6 +532,9 @@ pub struct PostAlonzoAuxiliaryData {
 
     #[n(3)]
     pub plutus_v2_scripts: Option<Vec<PlutusV2Script>>,
+
+    #[n(4)]
+    pub plutus_v3_scripts: Option<Vec<PlutusV3Script>>,
 }
 
 pub type DatumHash = Hash<32>;
@@ -582,6 +605,7 @@ pub enum Script {
     NativeScript(NativeScript),
     PlutusV1Script(PlutusV1Script),
     PlutusV2Script(PlutusV2Script),
+    PlutusV3Script(PlutusV3Script),
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Script {
@@ -595,6 +619,7 @@ impl<'b, C> minicbor::Decode<'b, C> for Script {
             0 => Ok(Self::NativeScript(d.decode()?)),
             1 => Ok(Self::PlutusV1Script(d.decode()?)),
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
+            3 => Ok(Self::PlutusV3Script(d.decode()?)),
             _ => Err(minicbor::decode::Error::message(
                 "invalid variant for script enum",
             )),
@@ -612,6 +637,7 @@ impl<C> minicbor::Encode<C> for Script {
             Self::NativeScript(x) => e.encode_with((0, x), ctx)?,
             Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
             Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
+            Self::PlutusV3Script(x) => e.encode_with((3, x), ctx)?,
         };
 
         Ok(())
@@ -764,6 +790,7 @@ mod tests {
             include_str!("../../../test_data/babbage9.block"),
             // block with pool margin numerator greater than i64::MAX
             include_str!("../../../test_data/babbage10.block"),
+            // include_str!("../../../test_data/conway1.artificial.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

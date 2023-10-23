@@ -37,6 +37,7 @@ pub enum Era {
     Mary,    // multi-assets
     Alonzo,  // smart-contracts
     Babbage, // CIP-31/32/33
+    Conway, // CIP-1694
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

@@ -12,6 +12,7 @@ use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, N
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
+use crate::alonzo::{Anchor, CommitteeColdCredential, CommitteeHotCredential, DRep, DRepCredential};
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct VrfCert(#[n(0)] pub Bytes, #[n(1)] pub Bytes);
@@ -476,6 +477,20 @@ pub enum Certificate {
     PoolRetirement(PoolKeyhash, Epoch),
     GenesisKeyDelegation(Genesishash, GenesisDelegateHash, VrfKeyhash),
     MoveInstantaneousRewardsCert(MoveInstantaneousReward),
+
+    Reg(StakeCredential, Coin),
+    UnReg(StakeCredential, Coin),
+    VoteDeleg(StakeCredential, DRep),
+    StakeVoteDeleg(StakeCredential, PoolKeyhash, DRep),
+    StakeRegDeleg(StakeCredential, PoolKeyhash, Coin),
+    VoteRegDeleg(StakeCredential, DRep, Coin),
+    StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
+
+    AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
+    ResignCommitteeCold(CommitteeColdCredential),
+    RegDRepCert(DRepCredential, Coin, Option<Anchor>),
+    UnRegDRepCert(DRepCredential, Coin),
+    UpdateDRepCert(StakeCredential, Option<Anchor>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
@@ -534,6 +549,71 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
             6 => {
                 let a = d.decode_with(ctx)?;
                 Ok(Certificate::MoveInstantaneousRewardsCert(a))
+            }
+            7 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::Reg(a, b))
+            }
+            8 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UnReg(a, b))
+            }
+            9 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::VoteDeleg(a, b))
+            }
+            10 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::StakeVoteDeleg(a, b, c))
+            }
+            11 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::StakeRegDeleg(a, b, c))
+            }
+            12 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::VoteRegDeleg(a, b, c))
+            }
+            13 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                let d = d.decode_with(ctx)?;
+                Ok(Certificate::StakeVoteRegDeleg(a, b, c, d))
+            }
+            14 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::AuthCommitteeHot(a, b))
+            }
+            15 => {
+                let a = d.decode_with(ctx)?;
+                Ok(Certificate::ResignCommitteeCold(a))
+            }
+            16 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::RegDRepCert(a, b, c))
+            }
+            17 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UnRegDRepCert(a, b))
+            }
+            18 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UpdateDRepCert(a, b))
             }
             _ => Err(minicbor::decode::Error::message(
                 "unknown variant id for certificate",
@@ -618,6 +698,107 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
                 e.array(2)?;
                 e.u16(6)?;
                 e.encode_with(a, ctx)?;
+
+                Ok(())
+            }
+            Certificate::Reg(a, b) => {
+                e.array(3)?;
+                e.u16(7)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+
+                Ok(())
+            }
+            Certificate::UnReg(a, b) => {
+                e.array(3)?;
+                e.u16(8)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+
+                Ok(())
+            }
+            Certificate::VoteDeleg(a, b) => {
+                e.array(3)?;
+                e.u16(9)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+
+                Ok(())
+            }
+            Certificate::StakeVoteDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(10)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+
+                Ok(())
+            }
+            Certificate::StakeRegDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(11)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+
+                Ok(())
+            }
+            Certificate::VoteRegDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(12)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+
+                Ok(())
+            }
+            Certificate::StakeVoteRegDeleg(a, b, c, d) => {
+                e.array(5)?;
+                e.u16(13)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+                e.encode_with(d, ctx)?;
+
+                Ok(())
+            }
+            Certificate::AuthCommitteeHot(a, b) => {
+                e.array(3)?;
+                e.u16(14)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+
+                Ok(())
+            }
+            Certificate::ResignCommitteeCold(a) => {
+                e.array(2)?;
+                e.u16(15)?;
+                e.encode_with(a, ctx)?;
+
+                Ok(())
+            }
+            Certificate::RegDRepCert(a, b, c) => {
+                e.array(4)?;
+                e.u16(16)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+
+                Ok(())
+            }
+            Certificate::UnRegDRepCert(a, b) => {
+                e.array(3)?;
+                e.u16(17)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+
+                Ok(())
+            }
+            Certificate::UpdateDRepCert(a, b) => {
+                e.array(3)?;
+                e.u16(18)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
 
                 Ok(())
             }

@@ -48,6 +48,11 @@ impl<'b> MultiEraTx<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(MultiEraTx::Babbage(tx))
             }
+            Era::Conway => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(MultiEraTx::Babbage(tx))
+            }
         }
     }
 
