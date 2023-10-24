@@ -10,7 +10,7 @@ use pallas_primitives::{
 
 use crate::{
     Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
-    MultiEraSigners, MultiEraTx, MultiEraWithdrawals, OriginalHash,
+    MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals, OriginalHash,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -179,6 +179,22 @@ impl<'b> MultiEraTx<'b> {
                 .map(|c| MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(c))))
                 .collect(),
             MultiEraTx::Byron(_) => vec![],
+        }
+    }
+
+    pub fn update(&self) -> Option<MultiEraUpdate> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .update
+                .as_ref()
+                .map(MultiEraUpdate::from_alonzo_compatible),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .update
+                .as_ref()
+                .map(MultiEraUpdate::from_babbage),
+            MultiEraTx::Byron(_) => None,
         }
     }
 

@@ -26,6 +26,7 @@ pub mod signers;
 pub mod size;
 pub mod time;
 pub mod tx;
+pub mod update;
 pub mod withdrawals;
 pub mod witnesses;
 
@@ -137,6 +138,14 @@ pub enum MultiEraWithdrawals<'b> {
     NotApplicable,
     Empty,
     AlonzoCompatible(&'b alonzo::Withdrawals),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraUpdate<'b> {
+    NotApplicable,
+    AlonzoCompatible(Box<Cow<'b, alonzo::Update>>),
+    Babbage(Box<Cow<'b, babbage::Update>>),
 }
 
 #[derive(Debug, Clone)]
