@@ -72,7 +72,7 @@ pub type CommitteeColdCredential = StakeCredential;
 pub type CommitteeHotCredential = StakeCredential;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub struct Anchor(String, Hash<32>);
+pub struct Anchor(pub String, pub Hash<32>);
 
 impl<'b, C> minicbor::Decode<'b, C> for Anchor {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
