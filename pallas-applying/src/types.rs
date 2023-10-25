@@ -6,7 +6,6 @@ pub use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-// TODO: add a field for each protocol parameter in the Byron era.
 #[derive(Debug, Clone)]
 pub struct ByronProtParams {
     pub min_fees_const: u64,
@@ -26,7 +25,12 @@ pub struct Environment {
     pub prot_magic: u32,
 }
 
-// TODO: replace this generic variant with validation-rule-specific ones.
+#[non_exhaustive]
+pub enum SigningTag {
+    Tx = 0x01,
+    RedeemTx = 0x02,
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ValidationError {
@@ -38,6 +42,9 @@ pub enum ValidationError {
     UnableToComputeFees,
     FeesBelowMin,
     MaxTxSizeExceeded,
+    UnableToProcessWitnesses,
+    MissingWitness,
+    WrongSignature,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

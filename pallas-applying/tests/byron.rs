@@ -1,4 +1,3 @@
-use rand::Rng;
 use std::{borrow::Cow, vec::Vec};
 
 use pallas_applying::{
@@ -11,91 +10,103 @@ use pallas_codec::{
         decode::{Decode, Decoder},
         encode,
     },
-    utils::{CborWrap, EmptyMap, KeepRaw, MaybeIndefArray, TagWrap},
+    utils::{CborWrap, KeepRaw, MaybeIndefArray, TagWrap},
 };
-use pallas_crypto::hash::Hash;
-use pallas_primitives::byron::{
-    Address, Attributes, MintedTxPayload as ByronTxPayload, Tx as ByronTx, TxId as ByronTxId,
-    TxIn as ByronTxIn, TxOut as ByronTxOut, Witnesses as ByronWitnesses,
-};
+use pallas_primitives::byron::{Address, MintedTxPayload, Twit, Tx, TxIn, TxOut, Witnesses};
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
 
 #[cfg(test)]
 mod byron_tests {
     use super::*;
 
+    const MAINNET_TX_HEX_CBOR: &str =
+        "82839f8200d8185824825820da832fb5ef57df5b91817e9a7448d26e92552afb34f8ee5adb491b24bbe990d50e\
+        ff9f8282d818584283581cdac5d9464c2140aeb0e3b6d69f0657e61f51e0c259fe19681ed268e8a101581e581c2\
+        b5a44277e3543c08eae5d9d9d1146f43ba009fea6e285334f2549be001ae69c4d201b0000000172a84e408282d8\
+        18584283581c2b8e5e0cb6495ec275872d1340b0581613b04a49a3c6f2f760ecaf95a101581e581cca3e553c9c6\
+        3c5b66689e943ce7dad7d560ae84d7c2eaf21611c024c001ad27c159a1b00000003355d95efffa0818200d81858\
+        85825840888cdf85991d85f2023423ba4c80d41570ebf1fc878c9f5731df1d20c64aecf3e8aa2bbafc9beba8ef3\
+        3acb4d7e199b445229085718fba83b7f86ab6a3bcf782584063e34cf5fa6d8c0288630437fa5e151d93907e826e\
+        66ba273145e3ee712930b6f446ff81cb91d7f0cb4ceccd0466ba9ab14448d7eab9fc480a122324bd80170e";
+
+    fn cbor_to_bytes(input: &str) -> Vec<u8> {
+        hex::decode(input).unwrap()
+    }
+
+    fn mainnet_tx_from_bytes_cbor<'a>(tx_cbor: &'a Vec<u8>) -> MintedTxPayload<'a> {
+        pallas_codec::minicbor::decode::<MintedTxPayload>(&tx_cbor[..]).unwrap()
+    }
+
+    fn build_utxo<'a>(tx: &Tx) -> UTxOs<'a> {
+        let mut tx_ins: Vec<TxIn> = tx.inputs.clone().to_vec();
+        assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs.");
+        let tx_in: TxIn = tx_ins.pop().unwrap();
+        let address_payload =
+            "83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63\
+            c5927480e7434620200eb3a162ef0b6cf6f671ba925100";
+        let input_tx_out_addr: Address = match hex::decode(address_payload) {
+            Ok(addr_bytes) => Address {
+                payload: TagWrap(ByteVec::from(addr_bytes)),
+                crc: 3430631884,
+            },
+            _ => panic!("Unable to decode input address."),
+        };
+        let tx_out: TxOut = TxOut {
+            address: input_tx_out_addr,
+            amount: 19999000000,
+        };
+        let mut utxos: UTxOs = new_utxos();
+        add_to_utxo(&mut utxos, tx_in, tx_out);
+        utxos
+    }
+
     #[test]
-    // Note that:
-    //      i)   the transaction input contains 100000 lovelace,
-    //      ii)  the minimum_fee_constant protocol parameter is 7,
-    //      iii) the minimum_fee_factor protocol parameter is 11, and
-    //      iv)  the size of the transaction is 82 bytes—it is easy to verify
-    //              that 82 == pallas_applying::byron::get_tx_size(tx).
-    // The expected fees are therefore 7 + 11 * 82 = 909 lovelace, which is why
-    // the output contains 100000 - 909 = 99091 lovelace.
-    fn successful_case() {
+    fn successful_mainnet_tx() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 82,
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
             }),
             prot_magic: 764824073,
         };
-        let mut tx_ins: ByronTxIns = empty_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        add_byron_tx_in(&mut tx_ins, &tx_in);
-        let mut tx_outs: ByronTxOuts = new_tx_outs();
-        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
-        add_tx_out(&mut tx_outs, &tx_out);
-        let mut utxos: UTxOs = new_utxos();
-        // input_tx_out is the ByronTxOut associated with tx_in.
-        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
-        add_to_utxo(&mut utxos, tx_in, input_tx_out);
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?}).", err),
         }
     }
 
     #[test]
-    // Similar to successful_case, except that no inputs are added to the
-    // transaction, which should raise a ValidationError:TxInsEmpty error.
+    // Identical to successful_mainnet_tx, except that all inputs are removed.
     fn empty_ins() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        // Clear the set of inputs in the transaction.
+        let mut tx: Tx = (*mtxp.transaction).clone();
+        tx.inputs = MaybeIndefArray::Def(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 82,
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
             }),
             prot_magic: 764824073,
         };
-        let tx_ins: ByronTxIns = empty_tx_ins();
-        // Note: tx_in is not added to tx_ins, it is only added to the UTxOs set
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        let mut tx_outs: ByronTxOuts = new_tx_outs();
-        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
-        add_tx_out(&mut tx_outs, &tx_out);
-        let mut utxos: UTxOs = new_utxos();
-        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
-        add_to_utxo(&mut utxos, tx_in, input_tx_out);
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
             Err(err) => match err {
                 ValidationError::TxInsEmpty => (),
@@ -105,32 +116,31 @@ mod byron_tests {
     }
 
     #[test]
-    // Similar to empty_ins, except that this time no outputs are added to the
-    // transaction, which should raise a ValidationError:TxOutsEmpty error.
+    // Identical to successful_mainnet_tx, except that all outputs are removed.
     fn empty_outs() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        // Clear the set of outputs in the transaction.
+        let mut tx: Tx = (*mtxp.transaction).clone();
+        tx.outputs = MaybeIndefArray::Def(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 82,
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
             }),
             prot_magic: 764824073,
         };
-        let mut tx_ins: ByronTxIns = empty_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        add_byron_tx_in(&mut tx_ins, &tx_in);
-        let tx_outs: ByronTxOuts = new_tx_outs();
-        let mut utxos: UTxOs = new_utxos();
-        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
-        add_to_utxo(&mut utxos, tx_in, input_tx_out);
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => assert!(false, "Outputs set should not be empty."),
             Err(err) => match err {
                 ValidationError::TxOutsEmpty => (),
@@ -140,35 +150,22 @@ mod byron_tests {
     }
 
     #[test]
-    // The UTxO set does not contain an entry for the single input to this transaction. This
-    // represents the situation where a transaction tries to spend a non-existent UTxO (e.g., one
-    // which has already been spent).
+    // The transaction is valid, but the UTxO set is empty.
     fn unfound_utxo() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 82,
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
             }),
             prot_magic: 764824073,
         };
-        let mut tx_ins: ByronTxIns = empty_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        add_byron_tx_in(&mut tx_ins, &tx_in);
-        let mut tx_outs: ByronTxOuts = new_tx_outs();
-        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
-        add_tx_out(&mut tx_outs, &tx_out);
-        // Note: utxos is empty, hence the only input to this transaction will not be found, for
-        // which an error should be raised.
-        let utxos: UTxOs = new_utxos();
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
             Err(err) => match err {
                 ValidationError::InputMissingInUTxO => (),
@@ -178,36 +175,38 @@ mod byron_tests {
     }
 
     #[test]
-    // All outputs must contain a non-zero number of lovelaces.
+    // All lovelace in one of the outputs was removed.
     fn output_without_lovelace() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        // Remove lovelace from output.
+        let mut tx: Tx = (*mtxp.transaction).clone();
+        let altered_tx_out: TxOut = TxOut {
+            address: tx.outputs[0].address.clone(),
+            amount: 0,
+        };
+        let mut new_tx_outs: Vec<TxOut> = Vec::new();
+        new_tx_outs.push(tx.outputs[1].clone());
+        new_tx_outs.push(altered_tx_out);
+        tx.outputs = MaybeIndefArray::Indef(new_tx_outs);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 82,
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
             }),
             prot_magic: 764824073,
         };
-        let mut tx_ins: ByronTxIns = empty_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        add_byron_tx_in(&mut tx_ins, &tx_in);
-        let mut tx_outs: ByronTxOuts = new_tx_outs();
-        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        // Note that this output has 0 lovelaces.
-        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 0);
-        add_tx_out(&mut tx_outs, &tx_out);
-        let mut utxos: UTxOs = new_utxos();
-        // input_tx_out is the ByronTxOut associated with tx_in.
-        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
-        add_to_utxo(&mut utxos, tx_in, input_tx_out);
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => assert!(false, "All outputs must contain lovelace."),
             Err(err) => match err {
                 ValidationError::OutputWithoutLovelace => (),
@@ -217,39 +216,20 @@ mod byron_tests {
     }
 
     #[test]
-    // The following is almost exactly like successful_case, valid in every sense except that
-    // fees are exactly 1 lovelace below the minimum allowed by protocol (refer to successful_case
-    // for a deeper analysis on fees).
+    // Expected fees are increased by increasing the protocol parameters.
     fn not_enough_fees() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 82,
+                min_fees_const: 1000,
+                min_fees_factor: 1000,
+                max_tx_size: 4096,
             }),
             prot_magic: 764824073,
         };
-        let mut tx_ins: ByronTxIns = empty_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        add_byron_tx_in(&mut tx_ins, &tx_in);
-        let mut tx_outs: ByronTxOuts = new_tx_outs();
-        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        // Note: in successful_case, tx_out contains 99091. Hence, the successful transaction pays
-        // 1 extra lovelace as fees than the one here.
-        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99092);
-        add_tx_out(&mut tx_outs, &tx_out);
-        let mut utxos: UTxOs = new_utxos();
-        // input_tx_out is the ByronTxOut associated with tx_in.
-        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
-        add_to_utxo(&mut utxos, tx_in, input_tx_out);
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => assert!(false, "Fees should not be below minimum."),
             Err(err) => match err {
                 ValidationError::FeesBelowMin => (),
@@ -259,37 +239,22 @@ mod byron_tests {
     }
 
     #[test]
-    // The following is exactly the same as successful_case, except that the protocol parameters
-    // enforce that transaction sizes do not exceed the 81-byte limit. But, as explained in
-    // successful_case, this transaction is 82 bytes big, for which an error should be raised.
+    // Tx size limit set by protocol parameters is established at 0.
     fn tx_size_exceeds_max() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 7,
-                min_fees_factor: 11,
-                max_tx_size: 81,
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 0,
             }),
             prot_magic: 764824073,
         };
-        let mut tx_ins: ByronTxIns = empty_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
-        add_byron_tx_in(&mut tx_ins, &tx_in);
-        let mut tx_outs: ByronTxOuts = new_tx_outs();
-        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
-        add_tx_out(&mut tx_outs, &tx_out);
-        let mut utxos: UTxOs = new_utxos();
-        // input_tx_out is the ByronTxOut associated with tx_in.
-        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
-        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
-        add_to_utxo(&mut utxos, tx_in, input_tx_out);
-        let validation_result = mk_byron_tx_and_validate(
-            &new_tx(tx_ins, tx_outs, empty_attributes()),
-            &empty_witnesses(),
-            &utxos,
-            &env,
-        );
-        match validation_result {
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
             Err(err) => match err {
                 ValidationError::MaxTxSizeExceeded => (),
@@ -297,131 +262,125 @@ mod byron_tests {
             },
         }
     }
-}
 
-// Types aliases.
-type ByronTxIns = MaybeIndefArray<ByronTxIn>;
-type ByronTxOuts = MaybeIndefArray<ByronTxOut>;
+    #[test]
+    // The input to the transaction does not have a corresponding witness.
+    fn missing_witness() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        // Remove witness
+        let new_witnesses: Witnesses = MaybeIndefArray::Def(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(new_witnesses, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
+            }),
+            prot_magic: 764824073,
+        };
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
+            Ok(()) => assert!(false, "All inputs must have a witness signature."),
+            Err(err) => match err {
+                ValidationError::MissingWitness => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // The input to the transaction has an associated witness, but the signature is wrong.
+    fn wrong_signature() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(MAINNET_TX_HEX_CBOR);
+        let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        // Modify signature in witness
+        let new_wit: Twit = match mtxp.witness[0].clone() {
+            Twit::PkWitness(CborWrap((pk, _))) => {
+                Twit::PkWitness(CborWrap((pk, [0u8; 64].to_vec().into())))
+            }
+            _ => unreachable!(),
+        };
+        let mut new_witnesses_vec = Vec::new();
+        new_witnesses_vec.push(new_wit);
+        let new_witnesses: Witnesses = MaybeIndefArray::Def(new_witnesses_vec);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(new_witnesses, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                // min_fees_const: 155381000000000,
+                // min_fees_factor: 43946000000,
+                min_fees_const: 0,
+                min_fees_factor: 0,
+                max_tx_size: 4096,
+            }),
+            prot_magic: 764824073,
+        };
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
+            Ok(()) => assert!(false, "Witness signature should verify the transaction."),
+            Err(err) => match err {
+                ValidationError::WrongSignature => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+}
 
 // Helper functions.
-fn empty_tx_ins() -> ByronTxIns {
-    MaybeIndefArray::Def(Vec::new())
-}
-
-fn rand_tx_id() -> ByronTxId {
-    let mut rng = rand::thread_rng();
-    let mut bytes = [0u8; 32];
-    for elem in bytes.iter_mut() {
-        *elem = rng.gen();
-    }
-    Hash::new(bytes)
-}
-
-fn new_tx_in(tx_id: ByronTxId, index: u32) -> ByronTxIn {
-    ByronTxIn::Variant0(CborWrap((tx_id, index)))
-}
-
-fn add_byron_tx_in(ins: &mut ByronTxIns, new_in: &ByronTxIn) {
-    match ins {
-        MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_in.clone()),
-    }
-}
-
-fn new_tx_outs() -> ByronTxOuts {
-    MaybeIndefArray::Def(Vec::new())
-}
-
-fn rand_addr_payload() -> TagWrap<ByteVec, 24> {
-    let mut rng = rand::thread_rng();
-    let mut bytes = [0u8; 24];
-    for elem in bytes.iter_mut() {
-        *elem = rng.gen();
-    }
-    TagWrap::<ByteVec, 24>::new(ByteVec::from(bytes.to_vec()))
-}
-
-fn new_addr(payload: TagWrap<ByteVec, 24>, crc: u32) -> Address {
-    Address {
-        payload: payload,
-        crc: crc,
-    }
-}
-
-fn new_tx_out(address: Address, amount: u64) -> ByronTxOut {
-    ByronTxOut {
-        address: address,
-        amount: amount,
-    }
-}
-
-fn add_tx_out(outs: &mut ByronTxOuts, new_out: &ByronTxOut) {
-    match outs {
-        MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_out.clone()),
-    }
-}
-
-fn add_to_utxo<'a>(utxos: &mut UTxOs<'a>, tx_in: ByronTxIn, tx_out: ByronTxOut) {
+fn add_to_utxo<'a>(utxos: &mut UTxOs<'a>, tx_in: TxIn, tx_out: TxOut) {
     let multi_era_in: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Owned(tx_in)));
     let multi_era_out: MultiEraOutput = MultiEraOutput::Byron(Box::new(Cow::Owned(tx_out)));
     utxos.insert(multi_era_in, multi_era_out);
 }
 
-fn empty_attributes() -> Attributes {
-    EmptyMap
-}
-
-// pallas_applying::validate takes a MultiEraTx, not a ByronTx and a
-// ByronWitnesses. To be able to build a MultiEraTx from a ByronTx and a
-// ByronWitnesses, we need to encode each of them and then decode them into
-// KeepRaw<ByronTx> and KeepRaw<ByronWitnesses> values, respectively.
+// pallas_applying::validate takes a MultiEraTx, not a Tx and a Witnesses. To be able to build a
+// MultiEraTx from a Tx and a Witnesses, we need to encode each of them and then decode them into
+// KeepRaw<Tx> and KeepRaw<Witnesses> values, respectively, to be able to make the MultiEraTx value.
 fn mk_byron_tx_and_validate(
-    btx: &ByronTx,
-    bwit: &ByronWitnesses,
+    tx: &Tx,
+    wits: &Witnesses,
     utxos: &UTxOs,
     env: &Environment,
 ) -> ValidationResult {
-    // Encode btx and decode into a KeepRaw<ByronTx> value.
-    let mut btx_buf: Vec<u8> = Vec::new();
-    match encode(btx, &mut btx_buf) {
+    let mut tx_buf: Vec<u8> = Vec::new();
+    match encode(tx, &mut tx_buf) {
         Ok(_) => (),
-        Err(err) => assert!(false, "Unable to encode ByronTx ({:?}).", err),
+        Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
     };
-    let kpbtx: KeepRaw<ByronTx> =
-        match Decode::decode(&mut Decoder::new(&btx_buf.as_slice()), &mut ()) {
-            Ok(kp) => kp,
-            Err(err) => panic!("Unable to decode ByronTx ({:?}).", err),
-        };
+    let kptx: KeepRaw<Tx> = match Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()) {
+        Ok(kp) => kp,
+        Err(err) => panic!("Unable to decode Tx ({:?}).", err),
+    };
 
-    // Encode bwit and decode into a KeepRaw<ByronWitnesses> value.
     let mut wit_buf: Vec<u8> = Vec::new();
-    match encode(bwit, &mut wit_buf) {
+    match encode(wits, &mut wit_buf) {
         Ok(_) => (),
-        Err(err) => assert!(false, "Unable to encode ByronWitnesses ({:?}).", err),
+        Err(err) => assert!(false, "Unable to encode Witnesses ({:?}).", err),
     };
-    let kpbwit: KeepRaw<ByronWitnesses> =
+    let kpwit: KeepRaw<Witnesses> =
         match Decode::decode(&mut Decoder::new(&wit_buf.as_slice()), &mut ()) {
             Ok(kp) => kp,
-            Err(err) => panic!("Unable to decode ByronWitnesses ({:?}).", err),
+            Err(err) => panic!("Unable to decode Witnesses ({:?}).", err),
         };
 
-    let mtxp: ByronTxPayload = ByronTxPayload {
-        transaction: kpbtx,
-        witness: kpbwit,
+    let mtxp: MintedTxPayload = MintedTxPayload {
+        transaction: kptx,
+        witness: kpwit,
     };
     let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
     validate(&metx, utxos, env)
-}
-
-fn new_tx(ins: ByronTxIns, outs: ByronTxOuts, attrs: Attributes) -> ByronTx {
-    ByronTx {
-        inputs: ins,
-        outputs: outs,
-        attributes: attrs,
-    }
-}
-
-fn empty_witnesses() -> ByronWitnesses {
-    MaybeIndefArray::Def(Vec::new())
 }
 
 fn new_utxos<'a>() -> UTxOs<'a> {

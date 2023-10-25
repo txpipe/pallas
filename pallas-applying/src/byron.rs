@@ -1,19 +1,29 @@
 //! Utilities required for Byron-era transaction validation.
 
+use std::borrow::Cow;
+
 use crate::types::{
-    ByronProtParams, MultiEraInput, MultiEraOutput, UTxOs, ValidationError, ValidationResult,
+    ByronProtParams, MultiEraInput, MultiEraOutput, SigningTag, UTxOs, ValidationError,
+    ValidationResult,
 };
 
-use pallas_codec::minicbor::encode;
+use cbor_event::se::Serializer;
+use cryptoxide::ed25519;
+use pallas_addresses::byron::{
+    AddrAttrs, AddrType, AddressId, AddressPayload, ByronAddress, SpendingData,
+};
+use pallas_codec::{minicbor::encode, utils::CborWrap};
+use pallas_crypto::hash::Hash;
+use pallas_primitives::byron::{
+    Address, MintedTxPayload, PubKey, Signature, Twit, Tx, TxIn, TxOut,
+};
+use pallas_traverse::OriginalHash;
 
-use pallas_primitives::byron::{MintedTxPayload, Tx};
-
-// TODO: implement missing validation rules.
 pub fn validate_byron_tx(
     mtxp: &MintedTxPayload,
     utxos: &UTxOs,
     prot_pps: &ByronProtParams,
-    _prot_magic: &u32,
+    prot_magic: &u32,
 ) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
     let size: u64 = get_tx_size(tx)?;
@@ -22,7 +32,8 @@ pub fn validate_byron_tx(
     check_ins_in_utxos(tx, utxos)?;
     check_outs_have_lovelace(tx)?;
     check_fees(tx, &size, utxos, prot_pps)?;
-    check_size(&size, prot_pps)
+    check_size(&size, prot_pps)?;
+    check_witnesses(mtxp, utxos, prot_magic)
 }
 
 fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
@@ -93,4 +104,137 @@ fn get_tx_size(tx: &Tx) -> Result<u64, ValidationError> {
         Ok(()) => Ok(buff.len() as u64),
         Err(_) => Err(ValidationError::UnknownTxSize),
     }
+}
+
+pub enum TaggedSignature<'a> {
+    PkWitness(&'a Signature),
+    RedeemWitness(&'a Signature),
+}
+
+impl<'a> TaggedSignature<'a> {
+    fn get_raw_signature(&'a self) -> &'a Signature {
+        match self {
+            TaggedSignature::PkWitness(sign) => sign,
+            TaggedSignature::RedeemWitness(sign) => sign,
+        }
+    }
+}
+
+fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> ValidationResult {
+    let tx: &Tx = &mtxp.transaction;
+    let tx_hash: Hash<32> = mtxp.transaction.original_hash();
+    let witnesses: Vec<(&PubKey, TaggedSignature)> = tag_witnesses(&mtxp.witness)?;
+    let tx_inputs: &Vec<TxIn> = &tx.inputs;
+    for input in tx_inputs {
+        let tx_out: &TxOut = find_tx_out(input, utxos)?;
+        let (pub_key, sign): (&PubKey, &TaggedSignature) = find_witness(tx_out, &witnesses)?;
+        let signature: &Vec<u8> = sign.get_raw_signature();
+        let mut se = Serializer::new_vec();
+        serialize_tag(&mut se, sign)?;
+        se.serialize(&prot_magic)
+            .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        se.serialize(&tx_hash.as_ref())
+            .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        let data_to_verify: Vec<u8> = se.finalize();
+        if !ed25519::verify(&data_to_verify, &pub_key.as_slice()[0..32], signature) {
+            return Err(ValidationError::WrongSignature);
+        }
+    }
+    Ok(())
+}
+
+fn tag_witnesses(wits: &[Twit]) -> Result<Vec<(&PubKey, TaggedSignature)>, ValidationError> {
+    let mut res: Vec<(&PubKey, TaggedSignature)> = Vec::new();
+    for wit in wits.iter() {
+        match wit {
+            Twit::PkWitness(CborWrap((pk, sig))) => {
+                res.push((pk, TaggedSignature::PkWitness(sig)));
+            }
+            Twit::RedeemWitness(CborWrap((pk, sig))) => {
+                res.push((pk, TaggedSignature::RedeemWitness(sig)));
+            }
+            _ => return Err(ValidationError::UnableToProcessWitnesses),
+        }
+    }
+    Ok(res)
+}
+
+fn find_tx_out<'a>(input: &'a TxIn, utxos: &'a UTxOs) -> Result<&'a TxOut, ValidationError> {
+    let key: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Borrowed(input)));
+    utxos
+        .get(&key)
+        .ok_or(ValidationError::InputMissingInUTxO)?
+        .as_byron()
+        .ok_or(ValidationError::InputMissingInUTxO)
+}
+
+fn find_witness<'a>(
+    tx_out: &TxOut,
+    witnesses: &'a Vec<(&'a PubKey, TaggedSignature<'a>)>,
+) -> Result<(&'a PubKey, &'a TaggedSignature<'a>), ValidationError> {
+    let address: ByronAddress = mk_byron_address(&tx_out.address);
+    let addr_payload: AddressPayload = address
+        .decode()
+        .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+    let root: AddressId = addr_payload.root;
+    let attr: AddrAttrs = addr_payload.attributes;
+    let addr_type: AddrType = addr_payload.addrtype;
+    for (pub_key, sign) in witnesses {
+        if redeems(pub_key, sign, &root, &attr, &addr_type) {
+            match addr_type {
+                AddrType::PubKey | AddrType::Redeem => return Ok((pub_key, sign)),
+                _ => return Err(ValidationError::UnableToProcessWitnesses),
+            }
+        }
+    }
+    Err(ValidationError::MissingWitness)
+}
+
+fn mk_byron_address(addr: &Address) -> ByronAddress {
+    ByronAddress::new((*addr.payload.0).as_slice(), addr.crc)
+}
+
+fn redeems(
+    pub_key: &PubKey,
+    sign: &TaggedSignature,
+    root: &AddressId,
+    attrs: &AddrAttrs,
+    addr_type: &AddrType,
+) -> bool {
+    let spending_data: SpendingData = mk_spending_data(pub_key, addr_type);
+    let hash_to_check: AddressId =
+        AddressPayload::hash_address_id(addr_type, &spending_data, attrs);
+    hash_to_check == *root && convert_to_addr_type(sign) == *addr_type
+}
+
+fn convert_to_addr_type(sign: &TaggedSignature) -> AddrType {
+    match sign {
+        TaggedSignature::PkWitness(_) => AddrType::PubKey,
+        TaggedSignature::RedeemWitness(_) => AddrType::Redeem,
+    }
+}
+
+fn mk_spending_data(pub_key: &PubKey, addr_type: &AddrType) -> SpendingData {
+    match addr_type {
+        AddrType::PubKey => SpendingData::PubKey(pub_key.clone()),
+        AddrType::Redeem => SpendingData::Redeem(pub_key.clone()),
+        _ => unreachable!(),
+    }
+}
+
+fn serialize_tag(
+    se: &mut Serializer<Vec<u8>>,
+    sign: &TaggedSignature,
+) -> Result<(), ValidationError> {
+    match sign {
+        TaggedSignature::PkWitness(_) => {
+            se.write_unsigned_integer(SigningTag::Tx as u64)
+                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        }
+        TaggedSignature::RedeemWitness(_) => {
+            se.write_unsigned_integer(SigningTag::RedeemTx as u64)
+                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        }
+    }
+    Ok(())
 }
