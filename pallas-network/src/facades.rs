@@ -294,9 +294,9 @@ impl NodeServer {
         &mut self.chainsync
     }
 
-    // pub fn statequery(&mut self) -> &mut localstate::Server {
-    //     &mut self.statequery
-    // }
+    pub fn statequery(&mut self) -> &mut localstate::Server {
+        &mut self.statequery
+    }
 
     pub fn abort(&mut self) {
         self.plexer_handle.abort();
