@@ -13,7 +13,7 @@ use tokio::time::Instant;
 use tracing::{debug, error, trace};
 
 #[cfg(not(target_os = "windows"))]
-use tokio::net::UnixStream;
+use tokio::net::{UnixListener, UnixStream};
 
 const HEADER_LEN: usize = 8;
 
@@ -79,9 +79,17 @@ impl Bearer {
         Ok(Self::Tcp(stream))
     }
 
-    pub async fn accept_tcp(listener: TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
+    pub async fn accept_tcp(listener: &TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Tcp(stream), addr))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn accept_unix(
+        listener: &UnixListener,
+    ) -> tokio::io::Result<(Self, tokio::net::unix::SocketAddr)> {
+        let (stream, addr) = listener.accept().await?;
+        Ok((Self::Unix(stream), addr))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -501,7 +509,7 @@ mod tests {
 
         let channel = AgentChannel::for_client(0, &ingress, &egress);
 
-        egress.0.send((0 ^ 0x8000, input)).unwrap();
+        egress.0.send((0x8000, input)).unwrap();
 
         let mut buf = ChannelBuffer::new(channel);
 
@@ -525,7 +533,7 @@ mod tests {
 
         while !input.is_empty() {
             let chunk = Vec::from(input.drain(0..2).as_slice());
-            egress.0.send((0 ^ 0x8000, chunk)).unwrap();
+            egress.0.send((0x8000, chunk)).unwrap();
         }
 
         let mut buf = ChannelBuffer::new(channel);

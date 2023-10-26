@@ -12,6 +12,8 @@ use pallas_codec::utils::{
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
+use std::hash::Hash as StdHash;
+
 // Basic Cardano Types
 
 pub type Blake2b256 = Hash<32>;
@@ -64,7 +66,7 @@ pub struct Address {
 // Transactions
 
 // txout = [address, u64]
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct TxOut {
     #[n(0)]
     pub address: Address,
@@ -73,7 +75,7 @@ pub struct TxOut {
     pub amount: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, StdHash)]
 pub enum TxIn {
     // [0, #6.24(bytes .cbor ([txid, u32]))]
     Variant0(CborWrap<(TxId, u32)>),
@@ -121,7 +123,7 @@ impl<C> minicbor::Encode<C> for TxIn {
 }
 
 // tx = [[+ txin], [+ txout], attributes]
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, PartialEq, Eq)]
 pub struct Tx {
     #[n(0)]
     pub inputs: MaybeIndefArray<TxIn>,
@@ -829,7 +831,7 @@ mod tests {
     fn boundary_block_isomorphic_decoding_encoding() {
         type BlockWrapper = (u16, EbBlock);
 
-        let test_blocks = vec![include_str!("../../../test_data/genesis.block")];
+        let test_blocks = [include_str!("../../../test_data/genesis.block")];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
@@ -849,7 +851,7 @@ mod tests {
     fn main_block_isomorphic_decoding_encoding() {
         type BlockWrapper<'b> = (u16, MintedBlock<'b>);
 
-        let test_blocks = vec![
+        let test_blocks = [
             //include_str!("../../../test_data/genesis.block"),
             include_str!("../../../test_data/byron1.block"),
             include_str!("../../../test_data/byron2.block"),
@@ -876,7 +878,7 @@ mod tests {
 
     #[test]
     fn header_isomorphic_decoding_encoding() {
-        let subjects = vec![include_str!("../../../test_data/byron1.header")];
+        let subjects = [include_str!("../../../test_data/byron1.header")];
 
         for (idx, str) in subjects.iter().enumerate() {
             println!("decoding test header {}", idx + 1);

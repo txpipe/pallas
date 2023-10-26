@@ -1,7 +1,6 @@
 //! Utilities to traverse over multi-era block data
 
-use std::borrow::Cow;
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display, hash::Hash as StdHash};
 
 use thiserror::Error;
 
@@ -27,6 +26,7 @@ pub mod signers;
 pub mod size;
 pub mod time;
 pub mod tx;
+pub mod update;
 pub mod withdrawals;
 pub mod witnesses;
 
@@ -89,7 +89,7 @@ pub enum MultiEraOutput<'b> {
     Byron(Box<Cow<'b, byron::TxOut>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, StdHash)]
 #[non_exhaustive]
 pub enum MultiEraInput<'b> {
     Byron(Box<Cow<'b, byron::TxIn>>),
@@ -138,6 +138,14 @@ pub enum MultiEraWithdrawals<'b> {
     NotApplicable,
     Empty,
     AlonzoCompatible(&'b alonzo::Withdrawals),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraUpdate<'b> {
+    NotApplicable,
+    AlonzoCompatible(Box<Cow<'b, alonzo::Update>>),
+    Babbage(Box<Cow<'b, babbage::Update>>),
 }
 
 #[derive(Debug, Clone)]

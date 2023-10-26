@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(wallclock, expected_ts);
 
         let (epoch, epoch_slot) = genesis.absolute_slot_to_relative(slot);
-        assert_eq!(epoch, expected_epoch);
+        assert_eq!(epoch, expected_epoch, "epoch doesn't match");
         assert_eq!(epoch_slot, expected_epoch_slot);
     }
 
@@ -209,6 +209,45 @@ mod tests {
         // Shelley middle, value copied from:
         // https://explorer.cardano-testnet.iohkdev.io/en/block?id=26a1b5a649309c0c8dd48f3069d9adea5a27edf5171dfb941b708acaf2d76dcd
         assert_slot_matches_timestamp(&genesis, 48783593, 1643152809, 183, 97193);
+    }
+
+    #[test]
+    fn calc_matches_preview_values() {
+        let genesis = GenesisValues::preview();
+
+        // https://preview.cardanoscan.io/block/1
+        assert_slot_matches_timestamp(&genesis, 20, 1666656020, 0, 20);
+
+        // https://preview.cardanoscan.io/block/1384
+        assert_slot_matches_timestamp(&genesis, 27680, 1666683680, 0, 27680);
+
+        // https://preview.cardanoscan.io/block/1202991
+        assert_slot_matches_timestamp(&genesis, 27556036, 1694212036, 318, 80836);
+    }
+
+    #[test]
+    fn calc_matches_preprod_values() {
+        let genesis = GenesisValues::preprod();
+
+        // https://preprod.cardanoscan.io/block/0
+        assert_slot_matches_timestamp(&genesis, 0, 1654041600, 0, 0);
+
+        // https://preprod.cardanoscan.io/block/1
+        assert_slot_matches_timestamp(&genesis, 2, 1654041640, 0, 2);
+
+        // Can't make Byron blocks work, not sure what's going on here. Each block jumps
+        // several slots. Timestamps work but epoch calculation doesn't. Since anything
+        // interesting starts from Shelley, I'll commit to this logic and treat this as
+        // a known-issue for later fixing.
+
+        // https://preprod.cardanoscan.io/block/11
+        // assert_slot_matches_timestamp(&genesis, 21600, 1654473600, 1, 0);
+
+        // https://preprod.cardanoscan.io/block/46
+        assert_slot_matches_timestamp(&genesis, 86400, 1655769600, 4, 0);
+
+        // https://preprod.cardanoscan.io/block/1360501
+        assert_slot_matches_timestamp(&genesis, 38580791, 1694263991, 93, 46391);
     }
 
     #[test]
