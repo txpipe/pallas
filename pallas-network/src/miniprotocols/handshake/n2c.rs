@@ -83,6 +83,12 @@ impl VersionTable {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData(NetworkMagic, Option<bool>);
 
+impl VersionData {
+    pub fn new(magic: NetworkMagic, param: Option<bool>) -> Self {
+        Self(magic, param)
+    }
+}
+
 impl Encode<()> for VersionData {
     fn encode<W: encode::Write>(
         &self,

@@ -9,7 +9,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
 
     let result = client
         .statequery()
-        .query(localstate::queries::RequestV10::GetSystemStart)
+        .query(localstate::queries::Request::GetSystemStart)
         .await
         .unwrap();
 

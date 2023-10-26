@@ -150,7 +150,7 @@ pub struct NodeClient {
     pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub handshake: handshake::Confirmation<handshake::n2c::VersionData>,
     pub chainsync: chainsync::N2CClient,
-    pub statequery: localstate::ClientV10,
+    pub statequery: localstate::Client,
 }
 
 impl NodeClient {
@@ -236,7 +236,7 @@ impl NodeClient {
         &mut self.chainsync
     }
 
-    pub fn statequery(&mut self) -> &mut localstate::ClientV10 {
+    pub fn statequery(&mut self) -> &mut localstate::Client {
         &mut self.statequery
     }
 
@@ -250,7 +250,7 @@ pub struct NodeServer {
     pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
     pub version: (VersionNumber, n2c::VersionData),
     pub chainsync: chainsync::N2CServer,
-    // statequery: localstate::Server,
+    pub statequery: localstate::Server,
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -264,11 +264,11 @@ impl NodeServer {
 
         let hs_channel = server_plexer.subscribe_server(PROTOCOL_N2C_HANDSHAKE);
         let cs_channel = server_plexer.subscribe_server(PROTOCOL_N2C_CHAIN_SYNC);
-        // let sq_channel = server_plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
+        let sq_channel = server_plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
 
         let mut server_hs: handshake::Server<n2c::VersionData> = handshake::Server::new(hs_channel);
         let server_cs = chainsync::N2CServer::new(cs_channel);
-        // let server_sq = localstate::Server::new(sq_channel);
+        let server_sq = localstate::Server::new(sq_channel);
 
         let plexer_handle = tokio::spawn(async move { server_plexer.run().await });
 
@@ -282,7 +282,7 @@ impl NodeServer {
                 plexer_handle,
                 version: ver,
                 chainsync: server_cs,
-                // statequery: server_sq
+                statequery: server_sq
             })
         } else {
             plexer_handle.abort();
@@ -294,9 +294,9 @@ impl NodeServer {
         &mut self.chainsync
     }
 
-    // pub fn statequery(&mut self) -> &mut localstate::Server {
-    //     &mut self.statequery
-    // }
+    pub fn statequery(&mut self) -> &mut localstate::Server {
+        &mut self.statequery
+    }
 
     pub fn abort(&mut self) {
         self.plexer_handle.abort();
