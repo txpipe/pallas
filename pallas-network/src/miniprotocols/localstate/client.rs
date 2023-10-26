@@ -10,7 +10,7 @@ use crate::miniprotocols::Point;
 use crate::multiplexer;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ClientError {
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
     #[error("attempted to send message while agency is theirs")]
@@ -27,11 +27,11 @@ pub enum Error {
     Plexer(multiplexer::Error),
 }
 
-impl From<AcquireFailure> for Error {
+impl From<AcquireFailure> for ClientError {
     fn from(x: AcquireFailure) -> Self {
         match x {
-            AcquireFailure::PointTooOld => Error::AcquirePointTooOld,
-            AcquireFailure::PointNotOnChain => Error::AcquirePointNotFound,
+            AcquireFailure::PointTooOld => ClientError::AcquirePointTooOld,
+            AcquireFailure::PointNotOnChain => ClientError::AcquirePointNotFound,
         }
     }
 }
@@ -71,59 +71,59 @@ where
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), Error> {
+    fn assert_agency_is_ours(&self) -> Result<(), ClientError> {
         if !self.has_agency() {
-            Err(Error::AgencyIsTheirs)
+            Err(ClientError::AgencyIsTheirs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
+    fn assert_agency_is_theirs(&self) -> Result<(), ClientError> {
         if self.has_agency() {
-            Err(Error::AgencyIsOurs)
+            Err(ClientError::AgencyIsOurs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message<Q>) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message<Q>) -> Result<(), ClientError> {
         match (&self.0, msg) {
             (State::Idle, Message::Acquire(_)) => Ok(()),
             (State::Idle, Message::Done) => Ok(()),
             (State::Acquired, Message::Query(_)) => Ok(()),
             (State::Acquired, Message::ReAcquire(_)) => Ok(()),
             (State::Acquired, Message::Release) => Ok(()),
-            _ => Err(Error::InvalidOutbound),
+            _ => Err(ClientError::InvalidOutbound),
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message<Q>) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message<Q>) -> Result<(), ClientError> {
         match (&self.0, msg) {
             (State::Acquiring, Message::Acquired) => Ok(()),
             (State::Acquiring, Message::Failure(_)) => Ok(()),
             (State::Querying, Message::Result(_)) => Ok(()),
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
-    pub async fn send_message(&mut self, msg: &Message<Q>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message<Q>) -> Result<(), ClientError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
+        self.1.send_msg_chunks(msg).await.map_err(ClientError::Plexer)?;
 
         Ok(())
     }
 
-    pub async fn recv_message(&mut self) -> Result<Message<Q>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message<Q>, ClientError> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        let msg = self.1.recv_full_msg().await.map_err(ClientError::Plexer)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    pub async fn send_acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
+    pub async fn send_acquire(&mut self, point: Option<Point>) -> Result<(), ClientError> {
         let msg = Message::<Q>::Acquire(point);
         self.send_message(&msg).await?;
         self.0 = State::Acquiring;
@@ -131,7 +131,7 @@ where
         Ok(())
     }
 
-    pub async fn send_reacquire(&mut self, point: Option<Point>) -> Result<(), Error> {
+    pub async fn send_reacquire(&mut self, point: Option<Point>) -> Result<(), ClientError> {
         let msg = Message::<Q>::ReAcquire(point);
         self.send_message(&msg).await?;
         self.0 = State::Acquiring;
@@ -139,7 +139,7 @@ where
         Ok(())
     }
 
-    pub async fn send_release(&mut self) -> Result<(), Error> {
+    pub async fn send_release(&mut self) -> Result<(), ClientError> {
         let msg = Message::<Q>::Release;
         self.send_message(&msg).await?;
         self.0 = State::Idle;
@@ -147,7 +147,7 @@ where
         Ok(())
     }
 
-    pub async fn send_done(&mut self) -> Result<(), Error> {
+    pub async fn send_done(&mut self) -> Result<(), ClientError> {
         let msg = Message::<Q>::Done;
         self.send_message(&msg).await?;
         self.0 = State::Done;
@@ -155,7 +155,7 @@ where
         Ok(())
     }
 
-    pub async fn recv_while_acquiring(&mut self) -> Result<(), Error> {
+    pub async fn recv_while_acquiring(&mut self) -> Result<(), ClientError> {
         match self.recv_message().await? {
             Message::Acquired => {
                 self.0 = State::Acquired;
@@ -163,18 +163,18 @@ where
             }
             Message::Failure(x) => {
                 self.0 = State::Idle;
-                Err(Error::from(x))
+                Err(ClientError::from(x))
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
-    pub async fn acquire(&mut self, point: Option<Point>) -> Result<(), Error> {
+    pub async fn acquire(&mut self, point: Option<Point>) -> Result<(), ClientError> {
         self.send_acquire(point).await?;
         self.recv_while_acquiring().await
     }
 
-    pub async fn send_query(&mut self, request: Q::Request) -> Result<(), Error> {
+    pub async fn send_query(&mut self, request: Q::Request) -> Result<(), ClientError> {
         let msg = Message::<Q>::Query(request);
         self.send_message(&msg).await?;
         self.0 = State::Querying;
@@ -182,17 +182,17 @@ where
         Ok(())
     }
 
-    pub async fn recv_while_querying(&mut self) -> Result<Q::Response, Error> {
+    pub async fn recv_while_querying(&mut self) -> Result<Q::Response, ClientError> {
         match self.recv_message().await? {
             Message::Result(x) => {
                 self.0 = State::Acquired;
                 Ok(x)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
-    pub async fn query(&mut self, request: Q::Request) -> Result<Q::Response, Error> {
+    pub async fn query(&mut self, request: Q::Request) -> Result<Q::Response, ClientError> {
         self.send_query(request).await?;
         self.recv_while_querying().await
     }
