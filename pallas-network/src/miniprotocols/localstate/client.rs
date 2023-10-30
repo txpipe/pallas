@@ -110,7 +110,10 @@ where
     pub async fn send_message(&mut self, msg: &Message<Q>) -> Result<(), ClientError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).await.map_err(ClientError::Plexer)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(ClientError::Plexer)?;
 
         Ok(())
     }

@@ -122,27 +122,26 @@ impl Encode<()> for BlockQuery {
             BlockQuery::GetRewardInfoPools => {
                 e.array(1)?;
                 e.u16(18)?;
-            }
-            // BlockQuery::GetPoolState(()) => {
-            //     e.array(X)?;
-            //     e.u16(19)?;
-            // }
-            // BlockQuery::GetStakeSnapshots(()) => {
-            //     e.array(X)?;
-            //     e.u16(20)?;
-            // }
-            // BlockQuery::GetPoolDistr(()) => {
-            //     e.array(X)?;
-            //     e.u16(21)?;
-            // }
-            // BlockQuery::GetStakeDelegDeposits(()) => {
-            //     e.array(X)?;
-            //     e.u16(22)?;
-            // }
-            // BlockQuery::GetConstitutionHash => {
-            //     e.array(1)?;
-            //     e.u16(23)?;
-            // }
+            } // BlockQuery::GetPoolState(()) => {
+              //     e.array(X)?;
+              //     e.u16(19)?;
+              // }
+              // BlockQuery::GetStakeSnapshots(()) => {
+              //     e.array(X)?;
+              //     e.u16(20)?;
+              // }
+              // BlockQuery::GetPoolDistr(()) => {
+              //     e.array(X)?;
+              //     e.u16(21)?;
+              // }
+              // BlockQuery::GetStakeDelegDeposits(()) => {
+              //     e.array(X)?;
+              //     e.u16(22)?;
+              // }
+              // BlockQuery::GetConstitutionHash => {
+              //     e.array(1)?;
+              //     e.u16(23)?;
+              // }
         }
         Ok(())
     }
@@ -241,11 +240,9 @@ impl<'b> Decode<'b, ()> for Request {
             (1, 1) => Ok(Self::GetSystemStart),
             (1, 2) => Ok(Self::GetChainBlockNo),
             (1, 3) => Ok(Self::GetChainPoint),
-            _ => {
-                return Err(decode::Error::message(
-                    "invalid (size, tag) for lsq request",
-                ))
-            }
+            _ => Err(decode::Error::message(
+                "invalid (size, tag) for lsq request",
+            )),
         }
     }
 }
@@ -258,6 +255,10 @@ impl GenericResponse {
     pub fn new(bytes: Vec<u8>) -> Self {
         Self(bytes)
     }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 impl Encode<()> for GenericResponse {
@@ -268,7 +269,7 @@ impl Encode<()> for GenericResponse {
     ) -> Result<(), encode::Error<W::Error>> {
         e.writer_mut()
             .write_all(&self.0)
-            .map_err(|e| encode::Error::write(e))
+            .map_err(encode::Error::write)
     }
 }
 
