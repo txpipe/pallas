@@ -80,10 +80,14 @@ async fn main() {
     let get_system_start_query = localstate::queries::Request::GetSystemStart;
     let get_epoch_query =
         localstate::queries::Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo);
+    let get_stake_distribution_query = localstate::queries::Request::BlockQuery(
+        localstate::queries::BlockQuery::GetStakeDistribution,
+    );
 
     // execute an arbitrary "Local State" query against the node
     do_localstate_query(&mut client, get_system_start_query).await;
     do_localstate_query(&mut client, get_epoch_query).await;
+    do_localstate_query(&mut client, get_stake_distribution_query).await;
 
     client.statequery().send_done().await.unwrap();
 
