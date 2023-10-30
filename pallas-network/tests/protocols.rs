@@ -522,7 +522,6 @@ pub async fn local_state_query_server_and_block_query_get_epoch_client_happy_pat
             .unwrap();
 
         let resp = client_sq.recv_while_querying().await.unwrap();
-        println!("resp: {:?}", resp);
 
         assert_eq!(
             resp,
