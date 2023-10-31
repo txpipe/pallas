@@ -290,7 +290,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 .unwrap();
 
             // server receives range from client, sends blocks
-
             let ClientAcquireRequest(maybe_point) =
                 server_sq.recv_while_idle().await.unwrap().unwrap();
 
@@ -322,7 +321,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 .unwrap();
 
             // server receives release from the client
-
             match server_sq.recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::Release => (),
                 x => panic!("unexpected message from client: {x:?}"),
@@ -360,7 +358,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
             assert_eq!(*server_sq.state(), localstate::State::Acquired);
 
             // server receives reaquire from the client
-
             let maybe_point = match server_sq.recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::ReAcquire(p) => p,
                 x => panic!("unexpected message from client: {x:?}"),
@@ -372,7 +369,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
             server_sq.send_acquired().await.unwrap();
 
             // server receives release from the client
-
             match server_sq.recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::Release => (),
                 x => panic!("unexpected message from client: {x:?}"),
