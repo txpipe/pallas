@@ -1333,7 +1333,10 @@ pub struct PostAlonzoAuxiliaryData {
     pub native_scripts: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub plutus_scripts: Option<Vec<PlutusScript>>,
+    pub plutus_v1_scripts: Option<Vec<PlutusScript>>,
+
+    #[n(3)]
+    pub plutus_v2_scripts: Option<Vec<PlutusScript>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
