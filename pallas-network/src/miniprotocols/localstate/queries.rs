@@ -249,17 +249,16 @@ impl<'b> Decode<'b, ()> for Request {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockQueryResponse {
-    GetLedgerTip(Vec<u8>),
+    LedgerTip(Vec<u8>),
     EpochNo(Vec<u8>),
-    StakePools(Vec<u8>),
-    GetCurrentPParams(Vec<u8>),
-    GetProposedPParamsUpdates(Vec<u8>),
-    GetStakeDistribution(Vec<u8>),
-    GetGenesisConfig(Vec<u8>),
+    CurrentPParams(Vec<u8>),
+    ProposedPParamsUpdates(Vec<u8>),
+    StakeDistribution(Vec<u8>),
+    GenesisConfig(Vec<u8>),
     DebugChainDepState(Vec<u8>),
-    GetRewardProvenance(Vec<u8>),
-    GetStakePools(Vec<u8>),
-    GetRewardInfoPools(Vec<u8>),
+    RewardProvenance(Vec<u8>),
+    StakePools(Vec<u8>),
+    RewardInfoPools(Vec<u8>),
 }
 
 impl Encode<()> for BlockQueryResponse {
@@ -269,7 +268,7 @@ impl Encode<()> for BlockQueryResponse {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
-            Self::GetLedgerTip(bytes) => {
+            Self::LedgerTip(bytes) => {
                 e.array(2)?;
                 e.u16(0)?;
                 e.bytes(bytes)?;
@@ -281,31 +280,25 @@ impl Encode<()> for BlockQueryResponse {
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::StakePools(bytes) => {
-                e.array(2)?;
-                e.u16(2)?;
-                e.bytes(bytes)?;
-                Ok(())
-            }
-            Self::GetCurrentPParams(bytes) => {
+            Self::CurrentPParams(bytes) => {
                 e.array(2)?;
                 e.u16(3)?;
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::GetProposedPParamsUpdates(bytes) => {
+            Self::ProposedPParamsUpdates(bytes) => {
                 e.array(2)?;
                 e.u16(4)?;
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::GetStakeDistribution(bytes) => {
+            Self::StakeDistribution(bytes) => {
                 e.array(2)?;
                 e.u16(5)?;
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::GetGenesisConfig(bytes) => {
+            Self::GenesisConfig(bytes) => {
                 e.array(2)?;
                 e.u16(11)?;
                 e.bytes(bytes)?;
@@ -317,19 +310,19 @@ impl Encode<()> for BlockQueryResponse {
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::GetRewardProvenance(bytes) => {
+            Self::RewardProvenance(bytes) => {
                 e.array(2)?;
                 e.u16(14)?;
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::GetStakePools(bytes) => {
+            Self::StakePools(bytes) => {
                 e.array(2)?;
                 e.u16(16)?;
                 e.bytes(bytes)?;
                 Ok(())
             }
-            Self::GetRewardInfoPools(bytes) => {
+            Self::RewardInfoPools(bytes) => {
                 e.array(2)?;
                 e.u16(17)?;
                 e.bytes(bytes)?;
@@ -348,17 +341,16 @@ impl<'b> Decode<'b, ()> for BlockQueryResponse {
         let tag = d.u16()?;
 
         match (size, tag) {
-            (2, 0) => Ok(Self::GetLedgerTip(d.bytes()?.to_vec())),
+            (2, 0) => Ok(Self::LedgerTip(d.bytes()?.to_vec())),
             (2, 1) => Ok(Self::EpochNo(d.bytes()?.to_vec())),
-            (2, 2) => Ok(Self::StakePools(d.bytes()?.to_vec())),
-            (2, 3) => Ok(Self::GetCurrentPParams(d.bytes()?.to_vec())),
-            (2, 4) => Ok(Self::GetProposedPParamsUpdates(d.bytes()?.to_vec())),
-            (2, 5) => Ok(Self::GetStakeDistribution(d.bytes()?.to_vec())),
-            (2, 11) => Ok(Self::GetGenesisConfig(d.bytes()?.to_vec())),
+            (2, 3) => Ok(Self::CurrentPParams(d.bytes()?.to_vec())),
+            (2, 4) => Ok(Self::ProposedPParamsUpdates(d.bytes()?.to_vec())),
+            (2, 5) => Ok(Self::StakeDistribution(d.bytes()?.to_vec())),
+            (2, 11) => Ok(Self::GenesisConfig(d.bytes()?.to_vec())),
             (2, 13) => Ok(Self::DebugChainDepState(d.bytes()?.to_vec())),
-            (2, 14) => Ok(Self::GetRewardProvenance(d.bytes()?.to_vec())),
-            (2, 16) => Ok(Self::GetStakePools(d.bytes()?.to_vec())),
-            (2, 17) => Ok(Self::GetRewardInfoPools(d.bytes()?.to_vec())),
+            (2, 14) => Ok(Self::RewardProvenance(d.bytes()?.to_vec())),
+            (2, 16) => Ok(Self::StakePools(d.bytes()?.to_vec())),
+            (2, 17) => Ok(Self::RewardInfoPools(d.bytes()?.to_vec())),
             _ => Err(decode::Error::message(
                 "invalid (size, tag) for lsq response",
             )),
