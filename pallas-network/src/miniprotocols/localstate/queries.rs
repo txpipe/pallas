@@ -42,7 +42,7 @@ impl Encode<()> for BlockQuery {
         e.u16(0)?;
         e.array(2)?;
         /*
-            TODO: I think this is era or something? First fetch era with
+            TODO: Think this is era or something? First fetch era with
             [3, [0, [2, [1]]]], then use it here?
         */
         e.u16(5)?;
