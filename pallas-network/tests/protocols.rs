@@ -7,7 +7,7 @@ use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2c;
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::queries::{GenericResponse, Request};
+use pallas_network::miniprotocols::localstate::queries::{BlockQueryResponse, Request, Response};
 use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest};
 use pallas_network::miniprotocols::{
     blockfetch,
@@ -258,7 +258,6 @@ pub async fn blockfetch_server_and_client_happy_path() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn local_state_query_server_and_client_happy_path() {
     let server = tokio::spawn({
         async move {
@@ -315,8 +314,12 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(*server_sq.state(), localstate::State::Querying);
 
+            let get_stake_pools_response = Response::BlockQuery(BlockQueryResponse::StakePools(
+                hex::decode("82011A008BD423").unwrap(),
+            ));
+
             server_sq
-                .send_result(GenericResponse::new(hex::decode("82011A008BD423").unwrap()))
+                .send_result(get_stake_pools_response)
                 .await
                 .unwrap();
 
@@ -350,10 +353,11 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(*server_sq.state(), localstate::State::Querying);
 
-            server_sq
-                .send_result(GenericResponse::new(hex::decode("83188118181867").unwrap()))
-                .await
-                .unwrap();
+            let get_epoch_no_response = Response::BlockQuery(BlockQueryResponse::EpochNo(
+                hex::decode("83188118181867").unwrap(),
+            ));
+
+            server_sq.send_result(get_epoch_no_response).await.unwrap();
 
             assert_eq!(*server_sq.state(), localstate::State::Acquired);
 
@@ -412,7 +416,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             resp,
-            GenericResponse::new(hex::decode("82011A008BD423").unwrap())
+            Response::BlockQuery(BlockQueryResponse::StakePools(
+                hex::decode("82011A008BD423").unwrap()
+            ))
         );
 
         client_sq.send_release().await.unwrap();
@@ -432,7 +438,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             resp_get_epoch_no,
-            GenericResponse::new(hex::decode("83188118181867").unwrap())
+            Response::BlockQuery(BlockQueryResponse::EpochNo(
+                hex::decode("83188118181867").unwrap()
+            ))
         );
 
         // client sends a ReAquire

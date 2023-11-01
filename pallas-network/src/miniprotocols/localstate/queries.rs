@@ -42,7 +42,7 @@ impl Encode<()> for BlockQuery {
         e.u16(0)?;
         e.array(2)?;
         /*
-            TODO: Think this is era or something? First fetch era with
+            TODO: I think this is era or something? First fetch era with
             [3, [0, [2, [1]]]], then use it here?
         */
         e.u16(5)?;
@@ -248,39 +248,185 @@ impl<'b> Decode<'b, ()> for Request {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct GenericResponse(Vec<u8>);
-
-impl GenericResponse {
-    /// "bytes" must be valid CBOR
-    pub fn new(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-
-    pub fn bytes(&self) -> &[u8] {
-        &self.0
-    }
+pub enum BlockQueryResponse {
+    GetLedgerTip(Vec<u8>),
+    EpochNo(Vec<u8>),
+    StakePools(Vec<u8>),
+    GetCurrentPParams(Vec<u8>),
+    GetProposedPParamsUpdates(Vec<u8>),
+    GetStakeDistribution(Vec<u8>),
+    GetGenesisConfig(Vec<u8>),
+    DebugChainDepState(Vec<u8>),
+    GetRewardProvenance(Vec<u8>),
+    GetStakePools(Vec<u8>),
+    GetRewardInfoPools(Vec<u8>),
 }
 
-impl Encode<()> for GenericResponse {
+impl Encode<()> for BlockQueryResponse {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        e.writer_mut()
-            .write_all(&self.0)
-            .map_err(encode::Error::write)
+        match self {
+            Self::GetLedgerTip(bytes) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::EpochNo(bytes) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::StakePools(bytes) => {
+                e.array(2)?;
+                e.u16(2)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetCurrentPParams(bytes) => {
+                e.array(2)?;
+                e.u16(3)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetProposedPParamsUpdates(bytes) => {
+                e.array(2)?;
+                e.u16(4)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetStakeDistribution(bytes) => {
+                e.array(2)?;
+                e.u16(5)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetGenesisConfig(bytes) => {
+                e.array(2)?;
+                e.u16(11)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::DebugChainDepState(bytes) => {
+                e.array(2)?;
+                e.u16(13)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetRewardProvenance(bytes) => {
+                e.array(2)?;
+                e.u16(14)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetStakePools(bytes) => {
+                e.array(2)?;
+                e.u16(16)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::GetRewardInfoPools(bytes) => {
+                e.array(2)?;
+                e.u16(17)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+        }
     }
 }
 
-impl<'b> Decode<'b, ()> for GenericResponse {
+impl<'b> Decode<'b, ()> for BlockQueryResponse {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let start = d.position();
-        d.skip()?;
-        let end = d.position();
-        let slice = &d.input()[start..end];
-        let vec = slice.to_vec();
-        Ok(GenericResponse(vec))
+        let size = d
+            .array()?
+            .ok_or_else(|| decode::Error::message("unexpected indefinite len list"))?;
+
+        let tag = d.u16()?;
+
+        match (size, tag) {
+            (2, 0) => Ok(Self::GetLedgerTip(d.bytes()?.to_vec())),
+            (2, 1) => Ok(Self::EpochNo(d.bytes()?.to_vec())),
+            (2, 2) => Ok(Self::StakePools(d.bytes()?.to_vec())),
+            (2, 3) => Ok(Self::GetCurrentPParams(d.bytes()?.to_vec())),
+            (2, 4) => Ok(Self::GetProposedPParamsUpdates(d.bytes()?.to_vec())),
+            (2, 5) => Ok(Self::GetStakeDistribution(d.bytes()?.to_vec())),
+            (2, 11) => Ok(Self::GetGenesisConfig(d.bytes()?.to_vec())),
+            (2, 13) => Ok(Self::DebugChainDepState(d.bytes()?.to_vec())),
+            (2, 14) => Ok(Self::GetRewardProvenance(d.bytes()?.to_vec())),
+            (2, 16) => Ok(Self::GetStakePools(d.bytes()?.to_vec())),
+            (2, 17) => Ok(Self::GetRewardInfoPools(d.bytes()?.to_vec())),
+            _ => Err(decode::Error::message(
+                "invalid (size, tag) for lsq response",
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Response {
+    BlockQuery(BlockQueryResponse),
+    SystemStart(Vec<u8>),
+    ChainBlockNo(Vec<u8>),
+    ChainPoint(Vec<u8>),
+}
+
+impl Encode<()> for Response {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Self::BlockQuery(q) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode(q)?;
+
+                Ok(())
+            }
+            Self::SystemStart(bytes) => {
+                e.array(1)?;
+                e.u16(1)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::ChainBlockNo(bytes) => {
+                e.array(1)?;
+                e.u16(2)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+            Self::ChainPoint(bytes) => {
+                e.array(1)?;
+                e.u16(3)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<'b> Decode<'b, ()> for Response {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let size = d
+            .array()?
+            .ok_or_else(|| decode::Error::message("unexpected indefinite len list"))?;
+
+        let tag = d.u16()?;
+
+        match (size, tag) {
+            (2, 0) => Ok(Self::BlockQuery(d.decode()?)),
+            (1, 1) => Ok(Self::SystemStart(d.bytes()?.to_vec())),
+            (1, 2) => Ok(Self::ChainBlockNo(d.bytes()?.to_vec())),
+            (1, 3) => Ok(Self::ChainPoint(d.bytes()?.to_vec())),
+            _ => Err(decode::Error::message(
+                "invalid (size, tag) for lsq response",
+            )),
+        }
     }
 }
 
@@ -290,5 +436,5 @@ pub struct QueryV16 {}
 
 impl Query for QueryV16 {
     type Request = Request;
-    type Response = GenericResponse;
+    type Response = Response;
 }
