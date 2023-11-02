@@ -145,6 +145,8 @@ pub use crate::alonzo::PositiveInterval;
 
 pub use crate::alonzo::StakeCredential;
 
+pub use crate::alonzo::Certificates;
+
 pub use crate::alonzo::Certificate;
 
 pub use crate::alonzo::NetworkId;
@@ -249,7 +251,7 @@ pub struct PseudoTransactionBody<T1> {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<Vec<Certificate>>,
+    pub certificates: Option<Certificates>,
 
     #[n(5)]
     pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>,
