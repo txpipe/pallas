@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref};
+use std::result::{IntoIter, Iter};
 
 use pallas_codec::minicbor::{data::Tag, Decode, Encode};
 use pallas_crypto::hash::Hash;
@@ -907,7 +908,7 @@ pub struct TransactionBody {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<Vec<Certificate>>,
+    pub certificates: Option<Certificates>,
 
     #[n(5)]
     pub withdrawals: Option<Withdrawals>,
@@ -935,6 +936,44 @@ pub struct TransactionBody {
 
     #[n(15)]
     pub network_id: Option<NetworkId>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct Certificates(Vec<Certificate>);
+
+impl From<Vec<Certificate>> for Certificates {
+    fn from(xs: Vec<Certificate>) -> Self {
+        Certificates(xs)
+    }
+}
+
+impl From<Certificates> for Vec<Certificate> {
+    fn from(c: Certificates) -> Self {
+        c.0
+    }
+}
+
+impl Certificates {
+    pub fn iter(&self) -> impl Iterator<Item = &Certificate> {
+        self.0.iter()
+    }
+}
+
+impl <'b, C> minicbor::decode::Decode<'b, C> for Certificates {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        if d.probe().tag().is_ok() {
+            d.tag()?;
+        }
+        Ok(Certificates(d.decode_with(ctx)?))
+    }
+}
+
+impl <C> minicbor::encode::Encode<C> for Certificates {
+    fn encode<W: minicbor::encode::Write>(&self, e: &mut minicbor::Encoder<W>, ctx: &mut C) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(258))?;
+        e.encode_with(&self.0, ctx)?;
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
