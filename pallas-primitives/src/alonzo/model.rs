@@ -487,7 +487,7 @@ pub enum Certificate {
     StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
 
     AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
-    ResignCommitteeCold(CommitteeColdCredential),
+    ResignCommitteeCold(CommitteeColdCredential, Option<Anchor>),
     RegDRepCert(DRepCredential, Coin, Option<Anchor>),
     UnRegDRepCert(DRepCredential, Coin),
     UpdateDRepCert(StakeCredential, Option<Anchor>),
@@ -597,7 +597,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
             }
             15 => {
                 let a = d.decode_with(ctx)?;
-                Ok(Certificate::ResignCommitteeCold(a))
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::ResignCommitteeCold(a, b))
             }
             16 => {
                 let a = d.decode_with(ctx)?;
@@ -770,11 +771,11 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
 
                 Ok(())
             }
-            Certificate::ResignCommitteeCold(a) => {
-                e.array(2)?;
+            Certificate::ResignCommitteeCold(a, b) => {
+                e.array(3)?;
                 e.u16(15)?;
                 e.encode_with(a, ctx)?;
-
+                e.encode_with(b, ctx)?;
                 Ok(())
             }
             Certificate::RegDRepCert(a, b, c) => {
