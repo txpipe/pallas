@@ -2,7 +2,7 @@ use rand::Rng;
 use std::{borrow::Cow, vec::Vec};
 
 use pallas_applying::{
-    types::{ByronProtParams, MultiEraProtParams},
+    types::{ByronProtParams, MultiEraProtParams, ValidationError},
     validate, UTxOs, ValidationResult,
 };
 use pallas_codec::{
@@ -29,32 +29,92 @@ mod byron_tests {
     //      i)   the transaction input contains 100000 lovelace,
     //      ii)  the minimum_fee_constant protocol parameter is 7,
     //      iii) the minimum_fee_factor protocol parameter is 11, and
-    //      iv)  the size of the transaction is 82 bytes—it is easy to verify that
-    //              82 == pallas_applying::get_byron_tx_size(tx)
-    // The expected fees are therefore 7 + 11 * 82 = 909 lovelace, which is why the output contains
-    // 100000 - 909 = 99091 lovelace.
+    //      iv)  the size of the transaction is 82 bytes—it is easy to verify
+    //              that 82 == pallas_applying::get_byron_tx_size(tx).
+    // The expected fees are therefore 7 + 11 * 82 = 909 lovelace, which is why
+    // the output contains 100000 - 909 = 99091 lovelace.
     fn successful_case() {
         let protocol_params: ByronProtParams = ByronProtParams;
-        let mut tx_ins: ByronTxIns = empty_byron_tx_ins();
-        let tx_in: ByronTxIn = new_tx_in(random_tx_id(), 3);
+        let mut tx_ins: ByronTxIns = empty_tx_ins();
+        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
         add_byron_tx_in(&mut tx_ins, &tx_in);
-        let mut tx_outs: ByronTxOuts = new_byron_tx_outs();
-        let tx_out: ByronTxOut = new_byron_tx_out(new_address(random_address_payload(), 0), 99091);
-        add_byron_tx_out(&mut tx_outs, &tx_out);
+        let mut tx_outs: ByronTxOuts = new_tx_outs();
+        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
+        add_tx_out(&mut tx_outs, &tx_out);
         let mut utxos: UTxOs = new_utxos();
         // input_tx_out is the ByronTxOut associated with tx_in.
-        let input_tx_out: ByronTxOut =
-            new_byron_tx_out(new_address(random_address_payload(), 0), 100000);
+        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
         add_to_utxo(&mut utxos, tx_in, input_tx_out);
         let validation_result = mk_byron_tx_and_validate(
-            &new_byron_tx(tx_ins, tx_outs, empty_byron_attributes()),
-            &empty_byron_witnesses(),
+            &new_tx(tx_ins, tx_outs, empty_attributes()),
+            &empty_witnesses(),
             &utxos,
             &protocol_params,
         );
         match validation_result {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error (sucessful_case - {:?}).", err),
+            Err(err) => assert!(false, "Unexpected error ({:?}).", err),
+        }
+    }
+
+    #[test]
+    // Similar to successful_case, except that no inputs are added to the
+    // transaction, which should raise a ValidationError:TxInsEmpty error.
+    fn empty_ins() {
+        let protocol_params: ByronProtParams = ByronProtParams;
+        let tx_ins: ByronTxIns = empty_tx_ins();
+        // Note: tx_in is not added to tx_ins, it is only added to the UTxOs set
+        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
+        let mut tx_outs: ByronTxOuts = new_tx_outs();
+        let tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let tx_out: ByronTxOut = new_tx_out(tx_out_addr, 99091);
+        add_tx_out(&mut tx_outs, &tx_out);
+        let mut utxos: UTxOs = new_utxos();
+        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
+        add_to_utxo(&mut utxos, tx_in, input_tx_out);
+        let validation_result = mk_byron_tx_and_validate(
+            &new_tx(tx_ins, tx_outs, empty_attributes()),
+            &empty_witnesses(),
+            &utxos,
+            &protocol_params,
+        );
+        match validation_result {
+            Ok(()) => assert!(false, "Inputs set should not be empty."),
+            Err(err) => match err {
+                ValidationError::TxInsEmpty => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // Similar to empty_ins, except that this time no outputs are added to the
+    // transaction, which should raise a ValidationError:TxOutsEmpty error.
+    fn empty_outs() {
+        let protocol_params: ByronProtParams = ByronProtParams;
+        let mut tx_ins: ByronTxIns = empty_tx_ins();
+        let tx_in: ByronTxIn = new_tx_in(rand_tx_id(), 3);
+        add_byron_tx_in(&mut tx_ins, &tx_in);
+        let tx_outs: ByronTxOuts = new_tx_outs();
+        let mut utxos: UTxOs = new_utxos();
+        let input_tx_out_addr: Address = new_addr(rand_addr_payload(), 0);
+        let input_tx_out: ByronTxOut = new_tx_out(input_tx_out_addr, 100000);
+        add_to_utxo(&mut utxos, tx_in, input_tx_out);
+        let validation_result = mk_byron_tx_and_validate(
+            &new_tx(tx_ins, tx_outs, empty_attributes()),
+            &empty_witnesses(),
+            &utxos,
+            &protocol_params,
+        );
+        match validation_result {
+            Ok(()) => assert!(false, "Outputs set should not be empty."),
+            Err(err) => match err {
+                ValidationError::TxOutsEmpty => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
         }
     }
 }
@@ -64,11 +124,11 @@ type ByronTxIns = MaybeIndefArray<ByronTxIn>;
 type ByronTxOuts = MaybeIndefArray<ByronTxOut>;
 
 // Helper functions.
-fn empty_byron_tx_ins() -> ByronTxIns {
+fn empty_tx_ins() -> ByronTxIns {
     MaybeIndefArray::Def(Vec::new())
 }
 
-fn random_tx_id() -> ByronTxId {
+fn rand_tx_id() -> ByronTxId {
     let mut rng = rand::thread_rng();
     let mut bytes = [0u8; 32];
     for elem in bytes.iter_mut() {
@@ -87,11 +147,11 @@ fn add_byron_tx_in(ins: &mut ByronTxIns, new_in: &ByronTxIn) {
     }
 }
 
-fn new_byron_tx_outs() -> ByronTxOuts {
+fn new_tx_outs() -> ByronTxOuts {
     MaybeIndefArray::Def(Vec::new())
 }
 
-fn random_address_payload() -> TagWrap<ByteVec, 24> {
+fn rand_addr_payload() -> TagWrap<ByteVec, 24> {
     let mut rng = rand::thread_rng();
     let mut bytes = [0u8; 24];
     for elem in bytes.iter_mut() {
@@ -100,21 +160,21 @@ fn random_address_payload() -> TagWrap<ByteVec, 24> {
     TagWrap::<ByteVec, 24>::new(ByteVec::from(bytes.to_vec()))
 }
 
-fn new_address(payload: TagWrap<ByteVec, 24>, crc: u32) -> Address {
+fn new_addr(payload: TagWrap<ByteVec, 24>, crc: u32) -> Address {
     Address {
         payload: payload,
         crc: crc,
     }
 }
 
-fn new_byron_tx_out(address: Address, amount: u64) -> ByronTxOut {
+fn new_tx_out(address: Address, amount: u64) -> ByronTxOut {
     ByronTxOut {
         address: address,
         amount: amount,
     }
 }
 
-fn add_byron_tx_out(outs: &mut ByronTxOuts, new_out: &ByronTxOut) {
+fn add_tx_out(outs: &mut ByronTxOuts, new_out: &ByronTxOut) {
     match outs {
         MaybeIndefArray::Def(vec) | MaybeIndefArray::Indef(vec) => vec.push(new_out.clone()),
     }
@@ -126,13 +186,14 @@ fn add_to_utxo<'a>(utxos: &mut UTxOs<'a>, tx_in: ByronTxIn, tx_out: ByronTxOut) 
     utxos.insert(multi_era_in, multi_era_out);
 }
 
-fn empty_byron_attributes() -> Attributes {
+fn empty_attributes() -> Attributes {
     EmptyMap
 }
 
-/// pallas_applying::validate takes a MultiEraTx, not a ByronTx and a ByronWitnesses. To be able to
-/// build a MultiEraTx from a ByronTx and a ByronWitnesses, we need to encode each of them and then
-/// decode them into KeepRaw<ByronTx> and KeepRaw<ByronWitnesses> values, respectively.
+// pallas_applying::validate takes a MultiEraTx, not a ByronTx and a
+// ByronWitnesses. To be able to build a MultiEraTx from a ByronTx and a
+// ByronWitnesses, we need to encode each of them and then decode them into
+// KeepRaw<ByronTx> and KeepRaw<ByronWitnesses> values, respectively.
 fn mk_byron_tx_and_validate(
     btx: &ByronTx,
     bwit: &ByronWitnesses,
@@ -175,7 +236,7 @@ fn mk_byron_tx_and_validate(
     )
 }
 
-fn new_byron_tx(ins: ByronTxIns, outs: ByronTxOuts, attrs: Attributes) -> ByronTx {
+fn new_tx(ins: ByronTxIns, outs: ByronTxOuts, attrs: Attributes) -> ByronTx {
     ByronTx {
         inputs: ins,
         outputs: outs,
@@ -183,7 +244,7 @@ fn new_byron_tx(ins: ByronTxIns, outs: ByronTxOuts, attrs: Attributes) -> ByronT
     }
 }
 
-fn empty_byron_witnesses() -> ByronWitnesses {
+fn empty_witnesses() -> ByronWitnesses {
     MaybeIndefArray::Def(Vec::new())
 }
 

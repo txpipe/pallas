@@ -21,7 +21,8 @@ pub enum MultiEraProtParams<'b> {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ValidationError {
-    ValidationError,
+    TxInsEmpty,
+    TxOutsEmpty,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
