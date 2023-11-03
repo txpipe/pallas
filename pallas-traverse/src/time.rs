@@ -131,6 +131,9 @@ impl<'a> MultiEraBlock<'a> {
             MultiEraBlock::Babbage(x) => {
                 genesis.absolute_slot_to_relative(x.header.header_body.slot)
             }
+            MultiEraBlock::Conway(x) => {
+                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+            }
         }
     }
 

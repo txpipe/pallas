@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::miniprotocols::common::Point;
 use crate::multiplexer;
@@ -138,7 +138,7 @@ impl Client {
     pub async fn recv_while_busy(&mut self) -> Result<HasBlocks, ClientError> {
         match self.recv_message().await? {
             Message::StartBatch => {
-                info!("batch start");
+                debug!("batch start");
                 self.0 = State::Streaming;
                 Ok(Some(()))
             }

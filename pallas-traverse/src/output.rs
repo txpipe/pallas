@@ -102,7 +102,7 @@ impl<'b> MultiEraOutput<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(Self::AlonzoCompatible(tx))
             }
-            Era::Babbage => {
+            Era::Babbage | Era::Conway => {
                 let tx = minicbor::decode(cbor)?;
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(Self::Babbage(tx))
