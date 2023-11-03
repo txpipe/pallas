@@ -67,10 +67,8 @@ mod byron_tests {
         let utxos: UTxOs = build_utxo(&mtxp.transaction);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -98,10 +96,8 @@ mod byron_tests {
         mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -132,10 +128,8 @@ mod byron_tests {
         mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -157,10 +151,8 @@ mod byron_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -198,10 +190,8 @@ mod byron_tests {
         mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -246,10 +236,8 @@ mod byron_tests {
         let utxos: UTxOs = build_utxo(&mtxp.transaction);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 0,
             }),
             prot_magic: 764824073,
@@ -279,10 +267,8 @@ mod byron_tests {
         mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -320,10 +306,8 @@ mod byron_tests {
         mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                // min_fees_const: 155381000000000,
-                // min_fees_factor: 43946000000,
-                min_fees_const: 0,
-                min_fees_factor: 0,
+                min_fees_const: 155381,
+                min_fees_factor: 44,
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
