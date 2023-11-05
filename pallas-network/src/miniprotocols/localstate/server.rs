@@ -88,7 +88,7 @@ where
         match (&self.0, msg) {
             (State::Acquiring, Message::Acquired) => Ok(()),
             (State::Acquiring, Message::Failure(_)) => Ok(()),
-            (State::Querying, Message::Result(_)) => Ok(()),
+            (State::Querying, Message::Response(_)) => Ok(()),
             _ => Err(Error::InvalidOutbound),
         }
     }
@@ -137,7 +137,7 @@ where
     }
 
     pub async fn send_result(&mut self, response: Q::Response) -> Result<(), Error> {
-        let msg = Message::<Q>::Result(response);
+        let msg = Message::<Q>::Response(response);
         self.send_message(&msg).await?;
         self.0 = State::Acquired;
 

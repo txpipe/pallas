@@ -5,7 +5,9 @@ use pallas_codec::Fragment;
 use std::marker::PhantomData;
 use thiserror::*;
 
+use super::queries::QueryV16;
 use super::{AcquireFailure, Message, Query, State};
+use crate::miniprotocols::localstate::queries::Response;
 use crate::miniprotocols::Point;
 use crate::multiplexer;
 
@@ -102,7 +104,7 @@ where
         match (&self.0, msg) {
             (State::Acquiring, Message::Acquired) => Ok(()),
             (State::Acquiring, Message::Failure(_)) => Ok(()),
-            (State::Querying, Message::Result(_)) => Ok(()),
+            (State::Querying, Message::Response(_)) => Ok(()),
             _ => Err(ClientError::InvalidInbound),
         }
     }
@@ -177,27 +179,31 @@ where
         self.recv_while_acquiring().await
     }
 
-    pub async fn send_query(&mut self, request: Q::Request) -> Result<(), ClientError> {
+    pub async fn send_query(&mut self, request: Q::Request) -> Result<Message<Q>, ClientError> {
         let msg = Message::<Q>::Query(request);
         self.send_message(&msg).await?;
         self.0 = State::Querying;
 
-        Ok(())
+        Ok(msg)
     }
 
     pub async fn recv_while_querying(&mut self) -> Result<Q::Response, ClientError> {
         match self.recv_message().await? {
-            Message::Result(x) => {
+            Message::Response(result) => {
                 self.0 = State::Acquired;
-                Ok(x)
+                Ok(result)
             }
             _ => Err(ClientError::InvalidInbound),
         }
     }
 
-    pub async fn query(&mut self, request: Q::Request) -> Result<Q::Response, ClientError> {
+    pub async fn query(&mut self, request: Q::Request) -> Result<Response, ClientError> {
+        let code: u16 = QueryV16::request_signal(request.clone().into());
         self.send_query(request).await?;
-        self.recv_while_querying().await
+        let response = self.recv_while_querying().await?;
+        let vec = QueryV16::to_vec(response.clone().into());
+        let result = QueryV16::map_response(code, vec);
+        Ok(result)
     }
 }
 

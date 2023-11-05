@@ -71,7 +71,7 @@ where
                 e.encode(query)?;
                 Ok(())
             }
-            Message::Result(result) => {
+            Message::Response(result) => {
                 e.array(2)?.u16(4)?;
                 e.encode(result)?;
                 Ok(())
@@ -127,7 +127,7 @@ where
             }
             4 => {
                 let response = d.decode()?;
-                Ok(Message::Result(response))
+                Ok(Message::Response(response))
             }
             5 => Ok(Message::Release),
             6 => {

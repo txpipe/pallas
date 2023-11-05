@@ -282,7 +282,7 @@ impl NodeServer {
                 plexer_handle,
                 version: ver,
                 chainsync: server_cs,
-                statequery: server_sq
+                statequery: server_sq,
             })
         } else {
             plexer_handle.abort();

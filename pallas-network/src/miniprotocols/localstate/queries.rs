@@ -261,6 +261,23 @@ pub enum BlockQueryResponse {
     RewardInfoPools(Vec<u8>),
 }
 
+impl BlockQueryResponse {
+    fn to_vec(&self) -> Vec<u8> {
+        match self {
+            BlockQueryResponse::LedgerTip(data) => data.clone(),
+            BlockQueryResponse::EpochNo(data) => data.clone(),
+            BlockQueryResponse::CurrentPParams(data) => data.clone(),
+            BlockQueryResponse::ProposedPParamsUpdates(data) => data.clone(),
+            BlockQueryResponse::StakeDistribution(data) => data.clone(),
+            BlockQueryResponse::GenesisConfig(data) => data.clone(),
+            BlockQueryResponse::DebugChainDepState(data) => data.clone(),
+            BlockQueryResponse::RewardProvenance(data) => data.clone(),
+            BlockQueryResponse::StakePools(data) => data.clone(),
+            BlockQueryResponse::RewardInfoPools(data) => data.clone(),
+        }
+    }
+}
+
 impl Encode<()> for BlockQueryResponse {
     fn encode<W: encode::Write>(
         &self,
@@ -359,11 +376,51 @@ impl<'b> Decode<'b, ()> for BlockQueryResponse {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct EpochNo(Vec<u8>);
+
+impl Encode<()> for EpochNo {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+        e.u16(1)?;
+        e.bytes(&self.0)?;
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for EpochNo {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let start = d.position();
+        d.skip()?;
+        let end = d.position();
+        let slice = &d.input()[start..end];
+        let vec = slice.to_vec();
+        Ok(EpochNo(vec))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Response {
     BlockQuery(BlockQueryResponse),
     SystemStart(Vec<u8>),
     ChainBlockNo(Vec<u8>),
     ChainPoint(Vec<u8>),
+    Generic(Vec<u8>),
+}
+
+impl Response {
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
+            Response::SystemStart(data) => data.clone(),
+            Response::ChainBlockNo(data) => data.clone(),
+            Response::ChainPoint(data) => data.clone(),
+            Response::Generic(data) => data.clone(),
+        }
+    }
 }
 
 impl Encode<()> for Response {
@@ -377,7 +434,6 @@ impl Encode<()> for Response {
                 e.array(2)?;
                 e.u16(0)?;
                 e.encode(q)?;
-
                 Ok(())
             }
             Self::SystemStart(bytes) => {
@@ -398,23 +454,27 @@ impl Encode<()> for Response {
                 e.bytes(bytes)?;
                 Ok(())
             }
+            Response::Generic(_) => todo!(),
         }
     }
 }
 
 impl<'b> Decode<'b, ()> for Response {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let size = d
-            .array()?
-            .ok_or_else(|| decode::Error::message("unexpected indefinite len list"))?;
+        d.set_position(d.position() - 1);
+        let label = d.u16()?;
+        let start = d.position();
+        d.skip()?;
+        let end = d.position();
+        let slice = &d.input()[start..end];
+        let vec = slice.to_vec();
 
-        let tag = d.u16()?;
-
-        match (size, tag) {
-            (2, 0) => Ok(Self::BlockQuery(d.decode()?)),
-            (1, 1) => Ok(Self::SystemStart(d.bytes()?.to_vec())),
-            (1, 2) => Ok(Self::ChainBlockNo(d.bytes()?.to_vec())),
-            (1, 3) => Ok(Self::ChainPoint(d.bytes()?.to_vec())),
+        match label {
+            0 => Ok(Self::BlockQuery(d.decode()?)),
+            1 => Ok(Self::SystemStart(vec)),
+            2 => Ok(Self::ChainBlockNo(vec)),
+            3 => Ok(Self::ChainPoint(vec)),
+            4 => Ok(Self::Generic(vec)),
             _ => Err(decode::Error::message(
                 "invalid (size, tag) for lsq response",
             )),
@@ -429,4 +489,39 @@ pub struct QueryV16 {}
 impl Query for QueryV16 {
     type Request = Request;
     type Response = Response;
+
+    fn request_signal(request: Self::Request) -> u16 {
+        match request {
+            Request::BlockQuery(BlockQuery::GetEpochNo) => 0,
+            Request::BlockQuery(BlockQuery::GetLedgerTip) => 1,
+            Request::BlockQuery(BlockQuery::GetCurrentPParams) => 2,
+            Request::BlockQuery(BlockQuery::GetProposedPParamsUpdates) => 3,
+            Request::BlockQuery(BlockQuery::GetStakeDistribution) => 4,
+            Request::BlockQuery(BlockQuery::DebugChainDepState) => 5,
+            Request::BlockQuery(BlockQuery::GetGenesisConfig) => 6,
+            Request::BlockQuery(BlockQuery::GetRewardProvenance) => 7,
+            Request::BlockQuery(BlockQuery::GetStakePools) => 8,
+            Request::BlockQuery(BlockQuery::GetRewardInfoPools) => 9,
+            Request::GetSystemStart => 10,
+            Request::GetChainBlockNo => 11,
+            Request::GetChainPoint => 12,
+        }
+    }
+
+    fn map_response(signal: u16, response: Vec<u8>) -> Self::Response {
+        match signal {
+            0 => Response::BlockQuery(BlockQueryResponse::EpochNo(response)),
+            _ => Response::Generic(response),
+        }
+    }
+
+    fn to_vec(response: Self::Response) -> Vec<u8> {
+        match response {
+            Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
+            Response::SystemStart(data) => data.clone(),
+            Response::ChainBlockNo(data) => data.clone(),
+            Response::ChainPoint(data) => data.clone(),
+            Response::Generic(data) => data.clone(),
+        }
+    }
 }

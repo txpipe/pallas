@@ -1,6 +1,10 @@
 use pallas::network::{
     facades::NodeClient,
-    miniprotocols::{chainsync, localstate, Point, MAINNET_MAGIC},
+    miniprotocols::{
+        chainsync,
+        localstate::{self, queries::EpochNo},
+        Point, MAINNET_MAGIC, PRE_PRODUCTION_MAGIC,
+    },
 };
 use tracing::info;
 
@@ -8,7 +12,6 @@ async fn do_localstate_query(client: &mut NodeClient, query: localstate::queries
     do_localstate_query_acquisition(client).await;
 
     let result = client.statequery().query(query).await.unwrap();
-
     info!("result: {:?}", result);
 
     client.statequery().send_release().await.unwrap();
@@ -50,16 +53,16 @@ async fn do_chainsync(client: &mut NodeClient) {
 async fn setup_client() -> NodeClient {
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let socket_path = "/tmp/node.socket";
+    let socket_path = "/Users/falcucci/Downloads/cardano-node-8.1.2-macos/node.socket";
 
     // we connect to the unix socket of the local node and perform a handshake query
-    let version_table = NodeClient::handshake_query(socket_path, MAINNET_MAGIC)
+    let version_table = NodeClient::handshake_query(socket_path, PRE_PRODUCTION_MAGIC)
         .await
         .unwrap();
 
     info!("handshake query result: {:?}", version_table);
 
-    NodeClient::connect(socket_path, MAINNET_MAGIC)
+    NodeClient::connect(socket_path, PRE_PRODUCTION_MAGIC)
         .await
         .unwrap()
 }
