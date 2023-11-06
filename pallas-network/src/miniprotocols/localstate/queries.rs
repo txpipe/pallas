@@ -507,7 +507,6 @@ impl Query for QueryV16 {
 
     fn to_vec(response: Self::Response) -> Vec<u8> {
         match response {
-            // Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
             Response::SystemStart(data) => data.clone(),
             Response::ChainBlockNo(data) => data.clone(),
             Response::ChainPoint(data) => data.clone(),
