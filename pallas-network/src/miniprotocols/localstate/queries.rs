@@ -248,7 +248,7 @@ impl<'b> Decode<'b, ()> for Request {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum BlockQueryResponse {
+pub enum QueryResponse {
     LedgerTip(Vec<u8>),
     EpochNo(EpochNo),
     CurrentPParams(Vec<u8>),
@@ -259,26 +259,28 @@ pub enum BlockQueryResponse {
     RewardProvenance(Vec<u8>),
     StakePools(Vec<u8>),
     RewardInfoPools(Vec<u8>),
+    Generic(Vec<u8>), // Server response to unknown query
 }
 
-impl BlockQueryResponse {
+impl QueryResponse {
     fn to_vec(&self) -> Vec<u8> {
         match self {
-            BlockQueryResponse::LedgerTip(data) => data.clone(),
-            BlockQueryResponse::EpochNo(data) => data.clone().to_vec(),
-            BlockQueryResponse::CurrentPParams(data) => data.clone(),
-            BlockQueryResponse::ProposedPParamsUpdates(data) => data.clone(),
-            BlockQueryResponse::StakeDistribution(data) => data.clone(),
-            BlockQueryResponse::GenesisConfig(data) => data.clone(),
-            BlockQueryResponse::DebugChainDepState(data) => data.clone(),
-            BlockQueryResponse::RewardProvenance(data) => data.clone(),
-            BlockQueryResponse::StakePools(data) => data.clone(),
-            BlockQueryResponse::RewardInfoPools(data) => data.clone(),
+            QueryResponse::LedgerTip(data) => data.clone(),
+            QueryResponse::EpochNo(data) => data.clone().to_vec(),
+            QueryResponse::CurrentPParams(data) => data.clone(),
+            QueryResponse::ProposedPParamsUpdates(data) => data.clone(),
+            QueryResponse::StakeDistribution(data) => data.clone(),
+            QueryResponse::GenesisConfig(data) => data.clone(),
+            QueryResponse::DebugChainDepState(data) => data.clone(),
+            QueryResponse::RewardProvenance(data) => data.clone(),
+            QueryResponse::StakePools(data) => data.clone(),
+            QueryResponse::RewardInfoPools(data) => data.clone(),
+            QueryResponse::Generic(data) => data.clone(),
         }
     }
 }
 
-impl Encode<()> for BlockQueryResponse {
+impl Encode<()> for QueryResponse {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
@@ -294,7 +296,7 @@ impl Encode<()> for BlockQueryResponse {
             Self::EpochNo(bytes) => {
                 e.array(2)?;
                 e.u16(1)?;
-                // e.bytes(bytes)?;
+                e.bytes(&bytes.to_vec())?;
                 Ok(())
             }
             Self::CurrentPParams(bytes) => {
@@ -345,11 +347,17 @@ impl Encode<()> for BlockQueryResponse {
                 e.bytes(bytes)?;
                 Ok(())
             }
+            Self::Generic(bytes) => {
+                e.array(2)?;
+                e.u16(18)?;
+                e.bytes(bytes)?;
+                Ok(())
+            }
         }
     }
 }
 
-impl<'b> Decode<'b, ()> for BlockQueryResponse {
+impl<'b> Decode<'b, ()> for QueryResponse {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let size = d
             .array()?
@@ -368,6 +376,7 @@ impl<'b> Decode<'b, ()> for BlockQueryResponse {
             (2, 14) => Ok(Self::RewardProvenance(d.bytes()?.to_vec())),
             (2, 16) => Ok(Self::StakePools(d.bytes()?.to_vec())),
             (2, 17) => Ok(Self::RewardInfoPools(d.bytes()?.to_vec())),
+            (2, 18) => Ok(Self::Generic(d.input().to_vec())),
             _ => Err(decode::Error::message(
                 "invalid (size, tag) for lsq response",
             )),
@@ -380,27 +389,52 @@ pub struct EpochNo(pub Vec<u8>);
 
 impl EpochNo {
     pub fn to_vec(&self) -> Vec<u8> {
+        self.0.clone().to_vec()
+    }
+}
+
+impl Encode<()> for EpochNo {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.bytes(&self.0)?;
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for EpochNo {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        Ok(Self(d.bytes()?.to_vec()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Generic(pub Vec<u8>);
+
+impl Generic {
+    pub fn to_vec(&self) -> Vec<u8> {
         self.0.clone()
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Response {
-    BlockQuery(BlockQueryResponse),
     SystemStart(Vec<u8>),
     ChainBlockNo(Vec<u8>),
     ChainPoint(Vec<u8>),
-    Generic(Vec<u8>),
+    Query(QueryResponse),
 }
 
 impl Response {
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
+            // Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
             Response::SystemStart(data) => data.clone(),
             Response::ChainBlockNo(data) => data.clone(),
             Response::ChainPoint(data) => data.clone(),
-            Response::Generic(data) => data.clone(),
+            Response::Query(query) => query.clone().to_vec(),
         }
     }
 }
@@ -412,31 +446,11 @@ impl Encode<()> for Response {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
-            Self::BlockQuery(q) => {
-                e.array(2)?;
-                e.u16(0)?;
+            Self::Query(q) => {
                 e.encode(q)?;
                 Ok(())
             }
-            Self::SystemStart(bytes) => {
-                e.array(1)?;
-                e.u16(1)?;
-                e.bytes(bytes)?;
-                Ok(())
-            }
-            Self::ChainBlockNo(bytes) => {
-                e.array(1)?;
-                e.u16(2)?;
-                e.bytes(bytes)?;
-                Ok(())
-            }
-            Self::ChainPoint(bytes) => {
-                e.array(1)?;
-                e.u16(3)?;
-                e.bytes(bytes)?;
-                Ok(())
-            }
-            Response::Generic(_) => todo!(),
+            _ => Ok(()),
         }
     }
 }
@@ -445,18 +459,11 @@ impl<'b> Decode<'b, ()> for Response {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         d.set_position(d.position() - 1);
         let label = d.u16()?;
-        let start = d.position();
         d.skip()?;
-        let end = d.position();
-        let slice = &d.input()[start..end];
-        let vec = slice.to_vec();
+        let vec = d.input().to_vec();
 
         match label {
-            0 => Ok(Self::BlockQuery(d.decode()?)),
-            1 => Ok(Self::SystemStart(vec)),
-            2 => Ok(Self::ChainBlockNo(vec)),
-            3 => Ok(Self::ChainPoint(vec)),
-            4 => Ok(Self::Generic(vec)),
+            4 => Ok(Self::Query(QueryResponse::Generic(vec))),
             _ => Err(decode::Error::message(
                 "invalid (size, tag) for lsq response",
             )),
@@ -492,18 +499,21 @@ impl Query for QueryV16 {
 
     fn map_response(signal: u16, response: Vec<u8>) -> Self::Response {
         match signal {
-            0 => Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(response))),
-            _ => Response::Generic(response),
+            0 => Self::Response::Query(QueryResponse::EpochNo(EpochNo(response.clone().to_vec()))),
+            8 => Self::Response::Query(QueryResponse::StakePools(response)),
+            _ => Self::Response::Query(QueryResponse::Generic(response.clone().to_vec())),
         }
     }
 
     fn to_vec(response: Self::Response) -> Vec<u8> {
         match response {
-            Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
+            // Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
             Response::SystemStart(data) => data.clone(),
             Response::ChainBlockNo(data) => data.clone(),
             Response::ChainPoint(data) => data.clone(),
-            Response::Generic(data) => data.clone(),
+            Response::Query(QueryResponse::EpochNo(epoch_no)) => epoch_no.to_vec(),
+            Response::Query(QueryResponse::Generic(data)) => data.clone(),
+            _ => panic!("unimplemented"),
         }
     }
 }

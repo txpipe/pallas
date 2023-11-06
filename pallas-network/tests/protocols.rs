@@ -8,9 +8,9 @@ use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip
 use pallas_network::miniprotocols::handshake::n2c;
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::queries::{
-    BlockQueryResponse, EpochNo, Request, Response,
+    EpochNo, QueryResponse, QueryV16, Request, Response,
 };
-use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest};
+use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest, Query};
 use pallas_network::miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
@@ -316,8 +316,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(*server_sq.state(), localstate::State::Querying);
 
-            let get_stake_pools_response = Response::BlockQuery(BlockQueryResponse::StakePools(
-                hex::decode("82011A008BD423").unwrap(),
+            let get_stake_pools_response = Response::Query(QueryResponse::Generic(
+                hex::decode("8C188204188118D9010218990118441858181C03").unwrap(),
             ));
 
             server_sq
@@ -355,12 +355,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(*server_sq.state(), localstate::State::Querying);
 
-            // let get_epoch_no_response = Response::BlockQuery(BlockQueryResponse::EpochNo(
-            //     hex::decode("83188118181867").unwrap(),
-            // ));
-
-            let get_epoch_no_response = Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(
-                hex::decode("83188118181867").unwrap(),
+            let get_epoch_no_response = Response::Query(QueryResponse::EpochNo(EpochNo(
+                hex::decode("85188204188118181868").unwrap(),
             )));
 
             server_sq.send_result(get_epoch_no_response).await.unwrap();
@@ -410,21 +406,31 @@ pub async fn local_state_query_server_and_client_happy_path() {
         assert_eq!(*client_sq.state(), localstate::State::Acquired);
 
         // client sends a BlockQuery
+        let get_stake_pools_query =
+            Request::BlockQuery(localstate::queries::BlockQuery::GetStakePools);
 
         client_sq
-            .send_query(Request::BlockQuery(
-                localstate::queries::BlockQuery::GetStakePools,
-            ))
+            .send_query(get_stake_pools_query.clone())
             .await
             .unwrap();
 
         let resp = client_sq.recv_while_querying().await.unwrap();
+        let vec = QueryV16::to_vec(resp.clone());
 
+        let stake_pools_vec: Vec<u8> = vec![
+            130, 4, 130, 18, 84, 140, 24, 130, 4, 24, 129, 24, 217, 1, 2, 24, 153, 1, 24, 68, 24,
+            88, 24, 28, 3,
+        ];
+
+        assert_eq!(vec, stake_pools_vec);
+
+        let code = QueryV16::request_signal(get_stake_pools_query.clone());
+        assert_eq!(code, 8);
+
+        let result = QueryV16::map_response(code, vec);
         assert_eq!(
-            resp,
-            Response::BlockQuery(BlockQueryResponse::StakePools(
-                hex::decode("82011A008BD423").unwrap()
-            ))
+            result,
+            Response::Query(QueryResponse::StakePools(stake_pools_vec))
         );
 
         client_sq.send_release().await.unwrap();
@@ -433,24 +439,28 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         client_sq.recv_while_acquiring().await.unwrap();
 
-        client_sq
-            .send_query(Request::BlockQuery(
-                localstate::queries::BlockQuery::GetEpochNo,
-            ))
-            .await
-            .unwrap();
+        let get_epoch_query = Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo);
 
-        let resp_get_epoch_no = client_sq.recv_while_querying().await.unwrap();
+        client_sq.send_query(get_epoch_query.clone()).await.unwrap();
 
+        let resp = client_sq.recv_while_querying().await.unwrap();
+
+        let vec = QueryV16::to_vec(resp.clone());
+        let epoch_no_vec: Vec<u8> = vec![
+            130, 4, 130, 1, 74, 133, 24, 130, 4, 24, 129, 24, 24, 24, 104,
+        ];
+        assert_eq!(vec, epoch_no_vec);
+
+        let code = QueryV16::request_signal(get_epoch_query.clone());
+        assert_eq!(code, 0);
+
+        let result = QueryV16::map_response(code, vec);
         assert_eq!(
-            resp_get_epoch_no,
-            Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(
-                hex::decode("83188118181867").unwrap()
-            ))),
+            result,
+            Response::Query(QueryResponse::EpochNo(EpochNo(epoch_no_vec)))
         );
 
         // client sends a ReAquire
-
         client_sq
             .send_reacquire(Some(Point::Specific(1337, vec![1, 2, 3])))
             .await

@@ -198,12 +198,11 @@ where
     }
 
     pub async fn query(&mut self, request: Q::Request) -> Result<Response, ClientError> {
+        self.send_query(request.clone()).await?;
         let code: u16 = QueryV16::request_signal(request.clone().into());
-        self.send_query(request).await?;
-        let response = self.recv_while_querying().await?;
+        let response: Q::Response = self.recv_while_querying().await?;
         let vec = QueryV16::to_vec(response.clone().into());
-        let result = QueryV16::map_response(code, vec);
-        Ok(result)
+        Ok(QueryV16::map_response(code, vec))
     }
 }
 
