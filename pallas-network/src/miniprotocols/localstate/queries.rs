@@ -250,7 +250,7 @@ impl<'b> Decode<'b, ()> for Request {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockQueryResponse {
     LedgerTip(Vec<u8>),
-    EpochNo(Vec<u8>),
+    EpochNo(EpochNo),
     CurrentPParams(Vec<u8>),
     ProposedPParamsUpdates(Vec<u8>),
     StakeDistribution(Vec<u8>),
@@ -265,7 +265,7 @@ impl BlockQueryResponse {
     fn to_vec(&self) -> Vec<u8> {
         match self {
             BlockQueryResponse::LedgerTip(data) => data.clone(),
-            BlockQueryResponse::EpochNo(data) => data.clone(),
+            BlockQueryResponse::EpochNo(data) => data.clone().to_vec(),
             BlockQueryResponse::CurrentPParams(data) => data.clone(),
             BlockQueryResponse::ProposedPParamsUpdates(data) => data.clone(),
             BlockQueryResponse::StakeDistribution(data) => data.clone(),
@@ -294,7 +294,7 @@ impl Encode<()> for BlockQueryResponse {
             Self::EpochNo(bytes) => {
                 e.array(2)?;
                 e.u16(1)?;
-                e.bytes(bytes)?;
+                // e.bytes(bytes)?;
                 Ok(())
             }
             Self::CurrentPParams(bytes) => {
@@ -359,7 +359,7 @@ impl<'b> Decode<'b, ()> for BlockQueryResponse {
 
         match (size, tag) {
             (2, 0) => Ok(Self::LedgerTip(d.bytes()?.to_vec())),
-            (2, 1) => Ok(Self::EpochNo(d.bytes()?.to_vec())),
+            (2, 1) => Ok(Self::EpochNo(EpochNo(d.bytes()?.to_vec()))),
             (2, 3) => Ok(Self::CurrentPParams(d.bytes()?.to_vec())),
             (2, 4) => Ok(Self::ProposedPParamsUpdates(d.bytes()?.to_vec())),
             (2, 5) => Ok(Self::StakeDistribution(d.bytes()?.to_vec())),
@@ -376,31 +376,37 @@ impl<'b> Decode<'b, ()> for BlockQueryResponse {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EpochNo(Vec<u8>);
+pub struct EpochNo(pub Vec<u8>);
 
-impl Encode<()> for EpochNo {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        _ctx: &mut (),
-    ) -> Result<(), encode::Error<W::Error>> {
-        e.array(2)?;
-        e.u16(1)?;
-        e.bytes(&self.0)?;
-        Ok(())
+impl EpochNo {
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.clone()
     }
 }
 
-impl<'b> Decode<'b, ()> for EpochNo {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let start = d.position();
-        d.skip()?;
-        let end = d.position();
-        let slice = &d.input()[start..end];
-        let vec = slice.to_vec();
-        Ok(EpochNo(vec))
-    }
-}
+// impl Encode<()> for EpochNo {
+//     fn encode<W: encode::Write>(
+//         &self,
+//         e: &mut Encoder<W>,
+//         _ctx: &mut (),
+//     ) -> Result<(), encode::Error<W::Error>> {
+//         e.array(2)?;
+//         e.u16(1)?;
+//         e.bytes(&self.0)?;
+//         Ok(())
+//     }
+// }
+//
+// impl<'b> Decode<'b, ()> for EpochNo {
+//     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+//         let start = d.position();
+//         d.skip()?;
+//         let end = d.position();
+//         let slice = &d.input()[start..end];
+//         let vec = slice.to_vec();
+//         Ok(EpochNo(vec))
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Response {
@@ -510,7 +516,7 @@ impl Query for QueryV16 {
 
     fn map_response(signal: u16, response: Vec<u8>) -> Self::Response {
         match signal {
-            0 => Response::BlockQuery(BlockQueryResponse::EpochNo(response)),
+            0 => Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(response))),
             _ => Response::Generic(response),
         }
     }

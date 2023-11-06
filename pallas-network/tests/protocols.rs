@@ -8,7 +8,7 @@ use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip
 use pallas_network::miniprotocols::handshake::n2c;
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::queries::{
-    BlockQueryResponse, QueryResponse, Request, Response,
+    BlockQueryResponse, EpochNo, QueryResponse, Request, Response,
 };
 use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest};
 use pallas_network::miniprotocols::{
@@ -359,9 +359,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             //     hex::decode("83188118181867").unwrap(),
             // ));
 
-            let get_epoch_no_response = Response::BlockQuery(BlockQueryResponse::EpochNo(
+            let get_epoch_no_response = Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(
                 hex::decode("83188118181867").unwrap(),
-            ));
+            )));
 
             server_sq.send_result(get_epoch_no_response).await.unwrap();
 

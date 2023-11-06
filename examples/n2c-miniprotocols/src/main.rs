@@ -2,7 +2,7 @@ use pallas::network::{
     facades::NodeClient,
     miniprotocols::{
         chainsync,
-        localstate::{self, queries::EpochNo},
+        localstate::{self},
         Point, MAINNET_MAGIC, PRE_PRODUCTION_MAGIC,
     },
 };
@@ -85,13 +85,13 @@ async fn main() {
         localstate::queries::Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo);
 
     // execute an arbitrary "Local State" query against the node
-    do_localstate_query(&mut client, get_system_start_query).await;
+    // do_localstate_query(&mut client, get_system_start_query).await;
     do_localstate_query(&mut client, get_epoch_query).await;
 
     client.statequery().send_done().await.unwrap();
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(&mut client).await;
+    // do_chainsync(&mut client).await;
 }
 
 #[cfg(not(target_family = "unix"))]
