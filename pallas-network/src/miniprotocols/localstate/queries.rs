@@ -384,30 +384,6 @@ impl EpochNo {
     }
 }
 
-// impl Encode<()> for EpochNo {
-//     fn encode<W: encode::Write>(
-//         &self,
-//         e: &mut Encoder<W>,
-//         _ctx: &mut (),
-//     ) -> Result<(), encode::Error<W::Error>> {
-//         e.array(2)?;
-//         e.u16(1)?;
-//         e.bytes(&self.0)?;
-//         Ok(())
-//     }
-// }
-//
-// impl<'b> Decode<'b, ()> for EpochNo {
-//     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-//         let start = d.position();
-//         d.skip()?;
-//         let end = d.position();
-//         let slice = &d.input()[start..end];
-//         let vec = slice.to_vec();
-//         Ok(EpochNo(vec))
-//     }
-// }
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Response {
     BlockQuery(BlockQueryResponse),

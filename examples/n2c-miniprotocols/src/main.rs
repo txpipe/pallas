@@ -2,13 +2,13 @@ use pallas::network::{
     facades::NodeClient,
     miniprotocols::{
         chainsync,
-        localstate::{self},
+        localstate::{self, queries::Request},
         Point, MAINNET_MAGIC, PRE_PRODUCTION_MAGIC,
     },
 };
 use tracing::info;
 
-async fn do_localstate_query(client: &mut NodeClient, query: localstate::queries::Request) {
+async fn do_localstate_query(client: &mut NodeClient, query: Request) {
     do_localstate_query_acquisition(client).await;
 
     let result = client.statequery().query(query).await.unwrap();
@@ -85,7 +85,7 @@ async fn main() {
         localstate::queries::Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo);
 
     // execute an arbitrary "Local State" query against the node
-    // do_localstate_query(&mut client, get_system_start_query).await;
+    do_localstate_query(&mut client, get_system_start_query).await;
     do_localstate_query(&mut client, get_epoch_query).await;
 
     client.statequery().send_done().await.unwrap();

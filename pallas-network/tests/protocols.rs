@@ -8,7 +8,7 @@ use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip
 use pallas_network::miniprotocols::handshake::n2c;
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::queries::{
-    BlockQueryResponse, EpochNo, QueryResponse, Request, Response,
+    BlockQueryResponse, EpochNo, Request, Response,
 };
 use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest};
 use pallas_network::miniprotocols::{
@@ -444,9 +444,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             resp_get_epoch_no,
-            Response::BlockQuery(BlockQueryResponse::EpochNo(
+            Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(
                 hex::decode("83188118181867").unwrap()
-            ))
+            ))),
         );
 
         // client sends a ReAquire
