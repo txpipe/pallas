@@ -8,14 +8,16 @@ use crate::types::{
 };
 
 use cbor_event::se::Serializer;
-use cryptoxide::ed25519;
 use pallas_addresses::byron::{
     AddrAttrs, AddrType, AddressId, AddressPayload, ByronAddress, SpendingData,
 };
 use pallas_codec::{minicbor::encode, utils::CborWrap};
-use pallas_crypto::hash::Hash;
+use pallas_crypto::{
+    hash::Hash,
+    key::ed25519::{PublicKey, Signature},
+};
 use pallas_primitives::byron::{
-    Address, MintedTxPayload, PubKey, Signature, Twit, Tx, TxIn, TxOut,
+    Address, MintedTxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
 };
 use pallas_traverse::OriginalHash;
 
@@ -107,17 +109,8 @@ fn get_tx_size(tx: &Tx) -> Result<u64, ValidationError> {
 }
 
 pub enum TaggedSignature<'a> {
-    PkWitness(&'a Signature),
-    RedeemWitness(&'a Signature),
-}
-
-impl<'a> TaggedSignature<'a> {
-    fn get_raw_signature(&'a self) -> &'a Signature {
-        match self {
-            TaggedSignature::PkWitness(sign) => sign,
-            TaggedSignature::RedeemWitness(sign) => sign,
-        }
-    }
+    PkWitness(&'a ByronSignature),
+    RedeemWitness(&'a ByronSignature),
 }
 
 fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> ValidationResult {
@@ -127,16 +120,11 @@ fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> V
     let tx_inputs: &Vec<TxIn> = &tx.inputs;
     for input in tx_inputs {
         let tx_out: &TxOut = find_tx_out(input, utxos)?;
-        let (pub_key, sign): (&PubKey, &TaggedSignature) = find_witness(tx_out, &witnesses)?;
-        let signature: &Vec<u8> = sign.get_raw_signature();
-        let mut se = Serializer::new_vec();
-        serialize_tag(&mut se, sign)?;
-        se.serialize(&prot_magic)
-            .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
-        se.serialize(&tx_hash.as_ref())
-            .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
-        let data_to_verify: Vec<u8> = se.finalize();
-        if !ed25519::verify(&data_to_verify, &pub_key.as_slice()[0..32], signature) {
+        let (pub_key, sign): (&PubKey, &TaggedSignature) = find_raw_witness(tx_out, &witnesses)?;
+        let public_key: PublicKey = get_verification_key(pub_key);
+        let data_to_verify: Vec<u8> = get_data_to_verify(sign, prot_magic, &tx_hash)?;
+        let signature: Signature = get_signature(sign);
+        if !public_key.verify(data_to_verify, &signature) {
             return Err(ValidationError::WrongSignature);
         }
     }
@@ -168,7 +156,7 @@ fn find_tx_out<'a>(input: &'a TxIn, utxos: &'a UTxOs) -> Result<&'a TxOut, Valid
         .ok_or(ValidationError::InputMissingInUTxO)
 }
 
-fn find_witness<'a>(
+fn find_raw_witness<'a>(
     tx_out: &TxOut,
     witnesses: &'a Vec<(&'a PubKey, TaggedSignature<'a>)>,
 ) -> Result<(&'a PubKey, &'a TaggedSignature<'a>), ValidationError> {
@@ -237,4 +225,34 @@ fn serialize_tag(
         }
     }
     Ok(())
+}
+
+fn get_verification_key(pk: &PubKey) -> PublicKey {
+    let mut trunc_len: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
+    trunc_len.copy_from_slice(&pk.as_slice()[0..PublicKey::SIZE]);
+    From::<[u8; PublicKey::SIZE]>::from(trunc_len)
+}
+
+fn get_data_to_verify(
+    sign: &TaggedSignature,
+    prot_magic: &u32,
+    tx_hash: &Hash<32>,
+) -> Result<Vec<u8>, ValidationError> {
+    let mut se = Serializer::new_vec();
+    serialize_tag(&mut se, sign)?;
+    se.serialize(&prot_magic)
+        .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+    se.serialize(&tx_hash.as_ref())
+        .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+    Ok(se.finalize())
+}
+
+fn get_signature(tagged_signature: &TaggedSignature<'_>) -> Signature {
+    let inner_sig = match tagged_signature {
+        TaggedSignature::PkWitness(sign) => sign,
+        TaggedSignature::RedeemWitness(sign) => sign,
+    };
+    let mut trunc_len: [u8; Signature::SIZE] = [0; Signature::SIZE];
+    trunc_len.copy_from_slice(inner_sig.as_slice());
+    From::<[u8; Signature::SIZE]>::from(trunc_len)
 }

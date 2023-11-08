@@ -13,7 +13,6 @@ authors = ["Maico Leberle <maico.leberle@gmail.com>"]
 doctest = false
 
 [dependencies]
-cryptoxide = "0.1"
 cbor_event = "^2.1.1"
 pallas-addresses = { path = "../pallas-addresses" }
 pallas-codec = { path = "../pallas-codec" }
