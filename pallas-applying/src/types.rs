@@ -20,6 +20,7 @@ pub enum MultiEraProtParams {
     Byron(ByronProtParams),
 }
 
+#[derive(Debug)]
 pub struct Environment {
     pub prot_params: MultiEraProtParams,
     pub prot_magic: u32,

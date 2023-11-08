@@ -7,11 +7,13 @@ use crate::types::{
     ValidationResult,
 };
 
-use cbor_event::se::Serializer;
 use pallas_addresses::byron::{
     AddrAttrs, AddrType, AddressId, AddressPayload, ByronAddress, SpendingData,
 };
-use pallas_codec::{minicbor::encode, utils::CborWrap};
+use pallas_codec::{
+    minicbor::{encode, Encoder},
+    utils::CborWrap,
+};
 use pallas_crypto::{
     hash::Hash,
     key::ed25519::{PublicKey, Signature},
@@ -210,23 +212,6 @@ fn mk_spending_data(pub_key: &PubKey, addr_type: &AddrType) -> SpendingData {
     }
 }
 
-fn serialize_tag(
-    se: &mut Serializer<Vec<u8>>,
-    sign: &TaggedSignature,
-) -> Result<(), ValidationError> {
-    match sign {
-        TaggedSignature::PkWitness(_) => {
-            se.write_unsigned_integer(SigningTag::Tx as u64)
-                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
-        }
-        TaggedSignature::RedeemWitness(_) => {
-            se.write_unsigned_integer(SigningTag::RedeemTx as u64)
-                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
-        }
-    }
-    Ok(())
-}
-
 fn get_verification_key(pk: &PubKey) -> PublicKey {
     let mut trunc_len: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
     trunc_len.copy_from_slice(&pk.as_slice()[0..PublicKey::SIZE]);
@@ -238,13 +223,23 @@ fn get_data_to_verify(
     prot_magic: &u32,
     tx_hash: &Hash<32>,
 ) -> Result<Vec<u8>, ValidationError> {
-    let mut se = Serializer::new_vec();
-    serialize_tag(&mut se, sign)?;
-    se.serialize(&prot_magic)
+    let buff: &mut Vec<u8> = &mut Vec::new();
+    let mut enc: Encoder<&mut Vec<u8>> = Encoder::new(buff);
+    match sign {
+        TaggedSignature::PkWitness(_) => {
+            enc.encode(SigningTag::Tx as u64)
+                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        }
+        TaggedSignature::RedeemWitness(_) => {
+            enc.encode(SigningTag::RedeemTx as u64)
+                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        }
+    }
+    enc.encode(prot_magic)
         .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
-    se.serialize(&tx_hash.as_ref())
+    enc.encode(tx_hash)
         .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
-    Ok(se.finalize())
+    Ok(enc.into_writer().clone())
 }
 
 fn get_signature(tagged_signature: &TaggedSignature<'_>) -> Signature {
