@@ -71,7 +71,7 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(14)?;
             }
-            BlockQuery::GetUTxOByTxIn(x) => {
+            BlockQuery::GetUTxOByTxIn(_) => {
                 e.array(2)?;
                 e.u16(15)?;
                 e.encode(2)?;
@@ -172,7 +172,7 @@ impl Encode<()> for HardForkQuery {
 }
 
 impl<'b> Decode<'b, ()> for HardForkQuery {
-    fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
+    fn decode(_d: &mut Decoder<'b>, _: &mut ()) -> Result<Self, decode::Error> {
         todo!()
     }
 }
@@ -197,7 +197,7 @@ impl Encode<()> for LedgerQuery {
 }
 
 impl<'b> Decode<'b, ()> for LedgerQuery {
-    fn decode(d: &mut Decoder<'b>, ctx: &mut ()) -> Result<Self, decode::Error> {
+    fn decode(_d: &mut Decoder<'b>, _: &mut ()) -> Result<Self, decode::Error> {
         todo!()
     }
 }

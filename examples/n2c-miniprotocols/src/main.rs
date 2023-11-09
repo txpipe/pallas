@@ -1,39 +1,30 @@
 use pallas::network::{
     facades::NodeClient,
-    miniprotocols::{
-        chainsync,
-        localstate::{self, queries_v16},
-        Point, MAINNET_MAGIC, PRE_PRODUCTION_MAGIC,
-    },
+    miniprotocols::{chainsync, localstate::queries_v16, Point, PRE_PRODUCTION_MAGIC},
 };
-use pallas_codec::utils::AnyCbor;
 use tracing::info;
 
 async fn do_localstate_query(client: &mut NodeClient) {
-    client.statequery().acquire(None).await.unwrap();
+    let client = client.statequery();
 
-    let result = queries_v16::get_chain_point(client.statequery())
-        .await
-        .unwrap();
+    client.acquire(None).await.unwrap();
+
+    let result = queries_v16::get_chain_point(client).await.unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_system_start(client.statequery())
-        .await
-        .unwrap();
+    let result = queries_v16::get_system_start(client).await.unwrap();
     info!("result: {:?}", result);
 
-    let era = queries_v16::get_current_era(client.statequery())
-        .await
-        .unwrap();
+    let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
-    let result = queries_v16::get_block_epoch_number(client.statequery(), era)
+    let result = queries_v16::get_block_epoch_number(client, era)
         .await
         .unwrap();
 
     info!("result: {:?}", result);
 
-    client.statequery().send_release().await.unwrap();
+    client.send_release().await.unwrap();
 }
 
 async fn do_chainsync(client: &mut NodeClient) {
@@ -63,7 +54,9 @@ async fn do_chainsync(client: &mut NodeClient) {
     }
 }
 
-const SOCKET_PATH: &str = "/Users/santiago_ho/.dmtr/tmp/starters-28e75e/mainnet-stable.socket";
+// change the following to match the Cardano node socket in your local
+// environment
+const SOCKET_PATH: &str = "/tmp/node.socket";
 
 #[cfg(target_family = "unix")]
 #[tokio::main]
@@ -77,7 +70,7 @@ async fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let mut client = NodeClient::connect(SOCKET_PATH, MAINNET_MAGIC)
+    let mut client = NodeClient::connect(SOCKET_PATH, PRE_PRODUCTION_MAGIC)
         .await
         .unwrap();
 

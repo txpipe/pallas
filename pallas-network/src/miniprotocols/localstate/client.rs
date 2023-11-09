@@ -190,7 +190,7 @@ impl GenericClient {
         }
     }
 
-    pub async fn query_generic(&mut self, request: AnyCbor) -> Result<AnyCbor, ClientError> {
+    pub async fn query_any(&mut self, request: AnyCbor) -> Result<AnyCbor, ClientError> {
         self.send_query(request).await?;
         self.recv_while_querying().await
     }
@@ -201,10 +201,7 @@ impl GenericClient {
         for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
     {
         let request = AnyCbor::from_encode(request);
-        self.send_query(request).await?;
-
-        let response = self.recv_while_querying().await?;
-
+        let response = self.query_any(request).await?;
         response.into_decode().map_err(ClientError::InvalidCbor)
     }
 }

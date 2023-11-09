@@ -1,4 +1,3 @@
-use std::convert::Into;
 use std::fmt::Debug;
 
 use pallas_codec::utils::AnyCbor;
