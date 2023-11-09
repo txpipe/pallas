@@ -97,7 +97,7 @@ impl GenericClient {
         match (&self.0, msg) {
             (State::Acquiring, Message::Acquired) => Ok(()),
             (State::Acquiring, Message::Failure(_)) => Ok(()),
-            (State::Querying, Message::Response(_)) => Ok(()),
+            (State::Querying, Message::Result(_)) => Ok(()),
             _ => Err(ClientError::InvalidInbound),
         }
     }
@@ -182,7 +182,7 @@ impl GenericClient {
 
     pub async fn recv_while_querying(&mut self) -> Result<AnyCbor, ClientError> {
         match self.recv_message().await? {
-            Message::Response(result) => {
+            Message::Result(result) => {
                 self.0 = State::Acquired;
                 Ok(result)
             }

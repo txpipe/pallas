@@ -26,7 +26,7 @@ pub enum Message {
     Failure(AcquireFailure),
     Acquired,
     Query(AnyCbor),
-    Response(AnyCbor),
+    Result(AnyCbor),
     ReAcquire(Option<Point>),
     Release,
     Done,

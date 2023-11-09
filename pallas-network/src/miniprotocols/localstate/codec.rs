@@ -66,7 +66,7 @@ impl Encode<()> for Message {
                 e.encode(query)?;
                 Ok(())
             }
-            Message::Response(result) => {
+            Message::Result(result) => {
                 e.array(2)?.u16(4)?;
                 e.encode(result)?;
                 Ok(())
@@ -117,7 +117,7 @@ impl<'b> Decode<'b, ()> for Message {
             }
             4 => {
                 let response = d.decode()?;
-                Ok(Message::Response(response))
+                Ok(Message::Result(response))
             }
             5 => Ok(Message::Release),
             6 => {
