@@ -1,3 +1,5 @@
+use pallas::codec::utils::AnyCbor;
+use pallas::network::miniprotocols::localstate::queries::Response;
 use pallas::network::{
     facades::NodeClient,
     miniprotocols::{
@@ -11,7 +13,7 @@ use tracing::info;
 async fn do_localstate_query(client: &mut NodeClient, query: Request) {
     do_localstate_query_acquisition(client).await;
 
-    let result = client.statequery().query(query).await.unwrap();
+    let result: Response = client.statequery().query(query).await.unwrap();
     info!("result: {:?}", result);
 
     client.statequery().send_release().await.unwrap();
@@ -53,16 +55,16 @@ async fn do_chainsync(client: &mut NodeClient) {
 async fn setup_client() -> NodeClient {
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let socket_path = "/Users/falcucci/Downloads/cardano-node-8.1.2-macos/node.socket";
+    let socket_path = "/Users/santiago_ho/.dmtr/tmp/starters-28e75e/mainnet-stable.socket";
 
     // we connect to the unix socket of the local node and perform a handshake query
-    let version_table = NodeClient::handshake_query(socket_path, PRE_PRODUCTION_MAGIC)
+    let version_table = NodeClient::handshake_query(socket_path, MAINNET_MAGIC)
         .await
         .unwrap();
 
     info!("handshake query result: {:?}", version_table);
 
-    NodeClient::connect(socket_path, PRE_PRODUCTION_MAGIC)
+    NodeClient::connect(socket_path, MAINNET_MAGIC)
         .await
         .unwrap()
 }
@@ -80,12 +82,12 @@ async fn main() {
     let mut client = setup_client().await;
 
     // specify the query we want to execute
-    let get_system_start_query = localstate::queries::Request::GetSystemStart;
+    // let get_system_start_query = localstate::queries::Request::GetSystemStart;
     let get_epoch_query =
         localstate::queries::Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo);
 
     // execute an arbitrary "Local State" query against the node
-    do_localstate_query(&mut client, get_system_start_query).await;
+    //do_localstate_query(&mut client, get_system_start_query).await;
     do_localstate_query(&mut client, get_epoch_query).await;
 
     client.statequery().send_done().await.unwrap();
@@ -95,7 +97,6 @@ async fn main() {
 }
 
 #[cfg(not(target_family = "unix"))]
-
 fn main() {
     panic!("can't use n2c unix socket on non-unix systems");
 }

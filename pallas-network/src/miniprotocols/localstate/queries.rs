@@ -1,7 +1,5 @@
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
-use super::Query;
-
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u16)]
@@ -122,26 +120,30 @@ impl Encode<()> for BlockQuery {
             BlockQuery::GetRewardInfoPools => {
                 e.array(1)?;
                 e.u16(18)?;
-            } // BlockQuery::GetPoolState(()) => {
-              //     e.array(X)?;
-              //     e.u16(19)?;
-              // }
-              // BlockQuery::GetStakeSnapshots(()) => {
-              //     e.array(X)?;
-              //     e.u16(20)?;
-              // }
-              // BlockQuery::GetPoolDistr(()) => {
-              //     e.array(X)?;
-              //     e.u16(21)?;
-              // }
-              // BlockQuery::GetStakeDelegDeposits(()) => {
-              //     e.array(X)?;
-              //     e.u16(22)?;
-              // }
-              // BlockQuery::GetConstitutionHash => {
-              //     e.array(1)?;
-              //     e.u16(23)?;
-              // }
+            } /* BlockQuery::GetPoolState(()) => {
+               *     e.array(X)?;
+               *     e.u16(19)?;
+               * } */
+
+              /* BlockQuery::GetStakeSnapshots(()) => {
+               *     e.array(X)?;
+               *     e.u16(20)?;
+               * } */
+
+              /* BlockQuery::GetPoolDistr(()) => {
+               *     e.array(X)?;
+               *     e.u16(21)?;
+               * } */
+
+              /* BlockQuery::GetStakeDelegDeposits(()) => {
+               *     e.array(X)?;
+               *     e.u16(22)?;
+               * } */
+
+              /* BlockQuery::GetConstitutionHash => {
+               *     e.array(1)?;
+               *     e.u16(23)?;
+               * } */
         }
         Ok(())
     }
@@ -228,21 +230,18 @@ impl Encode<()> for Request {
 
 impl<'b> Decode<'b, ()> for Request {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let size = match d.array()? {
-            Some(l) => l,
-            None => return Err(decode::Error::message("unexpected indefinite len list")),
-        };
-
+        d.array()?;
         let tag = d.u16()?;
 
-        match (size, tag) {
-            (2, 0) => Ok(Self::BlockQuery(d.decode()?)),
-            (1, 1) => Ok(Self::GetSystemStart),
-            (1, 2) => Ok(Self::GetChainBlockNo),
-            (1, 3) => Ok(Self::GetChainPoint),
-            _ => Err(decode::Error::message(
-                "invalid (size, tag) for lsq request",
-            )),
+        match tag {
+            0 => {
+                let inner = d.decode()?;
+                Ok(Self::BlockQuery(inner))
+            }
+            1 => Ok(Self::GetSystemStart),
+            2 => Ok(Self::GetChainBlockNo),
+            3 => Ok(Self::GetChainPoint),
+            _ => Err(decode::Error::message("invalid tag")),
         }
     }
 }
@@ -259,23 +258,6 @@ pub enum BlockQueryResponse {
     RewardProvenance(Vec<u8>),
     StakePools(Vec<u8>),
     RewardInfoPools(Vec<u8>),
-}
-
-impl BlockQueryResponse {
-    fn to_vec(&self) -> Vec<u8> {
-        match self {
-            BlockQueryResponse::LedgerTip(data) => data.clone(),
-            BlockQueryResponse::EpochNo(data) => data.clone().to_vec(),
-            BlockQueryResponse::CurrentPParams(data) => data.clone(),
-            BlockQueryResponse::ProposedPParamsUpdates(data) => data.clone(),
-            BlockQueryResponse::StakeDistribution(data) => data.clone(),
-            BlockQueryResponse::GenesisConfig(data) => data.clone(),
-            BlockQueryResponse::DebugChainDepState(data) => data.clone(),
-            BlockQueryResponse::RewardProvenance(data) => data.clone(),
-            BlockQueryResponse::StakePools(data) => data.clone(),
-            BlockQueryResponse::RewardInfoPools(data) => data.clone(),
-        }
-    }
 }
 
 impl Encode<()> for BlockQueryResponse {
@@ -351,23 +333,20 @@ impl Encode<()> for BlockQueryResponse {
 
 impl<'b> Decode<'b, ()> for BlockQueryResponse {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let size = d
-            .array()?
-            .ok_or_else(|| decode::Error::message("unexpected indefinite len list"))?;
-
+        d.array()?;
         let tag = d.u16()?;
 
-        match (size, tag) {
-            (2, 0) => Ok(Self::LedgerTip(d.bytes()?.to_vec())),
-            (2, 1) => Ok(Self::EpochNo(EpochNo(d.bytes()?.to_vec()))),
-            (2, 3) => Ok(Self::CurrentPParams(d.bytes()?.to_vec())),
-            (2, 4) => Ok(Self::ProposedPParamsUpdates(d.bytes()?.to_vec())),
-            (2, 5) => Ok(Self::StakeDistribution(d.bytes()?.to_vec())),
-            (2, 11) => Ok(Self::GenesisConfig(d.bytes()?.to_vec())),
-            (2, 13) => Ok(Self::DebugChainDepState(d.bytes()?.to_vec())),
-            (2, 14) => Ok(Self::RewardProvenance(d.bytes()?.to_vec())),
-            (2, 16) => Ok(Self::StakePools(d.bytes()?.to_vec())),
-            (2, 17) => Ok(Self::RewardInfoPools(d.bytes()?.to_vec())),
+        match tag {
+            0 => Ok(Self::LedgerTip(d.bytes()?.to_vec())),
+            1 => Ok(Self::EpochNo(EpochNo(d.bytes()?.to_vec()))),
+            3 => Ok(Self::CurrentPParams(d.bytes()?.to_vec())),
+            4 => Ok(Self::ProposedPParamsUpdates(d.bytes()?.to_vec())),
+            5 => Ok(Self::StakeDistribution(d.bytes()?.to_vec())),
+            11 => Ok(Self::GenesisConfig(d.bytes()?.to_vec())),
+            13 => Ok(Self::DebugChainDepState(d.bytes()?.to_vec())),
+            14 => Ok(Self::RewardProvenance(d.bytes()?.to_vec())),
+            16 => Ok(Self::StakePools(d.bytes()?.to_vec())),
+            17 => Ok(Self::RewardInfoPools(d.bytes()?.to_vec())),
             _ => Err(decode::Error::message(
                 "invalid (size, tag) for lsq response",
             )),
@@ -391,18 +370,6 @@ pub enum Response {
     ChainBlockNo(Vec<u8>),
     ChainPoint(Vec<u8>),
     Generic(Vec<u8>),
-}
-
-impl Response {
-    pub fn to_vec(&self) -> Vec<u8> {
-        match self {
-            Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
-            Response::SystemStart(data) => data.clone(),
-            Response::ChainBlockNo(data) => data.clone(),
-            Response::ChainPoint(data) => data.clone(),
-            Response::Generic(data) => data.clone(),
-        }
-    }
 }
 
 impl Encode<()> for Response {
@@ -443,67 +410,15 @@ impl Encode<()> for Response {
 
 impl<'b> Decode<'b, ()> for Response {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        d.set_position(d.position() - 1);
-        let label = d.u16()?;
-        let start = d.position();
-        d.skip()?;
-        let end = d.position();
-        let slice = &d.input()[start..end];
-        let vec = slice.to_vec();
+        d.array()?;
+        let tag = d.u16()?;
 
-        match label {
-            0 => Ok(Self::BlockQuery(d.decode()?)),
-            1 => Ok(Self::SystemStart(vec)),
-            2 => Ok(Self::ChainBlockNo(vec)),
-            3 => Ok(Self::ChainPoint(vec)),
-            4 => Ok(Self::Generic(vec)),
-            _ => Err(decode::Error::message(
-                "invalid (size, tag) for lsq response",
-            )),
-        }
-    }
-}
-
-/// Queries available as of N2C V16
-#[derive(Debug, Clone)]
-pub struct QueryV16 {}
-
-impl Query for QueryV16 {
-    type Request = Request;
-    type Response = Response;
-
-    fn request_signal(request: Self::Request) -> u16 {
-        match request {
-            Request::BlockQuery(BlockQuery::GetEpochNo) => 0,
-            Request::BlockQuery(BlockQuery::GetLedgerTip) => 1,
-            Request::BlockQuery(BlockQuery::GetCurrentPParams) => 2,
-            Request::BlockQuery(BlockQuery::GetProposedPParamsUpdates) => 3,
-            Request::BlockQuery(BlockQuery::GetStakeDistribution) => 4,
-            Request::BlockQuery(BlockQuery::DebugChainDepState) => 5,
-            Request::BlockQuery(BlockQuery::GetGenesisConfig) => 6,
-            Request::BlockQuery(BlockQuery::GetRewardProvenance) => 7,
-            Request::BlockQuery(BlockQuery::GetStakePools) => 8,
-            Request::BlockQuery(BlockQuery::GetRewardInfoPools) => 9,
-            Request::GetSystemStart => 10,
-            Request::GetChainBlockNo => 11,
-            Request::GetChainPoint => 12,
-        }
-    }
-
-    fn map_response(signal: u16, response: Vec<u8>) -> Self::Response {
-        match signal {
-            0 => Response::BlockQuery(BlockQueryResponse::EpochNo(EpochNo(response))),
-            _ => Response::Generic(response),
-        }
-    }
-
-    fn to_vec(response: Self::Response) -> Vec<u8> {
-        match response {
-            Response::BlockQuery(block_query_response) => block_query_response.to_vec(),
-            Response::SystemStart(data) => data.clone(),
-            Response::ChainBlockNo(data) => data.clone(),
-            Response::ChainPoint(data) => data.clone(),
-            Response::Generic(data) => data.clone(),
+        match tag {
+            0 => {
+                let inner = d.decode()?;
+                Ok(Self::BlockQuery(inner))
+            }
+            _ => Err(decode::Error::message("unknown tag")),
         }
     }
 }

@@ -1,6 +1,6 @@
 use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
-use super::{AcquireFailure, Message, Query};
+use super::{AcquireFailure, Message};
 
 impl Encode<()> for AcquireFailure {
     fn encode<W: encode::Write>(
@@ -36,12 +36,7 @@ impl<'b> Decode<'b, ()> for AcquireFailure {
     }
 }
 
-impl<Q> Encode<()> for Message<Q>
-where
-    Q: Query,
-    Q::Request: Encode<()>,
-    Q::Response: Encode<()>,
-{
+impl Encode<()> for Message {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
@@ -97,12 +92,7 @@ where
     }
 }
 
-impl<'b, Q> Decode<'b, ()> for Message<Q>
-where
-    Q: Query,
-    Q::Request: Decode<'b, ()>,
-    Q::Response: Decode<'b, ()>,
-{
+impl<'b> Decode<'b, ()> for Message {
     fn decode(
         d: &mut pallas_codec::minicbor::Decoder<'b>,
         _ctx: &mut (),

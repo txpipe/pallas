@@ -2,6 +2,7 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
+use pallas_codec::utils::AnyCbor;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
@@ -309,6 +310,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 x => panic!("unexpected message from client: {x:?}"),
             };
 
+            let query: Request = query.into_decode().unwrap();
+
             assert_eq!(
                 query,
                 Request::BlockQuery(localstate::queries::BlockQuery::GetStakePools)
@@ -319,6 +322,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let get_stake_pools_response = Response::BlockQuery(BlockQueryResponse::StakePools(
                 hex::decode("82011A008BD423").unwrap(),
             ));
+
+            let get_stake_pools_response = AnyCbor::from_encode(get_stake_pools_response);
 
             server_sq
                 .send_result(get_stake_pools_response)
@@ -348,6 +353,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 x => panic!("unexpected message from client: {x:?}"),
             };
 
+            let epoch_query: Request = epoch_query.into_decode().unwrap();
+
             assert_eq!(
                 epoch_query,
                 Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo)
@@ -363,7 +370,10 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 hex::decode("83188118181867").unwrap(),
             )));
 
-            server_sq.send_result(get_epoch_no_response).await.unwrap();
+            server_sq
+                .send_result(AnyCbor::from_encode(get_epoch_no_response))
+                .await
+                .unwrap();
 
             assert_eq!(*server_sq.state(), localstate::State::Acquired);
 
@@ -411,14 +421,15 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         // client sends a BlockQuery
 
-        client_sq
-            .send_query(Request::BlockQuery(
-                localstate::queries::BlockQuery::GetStakePools,
-            ))
-            .await
-            .unwrap();
+        let query = AnyCbor::from_encode(Request::BlockQuery(
+            localstate::queries::BlockQuery::GetStakePools,
+        ));
+
+        client_sq.send_query(query).await.unwrap();
 
         let resp = client_sq.recv_while_querying().await.unwrap();
+
+        let resp: Response = resp.into_decode().unwrap();
 
         assert_eq!(
             resp,
@@ -433,14 +444,15 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         client_sq.recv_while_acquiring().await.unwrap();
 
-        client_sq
-            .send_query(Request::BlockQuery(
-                localstate::queries::BlockQuery::GetEpochNo,
-            ))
-            .await
-            .unwrap();
+        let query = AnyCbor::from_encode(Request::BlockQuery(
+            localstate::queries::BlockQuery::GetEpochNo,
+        ));
+
+        client_sq.send_query(query).await.unwrap();
 
         let resp_get_epoch_no = client_sq.recv_while_querying().await.unwrap();
+
+        let resp_get_epoch_no: Response = resp_get_epoch_no.into_decode().unwrap();
 
         assert_eq!(
             resp_get_epoch_no,
