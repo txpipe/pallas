@@ -1,9 +1,5 @@
-use std::fmt::Debug;
-
 use pallas_codec::utils::AnyCbor;
-use pallas_codec::Fragment;
-
-use std::marker::PhantomData;
+use std::fmt::Debug;
 use thiserror::*;
 
 use super::{AcquireFailure, Message, State};

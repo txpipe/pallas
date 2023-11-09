@@ -1,8 +1,9 @@
 mod client;
 mod codec;
 mod protocol;
-pub mod queries;
 mod server;
+
+pub mod queries_v16;
 
 pub use client::*;
 pub use codec::*;

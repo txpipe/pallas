@@ -1,28 +1,39 @@
-use pallas::codec::utils::AnyCbor;
-use pallas::network::miniprotocols::localstate::queries::Response;
 use pallas::network::{
     facades::NodeClient,
     miniprotocols::{
         chainsync,
-        localstate::{self, queries::Request},
+        localstate::{self, queries_v16},
         Point, MAINNET_MAGIC, PRE_PRODUCTION_MAGIC,
     },
 };
+use pallas_codec::utils::AnyCbor;
 use tracing::info;
 
-async fn do_localstate_query(client: &mut NodeClient, query: Request) {
-    do_localstate_query_acquisition(client).await;
+async fn do_localstate_query(client: &mut NodeClient) {
+    client.statequery().acquire(None).await.unwrap();
 
-    let result: Response = client.statequery().query(query).await.unwrap();
+    let result = queries_v16::get_chain_point(client.statequery())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let result = queries_v16::get_system_start(client.statequery())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let era = queries_v16::get_current_era(client.statequery())
+        .await
+        .unwrap();
+    info!("result: {:?}", era);
+
+    let result = queries_v16::get_block_epoch_number(client.statequery(), era)
+        .await
+        .unwrap();
+
     info!("result: {:?}", result);
 
     client.statequery().send_release().await.unwrap();
-}
-
-async fn do_localstate_query_acquisition(client: &mut NodeClient) {
-    if let localstate::State::Idle = client.statequery().state() {
-        client.statequery().acquire(None).await.unwrap();
-    }
 }
 
 async fn do_chainsync(client: &mut NodeClient) {
@@ -52,22 +63,7 @@ async fn do_chainsync(client: &mut NodeClient) {
     }
 }
 
-async fn setup_client() -> NodeClient {
-    // we connect to the unix socket of the local node. Make sure you have the right
-    // path for your environment
-    let socket_path = "/Users/santiago_ho/.dmtr/tmp/starters-28e75e/mainnet-stable.socket";
-
-    // we connect to the unix socket of the local node and perform a handshake query
-    let version_table = NodeClient::handshake_query(socket_path, MAINNET_MAGIC)
-        .await
-        .unwrap();
-
-    info!("handshake query result: {:?}", version_table);
-
-    NodeClient::connect(socket_path, MAINNET_MAGIC)
-        .await
-        .unwrap()
-}
+const SOCKET_PATH: &str = "/Users/santiago_ho/.dmtr/tmp/starters-28e75e/mainnet-stable.socket";
 
 #[cfg(target_family = "unix")]
 #[tokio::main]
@@ -79,21 +75,17 @@ async fn main() {
     )
     .unwrap();
 
-    let mut client = setup_client().await;
-
-    // specify the query we want to execute
-    // let get_system_start_query = localstate::queries::Request::GetSystemStart;
-    let get_epoch_query =
-        localstate::queries::Request::BlockQuery(localstate::queries::BlockQuery::GetEpochNo);
+    // we connect to the unix socket of the local node. Make sure you have the right
+    // path for your environment
+    let mut client = NodeClient::connect(SOCKET_PATH, MAINNET_MAGIC)
+        .await
+        .unwrap();
 
     // execute an arbitrary "Local State" query against the node
-    //do_localstate_query(&mut client, get_system_start_query).await;
-    do_localstate_query(&mut client, get_epoch_query).await;
-
-    client.statequery().send_done().await.unwrap();
+    do_localstate_query(&mut client).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
-    // do_chainsync(&mut client).await;
+    do_chainsync(&mut client).await;
 }
 
 #[cfg(not(target_family = "unix"))]
