@@ -181,7 +181,7 @@ impl Encode<()> for LedgerQuery {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
-        ctx: &mut (),
+        _: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             LedgerQuery::BlockQuery(era, q) => {

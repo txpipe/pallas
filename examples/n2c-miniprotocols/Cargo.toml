@@ -8,7 +8,6 @@ publish = false
 
 [dependencies]
 pallas = { path = "../../pallas" }
-pallas-codec = { path = "../../pallas-codec" }
 net2 = "0.2.37"
 hex = "0.4.3"
 log = "0.4.16"
