@@ -142,7 +142,7 @@ mod tests {
     fn test_duplicate_consumed_inputs() {
         let tx_bytecode_hex = include_str!("../../test_data/duplicateinput.tx");
         let bytecode = hex::decode(tx_bytecode_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Alonzo, &bytecode).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Alonzo, &bytecode).unwrap();
 
         let expected_inputs = vec![
             "4d9cb6bf1c2e349f1bcd454a632d2b721d5badcf687220430c316588f39506ab#1",
