@@ -63,7 +63,6 @@ pub enum LedgerQuery {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Request {
     LedgerQuery(LedgerQuery),
-    GetCurrentEra,
     GetSystemStart,
     GetChainBlockNo,
     GetChainPoint,

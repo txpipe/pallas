@@ -211,27 +211,6 @@ impl Encode<()> for Request {
         match self {
             Self::LedgerQuery(q) => {
                 e.encode((0, q))?;
-
-                Ok(())
-            }
-            Self::GetCurrentEra => {
-                /*
-                example CBOR
-                [0, [2, [1]]]
-                [Tag, [Tag, [GetCurrentEra]]]
-                */
-
-                // type wrapper
-                e.array(2)?;
-                e.u16(0)?;
-
-                // some kind of extra wrapper with a mysterious tag
-                e.array(2)?;
-                e.u16(2)?;
-
-                e.array(1)?;
-                e.u16(1)?;
-
                 Ok(())
             }
             Self::GetSystemStart => {
