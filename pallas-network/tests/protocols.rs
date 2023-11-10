@@ -455,3 +455,141 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 
     _ = tokio::join!(client, server);
 }
+
+#[tokio::test]
+#[ignore]
+pub async fn local_state_query_server_and_client_happy_path() {
+    let server = tokio::spawn({
+        async move {
+            // server setup
+            let socket_path = Path::new("node.socket");
+
+            if socket_path.exists() {
+                fs::remove_file(&socket_path).unwrap();
+            }
+
+            let unix_listener = UnixListener::bind(socket_path).unwrap();
+
+            let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 0)
+                .await
+                .unwrap();
+
+            // wait for acquire request from client
+
+            let maybe_acquire = server.statequery().recv_while_idle().await.unwrap();
+
+            assert!(maybe_acquire.is_some());
+            assert_eq!(*server.statequery().state(), localstate::State::Acquiring);
+
+            server.statequery().send_acquired().await.unwrap();
+
+            assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+            // server receives query from client
+
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            assert_eq!(query, localstate::queries_v16::Request::GetSystemStart);
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let result = AnyCbor::from_encode(localstate::queries_v16::SystemStart {
+                year: 2020,
+                day_of_year: 1,
+                picoseconds_of_day: 999999999,
+            });
+
+            server.statequery().send_result(result).await.unwrap();
+
+            assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+            // server receives re-acquire from the client
+
+            let maybe_point = match server.statequery().recv_while_acquired().await.unwrap() {
+                ClientQueryRequest::ReAcquire(p) => p,
+                x => panic!("unexpected message from client: {x:?}"),
+            };
+
+            assert_eq!(maybe_point, Some(Point::Specific(1337, vec![1, 2, 3])));
+            assert_eq!(*server.statequery().state(), localstate::State::Acquiring);
+
+            server.statequery().send_acquired().await.unwrap();
+
+            // server receives release from the client
+
+            match server.statequery().recv_while_acquired().await.unwrap() {
+                ClientQueryRequest::Release => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            };
+
+            let next_request = server.statequery().recv_while_idle().await.unwrap();
+
+            assert!(next_request.is_none());
+            assert_eq!(*server.statequery().state(), localstate::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+
+        let socket_path = "node.socket";
+
+        let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
+
+        // client sends acquire
+
+        client
+            .statequery()
+            .send_acquire(Some(Point::Origin))
+            .await
+            .unwrap();
+
+        client.statequery().recv_while_acquiring().await.unwrap();
+
+        assert_eq!(*client.statequery().state(), localstate::State::Acquired);
+
+        // client sends a BlockQuery
+
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::GetSystemStart);
+
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: localstate::queries_v16::SystemStart = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        assert_eq!(
+            result,
+            localstate::queries_v16::SystemStart {
+                year: 2020,
+                day_of_year: 1,
+                picoseconds_of_day: 999999999,
+            }
+        );
+
+        // client sends a ReAquire
+
+        client
+            .statequery()
+            .send_reacquire(Some(Point::Specific(1337, vec![1, 2, 3])))
+            .await
+            .unwrap();
+
+        client.statequery().recv_while_acquiring().await.unwrap();
+
+        client.statequery().send_release().await.unwrap();
+
+        client.statequery().send_done().await.unwrap();
+    });
+
+    _ = tokio::join!(client, server);
+}

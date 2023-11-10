@@ -68,16 +68,16 @@ pub enum Request {
     GetChainPoint,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, PartialEq)]
 pub struct SystemStart {
     #[n(0)]
-    year: u32,
+    pub year: u32,
 
     #[n(1)]
-    day_of_year: u32,
+    pub day_of_year: u32,
 
     #[n(2)]
-    picoseconds_of_day: u64,
+    pub picoseconds_of_day: u64,
 }
 
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
