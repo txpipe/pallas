@@ -74,7 +74,11 @@ fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
 
 fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) -> ValidationResult {
     let mut inputs_balance: u64 = 0;
+    let mut only_redeem_utxos: bool = true;
     for input in tx.inputs.iter() {
+        if !is_redeem_utxo(input, utxos) {
+            only_redeem_utxos = false;
+        }
         match utxos
             .get(&MultiEraInput::from_byron(input))
             .and_then(MultiEraOutput::as_byron)
@@ -83,16 +87,34 @@ fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) ->
             None => return Err(ValidationError::UnableToComputeFees),
         }
     }
-    let mut outputs_balance: u64 = 0;
-    for output in tx.outputs.iter() {
-        outputs_balance += output.amount
+    if only_redeem_utxos {
+        Ok(())
+    } else {
+        let mut outputs_balance: u64 = 0;
+        for output in tx.outputs.iter() {
+            outputs_balance += output.amount
+        }
+        let total_balance: u64 = inputs_balance - outputs_balance;
+        let min_fees: u64 = prot_pps.min_fees_const + prot_pps.min_fees_factor * size;
+        if total_balance < min_fees {
+            Err(ValidationError::FeesBelowMin)
+        } else {
+            Ok(())
+        }
     }
-    let total_balance: u64 = inputs_balance - outputs_balance;
-    let min_fees: u64 = prot_pps.min_fees_const + prot_pps.min_fees_factor * size;
-    if total_balance < min_fees {
-        return Err(ValidationError::FeesBelowMin);
+}
+
+fn is_redeem_utxo(input: &TxIn, utxos: &UTxOs) -> bool {
+    match find_tx_out(input, utxos) {
+        Ok(tx_out) => {
+            let address: ByronAddress = mk_byron_address(&tx_out.address);
+            match address.decode() {
+                Ok(addr_payload) => matches!(addr_payload.addrtype, AddrType::Redeem),
+                _ => false,
+            }
+        }
+        _ => false,
     }
-    Ok(())
 }
 
 fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
