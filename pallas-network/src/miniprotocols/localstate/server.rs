@@ -1,11 +1,8 @@
+use pallas_codec::utils::AnyCbor;
 use std::fmt::Debug;
-
-use pallas_codec::Fragment;
-
-use std::marker::PhantomData;
 use thiserror::*;
 
-use super::{AcquireFailure, Message, Query, State};
+use super::{AcquireFailure, Message, State};
 use crate::miniprotocols::Point;
 use crate::multiplexer;
 
@@ -28,28 +25,17 @@ pub struct ClientAcquireRequest(pub Option<Point>);
 
 /// Request received from the client when in the Acquired state
 #[derive(Debug)]
-pub enum ClientQueryRequest<Q: Query> {
+pub enum ClientQueryRequest {
     ReAcquire(Option<Point>),
-    Query(Q::Request),
+    Query(AnyCbor),
     Release,
 }
 
-pub struct GenericServer<Q>(State, multiplexer::ChannelBuffer, PhantomData<Q>)
-where
-    Q: Query,
-    Message<Q>: Fragment;
+pub struct GenericServer(State, multiplexer::ChannelBuffer);
 
-impl<Q> GenericServer<Q>
-where
-    Q: Query,
-    Message<Q>: Fragment,
-{
+impl GenericServer {
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(
-            State::Idle,
-            multiplexer::ChannelBuffer::new(channel),
-            PhantomData {},
-        )
+        Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
     pub fn state(&self) -> &State {
@@ -84,7 +70,7 @@ where
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message<Q>) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Acquiring, Message::Acquired) => Ok(()),
             (State::Acquiring, Message::Failure(_)) => Ok(()),
@@ -93,7 +79,7 @@ where
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message<Q>) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
         match (&self.0, msg) {
             (State::Idle, Message::Acquire(_)) => Ok(()),
             (State::Idle, Message::Done) => Ok(()),
@@ -104,7 +90,7 @@ where
         }
     }
 
-    pub async fn send_message(&mut self, msg: &Message<Q>) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
         self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
@@ -112,7 +98,7 @@ where
         Ok(())
     }
 
-    pub async fn recv_message(&mut self) -> Result<Message<Q>, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
         self.assert_inbound_state(&msg)?;
@@ -121,7 +107,7 @@ where
     }
 
     pub async fn send_failure(&mut self, reason: AcquireFailure) -> Result<(), Error> {
-        let msg = Message::<Q>::Failure(reason);
+        let msg = Message::Failure(reason);
         self.send_message(&msg).await?;
         self.0 = State::Idle;
 
@@ -129,15 +115,15 @@ where
     }
 
     pub async fn send_acquired(&mut self) -> Result<(), Error> {
-        let msg = Message::<Q>::Acquired;
+        let msg = Message::Acquired;
         self.send_message(&msg).await?;
         self.0 = State::Acquired;
 
         Ok(())
     }
 
-    pub async fn send_result(&mut self, response: Q::Response) -> Result<(), Error> {
-        let msg = Message::<Q>::Result(response);
+    pub async fn send_result(&mut self, response: AnyCbor) -> Result<(), Error> {
+        let msg = Message::Result(response);
         self.send_message(&msg).await?;
         self.0 = State::Acquired;
 
@@ -162,7 +148,7 @@ where
         }
     }
 
-    pub async fn recv_while_acquired(&mut self) -> Result<ClientQueryRequest<Q>, Error> {
+    pub async fn recv_while_acquired(&mut self) -> Result<ClientQueryRequest, Error> {
         match self.recv_message().await? {
             Message::ReAcquire(point) => {
                 self.0 = State::Acquiring;
@@ -181,4 +167,4 @@ where
     }
 }
 
-pub type Server = GenericServer<super::queries::QueryV16>;
+pub type Server = GenericServer;
