@@ -11,6 +11,7 @@ members = [
   "pallas-rolldb",
   "pallas-traverse",
   "pallas-utxorpc",
+  "pallas-hardano",
   "pallas",
   "examples/block-download",
   "examples/block-decode",
