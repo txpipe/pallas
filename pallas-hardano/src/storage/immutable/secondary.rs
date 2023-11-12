@@ -8,6 +8,8 @@ pub type PrimaryIndex = super::primary::Reader;
 
 use binary_layout::prelude::*;
 
+use crate::storage::immutable::{primary, secondary};
+
 // See https://input-output-hk.github.io/ouroboros-consensus/pdfs/report.pdf, section 8.2.2
 define_layout!(layout, BigEndian, {
     block_offset: u64,
@@ -106,12 +108,12 @@ impl Iterator for Reader {
 pub fn read_entries(dir: &Path, name: &str) -> Result<Reader, std::io::Error> {
     let primary = dir.join(name).with_extension("primary");
     let primary = std::fs::File::open(&primary)?;
-    let primary = crate::primary::Reader::open(primary)?;
+    let primary = primary::Reader::open(primary)?;
 
     let secondary = dir.join(name).with_extension("secondary");
     let secondary = std::fs::File::open(&secondary)?;
 
-    crate::secondary::Reader::open(primary, secondary)
+    secondary::Reader::open(primary, secondary)
 }
 
 #[cfg(test)]
