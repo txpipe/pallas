@@ -1,7 +1,10 @@
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Seek},
+    path::Path,
 };
+
+pub type PrimaryIndex = super::primary::Reader;
 
 use binary_layout::prelude::*;
 
@@ -41,14 +44,30 @@ impl Entry {
     }
 }
 
+pub type SecondaryOffset = u32;
+
 pub struct Reader {
     inner: BufReader<File>,
+    index: PrimaryIndex,
+    current: Option<SecondaryOffset>,
 }
 
 impl Reader {
-    pub fn open(file: File) -> Result<Self, std::io::Error> {
+    pub fn open(mut index: PrimaryIndex, file: File) -> Result<Self, std::io::Error> {
         let inner = BufReader::new(file);
-        Ok(Self { inner })
+
+        match index.next_occupied() {
+            Some(result) => Ok(Self {
+                inner,
+                index,
+                current: result?.offset(),
+            }),
+            None => Ok(Self {
+                inner,
+                index,
+                current: None,
+            }),
+        }
     }
 }
 
@@ -56,14 +75,27 @@ impl Iterator for Reader {
     type Item = Result<Entry, std::io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.current.is_none() {
+            return None;
+        }
+
+        let start = self.inner.stream_position().unwrap();
+        let delta = self.current.unwrap() as u64 - start;
+        self.inner.seek_relative(delta as i64).unwrap();
+
         let mut buf = vec![0u8; layout::SIZE.unwrap()];
 
         match self.inner.read_exact(&mut buf) {
-            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => None,
             Err(err) => Some(Err(err)),
             Ok(_) => {
                 let view = layout::View::new(&buf);
                 let entry = Entry::from(view);
+
+                self.current = self
+                    .index
+                    .next_occupied()
+                    .map(|x| x.unwrap())
+                    .and_then(|x| x.offset());
 
                 Some(Ok(entry))
             }
@@ -71,15 +103,27 @@ impl Iterator for Reader {
     }
 }
 
+pub fn read_entries(dir: &Path, name: &str) -> Result<Reader, std::io::Error> {
+    let primary = dir.join(name).with_extension("primary");
+    let primary = std::fs::File::open(&primary)?;
+    let primary = crate::primary::Reader::open(primary)?;
+
+    let secondary = dir.join(name).with_extension("secondary");
+    let secondary = std::fs::File::open(&secondary)?;
+
+    crate::secondary::Reader::open(primary, secondary)
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     #[test]
-    fn it_works() {
-        let file = std::fs::File::open("../test_data/01836.secondary").unwrap();
-        let reader = super::Reader::open(file).unwrap();
+    fn can_parse_all_entries() {
+        let reader = super::read_entries(Path::new("../test_data"), "01836").unwrap();
 
         for entry in reader {
-            let entry = entry.unwrap();
+            entry.unwrap();
         }
     }
 }

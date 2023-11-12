@@ -20,19 +20,10 @@ pub enum Entry {
 }
 
 impl Entry {
-    fn from(
-        slot: RelativeSlot,
-        current_offset: SecondaryOffset,
-        last_offset: &Option<SecondaryOffset>,
-    ) -> Self {
-        if let Some(last_offset) = last_offset {
-            if current_offset == *last_offset {
-                Self::Empty(slot)
-            } else {
-                Self::Occupied(slot, current_offset)
-            }
-        } else {
-            return Self::Occupied(slot, current_offset);
+    pub fn offset(&self) -> Option<u32> {
+        match self {
+            Entry::Empty(_) => None,
+            Entry::Occupied(_, x) => Some(*x),
         }
     }
 }
@@ -42,6 +33,7 @@ pub struct Reader {
     version: u8,
     last_slot: Option<RelativeSlot>,
     last_offset: Option<SecondaryOffset>,
+    next_offset: Option<SecondaryOffset>,
 }
 
 impl Reader {
@@ -57,16 +49,56 @@ impl Reader {
         let mut inner = BufReader::new(file);
         let version = Reader::read_version(&mut inner)?;
 
+        let last_offset = match Self::read_offset(&mut inner) {
+            Some(offset) => Some(offset?),
+            None => None,
+        };
+
+        let next_offset = match Self::read_offset(&mut inner) {
+            Some(offset) => Some(offset?),
+            None => None,
+        };
+
         Ok(Self {
             inner,
             version,
             last_slot: None,
-            last_offset: None,
+            last_offset,
+            next_offset,
         })
     }
 
     pub fn version(&self) -> u8 {
         self.version
+    }
+
+    pub fn next_occupied(&mut self) -> Option<Result<Entry, std::io::Error>> {
+        loop {
+            let next = self.next();
+
+            match next {
+                None => break None,
+                Some(Err(err)) => break Some(Err(err)),
+                Some(Ok(entry)) => match &entry {
+                    Entry::Occupied(..) => break Some(Ok(entry)),
+                    Entry::Empty(_) => continue,
+                },
+            }
+        }
+    }
+
+    fn read_offset(file: &mut BufReader<File>) -> Option<Result<SecondaryOffset, std::io::Error>> {
+        let mut buf = vec![0u8; layout::SIZE.unwrap()];
+
+        match file.read_exact(&mut buf) {
+            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => None,
+            Err(err) => Some(Err(err)),
+            Ok(_) => {
+                let view = layout::View::new(&buf);
+                let offset = view.secondary_offset().read();
+                Some(Ok(offset))
+            }
+        }
     }
 }
 
@@ -74,21 +106,21 @@ impl Iterator for Reader {
     type Item = Result<Entry, std::io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = vec![0u8; layout::SIZE.unwrap()];
-
-        match self.inner.read_exact(&mut buf) {
-            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => None,
-            Err(err) => Some(Err(err)),
-            Ok(_) => {
+        match (self.last_offset, self.next_offset) {
+            (None, _) => None,
+            (Some(_), None) => None,
+            (Some(last), Some(next)) => {
                 let slot = self.last_slot.map(|x| x + 1).unwrap_or_default();
 
-                let view = layout::View::new(&buf);
-                let current_offset = view.secondary_offset().read();
-
-                let entry = Entry::from(slot, current_offset, &self.last_offset);
+                let entry = if next > last {
+                    Entry::Occupied(slot, last)
+                } else {
+                    Entry::Empty(slot)
+                };
 
                 self.last_slot = Some(slot);
-                self.last_offset = Some(current_offset);
+                self.last_offset = Some(next);
+                self.next_offset = Self::read_offset(&mut self.inner).map(|x| x.unwrap());
 
                 Some(Ok(entry))
             }
@@ -135,5 +167,21 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn yield_occupied_correctly() {
+        let file = std::fs::File::open("../test_data/01836.primary").unwrap();
+
+        let mut count = 0;
+        let mut reader = super::Reader::open(file).unwrap();
+
+        while let Some(entry) = reader.next_occupied() {
+            // make sure that it has an offset since it's occupied
+            entry.unwrap().offset().unwrap();
+            count += 1;
+        }
+
+        assert_eq!(count, 913);
     }
 }
