@@ -97,7 +97,7 @@ mod tests {
         )
         .unwrap();
 
-        let path = option_env!("PALLAS_MITRHIL_SNAPSHOT_PATH").unwrap();
+        let path = option_env!("PALLAS_MITHRIL_SNAPSHOT_PATH").unwrap();
         let reader = super::read_blocks(Path::new(path)).unwrap();
 
         let mut count = 0;
