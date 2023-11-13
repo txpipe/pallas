@@ -47,11 +47,7 @@ impl GenericServer {
     }
 
     fn has_agency(&self) -> bool {
-        match self.state() {
-            State::Acquiring => true,
-            State::Querying => true,
-            _ => false,
-        }
+        matches!(self.state(), State::Acquiring | State::Querying)
     }
 
     fn assert_agency_is_ours(&self) -> Result<(), Error> {

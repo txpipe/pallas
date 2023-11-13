@@ -27,11 +27,13 @@ impl<'b> Decoder<'b> {
     /// Decode an integer of any size.
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
-    /// We take the 7 least significant bits as the 7 least significant bits of the current unsigned integer.
-    /// If the most significant bit of the 8 bits is 1 then we take the next 8 and repeat the process above,
-    /// filling in the next 7 least significant bits of the unsigned integer and so on.
-    /// If the most significant bit was instead 0 we stop decoding any more bits.
-    /// Finally we use zigzag to convert the unsigned integer back to a signed integer.
+    /// We take the 7 least significant bits as the 7 least significant bits of
+    /// the current unsigned integer. If the most significant bit of the 8
+    /// bits is 1 then we take the next 8 and repeat the process above,
+    /// filling in the next 7 least significant bits of the unsigned integer and
+    /// so on. If the most significant bit was instead 0 we stop decoding
+    /// any more bits. Finally we use zigzag to convert the unsigned integer
+    /// back to a signed integer.
     pub fn integer(&mut self) -> Result<isize, Error> {
         Ok(zigzag::to_isize(self.word()?))
     }
@@ -39,11 +41,13 @@ impl<'b> Decoder<'b> {
     /// Decode an integer of 128 bits size.
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
-    /// We take the 7 least significant bits as the 7 least significant bits of the current unsigned integer.
-    /// If the most significant bit of the 8 bits is 1 then we take the next 8 and repeat the process above,
-    /// filling in the next 7 least significant bits of the unsigned integer and so on.
-    /// If the most significant bit was instead 0 we stop decoding any more bits.
-    /// Finally we use zigzag to convert the unsigned integer back to a signed integer.
+    /// We take the 7 least significant bits as the 7 least significant bits of
+    /// the current unsigned integer. If the most significant bit of the 8
+    /// bits is 1 then we take the next 8 and repeat the process above,
+    /// filling in the next 7 least significant bits of the unsigned integer and
+    /// so on. If the most significant bit was instead 0 we stop decoding
+    /// any more bits. Finally we use zigzag to convert the unsigned integer
+    /// back to a signed integer.
     pub fn big_integer(&mut self) -> Result<i128, Error> {
         Ok(zigzag::to_i128(self.big_word()?))
     }
@@ -70,9 +74,10 @@ impl<'b> Decoder<'b> {
     /// Decodes a filler to byte align the buffer,
     /// then decodes the next byte to get the array length up to a max of 255.
     /// We decode bytes equal to the array length to form the byte array.
-    /// If the following byte for array length is not 0 we decode it and repeat above to continue decoding the byte array.
-    /// We stop once we hit a byte array length of 0.
-    /// If array length is 0 for first byte array length the we return a empty array.
+    /// If the following byte for array length is not 0 we decode it and repeat
+    /// above to continue decoding the byte array. We stop once we hit a
+    /// byte array length of 0. If array length is 0 for first byte array
+    /// length the we return a empty array.
     pub fn bytes(&mut self) -> Result<Vec<u8>, Error> {
         self.filler()?;
         self.byte_array()
@@ -81,10 +86,12 @@ impl<'b> Decoder<'b> {
     /// Decode a 32 bit char.
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
-    /// We take the 7 least significant bits as the 7 least significant bits of the current unsigned integer.
-    /// If the most significant bit of the 8 bits is 1 then we take the next 8 and repeat the process above,
-    /// filling in the next 7 least significant bits of the unsigned integer and so on.
-    /// If the most significant bit was instead 0 we stop decoding any more bits.
+    /// We take the 7 least significant bits as the 7 least significant bits of
+    /// the current unsigned integer. If the most significant bit of the 8
+    /// bits is 1 then we take the next 8 and repeat the process above,
+    /// filling in the next 7 least significant bits of the unsigned integer and
+    /// so on. If the most significant bit was instead 0 we stop decoding
+    /// any more bits.
     pub fn char(&mut self) -> Result<char, Error> {
         let character = self.word()? as u32;
 
@@ -105,9 +112,10 @@ impl<'b> Decoder<'b> {
     /// Decodes a filler to byte align the buffer,
     /// then decodes the next byte to get the array length up to a max of 255.
     /// We decode bytes equal to the array length to form the byte array.
-    /// If the following byte for array length is not 0 we decode it and repeat above to continue decoding the byte array.
-    /// We stop once we hit a byte array length of 0.
-    /// If array length is 0 for first byte array length the we return a empty array.
+    /// If the following byte for array length is not 0 we decode it and repeat
+    /// above to continue decoding the byte array. We stop once we hit a
+    /// byte array length of 0. If array length is 0 for first byte array
+    /// length the we return a empty array.
     pub fn utf8(&mut self) -> Result<String, Error> {
         // TODO: Better Error Handling
         String::from_utf8(Vec::<u8>::decode(self)?).map_err(Error::from)
@@ -124,10 +132,12 @@ impl<'b> Decoder<'b> {
     /// Decode a word of any size.
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
-    /// We take the 7 least significant bits as the 7 least significant bits of the current unsigned integer.
-    /// If the most significant bit of the 8 bits is 1 then we take the next 8 and repeat the process above,
-    /// filling in the next 7 least significant bits of the unsigned integer and so on.
-    /// If the most significant bit was instead 0 we stop decoding any more bits.
+    /// We take the 7 least significant bits as the 7 least significant bits of
+    /// the current unsigned integer. If the most significant bit of the 8
+    /// bits is 1 then we take the next 8 and repeat the process above,
+    /// filling in the next 7 least significant bits of the unsigned integer and
+    /// so on. If the most significant bit was instead 0 we stop decoding
+    /// any more bits.
     pub fn word(&mut self) -> Result<usize, Error> {
         let mut leading_bit = 1;
         let mut final_word: usize = 0;
@@ -146,10 +156,12 @@ impl<'b> Decoder<'b> {
     /// Decode a word of 128 bits size.
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
-    /// We take the 7 least significant bits as the 7 least significant bits of the current unsigned integer.
-    /// If the most significant bit of the 8 bits is 1 then we take the next 8 and repeat the process above,
-    /// filling in the next 7 least significant bits of the unsigned integer and so on.
-    /// If the most significant bit was instead 0 we stop decoding any more bits.
+    /// We take the 7 least significant bits as the 7 least significant bits of
+    /// the current unsigned integer. If the most significant bit of the 8
+    /// bits is 1 then we take the next 8 and repeat the process above,
+    /// filling in the next 7 least significant bits of the unsigned integer and
+    /// so on. If the most significant bit was instead 0 we stop decoding
+    /// any more bits.
     pub fn big_word(&mut self) -> Result<u128, Error> {
         let mut leading_bit = 1;
         let mut final_word: u128 = 0;
@@ -169,8 +181,8 @@ impl<'b> Decoder<'b> {
     /// This is byte alignment agnostic.
     /// Decode a bit from the buffer.
     /// If 0 then stop.
-    /// Otherwise we decode an item in the list with the decoder function passed in.
-    /// Then decode the next bit in the buffer and repeat above.
+    /// Otherwise we decode an item in the list with the decoder function passed
+    /// in. Then decode the next bit in the buffer and repeat above.
     /// Returns a list of items decoded with the decoder function.
     pub fn decode_list_with<T, F>(&mut self, decoder_func: F) -> Result<Vec<T>, Error>
     where
@@ -228,9 +240,10 @@ impl<'b> Decoder<'b> {
     /// Throws a BufferNotByteAligned error if the buffer is not byte aligned
     /// Decodes the next byte to get the array length up to a max of 255.
     /// We decode bytes equal to the array length to form the byte array.
-    /// If the following byte for array length is not 0 we decode it and repeat above to continue decoding the byte array.
-    /// We stop once we hit a byte array length of 0.
-    /// If array length is 0 for first byte array length the we return a empty array.
+    /// If the following byte for array length is not 0 we decode it and repeat
+    /// above to continue decoding the byte array. We stop once we hit a
+    /// byte array length of 0. If array length is 0 for first byte array
+    /// length the we return a empty array.
     fn byte_array(&mut self) -> Result<Vec<u8>, Error> {
         if self.used_bits != 0 {
             return Err(Error::BufferNotByteAligned);
@@ -265,10 +278,11 @@ impl<'b> Decoder<'b> {
     /// This is byte alignment agnostic.
     /// If num_bits is greater than the 8 we throw an IncorrectNumBits error.
     /// First we decode the next num_bits of bits in the buffer.
-    /// If there are less unused bits in the current byte in the buffer than num_bits,
-    /// then we decode the remaining bits from the most significant bits in the next byte in the buffer.
-    /// Otherwise we decode the unused bits from the current byte.
-    /// Returns the decoded value up to a byte in size.
+    /// If there are less unused bits in the current byte in the buffer than
+    /// num_bits, then we decode the remaining bits from the most
+    /// significant bits in the next byte in the buffer. Otherwise we decode
+    /// the unused bits from the current byte. Returns the decoded value up
+    /// to a byte in size.
     pub fn bits8(&mut self, num_bits: usize) -> Result<u8, Error> {
         if num_bits > 8 {
             return Err(Error::IncorrectNumBits);
@@ -292,7 +306,8 @@ impl<'b> Decoder<'b> {
     }
 
     /// Ensures the buffer has the required bytes passed in by required_bytes.
-    /// Throws a NotEnoughBytes error if there are less bytes remaining in the buffer than required_bytes.
+    /// Throws a NotEnoughBytes error if there are less bytes remaining in the
+    /// buffer than required_bytes.
     fn ensure_bytes(&mut self, required_bytes: usize) -> Result<(), Error> {
         if required_bytes as isize > self.buffer.len() as isize - self.pos as isize {
             Err(Error::NotEnoughBytes(required_bytes))
@@ -302,7 +317,8 @@ impl<'b> Decoder<'b> {
     }
 
     /// Ensures the buffer has the required bits passed in by required_bits.
-    /// Throws a NotEnoughBits error if there are less bits remaining in the buffer than required_bits.
+    /// Throws a NotEnoughBits error if there are less bits remaining in the
+    /// buffer than required_bits.
     fn ensure_bits(&mut self, required_bits: usize) -> Result<(), Error> {
         if required_bits as isize
             > (self.buffer.len() as isize - self.pos as isize) * 8 - self.used_bits as isize
