@@ -273,7 +273,8 @@ mod byron_tests {
     }
 
     #[test]
-    // The input to the transaction has an associated witness, but the signature is wrong.
+    // The input to the transaction has an associated witness, but the signature is
+    // wrong.
     fn wrong_signature() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
@@ -319,9 +320,10 @@ fn add_to_utxo<'a>(utxos: &mut UTxOs<'a>, tx_in: TxIn, tx_out: TxOut) {
     utxos.insert(multi_era_in, multi_era_out);
 }
 
-// pallas_applying::validate takes a MultiEraTx, not a Tx and a Witnesses. To be able to build a
-// MultiEraTx from a Tx and a Witnesses, we need to encode each of them and then decode them into
-// KeepRaw<Tx> and KeepRaw<Witnesses> values, respectively, to be able to make the MultiEraTx value.
+// pallas_applying::validate takes a MultiEraTx, not a Tx and a Witnesses. To be
+// able to build a MultiEraTx from a Tx and a Witnesses, we need to encode each
+// of them and then decode them into KeepRaw<Tx> and KeepRaw<Witnesses> values,
+// respectively, to be able to make the MultiEraTx value.
 fn mk_byron_tx_and_validate(
     tx: &Tx,
     wits: &Witnesses,
@@ -333,7 +335,7 @@ fn mk_byron_tx_and_validate(
         Ok(_) => (),
         Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
     };
-    let kptx: KeepRaw<Tx> = match Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()) {
+    let kptx: KeepRaw<Tx> = match Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()) {
         Ok(kp) => kp,
         Err(err) => panic!("Unable to decode Tx ({:?}).", err),
     };
@@ -344,7 +346,7 @@ fn mk_byron_tx_and_validate(
         Err(err) => assert!(false, "Unable to encode Witnesses ({:?}).", err),
     };
     let kpwit: KeepRaw<Witnesses> =
-        match Decode::decode(&mut Decoder::new(&wit_buf.as_slice()), &mut ()) {
+        match Decode::decode(&mut Decoder::new(wit_buf.as_slice()), &mut ()) {
             Ok(kp) => kp,
             Err(err) => panic!("Unable to decode Witnesses ({:?}).", err),
         };
