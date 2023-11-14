@@ -841,7 +841,7 @@ impl<C> minicbor::Encode<C> for ProposalProcedure {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.array(4)?;
 
-        e.encode_with(&self.deposit, ctx)?;
+        e.encode_with(self.deposit, ctx)?;
         e.encode_with(&self.reward_account, ctx)?;
         e.encode_with(&self.gov_action, ctx)?;
         e.encode_with(&self.anchor, ctx)?;
@@ -852,7 +852,7 @@ impl<C> minicbor::Encode<C> for ProposalProcedure {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum GovAction {
-    ParameterChange(Option<GovActionId>, ProtocolParamUpdate),
+    ParameterChange(Option<GovActionId>, Box<ProtocolParamUpdate>),
     HardForkInitiation(Option<GovActionId>, Vec<ProtocolVersion>),
     TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>),
     NoConfidence(Option<GovActionId>),
@@ -1080,7 +1080,7 @@ impl<C> minicbor::Encode<C> for Anchor {
         e.array(2)?;
 
         e.encode_with(&self.0, ctx)?;
-        e.encode_with(&self.1, ctx)?;
+        e.encode_with(self.1, ctx)?;
 
         Ok(())
     }
@@ -1105,8 +1105,8 @@ impl<C> minicbor::Encode<C> for GovActionId {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.array(2)?;
 
-        e.encode_with(&self.0, ctx)?;
-        e.encode_with(&self.1, ctx)?;
+        e.encode_with(self.0, ctx)?;
+        e.encode_with(self.1, ctx)?;
 
         Ok(())
     }
@@ -1570,7 +1570,8 @@ mod tests {
     // fn fragments_decoding() {
     //     // peculiar array of outputs used in an hydra transaction
     //     let bytes = hex::decode(hex).unwrap();
-    //     let outputs = Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
+    //     let outputs =
+    // Vec::<TransactionOutput>::decode_fragment(&bytes).unwrap();
     //
     //     dbg!(outputs);
     //

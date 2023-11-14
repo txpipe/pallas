@@ -6,17 +6,14 @@ use pallas_codec::utils::AnyCbor;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
-use pallas_network::miniprotocols::handshake::n2c;
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest};
+use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     Point,
 };
-use pallas_network::miniprotocols::{
-    handshake, localstate, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-};
+use pallas_network::miniprotocols::{handshake, localstate};
 use pallas_network::multiplexer::{Bearer, Plexer};
 use std::path::Path;
 use tokio::net::{TcpListener, UnixListener};

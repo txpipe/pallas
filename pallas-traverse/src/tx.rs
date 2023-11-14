@@ -9,8 +9,8 @@ use pallas_primitives::{
 };
 
 use crate::{
-    Era, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
-    MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals, OriginalHash, Error
+    Era, Error, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
+    MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals, OriginalHash,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -66,16 +66,19 @@ impl<'b> MultiEraTx<'b> {
     /// successful
     pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
         if let Ok(tx) = minicbor::decode(cbor) {
-            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))))
+            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
-            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))))
+            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
             // Shelley/Allegra/Mary/Alonzo will all decode to Alonzo
-            return Ok(MultiEraTx::AlonzoCompatible(Box::new(Cow::Owned(tx)), Era::Alonzo))
+            return Ok(MultiEraTx::AlonzoCompatible(
+                Box::new(Cow::Owned(tx)),
+                Era::Alonzo,
+            ));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
