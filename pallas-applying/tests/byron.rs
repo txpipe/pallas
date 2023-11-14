@@ -27,13 +27,11 @@ mod byron_tests {
         pallas_codec::minicbor::decode::<MintedTxPayload>(&tx_cbor[..]).unwrap()
     }
 
-    fn build_utxo<'a>(tx: &Tx) -> UTxOs<'a> {
+    // Careful: this function assumes tx has exactly one input.
+    fn mk_utxo_for_single_input_tx<'a>(tx: &Tx, address_payload: String, amount: u64) -> UTxOs<'a> {
         let mut tx_ins: Vec<TxIn> = tx.inputs.clone().to_vec();
         assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs.");
         let tx_in: TxIn = tx_ins.pop().unwrap();
-        let address_payload =
-            "83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63\
-            c5927480e7434620200eb3a162ef0b6cf6f671ba925100";
         let input_tx_out_addr: Address = match hex::decode(address_payload) {
             Ok(addr_bytes) => Address {
                 payload: TagWrap(ByteVec::from(addr_bytes)),
@@ -43,7 +41,7 @@ mod byron_tests {
         };
         let tx_out: TxOut = TxOut {
             address: input_tx_out_addr,
-            amount: 19999000000,
+            amount: amount,
         };
         let mut utxos: UTxOs = new_utxos();
         add_to_utxo(&mut utxos, tx_in, tx_out);
@@ -51,10 +49,39 @@ mod byron_tests {
     }
 
     #[test]
+    fn successful_mainnet_tx_with_genesis_utxos() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron2.tx"));
+        let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron2.address")),
+            // The number of lovelace in this input is irrelevant, since no fees have to be paid
+            // for this transaction.
+            1,
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+                min_fees_const: 155381,
+                min_fees_factor: 44,
+                max_tx_size: 4096,
+            }),
+            prot_magic: 764824073,
+        };
+        match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?}).", err),
+        }
+    }
+
+    #[test]
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -74,7 +101,11 @@ mod byron_tests {
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         // Clear the set of inputs in the transaction.
         let mut tx: Tx = (*mtxp.transaction).clone();
         tx.inputs = MaybeIndefArray::Def(Vec::new());
@@ -106,7 +137,11 @@ mod byron_tests {
     fn empty_outs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         // Clear the set of outputs in the transaction.
         let mut tx: Tx = (*mtxp.transaction).clone();
         tx.outputs = MaybeIndefArray::Def(Vec::new());
@@ -161,7 +196,11 @@ mod byron_tests {
     fn output_without_lovelace() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         // Remove lovelace from output.
         let mut tx: Tx = (*mtxp.transaction).clone();
         let altered_tx_out: TxOut = TxOut {
@@ -200,7 +239,11 @@ mod byron_tests {
     fn not_enough_fees() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 1000,
@@ -223,7 +266,11 @@ mod byron_tests {
     fn tx_size_exceeds_max() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -246,7 +293,11 @@ mod byron_tests {
     fn missing_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         // Remove witness
         let new_witnesses: Witnesses = MaybeIndefArray::Def(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
@@ -278,7 +329,11 @@ mod byron_tests {
     fn wrong_signature() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = mainnet_tx_from_bytes_cbor(&cbor_bytes);
-        let utxos: UTxOs = build_utxo(&mtxp.transaction);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtxp.transaction,
+            String::from(include_str!("../../test_data/byron1.address")),
+            19999000000,
+        );
         // Modify signature in witness
         let new_wit: Twit = match mtxp.witness[0].clone() {
             Twit::PkWitness(CborWrap((pk, _))) => {

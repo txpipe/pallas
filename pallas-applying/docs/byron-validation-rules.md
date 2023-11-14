@@ -29,7 +29,7 @@ Refer to the [Byron's ledger white paper](https://github.com/input-output-hk/car
 	- ***addrHash<sub>utxo</sub> : TxIn -> KeyHash*** takes a transaction input, extracts its associated transaction output from ***utxo***, extracts the address contained in it, and returns its hash. In other words, given ***utxo*** and transaction input ***i*** such that ***utxo(i) = (a, _)***, we have that ***addrHash<sub>utxo</sub>(i) := hash(a)***.
 - **Protocol Parameters**:
 	- ***pps ∈ PParams*** is the set of (Byron) protocol parameters, with the following associated functions:
-		- ***minFees : PParams x Tx → ℕ*** gives the minimum amount of fees that must be paid for the transaction as determined by the protocol parameters.
+		- ***minFees : PParams x Tx → ℕ*** gives the minimum amount of fees that must be paid for the transaction as determined by the protocol parameters. If ***tx*** spends only genesis UTxOs (i.e., only input UTxOs generated at the genesis of the ledger), then ***minFees(pps, tx) = 0***.
 		- ***maxTxSize : PParams → ℕ*** gives the (global) maximum transaction size.
 - ***Witnesses***:
 	- ***VKey*** is the set of verification keys (a.k.a. public keys).
