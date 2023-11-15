@@ -13,11 +13,15 @@ pub struct ByronProtParams {
     pub max_tx_size: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct ShelleyProtParams;
+
 // TODO: add variants for the other eras.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MultiEraProtParams {
     Byron(ByronProtParams),
+    Shelley(ShelleyProtParams),
 }
 
 #[derive(Debug)]
