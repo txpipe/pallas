@@ -85,17 +85,17 @@ impl Bearer {
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
-        let stream = UnixStream::connect(path).await?;
-        Ok(Self::Unix(stream))
-    }
-
-    #[cfg(not(target_os = "windows"))]
     pub async fn accept_unix(
         listener: &UnixListener,
     ) -> tokio::io::Result<(Self, tokio::net::unix::SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Unix(stream), addr))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
+        let stream = UnixStream::connect(path).await?;
+        Ok(Self::Unix(stream))
     }
 
     pub async fn readable(&self) -> tokio::io::Result<()> {
