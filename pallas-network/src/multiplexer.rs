@@ -79,9 +79,15 @@ impl Bearer {
         Ok(Self::Tcp(stream))
     }
 
-    pub async fn accept_tcp(listener: &TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
+    pub async fn accept_tcp(listener: TcpListener) -> tokio::io::Result<(Self, SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Tcp(stream), addr))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
+        let stream = UnixStream::connect(path).await?;
+        Ok(Self::Unix(stream))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -90,12 +96,6 @@ impl Bearer {
     ) -> tokio::io::Result<(Self, tokio::net::unix::SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Ok((Self::Unix(stream), addr))
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
-        let stream = UnixStream::connect(path).await?;
-        Ok(Self::Unix(stream))
     }
 
     pub async fn readable(&self) -> tokio::io::Result<()> {
