@@ -97,7 +97,7 @@ pub struct PeerServer {
 }
 
 impl PeerServer {
-    pub async fn accept(listener: TcpListener, magic: u64) -> Result<Self, Error> {
+    pub async fn accept(listener: &TcpListener, magic: u64) -> Result<Self, Error> {
         let (bearer, _) = Bearer::accept_tcp(listener)
             .await
             .map_err(Error::ConnectFailure)?;
