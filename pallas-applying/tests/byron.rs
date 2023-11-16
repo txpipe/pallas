@@ -15,62 +15,6 @@ use pallas_codec::{
 use pallas_primitives::byron::{Address, MintedTxPayload, Twit, Tx, TxIn, TxOut, Witnesses};
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
 
-// Helper functions.
-fn add_to_utxo(utxos: &mut UTxOs, tx_in: TxIn, tx_out: TxOut) {
-    let multi_era_in: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Owned(tx_in)));
-    let multi_era_out: MultiEraOutput = MultiEraOutput::Byron(Box::new(Cow::Owned(tx_out)));
-    utxos.insert(multi_era_in, multi_era_out);
-}
-
-// pallas_applying::validate takes a MultiEraTx, not a Tx and a Witnesses. To be
-// able to build a MultiEraTx from a Tx and a Witnesses, we need to encode each
-// of them and then decode them into KeepRaw<Tx> and KeepRaw<Witnesses> values,
-// respectively, to be able to make the MultiEraTx value.
-fn mk_byron_tx_and_validate(
-    tx: &Tx,
-    wits: &Witnesses,
-    utxos: &UTxOs,
-    env: &Environment,
-) -> ValidationResult {
-    let mut tx_buf: Vec<u8> = Vec::new();
-
-    match encode(tx, &mut tx_buf) {
-        Ok(_) => (),
-        Err(err) => panic!("Unable to encode Tx ({:?}).", err),
-    };
-
-    let kptx: KeepRaw<Tx> = match Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()) {
-        Ok(kp) => kp,
-        Err(err) => panic!("Unable to decode Tx ({:?}).", err),
-    };
-
-    let mut wit_buf: Vec<u8> = Vec::new();
-
-    match encode(wits, &mut wit_buf) {
-        Ok(_) => (),
-        Err(err) => panic!("Unable to encode Witnesses ({:?}).", err),
-    };
-
-    let kpwit: KeepRaw<Witnesses> =
-        match Decode::decode(&mut Decoder::new(wit_buf.as_slice()), &mut ()) {
-            Ok(kp) => kp,
-            Err(err) => panic!("Unable to decode Witnesses ({:?}).", err),
-        };
-
-    let mtxp: MintedTxPayload = MintedTxPayload {
-        transaction: kptx,
-        witness: kpwit,
-    };
-
-    let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
-
-    validate(&metx, utxos, env)
-}
-
-fn new_utxos<'a>() -> UTxOs<'a> {
-    UTxOs::new()
-}
-
 #[cfg(test)]
 mod byron_tests {
     use super::*;
@@ -122,6 +66,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 6341,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
@@ -147,6 +92,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
@@ -181,6 +127,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
@@ -218,6 +165,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Outputs set should not be empty."),
@@ -242,6 +190,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
@@ -285,6 +234,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All outputs must contain lovelace."),
@@ -313,6 +263,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Fees should not be below minimum."),
@@ -341,6 +292,7 @@ mod byron_tests {
                 max_tx_size: 0,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
@@ -377,6 +329,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must have a witness signature."),
@@ -422,6 +375,7 @@ mod byron_tests {
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
+            block_slot: 3241381,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Witness signature should verify the transaction."),

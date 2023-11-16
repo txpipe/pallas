@@ -19,6 +19,7 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             Environment {
                 prot_params: MultiEraProtParams::Byron(bpp),
                 prot_magic,
+                ..
             },
         ) => validate_byron_tx(mtxp, utxos, bpp, prot_magic),
         (
@@ -26,8 +27,9 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             Environment {
                 prot_params: MultiEraProtParams::Shelley(spp),
                 prot_magic,
+                block_slot,
             },
-        ) => validate_shelley_tx(shelley_minted_tx, utxos, spp, prot_magic),
+        ) => validate_shelley_tx(shelley_minted_tx, utxos, spp, prot_magic, block_slot),
         // TODO: implement the rest of the eras.
         _ => Ok(()),
     }

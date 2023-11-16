@@ -10,10 +10,12 @@ pub fn validate_shelley_tx(
     utxos: &UTxOs,
     _prot_pps: &ShelleyProtParams,
     _prot_magic: &u32,
+    block_slot: &u64,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     check_ins_not_empty(tx_body)?;
-    check_ins_in_utxos(tx_body, utxos)
+    check_ins_in_utxos(tx_body, utxos)?;
+    check_ttl(tx_body, block_slot)
 }
 
 fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
@@ -30,4 +32,17 @@ fn check_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationRes
         }
     }
     Ok(())
+}
+
+fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
+    match tx_body.ttl {
+        Some(ttl) => {
+            if ttl < *block_slot {
+                Err(ValidationError::TTLExceeded)
+            } else {
+                Ok(())
+            }
+        }
+        None => Err(ValidationError::AlonzoCompatibleNotShelley),
+    }
 }

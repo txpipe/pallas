@@ -18,7 +18,7 @@ use pallas_primitives::alonzo::{
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 
 #[cfg(test)]
-mod byron_tests {
+mod shelley_tests {
     use super::*;
 
     fn cbor_to_bytes(input: &str) -> Vec<u8> {
@@ -62,6 +62,7 @@ mod byron_tests {
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
+            block_slot: 5281340,
         };
         let utxos: UTxOs = mk_utxo_for_single_input_tx(
             &mtx.transaction_body,
@@ -100,6 +101,7 @@ mod byron_tests {
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
+            block_slot: 5281340,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
@@ -119,12 +121,74 @@ mod byron_tests {
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
+            block_slot: 5281340,
         };
         let utxos: UTxOs = UTxOs::new();
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
             Err(err) => match err {
                 ValidationError::InputMissingInUTxO => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // Time-to-live is removed.
+    fn missing_ttl() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        tx_body.ttl = None;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_body, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "TTL must always be present in Shelley transactions."),
+            Err(err) => match err {
+                ValidationError::AlonzoCompatibleNotShelley => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // Block slot is after transaction's time-to-live.
+    fn ttl_exceeded() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_magic: 764824073,
+            block_slot: 9999999,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "TTL cannot be exceeded."),
+            Err(err) => match err {
+                ValidationError::TTLExceeded => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }

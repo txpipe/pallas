@@ -28,6 +28,7 @@ pub enum MultiEraProtParams {
 pub struct Environment {
     pub prot_params: MultiEraProtParams,
     pub prot_magic: u32,
+    pub block_slot: u64,
 }
 
 #[non_exhaustive]
@@ -39,17 +40,19 @@ pub enum SigningTag {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ValidationError {
-    InputMissingInUTxO,
-    TxInsEmpty,
-    TxOutsEmpty,
-    OutputWithoutLovelace,
-    UnknownTxSize,
-    UnableToComputeFees,
-    FeesBelowMin,
-    MaxTxSizeExceeded,
-    UnableToProcessWitnesses,
-    MissingWitness,
-    WrongSignature,
+    InputMissingInUTxO,         // >= Byron
+    TxInsEmpty,                 // >= Byron
+    TxOutsEmpty,                // >= Byron
+    OutputWithoutLovelace,      // == Byron
+    UnknownTxSize,              // >= Byron
+    UnableToComputeFees,        // >= Byron
+    FeesBelowMin,               // >= Byron
+    MaxTxSizeExceeded,          // >= Byron
+    UnableToProcessWitnesses,   // >= Byron
+    MissingWitness,             // >= Byron
+    WrongSignature,             // >= Byron
+    TTLExceeded,                // >= Shelley
+    AlonzoCompatibleNotShelley, // == Shelley
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
