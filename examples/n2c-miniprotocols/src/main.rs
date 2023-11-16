@@ -58,7 +58,7 @@ async fn do_chainsync(client: &mut NodeClient) {
 // environment
 const SOCKET_PATH: &str = "/tmp/node.socket";
 
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 #[tokio::main]
 async fn main() {
     tracing::subscriber::set_global_default(
