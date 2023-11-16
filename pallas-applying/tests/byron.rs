@@ -105,6 +105,7 @@ mod byron_tests {
     }
 
     #[test]
+    // Transaction hash: a9e4413a5fb61a7a43c7df006ffcaaf3f2ffc9541f54757023968c5a8f8294fd
     fn successful_mainnet_tx_with_genesis_utxos() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron2.tx"));
         let mtxp: MintedTxPayload = tx_from_cbor(&cbor_bytes);
@@ -112,9 +113,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_single_input_tx(
             &mtxp.transaction,
             String::from(include_str!("../../test_data/byron2.address")),
-            // The number of lovelace in this input is irrelevant, since no fees have to be paid
-            // for this transaction.
-            1,
+            19999000000,
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
@@ -131,6 +130,7 @@ mod byron_tests {
     }
 
     #[test]
+    // Transaction hash: a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mtxp: MintedTxPayload = tx_from_cbor(&cbor_bytes);

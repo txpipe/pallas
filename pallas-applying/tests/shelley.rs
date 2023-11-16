@@ -1,13 +1,21 @@
+use std::borrow::Cow;
+
 use pallas_applying::{
     types::{Environment, MultiEraProtParams, ShelleyProtParams, ValidationError},
     validate, UTxOs,
 };
-use pallas_codec::minicbor::{
-    decode::{Decode, Decoder},
-    encode,
+use pallas_codec::{
+    minicbor::{
+        decode::{Decode, Decoder},
+        encode,
+    },
+    utils::Bytes,
 };
-use pallas_primitives::alonzo::{MintedTx, TransactionBody};
-use pallas_traverse::{Era, MultiEraTx};
+use pallas_crypto::hash::Hash;
+use pallas_primitives::alonzo::{
+    MintedTx, TransactionBody, TransactionInput, TransactionOutput, Value,
+};
+use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 
 #[cfg(test)]
 mod byron_tests {
@@ -21,7 +29,32 @@ mod byron_tests {
         pallas_codec::minicbor::decode::<MintedTx>(&tx_cbor[..]).unwrap()
     }
 
+    // Careful: this function assumes tx_body has exactly one input.
+    fn mk_utxo_for_single_input_tx<'a>(
+        tx_body: &TransactionBody,
+        address: String,
+        amount: Value,
+        datum_hash: Option<Hash<32>>,
+    ) -> UTxOs<'a> {
+        let tx_ins: &Vec<TransactionInput> = &tx_body.inputs;
+        assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs.");
+        let tx_in: TransactionInput = tx_ins.first().unwrap().clone();
+        let address_bytes: Bytes = match hex::decode(address) {
+            Ok(bytes_vec) => Bytes::from(bytes_vec),
+            _ => panic!("Unable to decode input address."),
+        };
+        let tx_out: TransactionOutput = TransactionOutput {
+            address: address_bytes,
+            amount,
+            datum_hash,
+        };
+        let mut utxos: UTxOs = UTxOs::new();
+        add_to_utxo(&mut utxos, tx_in, tx_out);
+        utxos
+    }
+
     #[test]
+    // Transaction hash: 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -30,7 +63,12 @@ mod byron_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
         };
-        let utxos: UTxOs = UTxOs::new();
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?}).", err),
@@ -42,6 +80,12 @@ mod byron_tests {
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
         // Clear the set of inputs in the transaction.
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.inputs = Vec::new();
@@ -57,7 +101,6 @@ mod byron_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
         };
-        let utxos: UTxOs = UTxOs::new();
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
             Err(err) => match err {
@@ -66,4 +109,32 @@ mod byron_tests {
             },
         }
     }
+
+    #[test]
+    // The transaction is valid, but the UTxO set is empty.
+    fn unfound_utxo() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_magic: 764824073,
+        };
+        let utxos: UTxOs = UTxOs::new();
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
+            Err(err) => match err {
+                ValidationError::InputMissingInUTxO => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+}
+
+// Helper functions.
+fn add_to_utxo<'a>(utxos: &mut UTxOs<'a>, tx_in: TransactionInput, tx_out: TransactionOutput) {
+    let multi_era_in: MultiEraInput = MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+    let multi_era_out: MultiEraOutput =
+        MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)));
+    utxos.insert(multi_era_in, multi_era_out);
 }
