@@ -62,7 +62,6 @@ pub struct Segment {
     pub payload: Payload,
 }
 
-#[cfg(unix)]
 pub enum Bearer {
     Tcp(TcpStream),
 
