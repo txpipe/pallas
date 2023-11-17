@@ -80,9 +80,6 @@ pub struct SystemStart {
     pub picoseconds_of_day: u64,
 }
 
-#[derive(Debug, Encode, Decode, PartialEq)]
-pub struct EpochNo(#[n(0)] pub u32);
-
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
     let query = Request::GetChainPoint;
     let result = client.query(query).await?;
