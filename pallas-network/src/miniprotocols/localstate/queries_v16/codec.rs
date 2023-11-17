@@ -178,7 +178,7 @@ impl<'b> Decode<'b, ()> for HardForkQuery {
         match tag {
             0 => Ok(Self::GetInterpreter),
             1 => Ok(Self::GetCurrentEra),
-            _ => unreachable!(),
+            _ => Err(decode::Error::message("invalid tag")),
         }
     }
 }
