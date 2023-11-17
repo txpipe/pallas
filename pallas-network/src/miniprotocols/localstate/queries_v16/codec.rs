@@ -172,8 +172,14 @@ impl Encode<()> for HardForkQuery {
 }
 
 impl<'b> Decode<'b, ()> for HardForkQuery {
-    fn decode(_d: &mut Decoder<'b>, _: &mut ()) -> Result<Self, decode::Error> {
-        todo!()
+    fn decode(d: &mut Decoder<'b>, _: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+        let tag = d.u16()?;
+        match tag {
+            0 => Ok(Self::GetInterpreter),
+            1 => Ok(Self::GetCurrentEra),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -197,8 +203,20 @@ impl Encode<()> for LedgerQuery {
 }
 
 impl<'b> Decode<'b, ()> for LedgerQuery {
-    fn decode(_d: &mut Decoder<'b>, _: &mut ()) -> Result<Self, decode::Error> {
-        todo!()
+    fn decode(d: &mut Decoder<'b>, _: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+        let tag = d.u16()?;
+        match tag {
+            0 => {
+                let (era, q) = d.decode()?;
+                Ok(Self::BlockQuery(era, q))
+            }
+            2 => {
+                let q = d.decode()?;
+                Ok(Self::HardForkQuery(q))
+            }
+            _ => Err(decode::Error::message("invalid tag")),
+        }
     }
 }
 
