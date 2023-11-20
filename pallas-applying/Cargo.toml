@@ -1,7 +1,7 @@
 [package]
 name = "pallas-applying"
 description = "Logic for validating and applying new blocks and txs to the chain state"
-version = "0.19.1"
+version = "0.20.0"
 edition = "2021"
 repository = "https://github.com/MaicoLeberle/pallas"
 homepage = "https://github.com/MaicoLeberle/pallas"
