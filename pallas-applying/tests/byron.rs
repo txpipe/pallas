@@ -15,6 +15,62 @@ use pallas_codec::{
 use pallas_primitives::byron::{Address, MintedTxPayload, Twit, Tx, TxIn, TxOut, Witnesses};
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
 
+// Helper functions.
+fn add_to_utxo(utxos: &mut UTxOs, tx_in: TxIn, tx_out: TxOut) {
+    let multi_era_in: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Owned(tx_in)));
+    let multi_era_out: MultiEraOutput = MultiEraOutput::Byron(Box::new(Cow::Owned(tx_out)));
+    utxos.insert(multi_era_in, multi_era_out);
+}
+
+// pallas_applying::validate takes a MultiEraTx, not a Tx and a Witnesses. To be
+// able to build a MultiEraTx from a Tx and a Witnesses, we need to encode each
+// of them and then decode them into KeepRaw<Tx> and KeepRaw<Witnesses> values,
+// respectively, to be able to make the MultiEraTx value.
+fn mk_byron_tx_and_validate(
+    tx: &Tx,
+    wits: &Witnesses,
+    utxos: &UTxOs,
+    env: &Environment,
+) -> ValidationResult {
+    let mut tx_buf: Vec<u8> = Vec::new();
+
+    match encode(tx, &mut tx_buf) {
+        Ok(_) => (),
+        Err(err) => panic!("Unable to encode Tx ({:?}).", err),
+    };
+
+    let kptx: KeepRaw<Tx> = match Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()) {
+        Ok(kp) => kp,
+        Err(err) => panic!("Unable to decode Tx ({:?}).", err),
+    };
+
+    let mut wit_buf: Vec<u8> = Vec::new();
+
+    match encode(wits, &mut wit_buf) {
+        Ok(_) => (),
+        Err(err) => panic!("Unable to encode Witnesses ({:?}).", err),
+    };
+
+    let kpwit: KeepRaw<Witnesses> =
+        match Decode::decode(&mut Decoder::new(wit_buf.as_slice()), &mut ()) {
+            Ok(kp) => kp,
+            Err(err) => panic!("Unable to decode Witnesses ({:?}).", err),
+        };
+
+    let mtxp: MintedTxPayload = MintedTxPayload {
+        transaction: kptx,
+        witness: kpwit,
+    };
+
+    let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
+
+    validate(&metx, utxos, env)
+}
+
+fn new_utxos<'a>() -> UTxOs<'a> {
+    UTxOs::new()
+}
+
 #[cfg(test)]
 mod byron_tests {
     use super::*;
@@ -23,8 +79,8 @@ mod byron_tests {
         hex::decode(input).unwrap()
     }
 
-    fn mainnet_tx_from_bytes_cbor<'a>(tx_cbor: &'a Vec<u8>) -> MintedTxPayload<'a> {
-        pallas_codec::minicbor::decode::<MintedTxPayload>(&tx_cbor[..]).unwrap()
+    fn mainnet_tx_from_bytes_cbor(tx_cbor: &[u8]) -> MintedTxPayload<'_> {
+        pallas_codec::minicbor::decode::<MintedTxPayload>(tx_cbor).unwrap()
     }
 
     // Careful: this function assumes tx has exactly one input.
@@ -41,7 +97,7 @@ mod byron_tests {
         };
         let tx_out: TxOut = TxOut {
             address: input_tx_out_addr,
-            amount: amount,
+            amount,
         };
         let mut utxos: UTxOs = new_utxos();
         add_to_utxo(&mut utxos, tx_in, tx_out);
@@ -69,7 +125,7 @@ mod byron_tests {
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?}).", err),
+            Err(err) => panic!("Unexpected error ({:?}).", err),
         }
     }
 
@@ -92,7 +148,7 @@ mod byron_tests {
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?}).", err),
+            Err(err) => panic!("Unexpected error ({:?}).", err),
         }
     }
 
@@ -112,9 +168,9 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
         };
-        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -124,10 +180,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "Inputs set should not be empty."),
+            Ok(()) => panic!("Inputs set should not be empty."),
             Err(err) => match err {
                 ValidationError::TxInsEmpty => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -148,9 +204,9 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
         };
-        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -160,10 +216,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "Outputs set should not be empty."),
+            Ok(()) => panic!("Outputs set should not be empty."),
             Err(err) => match err {
                 ValidationError::TxOutsEmpty => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -183,10 +239,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
+            Ok(()) => panic!("All inputs must be within the UTxO set."),
             Err(err) => match err {
                 ValidationError::InputMissingInUTxO => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -207,16 +263,15 @@ mod byron_tests {
             address: tx.outputs[0].address.clone(),
             amount: 0,
         };
-        let mut new_tx_outs: Vec<TxOut> = Vec::new();
-        new_tx_outs.push(tx.outputs[1].clone());
-        new_tx_outs.push(altered_tx_out);
+
+        let new_tx_outs: Vec<TxOut> = vec![tx.outputs[1].clone(), altered_tx_out];
         tx.outputs = MaybeIndefArray::Indef(new_tx_outs);
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
         };
-        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -226,10 +281,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "All outputs must contain lovelace."),
+            Ok(()) => panic!("All outputs must contain lovelace."),
             Err(err) => match err {
                 ValidationError::OutputWithoutLovelace => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -253,10 +308,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "Fees should not be below minimum."),
+            Ok(()) => panic!("Fees should not be below minimum."),
             Err(err) => match err {
                 ValidationError::FeesBelowMin => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -280,10 +335,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
+            Ok(()) => panic!("Transaction size cannot exceed protocol limit."),
             Err(err) => match err {
                 ValidationError::MaxTxSizeExceeded => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -303,9 +358,9 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(new_witnesses, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
         };
-        mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -315,10 +370,10 @@ mod byron_tests {
             prot_magic: 764824073,
         };
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must have a witness signature."),
+            Ok(()) => panic!("All inputs must have a witness signature."),
             Err(err) => match err {
                 ValidationError::MissingWitness => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
@@ -341,15 +396,17 @@ mod byron_tests {
             }
             _ => unreachable!(),
         };
-        let mut new_witnesses_vec = Vec::new();
-        new_witnesses_vec.push(new_wit);
-        let new_witnesses: Witnesses = MaybeIndefArray::Def(new_witnesses_vec);
+
+        let new_witnesses: Witnesses = MaybeIndefArray::Def(vec![new_wit]);
         let mut tx_buf: Vec<u8> = Vec::new();
+
         match encode(new_witnesses, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
         };
-        mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+
+        mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
                 min_fees_const: 155381,
@@ -358,62 +415,13 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
         };
+
         match mk_byron_tx_and_validate(&mtxp.transaction, &mtxp.witness, &utxos, &env) {
-            Ok(()) => assert!(false, "Witness signature should verify the transaction."),
+            Ok(()) => panic!("Witness signature should verify the transaction."),
             Err(err) => match err {
                 ValidationError::WrongSignature => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?}).", err),
             },
         }
     }
-}
-
-// Helper functions.
-fn add_to_utxo<'a>(utxos: &mut UTxOs<'a>, tx_in: TxIn, tx_out: TxOut) {
-    let multi_era_in: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Owned(tx_in)));
-    let multi_era_out: MultiEraOutput = MultiEraOutput::Byron(Box::new(Cow::Owned(tx_out)));
-    utxos.insert(multi_era_in, multi_era_out);
-}
-
-// pallas_applying::validate takes a MultiEraTx, not a Tx and a Witnesses. To be
-// able to build a MultiEraTx from a Tx and a Witnesses, we need to encode each
-// of them and then decode them into KeepRaw<Tx> and KeepRaw<Witnesses> values,
-// respectively, to be able to make the MultiEraTx value.
-fn mk_byron_tx_and_validate(
-    tx: &Tx,
-    wits: &Witnesses,
-    utxos: &UTxOs,
-    env: &Environment,
-) -> ValidationResult {
-    let mut tx_buf: Vec<u8> = Vec::new();
-    match encode(tx, &mut tx_buf) {
-        Ok(_) => (),
-        Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
-    };
-    let kptx: KeepRaw<Tx> = match Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()) {
-        Ok(kp) => kp,
-        Err(err) => panic!("Unable to decode Tx ({:?}).", err),
-    };
-
-    let mut wit_buf: Vec<u8> = Vec::new();
-    match encode(wits, &mut wit_buf) {
-        Ok(_) => (),
-        Err(err) => assert!(false, "Unable to encode Witnesses ({:?}).", err),
-    };
-    let kpwit: KeepRaw<Witnesses> =
-        match Decode::decode(&mut Decoder::new(wit_buf.as_slice()), &mut ()) {
-            Ok(kp) => kp,
-            Err(err) => panic!("Unable to decode Witnesses ({:?}).", err),
-        };
-
-    let mtxp: MintedTxPayload = MintedTxPayload {
-        transaction: kptx,
-        witness: kpwit,
-    };
-    let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
-    validate(&metx, utxos, env)
-}
-
-fn new_utxos<'a>() -> UTxOs<'a> {
-    UTxOs::new()
 }
