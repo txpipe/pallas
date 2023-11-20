@@ -1,0 +1,24 @@
+[package]
+name = "pallas-txbuilder"
+version = "0.19.0-alpha.2"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-txbuilder"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [
+  "Santiago Carmuega <santiago@carmuega.me>",
+  "Cainã Costa <me@cfcosta.com>",
+]
+
+[dependencies]
+pallas-codec = { path = "../pallas-codec", version = "0.19.0-alpha.2" }
+pallas-crypto = { path = "../pallas-crypto", version = "0.19.0-alpha.2" }
+pallas-primitives = { path = "../pallas-primitives", version = "0.19.0-alpha.2" }
+pallas-traverse = { path = "../pallas-traverse", version = "0.19.0-alpha.2" }
+pallas-addresses = { path = "../pallas-addresses", version = "0.19.0-alpha.2" }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+thiserror = "1.0.44"
+hex = "0.4.3"
