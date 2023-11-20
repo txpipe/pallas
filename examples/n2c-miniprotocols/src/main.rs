@@ -1,19 +1,30 @@
 use pallas::network::{
     facades::NodeClient,
-    miniprotocols::{chainsync, localstate, Point, MAINNET_MAGIC},
+    miniprotocols::{chainsync, localstate::queries_v16, Point, PRE_PRODUCTION_MAGIC},
 };
 use tracing::info;
 
 async fn do_localstate_query(client: &mut NodeClient) {
-    client.statequery().acquire(None).await.unwrap();
+    let client = client.statequery();
 
-    let result = client
-        .statequery()
-        .query(localstate::queries::RequestV10::GetSystemStart)
+    client.acquire(None).await.unwrap();
+
+    let result = queries_v16::get_chain_point(client).await.unwrap();
+    info!("result: {:?}", result);
+
+    let result = queries_v16::get_system_start(client).await.unwrap();
+    info!("result: {:?}", result);
+
+    let era = queries_v16::get_current_era(client).await.unwrap();
+    info!("result: {:?}", era);
+
+    let result = queries_v16::get_block_epoch_number(client, era)
         .await
         .unwrap();
 
-    info!("system start result: {:?}", result);
+    info!("result: {:?}", result);
+
+    client.send_release().await.unwrap();
 }
 
 async fn do_chainsync(client: &mut NodeClient) {
@@ -43,7 +54,11 @@ async fn do_chainsync(client: &mut NodeClient) {
     }
 }
 
-#[cfg(target_family = "unix")]
+// change the following to match the Cardano node socket in your local
+// environment
+const SOCKET_PATH: &str = "/tmp/node.socket";
+
+#[cfg(unix)]
 #[tokio::main]
 async fn main() {
     tracing::subscriber::set_global_default(
@@ -55,7 +70,7 @@ async fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let mut client = NodeClient::connect("/tmp/node.socket", MAINNET_MAGIC)
+    let mut client = NodeClient::connect(SOCKET_PATH, PRE_PRODUCTION_MAGIC)
         .await
         .unwrap();
 
@@ -67,7 +82,6 @@ async fn main() {
 }
 
 #[cfg(not(target_family = "unix"))]
-
 fn main() {
     panic!("can't use n2c unix socket on non-unix systems");
 }

@@ -1,4 +1,4 @@
-//! Ledger primitives and cbor codec for the Alonzo era
+//! Ledger primitives and cbor codec for the Babbage era
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Babbage CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/babbage/test-suite/cddl-files/babbage.cddl) file in IOHK repo.
 
@@ -745,7 +745,7 @@ mod tests {
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = vec![
+        let test_blocks = [
             include_str!("../../../test_data/babbage1.block"),
             include_str!("../../../test_data/babbage2.block"),
             include_str!("../../../test_data/babbage3.block"),
@@ -761,6 +761,8 @@ mod tests {
             include_str!("../../../test_data/babbage8.block"),
             // block with inline datum that fails hashes
             include_str!("../../../test_data/babbage9.block"),
+            // block with pool margin numerator greater than i64::MAX
+            include_str!("../../../test_data/babbage10.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
@@ -768,10 +770,10 @@ mod tests {
             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
             let block: BlockWrapper = minicbor::decode(&bytes[..])
-                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
 
             let bytes2 = minicbor::to_vec(block)
-                .unwrap_or_else(|_| panic!("error encoding block cbor for file {idx}"));
+                .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }

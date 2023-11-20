@@ -1,6 +1,6 @@
 use minicbor::{data::Tag, Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::{fmt, ops::Deref};
+use std::{fmt, hash::Hash as StdHash, ops::Deref};
 
 /// Utility for skipping parts of the CBOR payload, use only for debugging
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -254,6 +254,12 @@ impl<P> Deref for OrderPreservingProperties<P> {
     }
 }
 
+impl<P> From<Vec<P>> for OrderPreservingProperties<P> {
+    fn from(value: Vec<P>) -> Self {
+        OrderPreservingProperties(value)
+    }
+}
+
 impl<'b, C, P> minicbor::decode::Decode<'b, C> for OrderPreservingProperties<P>
 where
     P: Decode<'b, C>,
@@ -286,7 +292,7 @@ where
 }
 
 /// Wraps a struct so that it is encoded/decoded as a cbor bytes
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, StdHash)]
 #[serde(transparent)]
 pub struct CborWrap<T>(pub T);
 
@@ -384,7 +390,7 @@ impl<I, const T: u64> Deref for TagWrap<I, T> {
 /// An empty map
 ///
 /// don't ask me why, that's what the CDDL asks for.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyMap;
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for EmptyMap {
@@ -639,6 +645,86 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.writer_mut()
             .write_all(self.raw_cbor())
+            .map_err(minicbor::encode::Error::write)
+    }
+}
+
+/// Struct to hold arbitrary CBOR to be processed independently
+///
+/// # Examples
+///
+/// ```
+/// use pallas_codec::utils::AnyCbor;
+///
+/// let a = (123u16, (456u16, 789u16), 123u16);
+/// let data = minicbor::to_vec(a).unwrap();
+///
+/// let (_, any, _): (u16, AnyCbor, u16) = minicbor::decode(&data).unwrap();
+/// let confirm: (u16, u16) = any.into_decode().unwrap();
+/// assert_eq!(confirm, (456u16, 789u16));
+/// ```
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct AnyCbor {
+    inner: Vec<u8>,
+}
+
+impl AnyCbor {
+    pub fn raw_bytes(&self) -> &[u8] {
+        &self.inner
+    }
+
+    pub fn unwrap(self) -> Vec<u8> {
+        self.inner
+    }
+
+    pub fn from_encode<T>(other: T) -> Self
+    where
+        T: Encode<()>,
+    {
+        let inner = minicbor::to_vec(other).unwrap();
+        Self { inner }
+    }
+
+    pub fn into_decode<T>(self) -> Result<T, minicbor::decode::Error>
+    where
+        for<'b> T: Decode<'b, ()>,
+    {
+        minicbor::decode(&self.inner)
+    }
+}
+
+impl Deref for AnyCbor {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for AnyCbor {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        let all = d.input();
+        let start = d.position();
+        d.skip()?;
+        let end = d.position();
+
+        Ok(Self {
+            inner: Vec::from(&all[start..end]),
+        })
+    }
+}
+
+impl<C> minicbor::Encode<C> for AnyCbor {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.writer_mut()
+            .write_all(self.raw_bytes())
             .map_err(minicbor::encode::Error::write)
     }
 }

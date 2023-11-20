@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 use crate::{probe, support, Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx};
 
@@ -58,6 +58,13 @@ impl<'b> MultiEraBlock<'b> {
         Ok(Self::Babbage(Box::new(block)))
     }
 
+    pub fn decode_conway(cbor: &'b [u8]) -> Result<Self, Error> {
+        let (_, block): BlockWrapper<conway::MintedBlock> =
+            minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
+
+        Ok(Self::Conway(Box::new(block)))
+    }
+
     pub fn decode(cbor: &'b [u8]) -> Result<MultiEraBlock<'b>, Error> {
         match probe::block_era(cbor) {
             probe::Outcome::EpochBoundary => Self::decode_epoch_boundary(cbor),
@@ -68,6 +75,7 @@ impl<'b> MultiEraBlock<'b> {
                 Era::Mary => Self::decode_mary(cbor),
                 Era::Alonzo => Self::decode_alonzo(cbor),
                 Era::Babbage => Self::decode_babbage(cbor),
+                Era::Conway => Self::decode_conway(cbor),
             },
             probe::Outcome::Inconclusive => Err(Error::unknown_cbor(cbor)),
         }
@@ -83,6 +91,7 @@ impl<'b> MultiEraBlock<'b> {
                 MultiEraHeader::AlonzoCompatible(Cow::Borrowed(&x.header))
             }
             MultiEraBlock::Babbage(x) => MultiEraHeader::Babbage(Cow::Borrowed(&x.header)),
+            MultiEraBlock::Conway(x) => MultiEraHeader::Babbage(Cow::Borrowed(&x.header)),
         }
     }
 
@@ -97,6 +106,7 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(_, x) => *x,
             MultiEraBlock::Babbage(_) => Era::Babbage,
             MultiEraBlock::Byron(_) => Era::Byron,
+            MultiEraBlock::Conway(_) => Era::Conway,
         }
     }
 
@@ -123,6 +133,10 @@ impl<'b> MultiEraBlock<'b> {
                 .into_iter()
                 .map(|x| MultiEraTx::Byron(Box::new(Cow::Owned(x))))
                 .collect(),
+            MultiEraBlock::Conway(x) => support::clone_conway_txs(x)
+                .into_iter()
+                .map(|x| MultiEraTx::Conway(Box::new(Cow::Owned(x))))
+                .collect(),
             MultiEraBlock::EpochBoundary(_) => vec![],
         }
     }
@@ -134,6 +148,7 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(x, _) => x.transaction_bodies.is_empty(),
             MultiEraBlock::Babbage(x) => x.transaction_bodies.is_empty(),
             MultiEraBlock::Byron(x) => x.body.tx_payload.is_empty(),
+            MultiEraBlock::Conway(x) => x.transaction_bodies.is_empty(),
         }
     }
 
@@ -144,6 +159,7 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(x, _) => x.transaction_bodies.len(),
             MultiEraBlock::Babbage(x) => x.transaction_bodies.len(),
             MultiEraBlock::Byron(x) => x.body.tx_payload.len(),
+            MultiEraBlock::Conway(x) => x.transaction_bodies.len(),
         }
     }
 
@@ -154,33 +170,46 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(x, _) => !x.auxiliary_data_set.is_empty(),
             MultiEraBlock::Babbage(x) => !x.auxiliary_data_set.is_empty(),
             MultiEraBlock::Byron(_) => false,
+            MultiEraBlock::Conway(x) => !x.auxiliary_data_set.is_empty(),
         }
     }
 
     pub fn as_alonzo(&self) -> Option<&alonzo::MintedBlock> {
         match self {
-            MultiEraBlock::EpochBoundary(_) => None,
             MultiEraBlock::AlonzoCompatible(x, _) => Some(x),
-            MultiEraBlock::Babbage(_) => None,
-            MultiEraBlock::Byron(_) => None,
+            _ => None,
         }
     }
 
     pub fn as_babbage(&self) -> Option<&babbage::MintedBlock> {
         match self {
-            MultiEraBlock::EpochBoundary(_) => None,
-            MultiEraBlock::AlonzoCompatible(_, _) => None,
             MultiEraBlock::Babbage(x) => Some(x),
-            MultiEraBlock::Byron(_) => None,
+            _ => None,
         }
     }
 
     pub fn as_byron(&self) -> Option<&byron::MintedBlock> {
         match self {
-            MultiEraBlock::EpochBoundary(_) => None,
-            MultiEraBlock::AlonzoCompatible(_, _) => None,
-            MultiEraBlock::Babbage(_) => None,
             MultiEraBlock::Byron(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_conway(&self) -> Option<&conway::MintedBlock> {
+        match self {
+            MultiEraBlock::Conway(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// Return the size of the serialised block in bytes
+    pub fn size(&self) -> usize {
+        match self {
+            MultiEraBlock::EpochBoundary(b) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::Byron(b) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::AlonzoCompatible(b, _) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::Babbage(b) => minicbor::to_vec(b).unwrap().len(),
+            MultiEraBlock::Conway(b) => minicbor::to_vec(b).unwrap().len(),
         }
     }
 }

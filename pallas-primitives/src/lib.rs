@@ -5,5 +5,6 @@ mod framework;
 pub mod alonzo;
 pub mod babbage;
 pub mod byron;
+pub mod conway;
 
 pub use framework::*;

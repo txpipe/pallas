@@ -1,6 +1,6 @@
 //! Internal supporting utilities
 
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 macro_rules! clone_tx_fn {
     ($fn_name:ident, $era:tt) => {
@@ -40,6 +40,7 @@ macro_rules! clone_tx_fn {
     };
 }
 
+clone_tx_fn!(conway_clone_tx_at, conway);
 clone_tx_fn!(babbage_clone_tx_at, babbage);
 clone_tx_fn!(alonzo_clone_tx_at, alonzo);
 
@@ -54,6 +55,13 @@ pub fn clone_babbage_txs<'b>(block: &'b babbage::MintedBlock) -> Vec<babbage::Mi
     (0..block.transaction_bodies.len())
         .step_by(1)
         .filter_map(|idx| babbage_clone_tx_at(block, idx))
+        .collect()
+}
+
+pub fn clone_conway_txs<'b>(block: &'b conway::MintedBlock) -> Vec<conway::MintedTx<'b>> {
+    (0..block.transaction_bodies.len())
+        .step_by(1)
+        .filter_map(|idx| conway_clone_tx_at(block, idx))
         .collect()
 }
 

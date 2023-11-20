@@ -1,7 +1,7 @@
 use crate::{ComputeHash, OriginalHash};
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 impl ComputeHash<32> for byron::EbbHead {
     fn compute_hash(&self) -> Hash<32> {
@@ -142,6 +142,32 @@ impl ComputeHash<32> for babbage::DatumOption {
     }
 }
 
+// conway
+
+impl ComputeHash<28> for conway::PlutusV3Script {
+    fn compute_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_tagged(&self.0, 3)
+    }
+}
+
+impl ComputeHash<32> for conway::TransactionBody {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+impl OriginalHash<32> for KeepRaw<'_, conway::TransactionBody> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+impl OriginalHash<32> for KeepRaw<'_, conway::MintedTransactionBody<'_>> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{Era, MultiEraTx};
@@ -184,7 +210,7 @@ mod tests {
         let (_, block_model): BlockWrapper =
             minicbor::decode(&block_bytes[..]).expect("error decoding cbor for file");
 
-        let valid_hashes = vec![
+        let valid_hashes = [
             "8ae0cd531635579a9b52b954a840782d12235251fb1451e5c699e864c677514a",
             "bb5bb4e1c09c02aa199c60e9f330102912e3ef977bb73ecfd8f790945c6091d4",
             "8cdd88042ddb6c800714fb1469fb1a1a93152aae3c87a81f2a3016f2ee5c664a",
@@ -212,7 +238,7 @@ mod tests {
         let (_, block_model): BlockWrapper = minicbor::decode(&block_bytes[..])
             .unwrap_or_else(|_| panic!("error decoding cbor for file {block_idx}"));
 
-        let valid_hashes = vec!["3fad302595665b004971a6b76909854a39a0a7ecdbff3692f37b77ae37dbe882"];
+        let valid_hashes = ["3fad302595665b004971a6b76909854a39a0a7ecdbff3692f37b77ae37dbe882"];
 
         for (tx_idx, tx) in block_model.transaction_bodies.iter().enumerate() {
             let original_hash = tx.original_hash();
@@ -318,7 +344,7 @@ mod tests {
     fn tx_wits_plutus_v1_script_hashes_as_cli() {
         let tx_bytecode_hex = include_str!("../../test_data/scriptwit.tx");
         let bytecode = hex::decode(tx_bytecode_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Babbage, &bytecode).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Babbage, &bytecode).unwrap();
 
         let generated = tx
             .plutus_v1_scripts()
@@ -346,7 +372,7 @@ mod tests {
 
         let tx_hex = include_str!("../../test_data/babbage1.tx");
         let tx_bytes = hex::decode(tx_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Babbage, &tx_bytes).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Babbage, &tx_bytes).unwrap();
         let data = tx.plutus_data();
 
         for (datum, expected_hash) in data.iter().zip(expected) {
@@ -360,7 +386,7 @@ mod tests {
 
         let tx_hex = include_str!("../../test_data/babbage2.tx");
         let tx_bytes = hex::decode(tx_hex).unwrap();
-        let tx = MultiEraTx::decode(Era::Babbage, &tx_bytes).unwrap();
+        let tx = MultiEraTx::decode_for_era(Era::Babbage, &tx_bytes).unwrap();
 
         for output in tx.outputs() {
             if let Some(MintedDatumOption::Data(datum)) = output.datum() {

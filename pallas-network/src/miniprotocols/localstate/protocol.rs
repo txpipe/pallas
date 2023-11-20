@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use pallas_codec::utils::AnyCbor;
+
 use crate::miniprotocols::Point;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -17,18 +19,13 @@ pub enum AcquireFailure {
     PointNotOnChain,
 }
 
-pub trait Query: Debug {
-    type Request: Clone + Debug;
-    type Response: Clone + Debug;
-}
-
 #[derive(Debug)]
-pub enum Message<Q: Query> {
+pub enum Message {
     Acquire(Option<Point>),
     Failure(AcquireFailure),
     Acquired,
-    Query(Q::Request),
-    Result(Q::Response),
+    Query(AnyCbor),
+    Result(AnyCbor),
     ReAcquire(Option<Point>),
     Release,
     Done,

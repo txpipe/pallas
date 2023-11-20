@@ -57,7 +57,7 @@ impl VersionTable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VersionData {
     network_magic: u64,
     initiator_and_responder_diffusion_mode: bool,

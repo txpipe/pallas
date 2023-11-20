@@ -13,6 +13,7 @@ impl Era {
             Feature::CIP31 => self.ge(&Era::Babbage),
             Feature::CIP32 => self.ge(&Era::Babbage),
             Feature::CIP33 => self.ge(&Era::Babbage),
+            Feature::CIP1694 => self.ge(&Era::Conway),
         }
     }
 }
@@ -31,6 +32,7 @@ impl TryFrom<u16> for Era {
             4 => Ok(Era::Mary),
             5 => Ok(Era::Alonzo),
             6 => Ok(Era::Babbage),
+            7 => Ok(Era::Conway),
             x => Err(crate::Error::UnknownEra(x)),
         }
     }
@@ -45,6 +47,7 @@ impl From<Era> for u16 {
             Era::Mary => 4,
             Era::Alonzo => 5,
             Era::Babbage => 6,
+            Era::Conway => 7,
         }
     }
 }
@@ -58,6 +61,7 @@ impl Display for Era {
             Era::Mary => write!(f, "Mary"),
             Era::Alonzo => write!(f, "Alonzo"),
             Era::Babbage => write!(f, "Babbage"),
+            Era::Conway => write!(f, "Conway"),
         }
     }
 }
