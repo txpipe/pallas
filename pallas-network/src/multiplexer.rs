@@ -103,22 +103,7 @@ impl Bearer {
     pub async fn connect_named_pipe(
         pipe_name: impl AsRef<std::ffi::OsStr>,
     ) -> Result<Self, tokio::io::Error> {
-        // TODO: revisit if busy wait logic is required
-        let client = loop {
-            match tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name) {
-                Ok(client) => break client,
-                Err(e)
-                    if e.raw_os_error()
-                        == Some(windows_sys::Win32::Foundation::ERROR_PIPE_BUSY as i32) =>
-                {
-                    ()
-                }
-                Err(e) => return Err(e),
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        };
-
+        let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
         Ok(Self::NamedPipe(client))
     }
 

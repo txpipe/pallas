@@ -8,10 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-upstream"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-    "Pi Lanningham <pi.lanningham@gmail.com>",
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>", "Pi Lanningham <pi.lanningham@gmail.com>"]
 
 [dependencies]
 byteorder = "1.4.3"
@@ -22,10 +19,6 @@ pallas-crypto = { version = "=0.19.1", path = "../pallas-crypto" }
 thiserror = "1.0.31"
 tokio = { version = "1", features = ["net", "io-util", "time", "sync", "macros"] }
 tracing = "0.1.37"
-
-[target.'cfg(windows)'.dependencies]
-tokio-named-pipes = "0.1.0"
-windows-sys = "0.48.0"
 
 [dev-dependencies]
 tracing-subscriber = "0.3.16"
