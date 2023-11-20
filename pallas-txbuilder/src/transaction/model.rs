@@ -9,9 +9,12 @@ use serde::{Deserialize, Serialize};
 use crate::TxBuilderError;
 
 use super::{
-    AssetName, Bytes, Bytes32, Bytes64, DatumBytes, DatumHash, Hash28, PolicyId, PubKeyHash,
-    PublicKey, ScriptBytes, ScriptHash, Signature, TransactionStatus, TxHash,
+    AssetName, Bytes32, Bytes64, DatumBytes, DatumHash, PolicyId, PubKeyHash, PublicKey,
+    ScriptBytes, ScriptHash, Signature, TransactionStatus, TxHash,
 };
+
+// TODO: remove from public facing primitives
+pub use super::{Bytes, Hash28};
 
 #[derive(Default, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct StagingTransaction {

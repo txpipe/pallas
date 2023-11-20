@@ -1,7 +1,10 @@
 mod babbage;
 mod transaction;
 
-pub use crate::transaction::model::{BuiltTransaction, StagingTransaction};
+pub use babbage::BuildBabbage;
+pub use transaction::model::{
+    BuiltTransaction, Bytes, Hash28, Input, Output, OutputAssets, StagingTransaction,
+};
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum TxBuilderError {

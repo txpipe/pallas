@@ -23,18 +23,14 @@ use crate::{
 };
 
 pub trait BuildBabbage {
-    fn build_babbage_raw(
-        staging_tx: StagingTransaction,
-    ) -> Result<BuiltTransaction, TxBuilderError>;
+    fn build_babbage_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
 
     // fn build_babbage(staging_tx: StagingTransaction, resolver: (), params: ()) -> Result<BuiltTransaction, TxBuilderError>;
 }
 
 impl BuildBabbage for StagingTransaction {
-    fn build_babbage_raw(
-        staging_tx: StagingTransaction,
-    ) -> Result<BuiltTransaction, TxBuilderError> {
-        let mut inputs = staging_tx
+    fn build_babbage_raw(self) -> Result<BuiltTransaction, TxBuilderError> {
+        let mut inputs = self
             .inputs
             .unwrap_or_default()
             .iter()
@@ -46,7 +42,7 @@ impl BuildBabbage for StagingTransaction {
 
         inputs.sort_unstable_by_key(|x| (x.transaction_id, x.index));
 
-        let outputs = staging_tx
+        let outputs = self
             .outputs
             .unwrap_or_default()
             .iter()
@@ -54,7 +50,7 @@ impl BuildBabbage for StagingTransaction {
             .collect::<Result<Vec<_>, _>>()?;
 
         let mint: Option<KeyValuePairs<Hash<28>, KeyValuePairs<_, _>>> =
-            if let Some(massets) = staging_tx.mint {
+            if let Some(massets) = self.mint {
                 Some(
                     massets
                         .0
@@ -76,7 +72,7 @@ impl BuildBabbage for StagingTransaction {
                 None
             };
 
-        let collateral = staging_tx
+        let collateral = self
             .collateral_inputs
             .unwrap_or_default()
             .iter()
@@ -86,14 +82,14 @@ impl BuildBabbage for StagingTransaction {
             })
             .collect();
 
-        let required_signers = staging_tx
+        let required_signers = self
             .disclosed_signers
             .unwrap_or_default()
             .iter()
             .map(|x| x.0.into())
             .collect();
 
-        let network_id = if let Some(nid) = staging_tx.network_id {
+        let network_id = if let Some(nid) = self.network_id {
             match nid {
                 0 => Some(NetworkId::One),
                 1 => Some(NetworkId::Two),
@@ -103,13 +99,13 @@ impl BuildBabbage for StagingTransaction {
             None
         };
 
-        let collateral_return = staging_tx
+        let collateral_return = self
             .collateral_output
             .as_ref()
             .map(babbage_output)
             .transpose()?;
 
-        let reference_inputs = staging_tx
+        let reference_inputs = self
             .reference_inputs
             .unwrap_or_default()
             .iter()
@@ -122,7 +118,7 @@ impl BuildBabbage for StagingTransaction {
         let (mut native_script, mut plutus_v1_script, mut plutus_v2_script) =
             (vec![], vec![], vec![]);
 
-        for (_, script) in staging_tx.scripts.unwrap_or_default() {
+        for (_, script) in self.scripts.unwrap_or_default() {
             match script.kind {
                 ScriptKind::Native => {
                     let script = NativeScript::decode_fragment(&script.bytes.0)
@@ -143,7 +139,7 @@ impl BuildBabbage for StagingTransaction {
             }
         }
 
-        let plutus_data = staging_tx
+        let plutus_data = self
             .datums
             .unwrap_or_default()
             .iter()
@@ -163,7 +159,7 @@ impl BuildBabbage for StagingTransaction {
 
         let mut redeemers = vec![];
 
-        if let Some(rdmrs) = staging_tx.redeemers {
+        if let Some(rdmrs) = self.redeemers {
             for (purpose, (pd, ex_units)) in rdmrs.0.into_iter() {
                 let ex_units = if let Some(ExUnits { mem, steps }) = ex_units {
                     PallasExUnits { mem, steps }
@@ -213,15 +209,15 @@ impl BuildBabbage for StagingTransaction {
             transaction_body: TransactionBody {
                 inputs,
                 outputs,
-                ttl: staging_tx.invalid_from_slot,
-                validity_interval_start: staging_tx.valid_from_slot,
-                fee: staging_tx.fee.unwrap_or_default(),
+                ttl: self.invalid_from_slot,
+                validity_interval_start: self.valid_from_slot,
+                fee: self.fee.unwrap_or_default(),
                 certificates: None,        // TODO
                 withdrawals: None,         // TODO
                 update: None,              // TODO
                 auxiliary_data_hash: None, // TODO (accept user input)
                 mint,
-                script_data_hash: staging_tx.script_data_hash.map(|x| x.0.into()),
+                script_data_hash: self.script_data_hash.map(|x| x.0.into()),
                 collateral: opt_if_empty(collateral),
                 required_signers: opt_if_empty(required_signers),
                 network_id,
@@ -250,7 +246,7 @@ impl BuildBabbage for StagingTransaction {
             .into();
 
         Ok(BuiltTransaction {
-            version: staging_tx.version,
+            version: self.version,
             era: BuilderEra::Babbage,
             status: TransactionStatus::Built,
             tx_hash: Bytes32(*pallas_tx.transaction_body.compute_hash()),
