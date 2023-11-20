@@ -16,7 +16,7 @@ authors = [
 
 [dependencies]
 hex = "0.4.3"
-minicbor = { version = "0.19", features = ["std", "half", "derive"] }
+minicbor = { version = "0.20", features = ["std", "half", "derive"] }
 serde = { version = "1.0.143", features = ["derive"] }
 thiserror = "1.0.39"
 
