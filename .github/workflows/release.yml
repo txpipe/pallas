@@ -33,7 +33,6 @@ jobs:
 
   github_release:
     name: Create GitHub Release
-    needs: [cargo_publish]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

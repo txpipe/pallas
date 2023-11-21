@@ -13,11 +13,11 @@ authors = ["Maico Leberle <maico.leberle@gmail.com>"]
 doctest = false
 
 [dependencies]
-pallas-addresses = { path = "../pallas-addresses" }
-pallas-codec = { path = "../pallas-codec" }
-pallas-crypto = { path = "../pallas-crypto" }
-pallas-primitives = { path = "../pallas-primitives" }
-pallas-traverse = { path = "../pallas-traverse" }
+pallas-addresses = { version = "=0.20.0", path = "../pallas-addresses" }
+pallas-codec = { version = "=0.20.0", path = "../pallas-codec" }
+pallas-crypto = { version = "=0.20.0", path = "../pallas-crypto" }
+pallas-primitives = { version = "=0.20.0", path = "../pallas-primitives" }
+pallas-traverse = { version = "=0.20.0", path = "../pallas-traverse" }
 rand = "0.8"
 
 [dev-dependencies]
