@@ -21,7 +21,11 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_block_epoch_number(client, era)
         .await
         .unwrap();
+    info!("result: {:?}", result);
 
+    let result = queries_v16::get_stake_distribution(client, era)
+        .await
+        .unwrap();
     info!("result: {:?}", result);
 
     client.send_release().await.unwrap();
