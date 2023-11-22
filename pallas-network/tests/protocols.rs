@@ -462,7 +462,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let socket_path = Path::new("node.socket");
 
             if socket_path.exists() {
-                fs::remove_file(&socket_path).unwrap();
+                fs::remove_file(socket_path).unwrap();
             }
 
             let unix_listener = UnixListener::bind(socket_path).unwrap();
