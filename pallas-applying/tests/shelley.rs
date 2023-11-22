@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
     types::{Environment, MultiEraProtParams, ShelleyProtParams, ValidationError},
     validate, UTxOs,
@@ -63,6 +64,7 @@ mod shelley_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
             block_slot: 5281340,
+            network_id: 1,
         };
         let utxos: UTxOs = mk_utxo_for_single_input_tx(
             &mtx.transaction_body,
@@ -102,6 +104,7 @@ mod shelley_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
             block_slot: 5281340,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
@@ -122,6 +125,7 @@ mod shelley_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
             block_slot: 5281340,
+            network_id: 1,
         };
         let utxos: UTxOs = UTxOs::new();
         match validate(&metx, &utxos, &env) {
@@ -158,6 +162,7 @@ mod shelley_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
             block_slot: 5281340,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "TTL must always be present in Shelley transactions."),
@@ -178,6 +183,7 @@ mod shelley_tests {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
             prot_magic: 764824073,
             block_slot: 9999999,
+            network_id: 1,
         };
         let utxos: UTxOs = mk_utxo_for_single_input_tx(
             &mtx.transaction_body,
@@ -189,6 +195,65 @@ mod shelley_tests {
             Ok(()) => assert!(false, "TTL cannot be exceeded."),
             Err(err) => match err {
                 ValidationError::TTLExceeded => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // One of the output's address network ID is changed from the mainnet value to the testnet one.
+    fn wrong_network_id() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Modify the first output address.
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
+            (&tx_body.outputs).split_first().unwrap();
+
+        let addr: ShelleyAddress =
+            match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
+                Ok(Address::Shelley(sa)) => sa,
+                Ok(_) => panic!("Decoded output address and found the wrong era."),
+                Err(e) => panic!("Unable to parse output address ({:?})", e),
+            };
+        let altered_address: ShelleyAddress = ShelleyAddress::new(
+            Network::Testnet,
+            addr.payment().clone(),
+            addr.delegation().clone(),
+        );
+        let altered_output: TransactionOutput = TransactionOutput {
+            address: Bytes::from(altered_address.to_vec()),
+            amount: first_output.amount.clone(),
+            datum_hash: first_output.datum_hash,
+        };
+        let mut new_outputs = Vec::from(rest);
+        new_outputs.insert(0, altered_output);
+        tx_body.outputs = new_outputs;
+
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_body, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+        };
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Output with wrong network ID should be rejected."),
+            Err(err) => match err {
+                ValidationError::WrongNetworkID => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }

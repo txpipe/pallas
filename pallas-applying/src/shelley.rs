@@ -1,6 +1,7 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::types::{ShelleyProtParams, UTxOs, ValidationError, ValidationResult};
+use pallas_addresses::{Address, ShelleyAddress};
 use pallas_primitives::alonzo::{MintedTx, TransactionBody};
 use pallas_traverse::MultiEraInput;
 
@@ -11,11 +12,13 @@ pub fn validate_shelley_tx(
     _prot_pps: &ShelleyProtParams,
     _prot_magic: &u32,
     block_slot: &u64,
+    network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
-    check_ttl(tx_body, block_slot)
+    check_ttl(tx_body, block_slot)?;
+    check_network_id(tx_body, network_id)
 }
 
 fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
@@ -45,4 +48,19 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
         }
         None => Err(ValidationError::AlonzoCompatibleNotShelley),
     }
+}
+
+fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
+    for output in tx_body.outputs.iter() {
+        let addr: ShelleyAddress =
+            match Address::from_bytes(&Vec::<u8>::from(output.address.clone())) {
+                Ok(Address::Shelley(sa)) => sa,
+                Ok(_) => return Err(ValidationError::WrongEraOutput),
+                Err(_) => return Err(ValidationError::UnableToDecodeAddress),
+            };
+        if addr.network().value() != *network_id {
+            return Err(ValidationError::WrongNetworkID);
+        }
+    }
+    Ok(())
 }

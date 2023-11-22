@@ -29,6 +29,7 @@ pub struct Environment {
     pub prot_params: MultiEraProtParams,
     pub prot_magic: u32,
     pub block_slot: u64,
+    pub network_id: u8,
 }
 
 #[non_exhaustive]
@@ -53,6 +54,9 @@ pub enum ValidationError {
     WrongSignature,             // >= Byron
     TTLExceeded,                // >= Shelley
     AlonzoCompatibleNotShelley, // == Shelley
+    WrongEraOutput,             // >= Shelley
+    UnableToDecodeAddress,      // >= Shelley
+    WrongNetworkID,             // >= Shelley
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

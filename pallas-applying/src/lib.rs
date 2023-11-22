@@ -28,8 +28,16 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
                 prot_params: MultiEraProtParams::Shelley(spp),
                 prot_magic,
                 block_slot,
+                network_id,
             },
-        ) => validate_shelley_tx(shelley_minted_tx, utxos, spp, prot_magic, block_slot),
+        ) => validate_shelley_tx(
+            shelley_minted_tx,
+            utxos,
+            spp,
+            prot_magic,
+            block_slot,
+            network_id,
+        ),
         // TODO: implement the rest of the eras.
         _ => Ok(()),
     }

@@ -67,6 +67,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 6341,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
@@ -93,6 +94,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
@@ -128,6 +130,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
@@ -166,6 +169,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Outputs set should not be empty."),
@@ -191,6 +195,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
@@ -235,6 +240,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All outputs must contain lovelace."),
@@ -264,6 +270,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Fees should not be below minimum."),
@@ -293,6 +300,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
@@ -330,6 +338,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must have a witness signature."),
@@ -376,6 +385,7 @@ mod byron_tests {
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
+            network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Witness signature should verify the transaction."),
