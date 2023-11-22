@@ -212,9 +212,9 @@ impl StagingTransaction {
     }
 
     pub fn disclosed_signer(mut self, pub_key_hash: Hash<28>) -> Self {
-        let mut mut_disclosed_signers = self.disclosed_signers.unwrap_or_default();
-        mut_disclosed_signers.push(Hash28(*pub_key_hash));
-        self.disclosed_signers = Some(mut_disclosed_signers);
+        let mut disclosed_signers = self.disclosed_signers.unwrap_or_default();
+        disclosed_signers.push(Hash28(*pub_key_hash));
+        self.disclosed_signers = Some(disclosed_signers);
         self
     }
 
