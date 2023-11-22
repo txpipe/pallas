@@ -1,5 +1,8 @@
 use pallas_addresses::Address as PallasAddress;
-use pallas_crypto::{hash::Hasher, key::ed25519};
+use pallas_crypto::{
+    hash::{Hash, Hasher},
+    key::ed25519,
+};
 use pallas_primitives::{babbage, Fragment};
 
 use std::{collections::HashMap, ops::Deref};
@@ -9,13 +12,11 @@ use serde::{Deserialize, Serialize};
 use crate::TxBuilderError;
 
 use super::{
-    AssetName, Bytes32, Bytes64, DatumBytes, DatumHash, PolicyId, PubKeyHash, PublicKey,
-    ScriptBytes, ScriptHash, Signature, TransactionStatus, TxHash,
+    AssetName, Bytes, Bytes32, Bytes64, DatumBytes, DatumHash, Hash28, PolicyId, PubKeyHash,
+    PublicKey, ScriptBytes, ScriptHash, Signature, TransactionStatus, TxHash,
 };
 
-// TODO: remove from public facing primitives
-pub use super::{Bytes, Hash28};
-
+// TODO: Don't make wrapper types public
 #[derive(Default, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct StagingTransaction {
     pub version: String,
@@ -79,10 +80,36 @@ impl StagingTransaction {
         self
     }
 
-    // TODO: MintAssets builder
-    pub fn mint_assets(mut self, mint: MintAssets) -> Self {
-        self.mint = Some(mint);
-        self
+    pub fn mint_asset(
+        mut self,
+        policy: Hash<28>,
+        name: Vec<u8>,
+        amount: i64,
+    ) -> Result<Self, TxBuilderError> {
+        if name.len() > 32 {
+            return Err(TxBuilderError::AssetNameTooLong);
+        }
+
+        let mut mint = self.mint.map(|x| x.0).unwrap_or_default();
+
+        mint.entry(Hash28(*policy))
+            .and_modify(|policy_map| {
+                policy_map
+                    .entry(name.clone().into())
+                    .and_modify(|asset_map| {
+                        *asset_map += amount;
+                    })
+                    .or_insert(amount);
+            })
+            .or_insert_with(|| {
+                let mut map: HashMap<Bytes, i64> = HashMap::new();
+                map.insert(name.clone().into(), amount);
+                map
+            });
+
+        self.mint = Some(MintAssets(mint));
+
+        Ok(self)
     }
 
     pub fn valid_from_slot(mut self, slot: u64) -> Self {
@@ -112,23 +139,30 @@ impl StagingTransaction {
         self
     }
 
-    pub fn disclosed_signer(mut self, pub_key_hash: [u8; 28]) -> Self {
+    pub fn disclosed_signer(mut self, pub_key_hash: Hash<28>) -> Self {
         let mut mut_disclosed_signers = self.disclosed_signers.unwrap_or_default();
-        mut_disclosed_signers.push(Hash28(pub_key_hash));
+        mut_disclosed_signers.push(Hash28(*pub_key_hash));
         self.disclosed_signers = Some(mut_disclosed_signers);
         self
     }
 
-    pub fn script(mut self, script: Script) -> Self {
+    pub fn script(mut self, language: ScriptKind, bytes: Vec<u8>) -> Self {
         let mut mut_scripts = self.scripts.unwrap_or_default();
 
-        let hash = match script.kind {
-            ScriptKind::Native => Hasher::<224>::hash_tagged(script.bytes.as_ref(), 0),
-            ScriptKind::PlutusV1 => Hasher::<224>::hash_tagged(script.bytes.as_ref(), 1),
-            ScriptKind::PlutusV2 => Hasher::<224>::hash_tagged(script.bytes.as_ref(), 2),
+        let hash = match language {
+            ScriptKind::Native => Hasher::<224>::hash_tagged(bytes.as_ref(), 0),
+            ScriptKind::PlutusV1 => Hasher::<224>::hash_tagged(bytes.as_ref(), 1),
+            ScriptKind::PlutusV2 => Hasher::<224>::hash_tagged(bytes.as_ref(), 2),
         };
 
-        mut_scripts.insert(Hash28(*hash), script);
+        mut_scripts.insert(
+            Hash28(*hash),
+            Script {
+                kind: language,
+                bytes: bytes.into(),
+            },
+        );
+
         self.scripts = Some(mut_scripts);
         self
     }
@@ -138,24 +172,55 @@ impl StagingTransaction {
 
         let hash = Hasher::<256>::hash_cbor(&datum);
 
-        mut_datums.insert(Bytes32(*hash), Bytes(datum));
+        mut_datums.insert(Bytes32(*hash), datum.into());
         self.datums = Some(mut_datums);
         self
     }
 
-    // TODO: redeemers builder
-    pub fn redeemers(mut self, redeemers: Redeemers) -> Self {
-        self.redeemers = Some(redeemers);
+    pub fn add_spend_redeemer(
+        mut self,
+        input: Input,
+        plutus_data: Vec<u8>,
+        ex_units: Option<ExUnits>,
+    ) -> Self {
+        let mut rdmrs = self.redeemers.map(|x| x.0).unwrap_or_default();
+
+        rdmrs.insert(
+            RedeemerPurpose::Spend(input),
+            (plutus_data.into(), ex_units),
+        );
+
+        self.redeemers = Some(Redeemers(rdmrs));
+
+        self
+    }
+
+    pub fn add_mint_redeemer(
+        mut self,
+        policy: Hash<28>,
+        plutus_data: Vec<u8>,
+        ex_units: Option<ExUnits>,
+    ) -> Self {
+        let mut rdmrs = self.redeemers.map(|x| x.0).unwrap_or_default();
+
+        rdmrs.insert(
+            RedeemerPurpose::Mint(Hash28(*policy)),
+            (plutus_data.into(), ex_units),
+        );
+
+        self.redeemers = Some(Redeemers(rdmrs));
+
         self
     }
 
     // TODO: script_data_hash computation
-    pub fn script_data_hash(mut self, hash: [u8; 32]) -> Self {
-        self.script_data_hash = Some(Bytes32(hash));
+    pub fn script_data_hash(mut self, hash: Hash<32>) -> Self {
+        self.script_data_hash = Some(Bytes32(*hash));
         self
     }
 }
 
+// TODO: Don't want our wrapper types in fields public
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
 pub struct Input {
     pub tx_hash: TxHash,
@@ -163,14 +228,15 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn new(tx_hash: [u8; 32], txo_index: u64) -> Self {
+    pub fn new(tx_hash: Hash<32>, txo_index: u64) -> Self {
         Self {
-            tx_hash: Bytes32(tx_hash),
+            tx_hash: Bytes32(*tx_hash),
             txo_index,
         }
     }
 }
 
+// TODO: Don't want our wrapper types in fields public
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct Output {
     pub address: Address,
@@ -181,32 +247,118 @@ pub struct Output {
 }
 
 impl Output {
-    pub fn new(
-        address: PallasAddress,
-        lovelace: u64,
-        assets: Option<OutputAssets>,
-        datum: Option<Datum>,
-        script: Option<Script>,
-    ) -> Self {
+    pub fn new(address: PallasAddress, lovelace: u64) -> Self {
         Self {
             address: Address(address),
             lovelace,
-            assets,
-            datum,
-            script,
+            assets: None,
+            datum: None,
+            script: None,
         }
+    }
+
+    pub fn add_asset(
+        mut self,
+        policy: Hash<28>,
+        name: Vec<u8>,
+        amount: u64,
+    ) -> Result<Self, TxBuilderError> {
+        if name.len() > 32 {
+            return Err(TxBuilderError::AssetNameTooLong);
+        }
+
+        let mut assets = self.assets.map(|x| x.0).unwrap_or_default();
+
+        assets
+            .entry(Hash28(*policy))
+            .and_modify(|policy_map| {
+                policy_map
+                    .entry(name.clone().into())
+                    .and_modify(|asset_map| {
+                        *asset_map += amount;
+                    })
+                    .or_insert(amount);
+            })
+            .or_insert_with(|| {
+                let mut map: HashMap<Bytes, u64> = HashMap::new();
+                map.insert(name.clone().into(), amount);
+                map
+            });
+
+        self.assets = Some(OutputAssets(assets));
+
+        Ok(self)
+    }
+
+    pub fn set_inline_datum(mut self, plutus_data: Vec<u8>) -> Self {
+        self.datum = Some(Datum {
+            kind: DatumKind::Inline,
+            bytes: plutus_data.into(),
+        });
+
+        self
+    }
+
+    pub fn set_datum_hash(mut self, datum_hash: Hash<32>) -> Self {
+        self.datum = Some(Datum {
+            kind: DatumKind::Inline,
+            bytes: datum_hash.to_vec().into(),
+        });
+
+        self
+    }
+
+    pub fn set_inline_script(mut self, language: ScriptKind, bytes: Vec<u8>) -> Self {
+        self.script = Some(Script {
+            kind: language,
+            bytes: bytes.into(),
+        });
+
+        self
     }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct OutputAssets(pub HashMap<PolicyId, HashMap<AssetName, u64>>);
+pub struct OutputAssets(HashMap<PolicyId, HashMap<AssetName, u64>>);
 
-// TODO OutputAssets builder
+impl Deref for OutputAssets {
+    type Target = HashMap<PolicyId, HashMap<Bytes, u64>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl OutputAssets {
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn from_map(map: HashMap<PolicyId, HashMap<Bytes, u64>>) -> Self {
+        Self(map)
+    }
+}
 
 #[derive(PartialEq, Eq, Debug, Clone, Default)]
-pub struct MintAssets(pub HashMap<PolicyId, HashMap<AssetName, i64>>);
+pub struct MintAssets(HashMap<PolicyId, HashMap<AssetName, i64>>);
 
-// TODO MintAssets builder
+impl Deref for MintAssets {
+    type Target = HashMap<PolicyId, HashMap<Bytes, i64>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl MintAssets {
+    pub fn new() -> Self {
+        MintAssets(HashMap::new())
+    }
+
+    pub fn from_map(map: HashMap<PolicyId, HashMap<Bytes, i64>>) -> Self {
+        Self(map)
+    }
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
@@ -222,13 +374,11 @@ pub struct Script {
     pub bytes: ScriptBytes,
 }
 
-// TODO Script builder
-
 impl Script {
     pub fn new(kind: ScriptKind, bytes: Vec<u8>) -> Self {
         Self {
             kind,
-            bytes: Bytes(bytes),
+            bytes: bytes.into(),
         }
     }
 }
@@ -260,9 +410,26 @@ pub struct ExUnits {
     pub steps: u64,
 }
 
-// TODO Redeemers builder
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-pub struct Redeemers(pub HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>);
+pub struct Redeemers(HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>);
+
+impl Deref for Redeemers {
+    type Target = HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Redeemers {
+    pub fn new() -> Self {
+        Redeemers(HashMap::new())
+    }
+
+    pub fn from_map(map: HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>) -> Self {
+        Self(map)
+    }
+}
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Address(pub PallasAddress);
@@ -328,7 +495,7 @@ impl BuiltTransaction {
 
                 tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
 
-                self.tx_bytes = Bytes(tx.encode_fragment().unwrap());
+                self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
         }
 

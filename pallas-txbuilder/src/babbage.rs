@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use pallas_codec::utils::{CborWrap, KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
@@ -53,14 +55,14 @@ impl BuildBabbage for StagingTransaction {
             if let Some(massets) = self.mint {
                 Some(
                     massets
-                        .0
-                        .into_iter()
+                        .deref()
+                        .iter()
                         .map(|(pid, assets)| {
                             (
                                 pid.0.into(),
                                 assets
                                     .into_iter()
-                                    .map(|(n, x)| (n.into(), x))
+                                    .map(|(n, x)| (n.clone().into(), *x))
                                     .collect::<Vec<_>>()
                                     .into(),
                             )
@@ -160,9 +162,12 @@ impl BuildBabbage for StagingTransaction {
         let mut redeemers = vec![];
 
         if let Some(rdmrs) = self.redeemers {
-            for (purpose, (pd, ex_units)) in rdmrs.0.into_iter() {
+            for (purpose, (pd, ex_units)) in rdmrs.deref().iter() {
                 let ex_units = if let Some(ExUnits { mem, steps }) = ex_units {
-                    PallasExUnits { mem, steps }
+                    PallasExUnits {
+                        mem: *mem,
+                        steps: *steps,
+                    }
                 } else {
                     todo!("ExUnits budget calculation not yet implement") // TODO
                 };
@@ -265,7 +270,7 @@ fn babbage_output(
 ) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
     let value = if let Some(ref assets) = output.assets {
         let txb_assets = assets
-            .0
+            .deref()
             .iter()
             .map(|(pid, assets)| {
                 (

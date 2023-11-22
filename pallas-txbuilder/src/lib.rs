@@ -2,9 +2,7 @@ mod babbage;
 mod transaction;
 
 pub use babbage::BuildBabbage;
-pub use transaction::model::{
-    BuiltTransaction, Bytes, Hash28, Input, Output, OutputAssets, StagingTransaction,
-};
+pub use transaction::model::{BuiltTransaction, Input, Output, ScriptKind, StagingTransaction};
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum TxBuilderError {
@@ -29,4 +27,7 @@ pub enum TxBuilderError {
     /// Public key generated from private key was of unexpected length
     #[error("Public key for private key is malformed")]
     MalformedPrivateKey,
+    /// Asset name is too long, it must be 32 bytes or less
+    #[error("Asset name must be 32 bytes or less")]
+    AssetNameTooLong,
 }

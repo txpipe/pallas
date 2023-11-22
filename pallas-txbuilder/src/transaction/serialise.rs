@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, ops::Deref, str::FromStr};
 
 use pallas_addresses::Address as PallasAddress;
 use serde::{
@@ -133,9 +133,9 @@ impl Serialize for OutputAssets {
     where
         S: Serializer,
     {
-        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        let mut map = serializer.serialize_map(Some(self.deref().len()))?;
 
-        for (policy, assets) in self.0.iter() {
+        for (policy, assets) in self.deref().iter() {
             let mut assets_map: HashMap<String, u64> = HashMap::new();
 
             for (asset, amount) in assets {
@@ -179,7 +179,7 @@ impl<'de> Visitor<'de> for OutputAssetsVisitor {
             out_map.insert(key, value);
         }
 
-        Ok(OutputAssets(out_map))
+        Ok(OutputAssets::from_map(out_map))
     }
 }
 
@@ -188,9 +188,9 @@ impl Serialize for MintAssets {
     where
         S: Serializer,
     {
-        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        let mut map = serializer.serialize_map(Some(self.deref().len()))?;
 
-        for (policy, assets) in self.0.iter() {
+        for (policy, assets) in self.deref().iter() {
             let mut assets_map: HashMap<String, i64> = HashMap::new();
 
             for (asset, amount) in assets {
@@ -234,7 +234,7 @@ impl<'de> Visitor<'de> for MintAssetsVisitor {
             out_map.insert(key, value);
         }
 
-        Ok(MintAssets(out_map))
+        Ok(MintAssets::from_map(out_map))
     }
 }
 
@@ -428,7 +428,7 @@ mod tests {
                     address: Address(PallasAddress::from_str("addr1g9ekml92qyvzrjmawxkh64r2w5xr6mg9ngfmxh2khsmdrcudevsft64mf887333adamant").unwrap()),
                     lovelace: 1337,
                     assets: Some(
-                        OutputAssets(
+                        OutputAssets::from_map(
                             vec![
                                 (
                                     Hash28([0; 28]),
@@ -443,7 +443,7 @@ mod tests {
             ]),
             fee: Some(1337),
             mint: Some(
-                MintAssets(
+                MintAssets::from_map(
                     vec![
                         (
                             Hash28([0; 28]),
@@ -472,7 +472,7 @@ mod tests {
                 ].into_iter().collect::<HashMap<_, _>>()
             ),
             datums: Some(datums),
-            redeemers: Some(Redeemers(vec![
+            redeemers: Some(Redeemers::from_map(vec![
                 (RedeemerPurpose::Spend(Input { tx_hash: Bytes32([4; 32]), txo_index: 1 }), (Bytes(PlutusData::Array(vec![]).encode_fragment().unwrap()), Some(ExUnits { mem: 1337, steps: 7331 }))),
                 (RedeemerPurpose::Mint(Hash28([5; 28])), (Bytes(PlutusData::Array(vec![]).encode_fragment().unwrap()), None)),
             ].into_iter().collect::<HashMap<_, _>>())),
