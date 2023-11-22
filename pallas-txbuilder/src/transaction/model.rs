@@ -55,28 +55,54 @@ impl StagingTransaction {
     }
 
     pub fn input(mut self, input: Input) -> Self {
-        let mut mut_txins = self.inputs.unwrap_or_default();
-        mut_txins.push(input);
-        self.inputs = Some(mut_txins);
+        let mut txins = self.inputs.unwrap_or_default();
+        txins.push(input);
+        self.inputs = Some(txins);
+        self
+    }
+
+    pub fn remove_input(mut self, input: Input) -> Self {
+        let mut txins = self.inputs.unwrap_or_default();
+        txins.retain(|x| *x != input);
+        self.inputs = Some(txins);
         self
     }
 
     pub fn reference_input(mut self, input: Input) -> Self {
-        let mut mut_ref_txins = self.reference_inputs.unwrap_or_default();
-        mut_ref_txins.push(input);
-        self.reference_inputs = Some(mut_ref_txins);
+        let mut ref_txins = self.reference_inputs.unwrap_or_default();
+        ref_txins.push(input);
+        self.reference_inputs = Some(ref_txins);
+        self
+    }
+
+    pub fn remove_reference_input(mut self, input: Input) -> Self {
+        let mut ref_txins = self.reference_inputs.unwrap_or_default();
+        ref_txins.retain(|x| *x != input);
+        self.reference_inputs = Some(ref_txins);
         self
     }
 
     pub fn output(mut self, output: Output) -> Self {
-        let mut mut_txos = self.outputs.unwrap_or_default();
-        mut_txos.push(output);
-        self.outputs = Some(mut_txos);
+        let mut txouts = self.outputs.unwrap_or_default();
+        txouts.push(output);
+        self.outputs = Some(txouts);
+        self
+    }
+
+    pub fn remove_output(mut self, index: usize) -> Self {
+        let mut txouts = self.outputs.unwrap_or_default();
+        txouts.remove(index);
+        self.outputs = Some(txouts);
         self
     }
 
     pub fn fee(mut self, fee: u64) -> Self {
         self.fee = Some(fee);
+        self
+    }
+
+    pub fn clear_fee(mut self) -> Self {
+        self.fee = None;
         self
     }
 
@@ -112,8 +138,32 @@ impl StagingTransaction {
         Ok(self)
     }
 
+    pub fn remove_mint_asset(mut self, policy: Hash<28>, name: Vec<u8>) -> Self {
+        let mut mint = if let Some(mint) = self.mint {
+            mint.0
+        } else {
+            return self;
+        };
+
+        if let Some(assets) = mint.get_mut(&Hash28(*policy)) {
+            assets.remove(&name.into());
+            if assets.is_empty() {
+                mint.remove(&Hash28(*policy));
+            }
+        }
+
+        self.mint = Some(MintAssets(mint));
+
+        self
+    }
+
     pub fn valid_from_slot(mut self, slot: u64) -> Self {
         self.valid_from_slot = Some(slot);
+        self
+    }
+
+    pub fn clear_valid_from_slot(mut self) -> Self {
+        self.valid_from_slot = None;
         self
     }
 
@@ -122,20 +172,42 @@ impl StagingTransaction {
         self
     }
 
+    pub fn clear_invalid_from_slot(mut self) -> Self {
+        self.invalid_from_slot = None;
+        self
+    }
+
     pub fn network_id(mut self, id: u8) -> Self {
         self.network_id = Some(id);
         self
     }
 
+    pub fn clear_network_id(mut self) -> Self {
+        self.network_id = None;
+        self
+    }
+
     pub fn collateral_input(mut self, input: Input) -> Self {
-        let mut mut_collins = self.collateral_inputs.unwrap_or_default();
-        mut_collins.push(input);
-        self.collateral_inputs = Some(mut_collins);
+        let mut coll_ins = self.collateral_inputs.unwrap_or_default();
+        coll_ins.push(input);
+        self.collateral_inputs = Some(coll_ins);
+        self
+    }
+
+    pub fn remove_collateral_input(mut self, input: Input) -> Self {
+        let mut coll_ins = self.collateral_inputs.unwrap_or_default();
+        coll_ins.retain(|x| *x != input);
+        self.collateral_inputs = Some(coll_ins);
         self
     }
 
     pub fn collateral_output(mut self, output: Output) -> Self {
         self.collateral_output = Some(output);
+        self
+    }
+
+    pub fn clear_collateral_output(mut self) -> Self {
+        self.collateral_output = None;
         self
     }
 
@@ -146,8 +218,15 @@ impl StagingTransaction {
         self
     }
 
+    pub fn remove_disclosed_signer(mut self, pub_key_hash: Hash<28>) -> Self {
+        let mut disclosed_signers = self.disclosed_signers.unwrap_or_default();
+        disclosed_signers.retain(|x| *x != Hash28(*pub_key_hash));
+        self.disclosed_signers = Some(disclosed_signers);
+        self
+    }
+
     pub fn script(mut self, language: ScriptKind, bytes: Vec<u8>) -> Self {
-        let mut mut_scripts = self.scripts.unwrap_or_default();
+        let mut scripts = self.scripts.unwrap_or_default();
 
         let hash = match language {
             ScriptKind::Native => Hasher::<224>::hash_tagged(bytes.as_ref(), 0),
@@ -155,7 +234,7 @@ impl StagingTransaction {
             ScriptKind::PlutusV2 => Hasher::<224>::hash_tagged(bytes.as_ref(), 2),
         };
 
-        mut_scripts.insert(
+        scripts.insert(
             Hash28(*hash),
             Script {
                 kind: language,
@@ -163,17 +242,44 @@ impl StagingTransaction {
             },
         );
 
-        self.scripts = Some(mut_scripts);
+        self.scripts = Some(scripts);
+        self
+    }
+
+    pub fn remove_script_by_hash(mut self, script_hash: Hash<28>) -> Self {
+        let mut scripts = self.scripts.unwrap_or_default();
+
+        scripts.remove(&Hash28(*script_hash));
+
+        self.scripts = Some(scripts);
         self
     }
 
     pub fn datum(mut self, datum: Vec<u8>) -> Self {
-        let mut mut_datums = self.datums.unwrap_or_default();
+        let mut datums = self.datums.unwrap_or_default();
 
         let hash = Hasher::<256>::hash_cbor(&datum);
 
-        mut_datums.insert(Bytes32(*hash), datum.into());
-        self.datums = Some(mut_datums);
+        datums.insert(Bytes32(*hash), datum.into());
+        self.datums = Some(datums);
+        self
+    }
+
+    pub fn remove_datum(mut self, datum: Vec<u8>) -> Self {
+        let mut datums = self.datums.unwrap_or_default();
+
+        let hash = Hasher::<256>::hash_cbor(&datum);
+
+        datums.remove(&Bytes32(*hash));
+        self.datums = Some(datums);
+        self
+    }
+
+    pub fn remove_datum_by_hash(mut self, datum_hash: Hash<32>) -> Self {
+        let mut datums = self.datums.unwrap_or_default();
+
+        datums.remove(&Bytes32(*datum_hash));
+        self.datums = Some(datums);
         self
     }
 
@@ -189,6 +295,16 @@ impl StagingTransaction {
             RedeemerPurpose::Spend(input),
             (plutus_data.into(), ex_units),
         );
+
+        self.redeemers = Some(Redeemers(rdmrs));
+
+        self
+    }
+
+    pub fn remove_spend_redeemer(mut self, input: Input) -> Self {
+        let mut rdmrs = self.redeemers.map(|x| x.0).unwrap_or_default();
+
+        rdmrs.remove(&RedeemerPurpose::Spend(input));
 
         self.redeemers = Some(Redeemers(rdmrs));
 
@@ -213,9 +329,44 @@ impl StagingTransaction {
         self
     }
 
+    pub fn remove_mint_redeemer(mut self, policy: Hash<28>) -> Self {
+        let mut rdmrs = self.redeemers.map(|x| x.0).unwrap_or_default();
+
+        rdmrs.remove(&RedeemerPurpose::Mint(Hash28(*policy)));
+
+        self.redeemers = Some(Redeemers(rdmrs));
+
+        self
+    }
+
     // TODO: script_data_hash computation
     pub fn script_data_hash(mut self, hash: Hash<32>) -> Self {
         self.script_data_hash = Some(Bytes32(*hash));
+        self
+    }
+
+    pub fn clear_script_data_hash(mut self) -> Self {
+        self.script_data_hash = None;
+        self
+    }
+
+    pub fn signature_amount_override(mut self, amount: u8) -> Self {
+        self.signature_amount_override = Some(amount);
+        self
+    }
+
+    pub fn clear_signature_amount_override(mut self) -> Self {
+        self.signature_amount_override = None;
+        self
+    }
+
+    pub fn change_address(mut self, address: PallasAddress) -> Self {
+        self.change_address = Some(Address(address));
+        self
+    }
+
+    pub fn clear_change_address(mut self) -> Self {
+        self.change_address = None;
         self
     }
 }
