@@ -18,8 +18,6 @@ pallas-codec = { version = "=0.20.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.20.0", path = "../pallas-crypto" }
 thiserror = "1.0.31"
 tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros"] }
-serde = { version = "1.0.136", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.79", optional = true }
 tracing = "0.1.37"
 
 [dev-dependencies]
@@ -27,6 +25,3 @@ tracing-subscriber = "0.3.16"
 tokio = { version = "1", features = ["full"] }
 rand = "0.8.5"
 
-[features]
-json = ["serde", "serde_json"]
-default = ["json"]

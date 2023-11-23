@@ -2,9 +2,8 @@
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 // required for derive attrs to work
-use pallas_codec::minicbor::{self, bytes};
+use pallas_codec::minicbor::{self};
 
 use pallas_codec::utils::{Bytes, KeyValuePairs};
 use pallas_codec::{
@@ -90,7 +89,7 @@ pub struct StakeDistribution {
     pub pools: KeyValuePairs<Bytes, Pool>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Pool {
     #[n(0)]
     pub stakes: Fraction,
@@ -99,7 +98,7 @@ pub struct Pool {
     pub hashes: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Fraction {
     #[n(0)]
     pub num: u64,
