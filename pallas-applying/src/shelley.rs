@@ -1,26 +1,40 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::types::{
-    ShelleyMAError::*, ShelleyProtParams, UTxOs, ValidationError::*, ValidationResult,
+    ShelleyMAError::*,
+    ShelleyProtParams, UTxOs,
+    ValidationError::{self, *},
+    ValidationResult,
 };
 use pallas_addresses::{Address, ShelleyAddress};
-use pallas_primitives::alonzo::{MintedTx, TransactionBody};
+use pallas_primitives::alonzo::{MintedTx, MintedWitnessSet, TransactionBody};
 use pallas_traverse::MultiEraInput;
 
 // TODO: implement each of the validation rules.
 pub fn validate_shelley_tx(
     mtx: &MintedTx,
     utxos: &UTxOs,
-    _prot_pps: &ShelleyProtParams,
+    prot_pps: &ShelleyProtParams,
     _prot_magic: &u32,
     block_slot: &u64,
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
+    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+    let size: &u64 = &get_tx_size(tx_body)?;
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
     check_ttl(tx_body, block_slot)?;
-    check_network_id(tx_body, network_id)
+    check_size(size, prot_pps)?;
+    check_min_lovelace(tx_body, prot_pps)?;
+    check_preservation_of_value(tx_body, utxos, prot_pps)?;
+    check_fees(tx_body, prot_pps)?;
+    check_network_id(tx_body, network_id)?;
+    check_witnesses(tx_body, tx_wits)
+}
+
+fn get_tx_size(_tx_body: &TransactionBody) -> Result<u64, ValidationError> {
+    Ok(0)
 }
 
 fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
@@ -52,6 +66,29 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     }
 }
 
+fn check_size(_size: &u64, _prot_pps: &ShelleyProtParams) -> ValidationResult {
+    Ok(())
+}
+
+fn check_min_lovelace(
+    _tx_body: &TransactionBody,
+    _prot_pps: &ShelleyProtParams,
+) -> ValidationResult {
+    Ok(())
+}
+
+fn check_preservation_of_value(
+    _tx_body: &TransactionBody,
+    _utxos: &UTxOs,
+    _prot_pps: &ShelleyProtParams,
+) -> ValidationResult {
+    Ok(())
+}
+
+fn check_fees(_tx_body: &TransactionBody, _prot_pps: &ShelleyProtParams) -> ValidationResult {
+    Ok(())
+}
+
 fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let addr: ShelleyAddress =
@@ -64,5 +101,9 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
             return Err(Shelley(WrongNetworkID));
         }
     }
+    Ok(())
+}
+
+fn check_witnesses(_tx_body: &TransactionBody, _tx_wits: &MintedWitnessSet) -> ValidationResult {
     Ok(())
 }

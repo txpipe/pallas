@@ -32,13 +32,13 @@ pub fn validate_byron_tx(
     prot_magic: &u32,
 ) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
-    let size: u64 = get_tx_size(tx)?;
+    let size: &u64 = &get_tx_size(tx)?;
     check_ins_not_empty(tx)?;
     check_outs_not_empty(tx)?;
     check_ins_in_utxos(tx, utxos)?;
     check_outs_have_lovelace(tx)?;
-    check_fees(tx, &size, utxos, prot_pps)?;
-    check_size(&size, prot_pps)?;
+    check_fees(tx, size, utxos, prot_pps)?;
+    check_size(size, prot_pps)?;
     check_witnesses(mtxp, utxos, prot_magic)
 }
 
