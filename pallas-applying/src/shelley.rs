@@ -8,7 +8,9 @@ use crate::types::{
 };
 use pallas_addresses::{Address, ShelleyAddress};
 use pallas_codec::minicbor::encode;
-use pallas_primitives::alonzo::{MintedTx, MintedWitnessSet, TransactionBody};
+use pallas_primitives::alonzo::{
+    MintedTx, MintedWitnessSet, TransactionBody, TransactionOutput, Value,
+};
 use pallas_traverse::MultiEraInput;
 
 // TODO: implement each of the validation rules.
@@ -78,10 +80,17 @@ fn check_size(size: &u64, prot_pps: &ShelleyProtParams) -> ValidationResult {
     Ok(())
 }
 
-fn check_min_lovelace(
-    _tx_body: &TransactionBody,
-    _prot_pps: &ShelleyProtParams,
-) -> ValidationResult {
+fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &ShelleyProtParams) -> ValidationResult {
+    for TransactionOutput { amount, .. } in &tx_body.outputs {
+        match amount {
+            Value::Coin(lovelace) => {
+                if *lovelace < prot_pps.min_lovelace {
+                    return Err(Shelley(MinLovelaceUnreached));
+                }
+            }
+            _ => return Err(Shelley(ValueNotShelley)),
+        }
+    }
     Ok(())
 }
 

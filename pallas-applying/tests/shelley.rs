@@ -63,7 +63,10 @@ mod shelley_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -81,7 +84,7 @@ mod shelley_tests {
     }
 
     #[test]
-    // Identical to sucessful_mainnet_tx, except that all inputs are removed.
+    // All inputs are removed.
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -103,7 +106,10 @@ mod shelley_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -118,13 +124,16 @@ mod shelley_tests {
     }
 
     #[test]
-    // The transaction is valid, but the UTxO set is empty.
+    // The UTxO set is empty.
     fn unfound_utxo() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -140,7 +149,7 @@ mod shelley_tests {
     }
 
     #[test]
-    // Time-to-live is removed.
+    // Time-to-live is missing.
     fn missing_ttl() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -161,7 +170,10 @@ mod shelley_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -176,13 +188,16 @@ mod shelley_tests {
     }
 
     #[test]
-    // Block slot is after transaction's time-to-live.
+    // Transaction's time-to-live is before block slot.
     fn ttl_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 9999999,
             network_id: 1,
@@ -203,13 +218,16 @@ mod shelley_tests {
     }
 
     #[test]
-    // Max tx size is set to 0, and so any transaction exceeds it.
+    // Transaction size exceeds max limit (namely, 0).
     fn max_tx_size_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 0 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 0,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -224,6 +242,37 @@ mod shelley_tests {
             Ok(()) => assert!(false, "Tx size exceeds max limit."),
             Err(err) => match err {
                 Shelley(MaxTxSizeExceeded) => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // Min lovelace per UTxO is too high (10000000000000 lovelace against 2332262258756 lovelace in
+    // transaction output).
+    fn output_below_min_lovelace() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 10000000000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Output amount must be above min lovelace value."),
+            Err(err) => match err {
+                Shelley(MinLovelaceUnreached) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
@@ -268,7 +317,10 @@ mod shelley_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,

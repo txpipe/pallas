@@ -16,6 +16,7 @@ pub struct ByronProtParams {
 #[derive(Debug, Clone)]
 pub struct ShelleyProtParams {
     pub max_tx_size: u64,
+    pub min_lovelace: u64,
 }
 
 // TODO: add variants for the other eras.
@@ -72,6 +73,8 @@ pub enum ShelleyMAError {
     AlonzoCompNotShelley,
     UnknownTxSize,
     MaxTxSizeExceeded,
+    ValueNotShelley,
+    MinLovelaceUnreached,
     WrongEraOutput,
     AddressDecoding,
     WrongNetworkID,
