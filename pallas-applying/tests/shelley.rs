@@ -63,7 +63,7 @@ mod shelley_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -103,7 +103,7 @@ mod shelley_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -124,7 +124,7 @@ mod shelley_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -161,7 +161,7 @@ mod shelley_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
@@ -182,7 +182,7 @@ mod shelley_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
             prot_magic: 764824073,
             block_slot: 9999999,
             network_id: 1,
@@ -197,6 +197,33 @@ mod shelley_tests {
             Ok(()) => assert!(false, "TTL cannot be exceeded."),
             Err(err) => match err {
                 Shelley(TTLExceeded) => (),
+                _ => assert!(false, "Unexpected error ({:?}).", err),
+            },
+        }
+    }
+
+    #[test]
+    // Max tx size is set to 0, and so any transaction exceeds it.
+    fn max_tx_size_exceeded() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 0 }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Tx size exceeds max limit."),
+            Err(err) => match err {
+                Shelley(MaxTxSizeExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
@@ -241,7 +268,7 @@ mod shelley_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams),
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams { max_tx_size: 4096 }),
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,

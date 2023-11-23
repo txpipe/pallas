@@ -7,6 +7,7 @@ use crate::types::{
     ValidationResult,
 };
 use pallas_addresses::{Address, ShelleyAddress};
+use pallas_codec::minicbor::encode;
 use pallas_primitives::alonzo::{MintedTx, MintedWitnessSet, TransactionBody};
 use pallas_traverse::MultiEraInput;
 
@@ -33,8 +34,12 @@ pub fn validate_shelley_tx(
     check_witnesses(tx_body, tx_wits)
 }
 
-fn get_tx_size(_tx_body: &TransactionBody) -> Result<u64, ValidationError> {
-    Ok(0)
+fn get_tx_size(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
+    let mut buff: Vec<u8> = Vec::new();
+    match encode(tx_body, &mut buff) {
+        Ok(()) => Ok(buff.len() as u64),
+        Err(_) => Err(Shelley(UnknownTxSize)),
+    }
 }
 
 fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
@@ -66,7 +71,10 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     }
 }
 
-fn check_size(_size: &u64, _prot_pps: &ShelleyProtParams) -> ValidationResult {
+fn check_size(size: &u64, prot_pps: &ShelleyProtParams) -> ValidationResult {
+    if *size > prot_pps.max_tx_size {
+        return Err(Shelley(MaxTxSizeExceeded));
+    }
     Ok(())
 }
 
