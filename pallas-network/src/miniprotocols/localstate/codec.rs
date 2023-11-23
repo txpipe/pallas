@@ -116,6 +116,7 @@ impl<'b> Decode<'b, ()> for Message {
                 Ok(Message::Query(query))
             }
             4 => {
+                println!("decoding result");
                 let response = d.decode()?;
                 Ok(Message::Result(response))
             }

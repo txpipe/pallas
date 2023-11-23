@@ -1,6 +1,9 @@
-use pallas::network::{
-    facades::NodeClient,
-    miniprotocols::{chainsync, localstate::queries_v16, Point, PRE_PRODUCTION_MAGIC},
+use pallas::{
+    codec::utils::AnyCbor,
+    network::{
+        facades::NodeClient,
+        miniprotocols::{chainsync, localstate::queries_v16, Point, PRE_PRODUCTION_MAGIC},
+    },
 };
 use tracing::info;
 
@@ -9,21 +12,28 @@ async fn do_localstate_query(client: &mut NodeClient) {
 
     client.acquire(None).await.unwrap();
 
-    let result = queries_v16::get_chain_point(client).await.unwrap();
-    info!("result: {:?}", result);
-
-    let result = queries_v16::get_system_start(client).await.unwrap();
-    info!("result: {:?}", result);
+    // let result = queries_v16::get_chain_point(client).await.unwrap();
+    // info!("result: {:?}", result);
+    //
+    // let result = queries_v16::get_system_start(client).await.unwrap();
+    // info!("result: {:?}", result);
 
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
-    let result = queries_v16::get_block_epoch_number(client, era)
-        .await
-        .unwrap();
-    info!("result: {:?}", result);
+    // let result = queries_v16::get_block_epoch_number(client, era)
+    //     .await
+    //     .unwrap();
+    // info!("result: {:?}", result);
+    //
+    // let result = queries_v16::get_stake_distribution(client, era)
+    //     .await
+    //     .unwrap();
+    // info!("result: {:?}", result);
 
-    let result = queries_v16::get_stake_distribution(client, era)
+    let string_address =
+        String::from("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0");
+    let result = queries_v16::get_utxo_by_address(client, era, string_address)
         .await
         .unwrap();
     info!("result: {:?}", result);
@@ -82,7 +92,7 @@ async fn main() {
     do_localstate_query(&mut client).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(&mut client).await;
+    // do_chainsync(&mut client).await;
 }
 
 #[cfg(not(target_family = "unix"))]

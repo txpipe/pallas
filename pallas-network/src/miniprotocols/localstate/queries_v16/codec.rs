@@ -129,7 +129,11 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             3 => Ok(Self::GetCurrentPParams),
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
-            // 6 => Ok(Self::GetUTxOByAddress(())),
+            6 => {
+                println!("decode GetUTxOByAddress");
+                let value = d.decode()?;
+                Ok(Self::GetUTxOByAddress(value))
+            }
             // 7 => Ok(Self::GetUTxOWhole),
             // 8 => Ok(Self::DebugEpochState),
             // 9 => Ok(Self::GetCBOR(())),

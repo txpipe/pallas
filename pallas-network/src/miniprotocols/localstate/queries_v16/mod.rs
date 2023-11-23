@@ -25,7 +25,7 @@ pub enum BlockQuery {
     GetCurrentPParams,
     GetProposedPParamsUpdates,
     GetStakeDistribution,
-    GetUTxOByAddress(AnyCbor),
+    GetUTxOByAddress(Vec<u8>),
     GetUTxOWhole,
     DebugEpochState,
     GetCBOR(AnyCbor),
@@ -67,6 +67,12 @@ pub enum Request {
     GetSystemStart,
     GetChainBlockNo,
     GetChainPoint,
+}
+
+// pub type Address = Vec<u8>;
+// #[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Address {
+    pub address: Bytes,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
@@ -144,6 +150,22 @@ pub async fn get_stake_distribution(
     let query = BlockQuery::GetStakeDistribution;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+pub async fn get_utxo_by_address(
+    client: &mut Client,
+    era: u16,
+    address: String,
+) -> Result<u32, ClientError> {
+    println!("get_utxo_by_address");
+    println!("address: {:?}", address);
+    let query = BlockQuery::GetUTxOByAddress(address.into_bytes());
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    println!("query: {:?}", query);
     let result = client.query(query).await?;
 
     Ok(result)
