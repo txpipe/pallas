@@ -1,7 +1,5 @@
 // TODO: this should move to pallas::ledger crate at some point
 
-use std::collections::HashMap;
-
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
