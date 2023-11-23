@@ -1,6 +1,8 @@
 //! Utilities required for Shelley-era transaction validation.
 
-use crate::types::{ShelleyProtParams, UTxOs, ValidationError, ValidationResult};
+use crate::types::{
+    ShelleyMAError::*, ShelleyProtParams, UTxOs, ValidationError::*, ValidationResult,
+};
 use pallas_addresses::{Address, ShelleyAddress};
 use pallas_primitives::alonzo::{MintedTx, TransactionBody};
 use pallas_traverse::MultiEraInput;
@@ -23,7 +25,7 @@ pub fn validate_shelley_tx(
 
 fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
     if tx_body.inputs.is_empty() {
-        return Err(ValidationError::TxInsEmpty);
+        return Err(Shelley(TxInsEmpty));
     }
     Ok(())
 }
@@ -31,7 +33,7 @@ fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
 fn check_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
-            return Err(ValidationError::InputMissingInUTxO);
+            return Err(Shelley(InputMissingInUTxO));
         }
     }
     Ok(())
@@ -41,12 +43,12 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     match tx_body.ttl {
         Some(ttl) => {
             if ttl < *block_slot {
-                Err(ValidationError::TTLExceeded)
+                Err(Shelley(TTLExceeded))
             } else {
                 Ok(())
             }
         }
-        None => Err(ValidationError::AlonzoCompatibleNotShelley),
+        None => Err(Shelley(AlonzoCompNotShelley)),
     }
 }
 
@@ -55,11 +57,11 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
         let addr: ShelleyAddress =
             match Address::from_bytes(&Vec::<u8>::from(output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
-                Ok(_) => return Err(ValidationError::WrongEraOutput),
-                Err(_) => return Err(ValidationError::UnableToDecodeAddress),
+                Ok(_) => return Err(Shelley(WrongEraOutput)),
+                Err(_) => return Err(Shelley(AddressDecoding)),
             };
         if addr.network().value() != *network_id {
-            return Err(ValidationError::WrongNetworkID);
+            return Err(Shelley(WrongNetworkID));
         }
     }
     Ok(())

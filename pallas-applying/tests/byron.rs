@@ -1,7 +1,7 @@
 use std::{borrow::Cow, vec::Vec};
 
 use pallas_applying::{
-    types::{ByronProtParams, Environment, MultiEraProtParams, ValidationError},
+    types::{ByronError::*, ByronProtParams, Environment, MultiEraProtParams, ValidationError::*},
     validate, UTxOs,
 };
 use pallas_codec::{
@@ -135,7 +135,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
             Err(err) => match err {
-                ValidationError::TxInsEmpty => (),
+                Byron(TxInsEmpty) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -174,7 +174,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Outputs set should not be empty."),
             Err(err) => match err {
-                ValidationError::TxOutsEmpty => (),
+                Byron(TxOutsEmpty) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -200,7 +200,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
             Err(err) => match err {
-                ValidationError::InputMissingInUTxO => (),
+                Byron(InputMissingInUTxO) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -245,7 +245,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All outputs must contain lovelace."),
             Err(err) => match err {
-                ValidationError::OutputWithoutLovelace => (),
+                Byron(OutputWithoutLovelace) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -275,7 +275,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Fees should not be below minimum."),
             Err(err) => match err {
-                ValidationError::FeesBelowMin => (),
+                Byron(FeesBelowMin) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -305,7 +305,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
             Err(err) => match err {
-                ValidationError::MaxTxSizeExceeded => (),
+                Byron(MaxTxSizeExceeded) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -343,7 +343,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must have a witness signature."),
             Err(err) => match err {
-                ValidationError::MissingWitness => (),
+                Byron(MissingWitness) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
@@ -390,7 +390,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Witness signature should verify the transaction."),
             Err(err) => match err {
-                ValidationError::WrongSignature => (),
+                Byron(WrongSignature) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }

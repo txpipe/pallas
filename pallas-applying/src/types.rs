@@ -41,22 +41,36 @@ pub enum SigningTag {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ValidationError {
-    InputMissingInUTxO,         // >= Byron
-    TxInsEmpty,                 // >= Byron
-    TxOutsEmpty,                // >= Byron
-    OutputWithoutLovelace,      // == Byron
-    UnknownTxSize,              // >= Byron
-    UnableToComputeFees,        // >= Byron
-    FeesBelowMin,               // >= Byron
-    MaxTxSizeExceeded,          // >= Byron
-    UnableToProcessWitnesses,   // >= Byron
-    MissingWitness,             // >= Byron
-    WrongSignature,             // >= Byron
-    TTLExceeded,                // >= Shelley
-    AlonzoCompatibleNotShelley, // == Shelley
-    WrongEraOutput,             // >= Shelley
-    UnableToDecodeAddress,      // >= Shelley
-    WrongNetworkID,             // >= Shelley
+    Byron(ByronError),
+    Shelley(ShelleyMAError),
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum ByronError {
+    TxInsEmpty,
+    TxOutsEmpty,
+    InputMissingInUTxO,
+    OutputWithoutLovelace,
+    UnknownTxSize,
+    UnableToComputeFees,
+    FeesBelowMin,
+    MaxTxSizeExceeded,
+    UnableToProcessWitness,
+    MissingWitness,
+    WrongSignature,
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum ShelleyMAError {
+    TxInsEmpty,
+    InputMissingInUTxO,
+    TTLExceeded,
+    AlonzoCompNotShelley,
+    WrongEraOutput,
+    AddressDecoding,
+    WrongNetworkID,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

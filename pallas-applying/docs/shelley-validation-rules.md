@@ -24,10 +24,6 @@ Refer to the [Shelley's ledger white paper](https://github.com/input-output-hk/c
 	- ***txInsScript(txBody) ⊆ P(TxIn)*** is the list of script inputs in the transaction body.
 	- ***consumed(pps, utxo, txBody) ∈ ℤ*** is the *consumed value* of the transaction. To our purposes, this equals the sum of all lovelace in the tx's inputs.
 	- ***produced(pps, txBody) ∈ ℤ*** is the *produced value* of the transaction. To our purposes, this equals the sum of all lovelace in the outputs plus the transaction fee.
-	- **Transaction metadata**:
-		- ***txMD(tx)*** is the metadata of the transaction.
-		- ***txMDHash(txBody)*** is the metadata hash contained within the transaction body.
-			- ***hashMD(md)*** is the result of hasing metadata ***md***.
 - ***Addr*** is the set of all valid Shelley addresses.
 	- ***netId(addr)*** is the network ID of the address.
 		- ***NetworkId*** is the global network ID.
@@ -82,9 +78,6 @@ Let ***tx ∈ Tx*** be a Shelley transaction whose body is ***txBody ∈ TxBody*
 - **The network ID of each output matches the global network ID**:
 
 	<code>∀(_ -> (a, _)) ∈ txOuts(txBody): netId(a) = NetworkId</code>
-- **The metadata of the transaction is valid**:
-
-	<code>txMDHash(tx) = hashMD(txMD(tx))</code>
 - **Verification-key witnesses**: The owner of each transaction input signed the transaction. That is, if transaction ***tx*** with body ***txBody***, then for each ***txIn ∈ txIns(txBody)*** there must exist ***(vk, σ) ∈ txVKWits(tx)*** such that:
 
 	- <code>verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>)</code>

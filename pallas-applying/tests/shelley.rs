@@ -2,7 +2,9 @@ use std::borrow::Cow;
 
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
-    types::{Environment, MultiEraProtParams, ShelleyProtParams, ValidationError},
+    types::{
+        Environment, MultiEraProtParams, ShelleyMAError::*, ShelleyProtParams, ValidationError::*,
+    },
     validate, UTxOs,
 };
 use pallas_codec::{
@@ -109,7 +111,7 @@ mod shelley_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty."),
             Err(err) => match err {
-                ValidationError::TxInsEmpty => (),
+                Shelley(TxInsEmpty) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
@@ -131,7 +133,7 @@ mod shelley_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
             Err(err) => match err {
-                ValidationError::InputMissingInUTxO => (),
+                Shelley(InputMissingInUTxO) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
@@ -167,7 +169,7 @@ mod shelley_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "TTL must always be present in Shelley transactions."),
             Err(err) => match err {
-                ValidationError::AlonzoCompatibleNotShelley => (),
+                Shelley(AlonzoCompNotShelley) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
@@ -194,7 +196,7 @@ mod shelley_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "TTL cannot be exceeded."),
             Err(err) => match err {
-                ValidationError::TTLExceeded => (),
+                Shelley(TTLExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
@@ -253,7 +255,7 @@ mod shelley_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Output with wrong network ID should be rejected."),
             Err(err) => match err {
-                ValidationError::WrongNetworkID => (),
+                Shelley(WrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?}).", err),
             },
         }
