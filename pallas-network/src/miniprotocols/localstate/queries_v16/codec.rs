@@ -33,10 +33,11 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(5)?;
             }
-            BlockQuery::GetUTxOByAddress(x) => {
+            BlockQuery::GetUTxOByAddress(addrs) => {
+                println!("encode GetUTxOByAddress");
                 e.array(2)?;
                 e.u16(6)?;
-                e.encode(x)?;
+                e.encode(addrs)?;
             }
             BlockQuery::GetUTxOWhole => {
                 e.encode((7,))?;
@@ -120,6 +121,7 @@ impl Encode<()> for BlockQuery {
 
 impl<'b> Decode<'b, ()> for BlockQuery {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        println!("decode BlockQuery");
         d.array()?;
 
         match d.u16()? {

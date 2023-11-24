@@ -120,6 +120,8 @@ impl Bearer {
     }
 
     fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
+        println!("try_read");
+        println!("buf: {:?}", buf);
         match self {
             Bearer::Tcp(x) => x.try_read(buf),
 
@@ -202,6 +204,9 @@ impl SegmentBuffer {
             match self.0.try_read(&mut buf) {
                 Ok(0) => {
                     error!("empty bearer");
+                    println!("empty bearer");
+                    println!("buf: {:?}", buf);
+                    println!("self.1: {:?}", self.1);
                     break Err(Error::EmptyBearer);
                 }
                 Ok(n) => {
@@ -485,6 +490,7 @@ impl ChannelBuffer {
 
         loop {
             let chunk = self.channel.dequeue_chunk().await?;
+            println!("dequeueing chunk");
             self.temp.extend(chunk);
 
             if let Some(msg) = try_decode_message::<M>(&mut self.temp)? {
