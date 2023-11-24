@@ -8,10 +8,11 @@ use crate::types::{
 };
 use pallas_addresses::{Address, ShelleyAddress};
 use pallas_codec::minicbor::encode;
-use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, TransactionBody, TransactionOutput, Value,
+use pallas_primitives::{
+    alonzo::{MintedTx, MintedWitnessSet, TransactionBody, TransactionOutput, Value},
+    byron::TxOut,
 };
-use pallas_traverse::MultiEraInput;
+use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
 // TODO: implement each of the validation rules.
 pub fn validate_shelley_tx(
@@ -30,7 +31,7 @@ pub fn validate_shelley_tx(
     check_ttl(tx_body, block_slot)?;
     check_size(size, prot_pps)?;
     check_min_lovelace(tx_body, prot_pps)?;
-    check_preservation_of_value(tx_body, utxos, prot_pps)?;
+    check_preservation_of_value(tx_body, utxos)?;
     check_fees(tx_body, prot_pps)?;
     check_network_id(tx_body, network_id)?;
     check_witnesses(tx_body, tx_wits)
@@ -54,7 +55,7 @@ fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
 fn check_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
-            return Err(Shelley(InputMissingInUTxO));
+            return Err(Shelley(InputNotInUTxO));
         }
     }
     Ok(())
@@ -94,12 +95,42 @@ fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &ShelleyProtParams) -
     Ok(())
 }
 
-fn check_preservation_of_value(
-    _tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-    _prot_pps: &ShelleyProtParams,
-) -> ValidationResult {
+fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
+    if get_consumed(tx_body, utxos)? != get_produced(tx_body)? + tx_body.fee {
+        return Err(Shelley(PreservationOfValue));
+    }
     Ok(())
+}
+
+fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<u64, ValidationError> {
+    let mut res: u64 = 0;
+    for input in tx_body.inputs.iter() {
+        let utxo_value: &MultiEraOutput = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(Shelley(InputNotInUTxO))?;
+        match MultiEraOutput::as_alonzo(utxo_value) {
+            Some(TransactionOutput { amount, .. }) => match amount {
+                Value::Coin(n) => res += n,
+                _ => return Err(Shelley(WrongEraOutput)),
+            },
+            None => match MultiEraOutput::as_byron(utxo_value) {
+                Some(TxOut { amount, .. }) => res += amount,
+                _ => return Err(Shelley(InputNotInUTxO)),
+            },
+        }
+    }
+    Ok(res)
+}
+
+fn get_produced(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
+    let mut res: u64 = 0;
+    for TransactionOutput { amount, .. } in tx_body.outputs.iter() {
+        match amount {
+            Value::Coin(n) => res += n,
+            _ => return Err(Shelley(WrongEraOutput)),
+        }
+    }
+    Ok(res)
 }
 
 fn check_fees(_tx_body: &TransactionBody, _prot_pps: &ShelleyProtParams) -> ValidationResult {

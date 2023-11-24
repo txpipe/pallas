@@ -59,7 +59,7 @@ fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
 fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     for input in tx.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_byron(input))) {
-            return Err(Byron(InputMissingInUTxO));
+            return Err(Byron(InputNotInUTxO));
         }
     }
     Ok(())
@@ -177,9 +177,9 @@ fn find_tx_out<'a>(input: &'a TxIn, utxos: &'a UTxOs) -> Result<&'a TxOut, Valid
     let key: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Borrowed(input)));
     utxos
         .get(&key)
-        .ok_or(Byron(InputMissingInUTxO))?
+        .ok_or(Byron(InputNotInUTxO))?
         .as_byron()
-        .ok_or(Byron(InputMissingInUTxO))
+        .ok_or(Byron(InputNotInUTxO))
 }
 
 fn find_raw_witness<'a>(

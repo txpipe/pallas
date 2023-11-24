@@ -53,7 +53,7 @@ pub enum ValidationError {
 pub enum ByronError {
     TxInsEmpty,
     TxOutsEmpty,
-    InputMissingInUTxO,
+    InputNotInUTxO,
     OutputWithoutLovelace,
     UnknownTxSize,
     UnableToComputeFees,
@@ -68,13 +68,14 @@ pub enum ByronError {
 #[non_exhaustive]
 pub enum ShelleyMAError {
     TxInsEmpty,
-    InputMissingInUTxO,
+    InputNotInUTxO,
     TTLExceeded,
     AlonzoCompNotShelley,
     UnknownTxSize,
     MaxTxSizeExceeded,
     ValueNotShelley,
     MinLovelaceUnreached,
+    PreservationOfValue,
     WrongEraOutput,
     AddressDecoding,
     WrongNetworkID,

@@ -200,7 +200,7 @@ mod byron_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
             Err(err) => match err {
-                Byron(InputMissingInUTxO) => (),
+                Byron(InputNotInUTxO) => (),
                 _ => panic!("Unexpected error ({:?}).", err),
             },
         }
