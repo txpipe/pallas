@@ -300,7 +300,7 @@ fn encode_bech32(addr: &[u8], hrp: &str) -> Result<String, Error> {
     bech32::encode(hrp, base32, bech32::Variant::Bech32).map_err(Error::BadBech32)
 }
 
-fn decode_bech32(bech32: &str) -> Result<(String, Vec<u8>), Error> {
+pub fn decode_bech32(bech32: &str) -> Result<(String, Vec<u8>), Error> {
     let (hrp, addr, _) = bech32::decode(bech32).map_err(Error::BadBech32)?;
     let base10 = bech32::FromBase32::from_base32(&addr).map_err(Error::BadBech32)?;
     Ok((hrp, base10))
@@ -405,7 +405,7 @@ fn bytes_to_address(bytes: &[u8]) -> Result<Address, Error> {
     }
 }
 
-fn bech32_to_address(bech32: &str) -> Result<Address, Error> {
+pub fn bech32_to_address(bech32: &str) -> Result<Address, Error> {
     let (_, bytes) = decode_bech32(bech32)?;
     bytes_to_address(&bytes)
 }

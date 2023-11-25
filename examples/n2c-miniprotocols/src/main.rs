@@ -31,8 +31,15 @@ async fn do_localstate_query(client: &mut NodeClient) {
     // let string_address =
     //     "616464725f7465737431767238303037366c3378357577366e39346e7768676d763773736779366d757a66343775676e367a306c3932726867326d67747530".to_string();
 
+    // String::from(include_str!("../../test_data/byron2.address")),
+    // let string_address =
+    // String::from(include_str!("../../../test_data/byron2.address"));
+    // let string_address =
+    //     "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".
+    // to_string();
     let string_address =
         "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".to_string();
+
     queries_v16::get_utxo_by_address(client, era, string_address)
         .await
         .unwrap();

@@ -1,5 +1,6 @@
 // TODO: this should move to pallas::ledger crate at some point
 
+use pallas_addresses::{bech32_to_address, decode_bech32, Address, StakeAddress};
 use pallas_codec::minicbor::bytes::ByteVec;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self, Encoder};
@@ -118,7 +119,7 @@ pub type Addr = Bytes;
 
 // #[derive(Debug, PartialEq, Clone)]
 // pub struct Addr(pub u8, pub ByteVec);
-pub type Addrs = TagWrap<MaybeIndefArray<Addr>, 258>;
+pub type Addrs = Vec<Addr>;
 
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
     let query = Request::GetChainPoint;
@@ -171,19 +172,9 @@ pub async fn get_utxo_by_address(
     address: String,
 ) -> Result<(), ClientError> {
     println!("get_utxo_by_address");
-    println!("address: {:?}", address);
-    let addr_bytes = address.as_bytes().to_vec();
-    // let addr_bytes = hex::decode(address).unwrap();
-    //
-    // CDDL [6 #6.258([ *addr ])]
-    // pub type SscCerts = TagWrap<MaybeIndefArray<SscCert>, 258>;
-    // let addr = Addr {
-    //     header: 0,
-    //     payload: addr_bytes,
-    // };
-    // let addr = Addr(0, addr_bytes.into());
-    let addr = addr_bytes.into();
-    let addrs = Addrs::new(MaybeIndefArray::Def(vec![addr]));
+    let addr: Address = Address::from_bech32(&address).unwrap();
+    let addr: Addr = addr.to_vec().into();
+    let addrs: Addrs = Vec::from([addr]);
     let query = BlockQuery::GetUTxOByAddress(addrs);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
