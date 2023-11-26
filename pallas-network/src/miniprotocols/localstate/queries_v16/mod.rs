@@ -2,6 +2,7 @@
 
 use pallas_addresses::Address;
 use pallas_crypto::hash::Hash;
+use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
@@ -122,7 +123,7 @@ pub struct UTxOByAddress {
     pub utxo: KeyValuePairs<UTxO, Multiasset<AnyUInt>>,
 }
 
-#[derive(Debug, Encode, Decode, PartialEq, Clone, Hash, Eq)]
+#[derive(Debug, Encode, Decode, PartialEq, Clone, StdHash, Eq)]
 pub struct UTxO {
     #[n(0)]
     pub txid: Hash<32>,
