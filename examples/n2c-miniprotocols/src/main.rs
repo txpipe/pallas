@@ -18,25 +18,16 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
-    // let result = queries_v16::get_block_epoch_number(client, era)
-    //     .await
-    //     .unwrap();
-    // info!("result: {:?}", result);
-    //
-    // let result = queries_v16::get_stake_distribution(client, era)
-    //     .await
-    //     .unwrap();
-    // info!("result: {:?}", result);
+    let result = queries_v16::get_block_epoch_number(client, era)
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
 
-    // let string_address =
-    //     "616464725f7465737431767238303037366c3378357577366e39346e7768676d763773736779366d757a66343775676e367a306c3932726867326d67747530".to_string();
+    let result = queries_v16::get_stake_distribution(client, era)
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
 
-    // String::from(include_str!("../../test_data/byron2.address")),
-    // let string_address =
-    // String::from(include_str!("../../../test_data/byron2.address"));
-    // let string_address =
-    //     "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".
-    // to_string();
     let string_address =
         "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".to_string();
 
@@ -44,11 +35,6 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .await
         .unwrap();
     info!("result: {:?}", result);
-
-    // let result = queries_v16::get_stake_distribution(client, era)
-    //     .await
-    //     .unwrap();
-    // info!("result: {:?}", result);
 
     client.send_release().await.unwrap();
 }
