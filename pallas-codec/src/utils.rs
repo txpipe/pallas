@@ -1,4 +1,4 @@
-use minicbor::{data::Tag, Decode, Encode};
+use minicbor::{data::Tag, display, Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash as StdHash, ops::Deref};
 
@@ -37,7 +37,7 @@ impl<C, const N: usize> minicbor::Encode<C> for SkipCbor<N> {
 /// canonicalization for isomorphic decoding / encoding operators, we use a Vec
 /// as the underlaying struct for storage of the items (as opposed to a BTreeMap
 /// or HashMap).
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(from = "Vec::<(K, V)>", into = "Vec::<(K, V)>")]
 pub enum KeyValuePairs<K, V>
 where
@@ -475,7 +475,7 @@ where
 }
 
 /// A uint structure that preserves original int length
-#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord)]
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash)]
 pub enum AnyUInt {
     MajorByte(u8),
     U8(u8),
@@ -489,6 +489,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for AnyUInt {
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
     ) -> Result<Self, minicbor::decode::Error> {
+        println!("decoding anyuint of type {:?}", d.datatype());
         match d.datatype()? {
             minicbor::data::Type::U8 => match d.u8()? {
                 x @ 0..=0x17 => Ok(AnyUInt::MajorByte(x)),
@@ -689,6 +690,9 @@ impl AnyCbor {
     where
         for<'b> T: Decode<'b, ()>,
     {
+        println!("decoding anycbor of type {:?}", self.inner);
+        let code = format!("{}", display(self.inner.as_slice()));
+        println!("code3: {}", code);
         minicbor::decode(&self.inner)
     }
 }
@@ -881,7 +885,7 @@ impl fmt::Display for Bytes {
 }
 
 #[derive(
-    Serialize, Deserialize, Clone, Copy, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord,
+    Serialize, Deserialize, Clone, Copy, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 #[cbor(transparent)]
 #[serde(into = "i128")]

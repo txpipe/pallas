@@ -1,6 +1,44 @@
 use super::*;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
+impl<'b, C> Encode<C> for MultiassetA {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        todo!()
+    }
+}
+
+impl<'b, C> Decode<'b, C> for MultiassetA {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::U8 => {
+                let x = d.u8()?;
+                Ok(Self::U8(x))
+            }
+            minicbor::data::Type::U16 => {
+                let x = d.u16()?;
+                Ok(Self::U16(x))
+            }
+            minicbor::data::Type::U32 => {
+                let x = d.u32()?;
+                Ok(Self::U32(x))
+            }
+            minicbor::data::Type::U64 => {
+                let x = d.u64()?;
+                Ok(Self::U64(x))
+            }
+            minicbor::data::Type::Bytes => {
+                let x = d.decode()?;
+                Ok(Self::Bytes(x))
+            }
+            _ => Err(decode::Error::message("invalid tag")),
+        }
+    }
+}
+
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
         &self,

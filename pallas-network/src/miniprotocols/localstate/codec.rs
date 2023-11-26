@@ -125,6 +125,8 @@ impl<'b> Decode<'b, ()> for Message {
             }
             4 => {
                 println!("decoding result");
+                let code = format!("{}", display(d.input()));
+                println!("code2: {}", code);
                 let response = d.decode()?;
                 Ok(Message::Result(response))
             }

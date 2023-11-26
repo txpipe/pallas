@@ -130,11 +130,22 @@ pub enum Value {
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        println!("decoding value of type {:?}", d.datatype());
         match d.datatype()? {
             minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
             minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value::Multiasset(coin, multiasset))
+            }
+            minicbor::data::Type::Bytes => {
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value::Multiasset(coin, multiasset))
+            }
             minicbor::data::Type::Array => {
                 d.array()?;
                 let coin = d.decode_with(ctx)?;
@@ -1336,7 +1347,7 @@ pub struct PostAlonzoAuxiliaryData {
     pub plutus_scripts: Option<Vec<PlutusScript>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, StdHash)]
 pub enum Metadatum {
     Int(Int),
     Bytes(Bytes),

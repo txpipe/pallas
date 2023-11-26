@@ -1,15 +1,21 @@
 // TODO: this should move to pallas::ledger crate at some point
 
+use std::collections::HashMap;
+use std::hash::Hash as StdHash;
+
 use pallas_addresses::{bech32_to_address, decode_bech32, Address, StakeAddress};
+use pallas_applying::UTxOs;
 use pallas_codec::minicbor::bytes::ByteVec;
+use pallas_crypto::hash::Hash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self, Encoder};
 
-use pallas_codec::utils::{Bytes, KeyValuePairs, MaybeIndefArray, TagWrap};
+use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, MaybeIndefArray, TagWrap};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
 };
+use pallas_primitives::conway::{Metadata, Metadatum, Value};
 
 use crate::miniprotocols::Point;
 
@@ -107,19 +113,96 @@ pub struct Fraction {
     pub dem: u64,
 }
 
-// #[derive(Debug, Encode, Decode, PartialEq, Clone)]
-// pub struct Addr {
-//     #[n(0)]
-//     pub header: u8,
-//
-//     #[n(1)]
-//     pub payload: Vec<u8>,
-// }
 pub type Addr = Bytes;
 
-// #[derive(Debug, PartialEq, Clone)]
-// pub struct Addr(pub u8, pub ByteVec);
 pub type Addrs = Vec<Addr>;
+
+pub type Coin = AnyUInt;
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct UTxOByAddress {
+    #[n(0)]
+    pub utxo: KeyValuePairs<UTxO, Multiasset<AnyUInt>>,
+}
+
+pub type Multiasset<A> = KeyValuePairs<A, Metadatum>;
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone, Hash, Eq)]
+pub struct UTxO {
+    #[n(0)]
+    pub txid: Hash<32>,
+
+    #[n(1)]
+    pub idx: AnyUInt,
+}
+
+#[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
+pub enum MultiassetA {
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    Bytes(Bytes),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, StdHash)]
+pub enum Value2 {
+    Coin(Coin),
+    Multiasset(Bytes, AnyUInt),
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for Value2 {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        println!("decoding value of type {:?}", d.datatype());
+        match d.datatype()? {
+            minicbor::data::Type::U8 => Ok(Value2::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value2::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U32 => Ok(Value2::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U64 => Ok(Value2::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value2::Multiasset(coin, multiasset))
+            }
+            minicbor::data::Type::Bytes => {
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value2::Multiasset(coin, multiasset))
+            }
+            minicbor::data::Type::Array => {
+                d.array()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value2::Multiasset(coin, multiasset))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor data type for Alonzo Value enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for Value2 {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // TODO: check how to deal with uint variants (u32 vs u64)
+        match self {
+            Value2::Coin(coin) => {
+                e.encode_with(coin, ctx)?;
+            }
+            Value2::Multiasset(coin, other) => {
+                e.array(2)?;
+                e.encode_with(coin, ctx)?;
+                e.encode_with(other, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
 
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
     let query = Request::GetChainPoint;
@@ -170,7 +253,7 @@ pub async fn get_utxo_by_address(
     client: &mut Client,
     era: u16,
     address: String,
-) -> Result<(), ClientError> {
+) -> Result<UTxOByAddress, ClientError> {
     println!("get_utxo_by_address");
     let addr: Address = Address::from_bech32(&address).unwrap();
     let addr: Addr = addr.to_vec().into();
@@ -179,7 +262,7 @@ pub async fn get_utxo_by_address(
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     println!("query get_utxo_by_address: {:?}", query);
-    client.query(query).await?;
+    let result = client.query(query).await?;
 
-    Ok(())
+    Ok(result)
 }
