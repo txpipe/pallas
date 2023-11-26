@@ -28,10 +28,10 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     info!("result: {:?}", result);
 
-    let string_address =
+    let address =
         "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".to_string();
 
-    let result = queries_v16::get_utxo_by_address(client, era, string_address)
+    let result = queries_v16::get_utxo_by_address(client, era, address)
         .await
         .unwrap();
     info!("result: {:?}", result);
