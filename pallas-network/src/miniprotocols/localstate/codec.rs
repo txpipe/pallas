@@ -42,7 +42,6 @@ impl Encode<()> for Message {
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        println!("encoding message {:?}", self);
         match self {
             Message::Acquire(Some(point)) => {
                 e.array(2)?.u16(0)?;
@@ -98,10 +97,8 @@ impl<'b> Decode<'b, ()> for Message {
         d: &mut pallas_codec::minicbor::Decoder<'b>,
         _ctx: &mut (),
     ) -> Result<Self, pallas_codec::minicbor::decode::Error> {
-        println!("decoding message");
         d.array()?;
         let label = d.u16()?;
-        println!("decoding message with label {}", label);
 
         match label {
             0 => {
