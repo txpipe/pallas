@@ -489,7 +489,6 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for AnyUInt {
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
     ) -> Result<Self, minicbor::decode::Error> {
-        println!("decoding anyuint of type {:?}", d.datatype());
         match d.datatype()? {
             minicbor::data::Type::U8 => match d.u8()? {
                 x @ 0..=0x17 => Ok(AnyUInt::MajorByte(x)),
