@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, display, encode, Decode, Encode, Encoder};
+use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
 use super::{AcquireFailure, Message};
 
@@ -63,11 +63,6 @@ impl Encode<()> for Message {
                 Ok(())
             }
             Message::Query(query) => {
-                let cddl = "CDDL [6 #6.258([ *addr ])]".to_string();
-                println!("encoding query to cddl: {}", cddl);
-                // println!("query q : {:?}", query.raw_bytes());
-                let code = format!("{}", display(query.raw_bytes()));
-                println!("code1: {}", code);
                 e.array(2)?.u16(3)?;
                 e.encode(query)?;
                 Ok(())
@@ -124,9 +119,6 @@ impl<'b> Decode<'b, ()> for Message {
                 Ok(Message::Query(query))
             }
             4 => {
-                println!("decoding result");
-                let code = format!("{}", display(d.input()));
-                println!("code2: {}", code);
                 let response = d.decode()?;
                 Ok(Message::Result(response))
             }

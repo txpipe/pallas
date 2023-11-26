@@ -1,4 +1,3 @@
-use pallas_codec::minicbor::display;
 use pallas_codec::utils::AnyCbor;
 use std::fmt::Debug;
 use thiserror::*;
@@ -184,14 +183,10 @@ impl GenericClient {
     pub async fn recv_while_querying(&mut self) -> Result<AnyCbor, ClientError> {
         match self.recv_message().await? {
             Message::Result(result) => {
-                println!("result-enter: {:?}", result);
                 self.0 = State::Acquired;
                 Ok(result)
             }
-            _ => {
-                println!("invalid inbound");
-                Err(ClientError::InvalidInbound)
-            }
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 

@@ -34,7 +34,6 @@ impl Encode<()> for BlockQuery {
                 e.u16(5)?;
             }
             BlockQuery::GetUTxOByAddress(addrs) => {
-                println!("encode GetUTxOByAddress");
                 e.array(2)?;
                 e.u16(6)?;
                 e.encode(addrs)?;
@@ -121,7 +120,6 @@ impl Encode<()> for BlockQuery {
 
 impl<'b> Decode<'b, ()> for BlockQuery {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        println!("decode BlockQuery");
         d.array()?;
 
         match d.u16()? {
@@ -132,7 +130,6 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
             6 => {
-                println!("decode GetUTxOByAddress");
                 let value = d.decode()?;
                 Ok(Self::GetUTxOByAddress(value))
             }

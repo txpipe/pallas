@@ -90,7 +90,7 @@ async fn main() {
     do_localstate_query(&mut client).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
-    // do_chainsync(&mut client).await;
+    do_chainsync(&mut client).await;
 }
 
 #[cfg(not(target_family = "unix"))]

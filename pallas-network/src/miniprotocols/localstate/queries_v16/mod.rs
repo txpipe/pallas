@@ -171,7 +171,6 @@ pub async fn get_stake_distribution(
     let query = BlockQuery::GetStakeDistribution;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
-    println!("query stake distribution: {:?}", query);
     let result = client.query(query).await?;
 
     Ok(result)
@@ -182,14 +181,12 @@ pub async fn get_utxo_by_address(
     era: u16,
     address: String,
 ) -> Result<UTxOByAddress, ClientError> {
-    println!("get_utxo_by_address");
     let addr: Address = Address::from_bech32(&address).unwrap();
     let addr: Addr = addr.to_vec().into();
     let addrs: Addrs = Vec::from([addr]);
     let query = BlockQuery::GetUTxOByAddress(addrs);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
-    println!("query get_utxo_by_address: {:?}", query);
     let result = client.query(query).await?;
 
     Ok(result)
