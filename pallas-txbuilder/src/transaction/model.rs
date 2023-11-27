@@ -621,7 +621,7 @@ impl BuiltTransaction {
             .public_key()
             .as_ref()
             .try_into()
-            .map_err(|_| TxBuilderError::MalformedPrivateKey)?;
+            .map_err(|_| TxBuilderError::MalformedKey)?;
 
         let signature: [u8; 64] = secret_key.sign(self.tx_hash.0).as_ref().try_into().unwrap();
 
@@ -643,6 +643,63 @@ impl BuiltTransaction {
                     vkey: Vec::from(pubkey.as_ref()).into(),
                     signature: Vec::from(signature.as_ref()).into(),
                 });
+
+                tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
+
+                self.tx_bytes = tx.encode_fragment().unwrap().into();
+            }
+        }
+
+        Ok(self)
+    }
+
+    pub fn add_signature(mut self, pub_key: ed25519::PublicKey, signature: [u8; 64]) -> Result<Self, TxBuilderError> {
+        match self.era {
+            BuilderEra::Babbage => {
+                let mut new_sigs = self.signatures.unwrap_or_default();
+
+                new_sigs.insert(Bytes32(pub_key.as_ref().try_into().map_err(|_| TxBuilderError::MalformedKey)?), Bytes64(signature));
+
+                self.signatures = Some(new_sigs);
+
+                // TODO: chance for serialisation round trip issues?
+                let mut tx = babbage::Tx::decode_fragment(&self.tx_hash.0)
+                    .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
+
+                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
+
+                vkey_witnesses.push(babbage::VKeyWitness {
+                    vkey: Vec::from(pub_key.as_ref()).into(),
+                    signature: Vec::from(signature.as_ref()).into(),
+                });
+
+                tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
+
+                self.tx_bytes = tx.encode_fragment().unwrap().into();
+            }
+        }
+
+        Ok(self)
+    }
+
+    pub fn remove_signature(mut self, pub_key: ed25519::PublicKey) -> Result<Self, TxBuilderError> {
+        match self.era {
+            BuilderEra::Babbage => {
+                let mut new_sigs = self.signatures.unwrap_or_default();
+
+                let pk = Bytes32(pub_key.as_ref().try_into().map_err(|_| TxBuilderError::MalformedKey)?);
+
+                new_sigs.remove(&pk);
+
+                self.signatures = Some(new_sigs);
+
+                // TODO: chance for serialisation round trip issues?
+                let mut tx = babbage::Tx::decode_fragment(&self.tx_hash.0)
+                    .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
+
+                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
+
+                vkey_witnesses.retain(|x| *x.vkey != pk.0.to_vec());
 
                 tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
 

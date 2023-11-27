@@ -26,7 +26,7 @@ pub enum TxBuilderError {
     CorruptedTxBytes,
     /// Public key generated from private key was of unexpected length
     #[error("Public key for private key is malformed")]
-    MalformedPrivateKey,
+    MalformedKey,
     /// Asset name is too long, it must be 32 bytes or less
     #[error("Asset name must be 32 bytes or less")]
     AssetNameTooLong,
