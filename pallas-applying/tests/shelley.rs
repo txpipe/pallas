@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
     types::{
-        Environment, MultiEraProtParams, ShelleyMAError::*, ShelleyProtParams, ValidationError::*,
+        Environment, FeePolicy, MultiEraProtParams, ShelleyMAError::*, ShelleyProtParams,
+        ValidationError::*,
     },
     validate, UTxOs,
 };
@@ -40,11 +41,11 @@ mod shelley_tests {
         datum_hash: Option<Hash<32>>,
     ) -> UTxOs<'a> {
         let tx_ins: &Vec<TransactionInput> = &tx_body.inputs;
-        assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs.");
+        assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs");
         let tx_in: TransactionInput = tx_ins.first().unwrap().clone();
         let address_bytes: Bytes = match hex::decode(address) {
             Ok(bytes_vec) => Bytes::from(bytes_vec),
-            _ => panic!("Unable to decode input address."),
+            _ => panic!("Unable to decode input address"),
         };
         let tx_out: TransactionOutput = TransactionOutput {
             address: address_bytes,
@@ -70,6 +71,10 @@ mod shelley_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -79,7 +84,7 @@ mod shelley_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?}).", err),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
     }
 
@@ -100,13 +105,17 @@ mod shelley_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -115,10 +124,10 @@ mod shelley_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Inputs set should not be empty."),
+            Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
                 Shelley(TxInsEmpty) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -132,6 +141,10 @@ mod shelley_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -140,10 +153,10 @@ mod shelley_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
+            Ok(()) => assert!(false, "All inputs must be within the UTxO set"),
             Err(err) => match err {
                 Shelley(InputNotInUTxO) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -164,13 +177,17 @@ mod shelley_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -179,10 +196,10 @@ mod shelley_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "TTL must always be present in Shelley transactions."),
+            Ok(()) => assert!(false, "TTL must always be present in Shelley transactions"),
             Err(err) => match err {
                 Shelley(AlonzoCompNotShelley) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -201,6 +218,10 @@ mod shelley_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -209,10 +230,10 @@ mod shelley_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "TTL cannot be exceeded."),
+            Ok(()) => assert!(false, "TTL cannot be exceeded"),
             Err(err) => match err {
                 Shelley(TTLExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -231,6 +252,10 @@ mod shelley_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 0,
                 min_lovelace: 1000000,
             }),
@@ -239,10 +264,10 @@ mod shelley_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Tx size exceeds max limit."),
+            Ok(()) => assert!(false, "Tx size exceeds max limit"),
             Err(err) => match err {
                 Shelley(MaxTxSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -262,6 +287,10 @@ mod shelley_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 10000000000000,
             }),
@@ -270,10 +299,10 @@ mod shelley_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Output amount must be above min lovelace value."),
+            Ok(()) => assert!(false, "Output amount must be above min lovelace value"),
             Err(err) => match err {
                 Shelley(MinLovelaceUnreached) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -288,7 +317,7 @@ mod shelley_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
@@ -301,6 +330,10 @@ mod shelley_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -312,7 +345,41 @@ mod shelley_tests {
             Ok(()) => assert!(false, "Preservation of value property doesn't hold"),
             Err(err) => match err {
                 Shelley(PreservationOfValue) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Fee policy imposes higher fees on the transaction.
+    fn fee_below_minimum() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 70, // This value was 44 during Shelley on mainnet.
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Fee should not be below minimum"),
+            Err(err) => match err {
+                Shelley(FeesBelowMin) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }
@@ -330,7 +397,7 @@ mod shelley_tests {
         let addr: ShelleyAddress =
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
-                Ok(_) => panic!("Decoded output address and found the wrong era."),
+                Ok(_) => panic!("Decoded output address and found the wrong era"),
                 Err(e) => panic!("Unable to parse output address ({:?})", e),
             };
         let altered_address: ShelleyAddress = ShelleyAddress::new(
@@ -350,13 +417,17 @@ mod shelley_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?}).", err),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -371,10 +442,10 @@ mod shelley_tests {
             None,
         );
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Output with wrong network ID should be rejected."),
+            Ok(()) => assert!(false, "Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 Shelley(WrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({:?}).", err),
+                _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
     }

@@ -1,6 +1,7 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::types::{
+    FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -32,7 +33,7 @@ pub fn validate_shelley_tx(
     check_size(size, prot_pps)?;
     check_min_lovelace(tx_body, prot_pps)?;
     check_preservation_of_value(tx_body, utxos)?;
-    check_fees(tx_body, prot_pps)?;
+    check_fees(tx_body, size, &prot_pps.fee_policy)?;
     check_network_id(tx_body, network_id)?;
     check_witnesses(tx_body, tx_wits)
 }
@@ -133,7 +134,10 @@ fn get_produced(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
     Ok(res)
 }
 
-fn check_fees(_tx_body: &TransactionBody, _prot_pps: &ShelleyProtParams) -> ValidationResult {
+fn check_fees(tx_body: &TransactionBody, size: &u64, fee_policy: &FeePolicy) -> ValidationResult {
+    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+        return Err(Shelley(FeesBelowMin));
+    }
     Ok(())
 }
 

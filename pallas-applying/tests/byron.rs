@@ -1,7 +1,10 @@
 use std::{borrow::Cow, vec::Vec};
 
 use pallas_applying::{
-    types::{ByronError::*, ByronProtParams, Environment, MultiEraProtParams, ValidationError::*},
+    types::{
+        ByronError::*, ByronProtParams, Environment, FeePolicy, MultiEraProtParams,
+        ValidationError::*,
+    },
     validate, UTxOs,
 };
 use pallas_codec::{
@@ -30,14 +33,14 @@ mod byron_tests {
     // Careful: this function assumes tx has exactly one input.
     fn mk_utxo_for_single_input_tx<'a>(tx: &Tx, address_payload: String, amount: u64) -> UTxOs<'a> {
         let mut tx_ins: Vec<TxIn> = tx.inputs.clone().to_vec();
-        assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs.");
+        assert_eq!(tx_ins.len(), 1, "Unexpected number of inputs");
         let tx_in: TxIn = tx_ins.pop().unwrap();
         let input_tx_out_addr: Address = match hex::decode(address_payload) {
             Ok(addr_bytes) => Address {
                 payload: TagWrap(ByteVec::from(addr_bytes)),
                 crc: 3430631884,
             },
-            _ => panic!("Unable to decode input address."),
+            _ => panic!("Unable to decode input address"),
         };
         let tx_out: TxOut = TxOut {
             address: input_tx_out_addr,
@@ -61,8 +64,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -71,7 +76,7 @@ mod byron_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?}).", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -88,8 +93,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -98,7 +105,7 @@ mod byron_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?}).", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -118,14 +125,16 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -133,10 +142,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Inputs set should not be empty."),
+            Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
                 Byron(TxInsEmpty) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -152,7 +161,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -163,8 +172,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -172,10 +183,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Outputs set should not be empty."),
+            Ok(()) => assert!(false, "Outputs set should not be empty"),
             Err(err) => match err {
                 Byron(TxOutsEmpty) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -189,8 +200,10 @@ mod byron_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -198,10 +211,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must be within the UTxO set."),
+            Ok(()) => assert!(false, "All inputs must be within the UTxO set"),
             Err(err) => match err {
                 Byron(InputNotInUTxO) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -223,7 +236,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -234,8 +247,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -243,10 +258,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All outputs must contain lovelace."),
+            Ok(()) => assert!(false, "All outputs must contain lovelace"),
             Err(err) => match err {
                 Byron(OutputWithoutLovelace) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -264,8 +279,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 1000,
-                min_fees_factor: 1000,
+                fee_policy: FeePolicy {
+                    summand: 1000,
+                    multiplier: 1000,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -273,10 +290,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Fees should not be below minimum."),
+            Ok(()) => assert!(false, "Fees should not be below minimum"),
             Err(err) => match err {
                 Byron(FeesBelowMin) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -294,8 +311,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 0,
             }),
             prot_magic: 764824073,
@@ -303,10 +322,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit."),
+            Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit"),
             Err(err) => match err {
                 Byron(MaxTxSizeExceeded) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -321,7 +340,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(new_witnesses, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -332,8 +351,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -341,10 +362,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must have a witness signature."),
+            Ok(()) => assert!(false, "All inputs must have a witness signature"),
             Err(err) => match err {
                 Byron(MissingWitness) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -368,7 +389,7 @@ mod byron_tests {
 
         match encode(new_witnesses, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?}).", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -379,8 +400,10 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
-                min_fees_const: 155381,
-                min_fees_factor: 44,
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
                 max_tx_size: 4096,
             }),
             prot_magic: 764824073,
@@ -388,10 +411,10 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Witness signature should verify the transaction."),
+            Ok(()) => assert!(false, "Witness signature should verify the transaction"),
             Err(err) => match err {
                 Byron(WrongSignature) => (),
-                _ => panic!("Unexpected error ({:?}).", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }

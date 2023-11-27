@@ -78,7 +78,7 @@ Let ***tx ∈ Tx*** be a Shelley transaction whose body is ***txBody ∈ TxBody*
 - **The network ID of each output matches the global network ID**:
 
 	<code>∀(_ -> (a, _)) ∈ txOuts(txBody): netId(a) = NetworkId</code>
-- **Verification-key witnesses**: The owner of each transaction input signed the transaction. That is, if transaction ***tx*** with body ***txBody***, then for each ***txIn ∈ txIns(txBody)*** there must exist ***(vk, σ) ∈ txVKWits(tx)*** such that:
+- **Verification-key witnesses**: The owner of each transaction input signed the transaction. That is, given transaction ***tx*** with body ***txBody***, then for each ***txIn ∈ txIns(txBody)*** there must exist ***(vk, σ) ∈ txVKWits(tx)*** such that:
 
 	- <code>verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>)</code>
 	- <code>paymentCredential<sub>utxo</sub>(txIn) = hash(vk)</code>
