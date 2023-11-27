@@ -580,11 +580,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let txid = Hash::from(txbytes);
             let idx = AnyUInt::MajorByte(2);
 
-            let asset = Metadatum::Bytes(
-                hex::decode(
-                    "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
-                ).unwrap().into()
-            );
+            let asset_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+            let asset = Metadatum::Bytes(hex::decode(asset_hex).unwrap().into());
             let amount = Metadatum::Int(Int::from(11603698));
 
             let mut multiasset_mock = HashMap::new();
@@ -740,11 +737,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let txid = Hash::from(txbytes);
         let idx = AnyUInt::MajorByte(2);
 
-        let asset = Metadatum::Bytes(
-                hex::decode(
-                    "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
-                ).unwrap().into()
-            );
+        let asset_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+        let asset = Metadatum::Bytes(hex::decode(asset_hex).unwrap().into());
         let amount = Metadatum::Int(Int::from(11603698));
 
         let mut multiasset_mock = HashMap::new();
