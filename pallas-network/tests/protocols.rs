@@ -554,9 +554,10 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     x => panic!("unexpected message from client: {x:?}"),
                 };
 
-            let addr_bech_string =
-                "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0";
-            let addr: Address = Address::from_bech32(addr_bech_string).unwrap();
+            let addr: Address = Address::from_bech32(
+                "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0",
+            )
+            .unwrap();
             let addr: Addr = addr.to_vec().into();
             let addrs: Addrs = Vec::from([addr]);
 
@@ -572,11 +573,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let txbytes: [u8; 32] =
-                hex::decode("1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17")
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
+            let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
+            let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
             let txid = Hash::from(txbytes);
             let idx = AnyUInt::MajorByte(2);
 
@@ -707,8 +705,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
 
-        let addr_bech_string = "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0";
-        let addr: Address = Address::from_bech32(addr_bech_string).unwrap();
+        let addr: Address =
+            Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
+                .unwrap();
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = Vec::from([addr]);
 
@@ -729,11 +728,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .into_decode()
             .unwrap();
 
-        let txbytes: [u8; 32] =
-            hex::decode("1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17")
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
+        let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
         let txid = Hash::from(txbytes);
         let idx = AnyUInt::MajorByte(2);
 
