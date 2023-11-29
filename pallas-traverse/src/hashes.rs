@@ -1,6 +1,9 @@
 use crate::{ComputeHash, OriginalHash};
 use pallas_codec::utils::KeepRaw;
-use pallas_crypto::hash::{Hash, Hasher};
+use pallas_crypto::{
+    hash::{Hash, Hasher},
+    key::ed25519::PublicKey,
+};
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
 impl ComputeHash<32> for byron::EbbHead {
@@ -168,6 +171,12 @@ impl OriginalHash<32> for KeepRaw<'_, conway::MintedTransactionBody<'_>> {
     }
 }
 
+impl ComputeHash<28> for PublicKey {
+    fn compute_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash(&Into::<[u8; PublicKey::SIZE]>::into(*self))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{Era, MultiEraTx};
@@ -176,6 +185,7 @@ mod tests {
     use pallas_codec::utils::Int;
     use pallas_codec::{minicbor, utils::Bytes};
     use pallas_crypto::hash::Hash;
+    use pallas_crypto::key::ed25519::PublicKey;
     use pallas_primitives::babbage::MintedDatumOption;
     use pallas_primitives::{alonzo, babbage, byron};
     use std::str::FromStr;
@@ -393,5 +403,20 @@ mod tests {
                 assert_eq!(datum.original_hash().to_string(), expected);
             }
         }
+    }
+
+    #[test]
+    fn test_public_key_hash() {
+        let key: [u8; 32] =
+            hex::decode("2354bc4e1ae230e3a9047b568848fdd4bccd8d9aa60e6d1426baa730908e662d")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let pk = PublicKey::from(key);
+
+        assert_eq!(
+            pk.compute_hash().to_vec(),
+            hex::decode("2b6b3949d380fea6cb1c1cf88490ea40b2c1ce87717df7869cb1c38e").unwrap()
+        )
     }
 }
