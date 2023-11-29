@@ -33,7 +33,7 @@ pub enum Error {
 pub struct Bip32PrivateKey(ed25519_bip32::XPrv);
 
 impl Bip32PrivateKey {
-    pub const BECH32_HRP: &'static str = "xprv";
+    const BECH32_HRP: &'static str = "xprv";
 
     pub fn generate<T: RngCore + CryptoRng>(mut rng: T) -> Self {
         let mut buf = [0u8; XPRV_SIZE];
@@ -124,12 +124,12 @@ impl Bip32PrivateKey {
     }
 }
 
-/// ED25519-BIP32 HD Private Key
+/// ED25519-BIP32 HD Public Key
 #[derive(Debug, PartialEq, Eq)]
 pub struct Bip32PublicKey(ed25519_bip32::XPub);
 
 impl Bip32PublicKey {
-    pub const BECH32_HRP: &'static str = "xpub";
+    const BECH32_HRP: &'static str = "xpub";
 
     pub fn from_bytes(bytes: [u8; 64]) -> Self {
         Self(XPub::from_bytes(bytes))
