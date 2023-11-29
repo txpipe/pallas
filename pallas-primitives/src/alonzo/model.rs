@@ -1368,6 +1368,17 @@ impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
                 Ok(Metadatum::Map(d.decode_with(ctx)?))
             }
+            minicbor::data::Type::Tag => {
+                let tag = d.tag()?;
+
+                match tag {
+                    Tag::Unassigned(24) => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
+                    Tag::Cbor => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
+                    _ => Err(minicbor::decode::Error::message(
+                        "unknown tag for metadatum",
+                    )),
+                }
+            }
             _ => Err(minicbor::decode::Error::message(
                 "Can't turn data type into metadatum",
             )),

@@ -1,6 +1,5 @@
 // TODO: this should move to pallas::ledger crate at some point
 
-use pallas_addresses::Address;
 use pallas_crypto::hash::Hash;
 use std::hash::Hash as StdHash;
 // required for derive attrs to work
@@ -179,11 +178,8 @@ pub async fn get_stake_distribution(
 pub async fn get_utxo_by_address(
     client: &mut Client,
     era: u16,
-    address: String,
+    addrs: Addrs,
 ) -> Result<UTxOByAddress, ClientError> {
-    let addr: Address = Address::from_bech32(&address).unwrap();
-    let addr: Addr = addr.to_vec().into();
-    let addrs: Addrs = Vec::from([addr]);
     let query = BlockQuery::GetUTxOByAddress(addrs);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
