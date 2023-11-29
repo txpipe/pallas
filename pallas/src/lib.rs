@@ -52,3 +52,7 @@ pub mod storage {
 #[doc(inline)]
 #[cfg(feature = "unstable")]
 pub use pallas_applying as applying;
+
+#[doc(inline)]
+#[cfg(feature = "unstable")]
+pub use pallas_wallet as wallet;
