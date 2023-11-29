@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
@@ -10,7 +10,7 @@ use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, Multiasset};
+use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, Metadatum, Multiasset};
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::{
     blockfetch,
@@ -19,7 +19,6 @@ use pallas_network::miniprotocols::{
 };
 use pallas_network::miniprotocols::{handshake, localstate};
 use pallas_network::multiplexer::{Bearer, Plexer};
-use pallas_primitives::conway::Metadatum;
 use std::path::Path;
 use tokio::net::{TcpListener, UnixListener};
 
@@ -582,7 +581,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let asset = Metadatum::Bytes(hex::decode(asset_hex).unwrap().into());
             let amount = Metadatum::Int(Int::from(11603698));
 
-            let mut multiasset_mock = HashMap::new();
+            let mut multiasset_mock = BTreeMap::new();
             multiasset_mock.insert(AnyUInt::MajorByte(0), asset);
             multiasset_mock.insert(AnyUInt::MajorByte(1), amount);
 
@@ -737,7 +736,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let asset = Metadatum::Bytes(hex::decode(asset_hex).unwrap().into());
         let amount = Metadatum::Int(Int::from(11603698));
 
-        let mut multiasset_mock = HashMap::new();
+        let mut multiasset_mock = BTreeMap::new();
         multiasset_mock.insert(AnyUInt::MajorByte(0), asset);
         multiasset_mock.insert(AnyUInt::MajorByte(1), amount);
 

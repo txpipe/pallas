@@ -5,12 +5,11 @@ use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs};
+use pallas_codec::utils::{AnyUInt, Bytes, Int, KeyValuePairs};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
 };
-use pallas_primitives::conway::Metadatum;
 
 use crate::miniprotocols::Point;
 
@@ -70,6 +69,16 @@ pub enum Request {
     GetSystemStart,
     GetChainBlockNo,
     GetChainPoint,
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, StdHash)]
+pub enum Metadatum {
+    Int(Int),
+    Bytes(Bytes),
+    Text(String),
+    Array(Vec<Metadatum>),
+    Map(KeyValuePairs<Metadatum, Metadatum>),
+    Tag(u64, Box<Metadatum>),
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]

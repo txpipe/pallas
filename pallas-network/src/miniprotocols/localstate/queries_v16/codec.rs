@@ -1,5 +1,5 @@
 use super::*;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
 
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
@@ -262,5 +262,77 @@ impl<'b> Decode<'b, ()> for Request {
             3 => Ok(Self::GetChainPoint),
             _ => Err(decode::Error::message("invalid tag")),
         }
+    }
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::U8
+            | minicbor::data::Type::U16
+            | minicbor::data::Type::U32
+            | minicbor::data::Type::U64
+            | minicbor::data::Type::I8
+            | minicbor::data::Type::I16
+            | minicbor::data::Type::I32
+            | minicbor::data::Type::I64
+            | minicbor::data::Type::Int => {
+                let i = d.decode()?;
+                Ok(Metadatum::Int(i))
+            }
+            minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
+            minicbor::data::Type::String => Ok(Metadatum::Text(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                Ok(Metadatum::Array(d.decode_with(ctx)?))
+            }
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(Metadatum::Map(d.decode_with(ctx)?))
+            }
+            minicbor::data::Type::Tag => {
+                let tag = d.tag()?;
+
+                match tag {
+                    Tag::Unassigned(24) => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
+                    Tag::Cbor => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
+                    _ => Err(minicbor::decode::Error::message(
+                        "unknown tag for metadatum",
+                    )),
+                }
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "Can't turn data type into metadatum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for Metadatum {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Metadatum::Int(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Metadatum::Bytes(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Metadatum::Text(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Metadatum::Array(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Metadatum::Map(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Metadatum::Tag(_, a) => {
+                e.encode_with(a, ctx)?;
+            }
+        };
+
+        Ok(())
     }
 }

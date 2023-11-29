@@ -16,14 +16,13 @@ hex = "0.4.3"
 itertools = "0.10.5"
 pallas-codec = { version = "=0.20.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.20.0", path = "../pallas-crypto" }
-pallas-addresses = { version = "=0.20.0", path = "../pallas-addresses" }
-pallas-primitives = { version = "=0.20.0", path = "../pallas-primitives" }
 thiserror = "1.0.31"
 tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros"] }
 tracing = "0.1.37"
 
 [dev-dependencies]
 tracing-subscriber = "0.3.16"
+pallas-addresses = { version = "=0.20.0", path = "../pallas-addresses" }
 tokio = { version = "1", features = ["full"] }
 rand = "0.8.5"
 
