@@ -134,7 +134,7 @@ pub struct UTxOByAddress {
 #[derive(Debug, Encode, Decode, PartialEq, Clone, StdHash, Eq)]
 pub struct UTxO {
     #[n(0)]
-    pub txid: Hash<32>,
+    pub hash: Hash<32>,
 
     #[n(1)]
     pub idx: AnyUInt,

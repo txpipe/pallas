@@ -574,7 +574,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
             let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
-            let txid = Hash::from(txbytes);
+            let hash = Hash::from(txbytes);
             let idx = AnyUInt::MajorByte(2);
 
             let asset_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
@@ -589,7 +589,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let multiasset: Multiasset<AnyUInt> = KeyValuePairs::from(multiasset);
 
             let utxo = KeyValuePairs::from(vec![(
-                localstate::queries_v16::UTxO { txid, idx },
+                localstate::queries_v16::UTxO { hash, idx },
                 multiasset,
             )]);
 
@@ -729,7 +729,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
         let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
-        let txid = Hash::from(txbytes);
+        let hash = Hash::from(txbytes);
         let idx = AnyUInt::MajorByte(2);
 
         let asset_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
@@ -744,7 +744,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let multiasset: Multiasset<AnyUInt> = KeyValuePairs::from(multiasset);
 
         let utxo = KeyValuePairs::from(vec![(
-            localstate::queries_v16::UTxO { txid, idx },
+            localstate::queries_v16::UTxO { hash, idx },
             multiasset,
         )]);
 
