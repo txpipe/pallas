@@ -27,7 +27,8 @@ use crate::{
 pub trait BuildBabbage {
     fn build_babbage_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
 
-    // fn build_babbage(staging_tx: StagingTransaction, resolver: (), params: ()) -> Result<BuiltTransaction, TxBuilderError>;
+    // fn build_babbage(staging_tx: StagingTransaction, resolver: (), params: ()) ->
+    // Result<BuiltTransaction, TxBuilderError>;
 }
 
 impl BuildBabbage for StagingTransaction {
@@ -51,28 +52,23 @@ impl BuildBabbage for StagingTransaction {
             .map(babbage_output)
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mint: Option<KeyValuePairs<Hash<28>, KeyValuePairs<_, _>>> =
-            if let Some(massets) = self.mint {
-                Some(
-                    massets
-                        .deref()
-                        .iter()
-                        .map(|(pid, assets)| {
-                            (
-                                pid.0.into(),
-                                assets
-                                    .into_iter()
-                                    .map(|(n, x)| (n.clone().into(), *x))
-                                    .collect::<Vec<_>>()
-                                    .into(),
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                        .into(),
-                )
-            } else {
-                None
-            };
+        let mint: Option<KeyValuePairs<Hash<28>, KeyValuePairs<_, _>>> = self.mint.map(|massets| {
+            massets
+                .deref()
+                .iter()
+                .map(|(pid, assets)| {
+                    (
+                        pid.0.into(),
+                        assets
+                            .iter()
+                            .map(|(n, x)| (n.clone().into(), *x))
+                            .collect::<Vec<_>>()
+                            .into(),
+                    )
+                })
+                .collect::<Vec<_>>()
+                .into()
+        });
 
         let collateral = self
             .collateral_inputs
@@ -260,8 +256,8 @@ impl BuildBabbage for StagingTransaction {
         })
     }
 
-    // fn build_babbage(staging_tx: StagingTransaction) -> Result<BuiltTransaction, TxBuilderError> {
-    //     todo!()
+    // fn build_babbage(staging_tx: StagingTransaction) -> Result<BuiltTransaction,
+    // TxBuilderError> {     todo!()
     // }
 }
 
@@ -276,7 +272,7 @@ fn babbage_output(
                 (
                     pid.0.into(),
                     assets
-                        .into_iter()
+                        .iter()
                         .map(|(n, x)| (n.clone().into(), *x))
                         .collect::<Vec<_>>()
                         .into(),

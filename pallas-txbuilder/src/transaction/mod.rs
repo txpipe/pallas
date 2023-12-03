@@ -26,9 +26,9 @@ pub struct Hash28(pub [u8; 28]);
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Bytes(pub Vec<u8>);
 
-impl Into<pallas_codec::utils::Bytes> for Bytes {
-    fn into(self) -> pallas_codec::utils::Bytes {
-        self.0.into()
+impl From<Bytes> for pallas_codec::utils::Bytes {
+    fn from(value: Bytes) -> Self {
+        value.0.into()
     }
 }
 

@@ -18,7 +18,7 @@ impl Serialize for Bytes32 {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&hex::encode(&self.0))
+        serializer.serialize_str(&hex::encode(self.0))
     }
 }
 
@@ -58,7 +58,7 @@ impl Serialize for Hash28 {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&hex::encode(&self.0))
+        serializer.serialize_str(&hex::encode(self.0))
     }
 }
 
@@ -245,9 +245,9 @@ impl Serialize for RedeemerPurpose {
     {
         let str = match self {
             RedeemerPurpose::Spend(Input { tx_hash, txo_index }) => {
-                format!("spend:{}#{}", hex::encode(&tx_hash.0), txo_index)
+                format!("spend:{}#{}", hex::encode(tx_hash.0), txo_index)
             }
-            RedeemerPurpose::Mint(hash) => format!("mint:{}", hex::encode(&hash.0)),
+            RedeemerPurpose::Mint(hash) => format!("mint:{}", hex::encode(hash.0)),
         };
 
         serializer.serialize_str(&str)
@@ -277,13 +277,13 @@ impl<'de> Visitor<'de> for RedeemerPurposeVisitor {
         E: de::Error,
     {
         let (tag, item) = v
-            .split_once(":")
+            .split_once(':')
             .ok_or(E::custom("invalid redeemer purpose"))?;
 
         match tag {
             "spend" => {
                 let (hash, index) = item
-                    .split_once("#")
+                    .split_once('#')
                     .ok_or(E::custom("invalid spend redeemer item"))?;
 
                 let tx_hash = Bytes32(
@@ -355,7 +355,7 @@ impl Serialize for Bytes64 {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&hex::encode(&self.0))
+        serializer.serialize_str(&hex::encode(self.0))
     }
 }
 
