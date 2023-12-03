@@ -22,6 +22,7 @@ pallas-utxorpc = { version = "=0.20.0", path = "../pallas-utxorpc/" }
 pallas-configs = { version = "=0.20.0", path = "../pallas-configs/" }
 pallas-rolldb = { version = "=0.20.0", path = "../pallas-rolldb/", optional = true }
 pallas-wallet = { version = "=0.20.0", path = "../pallas-wallet/", optional = true }
+pallas-txbuilder = { version = "=0.20.0", path = "../pallas-txbuilder/" }
 
 [features]
 unstable = ["pallas-rolldb", "pallas-wallet"]
