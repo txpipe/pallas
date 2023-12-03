@@ -12,6 +12,7 @@ members = [
   "pallas-traverse",
   "pallas-txbuilder",
   "pallas-utxorpc",
+  "pallas-wallet",
   "pallas",
   "examples/block-download",
   "examples/block-decode",

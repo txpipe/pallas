@@ -55,4 +55,8 @@ pub use pallas_applying as applying;
 
 #[doc(inline)]
 #[cfg(feature = "unstable")]
+pub use pallas_wallet as wallet;
+
+#[doc(inline)]
+#[cfg(feature = "unstable")]
 pub use pallas_txbuilder as txbuilder;
