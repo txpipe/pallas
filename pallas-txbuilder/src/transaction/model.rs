@@ -469,7 +469,7 @@ impl Output {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Default)]
 pub struct OutputAssets(HashMap<PolicyId, HashMap<AssetName, u64>>);
 
 impl Deref for OutputAssets {
@@ -481,10 +481,6 @@ impl Deref for OutputAssets {
 }
 
 impl OutputAssets {
-    pub fn new() -> Self {
-        Self(HashMap::new())
-    }
-
     pub fn from_map(map: HashMap<PolicyId, HashMap<Bytes, u64>>) -> Self {
         Self(map)
     }
@@ -561,7 +557,7 @@ pub struct ExUnits {
     pub steps: u64,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
 pub struct Redeemers(HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>);
 
 impl Deref for Redeemers {
@@ -573,10 +569,6 @@ impl Deref for Redeemers {
 }
 
 impl Redeemers {
-    pub fn new() -> Self {
-        Redeemers(HashMap::new())
-    }
-
     pub fn from_map(map: HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>) -> Self {
         Self(map)
     }
@@ -653,12 +645,24 @@ impl BuiltTransaction {
         Ok(self)
     }
 
-    pub fn add_signature(mut self, pub_key: ed25519::PublicKey, signature: [u8; 64]) -> Result<Self, TxBuilderError> {
+    pub fn add_signature(
+        mut self,
+        pub_key: ed25519::PublicKey,
+        signature: [u8; 64],
+    ) -> Result<Self, TxBuilderError> {
         match self.era {
             BuilderEra::Babbage => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
-                new_sigs.insert(Bytes32(pub_key.as_ref().try_into().map_err(|_| TxBuilderError::MalformedKey)?), Bytes64(signature));
+                new_sigs.insert(
+                    Bytes32(
+                        pub_key
+                            .as_ref()
+                            .try_into()
+                            .map_err(|_| TxBuilderError::MalformedKey)?,
+                    ),
+                    Bytes64(signature),
+                );
 
                 self.signatures = Some(new_sigs);
 
@@ -687,7 +691,12 @@ impl BuiltTransaction {
             BuilderEra::Babbage => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
-                let pk = Bytes32(pub_key.as_ref().try_into().map_err(|_| TxBuilderError::MalformedKey)?);
+                let pk = Bytes32(
+                    pub_key
+                        .as_ref()
+                        .try_into()
+                        .map_err(|_| TxBuilderError::MalformedKey)?,
+                );
 
                 new_sigs.remove(&pk);
 

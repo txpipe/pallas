@@ -15,7 +15,8 @@ pub enum TxBuilderError {
     /// Provided datum hash was not 32 bytes in length
     #[error("Invalid bytes length for datum hash")]
     MalformedDatumHash,
-    /// Input, policy, etc pointed to by a redeemer was not found in the transaction
+    /// Input, policy, etc pointed to by a redeemer was not found in the
+    /// transaction
     #[error("Input/policy pointed to by redeemer not found in tx")]
     RedeemerTargetMissing,
     /// Provided network ID is invalid (must be 0 or 1)
