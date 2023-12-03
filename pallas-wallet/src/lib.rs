@@ -116,7 +116,7 @@ impl Bip32PrivateKey {
     pub fn from_bech32(bech32: String) -> Result<Self, Error> {
         let (hrp, data, _) = bech32::decode(&bech32).map_err(Error::InvalidBech32)?;
         if hrp != Self::BECH32_HRP {
-            return Err(Error::InvalidBech32Hrp);
+            Err(Error::InvalidBech32Hrp)
         } else {
             let data = Vec::<u8>::from_base32(&data).map_err(Error::InvalidBech32)?;
             Self::from_bytes(data.try_into().map_err(|_| Error::UnexpectedBech32Length)?)
@@ -166,7 +166,7 @@ impl Bip32PublicKey {
     pub fn from_bech32(bech32: String) -> Result<Self, Error> {
         let (hrp, data, _) = bech32::decode(&bech32).map_err(Error::InvalidBech32)?;
         if hrp != Self::BECH32_HRP {
-            return Err(Error::InvalidBech32Hrp);
+            Err(Error::InvalidBech32Hrp)
         } else {
             let data = Vec::<u8>::from_base32(&data).map_err(Error::InvalidBech32)?;
             Ok(Self::from_bytes(
