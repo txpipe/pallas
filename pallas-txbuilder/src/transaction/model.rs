@@ -626,7 +626,7 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_hash.0)
+                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
                 let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
@@ -667,7 +667,7 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_hash.0)
+                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
                 let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
@@ -703,7 +703,7 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_hash.0)
+                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
                 let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();

@@ -1,9 +1,9 @@
 use bech32::{FromBase32, ToBase32};
+use bip39::rand_core::{CryptoRng, RngCore};
 use bip39::{Language, Mnemonic};
 use cryptoxide::{hmac::Hmac, pbkdf2::pbkdf2, sha2::Sha512};
 use ed25519_bip32::{self, XPrv, XPub, XPRV_SIZE};
 use pallas_crypto::key::ed25519::{self};
-use rand::{CryptoRng, RngCore};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -178,7 +178,7 @@ impl Bip32PublicKey {
 
 #[cfg(test)]
 mod test {
-    use rand::rngs::OsRng;
+    use bip39::rand_core::OsRng;
 
     use crate::{Bip32PrivateKey, Bip32PublicKey};
 
