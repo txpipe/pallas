@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -1250,7 +1250,7 @@ pub struct WitnessSet {
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v3_script: Option<Vec<PlutusV3Script>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -1260,7 +1260,7 @@ pub struct MintedWitnessSet<'b> {
     pub vkeywitness: Option<Vec<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<Vec<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
@@ -1278,14 +1278,16 @@ pub struct MintedWitnessSet<'b> {
     pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v3_script: Option<Vec<PlutusV3Script>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
     fn from(x: MintedWitnessSet<'b>) -> Self {
         WitnessSet {
             vkeywitness: x.vkeywitness,
-            native_script: x.native_script,
+            native_script: x
+                .native_script
+                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
             plutus_data: x
@@ -1317,78 +1319,44 @@ pub struct PostAlonzoAuxiliaryData {
     pub plutus_v3_scripts: Option<Vec<PlutusV3Script>>,
 }
 
-pub type DatumHash = Hash<32>;
+pub use crate::babbage::DatumHash;
 
-//pub type Data = CborWrap<PlutusData>;
+pub use crate::babbage::PseudoDatumOption;
 
-// datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum PseudoDatumOption<T1> {
-    Hash(Hash<32>),
-    Data(CborWrap<T1>),
-}
+pub use crate::babbage::DatumOption;
 
-impl<'b, C, T> minicbor::Decode<'b, C> for PseudoDatumOption<T>
-where
-    T: minicbor::Decode<'b, C>,
-{
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
+pub use crate::babbage::MintedDatumOption;
 
-        match d.u8()? {
-            0 => Ok(Self::Hash(d.decode_with(ctx)?)),
-            1 => Ok(Self::Data(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant for datum option enum",
-            )),
-        }
-    }
-}
-
-impl<C, T> minicbor::Encode<C> for PseudoDatumOption<T>
-where
-    T: minicbor::Encode<C>,
-{
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Self::Hash(x) => e.encode_with((0, x), ctx)?,
-            Self::Data(x) => e.encode_with((1, x), ctx)?,
-        };
-
-        Ok(())
-    }
-}
-
-pub type DatumOption = PseudoDatumOption<PlutusData>;
-
-pub type MintedDatumOption<'b> = PseudoDatumOption<KeepRaw<'b, PlutusData>>;
-
-impl<'b> From<MintedDatumOption<'b>> for DatumOption {
-    fn from(value: MintedDatumOption<'b>) -> Self {
-        match value {
-            PseudoDatumOption::Hash(x) => Self::Hash(x),
-            PseudoDatumOption::Data(x) => Self::Data(CborWrap(x.unwrap().unwrap())),
-        }
-    }
-}
-
-// script_ref = #6.24(bytes .cbor script)
-pub type ScriptRef = CborWrap<Script>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum Script {
-    NativeScript(NativeScript),
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PseudoScript<T1> {
+    NativeScript(T1),
     PlutusV1Script(PlutusV1Script),
     PlutusV2Script(PlutusV2Script),
     PlutusV3Script(PlutusV3Script),
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Script {
+// script_ref = #6.24(bytes .cbor script)
+pub type ScriptRef = PseudoScript<NativeScript>;
+
+pub type MintedScriptRef<'b> = PseudoScript<KeepRaw<'b, NativeScript>>;
+
+impl<'b> From<MintedScriptRef<'b>> for ScriptRef {
+    fn from(value: MintedScriptRef<'b>) -> Self {
+        match value {
+            PseudoScript::NativeScript(x) => Self::NativeScript(x.unwrap()),
+            PseudoScript::PlutusV1Script(x) => Self::PlutusV1Script(x),
+            PseudoScript::PlutusV2Script(x) => Self::PlutusV2Script(x),
+            PseudoScript::PlutusV3Script(x) => Self::PlutusV3Script(x),
+        }
+    }
+}
+
+impl<'b, C, T> minicbor::Decode<'b, C> for PseudoScript<T>
+where
+    T: minicbor::Decode<'b, ()>,
+{
     fn decode(
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
@@ -1407,7 +1375,10 @@ impl<'b, C> minicbor::Decode<'b, C> for Script {
     }
 }
 
-impl<C> minicbor::Encode<C> for Script {
+impl<C, T> minicbor::Encode<C> for PseudoScript<T>
+where
+    T: minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
