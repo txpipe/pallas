@@ -1,5 +1,5 @@
 use super::*;
-use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(

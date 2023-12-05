@@ -5,7 +5,7 @@ use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{AnyUInt, Bytes, Int, KeyValuePairs};
+use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
