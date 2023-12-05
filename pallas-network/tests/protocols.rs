@@ -1,15 +1,14 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_codec::utils::{AnyCbor, AnyUInt, Int, KeyValuePairs};
+use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, Metadatum, Multiasset};
+use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, Value};
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::{
     blockfetch,
@@ -571,23 +570,22 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
             let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
-            let hash = Hash::from(txbytes);
-            let idx = AnyUInt::MajorByte(2);
-
-            let asset_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
-            let asset = Metadatum::Bytes(hex::decode(asset_hex).unwrap().into());
-            let amount = Metadatum::Int(Int::from(11603698));
-
-            let mut multiasset_mock = BTreeMap::new();
-            multiasset_mock.insert(AnyUInt::MajorByte(0), asset);
-            multiasset_mock.insert(AnyUInt::MajorByte(1), amount);
-
-            let multiasset: Vec<(AnyUInt, Metadatum)> = multiasset_mock.into_iter().collect();
-            let multiasset: Multiasset<AnyUInt> = KeyValuePairs::from(multiasset);
+            let transaction_id = Hash::from(txbytes);
+            let index = AnyUInt::MajorByte(2);
+            let lovelace = AnyUInt::MajorByte(2);
+            let values = localstate::queries_v16::Values {
+                address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                    .to_vec()
+                    .into(),
+                amount: Value::Coin(lovelace),
+            };
 
             let utxo = KeyValuePairs::from(vec![(
-                localstate::queries_v16::UTxO { hash, idx },
-                multiasset,
+                localstate::queries_v16::UTxO {
+                    transaction_id,
+                    index,
+                },
+                values,
             )]);
 
             let result = AnyCbor::from_encode(localstate::queries_v16::UTxOByAddress { utxo });
@@ -725,23 +723,22 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
         let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
-        let hash = Hash::from(txbytes);
-        let idx = AnyUInt::MajorByte(2);
-
-        let asset_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
-        let asset = Metadatum::Bytes(hex::decode(asset_hex).unwrap().into());
-        let amount = Metadatum::Int(Int::from(11603698));
-
-        let mut multiasset_mock = BTreeMap::new();
-        multiasset_mock.insert(AnyUInt::MajorByte(0), asset);
-        multiasset_mock.insert(AnyUInt::MajorByte(1), amount);
-
-        let multiasset: Vec<(AnyUInt, Metadatum)> = multiasset_mock.into_iter().collect();
-        let multiasset: Multiasset<AnyUInt> = KeyValuePairs::from(multiasset);
+        let transaction_id = Hash::from(txbytes);
+        let index = AnyUInt::MajorByte(2);
+        let lovelace = AnyUInt::MajorByte(2);
+        let values = localstate::queries_v16::Values {
+            address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                .to_vec()
+                .into(),
+            amount: Value::Coin(lovelace),
+        };
 
         let utxo = KeyValuePairs::from(vec![(
-            localstate::queries_v16::UTxO { hash, idx },
-            multiasset,
+            localstate::queries_v16::UTxO {
+                transaction_id,
+                index,
+            },
+            values,
         )]);
 
         assert_eq!(result, localstate::queries_v16::UTxOByAddress { utxo });

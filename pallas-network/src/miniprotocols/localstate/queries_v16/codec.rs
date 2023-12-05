@@ -265,71 +265,40 @@ impl<'b> Decode<'b, ()> for Request {
     }
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Value {
+impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
-            minicbor::data::Type::U8
-            | minicbor::data::Type::U16
-            | minicbor::data::Type::U32
-            | minicbor::data::Type::U64
-            | minicbor::data::Type::I8
-            | minicbor::data::Type::I16
-            | minicbor::data::Type::I32
-            | minicbor::data::Type::I64
-            | minicbor::data::Type::Int => {
-                let i = d.decode()?;
-                Ok(Value::Int(i))
-            }
-            minicbor::data::Type::Bytes => Ok(Value::Bytes(d.decode_with(ctx)?)),
-            minicbor::data::Type::String => Ok(Value::Text(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(Value::Array(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Value::Map(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Tag => {
-                let tag = d.tag()?;
-
-                match tag {
-                    Tag::Unassigned(24) => Ok(Value::Bytes(d.decode_with(ctx)?)),
-                    Tag::Cbor => Ok(Value::Bytes(d.decode_with(ctx)?)),
-                    _ => Err(minicbor::decode::Error::message(
-                        "unknown tag for metadatum",
-                    )),
-                }
+            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => {
+                d.array()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value::Multiasset(coin, multiasset))
             }
             _ => Err(minicbor::decode::Error::message(
-                "Can't turn data type into metadatum",
+                "unknown cbor data type for Alonzo Value enum",
             )),
         }
     }
 }
 
-impl<C> minicbor::Encode<C> for Value {
+impl<C> minicbor::encode::Encode<C> for Value {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            Value::Int(a) => {
-                e.encode_with(a, ctx)?;
+            Value::Coin(coin) => {
+                e.encode_with(coin, ctx)?;
             }
-            Value::Bytes(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Value::Text(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Value::Array(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Value::Map(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Value::Tag(_, a) => {
-                e.encode_with(a, ctx)?;
+            Value::Multiasset(coin, other) => {
+                e.array(2)?;
+                e.encode_with(coin, ctx)?;
+                e.encode_with(other, ctx)?;
             }
         };
 

@@ -71,14 +71,10 @@ pub enum Request {
     GetChainPoint,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, StdHash)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Value {
-    Int(Int),
-    Bytes(Bytes),
-    Text(String),
-    Array(Vec<Value>),
-    Map(KeyValuePairs<Value, Value>),
-    Tag(u64, Box<Value>),
+    Coin(Coin),
+    Multiasset(Coin, Multiasset<Coin>),
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
@@ -123,21 +119,35 @@ pub type Addrs = Vec<Addr>;
 
 pub type Coin = AnyUInt;
 
-pub type Multiasset<A> = KeyValuePairs<A, Value>;
+pub type PolicyId = Hash<28>;
+
+pub type AssetName = Bytes;
+
+pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct UTxOByAddress {
     #[n(0)]
-    pub utxo: KeyValuePairs<UTxO, Multiasset<AnyUInt>>,
+    pub utxo: KeyValuePairs<UTxO, Values>,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[cbor(map)]
+pub struct Values {
+    #[n(0)]
+    pub address: Bytes,
+
+    #[n(1)]
+    pub amount: Value,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone, StdHash, Eq)]
 pub struct UTxO {
     #[n(0)]
-    pub hash: Hash<32>,
+    pub transaction_id: Hash<32>,
 
     #[n(1)]
-    pub idx: AnyUInt,
+    pub index: AnyUInt,
 }
 
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
