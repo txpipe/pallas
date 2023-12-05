@@ -25,7 +25,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn native_scripts(&self) -> &[NativeScript] {
+    pub fn native_scripts(&self) -> &[KeepRaw<'b, NativeScript>] {
         match self {
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set

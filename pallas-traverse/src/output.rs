@@ -34,11 +34,13 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    pub fn script_ref(&self) -> Option<&babbage::ScriptRef> {
+    pub fn script_ref(&self) -> Option<babbage::MintedScriptRef> {
         match &self {
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(_) => None,
-                babbage::MintedTransactionOutput::PostAlonzo(x) => x.script_ref.as_ref(),
+                babbage::MintedTransactionOutput::PostAlonzo(x) => {
+                    x.script_ref.clone().map(|x| x.unwrap())
+                }
             },
             _ => None,
         }

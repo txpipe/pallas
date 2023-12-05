@@ -70,6 +70,12 @@ impl ComputeHash<28> for alonzo::NativeScript {
     }
 }
 
+impl OriginalHash<32> for KeepRaw<'_, alonzo::NativeScript> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
 impl ComputeHash<28> for alonzo::PlutusScript {
     fn compute_hash(&self) -> Hash<28> {
         Hasher::<224>::hash_tagged(&self.0, 1)

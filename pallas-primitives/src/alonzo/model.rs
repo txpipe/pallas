@@ -1293,7 +1293,7 @@ pub struct MintedWitnessSet<'b> {
     pub vkeywitness: Option<Vec<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<Vec<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
@@ -1312,7 +1312,9 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
     fn from(x: MintedWitnessSet<'b>) -> Self {
         WitnessSet {
             vkeywitness: x.vkeywitness,
-            native_script: x.native_script,
+            native_script: x
+                .native_script
+                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             bootstrap_witness: x.bootstrap_witness,
             plutus_script: x.plutus_script,
             plutus_data: x
