@@ -381,7 +381,7 @@ pub struct PseudoPostAlonzoTransactionOutput<T1, T2> {
     pub datum_option: Option<T1>,
 
     #[n(3)]
-    pub script_ref: Option<CborWrap<T2>>, // ScriptRef
+    pub script_ref: Option<CborWrap<T2>>,
 }
 
 pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption, ScriptRef>;

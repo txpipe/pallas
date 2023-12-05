@@ -1,7 +1,8 @@
 use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
     alonzo::{self, BootstrapWitness, NativeScript, PlutusData, VKeyWitness},
-    babbage::{PlutusV2Script, Redeemer}, conway::{PlutusV3Script, self},
+    babbage::{PlutusV2Script, Redeemer},
+    conway::{self, PlutusV3Script},
 };
 
 use crate::MultiEraTx;

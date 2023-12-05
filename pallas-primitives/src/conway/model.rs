@@ -1327,7 +1327,6 @@ pub use crate::babbage::DatumOption;
 
 pub use crate::babbage::MintedDatumOption;
 
-
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PseudoScript<T1> {
