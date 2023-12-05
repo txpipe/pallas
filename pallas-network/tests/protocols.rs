@@ -3,7 +3,6 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_addresses::Address;
 use pallas_codec::utils::{AnyCbor, AnyUInt, Int, KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
@@ -553,10 +552,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     x => panic!("unexpected message from client: {x:?}"),
                 };
 
-            let addr: Address = Address::from_bech32(
-                "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0",
-            )
-            .unwrap();
+            let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+            let addr = hex::decode(addr_hex).unwrap();
             let addr: Addr = addr.to_vec().into();
             let addrs: Addrs = Vec::from([addr]);
 
@@ -704,9 +701,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
 
-        let addr: Address =
-            Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
-                .unwrap();
+        let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+        let addr = hex::decode(addr_hex).unwrap();
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = Vec::from([addr]);
 
