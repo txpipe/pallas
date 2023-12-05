@@ -72,13 +72,13 @@ pub enum Request {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, StdHash)]
-pub enum Metadatum {
+pub enum Value {
     Int(Int),
     Bytes(Bytes),
     Text(String),
-    Array(Vec<Metadatum>),
-    Map(KeyValuePairs<Metadatum, Metadatum>),
-    Tag(u64, Box<Metadatum>),
+    Array(Vec<Value>),
+    Map(KeyValuePairs<Value, Value>),
+    Tag(u64, Box<Value>),
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
@@ -123,7 +123,7 @@ pub type Addrs = Vec<Addr>;
 
 pub type Coin = AnyUInt;
 
-pub type Multiasset<A> = KeyValuePairs<A, Metadatum>;
+pub type Multiasset<A> = KeyValuePairs<A, Value>;
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct UTxOByAddress {
