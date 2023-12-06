@@ -279,7 +279,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
                 Ok(Value::Multiasset(coin, multiasset))
             }
             _ => Err(minicbor::decode::Error::message(
-                "unknown cbor data type for Alonzo Value enum",
+                "unknown cbor data type for Value enum",
             )),
         }
     }
