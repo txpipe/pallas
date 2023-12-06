@@ -83,10 +83,16 @@ pub enum ShelleyMAError {
     ValueNotShelley,
     MinLovelaceUnreached,
     PreservationOfValue,
+    NegativeValue,
     FeesBelowMin,
     WrongEraOutput,
     AddressDecoding,
     WrongNetworkID,
+    MetadataHash,
+    MissingVKWitness,
+    MissingScriptWitness,
+    WrongSignature,
+    MintingLacksPolicy,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

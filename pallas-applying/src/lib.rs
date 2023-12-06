@@ -1,12 +1,12 @@
 //! Logic for validating and applying new blocks and txs to the chain state
 
 pub mod byron;
-pub mod shelley;
+pub mod shelley_ma;
 pub mod types;
 
 use byron::validate_byron_tx;
 use pallas_traverse::{Era, MultiEraTx};
-use shelley::validate_shelley_tx;
+use shelley_ma::validate_shelley_ma_tx;
 
 pub use types::{
     Environment, MultiEraProtParams, UTxOs, ValidationError::TxAndProtParamsDiffer,
@@ -30,7 +30,7 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             network_id,
         } => match metx.era() {
             Era::Shelley | Era::Allegra | Era::Mary => match metx.as_alonzo() {
-                Some(mtx) => validate_shelley_tx(
+                Some(mtx) => validate_shelley_ma_tx(
                     mtx,
                     utxos,
                     spp,

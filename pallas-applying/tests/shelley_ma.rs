@@ -17,7 +17,8 @@ use pallas_codec::{
 };
 use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
-    MintedTx, TransactionBody, TransactionInput, TransactionOutput, Value,
+    MintedTx, MintedWitnessSet, TransactionBody, TransactionInput, TransactionOutput, VKeyWitness,
+    Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 
@@ -59,7 +60,7 @@ mod shelley_tests {
 
     #[test]
     // Transaction hash: 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
-    fn successful_mainnet_tx() {
+    fn successful_mainnet_shelley_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
@@ -80,6 +81,99 @@ mod shelley_tests {
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash: 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0
+    fn successful_mainnet_shelley_tx_with_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley2.address")),
+            Value::Coin(2000000),
+            None,
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 17584925,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash: c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a
+    fn successful_mainnet_shelley_tx_with_metadata() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley3.address")),
+            Value::Coin(10000000),
+            None,
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5860488,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash: b7b1046d1787ac6917f5bb5841e73b3f4bef8f0a6bf692d05ef18e1db9c3f519
+    fn successful_mainnet_mary_tx_with_minting() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/mary1.address")),
+            Value::Coin(3500000),
+            None,
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 24381863,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
@@ -393,7 +487,6 @@ mod shelley_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
             (&tx_body.outputs).split_first().unwrap();
-
         let addr: ShelleyAddress =
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
@@ -413,7 +506,6 @@ mod shelley_tests {
         let mut new_outputs = Vec::from(rest);
         new_outputs.insert(0, altered_output);
         tx_body.outputs = new_outputs;
-
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
@@ -445,6 +537,181 @@ mod shelley_tests {
             Ok(()) => assert!(false, "Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 Shelley(WrongNetworkID) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like successful_mainnet_shelley_tx_with_metadata (hash:
+    // c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a)
+    fn auxiliary_data_removed() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley3.address")),
+            Value::Coin(10000000),
+            None,
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5860488,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Like successful_mainnet_shelley_tx (hash:
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but the verification-key
+    // witness is removed.
+    fn missing_vk_witness() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Modify the first output address.
+        let mut tx_wits: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        tx_wits.vkeywitness = Some(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Missing verification key witness"),
+            Err(err) => match err {
+                Shelley(MissingVKWitness) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like successful_mainnet_shelley_tx (hash:
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but the signature inside
+    // the verification-key witness is changed.
+    fn vk_witness_changed() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Modify the first output address.
+        let mut tx_wits: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut wit: VKeyWitness = tx_wits.vkeywitness.clone().unwrap().pop().unwrap();
+        let mut sig_as_vec: Vec<u8> = wit.signature.to_vec();
+        sig_as_vec.pop();
+        sig_as_vec.push(0u8);
+        wit.signature = Bytes::from(sig_as_vec);
+        tx_wits.vkeywitness = Some(Vec::from([wit]));
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley1.address")),
+            Value::Coin(2332267427205),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Missing verification key witness"),
+            Err(err) => match err {
+                Shelley(WrongSignature) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like successful_mainnet_shelley_tx_with_script(hash:
+    // 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0), but the native-script
+    // witness is removed.
+    fn missing_native_script_witness() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Modify the first output address.
+        let mut tx_wits: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        tx_wits.native_script = Some(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 4096,
+                min_lovelace: 1000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_single_input_tx(
+            &mtx.transaction_body,
+            String::from(include_str!("../../test_data/shelley2.address")),
+            Value::Coin(2000000),
+            None,
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Missing native script witness"),
+            Err(err) => match err {
+                Shelley(MissingScriptWitness) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
