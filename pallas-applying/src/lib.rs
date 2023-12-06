@@ -5,40 +5,43 @@ pub mod shelley;
 pub mod types;
 
 use byron::validate_byron_tx;
-use pallas_traverse::{
-    Era, MultiEraTx, MultiEraTx::AlonzoCompatible, MultiEraTx::Byron as ByronTxPayload,
-};
+use pallas_traverse::{Era, MultiEraTx};
 use shelley::validate_shelley_tx;
 
-pub use types::{Environment, MultiEraProtParams, UTxOs, ValidationResult};
+pub use types::{
+    Environment, MultiEraProtParams, UTxOs, ValidationError::TxAndProtParamsDiffer,
+    ValidationResult,
+};
 
 pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> ValidationResult {
-    match (metx, env) {
-        (
-            ByronTxPayload(mtxp),
-            Environment {
-                prot_params: MultiEraProtParams::Byron(bpp),
-                prot_magic,
-                ..
-            },
-        ) => validate_byron_tx(mtxp, utxos, bpp, prot_magic),
-        (
-            AlonzoCompatible(shelley_minted_tx, Era::Shelley),
-            Environment {
-                prot_params: MultiEraProtParams::Shelley(spp),
-                prot_magic,
-                block_slot,
-                network_id,
-            },
-        ) => validate_shelley_tx(
-            shelley_minted_tx,
-            utxos,
-            spp,
+    match env {
+        Environment {
+            prot_params: MultiEraProtParams::Byron(bpp),
+            prot_magic,
+            ..
+        } => match metx {
+            MultiEraTx::Byron(mtxp) => validate_byron_tx(mtxp, utxos, bpp, prot_magic),
+            _ => Err(TxAndProtParamsDiffer),
+        },
+        Environment {
+            prot_params: MultiEraProtParams::Shelley(spp),
             prot_magic,
             block_slot,
             network_id,
-        ),
-        // TODO: implement the rest of the eras.
-        _ => Ok(()),
+        } => match metx.era() {
+            Era::Shelley | Era::Allegra | Era::Mary => match metx.as_alonzo() {
+                Some(mtx) => validate_shelley_tx(
+                    mtx,
+                    utxos,
+                    spp,
+                    prot_magic,
+                    block_slot,
+                    network_id,
+                    &metx.era(),
+                ),
+                None => Err(TxAndProtParamsDiffer),
+            },
+            _ => Err(TxAndProtParamsDiffer),
+        },
     }
 }

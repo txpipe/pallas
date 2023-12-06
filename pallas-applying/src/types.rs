@@ -50,6 +50,7 @@ pub enum SigningTag {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ValidationError {
+    TxAndProtParamsDiffer,
     Byron(ByronError),
     Shelley(ShelleyMAError),
 }
