@@ -16,7 +16,7 @@ use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
         AssetName, AuxiliaryData, Coin, MintedTx, MintedWitnessSet, Multiasset, NativeScript,
-        PolicyId, TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
+        PolicyId, TransactionBody, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -28,7 +28,6 @@ pub fn validate_shelley_ma_tx(
     mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &ShelleyProtParams,
-    _prot_magic: &u32,
     block_slot: &u64,
     network_id: &u8,
     era: &Era,
@@ -388,38 +387,37 @@ fn check_witnesses(
     utxos: &UTxOs,
     tx_wits: &MintedWitnessSet,
 ) -> ValidationResult {
-    let wits: &mut Vec<(bool, VKeyWitness)> = &mut tx_wits
-        .vkeywitness
-        .clone()
-        .ok_or(Shelley(MissingVKWitness))?
-        .iter()
-        .map(|x| (false, x.clone()))
-        .collect();
+    let wits: &mut Vec<(bool, VKeyWitness)> = &mut mk_vkwitness_check_list(&tx_wits.vkeywitness)?;
     let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
     for input in tx_body.inputs.iter() {
-        let output: &TransactionOutput = find_tx_out(input, utxos)?;
-        match get_payment_part(output)? {
-            ShelleyPaymentPart::Key(payment_key_hash) => {
-                check_verification_key_witness(&payment_key_hash, tx_hash, wits)?
+        match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
+            Some(multi_era_output) => {
+                if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
+                    match get_payment_part(alonzo_comp_output)? {
+                        ShelleyPaymentPart::Key(payment_key_hash) => {
+                            check_verification_key_witness(&payment_key_hash, tx_hash, wits)?
+                        }
+                        ShelleyPaymentPart::Script(script_hash) => {
+                            check_native_script_witness(&script_hash, &tx_wits.native_script)?
+                        }
+                    }
+                }
             }
-            ShelleyPaymentPart::Script(script_hash) => {
-                check_native_script_witness(&script_hash, &tx_wits.native_script)?
-            }
+            None => return Err(Shelley(InputNotInUTxO)),
         }
     }
     check_remaining_verification_key_witnesses(wits, tx_hash)
 }
 
-fn find_tx_out<'a>(
-    input: &'a TransactionInput,
-    utxos: &'a UTxOs,
-) -> Result<&'a TransactionOutput, ValidationError> {
-    let key: MultiEraInput = MultiEraInput::from_alonzo_compatible(input);
-    utxos
-        .get(&key)
-        .ok_or(Shelley(InputNotInUTxO))?
-        .as_alonzo()
-        .ok_or(Shelley(InputNotInUTxO))
+fn mk_vkwitness_check_list(
+    wits: &Option<Vec<VKeyWitness>>,
+) -> Result<Vec<(bool, VKeyWitness)>, ValidationError> {
+    Ok(wits
+        .clone()
+        .ok_or(Shelley(MissingVKWitness))?
+        .iter()
+        .map(|x| (false, x.clone()))
+        .collect::<Vec<(bool, VKeyWitness)>>())
 }
 
 fn get_payment_part(tx_out: &TransactionOutput) -> Result<ShelleyPaymentPart, ValidationError> {

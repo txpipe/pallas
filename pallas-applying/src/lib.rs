@@ -25,20 +25,14 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
         },
         Environment {
             prot_params: MultiEraProtParams::Shelley(spp),
-            prot_magic,
             block_slot,
             network_id,
+            ..
         } => match metx.era() {
             Era::Shelley | Era::Allegra | Era::Mary => match metx.as_alonzo() {
-                Some(mtx) => validate_shelley_ma_tx(
-                    mtx,
-                    utxos,
-                    spp,
-                    prot_magic,
-                    block_slot,
-                    network_id,
-                    &metx.era(),
-                ),
+                Some(mtx) => {
+                    validate_shelley_ma_tx(mtx, utxos, spp, block_slot, network_id, &metx.era())
+                }
                 None => Err(TxAndProtParamsDiffer),
             },
             _ => Err(TxAndProtParamsDiffer),
