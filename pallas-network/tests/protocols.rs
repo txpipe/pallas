@@ -8,12 +8,13 @@ use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
+use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
 use pallas_network::miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     Point,
 };
-use pallas_network::miniprotocols::{handshake, localstate};
+use pallas_network::miniprotocols::{handshake, localstate, txsubmission};
 use pallas_network::multiplexer::{Bearer, Plexer};
 use std::path::Path;
 use tokio::net::{TcpListener, UnixListener};
@@ -663,6 +664,165 @@ pub async fn local_state_query_server_and_client_happy_path() {
         client.statequery().send_release().await.unwrap();
 
         client.statequery().send_done().await.unwrap();
+    });
+
+    _ = tokio::join!(client, server);
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn txsubmission_server_and_client_happy_path_n2n() {
+    let test_txs = vec![(vec![0], vec![0, 0, 0]), (vec![1], vec![1, 1, 1])];
+
+    let server = tokio::spawn({
+        let test_txs = test_txs.clone();
+        async move {
+            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
+                .await
+                .unwrap();
+
+            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
+
+            let server_txsub = peer_server.txsubmission();
+
+            // server waits for init
+
+            server_txsub.wait_for_init().await.unwrap();
+
+            // server requests some tx ids
+
+            server_txsub
+                .acknowledge_and_request_tx_ids(false, 0, 2)
+                .await
+                .unwrap();
+
+            assert_eq!(*server_txsub.state(), txsubmission::State::TxIdsNonBlocking);
+
+            // server receives tx ids
+
+            let txids = match server_txsub.receive_next_reply().await.unwrap() {
+                txsubmission::Reply::TxIds(x) => x,
+                _ => panic!("unexpected message"),
+            };
+
+            assert_eq!(*server_txsub.state(), txsubmission::State::Idle);
+
+            // server requests txs for ids
+
+            let txids: Vec<_> = txids.into_iter().map(|t| t.0).collect();
+
+            assert_eq!(txids[0].1, test_txs[0].0);
+            assert_eq!(txids[1].1, test_txs[1].0);
+
+            server_txsub.request_txs(txids).await.unwrap();
+
+            assert_eq!(*server_txsub.state(), txsubmission::State::Txs);
+
+            // server receives txs
+
+            let txs = match server_txsub.receive_next_reply().await.unwrap() {
+                txsubmission::Reply::Txs(x) => x,
+                _ => panic!("unexpected message"),
+            };
+
+            assert_eq!(*server_txsub.state(), txsubmission::State::Idle);
+
+            assert_eq!(txs[0].1, test_txs[0].1);
+            assert_eq!(txs[1].1, test_txs[1].1);
+
+            // server requests more tx ids (blocking)
+
+            server_txsub
+                .acknowledge_and_request_tx_ids(true, 2, 1)
+                .await
+                .unwrap();
+
+            assert_eq!(*server_txsub.state(), txsubmission::State::TxIdsBlocking);
+
+            // server receives done from client
+
+            match server_txsub.receive_next_reply().await.unwrap() {
+                txsubmission::Reply::Done => (),
+                _ => panic!("unexpected message"),
+            }
+
+            assert_eq!(*server_txsub.state(), txsubmission::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let mut mempool = test_txs.clone();
+
+        // client setup
+
+        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+
+        let client_txsub = client_to_server_conn.txsubmission();
+
+        // send init
+
+        client_txsub.send_init().await.unwrap();
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::Idle);
+
+        // receive ids request from server
+
+        let (_, req) = match client_txsub.next_request().await.unwrap() {
+            txsubmission::Request::TxIdsNonBlocking(ack, req) => (ack, req),
+            _ => panic!("unexpected message"),
+        };
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsNonBlocking);
+
+        // send ids to server
+
+        let to_send = mempool.drain(..req as usize).collect::<Vec<_>>();
+
+        let ids_and_size = to_send
+            .clone()
+            .into_iter()
+            .map(|(h, b)| TxIdAndSize(txsubmission::EraTxId(0, h), b.len() as u32))
+            .collect();
+
+        client_txsub.reply_tx_ids(ids_and_size).await.unwrap();
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::Idle);
+
+        // receive txs request from server
+
+        let ids = match client_txsub.next_request().await.unwrap() {
+            txsubmission::Request::Txs(ids) => ids,
+            _ => panic!("unexpected message"),
+        };
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::Txs);
+
+        assert_eq!(ids[0].1, test_txs[0].0);
+        assert_eq!(ids[1].1, test_txs[1].0);
+
+        // send txs to server
+
+        let txs_to_send: Vec<_> = to_send.into_iter().map(|(_, b)| EraTxBody(0, b)).collect();
+
+        client_txsub.reply_txs(txs_to_send).await.unwrap();
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::Idle);
+
+        // receive tx ids request from server (blocking)
+
+        match client_txsub.next_request().await.unwrap() {
+            txsubmission::Request::TxIds(_, _) => (),
+            _ => panic!("unexpected message"),
+        };
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsBlocking);
+
+        // send done to server
+
+        client_txsub.send_done().await.unwrap();
+
+        assert_eq!(*client_txsub.state(), txsubmission::State::Done);
     });
 
     _ = tokio::join!(client, server);
