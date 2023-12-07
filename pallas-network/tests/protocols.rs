@@ -14,7 +14,7 @@ use pallas_network::miniprotocols::{
     chainsync::{self, NextResponse},
     Point,
 };
-use pallas_network::miniprotocols::{handshake, localstate, txsubmission};
+use pallas_network::miniprotocols::{handshake, localstate, txsubmission, MAINNET_MAGIC};
 use pallas_network::multiplexer::{Bearer, Plexer};
 use std::path::Path;
 use tokio::net::{TcpListener, UnixListener};
@@ -826,4 +826,111 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
     });
 
     _ = tokio::join!(client, server);
+}
+
+#[tokio::test]
+#[ignore]
+pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
+    let tx_hash =
+        hex::decode("8b6e50e09376b5021e93fe688ba9e7100e3682cebcb39970af5f4e5962bc5a3d").unwrap();
+    let tx_bytes = hex::decode("84a5008182582030edb55f21419f693940372b080fa931d3f7340f9d362573d1b8a20bcc7f208000018182583901c04c6e21cc83f7322439d5cd6950bd36d114da35859fe01fbb31da1f58646661658b029b6906bd3a5b35150cf1b274cbdffd2f504119eb9f1a009b83c1021a000618f0031a20b40da0048183028200581c58646661658b029b6906bd3a5b35150cf1b274cbdffd2f504119eb9f581cae66e56ab11ccb39e882669f220a37956c683e4ce84fefd910012d7aa1008282582080d6e8a2928c2b54cfe94a607c246de2062dc32fd49bd7e522cc210fe581c45b58404e17fe684a23f53e30abc9024f8333419e8eba5dce149dd8d7d0e641b8e05d893a48202c05bc23c983a15b17f1fc9641b6ebb544e3d787518150f2e6e097990a8258202e4103fac5c3fbd804802647dc1c6c9a3610584ba73a77f70dc5a4f962334a325840635471d189d510d6e8d18f28ec73d9cc191f86e625610710ed1695d484397bd32e0b67078ce70daea328c065af1e887a17bd08950623504b29b2e82c804d7607f5f6").unwrap();
+
+    let mempool = vec![(tx_hash, tx_bytes)];
+
+    // client setup
+
+    let mut client_to_server_conn =
+        PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
+            .await
+            .unwrap();
+
+    let client_txsub = client_to_server_conn.txsubmission();
+
+    // send init
+
+    client_txsub.send_init().await.unwrap();
+
+    assert_eq!(*client_txsub.state(), txsubmission::State::Idle);
+
+    // receive ids request from server
+
+    let ack = match client_txsub.next_request().await.unwrap() {
+        txsubmission::Request::TxIds(ack, _) => {
+            assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsBlocking);
+            ack
+        }
+        txsubmission::Request::TxIdsNonBlocking(ack, _) => {
+            assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsNonBlocking);
+            ack
+        }
+        _ => panic!("unexpected message"),
+    };
+
+    assert_eq!(ack, 0);
+
+    // send ids to server
+
+    let to_send = mempool.clone();
+
+    let ids_and_size = to_send
+        .clone()
+        .into_iter()
+        .map(|(h, b)| TxIdAndSize(txsubmission::EraTxId(4, h), b.len() as u32))
+        .collect();
+
+    client_txsub.reply_tx_ids(ids_and_size).await.unwrap();
+
+    assert_eq!(*client_txsub.state(), txsubmission::State::Idle);
+
+    // receive txs request from server
+
+    let ids = match client_txsub.next_request().await.unwrap() {
+        txsubmission::Request::Txs(ids) => ids,
+        _ => panic!("unexpected message"),
+    };
+
+    assert_eq!(*client_txsub.state(), txsubmission::State::Txs);
+
+    assert_eq!(ids[0].1, mempool[0].0);
+
+    // send txs to server
+
+    let txs_to_send: Vec<_> = to_send.into_iter().map(|(_, b)| EraTxBody(4, b)).collect();
+
+    client_txsub.reply_txs(txs_to_send).await.unwrap();
+
+    assert_eq!(*client_txsub.state(), txsubmission::State::Idle);
+
+    // receive tx ids request from server (blocking)
+
+    // server usually sends another request before processing/acknowledging our
+    // previous response, so ack is 0. the ack comes in the next message.
+    match client_txsub.next_request().await.unwrap() {
+        txsubmission::Request::TxIdsNonBlocking(_, _) => {
+            assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsNonBlocking);
+        }
+        _ => panic!("unexpected message"),
+    };
+
+    client_txsub.reply_tx_ids(vec![]).await.unwrap();
+
+    let ack = match client_txsub.next_request().await.unwrap() {
+        txsubmission::Request::TxIds(ack, _) => {
+            assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsBlocking);
+
+            client_txsub.send_done().await.unwrap();
+            assert_eq!(*client_txsub.state(), txsubmission::State::Done);
+
+            ack
+        }
+        txsubmission::Request::TxIdsNonBlocking(ack, _) => {
+            assert_eq!(*client_txsub.state(), txsubmission::State::TxIdsNonBlocking);
+
+            ack
+        }
+        _ => panic!("unexpected message"),
+    };
+
+    // server should acknowledge the one transaction we sent now
+    assert_eq!(ack, 1);
 }
