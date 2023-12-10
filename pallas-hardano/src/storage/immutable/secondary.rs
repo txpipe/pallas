@@ -77,12 +77,10 @@ impl Iterator for Reader {
     type Item = Result<Entry, std::io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current.is_none() {
-            return None;
-        }
+        let current = self.current?;
 
         let start = self.inner.stream_position().unwrap();
-        let delta = self.current.unwrap() as u64 - start;
+        let delta = current as u64 - start;
         self.inner.seek_relative(delta as i64).unwrap();
 
         let mut buf = vec![0u8; layout::SIZE.unwrap()];
@@ -107,11 +105,11 @@ impl Iterator for Reader {
 
 pub fn read_entries(dir: &Path, name: &str) -> Result<Reader, std::io::Error> {
     let primary = dir.join(name).with_extension("primary");
-    let primary = std::fs::File::open(&primary)?;
+    let primary = std::fs::File::open(primary)?;
     let primary = primary::Reader::open(primary)?;
 
     let secondary = dir.join(name).with_extension("secondary");
-    let secondary = std::fs::File::open(&secondary)?;
+    let secondary = std::fs::File::open(secondary)?;
 
     secondary::Reader::open(primary, secondary)
 }

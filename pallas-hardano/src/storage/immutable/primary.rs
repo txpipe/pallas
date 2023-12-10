@@ -40,7 +40,7 @@ impl Reader {
     fn read_version(inner: &mut BufReader<File>) -> Result<u8, std::io::Error> {
         let mut buf = vec![0u8; 1];
         inner.read_exact(&mut buf)?;
-        let version = buf.get(0).unwrap();
+        let version = buf.first().unwrap();
 
         Ok(*version)
     }

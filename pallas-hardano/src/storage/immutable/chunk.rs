@@ -93,15 +93,15 @@ impl Iterator for Reader {
 
 pub fn read_blocks(dir: &Path, name: &str) -> Result<Reader, std::io::Error> {
     let primary = dir.join(name).with_extension("primary");
-    let primary = std::fs::File::open(&primary)?;
+    let primary = std::fs::File::open(primary)?;
     let primary = immutable::primary::Reader::open(primary)?;
 
     let secondary = dir.join(name).with_extension("secondary");
-    let secondary = std::fs::File::open(&secondary)?;
+    let secondary = std::fs::File::open(secondary)?;
     let secondary = secondary::Reader::open(primary, secondary)?;
 
     let chunk = dir.join(name).with_extension("chunk");
-    let chunk = std::fs::File::open(&chunk)?;
+    let chunk = std::fs::File::open(chunk)?;
     Reader::open(secondary, chunk)
 }
 
