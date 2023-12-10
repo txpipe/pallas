@@ -1,0 +1,21 @@
+[package]
+name = "pallas-hardano"
+description = "Pallas interoperability with the Haskel Cardano node implementation"
+version = "0.20.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-hardano"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
+
+[dependencies]
+binary-layout = "3.2.0"
+tap = "1.0.1"
+tracing = "0.1.40"
+
+[dev-dependencies]
+tracing-subscriber = "0.3.17"
+hex = "0.4.3"
+pallas-traverse = { version = "0.20.0", path = "../pallas-traverse" }

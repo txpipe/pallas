@@ -47,6 +47,10 @@ pub mod storage {
     #[cfg(feature = "unstable")]
     #[doc(inline)]
     pub use pallas_rolldb as rolldb;
+
+    #[cfg(feature = "unstable")]
+    #[doc(inline)]
+    pub use pallas_hardano::storage as hardano;
 }
 
 #[doc(inline)]
