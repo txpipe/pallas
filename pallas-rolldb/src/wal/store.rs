@@ -131,7 +131,7 @@ impl<'a> RollBatch<'a> {
 
     fn stage_append(&mut self, log: Log) {
         let new_seq = self.2 + 1;
-        WalKV::stage_upsert(&self.0, DBInt(new_seq), DBSerde(log), &mut self.1);
+        WalKV::stage_upsert(self.0, DBInt(new_seq), DBSerde(log), &mut self.1);
         self.2 = new_seq;
     }
 
@@ -175,7 +175,7 @@ impl Store {
         hash: BlockHash,
         body: BlockBody,
     ) -> Result<(), Error> {
-        let mut batch = RollBatch::new(&mut self.db, self.wal_seq);
+        let mut batch = RollBatch::new(&self.db, self.wal_seq);
 
         batch.stage_append(Log::Apply(slot, hash, body));
 

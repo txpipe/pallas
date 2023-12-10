@@ -3,7 +3,6 @@
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use std::net::SocketAddr;
-use std::path::Path;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
@@ -12,8 +11,11 @@ use tokio::sync::mpsc::error::SendError;
 use tokio::time::Instant;
 use tracing::{debug, error, trace};
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
+
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::NamedPipeClient;
 
 const HEADER_LEN: usize = 8;
 
@@ -60,15 +62,14 @@ pub struct Segment {
     pub payload: Payload,
 }
 
-#[cfg(target_os = "windows")]
 pub enum Bearer {
     Tcp(TcpStream),
-}
 
-#[cfg(not(target_os = "windows"))]
-pub enum Bearer {
-    Tcp(TcpStream),
+    #[cfg(unix)]
     Unix(UnixStream),
+
+    #[cfg(windows)]
+    NamedPipe(NamedPipeClient),
 }
 
 const BUFFER_LEN: usize = 1024 * 10;
@@ -84,7 +85,13 @@ impl Bearer {
         Ok((Self::Tcp(stream), addr))
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
+    pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> Result<Self, tokio::io::Error> {
+        let stream = UnixStream::connect(path).await?;
+        Ok(Self::Unix(stream))
+    }
+
+    #[cfg(unix)]
     pub async fn accept_unix(
         listener: &UnixListener,
     ) -> tokio::io::Result<(Self, tokio::net::unix::SocketAddr)> {
@@ -92,41 +99,59 @@ impl Bearer {
         Ok((Self::Unix(stream), addr))
     }
 
-    #[cfg(not(target_os = "windows"))]
-    pub async fn connect_unix(path: impl AsRef<Path>) -> Result<Self, tokio::io::Error> {
-        let stream = UnixStream::connect(path).await?;
-        Ok(Self::Unix(stream))
+    #[cfg(windows)]
+    pub async fn connect_named_pipe(
+        pipe_name: impl AsRef<std::ffi::OsStr>,
+    ) -> Result<Self, tokio::io::Error> {
+        let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
+        Ok(Self::NamedPipe(client))
     }
 
-    pub async fn readable(&self) -> tokio::io::Result<()> {
+    pub async fn readable(&mut self) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.readable().await,
-            #[cfg(not(target_os = "windows"))]
+
+            #[cfg(unix)]
             Bearer::Unix(x) => x.readable().await,
+
+            #[cfg(windows)]
+            Bearer::NamedPipe(x) => x.readable().await,
         }
     }
 
     fn try_read(&mut self, buf: &mut [u8]) -> tokio::io::Result<usize> {
         match self {
             Bearer::Tcp(x) => x.try_read(buf),
-            #[cfg(not(target_os = "windows"))]
+
+            #[cfg(unix)]
             Bearer::Unix(x) => x.try_read(buf),
+
+            #[cfg(windows)]
+            Bearer::NamedPipe(x) => x.try_read(buf),
         }
     }
 
     async fn write_all(&mut self, buf: &[u8]) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.write_all(buf).await,
-            #[cfg(not(target_os = "windows"))]
+
+            #[cfg(unix)]
             Bearer::Unix(x) => x.write_all(buf).await,
+
+            #[cfg(windows)]
+            Bearer::NamedPipe(x) => x.write_all(buf).await,
         }
     }
 
     async fn flush(&mut self) -> tokio::io::Result<()> {
         match self {
             Bearer::Tcp(x) => x.flush().await,
-            #[cfg(not(target_os = "windows"))]
+
+            #[cfg(unix)]
             Bearer::Unix(x) => x.flush().await,
+
+            #[cfg(windows)]
+            Bearer::NamedPipe(x) => x.flush().await,
         }
     }
 }

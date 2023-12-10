@@ -1,8 +1,9 @@
 // TODO: this should move to pallas::ledger crate at some point
 
 // required for derive attrs to work
-use pallas_codec::minicbor;
+use pallas_codec::minicbor::{self};
 
+use pallas_codec::utils::{Bytes, KeyValuePairs};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
@@ -80,6 +81,30 @@ pub struct SystemStart {
     pub picoseconds_of_day: u64,
 }
 
+#[derive(Debug, Encode, Decode, PartialEq)]
+pub struct StakeDistribution {
+    #[n(0)]
+    pub pools: KeyValuePairs<Bytes, Pool>,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Pool {
+    #[n(0)]
+    pub stakes: Fraction,
+
+    #[n(1)]
+    pub hashes: Bytes,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Fraction {
+    #[n(0)]
+    pub num: u64,
+
+    #[n(1)]
+    pub dem: u64,
+}
+
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
     let query = Request::GetChainPoint;
     let result = client.query(query).await?;
@@ -108,6 +133,18 @@ pub async fn get_block_epoch_number(client: &mut Client, era: u16) -> Result<u32
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,): (_,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+pub async fn get_stake_distribution(
+    client: &mut Client,
+    era: u16,
+) -> Result<StakeDistribution, ClientError> {
+    let query = BlockQuery::GetStakeDistribution;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
 
     Ok(result)
 }

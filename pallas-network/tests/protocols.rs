@@ -2,21 +2,18 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_codec::utils::AnyCbor;
+use pallas_codec::utils::{AnyCbor, KeyValuePairs};
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
-use pallas_network::miniprotocols::handshake::n2c;
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::{ClientAcquireRequest, ClientQueryRequest};
+use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::{
     blockfetch,
     chainsync::{self, NextResponse},
     Point,
 };
-use pallas_network::miniprotocols::{
-    handshake, localstate, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-};
+use pallas_network::miniprotocols::{handshake, localstate};
 use pallas_network::multiplexer::{Bearer, Plexer};
 use std::path::Path;
 use tokio::net::{TcpListener, UnixListener};
@@ -457,7 +454,6 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn local_state_query_server_and_client_happy_path() {
     let server = tokio::spawn({
         async move {
@@ -465,7 +461,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let socket_path = Path::new("node.socket");
 
             if socket_path.exists() {
-                fs::remove_file(&socket_path).unwrap();
+                fs::remove_file(socket_path).unwrap();
             }
 
             let unix_listener = UnixListener::bind(socket_path).unwrap();
@@ -501,6 +497,48 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 day_of_year: 1,
                 picoseconds_of_day: 999999999,
             });
+
+            server.statequery().send_result(result).await.unwrap();
+
+            assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+            // server receives query from client
+
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            assert_eq!(
+                query,
+                localstate::queries_v16::Request::LedgerQuery(
+                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                        5,
+                        localstate::queries_v16::BlockQuery::GetStakeDistribution,
+                    ),
+                )
+            );
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let fraction = localstate::queries_v16::Fraction { num: 10, dem: 20 };
+            let pool = localstate::queries_v16::Pool {
+                stakes: fraction.clone(),
+                hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
+                    .to_vec()
+                    .into(),
+            };
+
+            let pools = vec![(
+                b"pool1qvfw4r3auysa5mhpr90n7mmdhs55js8gdywh0y2e3sy6568j2wp"
+                    .to_vec()
+                    .into(),
+                pool,
+            )];
+
+            let pools = KeyValuePairs::from(pools);
+
+            let result = AnyCbor::from_encode(localstate::queries_v16::StakeDistribution { pools });
 
             server.statequery().send_result(result).await.unwrap();
 
@@ -575,6 +613,42 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 picoseconds_of_day: 999999999,
             }
         );
+
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
+            localstate::queries_v16::LedgerQuery::BlockQuery(
+                5,
+                localstate::queries_v16::BlockQuery::GetStakeDistribution,
+            ),
+        ));
+
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: localstate::queries_v16::StakeDistribution = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        let fraction = localstate::queries_v16::Fraction { num: 10, dem: 20 };
+        let pool = localstate::queries_v16::Pool {
+            stakes: fraction.clone(),
+            hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
+                .to_vec()
+                .into(),
+        };
+
+        let pools = vec![(
+            b"pool1qvfw4r3auysa5mhpr90n7mmdhs55js8gdywh0y2e3sy6568j2wp"
+                .to_vec()
+                .into(),
+            pool,
+        )];
+
+        let pools = KeyValuePairs::from(pools);
+
+        assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
 
         // client sends a ReAquire
 

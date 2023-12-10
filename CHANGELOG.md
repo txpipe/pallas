@@ -2,6 +2,208 @@
 ## [Unreleased]
 
 
+<a name="v0.20.0"></a>
+## [v0.20.0] - 2023-11-20
+### Chore
+- fix lint warnings ([#339](https://github.com/txpipe/pallas/issues/339))
+- fix lint warnings ([#330](https://github.com/txpipe/pallas/issues/330))
+- update mini-protocol pdf README link ([#301](https://github.com/txpipe/pallas/issues/301))
+- include configs in main crate ([#299](https://github.com/txpipe/pallas/issues/299))
+- **deps:** update NamedPipes related deps ([#336](https://github.com/txpipe/pallas/issues/336))
+
+### Docs
+- **applying:** document Byron tx validations ([#311](https://github.com/txpipe/pallas/issues/311))
+
+### Feat
+- scaffold Byron phase-1 validations ([#300](https://github.com/txpipe/pallas/issues/300))
+- improve access to genesis utxos ([#302](https://github.com/txpipe/pallas/issues/302))
+- generate genesis utxos from genesis file ([#59](https://github.com/txpipe/pallas/issues/59))
+- introduce RollDB ([#307](https://github.com/txpipe/pallas/issues/307))
+- introduce conway primitives ([#290](https://github.com/txpipe/pallas/issues/290))
+- Move flat en/de from aiken to pallas ([#303](https://github.com/txpipe/pallas/issues/303))
+- **applying:** validate all inputs in UTxO set ([#324](https://github.com/txpipe/pallas/issues/324))
+- **applying:** check non-empty set of inputs and outputs ([#312](https://github.com/txpipe/pallas/issues/312))
+- **applying:** add remaining validations for Byron era ([#325](https://github.com/txpipe/pallas/issues/325))
+- **codec:** add utility for untyped CBOR fragments ([#327](https://github.com/txpipe/pallas/issues/327))
+- **network:** add cbor decoder for HardForkQuery ([#335](https://github.com/txpipe/pallas/issues/335))
+- **network:** scaffold local state query server ([#280](https://github.com/txpipe/pallas/issues/280))
+- **network:** implement windows named pipes connections ([#279](https://github.com/txpipe/pallas/issues/279))
+- **network:** implement LocalTxSubmission client ([#289](https://github.com/txpipe/pallas/issues/289))
+- **traverse:** expose tx update field ([#313](https://github.com/txpipe/pallas/issues/313))
+
+### Fix
+- fix conditional code for windows builds ([#334](https://github.com/txpipe/pallas/issues/334))
+- make rolldb an optional dependency ([#329](https://github.com/txpipe/pallas/issues/329))
+- **applying:** contemplate fee rules for genesis UTxOs ([#332](https://github.com/txpipe/pallas/issues/332))
+- **network:** add missing feature gate flag to tokio dependency ([#333](https://github.com/txpipe/pallas/issues/333))
+- **network:** fix bad codec for tx monitoring messages ([#298](https://github.com/txpipe/pallas/issues/298))
+- **rolldb:** fix find wal sequence semantics ([#310](https://github.com/txpipe/pallas/issues/310))
+
+### Refactor
+- **network:** simplify local state mini-protocol implementation ([#326](https://github.com/txpipe/pallas/issues/326))
+
+
+<a name="v0.19.1"></a>
+## [v0.19.1] - 2023-09-10
+### Ci
+- run Rust check on multiple OS ([#286](https://github.com/txpipe/pallas/issues/286))
+
+### Fix
+- **network:** skip unix listener on windows ([#287](https://github.com/txpipe/pallas/issues/287))
+- **network:** make facade members public ([#285](https://github.com/txpipe/pallas/issues/285))
+
+
+<a name="v0.19.0"></a>
+## [v0.19.0] - 2023-09-09
+### Chore
+- fix lint warning ([#283](https://github.com/txpipe/pallas/issues/283))
+- fix pending code formatting ([#270](https://github.com/txpipe/pallas/issues/270))
+- fix clippy warnings ([#262](https://github.com/txpipe/pallas/issues/262))
+- undo upstream crate experiment ([#258](https://github.com/txpipe/pallas/issues/258))
+- upgrade to gasket v0.4 ([#256](https://github.com/txpipe/pallas/issues/256))
+- upgrade gasket to v0.3.0 ([#255](https://github.com/txpipe/pallas/issues/255))
+- Use gasket dep from crates.io ([#249](https://github.com/txpipe/pallas/issues/249))
+- Fix lint warnings for all targets ([#240](https://github.com/txpipe/pallas/issues/240))
+- Improve network tracing messages ([#237](https://github.com/txpipe/pallas/issues/237))
+- **traverse:** Improve API ergonomics ([#233](https://github.com/txpipe/pallas/issues/233))
+
+### Docs
+- Small crate readme tweaks
+- **network:** Add chain-sync client docs ([#252](https://github.com/txpipe/pallas/issues/252))
+- **network:** Document BlockFetch client ([#251](https://github.com/txpipe/pallas/issues/251))
+
+### Feat
+- Migrate to asynchronous I/O ([#241](https://github.com/txpipe/pallas/issues/241))
+- Add client/server use_channel variants ([#228](https://github.com/txpipe/pallas/issues/228))
+- Allow creation of secret key from bytes ([#224](https://github.com/txpipe/pallas/issues/224))
+- Make the underlying TxBody type generic
+- add helper to create bootstrap addresses ([#269](https://github.com/txpipe/pallas/issues/269))
+- add handshake with query for n2c ([#266](https://github.com/txpipe/pallas/issues/266))
+- Introduce Upstream crate ([#230](https://github.com/txpipe/pallas/issues/230))
+- introduce UTxO RPC interop ([#260](https://github.com/txpipe/pallas/issues/260))
+- Add constants for known miniprotocols
+- **addresses:** Derive Hash on Address ([#235](https://github.com/txpipe/pallas/issues/235))
+- **interop:** add block mapping to u5c ([#261](https://github.com/txpipe/pallas/issues/261))
+- **network:** add server side of blockfetch miniprotocol ([#275](https://github.com/txpipe/pallas/issues/275))
+- **network:** implement chain sync server side ([#277](https://github.com/txpipe/pallas/issues/277))
+- **network:** add server-side facades  ([#282](https://github.com/txpipe/pallas/issues/282))
+- **traverse:** Introduce time helpers ([#234](https://github.com/txpipe/pallas/issues/234))
+- **traverse:** Expose aux data scripts ([#232](https://github.com/txpipe/pallas/issues/232))
+- **traverse:** improve native asset access ([#259](https://github.com/txpipe/pallas/issues/259))
+- **traverse:** add network id to genesis values ([#272](https://github.com/txpipe/pallas/issues/272))
+- **upstream:** Make output generic by adapter ([#236](https://github.com/txpipe/pallas/issues/236))
+
+### Fix
+- Make upstream worker easy to connect ([#246](https://github.com/txpipe/pallas/issues/246))
+- use u64 instead of i64 for unit interval and rational numerator ([#268](https://github.com/txpipe/pallas/issues/268))
+- fix builds on windows platform ([#263](https://github.com/txpipe/pallas/issues/263))
+- ignore duplicate consumed inputs ([#257](https://github.com/txpipe/pallas/issues/257))
+- back-merge v0.18.1 hotfix ([#254](https://github.com/txpipe/pallas/issues/254))
+- Handle bearer I/O errors ([#247](https://github.com/txpipe/pallas/issues/247))
+- **traverse:** fix well-known genesis values for preprod / preview ([#284](https://github.com/txpipe/pallas/issues/284))
+- **upstream:** Use sync read for chunk dequeue ([#239](https://github.com/txpipe/pallas/issues/239))
+
+### Refactor
+- Improve network module naming ([#245](https://github.com/txpipe/pallas/issues/245))
+- Merge multiplexer & miniprotocols into single crate ([#244](https://github.com/txpipe/pallas/issues/244))
+- **traverse:** Unify mint and output asset artifacts ([#231](https://github.com/txpipe/pallas/issues/231))
+
+### BREAKING CHANGE
+
+The signature for Bearer.accept_tcp now returns the bearer, and the address that connected.
+
+This can, for example, be used to implement allow and deny lists for accepting or rejecting incoming connections.
+
+* Return the remote address from accept_unix
+
+* cargo fmt
+
+* Fix comment formatting
+
+
+<a name="v0.18.2"></a>
+## [v0.18.2] - 2023-08-23
+### Fix
+- use u64 instead of i64 for unit interval and rational numerator ([#268](https://github.com/txpipe/pallas/issues/268))
+- **primitives:** Handle U8 and U16 in value serialization
+
+
+<a name="v0.19.0-alpha.2"></a>
+## [v0.19.0-alpha.2] - 2023-07-18
+### Chore
+- fix pending code formatting ([#270](https://github.com/txpipe/pallas/issues/270))
+
+### Feat
+- add handshake with query for n2c ([#266](https://github.com/txpipe/pallas/issues/266))
+
+### Fix
+- use u64 instead of i64 for unit interval and rational numerator ([#268](https://github.com/txpipe/pallas/issues/268))
+- fix builds on windows platform ([#263](https://github.com/txpipe/pallas/issues/263))
+
+
+<a name="v0.19.0-alpha.1"></a>
+## [v0.19.0-alpha.1] - 2023-06-11
+### Chore
+- fix clippy warnings ([#262](https://github.com/txpipe/pallas/issues/262))
+- undo upstream crate experiment ([#258](https://github.com/txpipe/pallas/issues/258))
+- upgrade to gasket v0.4 ([#256](https://github.com/txpipe/pallas/issues/256))
+- upgrade gasket to v0.3.0 ([#255](https://github.com/txpipe/pallas/issues/255))
+- Use gasket dep from crates.io ([#249](https://github.com/txpipe/pallas/issues/249))
+- Fix lint warnings for all targets ([#240](https://github.com/txpipe/pallas/issues/240))
+- Improve network tracing messages ([#237](https://github.com/txpipe/pallas/issues/237))
+- **traverse:** Improve API ergonomics ([#233](https://github.com/txpipe/pallas/issues/233))
+
+### Docs
+- Small crate readme tweaks
+- **network:** Add chain-sync client docs ([#252](https://github.com/txpipe/pallas/issues/252))
+- **network:** Document BlockFetch client ([#251](https://github.com/txpipe/pallas/issues/251))
+
+### Feat
+- Introduce Upstream crate ([#230](https://github.com/txpipe/pallas/issues/230))
+- introduce UTxO RPC interop ([#260](https://github.com/txpipe/pallas/issues/260))
+- Add client/server use_channel variants ([#228](https://github.com/txpipe/pallas/issues/228))
+- Migrate to asynchronous I/O ([#241](https://github.com/txpipe/pallas/issues/241))
+- Allow creation of secret key from bytes ([#224](https://github.com/txpipe/pallas/issues/224))
+- Add constants for known miniprotocols
+- Make the underlying TxBody type generic
+- **addresses:** Derive Hash on Address ([#235](https://github.com/txpipe/pallas/issues/235))
+- **interop:** add block mapping to u5c ([#261](https://github.com/txpipe/pallas/issues/261))
+- **traverse:** Expose aux data scripts ([#232](https://github.com/txpipe/pallas/issues/232))
+- **traverse:** improve native asset access ([#259](https://github.com/txpipe/pallas/issues/259))
+- **traverse:** Introduce time helpers ([#234](https://github.com/txpipe/pallas/issues/234))
+- **upstream:** Make output generic by adapter ([#236](https://github.com/txpipe/pallas/issues/236))
+
+### Fix
+- ignore duplicate consumed inputs ([#257](https://github.com/txpipe/pallas/issues/257))
+- back-merge v0.18.1 hotfix ([#254](https://github.com/txpipe/pallas/issues/254))
+- Handle bearer I/O errors ([#247](https://github.com/txpipe/pallas/issues/247))
+- Make upstream worker easy to connect ([#246](https://github.com/txpipe/pallas/issues/246))
+- **upstream:** Use sync read for chunk dequeue ([#239](https://github.com/txpipe/pallas/issues/239))
+
+### Refactor
+- Improve network module naming ([#245](https://github.com/txpipe/pallas/issues/245))
+- Merge multiplexer & miniprotocols into single crate ([#244](https://github.com/txpipe/pallas/issues/244))
+- **traverse:** Unify mint and output asset artifacts ([#231](https://github.com/txpipe/pallas/issues/231))
+
+### BREAKING CHANGE
+
+The signature for Bearer.accept_tcp now returns the bearer, and the address that connected.
+
+This can, for example, be used to implement allow and deny lists for accepting or rejecting incoming connections.
+
+* Return the remote address from accept_unix
+
+* cargo fmt
+
+* Fix comment formatting
+
+
+<a name="v0.18.1"></a>
+## [v0.18.1] - 2023-04-21
+### Fix
+- **primitives:** Handle U8 and U16 in value serialization
+
+
 <a name="v0.19.0-alpha.0"></a>
 ## [v0.19.0-alpha.0] - 2023-04-13
 ### Chore
@@ -519,11 +721,11 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - **miniprotocols:** Use pure functions for state machines ([#84](https://github.com/txpipe/pallas/issues/84))
 
 
-<a name="pallas-miniprotocols@0.7.1"></a>
-## [pallas-miniprotocols@0.7.1] - 2022-03-16
-
 <a name="pallas-codec@0.7.1"></a>
 ## [pallas-codec@0.7.1] - 2022-03-16
+
+<a name="pallas-miniprotocols@0.7.1"></a>
+## [pallas-miniprotocols@0.7.1] - 2022-03-16
 ### Fix
 - **miniprotocols:** Handle regression related to multi-msg payloads ([#76](https://github.com/txpipe/pallas/issues/76))
 
@@ -808,7 +1010,14 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.19.0-alpha.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.20.0...HEAD
+[v0.20.0]: https://github.com/txpipe/pallas/compare/v0.19.1...v0.20.0
+[v0.19.1]: https://github.com/txpipe/pallas/compare/v0.19.0...v0.19.1
+[v0.19.0]: https://github.com/txpipe/pallas/compare/v0.18.2...v0.19.0
+[v0.18.2]: https://github.com/txpipe/pallas/compare/v0.19.0-alpha.2...v0.18.2
+[v0.19.0-alpha.2]: https://github.com/txpipe/pallas/compare/v0.19.0-alpha.1...v0.19.0-alpha.2
+[v0.19.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.18.1...v0.19.0-alpha.1
+[v0.18.1]: https://github.com/txpipe/pallas/compare/v0.19.0-alpha.0...v0.18.1
 [v0.19.0-alpha.0]: https://github.com/txpipe/pallas/compare/v0.18.0...v0.19.0-alpha.0
 [v0.18.0]: https://github.com/txpipe/pallas/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/txpipe/pallas/compare/v0.16.0...v0.17.0
@@ -845,9 +1054,9 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 [v0.9.0-alpha.0]: https://github.com/txpipe/pallas/compare/v0.8.0...v0.9.0-alpha.0
 [v0.8.0]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.1...v0.8.0
 [v0.8.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.0...v0.8.0-alpha.1
-[v0.8.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-miniprotocols@0.7.1...v0.8.0-alpha.0
-[pallas-miniprotocols@0.7.1]: https://github.com/txpipe/pallas/compare/pallas-codec@0.7.1...pallas-miniprotocols@0.7.1
-[pallas-codec@0.7.1]: https://github.com/txpipe/pallas/compare/v0.7.0...pallas-codec@0.7.1
+[v0.8.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-codec@0.7.1...v0.8.0-alpha.0
+[pallas-codec@0.7.1]: https://github.com/txpipe/pallas/compare/pallas-miniprotocols@0.7.1...pallas-codec@0.7.1
+[pallas-miniprotocols@0.7.1]: https://github.com/txpipe/pallas/compare/v0.7.0...pallas-miniprotocols@0.7.1
 [v0.7.0]: https://github.com/txpipe/pallas/compare/v0.7.0-alpha.1...v0.7.0
 [v0.7.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.7.0-alpha.0...v0.7.0-alpha.1
 [v0.7.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-primitives@0.6.4...v0.7.0-alpha.0

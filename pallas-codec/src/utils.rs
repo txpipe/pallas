@@ -829,7 +829,9 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[cbor(transparent)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
