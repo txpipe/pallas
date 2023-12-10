@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use tap::Tap;
 use tracing::debug;
 
 pub mod chunk;
@@ -41,14 +42,14 @@ impl Iterator for ChunkReaders {
     fn next(&mut self) -> Option<Self::Item> {
         self.1
             .pop()
-            .inspect(|name| debug!(name, "switched to new chunk"))
+            .tap(|name| debug!(name, "switched to new chunk"))
             .map(|name| chunk::read_blocks(&self.0, &name))
     }
 }
 
-pub trait BlockIterator = Iterator<Item = Result<Block, std::io::Error>>;
+pub type FallibleBlock = Result<Block, std::io::Error>;
 
-pub fn read_blocks(dir: &Path) -> Result<impl BlockIterator, std::io::Error> {
+pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, std::io::Error> {
     let names = build_stack_of_chunk_names(dir)?;
 
     let iter = ChunkReaders(dir.to_owned(), names)

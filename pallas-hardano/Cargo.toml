@@ -12,6 +12,7 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 binary-layout = "3.2.0"
+tap = "1.0.1"
 tracing = "0.1.40"
 
 [dev-dependencies]
