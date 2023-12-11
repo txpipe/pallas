@@ -2,7 +2,7 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs};
+use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, TagWrap};
 use pallas_crypto::hash::Hash;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
@@ -573,11 +573,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let transaction_id = Hash::from(txbytes);
             let index = AnyUInt::MajorByte(2);
             let lovelace = AnyUInt::MajorByte(2);
+            let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+            let datum = hex::decode(hex_datum).unwrap().into();
+            let tag = TagWrap::<_, 24>::new(datum);
+            let inline_datum = Some((1_u16, tag));
             let values = localstate::queries_v16::Values {
                 address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
                     .to_vec()
                     .into(),
                 amount: Value::Coin(lovelace),
+                inline_datum: inline_datum.clone(),
             };
 
             let utxo = KeyValuePairs::from(vec![(
@@ -726,11 +731,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let transaction_id = Hash::from(txbytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
+        let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+        let datum = hex::decode(hex_datum).unwrap().into();
+        let tag = TagWrap::<_, 24>::new(datum);
+        let inline_datum = Some((1_u16, tag));
         let values = localstate::queries_v16::Values {
             address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
                 .to_vec()
                 .into(),
             amount: Value::Coin(lovelace),
+            inline_datum: inline_datum.clone(),
         };
 
         let utxo = KeyValuePairs::from(vec![(
