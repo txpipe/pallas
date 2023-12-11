@@ -2,7 +2,7 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, TagWrap};
+use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
 use pallas_crypto::hash::Hash;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
@@ -582,7 +582,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     .to_vec()
                     .into(),
                 amount: Value::Coin(lovelace),
-                inline_datum: inline_datum.clone(),
+                inline_datum,
             };
 
             let utxo = KeyValuePairs::from(vec![(
@@ -740,7 +740,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 .to_vec()
                 .into(),
             amount: Value::Coin(lovelace),
-            inline_datum: inline_datum.clone(),
+            inline_datum,
         };
 
         let utxo = KeyValuePairs::from(vec![(
