@@ -131,16 +131,6 @@ pub struct UTxOByAddress {
     pub utxo: KeyValuePairs<UTxO, Values>,
 }
 
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
-pub struct InlineDatum {
-    #[n(0)]
-    pub index: AnyUInt,
-
-    #[n(1)]
-    pub datum: Datum,
-}
-
-// not documented in the spec
 // Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
 pub type Datum = (Era, TagWrap<Bytes, 24>);
 
