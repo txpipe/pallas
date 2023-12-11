@@ -32,8 +32,8 @@ pub struct Reader {
     inner: BufReader<File>,
     version: u8,
     last_slot: Option<RelativeSlot>,
-    last_offset: Option<SecondaryOffset>,
-    next_offset: Option<SecondaryOffset>,
+    last_offset: Option<Result<SecondaryOffset, std::io::Error>>,
+    next_offset: Option<Result<SecondaryOffset, std::io::Error>>,
 }
 
 impl Reader {
@@ -49,15 +49,8 @@ impl Reader {
         let mut inner = BufReader::new(file);
         let version = Reader::read_version(&mut inner)?;
 
-        let last_offset = match Self::read_offset(&mut inner) {
-            Some(offset) => Some(offset?),
-            None => None,
-        };
-
-        let next_offset = match Self::read_offset(&mut inner) {
-            Some(offset) => Some(offset?),
-            None => None,
-        };
+        let last_offset = Self::read_offset(&mut inner);
+        let next_offset = Self::read_offset(&mut inner);
 
         Ok(Self {
             inner,
@@ -106,10 +99,22 @@ impl Iterator for Reader {
     type Item = Result<Entry, std::io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match (self.last_offset, self.next_offset) {
+        match (self.last_offset.take(), self.next_offset.take()) {
             (None, _) => None,
             (Some(_), None) => None,
-            (Some(last), Some(next)) => {
+            (_, Some(Err(err))) => {
+                self.last_offset = None;
+                self.next_offset = None;
+
+                Some(Err(err))
+            }
+            (Some(Err(err)), _) => {
+                self.last_offset = None;
+                self.next_offset = None;
+
+                Some(Err(err))
+            }
+            (Some(Ok(last)), Some(Ok(next))) => {
                 let slot = self.last_slot.map(|x| x + 1).unwrap_or_default();
 
                 let entry = if next > last {
@@ -119,8 +124,8 @@ impl Iterator for Reader {
                 };
 
                 self.last_slot = Some(slot);
-                self.last_offset = Some(next);
-                self.next_offset = Self::read_offset(&mut self.inner).map(|x| x.unwrap());
+                self.last_offset = Some(Ok(next));
+                self.next_offset = Self::read_offset(&mut self.inner);
 
                 Some(Ok(entry))
             }
