@@ -368,6 +368,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .required_signers
                 .as_ref()
+                .map(|x| x.into())
                 .map(MultiEraSigners::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,

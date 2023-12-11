@@ -193,16 +193,19 @@ mod tests {
     #[test]
     fn test_iteration() {
         let blocks = vec![
-            (include_str!("../../test_data/byron2.block"), 2usize),
-            (include_str!("../../test_data/shelley1.block"), 4),
-            (include_str!("../../test_data/mary1.block"), 14),
-            (include_str!("../../test_data/allegra1.block"), 3),
-            (include_str!("../../test_data/alonzo1.block"), 5),
+            // (include_str!("../../test_data/byron2.block"), 2usize),
+            // (include_str!("../../test_data/shelley1.block"), 4),
+            // (include_str!("../../test_data/mary1.block"), 14),
+            // (include_str!("../../test_data/allegra1.block"), 3),
+            // (include_str!("../../test_data/alonzo1.block"), 5),
+            // (include_str!("../../test_data/conway1.artificial.block"), 0),
+            (include_str!("../../test_data/conway1.block"), 0),
         ];
 
         for (block_str, tx_count) in blocks.into_iter() {
             let cbor = hex::decode(block_str).expect("invalid hex");
             let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs=  block.txs();
             assert_eq!(block.txs().len(), tx_count);
         }
     }

@@ -896,7 +896,7 @@ pub struct Update {
 #[cbor(map)]
 pub struct TransactionBody {
     #[n(0)]
-    pub inputs: Vec<TransactionInput>,
+    pub inputs: TransactionInputs,
 
     #[n(1)]
     pub outputs: Vec<TransactionOutput>,
@@ -929,13 +929,51 @@ pub struct TransactionBody {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(13)]
-    pub collateral: Option<Vec<TransactionInput>>,
+    pub collateral: Option<TransactionInputs>,
 
     #[n(14)]
     pub required_signers: Option<RequiredSigners>,
 
     #[n(15)]
     pub network_id: Option<NetworkId>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct TransactionInputs(Vec<TransactionInput>);
+
+impl From<Vec<TransactionInput>> for TransactionInputs {
+    fn from(xs: Vec<TransactionInput>) -> Self {
+        TransactionInputs(xs)
+    }
+}
+
+impl From<TransactionInputs> for Vec<TransactionInput> {
+    fn from(c: TransactionInputs) -> Self {
+        c.0
+    }
+}
+
+impl TransactionInputs {
+    pub fn iter(&self) -> impl Iterator<Item = &TransactionInput> {
+        self.0.iter()
+    }
+}
+
+impl <'b, C> minicbor::decode::Decode<'b, C> for TransactionInputs {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        if d.probe().tag().is_ok() {
+            d.tag()?;
+        }
+        Ok(TransactionInputs(d.decode_with(ctx)?))
+    }
+}
+
+impl <C> minicbor::encode::Encode<C> for TransactionInputs {
+    fn encode<W: minicbor::encode::Write>(&self, e: &mut minicbor::Encoder<W>, ctx: &mut C) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(258))?;
+        e.encode_with(&self.0, ctx)?;
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -969,6 +1007,50 @@ impl <'b, C> minicbor::decode::Decode<'b, C> for Certificates {
 }
 
 impl <C> minicbor::encode::Encode<C> for Certificates {
+    fn encode<W: minicbor::encode::Write>(&self, e: &mut minicbor::Encoder<W>, ctx: &mut C) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(258))?;
+        e.encode_with(&self.0, ctx)?;
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct AddrKeyhashes(Vec<AddrKeyhash>);
+
+impl From<Vec<AddrKeyhash>> for AddrKeyhashes {
+    fn from(xs: Vec<AddrKeyhash>) -> Self {
+        AddrKeyhashes(xs)
+    }
+}
+
+impl From<AddrKeyhashes> for Vec<AddrKeyhash> {
+    fn from(c: AddrKeyhashes) -> Self {
+        c.0
+    }
+}
+
+impl<'a> From<&'a AddrKeyhashes> for &'a Vec<AddrKeyhash> {
+    fn from(c: &'a AddrKeyhashes) -> Self {
+        &c.0
+    }
+}
+
+impl AddrKeyhashes {
+    pub fn iter(&self) -> impl Iterator<Item = &AddrKeyhash> {
+        self.0.iter()
+    }
+}
+
+impl <'b, C> minicbor::decode::Decode<'b, C> for AddrKeyhashes {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        if d.probe().tag().is_ok() {
+            d.tag()?;
+        }
+        Ok(AddrKeyhashes(d.decode_with(ctx)?))
+    }
+}
+
+impl <C> minicbor::encode::Encode<C> for AddrKeyhashes {
     fn encode<W: minicbor::encode::Write>(&self, e: &mut minicbor::Encoder<W>, ctx: &mut C) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.tag(Tag::Unassigned(258))?;
         e.encode_with(&self.0, ctx)?;
