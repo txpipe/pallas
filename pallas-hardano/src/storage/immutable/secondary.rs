@@ -51,25 +51,20 @@ pub type SecondaryOffset = u32;
 pub struct Reader {
     inner: BufReader<File>,
     index: PrimaryIndex,
-    current: Option<SecondaryOffset>,
+    current: Option<Result<primary::Entry, std::io::Error>>,
 }
 
 impl Reader {
     pub fn open(mut index: PrimaryIndex, file: File) -> Result<Self, std::io::Error> {
         let inner = BufReader::new(file);
 
-        match index.next_occupied() {
-            Some(result) => Ok(Self {
-                inner,
-                index,
-                current: result?.offset(),
-            }),
-            None => Ok(Self {
-                inner,
-                index,
-                current: None,
-            }),
-        }
+        let current = index.next_occupied();
+
+        Ok(Self {
+            inner,
+            index,
+            current,
+        })
     }
 }
 
@@ -77,27 +72,46 @@ impl Iterator for Reader {
     type Item = Result<Entry, std::io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let current = self.current?;
+        let current = match self.current.take()? {
+            Ok(x) => x.offset()?,
+            Err(err) => {
+                self.current = None;
+                return Some(Err(err));
+            }
+        };
 
-        let start = self.inner.stream_position().unwrap();
+        let start = match self.inner.stream_position() {
+            Ok(x) => x,
+            Err(err) => {
+                self.current = None;
+                return Some(Err(err));
+            }
+        };
+
         let delta = current as u64 - start;
-        self.inner.seek_relative(delta as i64).unwrap();
+
+        match self.inner.seek_relative(delta as i64) {
+            Ok(_) => (),
+            Err(err) => {
+                self.current = None;
+                return Some(Err(err));
+            }
+        }
 
         let mut buf = vec![0u8; layout::SIZE.unwrap()];
 
         match self.inner.read_exact(&mut buf) {
-            Err(err) => Some(Err(err)),
             Ok(_) => {
                 let view = layout::View::new(&buf);
                 let entry = Entry::from(view);
 
-                self.current = self
-                    .index
-                    .next_occupied()
-                    .map(|x| x.unwrap())
-                    .and_then(|x| x.offset());
+                self.current = self.index.next_occupied();
 
                 Some(Ok(entry))
+            }
+            Err(err) => {
+                self.current = None;
+                Some(Err(err))
             }
         }
     }

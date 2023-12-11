@@ -10,27 +10,21 @@ use tracing::trace;
 use crate::storage::immutable;
 
 pub type SecondaryIndex = super::secondary::Reader;
+pub type SecondaryEntry = super::secondary::Entry;
 
 pub struct Reader {
     inner: BufReader<File>,
     index: SecondaryIndex,
-    current: Option<super::secondary::Entry>,
-    next: Option<super::secondary::Entry>,
+    current: Option<Result<SecondaryEntry, std::io::Error>>,
+    next: Option<Result<SecondaryEntry, std::io::Error>>,
 }
 
 impl Reader {
     fn open(mut index: SecondaryIndex, chunks: File) -> Result<Self, std::io::Error> {
         let inner = BufReader::new(chunks);
 
-        let current = match index.next() {
-            Some(x) => Some(x?),
-            None => None,
-        };
-
-        let next = match index.next() {
-            Some(x) => Some(x?),
-            None => None,
-        };
+        let current = index.next();
+        let next = index.next();
 
         Ok(Self {
             inner,
@@ -44,7 +38,7 @@ impl Reader {
         file: &mut BufReader<File>,
         next_offset: u64,
     ) -> Result<Vec<u8>, std::io::Error> {
-        let start = file.stream_position().unwrap();
+        let start = file.stream_position()?;
         let delta = next_offset - start;
         trace!(start, delta, "reading chunk middle block");
 
@@ -55,7 +49,7 @@ impl Reader {
     }
 
     fn read_last_block(file: &mut BufReader<File>) -> Result<Vec<u8>, std::io::Error> {
-        let start = file.stream_position().unwrap();
+        let start = file.stream_position()?;
         trace!(start, "reading chunk last block");
 
         let mut buf = vec![];
@@ -71,11 +65,17 @@ impl Iterator for Reader {
     fn next(&mut self) -> Option<Self::Item> {
         match (self.current.take(), self.next.take()) {
             (None, _) => None,
-            (Some(_), Some(next)) => {
+            (_, Some(Err(next))) => {
+                self.current = None;
+                self.next = None;
+
+                Some(Err(next))
+            }
+            (Some(_), Some(Ok(next))) => {
                 let block = Self::read_middle_block(&mut self.inner, next.block_offset);
 
-                self.current = Some(next);
-                self.next = self.index.next().map(|x| x.unwrap());
+                self.current = Some(Ok(next));
+                self.next = self.index.next();
 
                 Some(block)
             }
