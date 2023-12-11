@@ -355,6 +355,10 @@ impl Store {
         Ok(())
     }
 
+    pub fn is_empty(&self) -> bool {
+        WalKV::is_empty(&self.db)
+    }
+
     pub fn destroy(path: impl AsRef<Path>) -> Result<(), Error> {
         DB::destroy(&Options::default(), path).map_err(|_| Error::IO)
     }
