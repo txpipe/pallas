@@ -265,6 +265,10 @@ impl Store {
         Ok(false)
     }
 
+    pub fn is_empty(&self) -> bool {
+        HashBySlotKV::is_empty(&self.db) && BlockByHashKV::is_empty(&self.db)
+    }
+
     pub fn destroy(path: impl AsRef<Path>) -> Result<(), Error> {
         DB::destroy(&Options::default(), path).map_err(|_| Error::IO)
     }
