@@ -5,7 +5,7 @@ use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs};
+use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, TagWrap};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
@@ -132,6 +132,19 @@ pub struct UTxOByAddress {
 }
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct InlineDatum {
+    #[n(0)]
+    pub index: AnyUInt,
+
+    #[n(1)]
+    pub datum: Datum,
+}
+
+// not documented in the spec
+// Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
+pub type Datum = (Era, TagWrap<Bytes, 24>);
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
 #[cbor(map)]
 pub struct Values {
     #[n(0)]
@@ -139,6 +152,9 @@ pub struct Values {
 
     #[n(1)]
     pub amount: Value,
+
+    #[n(2)]
+    pub inline_datum: Option<Datum>,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone, StdHash, Eq)]
