@@ -11,8 +11,14 @@ pub const MAINNET_MAGIC: u64 = 764824073;
 /// Well-known magic for preview
 pub const PREVIEW_MAGIC: u64 = 2;
 
-/// Well-known magic for pre-production
+/// Well-known magic for preprod
+pub const PREPROD_MAGIC: u64 = 1;
+
+/// Alias for PREPROD_MAGIC
 pub const PRE_PRODUCTION_MAGIC: u64 = 1;
+
+/// Well-known magic for preprod
+pub const SANCHONET_MAGIC: u64 = 4;
 
 /// Bitflag for client-side version of a known protocol
 /// # Example

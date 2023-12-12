@@ -22,6 +22,7 @@ const PROTOCOL_V12: u64 = 32780;
 const PROTOCOL_V13: u64 = 32781;
 const PROTOCOL_V14: u64 = 32782;
 const PROTOCOL_V15: u64 = 32783;
+const PROTOCOL_V16: u64 = 32784;
 
 impl VersionTable {
     pub fn v1_and_above(network_magic: u64) -> VersionTable {
@@ -41,6 +42,7 @@ impl VersionTable {
             (PROTOCOL_V13, VersionData(network_magic, None)),
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V16, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -64,6 +66,7 @@ impl VersionTable {
             (PROTOCOL_V13, VersionData(network_magic, None)),
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V16, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
