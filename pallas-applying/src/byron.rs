@@ -3,7 +3,9 @@
 use std::borrow::Cow;
 
 use crate::types::{
-    ByronProtParams, MultiEraInput, MultiEraOutput, SigningTag, UTxOs, ValidationError,
+    ByronError::*,
+    ByronProtParams, MultiEraInput, MultiEraOutput, SigningTag, UTxOs,
+    ValidationError::{self, *},
     ValidationResult,
 };
 
@@ -30,26 +32,26 @@ pub fn validate_byron_tx(
     prot_magic: &u32,
 ) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
-    let size: u64 = get_tx_size(tx)?;
+    let size: &u64 = &get_tx_size(tx)?;
     check_ins_not_empty(tx)?;
     check_outs_not_empty(tx)?;
     check_ins_in_utxos(tx, utxos)?;
     check_outs_have_lovelace(tx)?;
-    check_fees(tx, &size, utxos, prot_pps)?;
-    check_size(&size, prot_pps)?;
+    check_fees(tx, size, utxos, prot_pps)?;
+    check_size(size, prot_pps)?;
     check_witnesses(mtxp, utxos, prot_magic)
 }
 
 fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
     if tx.inputs.clone().to_vec().is_empty() {
-        return Err(ValidationError::TxInsEmpty);
+        return Err(Byron(TxInsEmpty));
     }
     Ok(())
 }
 
 fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
     if tx.outputs.clone().to_vec().is_empty() {
-        return Err(ValidationError::TxOutsEmpty);
+        return Err(Byron(TxOutsEmpty));
     }
     Ok(())
 }
@@ -57,7 +59,7 @@ fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
 fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     for input in tx.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_byron(input))) {
-            return Err(ValidationError::InputMissingInUTxO);
+            return Err(Byron(InputNotInUTxO));
         }
     }
     Ok(())
@@ -66,7 +68,7 @@ fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
 fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
     for output in tx.outputs.iter() {
         if output.amount == 0 {
-            return Err(ValidationError::OutputWithoutLovelace);
+            return Err(Byron(OutputWithoutLovelace));
         }
     }
     Ok(())
@@ -84,7 +86,7 @@ fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) ->
             .and_then(MultiEraOutput::as_byron)
         {
             Some(byron_utxo) => inputs_balance += byron_utxo.amount,
-            None => return Err(ValidationError::UnableToComputeFees),
+            None => return Err(Byron(UnableToComputeFees)),
         }
     }
     if only_redeem_utxos {
@@ -95,9 +97,9 @@ fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) ->
             outputs_balance += output.amount
         }
         let total_balance: u64 = inputs_balance - outputs_balance;
-        let min_fees: u64 = prot_pps.min_fees_const + prot_pps.min_fees_factor * size;
+        let min_fees: u64 = prot_pps.fee_policy.summand + prot_pps.fee_policy.multiplier * size;
         if total_balance < min_fees {
-            Err(ValidationError::FeesBelowMin)
+            Err(Byron(FeesBelowMin))
         } else {
             Ok(())
         }
@@ -119,7 +121,7 @@ fn is_redeem_utxo(input: &TxIn, utxos: &UTxOs) -> bool {
 
 fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
     if *size > prot_pps.max_tx_size {
-        return Err(ValidationError::MaxTxSizeExceeded);
+        return Err(Byron(MaxTxSizeExceeded));
     }
     Ok(())
 }
@@ -128,7 +130,7 @@ fn get_tx_size(tx: &Tx) -> Result<u64, ValidationError> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx, &mut buff) {
         Ok(()) => Ok(buff.len() as u64),
-        Err(_) => Err(ValidationError::UnknownTxSize),
+        Err(_) => Err(Byron(UnknownTxSize)),
     }
 }
 
@@ -149,7 +151,7 @@ fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> V
         let data_to_verify: Vec<u8> = get_data_to_verify(sign, prot_magic, &tx_hash)?;
         let signature: Signature = get_signature(sign);
         if !public_key.verify(data_to_verify, &signature) {
-            return Err(ValidationError::WrongSignature);
+            return Err(Byron(WrongSignature));
         }
     }
     Ok(())
@@ -165,7 +167,7 @@ fn tag_witnesses(wits: &[Twit]) -> Result<Vec<(&PubKey, TaggedSignature)>, Valid
             Twit::RedeemWitness(CborWrap((pk, sig))) => {
                 res.push((pk, TaggedSignature::RedeemWitness(sig)));
             }
-            _ => return Err(ValidationError::UnableToProcessWitnesses),
+            _ => return Err(Byron(UnableToProcessWitness)),
         }
     }
     Ok(res)
@@ -175,9 +177,9 @@ fn find_tx_out<'a>(input: &'a TxIn, utxos: &'a UTxOs) -> Result<&'a TxOut, Valid
     let key: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Borrowed(input)));
     utxos
         .get(&key)
-        .ok_or(ValidationError::InputMissingInUTxO)?
+        .ok_or(Byron(InputNotInUTxO))?
         .as_byron()
-        .ok_or(ValidationError::InputMissingInUTxO)
+        .ok_or(Byron(InputNotInUTxO))
 }
 
 fn find_raw_witness<'a>(
@@ -187,7 +189,7 @@ fn find_raw_witness<'a>(
     let address: ByronAddress = mk_byron_address(&tx_out.address);
     let addr_payload: AddressPayload = address
         .decode()
-        .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        .map_err(|_| Byron(UnableToProcessWitness))?;
     let root: AddressId = addr_payload.root;
     let attr: AddrAttrs = addr_payload.attributes;
     let addr_type: AddrType = addr_payload.addrtype;
@@ -195,11 +197,11 @@ fn find_raw_witness<'a>(
         if redeems(pub_key, sign, &root, &attr, &addr_type) {
             match addr_type {
                 AddrType::PubKey | AddrType::Redeem => return Ok((pub_key, sign)),
-                _ => return Err(ValidationError::UnableToProcessWitnesses),
+                _ => return Err(Byron(UnableToProcessWitness)),
             }
         }
     }
-    Err(ValidationError::MissingWitness)
+    Err(Byron(MissingWitness))
 }
 
 fn mk_byron_address(addr: &Address) -> ByronAddress {
@@ -250,17 +252,17 @@ fn get_data_to_verify(
     match sign {
         TaggedSignature::PkWitness(_) => {
             enc.encode(SigningTag::Tx as u64)
-                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+                .map_err(|_| Byron(UnableToProcessWitness))?;
         }
         TaggedSignature::RedeemWitness(_) => {
             enc.encode(SigningTag::RedeemTx as u64)
-                .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+                .map_err(|_| Byron(UnableToProcessWitness))?;
         }
     }
     enc.encode(prot_magic)
-        .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        .map_err(|_| Byron(UnableToProcessWitness))?;
     enc.encode(tx_hash)
-        .map_err(|_| ValidationError::UnableToProcessWitnesses)?;
+        .map_err(|_| Byron(UnableToProcessWitness))?;
     Ok(enc.into_writer().clone())
 }
 
