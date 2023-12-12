@@ -2,11 +2,13 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_codec::utils::{AnyCbor, KeyValuePairs};
+use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
+use pallas_crypto::hash::Hash;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
+use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, Value};
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::{
     blockfetch,
@@ -539,7 +541,59 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let pools = KeyValuePairs::from(pools);
 
             let result = AnyCbor::from_encode(localstate::queries_v16::StakeDistribution { pools });
+            server.statequery().send_result(result).await.unwrap();
 
+            // server receives query from client
+
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+            let addr = hex::decode(addr_hex).unwrap();
+            let addr: Addr = addr.to_vec().into();
+            let addrs: Addrs = Vec::from([addr]);
+
+            assert_eq!(
+                query,
+                localstate::queries_v16::Request::LedgerQuery(
+                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                        5,
+                        localstate::queries_v16::BlockQuery::GetUTxOByAddress(addrs),
+                    ),
+                )
+            );
+
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
+            let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
+            let transaction_id = Hash::from(txbytes);
+            let index = AnyUInt::MajorByte(2);
+            let lovelace = AnyUInt::MajorByte(2);
+            let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+            let datum = hex::decode(hex_datum).unwrap().into();
+            let tag = TagWrap::<_, 24>::new(datum);
+            let inline_datum = Some((1_u16, tag));
+            let values = localstate::queries_v16::Values {
+                address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                    .to_vec()
+                    .into(),
+                amount: Value::Coin(lovelace),
+                inline_datum,
+            };
+
+            let utxo = KeyValuePairs::from(vec![(
+                localstate::queries_v16::UTxO {
+                    transaction_id,
+                    index,
+                },
+                values,
+            )]);
+
+            let result = AnyCbor::from_encode(localstate::queries_v16::UTxOByAddress { utxo });
             server.statequery().send_result(result).await.unwrap();
 
             assert_eq!(*server.statequery().state(), localstate::State::Acquired);
@@ -650,8 +704,56 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
 
-        // client sends a ReAquire
+        let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+        let addr = hex::decode(addr_hex).unwrap();
+        let addr: Addr = addr.to_vec().into();
+        let addrs: Addrs = Vec::from([addr]);
 
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
+            localstate::queries_v16::LedgerQuery::BlockQuery(
+                5,
+                localstate::queries_v16::BlockQuery::GetUTxOByAddress(addrs),
+            ),
+        ));
+
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: localstate::queries_v16::UTxOByAddress = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
+        let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
+        let transaction_id = Hash::from(txbytes);
+        let index = AnyUInt::MajorByte(2);
+        let lovelace = AnyUInt::MajorByte(2);
+        let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+        let datum = hex::decode(hex_datum).unwrap().into();
+        let tag = TagWrap::<_, 24>::new(datum);
+        let inline_datum = Some((1_u16, tag));
+        let values = localstate::queries_v16::Values {
+            address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                .to_vec()
+                .into(),
+            amount: Value::Coin(lovelace),
+            inline_datum,
+        };
+
+        let utxo = KeyValuePairs::from(vec![(
+            localstate::queries_v16::UTxO {
+                transaction_id,
+                index,
+            },
+            values,
+        )]);
+
+        assert_eq!(result, localstate::queries_v16::UTxOByAddress { utxo });
+
+        // client sends a ReAquire
         client
             .statequery()
             .send_reacquire(Some(Point::Specific(1337, vec![1, 2, 3])))

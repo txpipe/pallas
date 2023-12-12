@@ -33,10 +33,10 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(5)?;
             }
-            BlockQuery::GetUTxOByAddress(x) => {
+            BlockQuery::GetUTxOByAddress(addrs) => {
                 e.array(2)?;
                 e.u16(6)?;
-                e.encode(x)?;
+                e.encode(addrs)?;
             }
             BlockQuery::GetUTxOWhole => {
                 e.encode((7,))?;
@@ -129,7 +129,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             3 => Ok(Self::GetCurrentPParams),
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
-            // 6 => Ok(Self::GetUTxOByAddress(())),
+            6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
             // 7 => Ok(Self::GetUTxOWhole),
             // 8 => Ok(Self::DebugEpochState),
             // 9 => Ok(Self::GetCBOR(())),
@@ -262,5 +262,46 @@ impl<'b> Decode<'b, ()> for Request {
             3 => Ok(Self::GetChainPoint),
             _ => Err(decode::Error::message("invalid tag")),
         }
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => {
+                d.array()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value::Multiasset(coin, multiasset))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor data type for Value enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for Value {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Value::Coin(coin) => {
+                e.encode_with(coin, ctx)?;
+            }
+            Value::Multiasset(coin, other) => {
+                e.array(2)?;
+                e.encode_with(coin, ctx)?;
+                e.encode_with(other, ctx)?;
+            }
+        };
+
+        Ok(())
     }
 }

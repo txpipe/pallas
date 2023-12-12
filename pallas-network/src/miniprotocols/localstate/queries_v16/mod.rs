@@ -1,9 +1,11 @@
 // TODO: this should move to pallas::ledger crate at some point
 
+use pallas_crypto::hash::Hash;
+use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{Bytes, KeyValuePairs};
+use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, TagWrap};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
@@ -25,7 +27,7 @@ pub enum BlockQuery {
     GetCurrentPParams,
     GetProposedPParamsUpdates,
     GetStakeDistribution,
-    GetUTxOByAddress(AnyCbor),
+    GetUTxOByAddress(Addrs),
     GetUTxOWhole,
     DebugEpochState,
     GetCBOR(AnyCbor),
@@ -69,6 +71,12 @@ pub enum Request {
     GetChainPoint,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Value {
+    Coin(Coin),
+    Multiasset(Coin, Multiasset<Coin>),
+}
+
 #[derive(Debug, Encode, Decode, PartialEq)]
 pub struct SystemStart {
     #[n(0)]
@@ -103,6 +111,49 @@ pub struct Fraction {
 
     #[n(1)]
     pub dem: u64,
+}
+
+pub type Addr = Bytes;
+
+pub type Addrs = Vec<Addr>;
+
+pub type Coin = AnyUInt;
+
+pub type PolicyId = Hash<28>;
+
+pub type AssetName = Bytes;
+
+pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct UTxOByAddress {
+    #[n(0)]
+    pub utxo: KeyValuePairs<UTxO, Values>,
+}
+
+// Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
+pub type Datum = (Era, TagWrap<Bytes, 24>);
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[cbor(map)]
+pub struct Values {
+    #[n(0)]
+    pub address: Bytes,
+
+    #[n(1)]
+    pub amount: Value,
+
+    #[n(2)]
+    pub inline_datum: Option<Datum>,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone, StdHash, Eq)]
+pub struct UTxO {
+    #[n(0)]
+    pub transaction_id: Hash<32>,
+
+    #[n(1)]
+    pub index: AnyUInt,
 }
 
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
@@ -142,6 +193,19 @@ pub async fn get_stake_distribution(
     era: u16,
 ) -> Result<StakeDistribution, ClientError> {
     let query = BlockQuery::GetStakeDistribution;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+pub async fn get_utxo_by_address(
+    client: &mut Client,
+    era: u16,
+    addrs: Addrs,
+) -> Result<UTxOByAddress, ClientError> {
+    let query = BlockQuery::GetUTxOByAddress(addrs);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
