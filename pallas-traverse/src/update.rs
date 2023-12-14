@@ -135,16 +135,14 @@ impl<'b> MultiEraUpdate<'b> {
 
     pub fn byron_proposed_max_tx_size(&self) -> Option<u64> {
         match self {
-            MultiEraUpdate::Byron(_, x) => {
-                x.block_version_mod.as_ref()?.max_tx_size.deref().clone()
-            }
+            MultiEraUpdate::Byron(_, x) => *x.block_version_mod.as_ref()?.max_tx_size.deref(),
             _ => None,
         }
     }
 
     pub fn byron_proposed_block_version(&self) -> Option<(u16, u16, u8)> {
         match self {
-            MultiEraUpdate::Byron(_, x) => x.block_version.clone(),
+            MultiEraUpdate::Byron(_, x) => x.block_version,
             _ => None,
         }
     }
