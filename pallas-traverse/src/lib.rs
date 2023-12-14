@@ -148,6 +148,7 @@ pub enum MultiEraWithdrawals<'b> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraUpdate<'b> {
+    Byron(u64, Box<Cow<'b, byron::UpProp>>),
     AlonzoCompatible(Box<Cow<'b, alonzo::Update>>),
     Babbage(Box<Cow<'b, babbage::Update>>),
 }

@@ -1,10 +1,12 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
-use crate::{probe, support, Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx};
+use crate::{
+    probe, support, Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx, MultiEraUpdate,
+};
 
 type BlockWrapper<T> = (u16, T);
 
@@ -171,6 +173,26 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::Babbage(x) => !x.auxiliary_data_set.is_empty(),
             MultiEraBlock::Byron(_) => false,
             MultiEraBlock::Conway(x) => !x.auxiliary_data_set.is_empty(),
+        }
+    }
+
+    /// Returns any block-level param update proposals (byron-specific)
+    pub fn update(&self) -> Option<MultiEraUpdate> {
+        match self {
+            MultiEraBlock::Byron(x) => {
+                if let Some(up) = x.body.upd_payload.proposal.deref() {
+                    // TODO: this might be horribly wrong, I'm assuming that the activation epoch
+                    // for a Byron upgrade proposal is always current epoch + 1.
+                    let epoch = x.header.consensus_data.0.epoch + 1;
+                    Some(MultiEraUpdate::Byron(
+                        epoch,
+                        Box::new(Cow::Owned(up.clone())),
+                    ))
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 
