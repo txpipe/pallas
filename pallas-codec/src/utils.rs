@@ -665,7 +665,7 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct AnyCbor {
-    inner: Vec<u8>,
+    pub inner: Vec<u8>,
 }
 
 impl AnyCbor {
