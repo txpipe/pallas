@@ -14,8 +14,8 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 binary-layout = "3.2.0"
 tap = "1.0.1"
 tracing = "0.1.40"
+pallas-traverse = { version = "0.20.0", path = "../pallas-traverse" }
 
 [dev-dependencies]
 tracing-subscriber = "0.3.17"
 hex = "0.4.3"
-pallas-traverse = { version = "0.20.0", path = "../pallas-traverse" }

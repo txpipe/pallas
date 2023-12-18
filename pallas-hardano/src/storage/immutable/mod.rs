@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     ffi::OsStr,
     path::{Path, PathBuf},
 };
@@ -9,6 +10,48 @@ use tracing::debug;
 pub mod chunk;
 pub mod primary;
 pub mod secondary;
+
+/// Performs a binary search of the given chunks
+/// and returns the index of the chunk which probably contains the point.
+///
+/// Current algorithm slightly modified from the original binary search.
+/// It returns the index of the chunk in the `chunks` vector, 
+/// which could contain searching element **BUT** it may not.
+/// It assumes that **EACH** chunk it is a sorted collection of elements
+/// e.g. `vec![vec![1, 2, 3], vec![4, 5], vec![7, 8, 9]]` and inside `cmp`
+/// function you will compare the first element of the chunk e.g.
+/// `let cmp = |chunk: &Vec<i32>, point: &i32| chunk[0].cmp(point)`.
+fn chunk_binary_search<ChunkT, PointT>(
+    chunks: &Vec<ChunkT>,
+    point: PointT,
+    cmp: impl Fn(&ChunkT, &PointT) -> Ordering,
+) -> Option<usize> {
+    let mut size = chunks.len();
+    let mut left = 0;
+    let mut right: usize = size;
+
+    while left < right {
+        let mid = left + size / 2;
+
+        // SAFETY: the while condition means `size` is strictly positive, so
+        // `size/2 < size`. Thus `left + size/2 < left + size`, which
+        // coupled with the `left + size <= self.len()` invariant means
+        // we have `left + size/2 < self.len()`, and this is in-bounds.
+        match cmp(&chunks[mid], &point) {
+            Ordering::Less => left = mid + 1,
+            Ordering::Greater => right = mid,
+            Ordering::Equal => return Some(mid),
+        };
+
+        size = right - left;
+    }
+
+    if left > 0 {
+        Some(left - 1)
+    } else {
+        None
+    }
+}
 
 fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, std::io::Error> {
     let mut chunks = std::fs::read_dir(dir)?
@@ -65,6 +108,26 @@ mod tests {
 
     use pallas_traverse::MultiEraBlock;
     use tracing::trace;
+
+    #[test]
+    fn chunk_binary_search_test() {
+        use super::chunk_binary_search;
+
+        let vec = vec![vec![1, 2, 3], vec![4, 5], vec![7, 8, 9]];
+        let cmp = |chunk: &Vec<i32>, point: &i32| chunk[0].cmp(point);
+
+        assert_eq!(chunk_binary_search(&vec, 0, cmp), None);
+        assert_eq!(chunk_binary_search(&vec, 1, cmp), Some(0));
+        assert_eq!(chunk_binary_search(&vec, 2, cmp), Some(0));
+        assert_eq!(chunk_binary_search(&vec, 3, cmp), Some(0));
+        assert_eq!(chunk_binary_search(&vec, 4, cmp), Some(1));
+        assert_eq!(chunk_binary_search(&vec, 5, cmp), Some(1));
+        assert_eq!(chunk_binary_search(&vec, 6, cmp), Some(1));
+        assert_eq!(chunk_binary_search(&vec, 7, cmp), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 8, cmp), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 9, cmp), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 10, cmp), Some(2));
+    }
 
     #[test]
     fn can_read_multiple_chunks_from_folder() {
