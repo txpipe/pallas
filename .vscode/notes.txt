@@ -1,0 +1,23 @@
+
+    #[test]
+    fn tmp_test() {
+        let reader = super::read_blocks(Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable")).unwrap();
+
+        for block in reader.take(10) {
+            let block = block.unwrap();
+            let block = MultiEraBlock::decode(&block).unwrap();
+            println!(
+                "hash: {}, era: {}, slot: {}, epoch: ({},{}), number: {}",
+                block.hash(),
+                block.era(),
+                block.slot(),
+                block
+                    .epoch(&pallas_traverse::wellknown::GenesisValues::preprod())
+                    .0,
+                block
+                    .epoch(&pallas_traverse::wellknown::GenesisValues::preprod())
+                    .1,
+                block.header().number(),
+            );
+        }
+    }

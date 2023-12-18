@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use pallas_traverse::MultiEraBlock;
 use tap::Tap;
 use tracing::debug;
 
@@ -15,7 +16,7 @@ pub mod secondary;
 /// and returns the index of the chunk which probably contains the point.
 ///
 /// Current algorithm slightly modified from the original binary search.
-/// It returns the index of the chunk in the `chunks` vector, 
+/// It returns the index of the chunk in the `chunks` vector,
 /// which could contain searching element **BUT** it may not.
 /// It assumes that **EACH** chunk it is a sorted collection of elements
 /// e.g. `vec![vec![1, 2, 3], vec![4, 5], vec![7, 8, 9]]` and inside `cmp`
@@ -24,8 +25,8 @@ pub mod secondary;
 fn chunk_binary_search<ChunkT, PointT>(
     chunks: &Vec<ChunkT>,
     point: PointT,
-    cmp: impl Fn(&ChunkT, &PointT) -> Ordering,
-) -> Option<usize> {
+    cmp: impl Fn(&ChunkT, &PointT) -> Result<Ordering, Box<dyn std::error::Error>>,
+) -> Result<Option<usize>, Box<dyn std::error::Error>> {
     let mut size = chunks.len();
     let mut left = 0;
     let mut right: usize = size;
@@ -37,19 +38,19 @@ fn chunk_binary_search<ChunkT, PointT>(
         // `size/2 < size`. Thus `left + size/2 < left + size`, which
         // coupled with the `left + size <= self.len()` invariant means
         // we have `left + size/2 < self.len()`, and this is in-bounds.
-        match cmp(&chunks[mid], &point) {
+        match cmp(&chunks[mid], &point)? {
             Ordering::Less => left = mid + 1,
             Ordering::Greater => right = mid,
-            Ordering::Equal => return Some(mid),
+            Ordering::Equal => return Ok(Some(mid)),
         };
 
         size = right - left;
     }
 
     if left > 0 {
-        Some(left - 1)
+        Ok(Some(left - 1))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -102,6 +103,50 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
     Ok(iter)
 }
 
+pub fn read_block_from_point(
+    dir: &Path,
+    point: u64,
+) -> Result<impl Iterator<Item = FallibleBlock>, Box<dyn std::error::Error>> {
+    let mut names = build_stack_of_chunk_names(dir)?;
+    names.reverse();
+
+    let cmp = |chunk_name: &String, point: &u64| {
+        let mut blocks = chunk::read_blocks(dir, &chunk_name)?;
+
+        // Try to read the first block from the chunk
+        if let Some(block_data) = blocks.next() {
+            let block_data = block_data?;
+
+            let block = MultiEraBlock::decode(&block_data)?;
+            Ok(block.number().cmp(point))
+        } else {
+            Ok(Ordering::Greater)
+        }
+    };
+
+    let mut names = if let Some(chunk_index) = chunk_binary_search(&names, point, cmp)? {
+        names[chunk_index..].to_vec()
+    } else {
+        vec![]
+    };
+    names.reverse();
+
+    let iter = ChunkReaders(dir.to_owned(), names)
+        .map_while(Result::ok)
+        .flatten()
+        // Filter until the point
+        .filter(move |block_data| {
+            if let Ok(block_data) = block_data {
+                if let Ok(block) = MultiEraBlock::decode(block_data) {
+                    return block.number() >= point;
+                }
+            }
+            true
+        });
+
+    Ok(iter)
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -114,19 +159,19 @@ mod tests {
         use super::chunk_binary_search;
 
         let vec = vec![vec![1, 2, 3], vec![4, 5], vec![7, 8, 9]];
-        let cmp = |chunk: &Vec<i32>, point: &i32| chunk[0].cmp(point);
+        let cmp = |chunk: &Vec<i32>, point: &i32| Ok(chunk[0].cmp(point));
 
-        assert_eq!(chunk_binary_search(&vec, 0, cmp), None);
-        assert_eq!(chunk_binary_search(&vec, 1, cmp), Some(0));
-        assert_eq!(chunk_binary_search(&vec, 2, cmp), Some(0));
-        assert_eq!(chunk_binary_search(&vec, 3, cmp), Some(0));
-        assert_eq!(chunk_binary_search(&vec, 4, cmp), Some(1));
-        assert_eq!(chunk_binary_search(&vec, 5, cmp), Some(1));
-        assert_eq!(chunk_binary_search(&vec, 6, cmp), Some(1));
-        assert_eq!(chunk_binary_search(&vec, 7, cmp), Some(2));
-        assert_eq!(chunk_binary_search(&vec, 8, cmp), Some(2));
-        assert_eq!(chunk_binary_search(&vec, 9, cmp), Some(2));
-        assert_eq!(chunk_binary_search(&vec, 10, cmp), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 0, cmp).unwrap(), None);
+        assert_eq!(chunk_binary_search(&vec, 1, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, 2, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, 3, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, 4, cmp).unwrap(), Some(1));
+        assert_eq!(chunk_binary_search(&vec, 5, cmp).unwrap(), Some(1));
+        assert_eq!(chunk_binary_search(&vec, 6, cmp).unwrap(), Some(1));
+        assert_eq!(chunk_binary_search(&vec, 7, cmp).unwrap(), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 8, cmp).unwrap(), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 9, cmp).unwrap(), Some(2));
+        assert_eq!(chunk_binary_search(&vec, 10, cmp).unwrap(), Some(2));
     }
 
     #[test]
@@ -197,5 +242,29 @@ mod tests {
         }
 
         assert!(count > 0);
+    }
+
+    #[test]
+    fn tmp_test() {
+        let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
+        let reader = super::read_block_from_point(dir, 1000).unwrap();
+
+        for block in reader.take(10) {
+            let block = block.unwrap();
+            let block = MultiEraBlock::decode(&block).unwrap();
+            println!(
+                "hash: {}, era: {}, slot: {}, epoch: ({},{}), number: {}",
+                block.hash(),
+                block.era(),
+                block.slot(),
+                block
+                    .epoch(&pallas_traverse::wellknown::GenesisValues::preprod())
+                    .0,
+                block
+                    .epoch(&pallas_traverse::wellknown::GenesisValues::preprod())
+                    .1,
+                block.header().number(),
+            );
+        }
     }
 }
