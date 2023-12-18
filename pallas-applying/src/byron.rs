@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use crate::types::{
     ByronError::*,
-    ByronProtParams, MultiEraInput, MultiEraOutput, SigningTag, UTxOs,
+    ByronProtParams, MultiEraInput, MultiEraOutput, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -251,11 +251,11 @@ fn get_data_to_verify(
     let mut enc: Encoder<&mut Vec<u8>> = Encoder::new(buff);
     match sign {
         TaggedSignature::PkWitness(_) => {
-            enc.encode(SigningTag::Tx as u64)
+            enc.encode(1u64)
                 .map_err(|_| Byron(UnableToProcessWitness))?;
         }
         TaggedSignature::RedeemWitness(_) => {
-            enc.encode(SigningTag::RedeemTx as u64)
+            enc.encode(2u64)
                 .map_err(|_| Byron(UnableToProcessWitness))?;
         }
     }
