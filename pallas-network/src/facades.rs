@@ -10,15 +10,13 @@ use tokio::net::UnixListener;
 
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
-use crate::miniprotocols::{txsubmission, PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_TX_SUBMISSION};
-use crate::{
-    miniprotocols::{
-        blockfetch, chainsync, handshake, localstate, PROTOCOL_N2C_CHAIN_SYNC,
-        PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2N_BLOCK_FETCH,
-        PROTOCOL_N2N_CHAIN_SYNC,
-    },
-    multiplexer::{self, Bearer},
+use crate::miniprotocols::{
+    txsubmission, keepalive, blockfetch, chainsync, handshake, localstate, 
+    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_TX_SUBMISSION, PROTOCOL_N2N_KEEP_ALIVE,
+    PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY, 
+    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
 };
+use crate::multiplexer::{self, Bearer};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -39,6 +37,7 @@ pub struct PeerClient {
     pub chainsync: chainsync::N2NClient,
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
+    pub keepalive: keepalive::Client,
 }
 
 impl PeerClient {
@@ -54,6 +53,7 @@ impl PeerClient {
         let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
         let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
+        let keepalive_channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
 
         let plexer_handle = tokio::spawn(async move { plexer.run().await });
 
@@ -76,6 +76,7 @@ impl PeerClient {
             chainsync: chainsync::Client::new(cs_channel),
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
+            keepalive: keepalive::Client::new(keepalive_channel),
         })
     }
 
@@ -89,6 +90,10 @@ impl PeerClient {
 
     pub fn txsubmission(&mut self) -> &mut txsubmission::Client {
         &mut self.txsubmission
+    }
+
+    pub fn keepalive(&mut self) -> &mut keepalive::Client {
+        &mut self.keepalive
     }
 
     pub fn abort(&mut self) {
