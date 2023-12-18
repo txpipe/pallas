@@ -35,7 +35,7 @@ async fn do_chainsync(peer: &mut PeerClient) {
 
     info!("intersected point is {:?}", point);
 
-    for _ in 0..10 {
+    for _ in 0..100 {
         let next = peer.chainsync().request_next().await.unwrap();
 
         match next {
@@ -59,12 +59,12 @@ async fn main() {
 
     // setup a TCP socket to act as data bearer between our agents and the remote
     // relay.
-    let mut peer = PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
+    let mut peer = PeerClient::connect("localhost:3000", MAINNET_MAGIC)
         .await
         .unwrap();
 
     // fetch an arbitrary batch of block
-    do_blockfetch(&mut peer).await;
+    //do_blockfetch(&mut peer).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
     do_chainsync(&mut peer).await;
