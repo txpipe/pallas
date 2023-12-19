@@ -104,7 +104,7 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
     Ok(iter)
 }
 
-pub fn read_block_from_point(
+pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
 ) -> Result<Box<dyn Iterator<Item = FallibleBlock>>, Box<dyn std::error::Error>> {
@@ -173,6 +173,27 @@ pub fn read_block_from_point(
             }
         }
     }
+}
+
+pub fn get_tip(dir: &Path) -> Result<Point, Box<dyn std::error::Error>> {
+    let names = build_stack_of_chunk_names(dir)?;
+
+    let iter = ChunkReaders(
+        dir.to_owned(),
+        vec![names
+            .into_iter()
+            .next()
+            .ok_or::<Box<dyn std::error::Error>>("Cannot find tip".into())?],
+    )
+    .map_while(Result::ok)
+    .flatten();
+    let tip_data = iter
+        .last()
+        .ok_or::<Box<dyn std::error::Error>>("Cannot find tip".into())??;
+
+    let block = MultiEraBlock::decode(&tip_data)?;
+
+    Ok(Point::Specific(block.slot(), block.hash().to_vec()))
 }
 
 #[cfg(test)]
@@ -274,9 +295,17 @@ mod tests {
     }
 
     #[test]
+    fn get_tip_test() {
+        let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
+
+        let tip = super::get_tip(dir).unwrap();
+        println!("tip: {:?}", tip);
+    }
+
+    #[test]
     fn tmp_test() {
         let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
-        let reader = super::read_block_from_point(
+        let reader = super::read_blocks_from_point(
             dir,
             Point::Specific(
                 0,
