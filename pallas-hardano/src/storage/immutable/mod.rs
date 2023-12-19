@@ -55,6 +55,41 @@ fn chunk_binary_search<ChunkT, PointT>(
     }
 }
 
+/// Iterates the blocks till given slot and block hash.
+/// Returns an iterator over the blocks if specific block found, otherwise returns an error.
+fn iterate_till_point(
+    iter: impl Iterator<Item = FallibleBlock>,
+    slot: u64,
+    block_hash: &[u8],
+) -> Result<impl Iterator<Item = FallibleBlock>, Box<dyn std::error::Error>> {
+    let mut iter = iter.peekable();
+    match iter.peek() {
+        Some(Ok(block_data)) => {
+            let mut block_data = block_data.clone();
+            let mut block = MultiEraBlock::decode(&block_data)?;
+
+            while block.slot() < slot {
+                iter.next();
+
+                match iter.peek() {
+                    Some(Ok(data)) => {
+                        block_data = data.clone();
+                        block = MultiEraBlock::decode(&block_data)?;
+                    }
+                    Some(Err(_)) | None => return Ok(iter),
+                }
+            }
+
+            if block.hash().as_ref().eq(block_hash) && block.slot() == slot {
+                Ok(iter)
+            } else {
+                Err("Cannot find block".into())
+            }
+        }
+        Some(Err(_)) | None => Ok(iter),
+    }
+}
+
 fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, std::io::Error> {
     let mut chunks = std::fs::read_dir(dir)?
         .map_while(|e| e.ok())
@@ -104,6 +139,7 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
     Ok(iter)
 }
 
+/// Returns an iterator over the chain from the given point.
 pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
@@ -111,6 +147,7 @@ pub fn read_blocks_from_point(
     let names = build_stack_of_chunk_names(dir)?;
 
     match point {
+        // Establish iterator from the beginning of the chain
         Point::Origin => {
             let iter = ChunkReaders(dir.to_owned(), names)
                 .map_while(Result::ok)
@@ -118,7 +155,11 @@ pub fn read_blocks_from_point(
 
             Ok(Box::new(iter))
         }
+        // Establish iterator from specific block
         Point::Specific(slot, block_hash) => {
+            // Comparator function for binary search.
+            // Takes the first block from the chunk
+            // and compares block's slot with given point slot amount
             let cmp = {
                 |chunk_name: &String, point: &u64| {
                     let mut blocks = chunk::read_blocks(dir, &chunk_name)?;
@@ -135,42 +176,18 @@ pub fn read_blocks_from_point(
                 }
             };
 
-            let names = if let Some(chunk_index) = chunk_binary_search(&names, &slot, cmp)? {
-                names[chunk_index..].to_vec()
-            } else {
-                vec![]
-            };
+            // Finds chunk index and creates a truncated `names` vector from the found index.
+            let names = chunk_binary_search(&names, &slot, cmp)?
+                .map(|chunk_index| names[chunk_index..].to_vec())
+                .ok_or::<Box<dyn std::error::Error>>("Cannot find tip".into())?;
 
-            let mut iter = ChunkReaders(dir.to_owned(), names.clone())
+            let iter = ChunkReaders(dir.to_owned(), names.clone())
                 .map_while(Result::ok)
                 .flatten()
                 .peekable();
 
-            match iter.peek() {
-                Some(Ok(block_data)) => {
-                    let mut block_data = block_data.clone();
-                    let mut block = MultiEraBlock::decode(&block_data)?;
-
-                    while block.slot() < slot {
-                        iter.next();
-
-                        match iter.peek() {
-                            Some(Ok(data)) => {
-                                block_data = data.clone();
-                                block = MultiEraBlock::decode(&block_data)?;
-                            }
-                            Some(Err(_)) | None => return Ok(Box::new(iter)),
-                        }
-                    }
-
-                    if block.hash().as_ref().eq(block_hash.as_slice()) && block.slot() == slot {
-                        Ok(Box::new(iter))
-                    } else {
-                        Err("Cannot find block".into())
-                    }
-                }
-                Some(Err(_)) | None => Ok(Box::new(iter)),
-            }
+            // Iterates util the block is found by the provided `point`.
+            Ok(iterate_till_point(iter, slot, block_hash.as_slice()).map(Box::new)?)
         }
     }
 }
