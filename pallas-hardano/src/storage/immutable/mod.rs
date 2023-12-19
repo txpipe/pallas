@@ -19,9 +19,9 @@ pub mod secondary;
 /// Current algorithm slightly modified from the original binary search.
 /// It returns the index of the chunk in the `chunks` vector,
 /// which could contain searching element **BUT** it may not.
-/// It assumes that **EACH** chunk it is a sorted collection **BUT** in ascending order,
-/// e.g. `vec![vec![7, 8, 9], vec![4, 5], vec![1, 2, 3]]` and inside `cmp`
-/// function you will compare the first element of the chunk e.g.
+/// It assumes that **EACH** chunk it is a sorted collection **BUT** in
+/// ascending order, e.g. `vec![vec![7, 8, 9], vec![4, 5], vec![1, 2, 3]]` and
+/// inside `cmp` function you will compare the first element of the chunk e.g.
 /// `let cmp = |chunk: &Vec<i32>, point: &i32| chunk[0].cmp(point)`.
 fn chunk_binary_search<ChunkT, PointT>(
     chunks: &Vec<ChunkT>,
@@ -56,7 +56,8 @@ fn chunk_binary_search<ChunkT, PointT>(
 }
 
 /// Iterates the blocks till given slot and block hash.
-/// Returns an iterator over the blocks if specific block found, otherwise returns an error.
+/// Returns an iterator over the blocks if specific block found, otherwise
+/// returns an error.
 fn iterate_till_point(
     iter: impl Iterator<Item = FallibleBlock>,
     slot: u64,
@@ -176,7 +177,8 @@ pub fn read_blocks_from_point(
                 }
             };
 
-            // Finds chunk index and creates a truncated `names` vector from the found index.
+            // Finds chunk index and creates a truncated `names` vector from the found
+            // index.
             let names = chunk_binary_search(&names, &slot, cmp)?
                 .map(|chunk_index| names[chunk_index..].to_vec())
                 .ok_or::<Box<dyn std::error::Error>>("Cannot find the block".into())?;
@@ -192,25 +194,24 @@ pub fn read_blocks_from_point(
     }
 }
 
-pub fn get_tip(dir: &Path) -> Result<Point, Box<dyn std::error::Error>> {
-    let names = build_stack_of_chunk_names(dir)?;
-
-    let iter = ChunkReaders(
-        dir.to_owned(),
-        vec![names
-            .into_iter()
-            .next()
-            .ok_or::<Box<dyn std::error::Error>>("Cannot find the tip".into())?],
-    )
-    .map_while(Result::ok)
-    .flatten();
-    let tip_data = iter
-        .last()
-        .ok_or::<Box<dyn std::error::Error>>("Cannot find the tip".into())??;
-
-    let block = MultiEraBlock::decode(&tip_data)?;
-
-    Ok(Point::Specific(block.slot(), block.hash().to_vec()))
+/// Returns the tip `Point` of the chain.
+pub fn get_tip(dir: &Path) -> Result<Option<Point>, Box<dyn std::error::Error>> {
+    match build_stack_of_chunk_names(dir)?.into_iter().next() {
+        Some(name) => {
+            let tip_point = ChunkReaders(dir.to_owned(), vec![name])
+                .map_while(Result::ok)
+                .flatten()
+                .last()
+                .transpose()?
+                .map(|tip_data| {
+                    MultiEraBlock::decode(&tip_data)
+                        .map(|block| Point::Specific(block.slot(), block.hash().to_vec()))
+                })
+                .transpose()?;
+            Ok(tip_point)
+        }
+        None => Ok(None),
+    }
 }
 
 #[cfg(test)]
@@ -239,6 +240,37 @@ mod tests {
         assert_eq!(chunk_binary_search(&vec, &8, cmp).unwrap(), Some(0));
         assert_eq!(chunk_binary_search(&vec, &9, cmp).unwrap(), Some(0));
         assert_eq!(chunk_binary_search(&vec, &10, cmp).unwrap(), Some(0));
+    }
+
+    #[test]
+    fn iterate_till_point_test() {
+        use super::iterate_till_point;
+
+        let reader = super::read_blocks(Path::new("../test_data")).unwrap();
+        let mut expected_block_number = 910412;
+        for block in reader.take(10) {
+            let block = block.unwrap();
+            let block = MultiEraBlock::decode(&block).unwrap();
+            assert_eq!(block.number(), expected_block_number);
+            expected_block_number += 1;
+        }
+
+        let reader = super::read_blocks(Path::new("../test_data")).unwrap();
+        let reader = iterate_till_point(
+            reader,
+            27756199,
+            hex::decode("3dcf4b00e32099b20c598fd90aed0060e77b1899e58645b9fe7b95a7ca9b306c")
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap();
+        let mut expected_block_number = 910421;
+        for block in reader.take(10) {
+            let block = block.unwrap();
+            let block = MultiEraBlock::decode(&block).unwrap();
+            assert_eq!(block.number(), expected_block_number);
+            expected_block_number += 1;
+        }
     }
 
     #[test]
@@ -313,17 +345,20 @@ mod tests {
 
     #[test]
     fn get_tip_test() {
-        let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
+        use super::get_tip;
 
-        let tip = super::get_tip(dir).unwrap();
+        let tip = get_tip(Path::new("../test_data")).unwrap();
         assert_eq!(
             tip,
-            Point::Specific(
-                46894222,
-                hex::decode("e8c8688ad8b71005cff5b4bf165dc657e8aeeb0a8076770fc6eca1007c5fee93")
+            Some(Point::Specific(
+                43610414,
+                hex::decode("80d02d3c9a576af65e4f36b95a57ae528b62c14836282fbd8d6a93aa1fef557f")
                     .unwrap()
-            )
+            ))
         );
+
+        let tip = get_tip(Path::new("..")).unwrap();
+        assert_eq!(tip, None);
     }
 
     #[test]
