@@ -83,7 +83,7 @@ fn iterate_till_point(
             if block.hash().as_ref().eq(block_hash) && block.slot() == slot {
                 Ok(iter)
             } else {
-                Err("Cannot find block".into())
+                Err("Cannot find the block".into())
             }
         }
         Some(Err(_)) | None => Ok(iter),
@@ -159,7 +159,7 @@ pub fn read_blocks_from_point(
         Point::Specific(slot, block_hash) => {
             // Comparator function for binary search.
             // Takes the first block from the chunk
-            // and compares block's slot with given point slot amount
+            // and compares block's slot with provided slot number
             let cmp = {
                 |chunk_name: &String, point: &u64| {
                     let mut blocks = chunk::read_blocks(dir, &chunk_name)?;
@@ -179,7 +179,7 @@ pub fn read_blocks_from_point(
             // Finds chunk index and creates a truncated `names` vector from the found index.
             let names = chunk_binary_search(&names, &slot, cmp)?
                 .map(|chunk_index| names[chunk_index..].to_vec())
-                .ok_or::<Box<dyn std::error::Error>>("Cannot find tip".into())?;
+                .ok_or::<Box<dyn std::error::Error>>("Cannot find the block".into())?;
 
             let iter = ChunkReaders(dir.to_owned(), names.clone())
                 .map_while(Result::ok)
@@ -200,13 +200,13 @@ pub fn get_tip(dir: &Path) -> Result<Point, Box<dyn std::error::Error>> {
         vec![names
             .into_iter()
             .next()
-            .ok_or::<Box<dyn std::error::Error>>("Cannot find tip".into())?],
+            .ok_or::<Box<dyn std::error::Error>>("Cannot find the tip".into())?],
     )
     .map_while(Result::ok)
     .flatten();
     let tip_data = iter
         .last()
-        .ok_or::<Box<dyn std::error::Error>>("Cannot find tip".into())??;
+        .ok_or::<Box<dyn std::error::Error>>("Cannot find the tip".into())??;
 
     let block = MultiEraBlock::decode(&tip_data)?;
 
