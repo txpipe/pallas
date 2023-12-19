@@ -35,7 +35,8 @@ async fn do_chainsync(peer: &mut PeerClient) {
 
     info!("intersected point is {:?}", point);
 
-    for _ in 0..100 {
+    for i in 0..100 {
+        print!("{i}");
         let next = peer.chainsync().request_next().await.unwrap();
 
         match next {
@@ -50,12 +51,12 @@ async fn do_chainsync(peer: &mut PeerClient) {
 
 #[tokio::main]
 async fn main() {
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level(tracing::Level::TRACE)
-            .finish(),
-    )
-    .unwrap();
+    // tracing::subscriber::set_global_default(
+    //     tracing_subscriber::FmtSubscriber::builder()
+    //         .with_max_level(tracing::Level::TRACE)
+    //         .finish(),
+    // )
+    // .unwrap();
 
     // setup a TCP socket to act as data bearer between our agents and the remote
     // relay.

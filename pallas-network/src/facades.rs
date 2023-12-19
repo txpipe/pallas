@@ -1,16 +1,15 @@
 use std::path::Path;
 
 use thiserror::Error;
-use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
 #[cfg(unix)]
-use tokio::net::UnixListener;
+use std::os::unix::net::UnixListener;
 
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::PROTOCOL_N2N_HANDSHAKE;
+use crate::multiplexer::RunningPlexer;
 use crate::{
     miniprotocols::{
         blockfetch, chainsync, handshake, localstate, PROTOCOL_N2C_CHAIN_SYNC,
@@ -22,6 +21,9 @@ use crate::{
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("error in multiplexer")]
+    PlexerFailure(#[source] multiplexer::Error),
+
     #[error("error connecting bearer")]
     ConnectFailure(#[source] tokio::io::Error),
 
@@ -34,7 +36,7 @@ pub enum Error {
 
 /// Client of N2N Ouroboros
 pub struct PeerClient {
-    //pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    plexer: RunningPlexer,
     pub handshake: handshake::Confirmation<handshake::n2n::VersionData>,
     pub chainsync: chainsync::N2NClient,
     pub blockfetch: blockfetch::Client,
@@ -51,7 +53,7 @@ impl PeerClient {
         let channel2 = plexer.subscribe_client(2);
         let channel3 = plexer.subscribe_client(3);
 
-        let plexer_handle = plexer.spawn();
+        let plexer = plexer.spawn();
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic);
         let mut client = handshake::Client::new(channel0);
@@ -67,7 +69,7 @@ impl PeerClient {
         }
 
         Ok(Self {
-            //plexer_handle,
+            plexer,
             handshake,
             chainsync: chainsync::Client::new(channel2),
             blockfetch: blockfetch::Client::new(channel3),
@@ -82,14 +84,14 @@ impl PeerClient {
         &mut self.blockfetch
     }
 
-    pub fn abort(&mut self) {
-        //self.plexer_handle.abort();
+    pub fn abort(self) -> Result<(), Error> {
+        self.plexer.abort().map_err(Error::PlexerFailure)
     }
 }
 
 /// Server of N2N Ouroboros
 pub struct PeerServer {
-    //pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    pub plexer: RunningPlexer,
     pub version: (VersionNumber, n2n::VersionData),
     pub chainsync: chainsync::N2NServer,
     pub blockfetch: blockfetch::Server,
@@ -99,17 +101,17 @@ impl PeerServer {
     pub async fn accept(listener: &std::net::TcpListener, magic: u64) -> Result<Self, Error> {
         let (bearer, _) = Bearer::accept_tcp(listener).map_err(Error::ConnectFailure)?;
 
-        let mut server_plexer = multiplexer::Plexer::new(bearer);
+        let mut plexer = multiplexer::Plexer::new(bearer);
 
-        let hs_channel = server_plexer.subscribe_server(PROTOCOL_N2N_HANDSHAKE);
-        let cs_channel = server_plexer.subscribe_server(PROTOCOL_N2N_CHAIN_SYNC);
-        let bf_channel = server_plexer.subscribe_server(PROTOCOL_N2N_BLOCK_FETCH);
+        let hs_channel = plexer.subscribe_server(PROTOCOL_N2N_HANDSHAKE);
+        let cs_channel = plexer.subscribe_server(PROTOCOL_N2N_CHAIN_SYNC);
+        let bf_channel = plexer.subscribe_server(PROTOCOL_N2N_BLOCK_FETCH);
 
         let mut server_hs: handshake::Server<n2n::VersionData> = handshake::Server::new(hs_channel);
         let server_cs = chainsync::N2NServer::new(cs_channel);
         let server_bf = blockfetch::Server::new(bf_channel);
 
-        let plexer_handle = server_plexer.spawn();
+        let plexer = plexer.spawn();
 
         let accepted_version = server_hs
             .handshake(n2n::VersionTable::v7_and_above(magic))
@@ -118,13 +120,13 @@ impl PeerServer {
 
         if let Some(ver) = accepted_version {
             Ok(Self {
-                //plexer_handle,
+                plexer,
                 version: ver,
                 chainsync: server_cs,
                 blockfetch: server_bf,
             })
         } else {
-            //plexer_handle.abort();
+            plexer.abort().map_err(Error::PlexerFailure)?;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -137,14 +139,14 @@ impl PeerServer {
         &mut self.blockfetch
     }
 
-    pub fn abort(&mut self) {
-        //self.plexer_handle.abort();
+    pub fn abort(self) -> Result<(), Error> {
+        self.plexer.abort().map_err(Error::PlexerFailure)
     }
 }
 
 /// Client of N2C Ouroboros
 pub struct NodeClient {
-    //pub plexer_handle: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    plexer: RunningPlexer,
     pub handshake: handshake::Confirmation<handshake::n2c::VersionData>,
     pub chainsync: chainsync::N2CClient,
     pub statequery: localstate::Client,
@@ -161,7 +163,7 @@ impl NodeClient {
         let cs_channel = plexer.subscribe_client(PROTOCOL_N2C_CHAIN_SYNC);
         let sq_channel = plexer.subscribe_client(PROTOCOL_N2C_STATE_QUERY);
 
-        let plexer_handle = plexer.spawn();
+        let plexer = plexer.spawn();
 
         let mut client = handshake::Client::new(hs_channel);
 
@@ -176,7 +178,7 @@ impl NodeClient {
         }
 
         Ok(Self {
-            //plexer_handle,
+            plexer,
             handshake,
             chainsync: chainsync::Client::new(cs_channel),
             statequery: localstate::Client::new(sq_channel),
@@ -227,7 +229,7 @@ impl NodeClient {
 
         let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
 
-        let plexer_handle = plexer.spawn();
+        let plexer = plexer.spawn();
 
         let versions = handshake::n2c::VersionTable::v15_with_query(magic);
         let mut client = handshake::Client::new(hs_channel);
@@ -247,7 +249,7 @@ impl NodeClient {
                 Err(Error::IncompatibleVersion)
             }
             Confirmation::QueryReply(version_table) => {
-                //plexer_handle.abort();
+                plexer.abort().map_err(Error::PlexerFailure)?;
                 Ok(version_table)
             }
         }
@@ -261,16 +263,15 @@ impl NodeClient {
         &mut self.statequery
     }
 
-    pub fn abort(&mut self) {
-        //self.plexer_handle.abort();
+    pub fn abort(self) -> Result<(), Error> {
+        self.plexer.abort().map_err(Error::PlexerFailure)
     }
 }
 
 /// Server of N2C Ouroboros.
 #[cfg(unix)]
 pub struct NodeServer {
-    //pub demux_handler: JoinHandle<Result<(), crate::multiplexer::Error>>,
-    //pub mux_handler: JoinHandle<Result<(), crate::multiplexer::Error>>,
+    pub plexer: RunningPlexer,
     pub version: (VersionNumber, n2c::VersionData),
     pub chainsync: chainsync::N2CServer,
     pub statequery: localstate::Server,
@@ -283,17 +284,17 @@ impl NodeServer {
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut server_plexer = multiplexer::Plexer::new(bearer);
+        let mut plexer = multiplexer::Plexer::new(bearer);
 
-        let hs_channel = server_plexer.subscribe_server(PROTOCOL_N2C_HANDSHAKE);
-        let cs_channel = server_plexer.subscribe_server(PROTOCOL_N2C_CHAIN_SYNC);
-        let sq_channel = server_plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
+        let hs_channel = plexer.subscribe_server(PROTOCOL_N2C_HANDSHAKE);
+        let cs_channel = plexer.subscribe_server(PROTOCOL_N2C_CHAIN_SYNC);
+        let sq_channel = plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
 
         let mut server_hs: handshake::Server<n2c::VersionData> = handshake::Server::new(hs_channel);
         let server_cs = chainsync::N2CServer::new(cs_channel);
         let server_sq = localstate::Server::new(sq_channel);
 
-        let (demux_handler, mux_handler) = server_plexer.spawn();
+        let plexer = plexer.spawn();
 
         let accepted_version = server_hs
             .handshake(n2c::VersionTable::v10_and_above(magic))
@@ -302,15 +303,13 @@ impl NodeServer {
 
         if let Some(ver) = accepted_version {
             Ok(Self {
-                //demux_handler,
-                //mux_handler,
+                plexer,
                 version: ver,
                 chainsync: server_cs,
                 statequery: server_sq,
             })
         } else {
-            // demux_handler.abort();
-            // mux_handler.abort();
+            plexer.abort().map_err(Error::PlexerFailure)?;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -323,7 +322,7 @@ impl NodeServer {
         &mut self.statequery
     }
 
-    pub fn abort(&mut self) {
-        //self.plexer_handle.abort();
+    pub fn abort(self) -> Result<(), Error> {
+        self.plexer.abort().map_err(Error::PlexerFailure)
     }
 }

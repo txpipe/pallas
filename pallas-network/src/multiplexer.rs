@@ -4,23 +4,23 @@ use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use std::{
     io::{Read, Write},
-    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     thread::JoinHandle,
 };
 use thiserror::Error;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::error::SendError;
 use tokio::time::Instant;
 use tracing::{debug, error, trace};
 
 type IOResult<T> = std::io::Result<T>;
-use std::net;
 
-//type IOResult<T> = std::io::Result<T>;
-//use std::net;
+use std::net as tcp;
 
 #[cfg(unix)]
-use tokio::net::{UnixListener, UnixStream};
+use std::os::unix::net as unix;
 
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::NamedPipeClient;
@@ -71,23 +71,23 @@ pub struct Segment {
 }
 
 pub enum Bearer {
-    Tcp(net::TcpStream),
+    Tcp(tcp::TcpStream),
 
     #[cfg(unix)]
-    Unix(UnixStream),
+    Unix(unix::UnixStream),
 
     #[cfg(windows)]
     NamedPipe(NamedPipeClient),
 }
 
 impl Bearer {
-    pub fn connect_tcp(addr: impl net::ToSocketAddrs) -> IOResult<Self> {
-        let stream = net::TcpStream::connect(addr)?;
+    pub fn connect_tcp(addr: impl tcp::ToSocketAddrs) -> IOResult<Self> {
+        let stream = tcp::TcpStream::connect(addr)?;
         stream.set_nodelay(true)?;
         Ok(Self::Tcp(stream))
     }
 
-    pub fn accept_tcp(listener: &net::TcpListener) -> IOResult<(Self, SocketAddr)> {
+    pub fn accept_tcp(listener: &tcp::TcpListener) -> IOResult<(Self, tcp::SocketAddr)> {
         let (stream, addr) = listener.accept()?;
         stream.set_nodelay(true)?;
         Ok((Self::Tcp(stream), addr))
@@ -95,15 +95,13 @@ impl Bearer {
 
     #[cfg(unix)]
     pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
-        let stream = UnixStream::connect(path).await?;
+        let stream = unix::UnixStream::connect(path)?;
         Ok(Self::Unix(stream))
     }
 
     #[cfg(unix)]
-    pub async fn accept_unix(
-        listener: &UnixListener,
-    ) -> IOResult<(Self, tokio::net::unix::SocketAddr)> {
-        let (stream, addr) = listener.accept().await?;
+    pub async fn accept_unix(listener: &unix::UnixListener) -> IOResult<(Self, unix::SocketAddr)> {
+        let (stream, addr) = listener.accept()?;
         Ok((Self::Unix(stream), addr))
     }
 
@@ -122,34 +120,34 @@ impl Bearer {
                 (BearerReadHalf::Tcp(x), BearerWriteHalf::Tcp(y))
             }
             Bearer::Unix(x) => {
-                let (r, w) = x.into_split();
-                (BearerReadHalf::Unix(r), BearerWriteHalf::Unix(w))
+                let y = x.try_clone().unwrap();
+                (BearerReadHalf::Unix(x), BearerWriteHalf::Unix(y))
             }
         }
     }
 }
 
 pub enum BearerReadHalf {
-    Tcp(net::TcpStream),
+    Tcp(tcp::TcpStream),
 
     #[cfg(unix)]
-    Unix(tokio::net::unix::OwnedReadHalf),
+    Unix(unix::UnixStream),
 }
 
 impl BearerReadHalf {
     fn read_exact(&mut self, buf: &mut [u8]) -> IOResult<()> {
         match self {
             BearerReadHalf::Tcp(x) => x.read_exact(buf),
-            BearerReadHalf::Unix(x) => todo!(), //x.read_exact(buf).await,
+            BearerReadHalf::Unix(x) => x.read_exact(buf),
         }
     }
 }
 
 pub enum BearerWriteHalf {
-    Tcp(net::TcpStream),
+    Tcp(tcp::TcpStream),
 
     #[cfg(unix)]
-    Unix(tokio::net::unix::OwnedWriteHalf),
+    Unix(unix::UnixStream),
 }
 
 impl BearerWriteHalf {
@@ -158,7 +156,7 @@ impl BearerWriteHalf {
             Self::Tcp(x) => x.write_all(buf),
 
             #[cfg(unix)]
-            Self::Unix(x) => todo!(), // x.write_all(buf).await,
+            Self::Unix(x) => x.write_all(buf),
         }
     }
 
@@ -167,7 +165,7 @@ impl BearerWriteHalf {
             Self::Tcp(x) => x.flush(),
 
             #[cfg(unix)]
-            Self::Unix(x) => todo!(), // x.flush().await,
+            Self::Unix(x) => x.flush(),
         }
     }
 }
@@ -205,8 +203,6 @@ type Egress = (
 );
 
 pub struct Demuxer(BearerReadHalf, Egress);
-
-use tokio::io::AsyncReadExt;
 
 impl Demuxer {
     pub fn new(bearer: BearerReadHalf) -> Self {
@@ -315,29 +311,40 @@ impl Muxer {
     }
 }
 
+type ToPlexerPort = tokio::sync::mpsc::Sender<(Protocol, Payload)>;
+type FromPlexerPort = tokio::sync::broadcast::Receiver<(Protocol, Payload)>;
+
 pub struct AgentChannel {
     enqueue_protocol: Protocol,
     dequeue_protocol: Protocol,
-    to_plexer: tokio::sync::mpsc::Sender<(Protocol, Payload)>,
-    from_plexer: tokio::sync::broadcast::Receiver<(Protocol, Payload)>,
+    to_plexer: ToPlexerPort,
+    from_plexer: FromPlexerPort,
 }
 
 impl AgentChannel {
-    fn for_client(protocol: Protocol, demuxer: &Demuxer, muxer: &Muxer) -> Self {
+    fn for_client(
+        protocol: Protocol,
+        to_plexer: ToPlexerPort,
+        from_plexer: FromPlexerPort,
+    ) -> Self {
         Self {
             enqueue_protocol: protocol,
             dequeue_protocol: protocol ^ 0x8000,
-            from_plexer: demuxer.subscribe_recv(),
-            to_plexer: muxer.clone_sender(),
+            from_plexer,
+            to_plexer,
         }
     }
 
-    fn for_server(protocol: Protocol, demuxer: &Demuxer, muxer: &Muxer) -> Self {
+    fn for_server(
+        protocol: Protocol,
+        to_plexer: ToPlexerPort,
+        from_plexer: FromPlexerPort,
+    ) -> Self {
         Self {
             enqueue_protocol: protocol ^ 0x8000,
             dequeue_protocol: protocol,
-            from_plexer: demuxer.subscribe_recv(),
-            to_plexer: muxer.clone_sender(),
+            from_plexer,
+            to_plexer,
         }
     }
 
@@ -364,6 +371,22 @@ impl AgentChannel {
     }
 }
 
+pub struct RunningPlexer {
+    demuxer: JoinHandle<Result<(), Error>>,
+    muxer: JoinHandle<Result<(), Error>>,
+    abort: Arc<AtomicBool>,
+}
+
+impl RunningPlexer {
+    pub fn abort(self) -> Result<(), Error> {
+        self.abort.store(true, Ordering::Relaxed);
+        self.demuxer.join().expect("couldn't join demuxer thread")?;
+        self.muxer.join().expect("couldn't join muxer thread")?;
+
+        Ok(())
+    }
+}
+
 pub struct Plexer {
     demuxer: Demuxer,
     muxer: Muxer,
@@ -380,32 +403,51 @@ impl Plexer {
     }
 
     pub fn subscribe_client(&mut self, protocol: Protocol) -> AgentChannel {
-        AgentChannel::for_client(protocol, &self.demuxer, &self.muxer)
+        let to_plexer = self.muxer.clone_sender();
+        let from_plexer = self.demuxer.subscribe_recv();
+        AgentChannel::for_client(protocol, to_plexer, from_plexer)
     }
 
     pub fn subscribe_server(&mut self, protocol: Protocol) -> AgentChannel {
-        AgentChannel::for_server(protocol, &self.demuxer, &self.muxer)
+        let to_plexer = self.muxer.clone_sender();
+        let from_plexer = self.demuxer.subscribe_recv();
+        AgentChannel::for_server(protocol, to_plexer, from_plexer)
     }
 
-    pub fn spawn(self) -> (JoinHandle<Result<(), Error>>, JoinHandle<Result<(), Error>>) {
+    pub fn spawn(self) -> RunningPlexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
+        let abort = Arc::new(AtomicBool::new(false));
 
-        let t1 = std::thread::spawn(move || loop {
+        let demuxer_abort = abort.clone();
+        let demuxer = std::thread::spawn(move || loop {
+            if demuxer_abort.load(Ordering::Relaxed) {
+                break Ok(());
+            }
+
             match demuxer.tick() {
                 Err(err) => break Err(err),
                 _ => (),
             }
         });
 
-        let t2 = std::thread::spawn(move || loop {
+        let muxer_abort = abort.clone();
+        let muxer = std::thread::spawn(move || loop {
+            if muxer_abort.load(Ordering::Relaxed) {
+                break Ok(());
+            }
+
             match muxer.tick() {
                 Err(err) => break Err(err),
                 _ => (),
             }
         });
 
-        (t1, t2)
+        RunningPlexer {
+            demuxer,
+            muxer,
+            abort,
+        }
     }
 }
 
@@ -519,12 +561,12 @@ mod tests {
         minicbor::encode(in_part1, &mut input).unwrap();
         minicbor::encode(in_part2, &mut input).unwrap();
 
-        let ingress = tokio::sync::mpsc::channel(100);
-        let egress = tokio::sync::broadcast::channel(100);
+        let (to_plexer, _) = tokio::sync::mpsc::channel(100);
+        let (into_plexer, from_plexer) = tokio::sync::broadcast::channel(100);
 
-        let channel = AgentChannel::for_client(0, &ingress, &egress);
+        let channel = AgentChannel::for_client(0, to_plexer, from_plexer);
 
-        egress.0.send((0x8000, input)).unwrap();
+        into_plexer.send((0x8000, input)).unwrap();
 
         let mut buf = ChannelBuffer::new(channel);
 
@@ -541,14 +583,14 @@ mod tests {
         let msg = (11u8, 12u8, 13u8, 14u8, 15u8, 16u8, 17u8);
         minicbor::encode(msg, &mut input).unwrap();
 
-        let ingress = tokio::sync::mpsc::channel(100);
-        let egress = tokio::sync::broadcast::channel(100);
+        let (to_plexer, _) = tokio::sync::mpsc::channel(100);
+        let (into_plexer, from_plexer) = tokio::sync::broadcast::channel(100);
 
-        let channel = AgentChannel::for_client(0, &ingress, &egress);
+        let channel = AgentChannel::for_client(0, to_plexer, from_plexer);
 
         while !input.is_empty() {
             let chunk = Vec::from(input.drain(0..2).as_slice());
-            egress.0.send((0x8000, chunk)).unwrap();
+            into_plexer.send((0x8000, chunk)).unwrap();
         }
 
         let mut buf = ChannelBuffer::new(channel);
