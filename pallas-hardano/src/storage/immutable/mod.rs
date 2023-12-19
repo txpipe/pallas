@@ -107,49 +107,72 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 pub fn read_block_from_point(
     dir: &Path,
     point: Point,
-) -> Result<impl Iterator<Item = FallibleBlock>, Box<dyn std::error::Error>> {
+) -> Result<Box<dyn Iterator<Item = FallibleBlock>>, Box<dyn std::error::Error>> {
     let names = build_stack_of_chunk_names(dir)?;
 
-    let cmp = {
-        |chunk_name: &String, point: &Point| {
-            let mut blocks = chunk::read_blocks(dir, &chunk_name)?;
+    match point {
+        Point::Origin => {
+            let iter = ChunkReaders(dir.to_owned(), names)
+                .map_while(Result::ok)
+                .flatten();
 
-            // Try to read the first block from the chunk
-            if let Some(block_data) = blocks.next() {
-                let block_data = block_data?;
-
-                let block = MultiEraBlock::decode(&block_data)?;
-                Ok(block.slot().cmp(&point.slot_or_default()))
-            } else {
-                Ok(Ordering::Greater)
-            }
+            Ok(Box::new(iter))
         }
-    };
+        Point::Specific(slot, block_hash) => {
+            let cmp = {
+                |chunk_name: &String, point: &u64| {
+                    let mut blocks = chunk::read_blocks(dir, &chunk_name)?;
 
-    let names = if let Some(chunk_index) = chunk_binary_search(&names, &point, cmp)? {
-        names[chunk_index..].to_vec()
-    } else {
-        vec![]
-    };
+                    // Try to read the first block from the chunk
+                    if let Some(block_data) = blocks.next() {
+                        let block_data = block_data?;
 
-    let iter = ChunkReaders(dir.to_owned(), names)
-        .map_while(Result::ok)
-        .flatten()
-        // Filter until the point
-        // ???
-        .filter({
-            let slot_number = point.slot_or_default();
-            move |block_data| {
-                if let Ok(block_data) = block_data {
-                    if let Ok(block) = MultiEraBlock::decode(block_data) {
-                        return block.slot() >= slot_number;
+                        let block = MultiEraBlock::decode(&block_data)?;
+                        Ok(block.slot().cmp(point))
+                    } else {
+                        Ok(Ordering::Greater)
                     }
                 }
-                true
-            }
-        });
+            };
 
-    Ok(iter)
+            let names = if let Some(chunk_index) = chunk_binary_search(&names, &slot, cmp)? {
+                names[chunk_index..].to_vec()
+            } else {
+                vec![]
+            };
+
+            let mut iter = ChunkReaders(dir.to_owned(), names.clone())
+                .map_while(Result::ok)
+                .flatten()
+                .peekable();
+
+            match iter.peek() {
+                Some(Ok(block_data)) => {
+                    let mut block_data = block_data.clone();
+                    let mut block = MultiEraBlock::decode(&block_data)?;
+
+                    while block.slot() < slot {
+                        iter.next();
+
+                        match iter.peek() {
+                            Some(Ok(data)) => {
+                                block_data = data.clone();
+                                block = MultiEraBlock::decode(&block_data)?;
+                            }
+                            Some(Err(_)) | None => return Ok(Box::new(iter)),
+                        }
+                    }
+
+                    if block.hash().as_ref().eq(block_hash.as_slice()) && block.slot() == slot {
+                        Ok(Box::new(iter))
+                    } else {
+                        Err("Cannot find block".into())
+                    }
+                }
+                Some(Err(_)) | None => Ok(Box::new(iter)),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -253,7 +276,15 @@ mod tests {
     #[test]
     fn tmp_test() {
         let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
-        let reader = super::read_block_from_point(dir, Point::Specific(0, vec![])).unwrap();
+        let reader = super::read_block_from_point(
+            dir,
+            Point::Specific(
+                0,
+                hex::decode("9ad7ff320c9cf74e0f5ee78d22a85ce42bb0a487d0506bf60cfb5a91ea4497d2")
+                    .unwrap(),
+            ),
+        )
+        .unwrap();
 
         for block in reader.take(10) {
             let block = block.unwrap();
