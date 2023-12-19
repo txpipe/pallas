@@ -80,11 +80,17 @@ impl Bearer {
         Ok(Self::Tcp(stream))
     }
 
-    pub async fn connect_tcp_timeout(addr: impl ToSocketAddrs, timeout: std::time::Duration) -> Result<Self, tokio::io::Error> {
+    pub async fn connect_tcp_timeout(
+        addr: impl ToSocketAddrs,
+        timeout: std::time::Duration,
+    ) -> Result<Self, tokio::io::Error> {
         match tokio::time::timeout(timeout, Self::connect_tcp(addr)).await {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(err)) => Err(err),
-            Err(_) => Err(tokio::io::Error::new(tokio::io::ErrorKind::TimedOut, "connection timed out")),
+            Err(_) => Err(tokio::io::Error::new(
+                tokio::io::ErrorKind::TimedOut,
+                "connection timed out",
+            )),
         }
     }
 

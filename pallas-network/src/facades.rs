@@ -11,10 +11,10 @@ use tokio::net::UnixListener;
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
-    txsubmission, keepalive, blockfetch, chainsync, handshake, localstate, 
-    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_TX_SUBMISSION, PROTOCOL_N2N_KEEP_ALIVE,
-    PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY, 
-    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
+    blockfetch, chainsync, handshake, keepalive, localstate, txsubmission, PROTOCOL_N2C_CHAIN_SYNC,
+    PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2N_BLOCK_FETCH,
+    PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE,
+    PROTOCOL_N2N_TX_SUBMISSION,
 };
 use crate::multiplexer::{self, Bearer};
 

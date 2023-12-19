@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pallas_codec::minicbor::{decode, Decode, Decoder, encode, Encode, Encoder};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 pub type VersionTable = super::protocol::VersionTable<VersionData>;
 
@@ -29,10 +29,22 @@ impl VersionTable {
 
     pub fn v7_to_v10(network_magic: u64) -> VersionTable {
         let values = vec![
-            (PROTOCOL_V7, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V8, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V9, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V10, VersionData::new(network_magic, false, None, None)),
+            (
+                PROTOCOL_V7,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V8,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V9,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V10,
+                VersionData::new(network_magic, false, None, None),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -42,13 +54,49 @@ impl VersionTable {
 
     pub fn v7_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
-            (PROTOCOL_V7, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V8, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V9, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V10, VersionData::new(network_magic, false, None, None)),
-            (PROTOCOL_V11, VersionData::new(network_magic, false, Some(PEER_SHARING_DISABLED), Some(false))),
-            (PROTOCOL_V12, VersionData::new(network_magic, false, Some(PEER_SHARING_DISABLED), Some(false))),
-            (PROTOCOL_V13, VersionData::new(network_magic, false, Some(PEER_SHARING_DISABLED), Some(false))),
+            (
+                PROTOCOL_V7,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V8,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V9,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V10,
+                VersionData::new(network_magic, false, None, None),
+            ),
+            (
+                PROTOCOL_V11,
+                VersionData::new(
+                    network_magic,
+                    false,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(false),
+                ),
+            ),
+            (
+                PROTOCOL_V12,
+                VersionData::new(
+                    network_magic,
+                    false,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(false),
+                ),
+            ),
+            (
+                PROTOCOL_V13,
+                VersionData::new(
+                    network_magic,
+                    false,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(false),
+                ),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -58,9 +106,33 @@ impl VersionTable {
 
     pub fn v11_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
-            (PROTOCOL_V11, VersionData::new(network_magic, false, Some(PEER_SHARING_DISABLED), Some(false))),
-            (PROTOCOL_V12, VersionData::new(network_magic, false, Some(PEER_SHARING_DISABLED), Some(false))),
-            (PROTOCOL_V13, VersionData::new(network_magic, false, Some(PEER_SHARING_DISABLED), Some(false))),
+            (
+                PROTOCOL_V11,
+                VersionData::new(
+                    network_magic,
+                    false,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(false),
+                ),
+            ),
+            (
+                PROTOCOL_V12,
+                VersionData::new(
+                    network_magic,
+                    false,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(false),
+                ),
+            ),
+            (
+                PROTOCOL_V13,
+                VersionData::new(
+                    network_magic,
+                    false,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(false),
+                ),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -78,7 +150,12 @@ pub struct VersionData {
 }
 
 impl VersionData {
-    pub fn new(network_magic: u64, initiator_and_responder_diffusion_mode: bool, peer_sharing: Option<u8>, query: Option<bool>) -> Self {
+    pub fn new(
+        network_magic: u64,
+        initiator_and_responder_diffusion_mode: bool,
+        peer_sharing: Option<u8>,
+        query: Option<bool>,
+    ) -> Self {
         VersionData {
             network_magic,
             initiator_and_responder_diffusion_mode,
@@ -101,12 +178,12 @@ impl Encode<()> for VersionData {
                     .bool(self.initiator_and_responder_diffusion_mode)?
                     .u8(peer_sharing)?
                     .bool(query)?;
-            },
+            }
             _ => {
                 e.array(2)?
                     .u64(self.network_magic)?
                     .bool(self.initiator_and_responder_diffusion_mode)?;
-            },
+            }
         };
 
         Ok(())
