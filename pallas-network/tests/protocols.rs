@@ -285,7 +285,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 
             server_hs.receive_proposed_versions().await.unwrap();
             server_hs
-                .accept_version(10, VersionData::new(0, false))
+                .accept_version(10, VersionData::new(0, false, None, None))
                 .await
                 .unwrap();
 
