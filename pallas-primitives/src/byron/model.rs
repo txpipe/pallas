@@ -860,6 +860,7 @@ mod tests {
             include_str!("../../../test_data/byron5.block"),
             include_str!("../../../test_data/byron6.block"),
             include_str!("../../../test_data/byron7.block"),
+            include_str!("../../../test_data/byron8.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
