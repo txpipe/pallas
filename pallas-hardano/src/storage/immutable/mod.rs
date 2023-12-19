@@ -299,7 +299,14 @@ mod tests {
         let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
 
         let tip = super::get_tip(dir).unwrap();
-        println!("tip: {:?}", tip);
+        assert_eq!(
+            tip,
+            Point::Specific(
+                46894222,
+                hex::decode("e8c8688ad8b71005cff5b4bf165dc657e8aeeb0a8076770fc6eca1007c5fee93")
+                    .unwrap()
+            )
+        );
     }
 
     #[test]
@@ -308,8 +315,8 @@ mod tests {
         let reader = super::read_blocks_from_point(
             dir,
             Point::Specific(
-                0,
-                hex::decode("9ad7ff320c9cf74e0f5ee78d22a85ce42bb0a487d0506bf60cfb5a91ea4497d2")
+                46894222,
+                hex::decode("e8c8688ad8b71005cff5b4bf165dc657e8aeeb0a8076770fc6eca1007c5fee93")
                     .unwrap(),
             ),
         )
