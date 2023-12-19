@@ -13,14 +13,14 @@ pub mod chunk;
 pub mod primary;
 pub mod secondary;
 
-/// Performs a binary search of the given chunks
+/// Performs a binary search of the given sorted chunks in descending order
 /// and returns the index of the chunk which probably contains the point.
 ///
 /// Current algorithm slightly modified from the original binary search.
 /// It returns the index of the chunk in the `chunks` vector,
 /// which could contain searching element **BUT** it may not.
-/// It assumes that **EACH** chunk it is a sorted collection of elements
-/// e.g. `vec![vec![1, 2, 3], vec![4, 5], vec![7, 8, 9]]` and inside `cmp`
+/// It assumes that **EACH** chunk it is a sorted collection **BUT** in ascending order,
+/// e.g. `vec![vec![7, 8, 9], vec![4, 5], vec![1, 2, 3]]` and inside `cmp`
 /// function you will compare the first element of the chunk e.g.
 /// `let cmp = |chunk: &Vec<i32>, point: &i32| chunk[0].cmp(point)`.
 fn chunk_binary_search<ChunkT, PointT>(
@@ -32,7 +32,7 @@ fn chunk_binary_search<ChunkT, PointT>(
     let mut left = 0;
     let mut right: usize = size;
 
-    while left < right {
+    while size > 0 {
         let mid = left + size / 2;
 
         // SAFETY: the while condition means `size` is strictly positive, so
@@ -40,16 +40,16 @@ fn chunk_binary_search<ChunkT, PointT>(
         // coupled with the `left + size <= self.len()` invariant means
         // we have `left + size/2 < self.len()`, and this is in-bounds.
         match cmp(&chunks[mid], point)? {
-            Ordering::Less => left = mid + 1,
-            Ordering::Greater => right = mid,
+            Ordering::Less => right = mid,
+            Ordering::Greater => left = mid + 1,
             Ordering::Equal => return Ok(Some(mid)),
         };
 
         size = right - left;
     }
 
-    if left > 0 {
-        Ok(Some(left - 1))
+    if right < chunks.len() {
+        Ok(Some(right))
     } else {
         Ok(None)
     }
@@ -108,8 +108,7 @@ pub fn read_block_from_point(
     dir: &Path,
     point: Point,
 ) -> Result<impl Iterator<Item = FallibleBlock>, Box<dyn std::error::Error>> {
-    let mut names = build_stack_of_chunk_names(dir)?;
-    names.reverse();
+    let names = build_stack_of_chunk_names(dir)?;
 
     let cmp = {
         |chunk_name: &String, point: &Point| {
@@ -127,12 +126,11 @@ pub fn read_block_from_point(
         }
     };
 
-    let mut names = if let Some(chunk_index) = chunk_binary_search(&names, &point, cmp)? {
+    let names = if let Some(chunk_index) = chunk_binary_search(&names, &point, cmp)? {
         names[chunk_index..].to_vec()
     } else {
         vec![]
     };
-    names.reverse();
 
     let iter = ChunkReaders(dir.to_owned(), names)
         .map_while(Result::ok)
@@ -166,20 +164,20 @@ mod tests {
     fn chunk_binary_search_test() {
         use super::chunk_binary_search;
 
-        let vec = vec![vec![1, 2, 3], vec![4, 5], vec![7, 8, 9]];
+        let vec = vec![vec![7, 8, 9], vec![4, 5], vec![1, 2, 3]];
         let cmp = |chunk: &Vec<i32>, point: &i32| Ok(chunk[0].cmp(point));
 
         assert_eq!(chunk_binary_search(&vec, &0, cmp).unwrap(), None);
-        assert_eq!(chunk_binary_search(&vec, &1, cmp).unwrap(), Some(0));
-        assert_eq!(chunk_binary_search(&vec, &2, cmp).unwrap(), Some(0));
-        assert_eq!(chunk_binary_search(&vec, &3, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, &1, cmp).unwrap(), Some(2));
+        assert_eq!(chunk_binary_search(&vec, &2, cmp).unwrap(), Some(2));
+        assert_eq!(chunk_binary_search(&vec, &3, cmp).unwrap(), Some(2));
         assert_eq!(chunk_binary_search(&vec, &4, cmp).unwrap(), Some(1));
         assert_eq!(chunk_binary_search(&vec, &5, cmp).unwrap(), Some(1));
         assert_eq!(chunk_binary_search(&vec, &6, cmp).unwrap(), Some(1));
-        assert_eq!(chunk_binary_search(&vec, &7, cmp).unwrap(), Some(2));
-        assert_eq!(chunk_binary_search(&vec, &8, cmp).unwrap(), Some(2));
-        assert_eq!(chunk_binary_search(&vec, &9, cmp).unwrap(), Some(2));
-        assert_eq!(chunk_binary_search(&vec, &10, cmp).unwrap(), Some(2));
+        assert_eq!(chunk_binary_search(&vec, &7, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, &8, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, &9, cmp).unwrap(), Some(0));
+        assert_eq!(chunk_binary_search(&vec, &10, cmp).unwrap(), Some(0));
     }
 
     #[test]
