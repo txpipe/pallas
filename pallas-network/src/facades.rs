@@ -227,7 +227,7 @@ impl NodeClient {
     }
 
     #[cfg(unix)]
-    pub async fn connect2(
+    pub async fn connect(
         path: impl AsRef<Path> + Send + 'static,
         magic: u64,
     ) -> Result<Self, Error> {
@@ -254,33 +254,33 @@ impl NodeClient {
         Ok(client)
     }
 
-    #[cfg(windows)]
-    pub async fn connect(
-        pipe_name: impl AsRef<std::ffi::OsStr>,
-        magic: u64,
-    ) -> Result<Self, Error> {
-        let bearer = tokio::task::spawn_blocking(move || Bearer::connect_named_pipe(pipe_name))
-            .await
-            .expect("can't join tokio thread")
-            .map_err(Error::ConnectFailure)?;
+    // #[cfg(windows)]
+    // pub async fn connect(
+    //     pipe_name: impl AsRef<std::ffi::OsStr>,
+    //     magic: u64,
+    // ) -> Result<Self, Error> {
+    //     let bearer = tokio::task::spawn_blocking(move ||
+    // Bearer::connect_named_pipe(pipe_name))         .await
+    //         .expect("can't join tokio thread")
+    //         .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
+    //     let mut client = Self::new(bearer);
 
-        let versions = handshake::n2c::VersionTable::v10_and_above(magic);
+    //     let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+    //     let handshake = client
+    //         .handshake()
+    //         .handshake(versions)
+    //         .await
+    //         .map_err(Error::HandshakeProtocol)?;
 
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
+    //     if let handshake::Confirmation::Rejected(reason) = handshake {
+    //         error!(?reason, "handshake refused");
+    //         return Err(Error::IncompatibleVersion);
+    //     }
 
-        Ok(client)
-    }
+    //     Ok(client)
+    // }
 
     #[cfg(unix)]
     pub async fn handshake_query(

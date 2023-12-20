@@ -115,11 +115,12 @@ impl Bearer {
         Ok((Self::Unix(stream), addr))
     }
 
-    #[cfg(windows)]
-    pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> IOResult<Self> {
-        let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
-        Ok(Self::NamedPipe(client))
-    }
+    // #[cfg(windows)]
+    // pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) ->
+    // IOResult<Self> {     let client =
+    // tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
+    //     Ok(Self::NamedPipe(client))
+    // }
 
     pub fn into_split(self) -> (BearerReadHalf, BearerWriteHalf) {
         match self {
