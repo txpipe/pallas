@@ -11,6 +11,8 @@ pallas = { path = "../../pallas" }
 net2 = "0.2.37"
 hex = "0.4.3"
 log = "0.4.16"
+thiserror = "1.0.31"
+futures = "0.3.29"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 tokio = { version = "1.27.0", features = ["rt-multi-thread"] }

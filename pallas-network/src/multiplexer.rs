@@ -77,6 +77,15 @@ const BUFFER_LEN: usize = 1024 * 10;
 impl Bearer {
     pub async fn connect_tcp(addr: impl ToSocketAddrs) -> Result<Self, tokio::io::Error> {
         let stream = TcpStream::connect(addr).await?;
+        // add tcp_keepalive
+        let sock_ref = socket2::SockRef::from(&stream);
+        let mut tcp_keepalive = socket2::TcpKeepalive::new();
+        tcp_keepalive = tcp_keepalive.with_time(tokio::time::Duration::from_secs(20));
+        tcp_keepalive = tcp_keepalive.with_interval(tokio::time::Duration::from_secs(20));
+        let _ = sock_ref.set_tcp_keepalive(&tcp_keepalive);
+        // add tcp_nodelay
+        let _ = sock_ref.set_nodelay(true);        
+
         Ok(Self::Tcp(stream))
     }
 
@@ -353,7 +362,7 @@ impl Plexer {
             clock: Instant::now(),
             bearer: SegmentBuffer::new(bearer),
             ingress: tokio::sync::mpsc::channel(100), // TODO: define buffer
-            egress: tokio::sync::broadcast::channel(100),
+            egress: tokio::sync::broadcast::channel(100000),
         }
     }
 
