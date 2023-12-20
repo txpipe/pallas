@@ -3,6 +3,7 @@ use pallas::network::{
     miniprotocols::{chainsync, Point, MAINNET_MAGIC},
     multiplexer::Bearer,
 };
+use tokio::time::Instant;
 use tracing::info;
 
 async fn do_blockfetch(peer: &mut PeerClient) {
@@ -36,7 +37,12 @@ async fn do_chainsync(peer: &mut PeerClient) {
 
     info!("intersected point is {:?}", point);
 
+    let mut keepalive_timer = Instant::now();
     for _ in 0..10 {
+        if keepalive_timer.elapsed().as_secs() > 20 {
+            peer.keepalive().send_keepalive().await.unwrap();
+            keepalive_timer = Instant::now();
+        }
         let next = peer.chainsync().request_next().await.unwrap();
 
         match next {

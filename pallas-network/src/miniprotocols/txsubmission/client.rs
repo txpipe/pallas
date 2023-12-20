@@ -132,14 +132,16 @@ where
 
     pub async fn next_request(&mut self) -> Result<Request<TxId>, Error> {
         match self.recv_message().await? {
-            Message::RequestTxIds(blocking, ack, req) => {
-                self.0 = State::TxIdsBlocking;
-
-                match blocking {
-                    true => Ok(Request::TxIds(ack, req)),
-                    false => Ok(Request::TxIdsNonBlocking(ack, req)),
+            Message::RequestTxIds(blocking, ack, req) => match blocking {
+                true => {
+                    self.0 = State::TxIdsBlocking;
+                    Ok(Request::TxIds(ack, req))
                 }
-            }
+                false => {
+                    self.0 = State::TxIdsNonBlocking;
+                    Ok(Request::TxIdsNonBlocking(ack, req))
+                }
+            },
             Message::RequestTxs(x) => {
                 self.0 = State::Txs;
                 Ok(Request::Txs(x))
