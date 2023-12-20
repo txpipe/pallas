@@ -1,6 +1,7 @@
 use pallas::network::{
     facades::PeerClient,
     miniprotocols::{chainsync, Point, MAINNET_MAGIC},
+    multiplexer::Bearer,
 };
 use tracing::info;
 
@@ -35,8 +36,7 @@ async fn do_chainsync(peer: &mut PeerClient) {
 
     info!("intersected point is {:?}", point);
 
-    for i in 0..100 {
-        print!("{i}");
+    for _ in 0..10 {
         let next = peer.chainsync().request_next().await.unwrap();
 
         match next {
@@ -51,21 +51,20 @@ async fn do_chainsync(peer: &mut PeerClient) {
 
 #[tokio::main]
 async fn main() {
-    // tracing::subscriber::set_global_default(
-    //     tracing_subscriber::FmtSubscriber::builder()
-    //         .with_max_level(tracing::Level::TRACE)
-    //         .finish(),
-    // )
-    // .unwrap();
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
 
     // setup a TCP socket to act as data bearer between our agents and the remote
     // relay.
-    let mut peer = PeerClient::connect("localhost:3000", MAINNET_MAGIC)
-        .await
-        .unwrap();
+    let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
+    let mut peer = PeerClient::connect(bearer, MAINNET_MAGIC).await.unwrap();
 
     // fetch an arbitrary batch of block
-    //do_blockfetch(&mut peer).await;
+    do_blockfetch(&mut peer).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
     do_chainsync(&mut peer).await;
