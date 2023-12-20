@@ -94,21 +94,19 @@ impl Bearer {
     }
 
     #[cfg(unix)]
-    pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
+    pub fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
         let stream = unix::UnixStream::connect(path)?;
         Ok(Self::Unix(stream))
     }
 
     #[cfg(unix)]
-    pub async fn accept_unix(listener: &unix::UnixListener) -> IOResult<(Self, unix::SocketAddr)> {
+    pub fn accept_unix(listener: &unix::UnixListener) -> IOResult<(Self, unix::SocketAddr)> {
         let (stream, addr) = listener.accept()?;
         Ok((Self::Unix(stream), addr))
     }
 
     #[cfg(windows)]
-    pub async fn connect_named_pipe(
-        pipe_name: impl AsRef<std::ffi::OsStr>,
-    ) -> Result<Self, tokio::io::Error> {
+    pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> IOResult<Self> {
         let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
         Ok(Self::NamedPipe(client))
     }
@@ -378,8 +376,11 @@ pub struct RunningPlexer {
 }
 
 impl RunningPlexer {
-    pub fn abort(self) -> Result<(), Error> {
+    pub fn abort(&self) {
         self.abort.store(true, Ordering::Relaxed);
+    }
+
+    pub fn join(self) -> Result<(), Error> {
         self.demuxer.join().expect("couldn't join demuxer thread")?;
         self.muxer.join().expect("couldn't join muxer thread")?;
 

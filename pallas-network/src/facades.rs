@@ -1,10 +1,5 @@
-use std::path::Path;
-
 use thiserror::Error;
-use tracing::{debug, error};
-
-#[cfg(unix)]
-use std::os::unix::net::UnixListener;
+use tracing::error;
 
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
@@ -43,10 +38,7 @@ pub struct PeerClient {
 }
 
 impl PeerClient {
-    pub async fn connect(address: &str, magic: u64) -> Result<Self, Error> {
-        debug!("connecting");
-        let bearer = Bearer::connect_tcp(address).map_err(Error::ConnectFailure)?;
-
+    pub async fn connect(bearer: Bearer, magic: u64) -> Result<Self, Error> {
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let channel0 = plexer.subscribe_client(0);
@@ -84,8 +76,8 @@ impl PeerClient {
         &mut self.blockfetch
     }
 
-    pub fn abort(self) -> Result<(), Error> {
-        self.plexer.abort().map_err(Error::PlexerFailure)
+    pub fn abort(&self) {
+        self.plexer.abort();
     }
 }
 
@@ -98,9 +90,7 @@ pub struct PeerServer {
 }
 
 impl PeerServer {
-    pub async fn accept(listener: &std::net::TcpListener, magic: u64) -> Result<Self, Error> {
-        let (bearer, _) = Bearer::accept_tcp(listener).map_err(Error::ConnectFailure)?;
-
+    pub async fn serve(bearer: Bearer, magic: u64) -> Result<Self, Error> {
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let hs_channel = plexer.subscribe_server(PROTOCOL_N2N_HANDSHAKE);
@@ -126,7 +116,7 @@ impl PeerServer {
                 blockfetch: server_bf,
             })
         } else {
-            plexer.abort().map_err(Error::PlexerFailure)?;
+            plexer.abort();
             Err(Error::IncompatibleVersion)
         }
     }
@@ -139,8 +129,8 @@ impl PeerServer {
         &mut self.blockfetch
     }
 
-    pub fn abort(self) -> Result<(), Error> {
-        self.plexer.abort().map_err(Error::PlexerFailure)
+    pub fn abort(&self) {
+        self.plexer.abort();
     }
 }
 
@@ -186,13 +176,7 @@ impl NodeClient {
     }
 
     #[cfg(unix)]
-    pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
-        debug!("connecting");
-
-        let bearer = Bearer::connect_unix(path)
-            .await
-            .map_err(Error::ConnectFailure)?;
-
+    pub async fn connect(bearer: Bearer, magic: u64) -> Result<Self, Error> {
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
         Self::connect_bearer(bearer, versions).await
@@ -216,15 +200,9 @@ impl NodeClient {
 
     #[cfg(unix)]
     pub async fn handshake_query(
-        path: impl AsRef<Path>,
+        bearer: Bearer,
         magic: u64,
     ) -> Result<handshake::n2c::VersionTable, Error> {
-        debug!("connecting");
-
-        let bearer = Bearer::connect_unix(path)
-            .await
-            .map_err(Error::ConnectFailure)?;
-
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
@@ -249,7 +227,7 @@ impl NodeClient {
                 Err(Error::IncompatibleVersion)
             }
             Confirmation::QueryReply(version_table) => {
-                plexer.abort().map_err(Error::PlexerFailure)?;
+                plexer.abort();
                 Ok(version_table)
             }
         }
@@ -263,8 +241,8 @@ impl NodeClient {
         &mut self.statequery
     }
 
-    pub fn abort(self) -> Result<(), Error> {
-        self.plexer.abort().map_err(Error::PlexerFailure)
+    pub fn abort(&self) {
+        self.plexer.abort();
     }
 }
 
@@ -279,11 +257,7 @@ pub struct NodeServer {
 
 #[cfg(unix)]
 impl NodeServer {
-    pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
-        let (bearer, _) = Bearer::accept_unix(listener)
-            .await
-            .map_err(Error::ConnectFailure)?;
-
+    pub async fn serve(bearer: Bearer, magic: u64) -> Result<Self, Error> {
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let hs_channel = plexer.subscribe_server(PROTOCOL_N2C_HANDSHAKE);
@@ -309,7 +283,7 @@ impl NodeServer {
                 statequery: server_sq,
             })
         } else {
-            plexer.abort().map_err(Error::PlexerFailure)?;
+            plexer.abort();
             Err(Error::IncompatibleVersion)
         }
     }
@@ -322,7 +296,7 @@ impl NodeServer {
         &mut self.statequery
     }
 
-    pub fn abort(self) -> Result<(), Error> {
-        self.plexer.abort().map_err(Error::PlexerFailure)
+    pub fn abort(&self) {
+        self.plexer.abort();
     }
 }

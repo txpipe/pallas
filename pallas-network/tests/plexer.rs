@@ -29,13 +29,15 @@ fn random_payload(size: usize) -> Vec<u8> {
 
 #[tokio::test]
 async fn one_way_small_sequence_of_payloads() {
-    let mut passive = setup_passive_muxer::<50301>();
+    let passive = tokio::task::spawn_blocking(|| setup_passive_muxer::<50301>());
 
     // HACK: a small sleep seems to be required for Github actions runner to
     // formally expose the port
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let mut active = setup_active_muxer::<50301>();
+
+    let mut passive = passive.await.unwrap();
 
     let mut sender_channel = active.subscribe_client(3);
     let mut receiver_channel = passive.subscribe_server(3);
@@ -51,6 +53,6 @@ async fn one_way_small_sequence_of_payloads() {
         assert_eq!(payload, received_payload);
     }
 
-    passive.abort().unwrap();
-    active.abort().unwrap();
+    passive.abort();
+    active.abort();
 }

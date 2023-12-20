@@ -26,9 +26,8 @@ use std::os::unix::net::UnixListener;
 #[tokio::test]
 #[ignore]
 pub async fn chainsync_history_happy_path() {
-    let mut peer = PeerClient::connect("preview-node.world.dev.cardano.org:30002", 2)
-        .await
-        .unwrap();
+    let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
+    let mut peer = PeerClient::connect(bearer, 2).await.unwrap();
 
     let client = peer.chainsync();
 
@@ -79,9 +78,8 @@ pub async fn chainsync_history_happy_path() {
 #[tokio::test]
 #[ignore]
 pub async fn chainsync_tip_happy_path() {
-    let mut peer = PeerClient::connect("preview-node.world.dev.cardano.org:30002", 2)
-        .await
-        .unwrap();
+    let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
+    let mut peer = PeerClient::connect(bearer, 2).await.unwrap();
 
     let client = peer.chainsync();
 
@@ -120,9 +118,8 @@ pub async fn chainsync_tip_happy_path() {
 #[tokio::test]
 #[ignore]
 pub async fn blockfetch_happy_path() {
-    let mut peer = PeerClient::connect("preview-node.world.dev.cardano.org:30002", 2)
-        .await
-        .unwrap();
+    let bearer = Bearer::connect_tcp("preview-node.world.dev.cardano.org:30002").unwrap();
+    let mut peer = PeerClient::connect(bearer, 2).await.unwrap();
 
     let client = peer.blockfetch();
 
@@ -180,10 +177,15 @@ pub async fn blockfetch_server_and_client_happy_path() {
         async move {
             // server setup
 
-            let server_listener =
+            let listener =
                 TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001)).unwrap();
 
-            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
+            let (bearer, _) = tokio::task::spawn_blocking(move || Bearer::accept_tcp(&listener))
+                .await
+                .unwrap()
+                .unwrap();
+
+            let mut peer_server = PeerServer::serve(bearer, 0).await.unwrap();
 
             let server_bf = peer_server.blockfetch();
 
@@ -215,9 +217,8 @@ pub async fn blockfetch_server_and_client_happy_path() {
     let client = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        // client setup
-
-        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+        let bearer = Bearer::connect_tcp("localhost:30001").unwrap();
+        let mut client_to_server_conn = PeerClient::connect(bearer, 0).await.unwrap();
 
         let client_bf = client_to_server_conn.blockfetch();
 
@@ -271,9 +272,12 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
             // server setup
 
             let server_listener =
-                TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001)).unwrap();
+                TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30002)).unwrap();
 
-            let (bearer, _) = Bearer::accept_tcp(&server_listener).unwrap();
+            let bearer =
+                tokio::task::spawn_blocking(move || Bearer::accept_tcp(&server_listener).unwrap());
+
+            let (bearer, _) = bearer.await.unwrap();
 
             let mut server_plexer = Plexer::new(bearer);
 
@@ -377,15 +381,14 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 
             assert!(server_cs.recv_while_idle().await.unwrap().is_none());
             assert_eq!(*server_cs.state(), chainsync::State::Done);
+
+            server_plexer.abort();
         }
     });
 
     let client = tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
-        // client setup
-
-        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+        let bearer = Bearer::connect_tcp("localhost:30002").unwrap();
+        let mut client_to_server_conn = PeerClient::connect(bearer, 0).await.unwrap();
 
         let client_cs = client_to_server_conn.chainsync();
 
@@ -467,9 +470,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 fs::remove_file(socket_path).unwrap();
             }
 
-            let unix_listener = UnixListener::bind(socket_path).unwrap();
+            let listener = UnixListener::bind(socket_path).unwrap();
 
-            let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 0)
+            let (bearer, _) = tokio::task::spawn_blocking(move || Bearer::accept_unix(&listener))
+                .await
+                .unwrap()
+                .unwrap();
+
+            let mut server = pallas_network::facades::NodeServer::serve(bearer, 0)
                 .await
                 .unwrap();
 
@@ -552,7 +560,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     x => panic!("unexpected message from client: {x:?}"),
                 };
 
-            let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+            let addr_hex =
+"981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
+;
             let addr = hex::decode(addr_hex).unwrap();
             let addr: Addr = addr.to_vec().into();
             let addrs: Addrs = Vec::from([addr]);
@@ -632,7 +642,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         let socket_path = "node.socket";
 
-        let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
+        let bearer = Bearer::connect_unix(&socket_path).unwrap();
+        let mut client = NodeClient::connect(bearer, 0).await.unwrap();
 
         // client sends acquire
 
@@ -705,7 +716,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
 
-        let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+        let addr_hex =
+"981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
+;
         let addr = hex::decode(addr_hex).unwrap();
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = Vec::from([addr]);
