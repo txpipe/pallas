@@ -436,9 +436,8 @@ impl Plexer {
                 break Ok(());
             }
 
-            match demuxer.tick() {
-                Err(err) => break Err(err),
-                _ => (),
+            if let Err(err) = demuxer.tick() {
+                break Err(err);
             }
         });
 
@@ -448,9 +447,8 @@ impl Plexer {
                 break Ok(());
             }
 
-            match muxer.tick() {
-                Err(err) => break Err(err),
-                _ => (),
+            if let Err(err) = muxer.tick() {
+                break Err(err);
             }
         });
 

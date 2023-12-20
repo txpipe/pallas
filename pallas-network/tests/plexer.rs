@@ -29,7 +29,7 @@ fn random_payload(size: usize) -> Vec<u8> {
 
 #[tokio::test]
 async fn one_way_small_sequence_of_payloads() {
-    let passive = tokio::task::spawn_blocking(|| setup_passive_muxer::<50301>());
+    let passive = tokio::task::spawn_blocking(setup_passive_muxer::<50301>);
 
     // HACK: a small sleep seems to be required for Github actions runner to
     // formally expose the port
