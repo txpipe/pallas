@@ -180,7 +180,7 @@ pub fn read_blocks_from_point(
             // Finds chunk index and creates a truncated `names` vector from the found
             // index.
             let names = chunk_binary_search(&names, &slot, cmp)?
-                .map(|chunk_index| names[chunk_index..].to_vec())
+                .map(|chunk_index| names[..chunk_index + 1].to_vec())
                 .ok_or::<Box<dyn std::error::Error>>("Cannot find the block".into())?;
 
             let iter = ChunkReaders(dir.to_owned(), names.clone())
