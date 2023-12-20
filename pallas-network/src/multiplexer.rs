@@ -127,6 +127,8 @@ impl Bearer {
                 let y = x.try_clone().unwrap();
                 (BearerReadHalf::Tcp(x), BearerWriteHalf::Tcp(y))
             }
+
+            #[cfg(unix)]
             Bearer::Unix(x) => {
                 let y = x.try_clone().unwrap();
                 (BearerReadHalf::Unix(x), BearerWriteHalf::Unix(y))
@@ -146,6 +148,8 @@ impl BearerReadHalf {
     fn read_exact(&mut self, buf: &mut [u8]) -> IOResult<()> {
         match self {
             BearerReadHalf::Tcp(x) => x.read_exact(buf),
+
+            #[cfg(unix)]
             BearerReadHalf::Unix(x) => x.read_exact(buf),
         }
     }

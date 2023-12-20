@@ -1,8 +1,10 @@
 use std::net::{SocketAddr, TcpListener};
-use std::os::unix::net::UnixListener;
 use std::path::Path;
 use thiserror::Error;
 use tracing::error;
+
+#[cfg(unix)]
+use std::os::unix::net::UnixListener;
 
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
 
@@ -224,6 +226,7 @@ impl NodeClient {
         }
     }
 
+    #[cfg(unix)]
     pub async fn connect(
         path: impl AsRef<Path> + Send + 'static,
         magic: u64,
