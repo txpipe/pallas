@@ -1,7 +1,6 @@
 use pallas::network::{
     facades::PeerClient,
     miniprotocols::{chainsync, Point, MAINNET_MAGIC},
-    multiplexer::Bearer,
 };
 use tokio::time::Instant;
 use tracing::info;
@@ -66,8 +65,9 @@ async fn main() {
 
     // setup a TCP socket to act as data bearer between our agents and the remote
     // relay.
-    let bearer = Bearer::connect_tcp("relays-new.cardano-mainnet.iohk.io:3001").unwrap();
-    let mut peer = PeerClient::connect(bearer, MAINNET_MAGIC).await.unwrap();
+    let mut peer = PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
+        .await
+        .unwrap();
 
     // fetch an arbitrary batch of block
     do_blockfetch(&mut peer).await;
