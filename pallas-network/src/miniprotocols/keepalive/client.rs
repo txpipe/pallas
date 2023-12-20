@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use rand::Rng;
+use std::fmt::Debug;
 use thiserror::*;
 use tracing::debug;
 
@@ -35,7 +35,11 @@ pub struct Client(State, multiplexer::ChannelBuffer, KeepAliveSharedState);
 
 impl Client {
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(State::Client, multiplexer::ChannelBuffer::new(channel), KeepAliveSharedState{ saved_cookie: 0 })
+        Self(
+            State::Client,
+            multiplexer::ChannelBuffer::new(channel),
+            KeepAliveSharedState { saved_cookie: 0 },
+        )
     }
 
     pub fn state(&self) -> &State {

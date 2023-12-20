@@ -11,14 +11,14 @@ impl Encode<()> for Message {
             Message::KeepAlive(cookie) => {
                 e.array(2)?.u16(0)?;
                 e.encode(cookie)?;
-            },
+            }
             Message::ResponseKeepAlive(cookie) => {
                 e.array(2)?.u16(1)?;
                 e.encode(cookie)?;
-            },
+            }
             Message::Done => {
                 e.array(1)?.u16(2)?;
-            },
+            }
         }
 
         Ok(())
