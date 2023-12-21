@@ -81,9 +81,17 @@ pub enum Bearer {
 }
 
 impl Bearer {
-    pub fn connect_tcp(addr: impl tcp::ToSocketAddrs) -> IOResult<Self> {
-        let stream = tcp::TcpStream::connect(addr)?;
-        stream.set_nodelay(true)?;
+    pub async fn connect_tcp(addr: impl ToSocketAddrs) -> Result<Self, tokio::io::Error> {
+        let stream = TcpStream::connect(addr).await?;
+        // add tcp_keepalive
+        let sock_ref = socket2::SockRef::from(&stream);
+        let mut tcp_keepalive = socket2::TcpKeepalive::new();
+        tcp_keepalive = tcp_keepalive.with_time(tokio::time::Duration::from_secs(20));
+        tcp_keepalive = tcp_keepalive.with_interval(tokio::time::Duration::from_secs(20));
+        let _ = sock_ref.set_tcp_keepalive(&tcp_keepalive);
+        // add tcp_nodelay
+        let _ = sock_ref.set_nodelay(true);
+
         Ok(Self::Tcp(stream))
     }
 
