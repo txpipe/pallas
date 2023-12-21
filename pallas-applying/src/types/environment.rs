@@ -1,5 +1,7 @@
 //! Types used for representing the environment required for validation in each era.
 
+use std::vec::Vec;
+
 #[derive(Debug)]
 pub struct Environment {
     pub prot_params: MultiEraProtParams,
@@ -37,7 +39,26 @@ pub struct FeePolicy {
 }
 
 #[derive(Debug, Clone)]
-pub struct AlonzoProtParams;
+pub struct AlonzoProtParams {
+    pub fee_policy: FeePolicy,
+    pub max_tx_size: u64,
+    pub languages: Vec<Language>,
+    pub max_block_ex_mem: u64,
+    pub max_block_ex_steps: u64,
+    pub max_tx_ex_mem: u64,
+    pub max_tx_ex_steps: u64,
+    pub max_val_size: u64,
+    pub collateral_percent: u64,
+    pub max_collateral_inputs: u64,
+    pub coints_per_utxo_word: u64,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum Language {
+    PlutusV1,
+    PlutusV2,
+}
 
 impl Environment {
     pub fn prot_params(&self) -> &MultiEraProtParams {

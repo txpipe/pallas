@@ -39,8 +39,8 @@ This document covers the Alonzo era. This document covers the concepts, notation
 	- ***txExUnits(txBody) ∈ ExUnits*** is the total execution units of the transaction.
 	- ***minted(txBody)*** is the multi-asset value minted (or burned) in the transaction.
 		- ***PolicyID*** is the set of all possible policy IDs associated to multi-asset values. In particular, ***adaID ∈ Policy*** is the policy of lovelaces.
-	- ***consumed(pps, utxo, txBody) ∈ ℤ*** is the *consumed value* of the transaction, which equals the sum of all multi-asset values in the inputs of the transaction.
-	- ***produced(pps, txBody) ∈ ℤ*** is the *produced value* of the transaction, which equals the sum of all multi-asset values in the outputs of the transaction, plus the transaction fee, plus the minted value.
+	- ***consumed(utxo, txBody) ∈ ℤ*** is the *consumed value* of the transaction, which equals the sum of all multi-asset values in the inputs of the transaction.
+	- ***produced(txBody) ∈ ℤ*** is the *produced value* of the transaction, which equals the sum of all multi-asset values in the outputs of the transaction, plus the transaction fee, plus the minted value.
 	- ***txNetId(txBody) ∈ NetworkID*** gives the network ID of a transaction (not to be confused with the network ID of addresses of unspent transaction outputs).
 	- ***txWits(tx)*** is the transaction witness set. When clear, we will write ***txWits*** to refer to the transaction witness set of the current transaction.
 	- ***txMD(tx)*** is the metadata of the transaction.
@@ -77,11 +77,10 @@ This document covers the Alonzo era. This document covers the concepts, notation
 		- ***minFees(pps, txBody) ∈ ℕ*** gives the minimum number of lovelace that must be paid bys the transaction as fee.
 		- ***maxCollateralInputs(pps) ∈ ℕ*** gives the maximum number of collateral inputs allowed per transaction.
 		- ***maxTxSize(pps) ∈ ℕ*** gives the maximum size any transaction can have.
-		- ***minUTxOValue(pps) ∈ ℕ*** gives the global minimum number of lovelace every UTxO must lock.
 		- ***maxValSize(pps) ∈ ℕ*** gives the maximum size in bytes allowed for values, when serialized.
 		- ***collateralPercent(pps) ∈ {0,...,100}*** gives the fee percentage (multiplied by 100) that all lovelace in collateral inputs should add up to.
-		- ***coinsPerUTxOWord(pps) ∈ ℕ*** is the number of lovelace a UTxO should contain per byte (when serialized).
-		- ***costModels : PParams -> Languages -> CostModel*** takes the protocol parameters and returns a map mapping languages to their cost models.
+		- ***coinsPerUTxOWord(pps) ∈ ℕ*** is the number of lovelace a UTxO should contain per byte (when serialized). This is used to assess the minimum number of lovelace that an unspent transaction output should lock.
+		- ***costModels : PParams -> (Languages -> CostModel)*** takes the protocol parameters and returns a map associating languages to their cost models.
 			- ***Languages := {PlutusV1, PlutusV2}*** is the set of Alonzo languages.
 			- ***CostModel*** is the set of cost models.
 - ***Witnesses***:
@@ -151,7 +150,7 @@ Let ***tx ∈ Tx*** be one of its Alonzo transactions, with transaction body ***
 			<code>balance(collateral(txBody) ◁ utxo)) >= fee(txBody) * collateralPercent(pps)</code>
 - **The preservation of value property holds**: Assuming no staking or delegation actions are involved, it should be that
 
-	<code>consumed(pps, utxo, txBody) = produced(pps, txBody) + fee(txBody) + minted(txBody)</code>
+	<code>consumed(utxo, txBody) = produced(txBody) + fee(txBody) + minted(txBody)</code>
 - **All transaction outputs should contain at least the minimum lovelace**:
 
 	<code>∀ txOut ∈ txOuts(txBody): adaValueOf(coinsPerUTxOWord(pps) * utxoEntrySize(txOut)) ≤ getValue(txOut)</code>
@@ -192,7 +191,7 @@ Let ***tx ∈ Tx*** be one of its Alonzo transactions, with transaction body ***
 			- <code>keyHash(vk) = key_hash</code>
 - **The required script languages are included in the protocol parameters**:
 
-	<code>languages(txWits) ⊆ costModels(pps)</code>
+	<code>languages(txWits) ⊆ {l : (l -> _) ∈ costModels(pps, language)}</code>
 - **The metadata of the transaction is valid**:
 
 	<code>txMDHash(tx) = hashMD(txMD(tx))</code>
