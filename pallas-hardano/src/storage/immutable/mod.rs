@@ -244,19 +244,19 @@ mod tests {
 
     #[test]
     fn iterate_till_point_test() {
-        use super::iterate_till_point;
+        use super::{iterate_till_point, read_blocks};
 
-        let reader = super::read_blocks(Path::new("../test_data")).unwrap();
-        let mut expected_block_number = 910412;
-        for block in reader.take(10) {
-            let block = block.unwrap();
-            let block = MultiEraBlock::decode(&block).unwrap();
-            assert_eq!(block.number(), expected_block_number);
-            expected_block_number += 1;
-        }
+        let mut reader = read_blocks(Path::new("../test_data")).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(block.slot(), 27756007);
+        assert_eq!(
+            hex::encode(block.hash()),
+            "230199f16ba0d935e60bf7288373fa01beaa1e20516c34a6481c2231e73a2fd1"
+        );
 
-        let reader = super::read_blocks(Path::new("../test_data")).unwrap();
-        let reader = iterate_till_point(
+        let reader = read_blocks(Path::new("../test_data")).unwrap();
+        let mut reader = iterate_till_point(
             reader,
             27756199,
             hex::decode("3dcf4b00e32099b20c598fd90aed0060e77b1899e58645b9fe7b95a7ca9b306c")
@@ -264,13 +264,13 @@ mod tests {
                 .as_slice(),
         )
         .unwrap();
-        let mut expected_block_number = 910421;
-        for block in reader.take(10) {
-            let block = block.unwrap();
-            let block = MultiEraBlock::decode(&block).unwrap();
-            assert_eq!(block.number(), expected_block_number);
-            expected_block_number += 1;
-        }
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(block.slot(), 27756199);
+        assert_eq!(
+            hex::encode(block.hash()),
+            "3dcf4b00e32099b20c598fd90aed0060e77b1899e58645b9fe7b95a7ca9b306c"
+        );
     }
 
     #[test]
@@ -293,6 +293,117 @@ mod tests {
         }
 
         assert_eq!(count, 1778);
+    }
+
+    #[test]
+    fn can_read_multiple_chunks_from_folder_2() {
+        let reader =
+            super::read_blocks_from_point(Path::new("../test_data"), Point::Origin).unwrap();
+
+        let mut count = 0;
+        let mut last_slot = None;
+
+        for block in reader {
+            let block = block.unwrap();
+            let block = MultiEraBlock::decode(&block).unwrap();
+
+            if let Some(last_slot) = last_slot {
+                assert!(last_slot < block.slot());
+            }
+
+            last_slot = Some(block.slot());
+            count += 1;
+        }
+
+        assert_eq!(count, 1778);
+    }
+
+    #[test]
+    fn get_tip_test() {
+        use super::get_tip;
+
+        let tip = get_tip(Path::new("../test_data")).unwrap();
+        assert_eq!(
+            tip,
+            Some(Point::Specific(
+                43610414,
+                hex::decode("80d02d3c9a576af65e4f36b95a57ae528b62c14836282fbd8d6a93aa1fef557f")
+                    .unwrap()
+            ))
+        );
+
+        let tip = get_tip(Path::new("..")).unwrap();
+        assert_eq!(tip, None);
+    }
+
+    #[test]
+    fn read_blocks_from_point_test() {
+        use super::read_blocks_from_point;
+
+        // first block as orgin Point
+        let mut reader = read_blocks_from_point(Path::new("../test_data"), Point::Origin).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(block.slot(), 27756007);
+        assert_eq!(
+            hex::encode(block.hash()),
+            "230199f16ba0d935e60bf7288373fa01beaa1e20516c34a6481c2231e73a2fd1"
+        );
+
+        // first block specific Point
+        let point = Point::Specific(
+            27756007,
+            hex::decode("230199f16ba0d935e60bf7288373fa01beaa1e20516c34a6481c2231e73a2fd1")
+                .unwrap(),
+        );
+        let mut reader = read_blocks_from_point(Path::new("../test_data"), point.clone()).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
+
+        // below middle block
+        let point = Point::Specific(
+            27767113,
+            hex::decode("bec3280e1f7e5803cb92e3649bdb0b385daed76aa6833b10cf10c6d6eeb243b3")
+                .unwrap(),
+        );
+        let mut reader = read_blocks_from_point(Path::new("../test_data"), point.clone()).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
+
+        // middle block
+        let point = Point::Specific(
+            39658182,
+            hex::decode("bc61c5eee23c879ccf855db3da281d6d0a8b8dacc02c19813e0b5b38df67f636")
+                .unwrap(),
+        );
+        let mut reader = read_blocks_from_point(Path::new("../test_data"), point.clone()).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
+
+        // above middle block
+        let point = Point::Specific(
+            39668772,
+            hex::decode("e0af9b05d8007a98935cc47fd8c27ecd034cf708318459631aee6240ea9900ad")
+                .unwrap(),
+        );
+        let mut reader = read_blocks_from_point(Path::new("../test_data"), point.clone()).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
+
+        // tip
+        let point = Point::Specific(
+            43610414,
+            hex::decode("80d02d3c9a576af65e4f36b95a57ae528b62c14836282fbd8d6a93aa1fef557f")
+                .unwrap(),
+        );
+        let mut reader = read_blocks_from_point(Path::new("../test_data"), point.clone()).unwrap();
+        let block = reader.next().unwrap().unwrap();
+        let block = MultiEraBlock::decode(&block).unwrap();
+        assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
     }
 
     #[test]
@@ -341,24 +452,6 @@ mod tests {
         }
 
         assert!(count > 0);
-    }
-
-    #[test]
-    fn get_tip_test() {
-        use super::get_tip;
-
-        let tip = get_tip(Path::new("../test_data")).unwrap();
-        assert_eq!(
-            tip,
-            Some(Point::Specific(
-                43610414,
-                hex::decode("80d02d3c9a576af65e4f36b95a57ae528b62c14836282fbd8d6a93aa1fef557f")
-                    .unwrap()
-            ))
-        );
-
-        let tip = get_tip(Path::new("..")).unwrap();
-        assert_eq!(tip, None);
     }
 
     #[test]
