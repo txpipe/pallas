@@ -1,6 +1,5 @@
 use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::Arc;
 use std::time::Duration;
 
 use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
@@ -468,9 +467,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 fs::remove_file(socket_path).unwrap();
             }
 
-            let listener = Arc::new(UnixListener::bind(socket_path).unwrap());
+            let listener = UnixListener::bind(socket_path).unwrap();
 
-            let mut server = pallas_network::facades::NodeServer::accept(listener, 0)
+            let mut server = pallas_network::facades::NodeServer::accept(&listener, 0)
                 .await
                 .unwrap();
 

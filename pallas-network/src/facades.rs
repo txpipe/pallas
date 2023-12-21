@@ -374,11 +374,8 @@ impl NodeServer {
         }
     }
 
-    pub async fn accept(
-        listener: impl AsRef<UnixListener> + Send + 'static,
-        magic: u64,
-    ) -> Result<Self, Error> {
-        let (bearer, address) = Bearer::accept_unix(listener.as_ref())
+    pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
+        let (bearer, address) = Bearer::accept_unix(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
