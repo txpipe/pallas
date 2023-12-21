@@ -19,11 +19,12 @@ use pallas_network::miniprotocols::{
 };
 use pallas_network::miniprotocols::{handshake, localstate, txsubmission, MAINNET_MAGIC};
 use pallas_network::multiplexer::{Bearer, Plexer};
-use std::net::TcpListener;
 use std::path::Path;
 
+use tokio::net::TcpListener;
+
 #[cfg(unix)]
-use std::os::unix::net::UnixListener;
+use tokio::net::UnixListener;
 
 #[tokio::test]
 #[ignore]
@@ -176,8 +177,9 @@ pub async fn blockfetch_server_and_client_happy_path() {
         hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap(),
     );
 
-    let listener =
-        Arc::new(TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003)).unwrap());
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
+        .await
+        .unwrap();
 
     let server = tokio::spawn({
         let bodies = block_bodies.clone();
@@ -185,7 +187,7 @@ pub async fn blockfetch_server_and_client_happy_path() {
         async move {
             // server setup
 
-            let mut peer_server = PeerServer::accept(listener, 0).await.unwrap();
+            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
 
             let server_bf = peer_server.blockfetch();
 
@@ -270,13 +272,11 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
         async move {
             // server setup
 
-            let server_listener =
-                TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30002)).unwrap();
+            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30002))
+                .await
+                .unwrap();
 
-            let bearer =
-                tokio::task::spawn_blocking(move || Bearer::accept_tcp(&server_listener).unwrap());
-
-            let (bearer, _) = bearer.await.unwrap();
+            let (bearer, _) = Bearer::accept_tcp(&server_listener).await.unwrap();
 
             let mut server_plexer = Plexer::new(bearer);
 
@@ -381,7 +381,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
             assert!(server_cs.recv_while_idle().await.unwrap().is_none());
             assert_eq!(*server_cs.state(), chainsync::State::Done);
 
-            server_plexer.abort();
+            server_plexer.abort().await;
         }
     });
 
@@ -780,13 +780,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
 pub async fn txsubmission_server_and_client_happy_path_n2n() {
     let test_txs = vec![(vec![0], vec![0, 0, 0]), (vec![1], vec![1, 1, 1])];
 
-    let server_listener =
-        Arc::new(TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001)).unwrap());
+    let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
+        .await
+        .unwrap();
 
     let server = tokio::spawn({
         let test_txs = test_txs.clone();
         async move {
-            let mut peer_server = PeerServer::accept(server_listener, 0).await.unwrap();
+            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
 
             let server_txsub = peer_server.txsubmission();
 

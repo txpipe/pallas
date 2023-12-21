@@ -2,20 +2,24 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 
 use pallas_network::multiplexer::{Bearer, Plexer};
 use rand::{distributions::Uniform, Rng};
-use std::net::TcpListener;
+use tokio::net::TcpListener;
 
-fn setup_passive_muxer<const P: u16>() -> Plexer {
-    let server = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P)).unwrap();
+async fn setup_passive_muxer<const P: u16>() -> Plexer {
+    let server = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P))
+        .await
+        .unwrap();
 
     println!("listening for connections on port {P}");
 
-    let (bearer, _) = Bearer::accept_tcp(&server).unwrap();
+    let (bearer, _) = Bearer::accept_tcp(&server).await.unwrap();
 
     Plexer::new(bearer)
 }
 
-fn setup_active_muxer<const P: u16>() -> Plexer {
-    let bearer = Bearer::connect_tcp(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P)).unwrap();
+async fn setup_active_muxer<const P: u16>() -> Plexer {
+    let bearer = Bearer::connect_tcp(SocketAddrV4::new(Ipv4Addr::LOCALHOST, P))
+        .await
+        .unwrap();
 
     println!("active plexer connected");
 
@@ -29,13 +33,13 @@ fn random_payload(size: usize) -> Vec<u8> {
 
 #[tokio::test]
 async fn one_way_small_sequence_of_payloads() {
-    let passive = tokio::task::spawn_blocking(setup_passive_muxer::<50301>);
+    let passive = tokio::task::spawn(setup_passive_muxer::<50301>());
 
     // HACK: a small sleep seems to be required for Github actions runner to
     // formally expose the port
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-    let mut active = setup_active_muxer::<50301>();
+    let mut active = setup_active_muxer::<50301>().await;
 
     let mut passive = passive.await.unwrap();
 
@@ -53,6 +57,6 @@ async fn one_way_small_sequence_of_payloads() {
         assert_eq!(payload, received_payload);
     }
 
-    passive.abort();
-    active.abort();
+    passive.abort().await;
+    active.abort().await;
 }

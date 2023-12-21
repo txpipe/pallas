@@ -1,10 +1,12 @@
-use std::net::{SocketAddr, TcpListener};
+use std::net::SocketAddr;
 use std::path::Path;
 use thiserror::Error;
 use tracing::error;
 
+use tokio::net::TcpListener;
+
 #[cfg(unix)]
-use std::os::unix::net::UnixListener;
+use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
 
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
 
@@ -34,12 +36,12 @@ pub enum Error {
 
 /// Client of N2N Ouroboros
 pub struct PeerClient {
-    plexer: RunningPlexer,
-    handshake: handshake::N2NClient,
-    chainsync: chainsync::N2NClient,
-    blockfetch: blockfetch::Client,
-    txsubmission: txsubmission::Client,
-    keepalive: keepalive::Client,
+    pub plexer: RunningPlexer,
+    pub handshake: handshake::N2NClient,
+    pub chainsync: chainsync::N2NClient,
+    pub blockfetch: blockfetch::Client,
+    pub txsubmission: txsubmission::Client,
+    pub keepalive: keepalive::Client,
 }
 
 impl PeerClient {
@@ -65,9 +67,8 @@ impl PeerClient {
     }
 
     pub async fn connect(addr: &'static str, magic: u64) -> Result<Self, Error> {
-        let bearer = tokio::task::spawn_blocking(move || Bearer::connect_tcp(addr))
+        let bearer = Bearer::connect_tcp(addr)
             .await
-            .expect("can't join tokio thread")
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer);
@@ -96,6 +97,15 @@ impl PeerClient {
         &mut self.chainsync
     }
 
+    pub async fn with_chainsync<T, O, Fut>(&mut self, op: T) -> tokio::task::JoinHandle<O>
+    where
+        T: FnOnce(&mut chainsync::N2NClient) -> Fut,
+        Fut: std::future::Future<Output = O> + Send + 'static,
+        O: Send + 'static,
+    {
+        tokio::spawn(op(&mut self.chainsync))
+    }
+
     pub fn blockfetch(&mut self) -> &mut blockfetch::Client {
         &mut self.blockfetch
     }
@@ -108,8 +118,8 @@ impl PeerClient {
         &mut self.keepalive
     }
 
-    pub fn abort(&self) {
-        self.plexer.abort();
+    pub async fn abort(self) {
+        self.plexer.abort().await
     }
 }
 
@@ -151,15 +161,10 @@ impl PeerServer {
         }
     }
 
-    pub async fn accept(
-        listener: impl AsRef<TcpListener> + Send + 'static,
-        magic: u64,
-    ) -> Result<Self, Error> {
-        let (bearer, address) =
-            tokio::task::spawn_blocking(move || Bearer::accept_tcp(listener.as_ref()))
-                .await
-                .expect("can't join tokio thread")
-                .map_err(Error::ConnectFailure)?;
+    pub async fn accept(listener: &TcpListener, magic: u64) -> Result<Self, Error> {
+        let (bearer, address) = Bearer::accept_tcp(listener)
+            .await
+            .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer);
 
@@ -174,7 +179,7 @@ impl PeerServer {
             client.accepted_version = Some(version);
             Ok(client)
         } else {
-            client.abort();
+            client.abort().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -195,8 +200,8 @@ impl PeerServer {
         &mut self.txsubmission
     }
 
-    pub fn abort(&self) {
-        self.plexer.abort();
+    pub async fn abort(self) {
+        self.plexer.abort().await
     }
 }
 
@@ -231,9 +236,8 @@ impl NodeClient {
         path: impl AsRef<Path> + Send + 'static,
         magic: u64,
     ) -> Result<Self, Error> {
-        let bearer = tokio::task::spawn_blocking(move || Bearer::connect_unix(path))
+        let bearer = Bearer::connect_unix(path)
             .await
-            .expect("can't join tokio thread")
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer);
@@ -311,7 +315,7 @@ impl NodeClient {
                 Err(Error::IncompatibleVersion)
             }
             Confirmation::QueryReply(version_table) => {
-                plexer.abort();
+                plexer.abort().await;
                 Ok(version_table)
             }
         }
@@ -329,8 +333,8 @@ impl NodeClient {
         &mut self.statequery
     }
 
-    pub fn abort(&self) {
-        self.plexer.abort();
+    pub async fn abort(self) {
+        self.plexer.abort().await
     }
 }
 
@@ -341,7 +345,7 @@ pub struct NodeServer {
     handshake: handshake::N2CServer,
     chainsync: chainsync::N2CServer,
     statequery: localstate::Server,
-    accepted_address: Option<std::os::unix::net::SocketAddr>,
+    accepted_address: Option<UnixSocketAddr>,
     accpeted_version: Option<(VersionNumber, n2c::VersionData)>,
 }
 
@@ -374,11 +378,9 @@ impl NodeServer {
         listener: impl AsRef<UnixListener> + Send + 'static,
         magic: u64,
     ) -> Result<Self, Error> {
-        let (bearer, address) =
-            tokio::task::spawn_blocking(move || Bearer::accept_unix(listener.as_ref()))
-                .await
-                .expect("can't join tokio thread")
-                .map_err(Error::ConnectFailure)?;
+        let (bearer, address) = Bearer::accept_unix(listener.as_ref())
+            .await
+            .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer).await;
 
@@ -393,7 +395,7 @@ impl NodeServer {
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort();
+            client.abort().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -410,7 +412,7 @@ impl NodeServer {
         &mut self.statequery
     }
 
-    pub fn abort(&self) {
-        self.plexer.abort();
+    pub async fn abort(self) {
+        self.plexer.abort().await
     }
 }

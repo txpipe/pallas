@@ -1,10 +1,13 @@
-use pallas::{network::{
-    facades::PeerClient,
-    miniprotocols::{chainsync, Point, MAINNET_MAGIC, blockfetch, keepalive},
-}, ledger::traverse::MultiEraHeader};
-use tokio::{time::Instant, select};
+use pallas::{
+    ledger::traverse::MultiEraHeader,
+    network::{
+        facades::PeerClient,
+        miniprotocols::{blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
+    },
+};
+use std::time::Duration;
 use thiserror::Error;
-use futures::{future::FutureExt, pin_mut};
+use tokio::{select, time::Instant};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -24,17 +27,27 @@ pub enum Error {
     PallasTraverseError(#[from] pallas::ledger::traverse::Error),
 }
 
-async fn do_blockfetch(blockfetch_client: &mut blockfetch::Client, range: (Point, Point)) -> Result<(), Error> {
+async fn do_blockfetch(
+    blockfetch_client: &mut blockfetch::Client,
+    range: (Point, Point),
+) -> Result<(), Error> {
     let blocks = blockfetch_client.fetch_range(range.clone()).await?;
 
     for block in &blocks {
         tracing::trace!("received block of size: {}", block.len());
     }
-    tracing::info!("received {} blocks. last slot: {}", blocks.len(), range.1.slot_or_default());
+    tracing::info!(
+        "received {} blocks. last slot: {}",
+        blocks.len(),
+        range.1.slot_or_default()
+    );
     Ok(())
 }
 
-async fn do_chainsync(chainsync_client: &mut chainsync::N2NClient, blockfetch_client: &mut blockfetch::Client) -> Result<(), Error> {
+async fn do_chainsync(
+    mut chainsync_client: chainsync::N2NClient,
+    mut blockfetch_client: blockfetch::Client,
+) -> Result<(), Error> {
     let known_points = vec![Point::Specific(
         43847831u64,
         hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45")?,
@@ -64,18 +77,18 @@ async fn do_chainsync(chainsync_client: &mut chainsync::N2NClient, blockfetch_cl
                             MultiEraHeader::EpochBoundary(_) => {
                                 tracing::info!("epoch boundary");
                                 None
-                            },
+                            }
                             MultiEraHeader::AlonzoCompatible(_) | MultiEraHeader::Babbage(_) => {
                                 if next_log.elapsed().as_secs() > 1 {
                                     tracing::info!("chainsync block header: {}", number);
                                     next_log = Instant::now();
                                 }
                                 Some(Point::Specific(slot, hash))
-                            },
+                            }
                             MultiEraHeader::Byron(_) => {
                                 tracing::info!("ignoring byron header");
                                 None
-                            },
+                            }
                         }
                     }
                     Some(_) => {
@@ -88,14 +101,17 @@ async fn do_chainsync(chainsync_client: &mut chainsync::N2NClient, blockfetch_cl
                         block_count += 1;
                         if block_count == 1 {
                             start_point = p;
-                        } 
-                        else if block_count == 10 {
+                        } else if block_count == 10 {
                             end_point = p;
-                            do_blockfetch(blockfetch_client, (start_point.clone(), end_point.clone())).await?;
+                            do_blockfetch(
+                                &mut blockfetch_client,
+                                (start_point.clone(), end_point.clone()),
+                            )
+                            .await?;
                             block_count = 0;
                         }
-                    },
-                    None => {},
+                    }
+                    None => {}
                 };
             }
             chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {:?}", x),
@@ -104,15 +120,11 @@ async fn do_chainsync(chainsync_client: &mut chainsync::N2NClient, blockfetch_cl
     }
 }
 
-async fn do_keepalive(keepalive_client: &mut keepalive::Client) -> Result<(), Error> {
-    let mut keepalive_timer = Instant::now();
+async fn do_keepalive(mut keepalive_client: keepalive::Client) -> Result<(), Error> {
     loop {
-        if keepalive_timer.elapsed().as_secs() > 20 {
-            tracing::info!("sending keepalive...");
-            keepalive_client.send_keepalive().await?;
-            tracing::info!("keepalive sent");
-            keepalive_timer = Instant::now();
-        }
+        tokio::time::sleep(Duration::from_secs(20)).await;
+        keepalive_client.send_keepalive().await?;
+        tracing::info!("keepalive sent");
     }
 }
 
@@ -130,20 +142,18 @@ async fn main() {
         // relay.
         let server = "backbone.cardano-mainnet.iohk.io:3001";
         // let server = "localhost:6000";
-        let mut peer = PeerClient::connect(server, MAINNET_MAGIC)
-            .await
-            .unwrap();
+        let peer = PeerClient::connect(server, MAINNET_MAGIC).await.unwrap();
 
-            let chainsync_handle = tokio::spawn(async move {
-            do_chainsync(&mut peer.chainsync, &mut peer.blockfetch).await?;
-            Ok::<(), Error>(())
-        }).fuse();
-        let keepalive_handle = tokio::spawn(async move {
-            do_keepalive(&mut peer.keepalive).await?;
-            Ok::<(), Error>(())
-        }).fuse();
+        let PeerClient {
+            plexer,
+            chainsync,
+            blockfetch,
+            keepalive,
+            ..
+        } = peer;
 
-        pin_mut!(chainsync_handle, keepalive_handle);
+        let chainsync_handle = tokio::spawn(do_chainsync(chainsync, blockfetch));
+        let keepalive_handle = tokio::spawn(do_keepalive(keepalive));
 
         // If any of these concurrent tasks exit or fail, the others are canceled.
         select! {
@@ -178,7 +188,8 @@ async fn main() {
                 }
             }
         }
-        peer.plexer_handle.abort();
+
+        plexer.abort().await;
 
         tracing::info!("waiting 10 seconds before reconnecting...");
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;

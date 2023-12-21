@@ -2,25 +2,19 @@
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
-use std::{
-    io::{Read, Write},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::JoinHandle,
-};
 use thiserror::Error;
-use tokio::sync::mpsc::error::SendError;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::task::JoinHandle;
 use tokio::time::Instant;
+use tokio::{select, sync::mpsc::error::SendError};
 use tracing::{debug, error, trace};
 
-type IOResult<T> = std::io::Result<T>;
+type IOResult<T> = tokio::io::Result<T>;
 
-use std::net as tcp;
+use tokio::net as tcp;
 
 #[cfg(unix)]
-use std::os::unix::net as unix;
+use tokio::net as unix;
 
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::NamedPipeClient;
@@ -81,17 +75,20 @@ pub enum Bearer {
 }
 
 impl Bearer {
-    pub async fn connect_tcp(addr: impl ToSocketAddrs) -> Result<Self, tokio::io::Error> {
-        let stream = TcpStream::connect(addr).await?;
-        // add tcp_keepalive
+    fn configure_tcp(stream: &tcp::TcpStream) -> IOResult<()> {
         let sock_ref = socket2::SockRef::from(&stream);
         let mut tcp_keepalive = socket2::TcpKeepalive::new();
         tcp_keepalive = tcp_keepalive.with_time(tokio::time::Duration::from_secs(20));
         tcp_keepalive = tcp_keepalive.with_interval(tokio::time::Duration::from_secs(20));
-        let _ = sock_ref.set_tcp_keepalive(&tcp_keepalive);
-        // add tcp_nodelay
-        let _ = sock_ref.set_nodelay(true);
+        sock_ref.set_tcp_keepalive(&tcp_keepalive)?;
+        sock_ref.set_nodelay(true)?;
 
+        Ok(())
+    }
+
+    pub async fn connect_tcp(addr: impl tcp::ToSocketAddrs) -> Result<Self, tokio::io::Error> {
+        let stream = tcp::TcpStream::connect(addr).await?;
+        Self::configure_tcp(&stream)?;
         Ok(Self::Tcp(stream))
     }
 
@@ -99,27 +96,29 @@ impl Bearer {
         addr: impl tcp::ToSocketAddrs,
         timeout: std::time::Duration,
     ) -> IOResult<Self> {
-        let addr = addr.to_socket_addrs()?.next().unwrap();
-        let stream = tcp::TcpStream::connect_timeout(&addr, timeout)?;
-        stream.set_nodelay(true)?;
-        Ok(Self::Tcp(stream))
+        select! {
+            result = Self::connect_tcp(addr) => result,
+            _ = tokio::time::sleep(timeout) => Err(tokio::io::Error::new(tokio::io::ErrorKind::TimedOut, "connect timeout")),
+        }
     }
 
-    pub fn accept_tcp(listener: &tcp::TcpListener) -> IOResult<(Self, tcp::SocketAddr)> {
-        let (stream, addr) = listener.accept()?;
-        stream.set_nodelay(true)?;
+    pub async fn accept_tcp(listener: &tcp::TcpListener) -> IOResult<(Self, std::net::SocketAddr)> {
+        let (stream, addr) = listener.accept().await?;
+        Self::configure_tcp(&stream)?;
         Ok((Self::Tcp(stream), addr))
     }
 
     #[cfg(unix)]
-    pub fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
-        let stream = unix::UnixStream::connect(path)?;
+    pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
+        let stream = unix::UnixStream::connect(path).await?;
         Ok(Self::Unix(stream))
     }
 
     #[cfg(unix)]
-    pub fn accept_unix(listener: &unix::UnixListener) -> IOResult<(Self, unix::SocketAddr)> {
-        let (stream, addr) = listener.accept()?;
+    pub async fn accept_unix(
+        listener: &unix::UnixListener,
+    ) -> IOResult<(Self, unix::unix::SocketAddr)> {
+        let (stream, addr) = listener.accept().await?;
         Ok((Self::Unix(stream), addr))
     }
 
@@ -133,60 +132,60 @@ impl Bearer {
     pub fn into_split(self) -> (BearerReadHalf, BearerWriteHalf) {
         match self {
             Bearer::Tcp(x) => {
-                let y = x.try_clone().unwrap();
-                (BearerReadHalf::Tcp(x), BearerWriteHalf::Tcp(y))
+                let (r, w) = x.into_split();
+                (BearerReadHalf::Tcp(r), BearerWriteHalf::Tcp(w))
             }
 
             #[cfg(unix)]
             Bearer::Unix(x) => {
-                let y = x.try_clone().unwrap();
-                (BearerReadHalf::Unix(x), BearerWriteHalf::Unix(y))
+                let (r, w) = x.into_split();
+                (BearerReadHalf::Unix(r), BearerWriteHalf::Unix(w))
             }
         }
     }
 }
 
 pub enum BearerReadHalf {
-    Tcp(tcp::TcpStream),
+    Tcp(tcp::tcp::OwnedReadHalf),
 
     #[cfg(unix)]
-    Unix(unix::UnixStream),
+    Unix(unix::unix::OwnedReadHalf),
 }
 
 impl BearerReadHalf {
-    fn read_exact(&mut self, buf: &mut [u8]) -> IOResult<()> {
+    async fn read_exact(&mut self, buf: &mut [u8]) -> IOResult<usize> {
         match self {
-            BearerReadHalf::Tcp(x) => x.read_exact(buf),
+            BearerReadHalf::Tcp(x) => x.read_exact(buf).await,
 
             #[cfg(unix)]
-            BearerReadHalf::Unix(x) => x.read_exact(buf),
+            BearerReadHalf::Unix(x) => x.read_exact(buf).await,
         }
     }
 }
 
 pub enum BearerWriteHalf {
-    Tcp(tcp::TcpStream),
+    Tcp(tcp::tcp::OwnedWriteHalf),
 
     #[cfg(unix)]
-    Unix(unix::UnixStream),
+    Unix(unix::unix::OwnedWriteHalf),
 }
 
 impl BearerWriteHalf {
-    fn write_all(&mut self, buf: &[u8]) -> IOResult<()> {
+    async fn write_all(&mut self, buf: &[u8]) -> IOResult<()> {
         match self {
-            Self::Tcp(x) => x.write_all(buf),
+            Self::Tcp(x) => x.write_all(buf).await,
 
             #[cfg(unix)]
-            Self::Unix(x) => x.write_all(buf),
+            Self::Unix(x) => x.write_all(buf).await,
         }
     }
 
-    fn flush(&mut self) -> IOResult<()> {
+    async fn flush(&mut self) -> IOResult<()> {
         match self {
-            Self::Tcp(x) => x.flush(),
+            Self::Tcp(x) => x.flush().await,
 
             #[cfg(unix)]
-            Self::Unix(x) => x.flush(),
+            Self::Unix(x) => x.flush().await,
         }
     }
 }
@@ -216,6 +215,9 @@ pub enum Error {
 
     #[error("plexer failed to mux chunk")]
     PlexerMux,
+
+    #[error("failure to abort the plexer threads")]
+    AbortFailure,
 }
 
 type Egress = (
@@ -227,20 +229,20 @@ pub struct Demuxer(BearerReadHalf, Egress);
 
 impl Demuxer {
     pub fn new(bearer: BearerReadHalf) -> Self {
-        let egress = tokio::sync::broadcast::channel(100);
+        let egress = tokio::sync::broadcast::channel(10_000);
         Self(bearer, egress)
     }
 
-    pub fn read_segment(&mut self) -> Result<(Protocol, Payload), Error> {
+    pub async fn read_segment(&mut self) -> Result<(Protocol, Payload), Error> {
         trace!("waiting for segment header");
         let mut buf = vec![0u8; HEADER_LEN];
-        self.0.read_exact(&mut buf).map_err(Error::BearerIo)?;
+        self.0.read_exact(&mut buf).await.map_err(Error::BearerIo)?;
         let header = Header::from(buf.as_slice());
 
         trace!("waiting for full segment");
         let segment_size = header.payload_len as usize;
         let mut buf = vec![0u8; segment_size];
-        self.0.read_exact(&mut buf).map_err(Error::BearerIo)?;
+        self.0.read_exact(&mut buf).await.map_err(Error::BearerIo)?;
 
         Ok((header.protocol, buf))
     }
@@ -262,10 +264,18 @@ impl Demuxer {
         self.1 .0.subscribe()
     }
 
-    pub fn tick(&mut self) -> Result<(), Error> {
-        let (protocol, payload) = self.read_segment()?;
+    pub async fn tick(&mut self) -> Result<(), Error> {
+        let (protocol, payload) = self.read_segment().await?;
         trace!(protocol, "demux happening");
         self.demux(protocol, payload)
+    }
+
+    pub async fn run(&mut self) -> Result<(), Error> {
+        loop {
+            if let Err(err) = self.tick().await {
+                break Err(err);
+            }
+        }
     }
 }
 
@@ -285,7 +295,7 @@ impl Muxer {
         Self(bearer, clock, ingress)
     }
 
-    fn write_segment(&mut self, protocol: u16, payload: &[u8]) -> Result<(), std::io::Error> {
+    async fn write_segment(&mut self, protocol: u16, payload: &[u8]) -> Result<(), std::io::Error> {
         let header = Header {
             protocol,
             timestamp: self.1.elapsed().as_micros() as u32,
@@ -293,16 +303,17 @@ impl Muxer {
         };
 
         let buf: [u8; 8] = header.into();
-        self.0.write_all(&buf)?;
-        self.0.write_all(payload)?;
+        self.0.write_all(&buf).await?;
+        self.0.write_all(payload).await?;
 
-        self.0.flush()?;
+        self.0.flush().await?;
 
         Ok(())
     }
 
-    pub fn mux(&mut self, msg: (Protocol, Payload)) -> Result<(), Error> {
+    pub async fn mux(&mut self, msg: (Protocol, Payload)) -> Result<(), Error> {
         self.write_segment(msg.0, &msg.1)
+            .await
             .map_err(|_| Error::PlexerMux)?;
 
         if tracing::event_enabled!(tracing::Level::TRACE) {
@@ -320,15 +331,23 @@ impl Muxer {
         self.2 .0.clone()
     }
 
-    pub fn tick(&mut self) -> Result<(), Error> {
-        let msg = self.2 .1.blocking_recv();
+    pub async fn tick(&mut self) -> Result<(), Error> {
+        let msg = self.2 .1.recv().await;
 
         if let Some(x) = msg {
             trace!(protocol = x.0, "mux happening");
-            self.mux(x)?
+            self.mux(x).await?
         }
 
         Ok(())
+    }
+
+    pub async fn run(&mut self) -> Result<(), Error> {
+        loop {
+            if let Err(err) = self.tick().await {
+                break Err(err);
+            }
+        }
     }
 }
 
@@ -395,19 +414,12 @@ impl AgentChannel {
 pub struct RunningPlexer {
     demuxer: JoinHandle<Result<(), Error>>,
     muxer: JoinHandle<Result<(), Error>>,
-    abort: Arc<AtomicBool>,
 }
 
 impl RunningPlexer {
-    pub fn abort(&self) {
-        self.abort.store(true, Ordering::Relaxed);
-    }
-
-    pub fn join(self) -> Result<(), Error> {
-        self.demuxer.join().expect("couldn't join demuxer thread")?;
-        self.muxer.join().expect("couldn't join muxer thread")?;
-
-        Ok(())
+    pub async fn abort(self) {
+        self.demuxer.abort();
+        self.muxer.abort();
     }
 }
 
@@ -441,35 +453,11 @@ impl Plexer {
     pub fn spawn(self) -> RunningPlexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
-        let abort = Arc::new(AtomicBool::new(false));
 
-        let demuxer_abort = abort.clone();
-        let demuxer = std::thread::spawn(move || loop {
-            if demuxer_abort.load(Ordering::Relaxed) {
-                break Ok(());
-            }
+        let demuxer = tokio::spawn(async move { demuxer.run().await });
+        let muxer = tokio::spawn(async move { muxer.run().await });
 
-            if let Err(err) = demuxer.tick() {
-                break Err(err);
-            }
-        });
-
-        let muxer_abort = abort.clone();
-        let muxer = std::thread::spawn(move || loop {
-            if muxer_abort.load(Ordering::Relaxed) {
-                break Ok(());
-            }
-
-            if let Err(err) = muxer.tick() {
-                break Err(err);
-            }
-        });
-
-        RunningPlexer {
-            demuxer,
-            muxer,
-            abort,
-        }
+        RunningPlexer { demuxer, muxer }
     }
 }
 
