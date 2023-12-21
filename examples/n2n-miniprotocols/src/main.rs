@@ -1,4 +1,3 @@
-use futures::try_join;
 use pallas::{
     ledger::traverse::MultiEraHeader,
     network::{
@@ -8,7 +7,7 @@ use pallas::{
 };
 use std::time::Duration;
 use thiserror::Error;
-use tokio::{select, time::Instant};
+use tokio::time::Instant;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -97,22 +96,19 @@ async fn do_chainsync(
                         None
                     }
                 };
-                match point {
-                    Some(p) => {
-                        block_count += 1;
-                        if block_count == 1 {
-                            start_point = p;
-                        } else if block_count == 10 {
-                            end_point = p;
-                            do_blockfetch(
-                                &mut blockfetch_client,
-                                (start_point.clone(), end_point.clone()),
-                            )
-                            .await?;
-                            block_count = 0;
-                        }
+                if let Some(p) = point {
+                    block_count += 1;
+                    if block_count == 1 {
+                        start_point = p;
+                    } else if block_count == 10 {
+                        end_point = p;
+                        do_blockfetch(
+                            &mut blockfetch_client,
+                            (start_point.clone(), end_point.clone()),
+                        )
+                        .await?;
+                        block_count = 0;
                     }
-                    None => {}
                 };
             }
             chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {:?}", x),
