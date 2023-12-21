@@ -69,9 +69,8 @@ pub enum Bearer {
 
     #[cfg(unix)]
     Unix(unix::UnixStream),
-
-    #[cfg(windows)]
-    NamedPipe(NamedPipeClient),
+    // #[cfg(windows)]
+    // NamedPipe(NamedPipeClient),
 }
 
 impl Bearer {
