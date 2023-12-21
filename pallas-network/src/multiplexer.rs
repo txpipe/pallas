@@ -185,6 +185,8 @@ impl BearerWriteHalf {
 
             #[cfg(unix)]
             Self::Unix(x) => x.flush().await,
+            //#[cfg(windows)]
+            //Bearer::NamedPipe(x) => x.flush().await,
         }
     }
 }
