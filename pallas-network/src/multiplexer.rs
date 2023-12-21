@@ -224,11 +224,13 @@ type Egress = (
     tokio::sync::broadcast::Receiver<(Protocol, Payload)>,
 );
 
+const EGRESS_MSG_QUEUE_BUFFER: usize = 100_000;
+
 pub struct Demuxer(BearerReadHalf, Egress);
 
 impl Demuxer {
     pub fn new(bearer: BearerReadHalf) -> Self {
-        let egress = tokio::sync::broadcast::channel(10_000);
+        let egress = tokio::sync::broadcast::channel(EGRESS_MSG_QUEUE_BUFFER);
         Self(bearer, egress)
     }
 
@@ -285,11 +287,13 @@ type Ingress = (
 
 type Clock = Instant;
 
+const INGRESS_MSG_QUEUE_BUFFER: usize = 100;
+
 pub struct Muxer(BearerWriteHalf, Clock, Ingress);
 
 impl Muxer {
     pub fn new(bearer: BearerWriteHalf) -> Self {
-        let ingress = tokio::sync::mpsc::channel(100); // TODO: define buffer
+        let ingress = tokio::sync::mpsc::channel(INGRESS_MSG_QUEUE_BUFFER);
         let clock = Instant::now();
         Self(bearer, clock, ingress)
     }
