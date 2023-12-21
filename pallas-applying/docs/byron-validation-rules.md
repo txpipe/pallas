@@ -1,4 +1,4 @@
-# Byron transaction validation rules
+# Byron phase-1 validation rules
 
 Refer to the [Byron's ledger white paper](https://github.com/input-output-hk/cardano-ledger/releases/latest/download/byron-ledger.pdf) for further information.
 
