@@ -223,9 +223,8 @@ pub enum Error {
     AbortFailure,
 }
 
-type Egress = HashMap<Protocol, EgressChannel>;
-
 type EgressChannel = tokio::sync::mpsc::Sender<Payload>;
+type Egress = HashMap<Protocol, EgressChannel>;
 
 const EGRESS_MSG_QUEUE_BUFFER: usize = 100;
 
