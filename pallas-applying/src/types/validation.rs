@@ -6,6 +6,7 @@ pub enum ValidationError {
     TxAndProtParamsDiffer,
     Byron(ByronError),
     ShelleyMA(ShelleyMAError),
+    Alonzo(AlonzoError),
 }
 
 #[derive(Debug)]
@@ -46,6 +47,12 @@ pub enum ShelleyMAError {
     MissingScriptWitness,
     WrongSignature,
     MintingLacksPolicy,
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum AlonzoError {
+    UnknownTxSize,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

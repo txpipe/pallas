@@ -33,27 +33,18 @@ pub fn validate_shelley_ma_tx(
     era: &Era,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let size: &u64 = &get_tx_size(tx_body)?;
-    let auxiliary_data_hash: &Option<Bytes> = &tx_body.auxiliary_data_hash;
-    let auxiliary_data: &Option<&[u8]> = &extract_auxiliary_data(mtx);
-    let minted_value: &Option<Multiasset<i64>> = &tx_body.mint;
-    let native_script_wits: &Option<Vec<NativeScript>> = &mtx
-        .transaction_witness_set
-        .native_script
-        .as_ref()
-        .map(|x| x.iter().map(|y| y.deref().clone()).collect());
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
     check_ttl(tx_body, block_slot)?;
     check_size(size, prot_pps)?;
     check_min_lovelace(tx_body, prot_pps, era)?;
     check_preservation_of_value(tx_body, utxos, era)?;
-    check_fees(tx_body, size, &prot_pps.fee_policy)?;
+    check_fees(tx_body, size, prot_pps)?;
     check_network_id(tx_body, network_id)?;
-    check_metadata(auxiliary_data_hash, auxiliary_data)?;
-    check_witnesses(tx_body, utxos, tx_wits)?;
-    check_minting(minted_value, native_script_wits)
+    check_metadata(tx_body, mtx)?;
+    check_witnesses(tx_body, utxos, mtx)?;
+    check_minting(tx_body, mtx)
 }
 
 fn get_tx_size(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
@@ -342,7 +333,12 @@ fn find_assets(assets: &KeyValuePairs<AssetName, Coin>, asset_name: &AssetName) 
     None
 }
 
-fn check_fees(tx_body: &TransactionBody, size: &u64, fee_policy: &FeePolicy) -> ValidationResult {
+fn check_fees(
+    tx_body: &TransactionBody,
+    size: &u64,
+    prot_pps: &ShelleyProtParams,
+) -> ValidationResult {
+    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
     if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
         return Err(ShelleyMA(FeesBelowMin));
     }
@@ -367,11 +363,9 @@ fn get_shelley_address(address: Vec<u8>) -> Result<ShelleyAddress, ValidationErr
     }
 }
 
-fn check_metadata(
-    auxiliary_data_hash: &Option<Bytes>,
-    auxiliary_data_cbor: &Option<&[u8]>,
-) -> ValidationResult {
-    match (auxiliary_data_hash, auxiliary_data_cbor) {
+fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    let auxiliary_data_hash: &Option<Bytes> = &tx_body.auxiliary_data_hash;
+    match (auxiliary_data_hash, &extract_auxiliary_data(mtx)) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
@@ -386,11 +380,8 @@ fn check_metadata(
     }
 }
 
-fn check_witnesses(
-    tx_body: &TransactionBody,
-    utxos: &UTxOs,
-    tx_wits: &MintedWitnessSet,
-) -> ValidationResult {
+fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> ValidationResult {
+    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let wits: &mut Vec<(bool, VKeyWitness)> = &mut mk_vkwitness_check_list(&tx_wits.vkeywitness)?;
     let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
     for input in tx_body.inputs.iter() {
@@ -496,10 +487,9 @@ fn check_remaining_verification_key_witnesses(
     Ok(())
 }
 
-fn check_minting(
-    values: &Option<Multiasset<i64>>,
-    scripts: &Option<Vec<NativeScript>>,
-) -> ValidationResult {
+fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    let values: &Option<Multiasset<i64>> = &tx_body.mint;
+    let scripts: &Option<Vec<NativeScript>> = &mtx.transaction_witness_set.native_script;
     match (values, scripts) {
         (None, _) => Ok(()),
         (Some(_), None) => Err(ShelleyMA(MintingLacksPolicy)),
