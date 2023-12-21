@@ -1,3 +1,4 @@
+use futures::try_join;
 use pallas::{
     ledger::traverse::MultiEraHeader,
     network::{
@@ -156,37 +157,16 @@ async fn main() {
         let keepalive_handle = tokio::spawn(do_keepalive(keepalive));
 
         // If any of these concurrent tasks exit or fail, the others are canceled.
-        select! {
-            chainsync_result = chainsync_handle => {
-                match chainsync_result {
-                    Ok(result) => {
-                        match result {
-                            Ok(_) => {}
-                            Err(error) => {
-                                tracing::error!("chainsync error: {:?}", error);
-                            }
-                        }
-                    }
-                    Err(error) => {
-                        tracing::error!("chainsync error: {:?}", error);
-                    }
-                }
-            }
-            keepalive_result = keepalive_handle => {
-                match keepalive_result {
-                    Ok(result) => {
-                        match result {
-                            Ok(_) => {}
-                            Err(error) => {
-                                tracing::error!("keepalive error: {:?}", error);
-                            }
-                        }
-                    }
-                    Err(error) => {
-                        tracing::error!("keepalive error: {:?}", error);
-                    }
-                }
-            }
+        let (chainsync_result, keepalive_result) =
+            tokio::try_join!(chainsync_handle, keepalive_handle)
+                .expect("error joining tokio threads");
+
+        if let Err(err) = chainsync_result {
+            tracing::error!("chainsync error: {:?}", err);
+        }
+
+        if let Err(err) = keepalive_result {
+            tracing::error!("keepalive error: {:?}", err);
         }
 
         plexer.abort().await;
