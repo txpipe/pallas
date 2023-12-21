@@ -56,8 +56,8 @@ fn chunk_binary_search<ChunkT, PointT>(
 }
 
 /// Iterates through the blocks until the given slot and block hash are reached.
-/// Returns an iterator over the blocks if the specific block is found, otherwise
-/// returns an error.
+/// Returns an iterator over the blocks if the specific block is found,
+/// otherwise returns an error.
 fn iterate_till_point(
     iter: impl Iterator<Item = FallibleBlock>,
     slot: u64,
@@ -140,8 +140,8 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
     Ok(iter)
 }
 
-/// Returns an iterator over the chain from the given point if the specific block is found,
-/// otherwise returns an error.
+/// Returns an iterator over the chain from the given point if the specific
+/// block is found, otherwise returns an error.
 pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
@@ -195,7 +195,11 @@ pub fn read_blocks_from_point(
     }
 }
 
-/// Returns a `Point` value of the latest block.
+/// Retrieves the tip `Point` value for the given directory.
+///
+/// The function takes a directory path as input and returns the `Point` value
+/// of the latest block if it exists, or `None` if there are no blocks in the
+/// directory.
 pub fn get_tip(dir: &Path) -> Result<Option<Point>, Box<dyn std::error::Error>> {
     match build_stack_of_chunk_names(dir)?.into_iter().next() {
         Some(name) => {
