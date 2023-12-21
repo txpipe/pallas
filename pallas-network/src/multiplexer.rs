@@ -227,7 +227,7 @@ type Egress = HashMap<Protocol, EgressChannel>;
 
 type EgressChannel = tokio::sync::mpsc::Sender<Payload>;
 
-const EGRESS_MSG_QUEUE_BUFFER: usize = 100_000;
+const EGRESS_MSG_QUEUE_BUFFER: usize = 100;
 
 pub struct Demuxer(BearerReadHalf, Egress);
 
