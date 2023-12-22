@@ -15,16 +15,18 @@ const PROTOCOL_V13: u64 = 13;
 const PEER_SHARING_DISABLED: u8 = 0;
 
 impl VersionTable {
+    #[deprecated(note = "no longer supported by spec")]
     pub fn v4_and_above(network_magic: u64) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
         // Try not to break compatibility with older pallas users.
-        return Self::v7_and_above(network_magic);
+        Self::v7_and_above(network_magic)
     }
 
+    #[deprecated(note = "no longer supported by spec")]
     pub fn v6_and_above(network_magic: u64) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
         // Try not to break compatibility with older pallas users.
-        return Self::v7_and_above(network_magic);
+        Self::v7_and_above(network_magic)
     }
 
     pub fn v7_to_v10(network_magic: u64) -> VersionTable {

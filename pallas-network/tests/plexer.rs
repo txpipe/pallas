@@ -33,7 +33,7 @@ fn random_payload(size: usize) -> Vec<u8> {
 
 #[tokio::test]
 async fn one_way_small_sequence_of_payloads() {
-    let passive = tokio::spawn(setup_passive_muxer::<50301>());
+    let passive = tokio::task::spawn(setup_passive_muxer::<50301>());
 
     // HACK: a small sleep seems to be required for Github actions runner to
     // formally expose the port
@@ -46,8 +46,8 @@ async fn one_way_small_sequence_of_payloads() {
     let mut sender_channel = active.subscribe_client(3);
     let mut receiver_channel = passive.subscribe_server(3);
 
-    let passive_run = tokio::spawn(async move { passive.run().await });
-    let active_run = tokio::spawn(async move { active.run().await });
+    let passive = passive.spawn();
+    let active = active.spawn();
 
     for _ in 0..100 {
         let payload = random_payload(50);
@@ -57,6 +57,6 @@ async fn one_way_small_sequence_of_payloads() {
         assert_eq!(payload, received_payload);
     }
 
-    passive_run.abort();
-    active_run.abort();
+    passive.abort().await;
+    active.abort().await;
 }
