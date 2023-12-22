@@ -503,34 +503,50 @@ mod tests {
     }
 
     #[test]
-    fn tmp_test() {
-        let dir = Path::new("/Users/alexeypoghilenkov/Work/preprod-e112-i2170.593a95cee76541823a6a67b8b4d918006d767896c1a5da27a64efa3eb3f0c296/immutable");
-        let reader = super::read_blocks_from_point(
-            dir,
-            Point::Specific(
-                46894222,
-                hex::decode("e8c8688ad8b71005cff5b4bf165dc657e8aeeb0a8076770fc6eca1007c5fee93")
-                    .unwrap(),
-            ),
+    #[ignore]
+    fn can_read_whole_mithril_snapshot_2() {
+        tracing::subscriber::set_global_default(
+            tracing_subscriber::FmtSubscriber::builder()
+                .with_max_level(tracing::Level::DEBUG)
+                .finish(),
         )
         .unwrap();
 
-        for block in reader.take(10) {
+        let path = option_env!("PALLAS_MITHRIL_SNAPSHOT_PATH").unwrap();
+        let reader = super::read_blocks_from_point(Path::new(path), Point::Origin).unwrap();
+
+        let mut count = 0;
+        let mut last_slot = None;
+        let mut last_height = None;
+        let mut last_hash = None;
+
+        for block in reader.take_while(Result::is_ok) {
             let block = block.unwrap();
             let block = MultiEraBlock::decode(&block).unwrap();
-            println!(
-                "hash: {}, era: {}, slot: {}, epoch: ({},{}), number: {}",
-                block.hash(),
-                block.era(),
-                block.slot(),
-                block
-                    .epoch(&pallas_traverse::wellknown::GenesisValues::preprod())
-                    .0,
-                block
-                    .epoch(&pallas_traverse::wellknown::GenesisValues::preprod())
-                    .1,
-                block.header().number(),
-            );
+
+            trace!("slot: {}, hash: {}", block.slot(), block.hash());
+
+            if let Some(last_slot) = last_slot {
+                assert!(last_slot < block.slot());
+            }
+
+            if let Some(last_height) = last_height {
+                assert_eq!(last_height + 1, block.number());
+            }
+
+            if let Some(last_hash) = last_hash {
+                if let Some(expected) = block.header().previous_hash() {
+                    assert_eq!(last_hash, expected)
+                }
+            }
+
+            last_slot = Some(block.slot());
+            last_height = Some(block.number());
+            last_hash = Some(block.hash());
+
+            count += 1;
         }
+
+        assert!(count > 0);
     }
 }
