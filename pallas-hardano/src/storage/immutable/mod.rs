@@ -7,11 +7,21 @@ use std::{
 use pallas_network::miniprotocols::Point;
 use pallas_traverse::MultiEraBlock;
 use tap::Tap;
+use thiserror::Error;
 use tracing::debug;
 
 pub mod chunk;
 pub mod primary;
 pub mod secondary;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum Error {
+    #[error("Cannot find block by the provided point: {0:?}")]
+    CannotFindBlock(Point),
+
+    #[error("Origin block is missing, provided truncated chain data")]
+    OriginMissing,
+}
 
 /// Performs a binary search of the given sorted chunks in descending order
 /// and returns the index of the chunk which probably contains the point.
@@ -84,7 +94,7 @@ fn iterate_till_point(
             if block.hash().as_ref().eq(block_hash) && block.slot() == slot {
                 Ok(iter)
             } else {
-                Err("Cannot find the block".into())
+                Err(Error::CannotFindBlock(Point::Specific(slot, block_hash.to_vec())).into())
             }
         }
         Some(Err(_)) | None => Ok(iter),
@@ -151,11 +161,24 @@ pub fn read_blocks_from_point(
     match point {
         // Establish iterator from the beginning of the chain
         Point::Origin => {
-            let iter = ChunkReaders(dir.to_owned(), names)
+            let mut iter = ChunkReaders(dir.to_owned(), names)
                 .map_while(Result::ok)
-                .flatten();
+                .flatten()
+                .peekable();
 
-            Ok(Box::new(iter))
+            // check the first block
+            match iter.peek() {
+                Some(Ok(block_data)) => {
+                    let block = MultiEraBlock::decode(&block_data)?;
+                    // check that the first block is genesis
+                    if block.slot() == 0 && block.number() == 0 {
+                        Ok(Box::new(iter))
+                    } else {
+                        Err(Error::OriginMissing.into())
+                    }
+                }
+                Some(Err(_)) | None => Ok(Box::new(iter)),
+            }
         }
         // Establish iterator from specific block
         Point::Specific(slot, block_hash) => {
@@ -182,7 +205,9 @@ pub fn read_blocks_from_point(
             // index.
             let names = chunk_binary_search(&names, &slot, cmp)?
                 .map(|chunk_index| names[..chunk_index + 1].to_vec())
-                .ok_or::<Box<dyn std::error::Error>>("Cannot find the block".into())?;
+                .ok_or::<Box<dyn std::error::Error>>(
+                    Error::CannotFindBlock(Point::Specific(slot, block_hash.clone())).into(),
+                )?;
 
             let iter = ChunkReaders(dir.to_owned(), names.clone())
                 .map_while(Result::ok)
@@ -302,8 +327,15 @@ mod tests {
 
     #[test]
     fn can_read_multiple_chunks_from_folder_2() {
-        let reader =
-            super::read_blocks_from_point(Path::new("../test_data"), Point::Origin).unwrap();
+        let reader = super::read_blocks_from_point(
+            Path::new("../test_data"),
+            Point::Specific(
+                27756007,
+                hex::decode("230199f16ba0d935e60bf7288373fa01beaa1e20516c34a6481c2231e73a2fd1")
+                    .unwrap(),
+            ),
+        )
+        .unwrap();
 
         let mut count = 0;
         let mut last_slot = None;
@@ -345,17 +377,7 @@ mod tests {
     fn read_blocks_from_point_test() {
         use super::read_blocks_from_point;
 
-        // first block as orgin Point
-        let mut reader = read_blocks_from_point(Path::new("../test_data"), Point::Origin).unwrap();
-        let block = reader.next().unwrap().unwrap();
-        let block = MultiEraBlock::decode(&block).unwrap();
-        assert_eq!(block.slot(), 27756007);
-        assert_eq!(
-            hex::encode(block.hash()),
-            "230199f16ba0d935e60bf7288373fa01beaa1e20516c34a6481c2231e73a2fd1"
-        );
-
-        // first block specific Point
+        // first block from the chain
         let point = Point::Specific(
             27756007,
             hex::decode("230199f16ba0d935e60bf7288373fa01beaa1e20516c34a6481c2231e73a2fd1")
@@ -409,6 +431,27 @@ mod tests {
         let block = reader.next().unwrap().unwrap();
         let block = MultiEraBlock::decode(&block).unwrap();
         assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
+
+        // Try to read an origin block
+        assert_eq!(
+            read_blocks_from_point(Path::new("../test_data"), Point::Origin)
+                .err()
+                .unwrap()
+                .downcast::<super::Error>()
+                .unwrap(),
+            Box::new(super::Error::OriginMissing)
+        );
+
+        // Try to read from a non existing point
+        let point = Point::Specific(0, vec![]);
+        assert_eq!(
+            read_blocks_from_point(Path::new("../test_data"), point.clone())
+                .err()
+                .unwrap()
+                .downcast::<super::Error>()
+                .unwrap(),
+            Box::new(super::Error::CannotFindBlock(point))
+        );
     }
 
     #[test]
