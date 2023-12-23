@@ -3,7 +3,7 @@ use std::path::Path;
 use thiserror::Error;
 use tracing::error;
 
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, ToSocketAddrs};
 
 #[cfg(unix)]
 use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
@@ -66,7 +66,7 @@ impl PeerClient {
         }
     }
 
-    pub async fn connect(addr: &str, magic: u64) -> Result<Self, Error> {
+    pub async fn connect(addr: impl ToSocketAddrs, magic: u64) -> Result<Self, Error> {
         let bearer = Bearer::connect_tcp(addr)
             .await
             .map_err(Error::ConnectFailure)?;
@@ -232,7 +232,7 @@ impl NodeClient {
     }
 
     #[cfg(unix)]
-    pub async fn connect(path: &Path, magic: u64) -> Result<Self, Error> {
+    pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
         let bearer = Bearer::connect_unix(path)
             .await
             .map_err(Error::ConnectFailure)?;
