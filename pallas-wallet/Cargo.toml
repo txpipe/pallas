@@ -16,3 +16,4 @@ ed25519-bip32 = "0.4.1"
 bip39 = { version = "2.0.0", features = ["rand_core"] }
 cryptoxide = "0.4.4"
 bech32 = "0.9.1"
+rand = "0.8.5"
