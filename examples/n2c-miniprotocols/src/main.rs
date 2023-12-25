@@ -5,7 +5,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{self, Addr, Addrs},
-            Point, PRE_PRODUCTION_MAGIC,
+            Point, PRE_PRODUCTION_MAGIC, PREVIEW_MAGIC
         },
     },
 };
@@ -82,6 +82,7 @@ async fn do_chainsync(client: &mut NodeClient) {
 // change the following to match the Cardano node socket in your local
 // environment
 const SOCKET_PATH: &str = "/tmp/node.socket";
+const PIPE_NAME: &str = "\\\\.\\pipe\\cardano-pallas";
 
 #[cfg(unix)]
 #[tokio::main]
@@ -107,6 +108,25 @@ async fn main() {
 }
 
 #[cfg(not(target_family = "unix"))]
-fn main() {
-    panic!("can't use n2c unix socket on non-unix systems");
+#[tokio::main]
+async fn main() {
+
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    )
+    .unwrap();
+
+     // we connect to the unix socket of the local node. Make sure you have the right
+    // path for your environment
+    let mut client = NodeClient::connect(PIPE_NAME, PREVIEW_MAGIC)
+        .await
+        .unwrap();
+
+    // execute an arbitrary "Local State" query against the node
+    do_localstate_query(&mut client).await;
+
+    // execute the chainsync flow from an arbitrary point in the chain
+    do_chainsync(&mut client).await;
 }
