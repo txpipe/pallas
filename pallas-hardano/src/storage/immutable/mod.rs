@@ -152,6 +152,46 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 
 /// Returns an iterator over the chain from the given point if the specific
 /// block is found, otherwise returns an error.
+/// 
+/// # Errors
+///
+/// * `Error::OriginMissing` - If the first block in the chain is not the genesis block.
+/// * `Error::CannotFindBlock` - If the specific block indicated by the `Point` value is not found.
+/// * `std::io::Error` - If an I/O error occurs.
+/// * `pallas_traverse::Error` - If the block cannot be decoded.
+/// 
+/// # Example
+///
+/// ```rust
+/// use std::path::Path;
+/// use std::error::Error;
+/// use crate::{Point, read_blocks_from_point};
+///
+/// fn main() -> Result<(), Box<dyn Error>> {
+///     let dir = Path::new("/path/to/blocks");
+///     let point = Point::Origin;
+///     
+///     match read_blocks_from_point(dir, point) {
+///         Ok(iterator) => {
+///             for block in iterator {
+///                 match block {
+///                     Ok(block_data) => {
+///                         println!("Block data: {:?}", block_data);
+///                     }
+///                     Err(error) => {
+///                         println!("Error reading block: {:?}", error);
+///                     }
+///                 }
+///             }
+///         }
+///         Err(error) => {
+///             println!("Error reading blocks from point: {:?}", error);
+///         }
+///     }
+///
+///     Ok(())
+/// }
+/// ```
 pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
@@ -225,6 +265,35 @@ pub fn read_blocks_from_point(
 /// The function takes a directory path as input and returns the `Point` value
 /// of the latest block if it exists, or `None` if there are no blocks in the
 /// directory.
+/// 
+/// # Errors
+///
+/// * `std::io::Error` - If an I/O error occurs.
+/// * `pallas_traverse::Error` - If the block cannot be decoded.
+///
+/// # Example
+///
+/// ```rust
+/// use std::path::Path;
+/// use std::error::Error;
+/// use crate::{Point, get_tip};
+///
+/// fn main() -> Result<(), Box<dyn Error>> {
+///     let dir = Path::new("/path/to/blocks");
+///     let tip = get_tip(dir)?;
+///
+///     match tip {
+///         Some(point) => {
+///             println!("The tip Point value is: {:?}", point);
+///         }
+///         None => {
+///             println!("There are no blocks in the directory.");
+///         }
+///     }
+///
+///     Ok(())
+/// }
+/// ```
 pub fn get_tip(dir: &Path) -> Result<Option<Point>, Box<dyn std::error::Error>> {
     match build_stack_of_chunk_names(dir)?.into_iter().next() {
         Some(name) => {
