@@ -53,6 +53,19 @@ pub enum ShelleyMAError {
 #[non_exhaustive]
 pub enum AlonzoError {
     UnknownTxSize,
+    TxInsEmpty,
+    InputNotInUTxO,
+    CollateralNotInUTxO,
+    BlockExceedsValInt,
+    BlockPrecedesValInt,
+    ValIntUpperBoundMissing,
+    FeesBelowMin,
+    CollateralMissing,
+    TooManyCollaterals,
+    CollateralNotVKeyLocked,
+    AddressDecoding,
+    CollateralMinLovelace,
+    CollateralNonLovelace,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

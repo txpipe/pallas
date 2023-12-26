@@ -136,7 +136,7 @@ Let ***tx ∈ Tx*** be one of its Alonzo transactions, with transaction body ***
 		- **The set of collateral inputs is not empty**:
 
 			<code>collateral(txBody) ≠ ∅</code>
-		- **The number of collateral inputs is below maximum allowed by protocol**:
+		- **The number of collateral inputs is not above maximum**:
 
 			<code>∥collateral(txBody)∥ ≤ maxCollateralInputs(pps)</code>
 		- **Each collateral input refers to a verification-key address**:

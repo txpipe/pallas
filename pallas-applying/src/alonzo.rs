@@ -2,27 +2,30 @@
 
 use crate::types::{
     AlonzoError::*,
-    AlonzoProtParams, UTxOs,
+    AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
+use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{minicbor::encode, utils::KeepRaw};
 use pallas_primitives::alonzo::{
     MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, TransactionBody,
-    VKeyWitness,
+    TransactionInput, TransactionOutput, VKeyWitness, Value,
 };
+use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
 pub fn validate_alonzo_tx(
     mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
+    block_slot: &u64,
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let size: &u64 = &get_tx_size(tx_body)?;
     check_ins_not_empty(tx_body)?;
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
-    check_tx_validity_interval(tx_body, mtx)?;
+    check_tx_validity_interval(tx_body, mtx, block_slot)?;
     check_fees(tx_body, size, mtx, utxos, prot_pps)?;
     check_preservation_of_value(tx_body, utxos, prot_pps)?;
     check_min_lovelace(tx_body, prot_pps)?;
@@ -46,27 +49,84 @@ fn get_tx_size(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
 }
 
 // The set of transaction inputs is not empty.
-fn check_ins_not_empty(_tx_body: &TransactionBody) -> ValidationResult {
+fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
+    if tx_body.inputs.is_empty() {
+        return Err(Alonzo(TxInsEmpty));
+    }
     Ok(())
 }
 
 // All transaction inputs and collateral inputs are in the set of (yet) unspent transaction outputs.
-fn check_ins_and_collateral_in_utxos(
-    _tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-) -> ValidationResult {
-    Ok(())
+fn check_ins_and_collateral_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
+    for input in tx_body.inputs.iter() {
+        if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
+            return Err(Alonzo(InputNotInUTxO));
+        }
+    }
+    match &tx_body.collateral {
+        None => Ok(()),
+        Some(collaterals) => {
+            for collateral in collaterals {
+                if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(collateral))) {
+                    return Err(Alonzo(CollateralNotInUTxO));
+                }
+            }
+            Ok(())
+        }
+    }
 }
 
 // The block slot is contained in the transaction validity interval.
-fn check_tx_validity_interval(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    check_upper_bound_necessity(tx_body, mtx)?;
-    Ok(())
+fn check_tx_validity_interval(
+    tx_body: &TransactionBody,
+    mtx: &MintedTx,
+    block_slot: &u64,
+) -> ValidationResult {
+    check_lower_bound(tx_body, block_slot)?;
+    check_upper_bound(tx_body, mtx, block_slot)
 }
 
-// The upper bound of the validity time interval is suitable for script execution.
-fn check_upper_bound_necessity(_tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    Ok(())
+// If defined, the lower bound of the validity time interval does not exceed the block slot.
+fn check_lower_bound(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
+    match tx_body.validity_interval_start {
+        Some(lower_bound) => {
+            if *block_slot < lower_bound {
+                Err(Alonzo(BlockPrecedesValInt))
+            } else {
+                Ok(())
+            }
+        }
+        None => Ok(()),
+    }
+}
+
+// If defined, the upper bound of the validity time interval is not exceeded by the block slot.
+// If not defined, then no script execution is needed.
+fn check_upper_bound(
+    tx_body: &TransactionBody,
+    mtx: &MintedTx,
+    block_slot: &u64,
+) -> ValidationResult {
+    match tx_body.ttl {
+        Some(upper_bound) => {
+            if upper_bound < *block_slot {
+                Err(Alonzo(BlockExceedsValInt))
+            } else {
+                Ok(())
+            }
+        }
+        None => {
+            let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
+            if tx_body.mint.is_some()
+                || minted_witness_set.native_script.is_some()
+                || minted_witness_set.plutus_script.is_some()
+            {
+                Err(Alonzo(ValIntUpperBoundMissing))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 fn check_fees(
@@ -85,53 +145,121 @@ fn check_fees(
 
 // The fee paid by the transaction should be greater than or equal to the minimum fee.
 fn check_min_fees(
-    _tx_body: &TransactionBody,
-    _size: &u64,
-    _prot_pps: &AlonzoProtParams,
+    tx_body: &TransactionBody,
+    size: &u64,
+    prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
+    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
+    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+        return Err(Alonzo(FeesBelowMin));
+    }
     Ok(())
 }
 
-fn presence_of_plutus_scripts(_mtx: &MintedTx) -> bool {
-    true
+fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
+    let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
+    match &minted_witness_set.plutus_script {
+        Some(plutus_scripts) => !plutus_scripts.is_empty(),
+        None => false,
+    }
 }
 
 fn check_collaterals(
     tx_body: &TransactionBody,
-    _utxos: &UTxOs,
+    utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    check_collaterals_number(tx_body, prot_pps)?;
-    check_collaterals_address(tx_body)?;
-    check_collaterals_only_contain_lovelace(tx_body)?;
-    check_collaterals_percentage(tx_body, prot_pps)
+    let collaterals: &Vec<TransactionInput> = &tx_body
+        .collateral
+        .clone()
+        .ok_or(Alonzo(CollateralMissing))?;
+    check_collaterals_number(collaterals, prot_pps)?;
+    check_collaterals_address(collaterals, utxos)?;
+    check_collaterals_assets(tx_body, utxos, prot_pps)
 }
 
 // The set of collateral inputs is not empty.
 // The number of collateral inputs is below maximum allowed by protocol.
 fn check_collaterals_number(
-    _tx_body: &TransactionBody,
-    _prot_pps: &AlonzoProtParams,
+    collaterals: &Vec<TransactionInput>,
+    prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    Ok(())
+    let number_collateral: u64 = collaterals.len() as u64;
+    if number_collateral == 0 {
+        Err(Alonzo(CollateralMissing))
+    } else if number_collateral > prot_pps.max_collateral_inputs {
+        Err(Alonzo(TooManyCollaterals))
+    } else {
+        Ok(())
+    }
 }
 
 // Each collateral input refers to a verification-key address.
-fn check_collaterals_address(_tx_body: &TransactionBody) -> ValidationResult {
-    Ok(())
-}
-
-// Collateral inputs contain only ADA.
-fn check_collaterals_only_contain_lovelace(_tx_body: &TransactionBody) -> ValidationResult {
-    Ok(())
-}
-
-// The total lovelace contained in collateral inputs should be greater than or equal to the minimum
-// fee percentage.
-fn check_collaterals_percentage(
-    _tx_body: &TransactionBody,
-    _prot_pps: &AlonzoProtParams,
+fn check_collaterals_address(
+    collaterals: &Vec<TransactionInput>,
+    utxos: &UTxOs,
 ) -> ValidationResult {
+    for collateral in collaterals {
+        match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
+            Some(multi_era_output) => {
+                if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
+                    if let ShelleyPaymentPart::Script(_) = get_payment_part(alonzo_comp_output)? {
+                        return Err(Alonzo(CollateralNotVKeyLocked));
+                    }
+                }
+            }
+            None => return Err(Alonzo(CollateralNotInUTxO)),
+        };
+    }
+    Ok(())
+}
+
+fn get_payment_part(tx_out: &TransactionOutput) -> Result<ShelleyPaymentPart, ValidationError> {
+    let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(tx_out.address.clone()))?;
+    Ok(addr.payment().clone())
+}
+
+fn get_shelley_address(address: Vec<u8>) -> Result<ShelleyAddress, ValidationError> {
+    match Address::from_bytes(&address) {
+        Ok(Address::Shelley(sa)) => Ok(sa),
+        _ => Err(Alonzo(AddressDecoding)),
+    }
+}
+
+// Collateral inputs contain only lovelace, and in a number not lower than the minimum allowed.
+fn check_collaterals_assets(
+    tx_body: &TransactionBody,
+    utxos: &UTxOs,
+    prot_pps: &AlonzoProtParams,
+) -> ValidationResult {
+    let fee_percentage: u64 = (tx_body.fee * prot_pps.collateral_percent) / 100;
+    for input in tx_body.inputs.iter() {
+        match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
+            Some(multi_era_output) => match MultiEraOutput::as_alonzo(multi_era_output) {
+                Some(TransactionOutput {
+                    amount: Value::Coin(n),
+                    ..
+                }) => {
+                    if *n < fee_percentage {
+                        return Err(Alonzo(CollateralMinLovelace));
+                    }
+                }
+                Some(TransactionOutput {
+                    amount: Value::Multiasset(n, multi_assets),
+                    ..
+                }) => {
+                    if *n < fee_percentage {
+                        return Err(Alonzo(CollateralMinLovelace));
+                    }
+                    if multi_assets.is_empty() {
+                        return Err(Alonzo(CollateralNonLovelace));
+                    }
+                }
+                None => (),
+            },
+            None => return Err(Alonzo(CollateralNotInUTxO)),
+        }
+    }
     Ok(())
 }
 
