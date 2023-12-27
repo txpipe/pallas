@@ -1,16 +1,13 @@
 //! A multiplexer of several mini-protocols through a single bearer
 
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
-use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tokio::time::{Instant, sleep};
+use tokio::time::Instant;
 use tokio::{select, sync::mpsc::error::SendError};
 use tracing::{debug, error, trace, warn};
 
