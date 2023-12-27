@@ -2,14 +2,15 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tokio::time::Instant;
+use tokio::time::{Instant, sleep};
 use tokio::{select, sync::mpsc::error::SendError};
 use tracing::{debug, error, trace, warn};
 
@@ -148,9 +149,9 @@ impl Bearer {
 
             #[cfg(windows)]
             Bearer::NamedPipe(x) => {
-                let shared_pipe = Arc::new(Mutex::new(x));
-                let reader = BearerReadHalf::NamedPipe(shared_pipe.clone());
-                let writer = BearerWriteHalf::NamedPipe(shared_pipe);
+                let (read, write) = tokio::io::split(x);
+                let reader = BearerReadHalf::NamedPipe(read);
+                let writer = BearerWriteHalf::NamedPipe(write);
 
                 (reader, writer)
             }
@@ -165,7 +166,7 @@ pub enum BearerReadHalf {
     Unix(unix::unix::OwnedReadHalf),
 
     #[cfg(windows)]
-    NamedPipe(Arc<Mutex<NamedPipeClient>>),
+    NamedPipe(ReadHalf<NamedPipeClient>),
 }
 
 impl BearerReadHalf {
@@ -177,10 +178,7 @@ impl BearerReadHalf {
             BearerReadHalf::Unix(x) => x.read_exact(buf).await,
             
             #[cfg(windows)]
-            BearerReadHalf::NamedPipe(x) => {
-                let mut pipe = x.lock().await;
-                pipe.read_exact(buf).await
-            },
+            BearerReadHalf::NamedPipe(x) => x.read_exact(buf).await,
         }
     }
 }
@@ -192,7 +190,7 @@ pub enum BearerWriteHalf {
     Unix(unix::unix::OwnedWriteHalf),
 
     #[cfg(windows)]
-    NamedPipe(Arc<Mutex<NamedPipeClient>>),
+    NamedPipe(WriteHalf<NamedPipeClient>),
 }
 
 impl BearerWriteHalf {
@@ -204,10 +202,7 @@ impl BearerWriteHalf {
             Self::Unix(x) => x.write_all(buf).await,
 
             #[cfg(windows)]
-            Self::NamedPipe(x) => {
-                let mut pipe = x.lock().await;
-                pipe.write_all(buf).await
-            },
+            Self::NamedPipe(x) => x.write_all(buf).await,
         }
     }
 
@@ -219,10 +214,7 @@ impl BearerWriteHalf {
             Self::Unix(x) => x.flush().await,
 
             #[cfg(windows)]
-            Self::NamedPipe(x) => {
-                let mut pipe = x.lock().await;
-                pipe.flush().await
-            },
+            Self::NamedPipe(x) => x.flush().await,
         }
     }
 }
