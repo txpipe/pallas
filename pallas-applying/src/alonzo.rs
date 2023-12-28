@@ -1,6 +1,7 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::utils::{
+    add_minted_value, add_values, empty_value, values_are_equal,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -8,9 +9,12 @@ use crate::utils::{
 };
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{minicbor::encode, utils::KeepRaw};
-use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, TransactionBody,
-    TransactionInput, TransactionOutput, VKeyWitness, Value,
+use pallas_primitives::{
+    alonzo::{
+        MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, TransactionBody,
+        TransactionInput, TransactionOutput, VKeyWitness, Value,
+    },
+    byron::TxOut,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
@@ -27,7 +31,7 @@ pub fn validate_alonzo_tx(
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, mtx, block_slot)?;
     check_fees(tx_body, size, mtx, utxos, prot_pps)?;
-    check_preservation_of_value(tx_body, utxos, prot_pps)?;
+    check_preservation_of_value(tx_body, utxos)?;
     check_min_lovelace(tx_body, prot_pps)?;
     check_output_values_size(tx_body, prot_pps)?;
     check_network_id(tx_body, network_id)?;
@@ -264,12 +268,47 @@ fn check_collaterals_assets(
 }
 
 // The preservation of value property holds.
-fn check_preservation_of_value(
-    _tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-    _prot_pps: &AlonzoProtParams,
-) -> ValidationResult {
+fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
+    let neg_val_err: ValidationError = Alonzo(NegativeValue);
+    let input: Value = get_consumed(tx_body, utxos)?;
+    let produced: Value = get_produced(tx_body)?;
+    let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &neg_val_err)?;
+    if let Some(m) = &tx_body.mint {
+        add_minted_value(&output, m, &neg_val_err)?;
+    }
+    if !values_are_equal(&input, &output) {
+        return Err(Alonzo(PreservationOfValue));
+    }
     Ok(())
+}
+
+fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
+    let neg_val_err: ValidationError = Alonzo(NegativeValue);
+    let mut res: Value = empty_value();
+    for input in tx_body.inputs.iter() {
+        let utxo_value: &MultiEraOutput = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(Alonzo(InputNotInUTxO))?;
+        match MultiEraOutput::as_alonzo(utxo_value) {
+            Some(TransactionOutput { amount, .. }) => res = add_values(&res, amount, &neg_val_err)?,
+            None => match MultiEraOutput::as_byron(utxo_value) {
+                Some(TxOut { amount, .. }) => {
+                    res = add_values(&res, &Value::Coin(*amount), &neg_val_err)?
+                }
+                _ => return Err(Alonzo(InputNotInUTxO)),
+            },
+        }
+    }
+    Ok(res)
+}
+
+fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
+    let neg_val_err: ValidationError = Alonzo(NegativeValue);
+    let mut res: Value = empty_value();
+    for TransactionOutput { amount, .. } in tx_body.outputs.iter() {
+        res = add_values(&res, amount, &neg_val_err)?;
+    }
+    Ok(res)
 }
 
 // All transaction outputs should contain at least the minimum lovelace.

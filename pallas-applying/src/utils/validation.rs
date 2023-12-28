@@ -67,6 +67,7 @@ pub enum AlonzoError {
     CollateralMinLovelace,
     NonLovelaceCollateral,
     NegativeValue,
+    PreservationOfValue,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

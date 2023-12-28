@@ -169,7 +169,9 @@ Let ***tx ∈ Tx*** be one of its Alonzo transactions, with transaction body ***
 	<code>txExUnits(txBody) ≤ maxTxExUnits(pps)</code>
 - **Witnesses**:
 	- **Minting policy, native script and Plutus script witnesses**:
-		-**The set of needed scripts (minting policies, native scripts and Plutus scripts needed to validate the transaction) equals the set of scripts contained in the transaction witnesses set**:
+
+		- **The set of needed scripts (minting policies, native scripts and Plutus scripts needed to validate the transaction) equals the set of scripts contained in the transaction witnesses set**:
+
 			<code>{h: (\_, h) ∈ scriptsNeeded(utxo, txBody)} = {scriptHash(s) : s ∈ txScripts(txWits)}</code>
 		- **Each datum hash in a Plutus script input matches the hash of a datum in the transaction witness set**:
 
