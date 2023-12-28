@@ -1,6 +1,6 @@
 //! Types for validating transactions in each era.
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ValidationError {
     TxAndProtParamsDiffer,
@@ -9,7 +9,7 @@ pub enum ValidationError {
     Alonzo(AlonzoError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ByronError {
     TxInsEmpty,
@@ -25,7 +25,7 @@ pub enum ByronError {
     WrongSignature,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum ShelleyMAError {
     TxInsEmpty,
@@ -49,7 +49,7 @@ pub enum ShelleyMAError {
     MintingLacksPolicy,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum AlonzoError {
     UnknownTxSize,
@@ -65,7 +65,8 @@ pub enum AlonzoError {
     CollateralNotVKeyLocked,
     AddressDecoding,
     CollateralMinLovelace,
-    CollateralNonLovelace,
+    NonLovelaceCollateral,
+    NegativeValue,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

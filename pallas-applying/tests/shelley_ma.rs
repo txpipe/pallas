@@ -3,7 +3,7 @@ pub mod common;
 use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
-    types::{
+    utils::{
         Environment, FeePolicy, MultiEraProtParams, ShelleyMAError::*, ShelleyProtParams,
         ValidationError::*,
     },

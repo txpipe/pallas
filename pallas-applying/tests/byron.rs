@@ -2,7 +2,7 @@ pub mod common;
 
 use common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
 use pallas_applying::{
-    types::{
+    utils::{
         ByronError::*, ByronProtParams, Environment, FeePolicy, MultiEraProtParams,
         ValidationError::*,
     },

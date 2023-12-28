@@ -2,9 +2,9 @@
 
 use std::borrow::Cow;
 
-use crate::types::{
+use crate::utils::{
     ByronError::*,
-    ByronProtParams, MultiEraInput, MultiEraOutput, UTxOs,
+    ByronProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -23,7 +23,7 @@ use pallas_crypto::{
 use pallas_primitives::byron::{
     Address, MintedTxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
 };
-use pallas_traverse::OriginalHash;
+use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 
 pub fn validate_byron_tx(
     mtxp: &MintedTxPayload,

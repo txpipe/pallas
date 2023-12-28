@@ -1,6 +1,6 @@
 //! Utilities required for Shelley-era transaction validation.
 
-use crate::types::{
+use crate::utils::{
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -252,7 +252,7 @@ fn check_collaterals_assets(
                         return Err(Alonzo(CollateralMinLovelace));
                     }
                     if multi_assets.is_empty() {
-                        return Err(Alonzo(CollateralNonLovelace));
+                        return Err(Alonzo(NonLovelaceCollateral));
                     }
                 }
                 None => (),

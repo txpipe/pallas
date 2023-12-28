@@ -2,7 +2,7 @@ pub mod common;
 
 use common::*;
 use pallas_applying::{
-    types::{AlonzoProtParams, Environment, FeePolicy, Language, MultiEraProtParams},
+    utils::{AlonzoProtParams, Environment, FeePolicy, Language, MultiEraProtParams},
     validate, UTxOs,
 };
 use pallas_primitives::alonzo::{MintedTx, Value};
