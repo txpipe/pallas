@@ -30,7 +30,7 @@ pub fn validate_alonzo_tx(
     check_ins_not_empty(tx_body)?;
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, mtx, block_slot)?;
-    check_fees(tx_body, size, mtx, utxos, prot_pps)?;
+    check_fee(tx_body, size, mtx, utxos, prot_pps)?;
     check_preservation_of_value(tx_body, utxos)?;
     check_min_lovelace(tx_body, prot_pps)?;
     check_output_values_size(tx_body, prot_pps)?;
@@ -133,14 +133,14 @@ fn check_upper_bound(
     }
 }
 
-fn check_fees(
+fn check_fee(
     tx_body: &TransactionBody,
     size: &u64,
     mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    check_min_fees(tx_body, size, prot_pps)?;
+    check_min_fee(tx_body, size, prot_pps)?;
     if presence_of_plutus_scripts(mtx) {
         check_collaterals(tx_body, utxos, prot_pps)?
     }
@@ -148,14 +148,14 @@ fn check_fees(
 }
 
 // The fee paid by the transaction should be greater than or equal to the minimum fee.
-fn check_min_fees(
+fn check_min_fee(
     tx_body: &TransactionBody,
     size: &u64,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
     let fee_policy: &FeePolicy = &prot_pps.fee_policy;
     if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
-        return Err(Alonzo(FeesBelowMin));
+        return Err(Alonzo(FeeBelowMin));
     }
     Ok(())
 }
@@ -236,7 +236,7 @@ fn check_collaterals_assets(
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let fee_percentage: u64 = (tx_body.fee * prot_pps.collateral_percent) / 100;
+    let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percent;
     for input in tx_body.inputs.iter() {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => match MultiEraOutput::as_alonzo(multi_era_output) {
@@ -244,7 +244,7 @@ fn check_collaterals_assets(
                     amount: Value::Coin(n),
                     ..
                 }) => {
-                    if *n < fee_percentage {
+                    if *n * 100 < fee_percentage {
                         return Err(Alonzo(CollateralMinLovelace));
                     }
                 }
@@ -252,10 +252,10 @@ fn check_collaterals_assets(
                     amount: Value::Multiasset(n, multi_assets),
                     ..
                 }) => {
-                    if *n < fee_percentage {
+                    if *n * 100 < fee_percentage {
                         return Err(Alonzo(CollateralMinLovelace));
                     }
-                    if multi_assets.is_empty() {
+                    if !multi_assets.is_empty() {
                         return Err(Alonzo(NonLovelaceCollateral));
                     }
                 }

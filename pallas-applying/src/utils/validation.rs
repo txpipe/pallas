@@ -59,7 +59,7 @@ pub enum AlonzoError {
     BlockExceedsValInt,
     BlockPrecedesValInt,
     ValIntUpperBoundMissing,
-    FeesBelowMin,
+    FeeBelowMin,
     CollateralMissing,
     TooManyCollaterals,
     CollateralNotVKeyLocked,
