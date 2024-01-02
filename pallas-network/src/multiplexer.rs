@@ -83,6 +83,7 @@ impl Bearer {
         tcp_keepalive = tcp_keepalive.with_interval(tokio::time::Duration::from_secs(20));
         sock_ref.set_tcp_keepalive(&tcp_keepalive)?;
         sock_ref.set_nodelay(true)?;
+        sock_ref.set_linger(Some(std::time::Duration::from_secs(0)))?;
 
         Ok(())
     }
