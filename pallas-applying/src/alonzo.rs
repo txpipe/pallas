@@ -242,32 +242,37 @@ fn check_collaterals_assets(
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
     let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percent;
-    for input in tx_body.inputs.iter() {
-        match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
-            Some(multi_era_output) => match MultiEraOutput::as_alonzo(multi_era_output) {
-                Some(TransactionOutput {
-                    amount: Value::Coin(n),
-                    ..
-                }) => {
-                    if *n * 100 < fee_percentage {
-                        return Err(Alonzo(CollateralMinLovelace));
-                    }
+    match &tx_body.collateral {
+        Some(collaterals) => {
+            for collateral in collaterals {
+                match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
+                    Some(multi_era_output) => match MultiEraOutput::as_alonzo(multi_era_output) {
+                        Some(TransactionOutput {
+                            amount: Value::Coin(n),
+                            ..
+                        }) => {
+                            if *n * 100 < fee_percentage {
+                                return Err(Alonzo(CollateralMinLovelace));
+                            }
+                        }
+                        Some(TransactionOutput {
+                            amount: Value::Multiasset(n, multi_assets),
+                            ..
+                        }) => {
+                            if *n * 100 < fee_percentage {
+                                return Err(Alonzo(CollateralMinLovelace));
+                            }
+                            if !multi_assets.is_empty() {
+                                return Err(Alonzo(NonLovelaceCollateral));
+                            }
+                        }
+                        None => (),
+                    },
+                    None => return Err(Alonzo(CollateralNotInUTxO)),
                 }
-                Some(TransactionOutput {
-                    amount: Value::Multiasset(n, multi_assets),
-                    ..
-                }) => {
-                    if *n * 100 < fee_percentage {
-                        return Err(Alonzo(CollateralMinLovelace));
-                    }
-                    if !multi_assets.is_empty() {
-                        return Err(Alonzo(NonLovelaceCollateral));
-                    }
-                }
-                None => (),
-            },
-            None => return Err(Alonzo(CollateralNotInUTxO)),
+            }
         }
+        None => return Err(Alonzo(CollateralMissing)),
     }
     Ok(())
 }
