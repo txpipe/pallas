@@ -19,7 +19,11 @@ use pallas_network::miniprotocols::{
 use pallas_network::miniprotocols::{handshake, localstate, txsubmission, MAINNET_MAGIC};
 use pallas_network::multiplexer::{Bearer, Plexer};
 use std::path::Path;
-use tokio::net::{TcpListener, UnixListener};
+
+use tokio::net::TcpListener;
+
+#[cfg(unix)]
+use tokio::net::UnixListener;
 
 #[tokio::test]
 #[ignore]
@@ -172,17 +176,17 @@ pub async fn blockfetch_server_and_client_happy_path() {
         hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap(),
     );
 
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
+        .await
+        .unwrap();
+
     let server = tokio::spawn({
         let bodies = block_bodies.clone();
         let point = point.clone();
         async move {
             // server setup
 
-            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
-                .await
-                .unwrap();
-
-            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
+            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
 
             let server_bf = peer_server.blockfetch();
 
@@ -214,9 +218,7 @@ pub async fn blockfetch_server_and_client_happy_path() {
     let client = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        // client setup
-
-        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+        let mut client_to_server_conn = PeerClient::connect("localhost:30003", 0).await.unwrap();
 
         let client_bf = client_to_server_conn.blockfetch();
 
@@ -269,7 +271,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
         async move {
             // server setup
 
-            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
+            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30002))
                 .await
                 .unwrap();
 
@@ -281,7 +283,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
                 handshake::Server::new(server_plexer.subscribe_server(0));
             let mut server_cs = chainsync::N2NServer::new(server_plexer.subscribe_server(2));
 
-            tokio::spawn(async move { server_plexer.run().await });
+            let server_plexer = server_plexer.spawn();
 
             server_hs.receive_proposed_versions().await.unwrap();
             server_hs
@@ -377,15 +379,13 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 
             assert!(server_cs.recv_while_idle().await.unwrap().is_none());
             assert_eq!(*server_cs.state(), chainsync::State::Done);
+
+            server_plexer.abort().await;
         }
     });
 
     let client = tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
-        // client setup
-
-        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+        let mut client_to_server_conn = PeerClient::connect("localhost:30002", 0).await.unwrap();
 
         let client_cs = client_to_server_conn.chainsync();
 
@@ -461,15 +461,15 @@ pub async fn local_state_query_server_and_client_happy_path() {
     let server = tokio::spawn({
         async move {
             // server setup
-            let socket_path = Path::new("node.socket");
+            let socket_path = Path::new("node1.socket");
 
             if socket_path.exists() {
                 fs::remove_file(socket_path).unwrap();
             }
 
-            let unix_listener = UnixListener::bind(socket_path).unwrap();
+            let listener = UnixListener::bind(socket_path).unwrap();
 
-            let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 0)
+            let mut server = pallas_network::facades::NodeServer::accept(&listener, 0)
                 .await
                 .unwrap();
 
@@ -552,7 +552,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     x => panic!("unexpected message from client: {x:?}"),
                 };
 
-            let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+            let addr_hex =
+"981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
+;
             let addr = hex::decode(addr_hex).unwrap();
             let addr: Addr = addr.to_vec().into();
             let addrs: Addrs = Vec::from([addr]);
@@ -629,8 +631,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // client setup
-
-        let socket_path = "node.socket";
+        let socket_path = "node1.socket";
 
         let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
 
@@ -705,7 +706,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
 
-        let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
+        let addr_hex =
+"981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
+;
         let addr = hex::decode(addr_hex).unwrap();
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = Vec::from([addr]);
@@ -776,13 +779,13 @@ pub async fn local_state_query_server_and_client_happy_path() {
 pub async fn txsubmission_server_and_client_happy_path_n2n() {
     let test_txs = vec![(vec![0], vec![0, 0, 0]), (vec![1], vec![1, 1, 1])];
 
+    let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
+        .await
+        .unwrap();
+
     let server = tokio::spawn({
         let test_txs = test_txs.clone();
         async move {
-            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
-                .await
-                .unwrap();
-
             let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
 
             let server_txsub = peer_server.txsubmission();
@@ -857,7 +860,6 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
         let mut mempool = test_txs.clone();
 
         // client setup
-
         let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
 
         let client_txsub = client_to_server_conn.txsubmission();
@@ -941,7 +943,6 @@ pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
     let mempool = vec![(tx_hash, tx_bytes)];
 
     // client setup
-
     let mut client_to_server_conn =
         PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
             .await

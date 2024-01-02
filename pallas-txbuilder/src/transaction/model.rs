@@ -4,6 +4,7 @@ use pallas_crypto::{
     key::ed25519,
 };
 use pallas_primitives::{babbage, Fragment};
+use pallas_wallet::PrivateKey;
 
 use std::{collections::HashMap, ops::Deref};
 
@@ -452,7 +453,7 @@ impl Output {
 
     pub fn set_datum_hash(mut self, datum_hash: Hash<32>) -> Self {
         self.datum = Some(Datum {
-            kind: DatumKind::Inline,
+            kind: DatumKind::Hash,
             bytes: datum_hash.to_vec().into(),
         });
 
@@ -608,14 +609,14 @@ pub struct BuiltTransaction {
 }
 
 impl BuiltTransaction {
-    pub fn sign(mut self, secret_key: ed25519::SecretKey) -> Result<Self, TxBuilderError> {
-        let pubkey: [u8; 32] = secret_key
+    pub fn sign(mut self, private_key: PrivateKey) -> Result<Self, TxBuilderError> {
+        let pubkey: [u8; 32] = private_key
             .public_key()
             .as_ref()
             .try_into()
             .map_err(|_| TxBuilderError::MalformedKey)?;
 
-        let signature: [u8; 64] = secret_key.sign(self.tx_hash.0).as_ref().try_into().unwrap();
+        let signature: [u8; ed25519::Signature::SIZE] = private_key.sign(self.tx_hash.0).as_ref().try_into().unwrap();
 
         match self.era {
             BuilderEra::Babbage => {

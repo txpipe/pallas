@@ -56,16 +56,16 @@ pub fn map_tx_output(x: &trv::MultiEraOutput) -> u5c::TxOutput {
             Some(babbage::PseudoDatumOption::Hash(x)) => x.to_vec().into(),
             _ => vec![].into(),
         },
-        script: match x.script_ref().map(|x| x.deref()) {
-            Some(babbage::Script::NativeScript(x)) => u5c::Script {
-                script: u5c::script::Script::Native(map_native_script(x)).into(),
+        script: match x.script_ref() {
+            Some(babbage::PseudoScript::NativeScript(x)) => u5c::Script {
+                script: u5c::script::Script::Native(map_native_script(&x)).into(),
             }
             .into(),
-            Some(babbage::Script::PlutusV1Script(x)) => u5c::Script {
+            Some(babbage::PseudoScript::PlutusV1Script(x)) => u5c::Script {
                 script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
             }
             .into(),
-            Some(babbage::Script::PlutusV2Script(x)) => u5c::Script {
+            Some(babbage::PseudoScript::PlutusV2Script(x)) => u5c::Script {
                 script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
             }
             .into(),
@@ -263,7 +263,7 @@ fn collect_all_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
     let ns = tx
         .native_scripts()
         .iter()
-        .map(map_native_script)
+        .map(|x| map_native_script(x.deref()))
         .map(|x| u5c::Script {
             script: u5c::script::Script::Native(x).into(),
         });
