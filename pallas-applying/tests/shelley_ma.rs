@@ -59,7 +59,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // Transaction hash: 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
+    // Transaction hash:
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
     fn successful_mainnet_shelley_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -90,7 +91,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // Transaction hash: 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0
+    // Transaction hash:
+    // 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0
     fn successful_mainnet_shelley_tx_with_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -121,7 +123,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // Transaction hash: c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a
+    // Transaction hash:
+    // c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a
     fn successful_mainnet_shelley_tx_with_metadata() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -152,7 +155,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // Transaction hash: b7b1046d1787ac6917f5bb5841e73b3f4bef8f0a6bf692d05ef18e1db9c3f519
+    // Transaction hash:
+    // b7b1046d1787ac6917f5bb5841e73b3f4bef8f0a6bf692d05ef18e1db9c3f519
     fn successful_mainnet_mary_tx_with_minting() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -367,8 +371,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // Min lovelace per UTxO is too high (10000000000000 lovelace against 2332262258756 lovelace in
-    // transaction output).
+    // Min lovelace per UTxO is too high (10000000000000 lovelace against
+    // 2332262258756 lovelace in transaction output).
     fn output_below_min_lovelace() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -402,7 +406,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // The "preservation of value" property doesn't hold - the fee is reduced by exactly 1.
+    // The "preservation of value" property doesn't hold - the fee is reduced by
+    // exactly 1.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -479,7 +484,8 @@ mod shelley_tests {
     }
 
     #[test]
-    // One of the output's address network ID is changed from the mainnet value to the testnet one.
+    // One of the output's address network ID is changed from the mainnet value to
+    // the testnet one.
     fn wrong_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -576,8 +582,8 @@ mod shelley_tests {
 
     #[test]
     // Like successful_mainnet_shelley_tx (hash:
-    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but the verification-key
-    // witness is removed.
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but the
+    // verification-key witness is removed.
     fn missing_vk_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -622,8 +628,8 @@ mod shelley_tests {
 
     #[test]
     // Like successful_mainnet_shelley_tx (hash:
-    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but the signature inside
-    // the verification-key witness is changed.
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but the
+    // signature inside the verification-key witness is changed.
     fn vk_witness_changed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -673,8 +679,8 @@ mod shelley_tests {
 
     #[test]
     // Like successful_mainnet_shelley_tx_with_script(hash:
-    // 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0), but the native-script
-    // witness is removed.
+    // 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0), but the
+    // native-script witness is removed.
     fn missing_native_script_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
