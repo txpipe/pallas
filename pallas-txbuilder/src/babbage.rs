@@ -5,9 +5,9 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     babbage::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, PlutusData, PlutusV1Script,
-        PlutusV2Script, PostAlonzoTransactionOutput, PseudoTransactionOutput, Redeemer,
-        RedeemerTag, Script as PallasScript, TransactionBody, TransactionInput, Tx as BabbageTx,
-        Value, WitnessSet,
+        PlutusV2Script, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
+        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput,
+        Tx as BabbageTx, Value, WitnessSet,
     },
     Fragment,
 };
