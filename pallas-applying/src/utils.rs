@@ -5,7 +5,7 @@ pub mod validation;
 
 pub use environment::*;
 use pallas_codec::utils::KeyValuePairs;
-use pallas_primitives::alonzo::{AssetName, Coin, Multiasset, PolicyId, Value};
+use pallas_primitives::alonzo::{AssetName, Coin, Multiasset, NetworkId, PolicyId, Value};
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
 pub use validation::*;
@@ -180,4 +180,18 @@ fn find_assets(assets: &KeyValuePairs<AssetName, Coin>, asset_name: &AssetName) 
         }
     }
     None
+}
+
+pub fn get_lovelace_from_alonzo_value(val: &Value) -> Coin {
+    match val {
+        Value::Coin(res) => *res,
+        Value::Multiasset(res, _) => *res,
+    }
+}
+
+pub fn get_network_id_value(network_id: NetworkId) -> u8 {
+    match network_id {
+        NetworkId::One => 1,
+        NetworkId::Two => 2,
+    }
 }

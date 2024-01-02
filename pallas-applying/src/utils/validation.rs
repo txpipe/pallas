@@ -68,6 +68,9 @@ pub enum AlonzoError {
     NonLovelaceCollateral,
     NegativeValue,
     PreservationOfValue,
+    OutputMinLovelace,
+    OutputWrongNetworkID,
+    TxWrongNetworkID,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

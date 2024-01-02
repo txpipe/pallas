@@ -1,6 +1,7 @@
 pub mod common;
 
 use common::*;
+use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
     utils::{
         AlonzoError::*, AlonzoProtParams, Environment, FeePolicy, Language, MultiEraProtParams,
@@ -8,11 +9,14 @@ use pallas_applying::{
     },
     validate, UTxOs,
 };
-use pallas_codec::minicbor::{
-    decode::{Decode, Decoder},
-    encode,
+use pallas_codec::{
+    minicbor::{
+        decode::{Decode, Decoder},
+        encode,
+    },
+    utils::Bytes,
 };
-use pallas_primitives::alonzo::{MintedTx, TransactionBody, Value};
+use pallas_primitives::alonzo::{MintedTx, NetworkId, TransactionBody, TransactionOutput, Value};
 use pallas_traverse::{Era, MultiEraTx};
 
 #[cfg(test)]
@@ -443,6 +447,140 @@ mod alonzo_tests {
             Ok(()) => assert!(false, "Preservation of value doesn't hold"),
             Err(err) => match err {
                 Alonzo(PreservationOfValue) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the first output's transaction
+    // network ID is altered.
+    fn output_network_ids() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
+            (&tx_body.outputs).split_first().unwrap();
+        let addr: ShelleyAddress =
+            match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
+                Ok(Address::Shelley(sa)) => sa,
+                Ok(_) => panic!("Decoded output address and found the wrong era"),
+                Err(e) => panic!("Unable to parse output address ({:?})", e),
+            };
+        let altered_address: ShelleyAddress = ShelleyAddress::new(
+            Network::Testnet,
+            addr.payment().clone(),
+            addr.delegation().clone(),
+        );
+        let altered_output: TransactionOutput = TransactionOutput {
+            address: Bytes::from(altered_address.to_vec()),
+            amount: first_output.amount.clone(),
+            datum_hash: first_output.datum_hash,
+        };
+        let mut new_outputs = Vec::from(rest);
+        new_outputs.insert(0, altered_output);
+        tx_body.outputs = new_outputs;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_body, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo1.address")),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(
+                false,
+                "Transaction network ID should match environment network_id"
+            ),
+            Err(err) => match err {
+                Alonzo(OutputWrongNetworkID) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the transaction's network ID is
+    // altered.
+    fn tx_network_id() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        tx_body.network_id = Some(NetworkId::Two);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_body, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo1.address")),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(
+                false,
+                "Transaction network ID should match environment network_id"
+            ),
+            Err(err) => match err {
+                Alonzo(TxWrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

@@ -1,7 +1,8 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, values_are_equal,
+    add_minted_value, add_values, empty_value, get_lovelace_from_alonzo_value,
+    get_network_id_value, values_are_equal,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -316,10 +317,13 @@ fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
 }
 
 // All transaction outputs should contain at least the minimum lovelace.
-fn check_min_lovelace(
-    _tx_body: &TransactionBody,
-    _prot_pps: &AlonzoProtParams,
-) -> ValidationResult {
+fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &AlonzoProtParams) -> ValidationResult {
+    for TransactionOutput { amount, .. } in tx_body.outputs.iter() {
+        // multiply prot_pps parameter by size of entire output
+        if get_lovelace_from_alonzo_value(amount) < prot_pps.coints_per_utxo_word {
+            return Err(Alonzo(OutputMinLovelace));
+        }
+    }
     Ok(())
 }
 
@@ -339,13 +343,24 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
 }
 
 // The network ID of each output matches the global network ID.
-fn check_tx_outs_network_id(_tx_body: &TransactionBody, _network_id: &u8) -> ValidationResult {
+fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
+    for output in tx_body.outputs.iter() {
+        let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(output.address.clone()))?;
+        if addr.network().value() != *network_id {
+            return Err(Alonzo(OutputWrongNetworkID));
+        }
+    }
     Ok(())
 }
 
 // The network ID of the transaction body is either undefined or equal to the
 // global network ID.
-fn check_tx_network_id(_tx_body: &TransactionBody, _network_id: &u8) -> ValidationResult {
+fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
+    if let Some(tx_network_id) = tx_body.network_id {
+        if get_network_id_value(tx_network_id) != *network_id {
+            return Err(Alonzo(TxWrongNetworkID));
+        }
+    }
     Ok(())
 }
 
