@@ -453,7 +453,7 @@ impl Output {
 
     pub fn set_datum_hash(mut self, datum_hash: Hash<32>) -> Self {
         self.datum = Some(Datum {
-            kind: DatumKind::Inline,
+            kind: DatumKind::Hash,
             bytes: datum_hash.to_vec().into(),
         });
 
