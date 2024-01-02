@@ -152,14 +152,16 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 
 /// Returns an iterator over the chain from the given point if the specific
 /// block is found, otherwise returns an error.
-/// 
+///
 /// # Errors
 ///
-/// * `Error::OriginMissing` - If the first block in the chain is not the genesis block.
-/// * `Error::CannotFindBlock` - If the specific block indicated by the `Point` value is not found.
+/// * `Error::OriginMissing` - If the first block in the chain is not the
+///   genesis block.
+/// * `Error::CannotFindBlock` - If the specific block indicated by the `Point`
+///   value is not found.
 /// * `std::io::Error` - If an I/O error occurs.
 /// * `pallas_traverse::Error` - If the block cannot be decoded.
-/// 
+///
 /// # Example
 ///
 /// ```rust
@@ -265,7 +267,7 @@ pub fn read_blocks_from_point(
 /// The function takes a directory path as input and returns the `Point` value
 /// of the latest block if it exists, or `None` if there are no blocks in the
 /// directory.
-/// 
+///
 /// # Errors
 ///
 /// * `std::io::Error` - If an I/O error occurs.
