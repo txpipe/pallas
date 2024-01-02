@@ -60,7 +60,8 @@ fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
     Ok(())
 }
 
-// All transaction inputs and collateral inputs are in the set of (yet) unspent transaction outputs.
+// All transaction inputs and collateral inputs are in the set of (yet) unspent
+// transaction outputs.
 fn check_ins_and_collateral_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
@@ -90,7 +91,8 @@ fn check_tx_validity_interval(
     check_upper_bound(tx_body, mtx, block_slot)
 }
 
-// If defined, the lower bound of the validity time interval does not exceed the block slot.
+// If defined, the lower bound of the validity time interval does not exceed the
+// block slot.
 fn check_lower_bound(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     match tx_body.validity_interval_start {
         Some(lower_bound) => {
@@ -104,8 +106,8 @@ fn check_lower_bound(tx_body: &TransactionBody, block_slot: &u64) -> ValidationR
     }
 }
 
-// If defined, the upper bound of the validity time interval is not exceeded by the block slot.
-// If not defined, then no script execution is needed.
+// If defined, the upper bound of the validity time interval is not exceeded by
+// the block slot. If not defined, then no script execution is needed.
 fn check_upper_bound(
     tx_body: &TransactionBody,
     mtx: &MintedTx,
@@ -147,7 +149,8 @@ fn check_fee(
     Ok(())
 }
 
-// The fee paid by the transaction should be greater than or equal to the minimum fee.
+// The fee paid by the transaction should be greater than or equal to the
+// minimum fee.
 fn check_min_fee(
     tx_body: &TransactionBody,
     size: &u64,
@@ -230,7 +233,8 @@ fn get_shelley_address(address: Vec<u8>) -> Result<ShelleyAddress, ValidationErr
     }
 }
 
-// Collateral inputs contain only lovelace, and in a number not lower than the minimum allowed.
+// Collateral inputs contain only lovelace, and in a number not lower than the
+// minimum allowed.
 fn check_collaterals_assets(
     tx_body: &TransactionBody,
     utxos: &UTxOs,
@@ -319,7 +323,8 @@ fn check_min_lovelace(
     Ok(())
 }
 
-// The size of the value in each of the outputs should not be greater than the maximum allowed.
+// The size of the value in each of the outputs should not be greater than the
+// maximum allowed.
 fn check_output_values_size(
     _tx_body: &TransactionBody,
     _prot_pps: &AlonzoProtParams,
@@ -338,7 +343,8 @@ fn check_tx_outs_network_id(_tx_body: &TransactionBody, _network_id: &u8) -> Val
     Ok(())
 }
 
-// The network ID of the transaction body is either undefined or equal to the global network ID.
+// The network ID of the transaction body is either undefined or equal to the
+// global network ID.
 fn check_tx_network_id(_tx_body: &TransactionBody, _network_id: &u8) -> ValidationResult {
     Ok(())
 }
@@ -348,7 +354,8 @@ fn check_tx_size(_size: &u64, _prot_pps: &AlonzoProtParams) -> ValidationResult 
     Ok(())
 }
 
-// The number of execution units of the transaction should not exceed the maximum allowed.
+// The number of execution units of the transaction should not exceed the
+// maximum allowed.
 fn check_tx_ex_units(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationResult {
     Ok(())
 }
@@ -367,12 +374,13 @@ fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> 
     check_required_signers(tx_body, utxos, &tx_wits.vkeywitness)
 }
 
-// The set of needed scripts (minting policies, native scripts and Plutus scripts needed to validate
-// the transaction) equals the set of scripts contained in the transaction witnesses set.
+// The set of needed scripts (minting policies, native scripts and Plutus
+// scripts needed to validate the transaction) equals the set of scripts
+// contained in the transaction witnesses set.
 fn check_needed_scripts_are_included(
     _tx_body: &TransactionBody,
     _utxos: &UTxOs,
-    _native_script_wits: &Option<Vec<NativeScript>>,
+    _native_script_wits: &Option<Vec<KeepRaw<NativeScript>>>,
     _plutus_script_wits: &Option<Vec<PlutusScript>>,
 ) -> ValidationResult {
     Ok(())
@@ -387,8 +395,8 @@ fn check_datums(
     check_datums_from_witness_set_in_inputs_or_output(tx_body, plutus_data)
 }
 
-// Each datum hash in a Plutus script input matches the hash of a datum in the transaction witness
-// set.
+// Each datum hash in a Plutus script input matches the hash of a datum in the
+// transaction witness set.
 fn check_input_datum_hash_in_witness_set(
     _tx_body: &TransactionBody,
     _plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
@@ -396,8 +404,8 @@ fn check_input_datum_hash_in_witness_set(
     Ok(())
 }
 
-// Each datum object in the transaction witness set corresponds either to an output datum hash or to
-// the datum hash of a Plutus script input.
+// Each datum object in the transaction witness set corresponds either to an
+// output datum hash or to the datum hash of a Plutus script input.
 fn check_datums_from_witness_set_in_inputs_or_output(
     _tx_body: &TransactionBody,
     _plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
@@ -405,8 +413,8 @@ fn check_datums_from_witness_set_in_inputs_or_output(
     Ok(())
 }
 
-// The set of redeemers in the transaction witness set should match the set of Plutus scripts needed
-// to validate the transaction.
+// The set of redeemers in the transaction witness set should match the set of
+// Plutus scripts needed to validate the transaction.
 fn check_redeemers(
     _tx_body: &TransactionBody,
     _utxos: &UTxOs,
@@ -415,7 +423,8 @@ fn check_redeemers(
     Ok(())
 }
 
-// The owner of each transaction input and each collateral input should have signed the transaction.
+// The owner of each transaction input and each collateral input should have
+// signed the transaction.
 fn check_witnesses_for_verification_key_inputs(
     _tx_body: &TransactionBody,
     _utxos: &UTxOs,
@@ -424,8 +433,8 @@ fn check_witnesses_for_verification_key_inputs(
     Ok(())
 }
 
-// All required signers (needed by a Plutus script) have a corresponding match in the transaction
-// witness set.
+// All required signers (needed by a Plutus script) have a corresponding match
+// in the transaction witness set.
 fn check_required_signers(
     _tx_body: &TransactionBody,
     _utxos: &UTxOs,
@@ -444,8 +453,8 @@ fn check_metadata(_tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResu
     Ok(())
 }
 
-// The script data integrity hash matches the hash of the redeemers, languages and datums of the
-// transaction witness set.
+// The script data integrity hash matches the hash of the redeemers, languages
+// and datums of the transaction witness set.
 fn check_script_data_hash(
     _tx_body: &TransactionBody,
     _mtx: &MintedTx,
@@ -454,7 +463,8 @@ fn check_script_data_hash(
     Ok(())
 }
 
-// Each minted / burned asset is paired with an appropriate native script or minting policy.
+// Each minted / burned asset is paired with an appropriate native script or
+// minting policy.
 fn check_minting(tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
     check_ada_not_minted(tx_body)?;
     Ok(())

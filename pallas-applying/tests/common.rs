@@ -66,3 +66,31 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
     }
     utxos
 }
+
+pub fn add_collateral<'a>(
+    tx_body: &TransactionBody,
+    utxos: &mut UTxOs<'a>,
+    collateral_info: &[(String, Value, Option<Hash<32>>)],
+) {
+    match &tx_body.collateral {
+        Some(collaterals) => {
+            for (tx_in, (address, amount, datum_hash)) in zip(collaterals, collateral_info) {
+                let address_bytes: Bytes = match hex::decode(address) {
+                    Ok(bytes_vec) => Bytes::from(bytes_vec),
+                    _ => panic!("Unable to decode input address"),
+                };
+                let tx_out: TransactionOutput = TransactionOutput {
+                    address: address_bytes,
+                    amount: amount.clone(),
+                    datum_hash: datum_hash.clone(),
+                };
+                let multi_era_in: MultiEraInput =
+                    MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
+                let multi_era_out: MultiEraOutput =
+                    MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)));
+                utxos.insert(multi_era_in, multi_era_out);
+            }
+        }
+        None => panic!("Adding collateral to UTxO failed due to an empty list of collaterals"),
+    }
+}

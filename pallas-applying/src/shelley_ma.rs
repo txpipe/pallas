@@ -292,7 +292,7 @@ fn check_verification_key_witness(
 
 fn check_native_script_witness(
     script_hash: &ScriptHash,
-    wits: &Option<Vec<NativeScript>>,
+    wits: &Option<Vec<KeepRaw<NativeScript>>>,
 ) -> ValidationResult {
     match wits {
         Some(scripts) => {
@@ -331,11 +331,15 @@ fn check_remaining_verification_key_witnesses(
 
 fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     let values: &Option<Multiasset<i64>> = &tx_body.mint;
-    let scripts: &Option<Vec<NativeScript>> = &mtx.transaction_witness_set.native_script;
+    let scripts: &Option<Vec<KeepRaw<NativeScript>>> = &mtx.transaction_witness_set.native_script;
     match (values, scripts) {
         (None, _) => Ok(()),
         (Some(_), None) => Err(ShelleyMA(MintingLacksPolicy)),
-        (Some(minted_value), Some(native_script_wits)) => {
+        (Some(minted_value), Some(raw_native_script_wits)) => {
+            let native_script_wits: &Vec<NativeScript> = &raw_native_script_wits
+                .iter()
+                .map(|x| x.clone().unwrap())
+                .collect();
             for (policy, _) in minted_value.iter() {
                 if check_policy(policy, native_script_wits) {
                     return Ok(());

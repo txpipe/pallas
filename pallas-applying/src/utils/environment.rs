@@ -1,4 +1,5 @@
-//! Types used for representing the environment required for validation in each era.
+//! Types used for representing the environment required for validation in each
+//! era.
 
 use std::vec::Vec;
 
