@@ -370,7 +370,7 @@ impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct PseudoPostAlonzoTransactionOutput<T1> {
+pub struct PseudoPostAlonzoTransactionOutput<T1, T2> {
     #[n(0)]
     pub address: Bytes,
 
@@ -381,13 +381,13 @@ pub struct PseudoPostAlonzoTransactionOutput<T1> {
     pub datum_option: Option<T1>,
 
     #[n(3)]
-    pub script_ref: Option<ScriptRef>,
+    pub script_ref: Option<CborWrap<T2>>,
 }
 
-pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption>;
+pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption, ScriptRef>;
 
 pub type MintedPostAlonzoTransactionOutput<'b> =
-    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>>;
+    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>, MintedScriptRef<'b>>;
 
 impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
     fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
@@ -395,7 +395,7 @@ impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOu
             address: value.address,
             value: value.value,
             datum_option: value.datum_option.map(|x| x.into()),
-            script_ref: value.script_ref,
+            script_ref: value.script_ref.map(|x| CborWrap(x.unwrap().into())),
         }
     }
 }
@@ -464,7 +464,7 @@ pub struct MintedWitnessSet<'b> {
     pub vkeywitness: Option<Vec<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<Vec<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
@@ -486,7 +486,9 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
     fn from(x: MintedWitnessSet<'b>) -> Self {
         WitnessSet {
             vkeywitness: x.vkeywitness,
-            native_script: x.native_script,
+            native_script: x
+                .native_script
+                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
             plutus_data: x
@@ -573,18 +575,33 @@ impl<'b> From<MintedDatumOption<'b>> for DatumOption {
     }
 }
 
-// script_ref = #6.24(bytes .cbor script)
-pub type ScriptRef = CborWrap<Script>;
-
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum Script {
-    NativeScript(NativeScript),
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PseudoScript<T1> {
+    NativeScript(T1),
     PlutusV1Script(PlutusV1Script),
     PlutusV2Script(PlutusV2Script),
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Script {
+// script_ref = #6.24(bytes .cbor script)
+pub type ScriptRef = PseudoScript<NativeScript>;
+
+pub type MintedScriptRef<'b> = PseudoScript<KeepRaw<'b, NativeScript>>;
+
+impl<'b> From<MintedScriptRef<'b>> for ScriptRef {
+    fn from(value: MintedScriptRef<'b>) -> Self {
+        match value {
+            PseudoScript::NativeScript(x) => Self::NativeScript(x.unwrap()),
+            PseudoScript::PlutusV1Script(x) => Self::PlutusV1Script(x),
+            PseudoScript::PlutusV2Script(x) => Self::PlutusV2Script(x),
+        }
+    }
+}
+
+impl<'b, C, T> minicbor::Decode<'b, C> for PseudoScript<T>
+where
+    T: minicbor::Decode<'b, ()>,
+{
     fn decode(
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
@@ -602,7 +619,10 @@ impl<'b, C> minicbor::Decode<'b, C> for Script {
     }
 }
 
-impl<C> minicbor::Encode<C> for Script {
+impl<C, T> minicbor::Encode<C> for PseudoScript<T>
+where
+    T: minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
