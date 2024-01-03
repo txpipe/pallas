@@ -8,7 +8,7 @@ use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, Value};
+use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UnitInterval, Value};
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
 use pallas_network::miniprotocols::{
@@ -599,6 +599,62 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let result = AnyCbor::from_encode(localstate::queries_v16::UTxOByAddress { utxo });
             server.statequery().send_result(result).await.unwrap();
 
+            // server receives query from client
+
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            assert_eq!(
+                query,
+                localstate::queries_v16::Request::LedgerQuery(
+                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                        5,
+                        localstate::queries_v16::BlockQuery::GetCurrentPParams,
+                    ),
+                )
+            );
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let result = AnyCbor::from_encode(vec![localstate::queries_v16::ProtocolParamUpdate {
+                minfee_a: Some(44),
+                minfee_b: Some(155381),
+                max_block_body_size: Some(65536),
+                max_transaction_size: Some(16384),
+                max_block_header_size: Some(1100),
+                key_deposit: Some(AnyUInt::U32(2000000)),
+                pool_deposit: Some(AnyUInt::U32(500000000)),
+                maximum_epoch: Some(100000),
+                desired_number_of_stake_pools: Some(500),
+                pool_pledge_influence: Some(UnitInterval {
+                    numerator: 150,
+                    denominator: 100,
+                }),
+                expansion_rate: Some(UnitInterval {
+                    numerator: 3,
+                    denominator: 1000000,
+                }),
+                treasury_growth_rate: Some(UnitInterval {
+                    numerator: 3,
+                    denominator: 1000000,
+                }),
+                protocol_version_major: Some(5),
+                protocol_version_minor: Some(0),
+                min_pool_cost: Some(AnyUInt::U32(340000000)),
+                ada_per_utxo_byte: Some(AnyUInt::U16(44)),
+                cost_models_for_script_languages: None,
+                execution_costs: None,
+                max_tx_ex_units: None,
+                max_block_ex_units: None,
+                max_value_size: None,
+                collateral_percentage: None,
+                max_collateral_inputs: None,
+            }]);
+
+            server.statequery().send_result(result).await.unwrap();
+
             assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
             // server receives re-acquire from the client
@@ -756,6 +812,61 @@ pub async fn local_state_query_server_and_client_happy_path() {
         )]);
 
         assert_eq!(result, localstate::queries_v16::UTxOByAddress { utxo });
+
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
+            localstate::queries_v16::LedgerQuery::BlockQuery(
+                5,
+                localstate::queries_v16::BlockQuery::GetCurrentPParams,
+            ),
+        ));
+
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: Vec<localstate::queries_v16::ProtocolParamUpdate> = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        assert_eq!(
+            result,
+            vec![localstate::queries_v16::ProtocolParamUpdate {
+                minfee_a: Some(44),
+                minfee_b: Some(155381),
+                max_block_body_size: Some(65536),
+                max_transaction_size: Some(16384),
+                max_block_header_size: Some(1100),
+                key_deposit: Some(AnyUInt::U32(2000000)),
+                pool_deposit: Some(AnyUInt::U32(500000000)),
+                maximum_epoch: Some(100000),
+                desired_number_of_stake_pools: Some(500),
+                pool_pledge_influence: Some(UnitInterval {
+                    numerator: 150,
+                    denominator: 100,
+                }),
+                expansion_rate: Some(UnitInterval {
+                    numerator: 3,
+                    denominator: 1000000,
+                }),
+                treasury_growth_rate: Some(UnitInterval {
+                    numerator: 3,
+                    denominator: 1000000,
+                }),
+                protocol_version_major: Some(5),
+                protocol_version_minor: Some(0),
+                min_pool_cost: Some(AnyUInt::U32(340000000)),
+                ada_per_utxo_byte: Some(AnyUInt::U16(44)),
+                cost_models_for_script_languages: None,
+                execution_costs: None,
+                max_tx_ex_units: None,
+                max_block_ex_units: None,
+                max_value_size: None,
+                collateral_percentage: None,
+                max_collateral_inputs: None,
+            }]
+        );
 
         // client sends a ReAquire
         client
