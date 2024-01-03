@@ -73,6 +73,7 @@ pub enum AlonzoError {
     TxWrongNetworkID,
     RedeemerMissing,
     TxExUnitsExceeded,
+    MaxTxSizeExceeded,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

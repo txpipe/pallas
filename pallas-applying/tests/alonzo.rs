@@ -1331,4 +1331,53 @@ mod alonzo_tests {
             },
         }
     }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the Environment with which
+    // validation is called demands the transaction to be smaller than it
+    // actually is.
+    fn max_tx_size_exceeded() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo1.address")),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 158, // 1 byte less than the size of the transaction.
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(
+                false,
+                "Transaction size should not exceed the maximum allowed by the protocol parameter"
+            ),
+            Err(err) => match err {
+                Alonzo(MaxTxSizeExceeded) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
 }

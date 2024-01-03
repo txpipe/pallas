@@ -4,13 +4,23 @@ pub mod environment;
 pub mod validation;
 
 pub use environment::*;
-use pallas_codec::utils::KeyValuePairs;
-use pallas_primitives::alonzo::{AssetName, Coin, Multiasset, NetworkId, PolicyId, Value};
+use pallas_codec::{minicbor::encode, utils::KeyValuePairs};
+use pallas_primitives::alonzo::{
+    AssetName, Coin, Multiasset, NetworkId, PolicyId, TransactionBody, Value,
+};
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
 pub use validation::*;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
+
+pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u64> {
+    let mut buff: Vec<u8> = Vec::new();
+    match encode(tx_body, &mut buff) {
+        Ok(()) => Some(buff.len() as u64),
+        Err(_) => None,
+    }
+}
 
 pub fn empty_value() -> Value {
     Value::Multiasset(0, Multiasset::<Coin>::from(Vec::new()))

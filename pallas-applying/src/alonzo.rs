@@ -1,15 +1,15 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_lovelace_from_alonzo_value,
-    get_network_id_value, values_are_equal,
+    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size,
+    get_lovelace_from_alonzo_value, get_network_id_value, values_are_equal,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::{minicbor::encode, utils::KeepRaw};
+use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
     alonzo::{
         MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, Redeemer,
@@ -27,7 +27,7 @@ pub fn validate_alonzo_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let size: &u64 = &get_tx_size(tx_body)?;
+    let size: &u64 = &get_alonzo_comp_tx_size(tx_body).ok_or(Alonzo(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, mtx, block_slot)?;
@@ -43,14 +43,6 @@ pub fn validate_alonzo_tx(
     check_metadata(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx, prot_pps)?;
     check_minting(tx_body, mtx)
-}
-
-fn get_tx_size(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(tx_body, &mut buff) {
-        Ok(()) => Ok(buff.len() as u64),
-        Err(_) => Err(Alonzo(UnknownTxSize)),
-    }
 }
 
 // The set of transaction inputs is not empty.
@@ -370,7 +362,10 @@ fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> Validation
 }
 
 // The transaction size does not exceed the protocol limit.
-fn check_tx_size(_size: &u64, _prot_pps: &AlonzoProtParams) -> ValidationResult {
+fn check_tx_size(size: &u64, prot_pps: &AlonzoProtParams) -> ValidationResult {
+    if *size > prot_pps.max_tx_size {
+        return Err(Alonzo(MaxTxSizeExceeded));
+    }
     Ok(())
 }
 

@@ -1,7 +1,8 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, values_are_equal, FeePolicy,
+    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size, values_are_equal,
+    FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -32,11 +33,11 @@ pub fn validate_shelley_ma_tx(
     era: &Era,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let size: &u64 = &get_tx_size(tx_body)?;
+    let size: &u64 = &get_alonzo_comp_tx_size(tx_body).ok_or(ShelleyMA(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
     check_ttl(tx_body, block_slot)?;
-    check_size(size, prot_pps)?;
+    check_tx_size(size, prot_pps)?;
     check_min_lovelace(tx_body, prot_pps, era)?;
     check_preservation_of_value(tx_body, utxos, era)?;
     check_fees(tx_body, size, prot_pps)?;
@@ -44,14 +45,6 @@ pub fn validate_shelley_ma_tx(
     check_metadata(tx_body, mtx)?;
     check_witnesses(tx_body, utxos, mtx)?;
     check_minting(tx_body, mtx)
-}
-
-fn get_tx_size(tx_body: &TransactionBody) -> Result<u64, ValidationError> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(tx_body, &mut buff) {
-        Ok(()) => Ok(buff.len() as u64),
-        Err(_) => Err(ShelleyMA(UnknownTxSize)),
-    }
 }
 
 fn extract_auxiliary_data<'a>(mtx: &'a MintedTx) -> Option<&'a [u8]> {
@@ -89,7 +82,7 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     }
 }
 
-fn check_size(size: &u64, prot_pps: &ShelleyProtParams) -> ValidationResult {
+fn check_tx_size(size: &u64, prot_pps: &ShelleyProtParams) -> ValidationResult {
     if *size > prot_pps.max_tx_size {
         return Err(ShelleyMA(MaxTxSizeExceeded));
     }
