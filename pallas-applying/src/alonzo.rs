@@ -498,11 +498,5 @@ fn check_script_data_hash(
 // Each minted / burned asset is paired with an appropriate native script or
 // minting policy.
 fn check_minting(tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    check_ada_not_minted(tx_body)?;
-    Ok(())
-}
-
-// No ADA is minted.
-fn check_ada_not_minted(_tx_body: &TransactionBody) -> ValidationResult {
     Ok(())
 }
