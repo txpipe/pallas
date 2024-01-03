@@ -2,6 +2,7 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Conway CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/conway/test-suite/cddl-files/conway.cddl) file in IOHK repo.
 
+use pallas_codec::minicbor::data::Tag;
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{Decode, Encode};
@@ -1400,7 +1401,56 @@ pub use crate::alonzo::MetadatumLabel;
 
 pub use crate::alonzo::Metadata;
 
-pub use crate::alonzo::AuxiliaryData;
+use crate::alonzo::ShelleyMaAuxiliaryData;
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum AuxiliaryData {
+    Shelley(Metadata),
+    ShelleyMa(ShelleyMaAuxiliaryData),
+    PostAlonzo(PostAlonzoAuxiliaryData),
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for AuxiliaryData {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(AuxiliaryData::Shelley(d.decode_with(ctx)?))
+            }
+            minicbor::data::Type::Array => Ok(AuxiliaryData::ShelleyMa(d.decode_with(ctx)?)),
+            minicbor::data::Type::Tag => {
+                d.tag()?;
+                Ok(AuxiliaryData::PostAlonzo(d.decode_with(ctx)?))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "Can't infer variant from data type for AuxiliaryData",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for AuxiliaryData {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            AuxiliaryData::Shelley(m) => {
+                e.encode_with(m, ctx)?;
+            }
+            AuxiliaryData::ShelleyMa(m) => {
+                e.encode_with(m, ctx)?;
+            }
+            AuxiliaryData::PostAlonzo(v) => {
+                // TODO: check if this is the correct tag
+                e.tag(Tag::Unassigned(259))?;
+                e.encode_with(v, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
 
 pub use crate::alonzo::TransactionIndex;
 

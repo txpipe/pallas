@@ -2,7 +2,9 @@ mod babbage;
 mod transaction;
 
 pub use babbage::BuildBabbage;
-pub use transaction::model::{BuiltTransaction, Input, Output, ScriptKind, StagingTransaction};
+pub use transaction::model::{
+    BuiltTransaction, Input, Metadatum, Output, ScriptKind, StagingTransaction,
+};
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum TxBuilderError {
@@ -31,4 +33,7 @@ pub enum TxBuilderError {
     /// Asset name is too long, it must be 32 bytes or less
     #[error("Asset name must be 32 bytes or less")]
     AssetNameTooLong,
+    /// Metadata/PlutusData integer must be in range [-2^64, 2^64 - 1]
+    #[error("Metadata/PlutusData integer must be in range [-2^64, 2^64 - 1]")]
+    IntOutOfBounds,
 }

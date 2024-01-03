@@ -36,13 +36,13 @@ pub struct StagingTransaction {
     pub scripts: Option<HashMap<ScriptHash, Script>>,
     pub datums: Option<HashMap<DatumHash, DatumBytes>>,
     pub redeemers: Option<Redeemers>,
-    pub script_data_hash: Option<Bytes32>,
     pub signature_amount_override: Option<u8>,
     pub change_address: Option<Address>,
+    pub metadata: Option<Metadata>,
+    pub script_data_hash: Option<Bytes32>,
     // pub certificates: TODO
     // pub withdrawals: TODO
     // pub updates: TODO
-    // pub auxiliary_data: TODO
     // pub phase_2_valid: TODO
 }
 
@@ -370,6 +370,26 @@ impl StagingTransaction {
         self.change_address = None;
         self
     }
+
+    pub fn set_metadata_label(mut self, label: u64, metadatum: Metadatum) -> Self {
+        let mut metadata = self.metadata.map(|x| x.0).unwrap_or_default();
+
+        metadata.insert(label, metadatum);
+
+        self.metadata = Some(Metadata(metadata));
+
+        self
+    }
+
+    pub fn remove_metadata_label(mut self, label: u64) -> Self {
+        let mut metadata = self.metadata.map(|x| x.0).unwrap_or_default();
+
+        metadata.remove(&label);
+
+        self.metadata = Some(Metadata(metadata));
+
+        self
+    }
 }
 
 // TODO: Don't want our wrapper types in fields public
@@ -593,6 +613,19 @@ impl From<PallasAddress> for Address {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+pub struct Metadata(pub HashMap<u64, Metadatum>);
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Metadatum {
+    Int(i128),
+    Bytes(Vec<u8>),
+    Text(String),
+    Array(Vec<Metadatum>),
+    Map(Vec<(Metadatum, Metadatum)>),
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum BuilderEra {
     Babbage,
@@ -616,7 +649,11 @@ impl BuiltTransaction {
             .try_into()
             .map_err(|_| TxBuilderError::MalformedKey)?;
 
-        let signature: [u8; ed25519::Signature::SIZE] = private_key.sign(self.tx_hash.0).as_ref().try_into().unwrap();
+        let signature: [u8; ed25519::Signature::SIZE] = private_key
+            .sign(self.tx_hash.0)
+            .as_ref()
+            .try_into()
+            .unwrap();
 
         match self.era {
             BuilderEra::Babbage => {
