@@ -46,7 +46,7 @@ pub struct AlonzoProtParams {
     pub languages: Vec<Language>,
     pub max_block_ex_mem: u64,
     pub max_block_ex_steps: u64,
-    pub max_tx_ex_mem: u64,
+    pub max_tx_ex_mem: u32,
     pub max_tx_ex_steps: u64,
     pub max_val_size: u64,
     pub collateral_percent: u64,

@@ -21,7 +21,7 @@ use pallas_primitives::{
     byron::TxOut,
 };
 use pallas_traverse::{ComputeHash, Era, MultiEraInput, MultiEraOutput};
-use std::{collections::HashMap, ops::Deref};
+use std::ops::Deref;
 
 pub fn validate_shelley_ma_tx(
     mtx: &MintedTx,
@@ -292,7 +292,7 @@ fn check_verification_key_witness(
 
 fn check_native_script_witness(
     script_hash: &ScriptHash,
-    wits: &Option<Vec<KeepRaw<NativeScript>>>,
+    wits: &Option<Vec<NativeScript>>,
 ) -> ValidationResult {
     match wits {
         Some(scripts) => {

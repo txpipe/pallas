@@ -12,8 +12,8 @@ use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{minicbor::encode, utils::KeepRaw};
 use pallas_primitives::{
     alonzo::{
-        MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, TransactionBody,
-        TransactionInput, TransactionOutput, VKeyWitness, Value,
+        MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, Redeemer,
+        TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -376,7 +376,24 @@ fn check_tx_size(_size: &u64, _prot_pps: &AlonzoProtParams) -> ValidationResult 
 
 // The number of execution units of the transaction should not exceed the
 // maximum allowed.
-fn check_tx_ex_units(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationResult {
+fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationResult {
+    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+    if presence_of_plutus_scripts(mtx) {
+        match &tx_wits.redeemer {
+            Some(redeemers_vec) => {
+                let mut steps: u64 = 0;
+                let mut mem: u32 = 0;
+                for Redeemer { ex_units, .. } in redeemers_vec {
+                    mem += ex_units.mem;
+                    steps += ex_units.steps;
+                }
+                if mem > prot_pps.max_tx_ex_mem || steps > prot_pps.max_tx_ex_steps {
+                    return Err(Alonzo(TxExUnitsExceeded));
+                }
+            }
+            None => return Err(Alonzo(RedeemerMissing)),
+        }
+    }
     Ok(())
 }
 

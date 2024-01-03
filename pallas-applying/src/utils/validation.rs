@@ -71,6 +71,8 @@ pub enum AlonzoError {
     OutputMinLovelace,
     OutputWrongNetworkID,
     TxWrongNetworkID,
+    RedeemerMissing,
+    TxExUnitsExceeded,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
