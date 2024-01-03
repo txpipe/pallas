@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio::{select, sync::mpsc::error::SendError};
@@ -71,8 +71,9 @@ pub enum Bearer {
 
     #[cfg(unix)]
     Unix(unix::UnixStream),
-    // #[cfg(windows)]
-    // NamedPipe(NamedPipeClient),
+
+    #[cfg(windows)]
+    NamedPipe(NamedPipeClient),
 }
 
 impl Bearer {
@@ -124,12 +125,12 @@ impl Bearer {
         Ok((Self::Unix(stream), addr))
     }
 
-    // #[cfg(windows)]
-    // pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) ->
-    // IOResult<Self> {     let client =
-    // tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
-    //     Ok(Self::NamedPipe(client))
-    // }
+    #[cfg(windows)]
+    pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) ->
+    IOResult<Self> {     let client =
+    tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
+        Ok(Self::NamedPipe(client))
+    }
 
     pub fn into_split(self) -> (BearerReadHalf, BearerWriteHalf) {
         match self {
@@ -143,6 +144,15 @@ impl Bearer {
                 let (r, w) = x.into_split();
                 (BearerReadHalf::Unix(r), BearerWriteHalf::Unix(w))
             }
+
+            #[cfg(windows)]
+            Bearer::NamedPipe(x) => {
+                let (read, write) = tokio::io::split(x);
+                let reader = BearerReadHalf::NamedPipe(read);
+                let writer = BearerWriteHalf::NamedPipe(write);
+
+                (reader, writer)
+            }
         }
     }
 }
@@ -152,6 +162,9 @@ pub enum BearerReadHalf {
 
     #[cfg(unix)]
     Unix(unix::unix::OwnedReadHalf),
+
+    #[cfg(windows)]
+    NamedPipe(ReadHalf<NamedPipeClient>),
 }
 
 impl BearerReadHalf {
@@ -161,6 +174,9 @@ impl BearerReadHalf {
 
             #[cfg(unix)]
             BearerReadHalf::Unix(x) => x.read_exact(buf).await,
+            
+            #[cfg(windows)]
+            BearerReadHalf::NamedPipe(x) => x.read_exact(buf).await,
         }
     }
 }
@@ -170,6 +186,9 @@ pub enum BearerWriteHalf {
 
     #[cfg(unix)]
     Unix(unix::unix::OwnedWriteHalf),
+
+    #[cfg(windows)]
+    NamedPipe(WriteHalf<NamedPipeClient>),
 }
 
 impl BearerWriteHalf {
@@ -179,6 +198,9 @@ impl BearerWriteHalf {
 
             #[cfg(unix)]
             Self::Unix(x) => x.write_all(buf).await,
+
+            #[cfg(windows)]
+            Self::NamedPipe(x) => x.write_all(buf).await,
         }
     }
 
@@ -188,8 +210,9 @@ impl BearerWriteHalf {
 
             #[cfg(unix)]
             Self::Unix(x) => x.flush().await,
-            //#[cfg(windows)]
-            //Bearer::NamedPipe(x) => x.flush().await,
+
+            #[cfg(windows)]
+            Self::NamedPipe(x) => x.flush().await,
         }
     }
 }
