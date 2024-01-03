@@ -1,5 +1,5 @@
 use pallas::{
-    ledger::addresses::Address,
+    ledger::{addresses::Address, traverse::MultiEraBlock},
     network::{
         facades::NodeClient,
         miniprotocols::{
@@ -66,15 +66,15 @@ async fn do_chainsync(client: &mut NodeClient) {
 
     info!("intersected point is {:?}", point);
 
-    for _ in 0..10 {
+    loop {
         let next = client.chainsync().request_next().await.unwrap();
-
         match next {
             chainsync::NextResponse::RollForward(h, _) => {
-                log::info!("rolling forward, block size: {}", h.len())
+                let block_number = MultiEraBlock::decode(&h).unwrap().number();
+                info!("rolling forward {}, block size: {}", block_number, h.len())
             }
-            chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {:?}", x),
-            chainsync::NextResponse::Await => log::info!("tip of chain reached"),
+            chainsync::NextResponse::RollBackward(x, _) => info!("rollback to {:?}", x),
+            chainsync::NextResponse::Await => info!("tip of chain reached"),
         };
     }
 }
@@ -107,7 +107,7 @@ async fn main() {
     do_chainsync(&mut client).await;
 }
 
-#[cfg(not(target_family = "unix"))]
+#[cfg(target_family = "windows")]
 #[tokio::main]
 async fn main() {
 
@@ -118,7 +118,7 @@ async fn main() {
     )
     .unwrap();
 
-     // we connect to the unix socket of the local node. Make sure you have the right
+     // we connect to the namedpipe of the local node. Make sure you have the right
     // path for your environment
     let mut client = NodeClient::connect(PIPE_NAME, PREVIEW_MAGIC)
         .await
