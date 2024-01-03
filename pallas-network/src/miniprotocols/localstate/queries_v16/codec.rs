@@ -1,5 +1,5 @@
 use super::*;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
 
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
@@ -301,6 +301,33 @@ impl<C> minicbor::encode::Encode<C> for Value {
                 e.encode_with(other, ctx)?;
             }
         };
+
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for RationalNumber {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.tag()?;
+        d.array()?;
+
+        Ok(RationalNumber {
+            numerator: d.decode_with(ctx)?,
+            denominator: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for RationalNumber {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(30))?;
+        e.array(2)?;
+        e.encode_with(self.numerator, ctx)?;
+        e.encode_with(self.denominator, ctx)?;
 
         Ok(())
     }

@@ -5,7 +5,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{self, Addr, Addrs},
-            Point, PRE_PRODUCTION_MAGIC, PREVIEW_MAGIC
+            Point, PREVIEW_MAGIC, PRE_PRODUCTION_MAGIC,
         },
     },
 };
@@ -39,7 +39,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let addrx: Address = Address::from_bech32(&addrx).unwrap();
     let addrx: Addr = addrx.to_vec().into();
 
-    let addry = "008c5bf0f2af6f1ef08bb3f6ec702dd16e1c514b7e1d12f7549b47db9f4d943c7af0aaec774757d4745d1a2c8dd3220e6ec2c9df23f757a2f8".to_string();
+    let addry =
+    "008c5bf0f2af6f1ef08bb3f6ec702dd16e1c514b7e1d12f7549b47db9f4d943c7af0aaec774757d4745d1a2c8dd3220e6ec2c9df23f757a2f8"
+    .to_string();
     let addry: Address = Address::from_hex(&addry).unwrap();
     let addry: Addr = addry.to_vec().into();
 
@@ -48,6 +50,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .await
         .unwrap();
     info!("result: {:?}", result);
+
+    let result = queries_v16::get_current_pparams(client, era).await.unwrap();
+    println!("result: {:?}", result);
 
     client.send_release().await.unwrap();
 }
@@ -110,7 +115,6 @@ async fn main() {
 #[cfg(target_family = "windows")]
 #[tokio::main]
 async fn main() {
-
     tracing::subscriber::set_global_default(
         tracing_subscriber::FmtSubscriber::builder()
             .with_max_level(tracing::Level::TRACE)
@@ -118,11 +122,9 @@ async fn main() {
     )
     .unwrap();
 
-     // we connect to the namedpipe of the local node. Make sure you have the right
+    // we connect to the namedpipe of the local node. Make sure you have the right
     // path for your environment
-    let mut client = NodeClient::connect(PIPE_NAME, PREVIEW_MAGIC)
-        .await
-        .unwrap();
+    let mut client = NodeClient::connect(PIPE_NAME, PREVIEW_MAGIC).await.unwrap();
 
     // execute an arbitrary "Local State" query against the node
     do_localstate_query(&mut client).await;
