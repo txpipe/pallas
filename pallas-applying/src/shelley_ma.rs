@@ -21,7 +21,7 @@ use pallas_primitives::{
     byron::TxOut,
 };
 use pallas_traverse::{ComputeHash, Era, MultiEraInput, MultiEraOutput};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 // TODO: implement each of the validation rules.
 pub fn validate_shelley_ma_tx(
@@ -38,7 +38,11 @@ pub fn validate_shelley_ma_tx(
     let auxiliary_data_hash: &Option<Bytes> = &tx_body.auxiliary_data_hash;
     let auxiliary_data: &Option<&[u8]> = &extract_auxiliary_data(mtx);
     let minted_value: &Option<Multiasset<i64>> = &tx_body.mint;
-    let native_script_wits: &Option<Vec<NativeScript>> = &mtx.transaction_witness_set.native_script;
+    let native_script_wits: &Option<Vec<NativeScript>> = &mtx
+        .transaction_witness_set
+        .native_script
+        .as_ref()
+        .map(|x| x.iter().map(|y| y.deref().clone()).collect());
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
     check_ttl(tx_body, block_slot)?;
@@ -397,9 +401,13 @@ fn check_witnesses(
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_verification_key_witness(&payment_key_hash, tx_hash, wits)?
                         }
-                        ShelleyPaymentPart::Script(script_hash) => {
-                            check_native_script_witness(&script_hash, &tx_wits.native_script)?
-                        }
+                        ShelleyPaymentPart::Script(script_hash) => check_native_script_witness(
+                            &script_hash,
+                            &tx_wits
+                                .native_script
+                                .as_ref()
+                                .map(|x| x.iter().map(|y| y.deref().clone()).collect()),
+                        )?,
                     }
                 }
             }
