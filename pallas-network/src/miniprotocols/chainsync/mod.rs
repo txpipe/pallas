@@ -6,6 +6,5 @@ mod server;
 
 pub use buffer::*;
 pub use client::*;
-pub use codec::*;
 pub use protocol::*;
 pub use server::*;

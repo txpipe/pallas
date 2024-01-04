@@ -86,8 +86,8 @@ async fn do_chainsync(client: &mut NodeClient) {
 
 // change the following to match the Cardano node socket in your local
 // environment
+#[cfg(unix)]
 const SOCKET_PATH: &str = "/tmp/node.socket";
-const PIPE_NAME: &str = "\\\\.\\pipe\\cardano-pallas";
 
 #[cfg(unix)]
 #[tokio::main]
@@ -112,6 +112,11 @@ async fn main() {
     do_chainsync(&mut client).await;
 }
 
+// change the following to match the Cardano node named-pipe in your local
+// environment
+#[cfg(target_family = "windows")]
+const PIPE_NAME: &str = "\\\\.\\pipe\\cardano-pallas";
+
 #[cfg(target_family = "windows")]
 #[tokio::main]
 async fn main() {
@@ -122,9 +127,11 @@ async fn main() {
     )
     .unwrap();
 
-    // we connect to the namedpipe of the local node. Make sure you have the right
+    // we connect to the named-pipe of the local node. Make sure you have the right
     // path for your environment
-    let mut client = NodeClient::connect(PIPE_NAME, PREVIEW_MAGIC).await.unwrap();
+    let mut client = NodeClient::connect(PIPE_NAME, PRE_PRODUCTION_MAGIC)
+        .await
+        .unwrap();
 
     // execute an arbitrary "Local State" query against the node
     do_localstate_query(&mut client).await;

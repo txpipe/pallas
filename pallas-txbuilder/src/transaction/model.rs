@@ -616,7 +616,11 @@ impl BuiltTransaction {
             .try_into()
             .map_err(|_| TxBuilderError::MalformedKey)?;
 
-        let signature: [u8; ed25519::Signature::SIZE] = private_key.sign(self.tx_hash.0).as_ref().try_into().unwrap();
+        let signature: [u8; ed25519::Signature::SIZE] = private_key
+            .sign(self.tx_hash.0)
+            .as_ref()
+            .try_into()
+            .unwrap();
 
         match self.era {
             BuilderEra::Babbage => {
