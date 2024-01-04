@@ -5,7 +5,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{self, Addr, Addrs},
-            Point, PREVIEW_MAGIC, PRE_PRODUCTION_MAGIC,
+            Point, PRE_PRODUCTION_MAGIC,
         },
     },
 };
