@@ -1,6 +1,6 @@
 [package]
 name = "pallas-txbuilder"
-version = "0.20.0"
+version = "0.21.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -13,12 +13,12 @@ authors = [
 ]
 
 [dependencies]
-pallas-codec = { path = "../pallas-codec", version = "=0.20.0" }
-pallas-crypto = { path = "../pallas-crypto", version = "=0.20.0" }
-pallas-primitives = { path = "../pallas-primitives", version = "=0.20.0" }
-pallas-traverse = { path = "../pallas-traverse", version = "=0.20.0" }
-pallas-addresses = { path = "../pallas-addresses", version = "=0.20.0" }
-pallas-wallet = { path = "../pallas-wallet", version = "=0.20.0" }
+pallas-codec = { path = "../pallas-codec", version = "=0.21.0" }
+pallas-crypto = { path = "../pallas-crypto", version = "=0.21.0" }
+pallas-primitives = { path = "../pallas-primitives", version = "=0.21.0" }
+pallas-traverse = { path = "../pallas-traverse", version = "=0.21.0" }
+pallas-addresses = { path = "../pallas-addresses", version = "=0.21.0" }
+pallas-wallet = { path = "../pallas-wallet", version = "=0.21.0" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 thiserror = "1.0.44"

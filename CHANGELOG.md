@@ -2,6 +2,53 @@
 ## [Unreleased]
 
 
+<a name="v0.21.0"></a>
+## [v0.21.0] - 2024-01-04
+### Build
+- **deps:** update minicbor requirement from 0.19 to 0.20 ([#337](https://github.com/txpipe/pallas/issues/337))
+
+### Chore
+- fix lint warnings across the board ([#374](https://github.com/txpipe/pallas/issues/374))
+- fix code formatting ([#363](https://github.com/txpipe/pallas/issues/363))
+- **txbuilder:** fix lint warnings ([#343](https://github.com/txpipe/pallas/issues/343))
+- **wallet:** fix lint warnings ([#344](https://github.com/txpipe/pallas/issues/344))
+
+### Doc
+- **applying:** add ShelleyMA tests description ([#356](https://github.com/txpipe/pallas/issues/356))
+
+### Feat
+- introduce transaction builder crate ([#338](https://github.com/txpipe/pallas/issues/338))
+- introduce wallet crate for ed25519-bip32 key management ([#342](https://github.com/txpipe/pallas/issues/342))
+- **applying:** implement ShelleyMA phase-1 validations ([#354](https://github.com/txpipe/pallas/issues/354))
+- **configs:** add Shelley config structs ([#359](https://github.com/txpipe/pallas/issues/359))
+- **hardano:** implement search for the immutabledb reader ([#372](https://github.com/txpipe/pallas/issues/372))
+- **hardano:** implement immutable db chunk parsing ([#328](https://github.com/txpipe/pallas/issues/328))
+- **network:** implement GetUTxOByAddress local state query ([#341](https://github.com/txpipe/pallas/issues/341))
+- **network:** add sanchonet compatibility ([#355](https://github.com/txpipe/pallas/issues/355))
+- **network:** update n2n handshake versions & add keepalive miniprotocol ([#362](https://github.com/txpipe/pallas/issues/362))
+- **network:** implement split read / write for NamedPipe bearer ([#371](https://github.com/txpipe/pallas/issues/371))
+- **network:** implement stake distribution local state query ([#340](https://github.com/txpipe/pallas/issues/340))
+- **rolldb:** add method to check if db is empty ([#352](https://github.com/txpipe/pallas/issues/352))
+- **traverse:** improve protocol update access ([#360](https://github.com/txpipe/pallas/issues/360))
+- **wallet:** implement HD private keys & encrypted wrapper ([#358](https://github.com/txpipe/pallas/issues/358))
+
+### Fix
+- update pallas-applying to work with keepraw native scripts ([#370](https://github.com/txpipe/pallas/issues/370))
+- correct datum kind for set_datum_hash ([#350](https://github.com/txpipe/pallas/issues/350))
+- return witness objects for conway era multieratx ([#346](https://github.com/txpipe/pallas/issues/346))
+- fix unable to build and sign txs ([#345](https://github.com/txpipe/pallas/issues/345))
+- add txbuilder to unstable feature gate ([#349](https://github.com/txpipe/pallas/issues/349))
+- **hardano:** remove panics from immutable db parsing ([#351](https://github.com/txpipe/pallas/issues/351))
+- **network:** set so_linger socket option to match cardano-node ([#369](https://github.com/txpipe/pallas/issues/369))
+- **network:** demux using one mpsc channel per miniprotocol ([#366](https://github.com/txpipe/pallas/issues/366))
+- **network:** add tcp_nodelay to bearer ([#365](https://github.com/txpipe/pallas/issues/365))
+- **network:** use correct client state transition for n2n txsub ([#348](https://github.com/txpipe/pallas/issues/348))
+- **network:** relax connect args lifetime ([#367](https://github.com/txpipe/pallas/issues/367))
+
+### Refactor
+- **network:** split bearer into read/write ([#364](https://github.com/txpipe/pallas/issues/364))
+
+
 <a name="v0.20.0"></a>
 ## [v0.20.0] - 2023-11-20
 ### Chore
@@ -34,7 +81,9 @@
 ### Fix
 - fix conditional code for windows builds ([#334](https://github.com/txpipe/pallas/issues/334))
 - make rolldb an optional dependency ([#329](https://github.com/txpipe/pallas/issues/329))
+- **applying:** define specific dependency versions
 - **applying:** contemplate fee rules for genesis UTxOs ([#332](https://github.com/txpipe/pallas/issues/332))
+- **network:** add missing rt feature for tokio
 - **network:** add missing feature gate flag to tokio dependency ([#333](https://github.com/txpipe/pallas/issues/333))
 - **network:** fix bad codec for tx monitoring messages ([#298](https://github.com/txpipe/pallas/issues/298))
 - **rolldb:** fix find wal sequence semantics ([#310](https://github.com/txpipe/pallas/issues/310))
@@ -1010,7 +1059,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.21.0...HEAD
+[v0.21.0]: https://github.com/txpipe/pallas/compare/v0.20.0...v0.21.0
 [v0.20.0]: https://github.com/txpipe/pallas/compare/v0.19.1...v0.20.0
 [v0.19.1]: https://github.com/txpipe/pallas/compare/v0.19.0...v0.19.1
 [v0.19.0]: https://github.com/txpipe/pallas/compare/v0.18.2...v0.19.0
