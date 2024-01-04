@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use byteorder::{ByteOrder, NetworkEndian};
 use pallas_codec::{minicbor, Fragment};
 use thiserror::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio::{select, sync::mpsc::error::SendError};
@@ -20,6 +20,9 @@ use tokio::net as unix;
 
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::NamedPipeClient;
+
+#[cfg(windows)]
+use tokio::io::{ReadHalf, WriteHalf};
 
 const HEADER_LEN: usize = 8;
 
@@ -126,9 +129,8 @@ impl Bearer {
     }
 
     #[cfg(windows)]
-    pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) ->
-    IOResult<Self> {     let client =
-    tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
+    pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> IOResult<Self> {
+        let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
         Ok(Self::NamedPipe(client))
     }
 
@@ -174,7 +176,7 @@ impl BearerReadHalf {
 
             #[cfg(unix)]
             BearerReadHalf::Unix(x) => x.read_exact(buf).await,
-            
+
             #[cfg(windows)]
             BearerReadHalf::NamedPipe(x) => x.read_exact(buf).await,
         }
