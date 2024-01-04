@@ -618,7 +618,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             );
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let result = AnyCbor::from_encode(vec![localstate::queries_v16::ProtocolParamUpdate {
+            let result = AnyCbor::from_encode(vec![localstate::queries_v16::ProtocolParam {
                 minfee_a: Some(44),
                 minfee_b: Some(155381),
                 max_block_body_size: Some(65536),
@@ -822,7 +822,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: Vec<localstate::queries_v16::ProtocolParamUpdate> = client
+        let result: Vec<localstate::queries_v16::ProtocolParam> = client
             .statequery()
             .recv_while_querying()
             .await
@@ -832,7 +832,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             result,
-            vec![localstate::queries_v16::ProtocolParamUpdate {
+            vec![localstate::queries_v16::ProtocolParam {
                 minfee_a: Some(44),
                 minfee_b: Some(155381),
                 max_block_body_size: Some(65536),

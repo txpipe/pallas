@@ -133,7 +133,7 @@ pub struct ExUnits {
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(array)]
-pub struct ProtocolParamUpdate {
+pub struct ProtocolParam {
     #[n(0)]
     pub minfee_a: Option<u32>,
     #[n(1)]
@@ -275,7 +275,7 @@ pub async fn get_system_start(client: &mut Client) -> Result<SystemStart, Client
 pub async fn get_current_pparams(
     client: &mut Client,
     era: u16,
-) -> Result<Vec<ProtocolParamUpdate>, ClientError> {
+) -> Result<Vec<ProtocolParam>, ClientError> {
     let query = BlockQuery::GetCurrentPParams;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
