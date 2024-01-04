@@ -1,4 +1,3 @@
-use ed25519_bip32;
 use pallas_crypto::key::ed25519::{PublicKey, SecretKey, SecretKeyExtended, Signature};
 use thiserror::Error;
 
@@ -40,6 +39,7 @@ pub enum PrivateKey {
 }
 
 impl PrivateKey {
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {
             Self::Normal(_) => SecretKey::SIZE,

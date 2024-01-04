@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use pallas_network::miniprotocols::Point;
 use pallas_traverse::MultiEraBlock;
 use tap::Tap;
 use thiserror::Error;
@@ -13,6 +12,10 @@ use tracing::debug;
 pub mod chunk;
 pub mod primary;
 pub mod secondary;
+
+// TODO: we should make Point accessible in some crate more generic that
+// `network`.
+pub type Point = pallas_network::miniprotocols::Point;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
@@ -164,10 +167,10 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use std::path::Path;
 /// use std::error::Error;
-/// use crate::{Point, read_blocks_from_point};
+/// use pallas_hardano::storage::immutable::{Point, read_blocks_from_point};
 ///
 /// fn main() -> Result<(), Box<dyn Error>> {
 ///     let dir = Path::new("/path/to/blocks");
@@ -211,7 +214,7 @@ pub fn read_blocks_from_point(
             // check the first block
             match iter.peek() {
                 Some(Ok(block_data)) => {
-                    let block = MultiEraBlock::decode(&block_data)?;
+                    let block = MultiEraBlock::decode(block_data)?;
                     // check that the first block is genesis
                     if block.slot() == 0 && block.number() == 0 {
                         Ok(Box::new(iter))
@@ -229,7 +232,7 @@ pub fn read_blocks_from_point(
             // and compares block's slot with provided slot number
             let cmp = {
                 |chunk_name: &String, point: &u64| {
-                    let mut blocks = chunk::read_blocks(dir, &chunk_name)?;
+                    let mut blocks = chunk::read_blocks(dir, chunk_name)?;
 
                     // Try to read the first block from the chunk
                     if let Some(block_data) = blocks.next() {
@@ -275,10 +278,10 @@ pub fn read_blocks_from_point(
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use std::path::Path;
 /// use std::error::Error;
-/// use crate::{Point, get_tip};
+/// use pallas_hardano::storage::immutable::{Point, get_tip};
 ///
 /// fn main() -> Result<(), Box<dyn Error>> {
 ///     let dir = Path::new("/path/to/blocks");

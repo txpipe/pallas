@@ -262,12 +262,10 @@ impl NodeClient {
     ) -> Result<Self, Error> {
         let pipe_name = pipe_name.as_ref().to_os_string();
 
-        let bearer = tokio::task::spawn_blocking(move || {
-            Bearer::connect_named_pipe(pipe_name)
-        })
-        .await
-        .expect("can't join tokio thread")
-        .map_err(Error::ConnectFailure)?;
+        let bearer = tokio::task::spawn_blocking(move || Bearer::connect_named_pipe(pipe_name))
+            .await
+            .expect("can't join tokio thread")
+            .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer);
 
