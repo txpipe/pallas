@@ -1,5 +1,6 @@
 [package]
 name = "pallas-txbuilder"
+description = "An ergonomic Cardano transaction builder"
 version = "0.21.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
@@ -7,10 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-txbuilder"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-  "Santiago Carmuega <santiago@carmuega.me>",
-  "Cainã Costa <me@cfcosta.com>",
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>", "Cainã Costa <me@cfcosta.com>"]
 
 [dependencies]
 pallas-codec = { path = "../pallas-codec", version = "=0.21.0" }

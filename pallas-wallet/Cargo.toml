@@ -5,6 +5,7 @@ version = "0.21.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas"
 license = "Apache-2.0"
 readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
