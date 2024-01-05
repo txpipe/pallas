@@ -6,7 +6,7 @@ This document covers the Alonzo era. This document covers the concepts, notation
 - **Blocks**:
 	- ***Block*** is the set of all possible (not necessarily valid) Alonzo blocks. When clear, we will write ***block ∈ Blocks*** to refer to the current block being validated.
 	- ***txs(block)*** is the set of transactions of the block.
-	- ***blockExUnits(block) ∈ ExUnits***, where ***ExUnits := (ℕ, ℕ)***, is the memory and execution step units resulting from the sum of memory and execution step units of all its transactions. That is, ***blockExUnits(block) := (∑ tx ∈ txs(block): txExUnits(txBody(tx)))***, where addition of execution units is defined pointwise.
+	- ***blockExUnits(block) ∈ ExUnits***, where ***ExUnits := (ℕ, ℕ)***, is the memory and execution step units resulting from the sum of memory and execution step units of all its transactions. That is, ***blockExUnits(block) := (∑ tx ∈ txs(block): txExUnits(txWits(tx)))***, where addition of execution units is defined pointwise.
 - **Transactions**:
 	- ***Tx*** is the set of all possible (not necessarily valid) Alonzo transactions, composed of a transaction body and a witness set. When clear, we will write ***tx*** to refer to the current transaction.
 	- ***txIsPhase1Valid(block, pps, tx) ∈ Bool*** indicates whether ***tx ∈ txs(block)*** is phase-1 valid under ***pps***.
@@ -36,13 +36,13 @@ This document covers the Alonzo era. This document covers the concepts, notation
 	- ***requiredSigners(txBody) ∈ P(KeyHash)*** is the set of hashes of verification keys required for the execution of Plutus scripts, where ***KeyHash ⊆ Bytes***.
 	- ***txSize(txBody) ∈ ℕ*** is the size of the transaction in bytes, when serialized.
 	- ***fee(txBody) ∈ ℕ*** is the fee paid by the transaction.
-	- ***txExUnits(txBody) ∈ ExUnits*** is the total execution units of the transaction.
 	- ***minted(txBody)*** is the multi-asset value minted (or burned) in the transaction.
 		- ***PolicyID*** is the set of all possible policy IDs associated to multi-asset values. In particular, ***adaID ∈ Policy*** is the policy of lovelaces.
 	- ***consumed(utxo, txBody) ∈ ℤ*** is the *consumed value* of the transaction, which equals the sum of all multi-asset values in the inputs of the transaction.
 	- ***produced(txBody) ∈ ℤ*** is the *produced value* of the transaction, which equals the sum of all multi-asset values in the outputs of the transaction, plus the transaction fee, plus the minted value.
 	- ***txNetId(txBody) ∈ NetworkID*** gives the network ID of a transaction (not to be confused with the network ID of addresses of unspent transaction outputs).
 	- ***txWits(tx)*** is the transaction witness set. When clear, we will write ***txWits*** to refer to the transaction witness set of the current transaction.
+	- ***txExUnits(txWits) ∈ ExUnits*** is the total execution units of the transaction.
 	- ***txMD(tx)*** is the metadata of the transaction.
 		- ***hashMD(md)*** is the result of hasing metadata ***md***.
 	- ***txMDHash(txBody)*** is the metadata hash contained within the transaction body.
@@ -181,7 +181,7 @@ Let ***tx ∈ Tx*** be one of its Alonzo transactions, with transaction body ***
 			<code>{datumHash(d): d ∈ txDats(txWits)} ⊆ {h: (a,\_,h) ∈ txIns(txBody) ◁ utxo, isPlutusScriptAddress(txWits, a)} ∪ {h: (\_,\_,h) ∈ txOuts(txBody)}</code>
 		- **The set of redeemers in the transaction witness set should match the set of Plutus scripts needed to validate the transaction**:
 
-			<code>{(tag, index): (tag, index, \_, \_) ∈ txRedeemers(txWits)} = {redeemerPointer(txBody, sp): (sp, h) ∈ scriptsNeeded(utxo, txBody), isPlutusScript(s), sp ∈ txScripts(txWits)}</code>
+			<code>{(tag, index): (tag, index, \_, \_) ∈ txRedeemers(txWits)} = {redeemerPointer(txBody, sp): (sp, h) ∈ scriptsNeeded(utxo, txBody), (∃s ∈ txScripts(txWits): isPlutusScript(s), h = scriptHash(s)}</code>
 	- **Verification-key witnesses**:
 		- **The owner of each transaction input and each collateral input should have signed the transaction**: for each ***txIn ∈ txInsVKey(txBody)*** there should exist ***(vk, σ) ∈ txVKWits(tx)*** such that:
 
