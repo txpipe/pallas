@@ -5,8 +5,9 @@ pub mod validation;
 
 pub use environment::*;
 use pallas_codec::{minicbor::encode, utils::KeyValuePairs};
+use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::alonzo::{
-    AssetName, Coin, Multiasset, NetworkId, PolicyId, TransactionBody, Value,
+    AssetName, Coin, Multiasset, NetworkId, PolicyId, TransactionBody, VKeyWitness, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -204,4 +205,26 @@ pub fn get_network_id_value(network_id: NetworkId) -> u8 {
         NetworkId::One => 1,
         NetworkId::Two => 2,
     }
+}
+
+pub fn mk_alonzo_vk_wits_check_list(
+    wits: &Option<Vec<VKeyWitness>>,
+    err: ValidationError,
+) -> Result<Vec<(bool, VKeyWitness)>, ValidationError> {
+    Ok(wits
+        .clone()
+        .ok_or(err)?
+        .iter()
+        .map(|x| (false, x.clone()))
+        .collect::<Vec<(bool, VKeyWitness)>>())
+}
+
+pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &Vec<u8>) -> bool {
+    let mut public_key_source: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
+    public_key_source.copy_from_slice(vk_wit.vkey.as_slice());
+    let public_key: PublicKey = From::<[u8; PublicKey::SIZE]>::from(public_key_source);
+    let mut signature_source: [u8; Signature::SIZE] = [0; Signature::SIZE];
+    signature_source.copy_from_slice(vk_wit.signature.as_slice());
+    let sig: Signature = From::<[u8; Signature::SIZE]>::from(signature_source);
+    public_key.verify(data_to_verify, &sig)
 }

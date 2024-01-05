@@ -74,6 +74,8 @@ pub enum AlonzoError {
     RedeemerMissing,
     TxExUnitsExceeded,
     MaxTxSizeExceeded,
+    MissingReqSigner,
+    ReqSignerWrongSig,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

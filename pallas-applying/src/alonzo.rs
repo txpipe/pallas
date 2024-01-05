@@ -2,7 +2,7 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_value, get_network_id_value, values_are_equal,
+    get_lovelace_from_alonzo_value, get_network_id_value, values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -12,12 +12,12 @@ use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
     alonzo::{
-        MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, Redeemer,
-        TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, Redeemer,
+        RequiredSigners, TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput};
+use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput};
 
 pub fn validate_alonzo_tx(
     mtx: &MintedTx,
@@ -394,6 +394,8 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationR
 
 fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> ValidationResult {
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+    let vkey_wits: &Option<Vec<VKeyWitness>> = &tx_wits.vkeywitness;
+    let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
     check_needed_scripts_are_included(
         tx_body,
         utxos,
@@ -402,8 +404,8 @@ fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> 
     )?;
     check_datums(tx_body, utxos, &tx_wits.plutus_data)?;
     check_redeemers(tx_body, utxos, tx_wits)?;
-    check_witnesses_for_verification_key_inputs(tx_body, utxos, &tx_wits.vkeywitness)?;
-    check_required_signers(tx_body, utxos, &tx_wits.vkeywitness)
+    check_vkey_input_wits(tx_body, utxos, &tx_wits.vkeywitness)?;
+    check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)
 }
 
 // The set of needed scripts (minting policies, native scripts and Plutus
@@ -457,7 +459,7 @@ fn check_redeemers(
 
 // The owner of each transaction input and each collateral input should have
 // signed the transaction.
-fn check_witnesses_for_verification_key_inputs(
+fn check_vkey_input_wits(
     _tx_body: &TransactionBody,
     _utxos: &UTxOs,
     _vkey_wits: &Option<Vec<VKeyWitness>>,
@@ -468,11 +470,41 @@ fn check_witnesses_for_verification_key_inputs(
 // All required signers (needed by a Plutus script) have a corresponding match
 // in the transaction witness set.
 fn check_required_signers(
-    _tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-    _vkey_wits: &Option<Vec<VKeyWitness>>,
+    required_signers: &Option<RequiredSigners>,
+    vkey_wits: &Option<Vec<VKeyWitness>>,
+    tx_hash: &Vec<u8>,
 ) -> ValidationResult {
+    if let Some(req_signers) = &required_signers {
+        match &vkey_wits {
+            Some(vkey_wits) => {
+                for req_signer in req_signers {
+                    check_required_signer(req_signer, vkey_wits, tx_hash)?
+                }
+            }
+            None => return Err(Alonzo(MissingReqSigner)),
+        }
+    }
     Ok(())
+}
+
+// Try to find the verification key in the witnesses, and verify the signature.
+fn check_required_signer(
+    req_signer: &AddrKeyhash,
+    vkey_wits: &Vec<VKeyWitness>,
+    tx_hash: &Vec<u8>,
+) -> ValidationResult {
+    for vkey_wit in vkey_wits {
+        if pallas_crypto::hash::Hasher::<224>::hash(&Vec::<u8>::from(vkey_wit.vkey.clone()))
+            == *req_signer
+        {
+            if !verify_signature(vkey_wit, tx_hash) {
+                return Err(Alonzo(ReqSignerWrongSig));
+            } else {
+                return Ok(());
+            }
+        }
+    }
+    Err(Alonzo(MissingReqSigner))
 }
 
 // The required script languages are included in the protocol parameters.
@@ -497,6 +529,6 @@ fn check_script_data_hash(
 
 // Each minted / burned asset is paired with an appropriate native script or
 // minting policy.
-fn check_minting(tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
+fn check_minting(_tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
     Ok(())
 }

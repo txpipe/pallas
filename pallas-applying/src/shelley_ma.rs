@@ -1,8 +1,8 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size, values_are_equal,
-    FeePolicy,
+    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size,
+    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature, FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -13,7 +13,6 @@ use pallas_codec::{
     minicbor::encode,
     utils::{Bytes, KeepRaw},
 };
-use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
         AuxiliaryData, MintedTx, MintedWitnessSet, Multiasset, NativeScript, PolicyId,
@@ -217,7 +216,8 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
 
 fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> ValidationResult {
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let wits: &mut Vec<(bool, VKeyWitness)> = &mut mk_vkwitness_check_list(&tx_wits.vkeywitness)?;
+    let vk_wits: &mut Vec<(bool, VKeyWitness)> =
+        &mut mk_alonzo_vk_wits_check_list(&tx_wits.vkeywitness, ShelleyMA(MissingVKWitness))?;
     let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
     for input in tx_body.inputs.iter() {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
@@ -225,7 +225,7 @@ fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> 
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
                     match get_payment_part(alonzo_comp_output)? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
-                            check_verification_key_witness(&payment_key_hash, tx_hash, wits)?
+                            check_vk_wit(&payment_key_hash, tx_hash, vk_wits)?
                         }
                         ShelleyPaymentPart::Script(script_hash) => check_native_script_witness(
                             &script_hash,
@@ -240,18 +240,7 @@ fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> 
             None => return Err(ShelleyMA(InputNotInUTxO)),
         }
     }
-    check_remaining_verification_key_witnesses(wits, tx_hash)
-}
-
-fn mk_vkwitness_check_list(
-    wits: &Option<Vec<VKeyWitness>>,
-) -> Result<Vec<(bool, VKeyWitness)>, ValidationError> {
-    Ok(wits
-        .clone()
-        .ok_or(ShelleyMA(MissingVKWitness))?
-        .iter()
-        .map(|x| (false, x.clone()))
-        .collect::<Vec<(bool, VKeyWitness)>>())
+    check_remaining_vk_wits(vk_wits, tx_hash)
 }
 
 fn get_payment_part(tx_out: &TransactionOutput) -> Result<ShelleyPaymentPart, ValidationError> {
@@ -259,20 +248,14 @@ fn get_payment_part(tx_out: &TransactionOutput) -> Result<ShelleyPaymentPart, Va
     Ok(addr.payment().clone())
 }
 
-fn check_verification_key_witness(
+fn check_vk_wit(
     payment_key_hash: &PaymentKeyHash,
     data_to_verify: &Vec<u8>,
     wits: &mut Vec<(bool, VKeyWitness)>,
 ) -> ValidationResult {
-    for (found, VKeyWitness { vkey, signature }) in wits {
-        if pallas_crypto::hash::Hasher::<224>::hash(vkey) == *payment_key_hash {
-            let mut public_key_source: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
-            public_key_source.copy_from_slice(vkey.as_slice());
-            let public_key: PublicKey = From::<[u8; PublicKey::SIZE]>::from(public_key_source);
-            let mut signature_source: [u8; Signature::SIZE] = [0; Signature::SIZE];
-            signature_source.copy_from_slice(signature.as_slice());
-            let sig: Signature = From::<[u8; Signature::SIZE]>::from(signature_source);
-            if public_key.verify(data_to_verify, &sig) {
+    for (found, vkey_wit) in wits {
+        if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
+            if verify_signature(vkey_wit, data_to_verify) {
                 *found = true;
                 return Ok(());
             } else {
@@ -302,19 +285,15 @@ fn check_native_script_witness(
     }
 }
 
-fn check_remaining_verification_key_witnesses(
+fn check_remaining_vk_wits(
     wits: &mut Vec<(bool, VKeyWitness)>,
     data_to_verify: &Vec<u8>,
 ) -> ValidationResult {
-    for (covered, VKeyWitness { vkey, signature }) in wits {
+    for (covered, vkey_wit) in wits {
         if !*covered {
-            let mut public_key_source: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
-            public_key_source.copy_from_slice(vkey.as_slice());
-            let public_key: PublicKey = From::<[u8; PublicKey::SIZE]>::from(public_key_source);
-            let mut signature_source: [u8; Signature::SIZE] = [0; Signature::SIZE];
-            signature_source.copy_from_slice(signature.as_slice());
-            let sig: Signature = From::<[u8; Signature::SIZE]>::from(signature_source);
-            if !public_key.verify(data_to_verify, &sig) {
+            if verify_signature(vkey_wit, data_to_verify) {
+                return Ok(());
+            } else {
                 return Err(ShelleyMA(WrongSignature));
             }
         }
