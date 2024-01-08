@@ -125,11 +125,12 @@ impl PeerClient {
 
 /// Server of N2N Ouroboros
 pub struct PeerServer {
-    plexer: RunningPlexer,
-    handshake: handshake::N2NServer,
-    chainsync: chainsync::N2NServer,
-    blockfetch: blockfetch::Server,
-    txsubmission: txsubmission::Server,
+    pub plexer: RunningPlexer,
+    pub handshake: handshake::N2NServer,
+    pub chainsync: chainsync::N2NServer,
+    pub blockfetch: blockfetch::Server,
+    pub txsubmission: txsubmission::Server,
+    pub keepalive: keepalive::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<u64>,
 }
@@ -142,11 +143,13 @@ impl PeerServer {
         let cs_channel = plexer.subscribe_server(PROTOCOL_N2N_CHAIN_SYNC);
         let bf_channel = plexer.subscribe_server(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_server(PROTOCOL_N2N_TX_SUBMISSION);
+        let keepalive_channel = plexer.subscribe_server(PROTOCOL_N2N_KEEP_ALIVE);
 
         let hs = handshake::N2NServer::new(hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
         let bf = blockfetch::Server::new(bf_channel);
         let txsub = txsubmission::Server::new(txsub_channel);
+        let keepalive = keepalive::Server::new(keepalive_channel);
 
         let plexer = plexer.spawn();
 
@@ -156,6 +159,7 @@ impl PeerServer {
             chainsync: cs,
             blockfetch: bf,
             txsubmission: txsub,
+            keepalive,
             accepted_address: None,
             accepted_version: None,
         }
@@ -198,6 +202,10 @@ impl PeerServer {
 
     pub fn txsubmission(&mut self) -> &mut txsubmission::Server {
         &mut self.txsubmission
+    }
+
+    pub fn keepalive(&mut self) -> &mut keepalive::Server {
+        &mut self.keepalive
     }
 
     pub async fn abort(self) {

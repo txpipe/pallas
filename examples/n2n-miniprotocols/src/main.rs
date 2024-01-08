@@ -21,7 +21,7 @@ pub enum Error {
     ChainSyncError(#[from] chainsync::ClientError),
 
     #[error("keepalive error")]
-    KeepAliveError(#[from] keepalive::Error),
+    KeepAliveError(#[from] keepalive::ClientError),
 
     #[error("pallas_traverse error")]
     PallasTraverseError(#[from] pallas::ledger::traverse::Error),
