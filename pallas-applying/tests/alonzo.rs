@@ -1,6 +1,7 @@
 pub mod common;
 
 use common::*;
+use hex;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
@@ -16,9 +17,9 @@ use pallas_codec::{
     },
     utils::{Bytes, KeyValuePairs},
 };
-use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
-    AddrKeyhash, MintedTx, NetworkId, TransactionBody, TransactionOutput, Value,
+    AddrKeyhash, MintedTx, MintedWitnessSet, NetworkId, TransactionBody, TransactionOutput,
+    VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 use std::borrow::Cow;
@@ -86,10 +87,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -444,10 +444,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -567,10 +566,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -678,10 +676,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -813,10 +810,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -877,10 +873,9 @@ mod alonzo_tests {
                 Value::Multiasset(
                     5000000,
                     KeyValuePairs::from(Vec::from([(
-                        Hash::<28>::new([
-                            176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80, 249,
-                            50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                        ]),
+                        "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                            .parse()
+                            .unwrap(),
                         KeyValuePairs::from(Vec::from([(
                             Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                             1000,
@@ -937,10 +932,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -1239,10 +1233,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -1400,10 +1393,9 @@ mod alonzo_tests {
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
-                            Hash::<28>::new([
-                                176, 1, 7, 107, 52, 168, 126, 125, 72, 236, 70, 112, 58, 111, 80,
-                                249, 50, 137, 88, 42, 217, 189, 190, 255, 127, 30, 50, 149,
-                            ]),
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
                             KeyValuePairs::from(Vec::from([(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
@@ -1508,6 +1500,121 @@ mod alonzo_tests {
             ),
             Err(err) => match err {
                 Alonzo(MissingReqSigner) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the list of verification key is
+    // empty.
+    fn missing_vk_witness() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo1.address")),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.vkeywitness = Some(vec![]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Missing verification key witness"),
+            Err(err) => match err {
+                Alonzo(MissingVKWitness) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the signature of the only witness
+    // of the transaction is modified.
+    fn wrong_signature() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo1.address")),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut wit: VKeyWitness = tx_wits.vkeywitness.clone().unwrap().pop().unwrap();
+        // "c50047bafa1adfbfd588d7c8be89f7ab17aecd47c4cc0ed5c1318caca57c8215d77d6878f0eb2bd2620b4ea552415a3028f98102275c9a564278d0f4e6425d02"
+        // is replaced with
+        // "c50047bafa1adfbfd588d7c8be89f7ab17aecd47c4cc0ed5c1318caca57c8215d77d6878f0eb2bd2620b4ea552415a3028f98102275c9a564278d0f400000000"
+        wit.signature = hex::decode(
+            "c50047bafa1adfbfd588d7c8be89f7ab17aecd47c4cc0ed5c1318caca57c8215d77d6878f0eb2bd2620b4ea552415a3028f98102275c9a564278d0f400000000"
+            ).unwrap().into();
+        tx_wits.vkeywitness = Some(vec![wit]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Witness signature should verify the transaction"),
+            Err(err) => match err {
+                Alonzo(VKWrongSignature) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

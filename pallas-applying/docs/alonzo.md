@@ -176,7 +176,7 @@ Let ***tx ∈ Tx*** be one of its Alonzo transactions, with transaction body ***
 		- **Each datum hash in a Plutus script input matches the hash of a datum in the transaction witness set**:
 
 			<code>{h : (a,\_,h) ∈ txIns(txBody) ◁ utxo, isPlutusScriptAddress(txWits, a)} ⊆ {datumHash(d) : d ∈ txDats(txWits)}</code>
-		- **Each datum object in the transaction witness set corresponds either to an output datum hash or to the datum hash of a Plutus script input**:
+		- **Each datum object in the transaction witness set corresponds either to a Plutus script input datum hash or to an output datum hash**:
 
 			<code>{datumHash(d): d ∈ txDats(txWits)} ⊆ {h: (a,\_,h) ∈ txIns(txBody) ◁ utxo, isPlutusScriptAddress(txWits, a)} ∪ {h: (\_,\_,h) ∈ txOuts(txBody)}</code>
 		- **The set of redeemers in the transaction witness set should match the set of Plutus scripts needed to validate the transaction**:

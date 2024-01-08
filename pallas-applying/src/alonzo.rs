@@ -2,7 +2,8 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_value, get_network_id_value, values_are_equal, verify_signature,
+    get_lovelace_from_alonzo_value, get_network_id_value, mk_alonzo_vk_wits_check_list,
+    values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -17,7 +18,7 @@ use pallas_primitives::{
     },
     byron::TxOut,
 };
-use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput};
+use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 
 pub fn validate_alonzo_tx(
     mtx: &MintedTx,
@@ -38,7 +39,7 @@ pub fn validate_alonzo_tx(
     check_network_id(tx_body, network_id)?;
     check_tx_size(size, prot_pps)?;
     check_tx_ex_units(mtx, prot_pps)?;
-    check_witnesses(tx_body, utxos, mtx)?;
+    check_witness_set(mtx, utxos)?;
     check_languages(mtx, prot_pps)?;
     check_metadata(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx, prot_pps)?;
@@ -392,10 +393,11 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationR
     Ok(())
 }
 
-fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> ValidationResult {
+fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
+    let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
+    let tx_body: &TransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let vkey_wits: &Option<Vec<VKeyWitness>> = &tx_wits.vkeywitness;
-    let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
     check_needed_scripts_are_included(
         tx_body,
         utxos,
@@ -404,8 +406,8 @@ fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> 
     )?;
     check_datums(tx_body, utxos, &tx_wits.plutus_data)?;
     check_redeemers(tx_body, utxos, tx_wits)?;
-    check_vkey_input_wits(tx_body, utxos, &tx_wits.vkeywitness)?;
-    check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)
+    check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
+    check_vkey_input_wits(mtx, &tx_wits.vkeywitness, utxos)
 }
 
 // The set of needed scripts (minting policies, native scripts and Plutus
@@ -460,10 +462,69 @@ fn check_redeemers(
 // The owner of each transaction input and each collateral input should have
 // signed the transaction.
 fn check_vkey_input_wits(
-    _tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-    _vkey_wits: &Option<Vec<VKeyWitness>>,
+    mtx: &MintedTx,
+    vkey_wits: &Option<Vec<VKeyWitness>>,
+    utxos: &UTxOs,
 ) -> ValidationResult {
+    let tx_body: &TransactionBody = &mtx.transaction_body;
+    let vk_wits: &mut Vec<(bool, VKeyWitness)> =
+        &mut mk_alonzo_vk_wits_check_list(vkey_wits, Alonzo(MissingVKWitness))?;
+    let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
+    let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
+    inputs_and_collaterals.extend(tx_body.inputs.clone());
+    match &tx_body.collateral {
+        Some(collaterals) => inputs_and_collaterals.extend(collaterals.clone()),
+        None => (),
+    }
+    for input in inputs_and_collaterals.iter() {
+        match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
+            Some(multi_era_output) => {
+                if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
+                    match get_payment_part(alonzo_comp_output)? {
+                        ShelleyPaymentPart::Key(payment_key_hash) => {
+                            check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
+                        }
+                        ShelleyPaymentPart::Script(_) => (),
+                    }
+                }
+            }
+            None => return Err(Alonzo(InputNotInUTxO)),
+        }
+    }
+    check_remaining_vk_wits(vk_wits, tx_hash)
+}
+
+fn check_vk_wit(
+    payment_key_hash: &AddrKeyhash,
+    wits: &mut Vec<(bool, VKeyWitness)>,
+    data_to_verify: &Vec<u8>,
+) -> ValidationResult {
+    for (found, vkey_wit) in wits {
+        if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
+            if !verify_signature(vkey_wit, data_to_verify) {
+                return Err(Alonzo(VKWrongSignature));
+            } else {
+                *found = true;
+                return Ok(());
+            }
+        }
+    }
+    Err(Alonzo(MissingVKWitness))
+}
+
+fn check_remaining_vk_wits(
+    wits: &mut Vec<(bool, VKeyWitness)>,
+    data_to_verify: &Vec<u8>,
+) -> ValidationResult {
+    for (covered, vkey_wit) in wits {
+        if !*covered {
+            if verify_signature(vkey_wit, data_to_verify) {
+                return Ok(());
+            } else {
+                return Err(Alonzo(VKWrongSignature));
+            }
+        }
+    }
     Ok(())
 }
 
@@ -472,13 +533,13 @@ fn check_vkey_input_wits(
 fn check_required_signers(
     required_signers: &Option<RequiredSigners>,
     vkey_wits: &Option<Vec<VKeyWitness>>,
-    tx_hash: &Vec<u8>,
+    data_to_verify: &Vec<u8>,
 ) -> ValidationResult {
     if let Some(req_signers) = &required_signers {
         match &vkey_wits {
             Some(vkey_wits) => {
                 for req_signer in req_signers {
-                    check_required_signer(req_signer, vkey_wits, tx_hash)?
+                    find_and_check_req_signer(req_signer, vkey_wits, data_to_verify)?
                 }
             }
             None => return Err(Alonzo(MissingReqSigner)),
@@ -488,16 +549,14 @@ fn check_required_signers(
 }
 
 // Try to find the verification key in the witnesses, and verify the signature.
-fn check_required_signer(
-    req_signer: &AddrKeyhash,
+fn find_and_check_req_signer(
+    vkey_hash: &AddrKeyhash,
     vkey_wits: &Vec<VKeyWitness>,
-    tx_hash: &Vec<u8>,
+    data_to_verify: &Vec<u8>,
 ) -> ValidationResult {
     for vkey_wit in vkey_wits {
-        if pallas_crypto::hash::Hasher::<224>::hash(&Vec::<u8>::from(vkey_wit.vkey.clone()))
-            == *req_signer
-        {
-            if !verify_signature(vkey_wit, tx_hash) {
+        if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *vkey_hash {
+            if !verify_signature(vkey_wit, data_to_verify) {
                 return Err(Alonzo(ReqSignerWrongSig));
             } else {
                 return Ok(());

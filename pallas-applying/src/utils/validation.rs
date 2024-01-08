@@ -74,6 +74,8 @@ pub enum AlonzoError {
     RedeemerMissing,
     TxExUnitsExceeded,
     MaxTxSizeExceeded,
+    MissingVKWitness,
+    VKWrongSignature,
     MissingReqSigner,
     ReqSignerWrongSig,
 }

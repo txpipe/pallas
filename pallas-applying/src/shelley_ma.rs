@@ -32,6 +32,7 @@ pub fn validate_shelley_ma_tx(
     era: &Era,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
+    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let size: &u64 = &get_alonzo_comp_tx_size(tx_body).ok_or(ShelleyMA(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
@@ -42,7 +43,7 @@ pub fn validate_shelley_ma_tx(
     check_fees(tx_body, size, prot_pps)?;
     check_network_id(tx_body, network_id)?;
     check_metadata(tx_body, mtx)?;
-    check_witnesses(tx_body, utxos, mtx)?;
+    check_witnesses(tx_body, tx_wits, utxos)?;
     check_minting(tx_body, mtx)
 }
 
@@ -214,8 +215,11 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
     }
 }
 
-fn check_witnesses(tx_body: &TransactionBody, utxos: &UTxOs, mtx: &MintedTx) -> ValidationResult {
-    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+fn check_witnesses(
+    tx_body: &TransactionBody,
+    tx_wits: &MintedWitnessSet,
+    utxos: &UTxOs,
+) -> ValidationResult {
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
         &mut mk_alonzo_vk_wits_check_list(&tx_wits.vkeywitness, ShelleyMA(MissingVKWitness))?;
     let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
