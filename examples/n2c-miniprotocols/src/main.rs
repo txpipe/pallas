@@ -39,7 +39,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let addrx: Address = Address::from_bech32(&addrx).unwrap();
     let addrx: Addr = addrx.to_vec().into();
 
-    let addry = "008c5bf0f2af6f1ef08bb3f6ec702dd16e1c514b7e1d12f7549b47db9f4d943c7af0aaec774757d4745d1a2c8dd3220e6ec2c9df23f757a2f8".to_string();
+    let addry =
+    "008c5bf0f2af6f1ef08bb3f6ec702dd16e1c514b7e1d12f7549b47db9f4d943c7af0aaec774757d4745d1a2c8dd3220e6ec2c9df23f757a2f8"
+    .to_string();
     let addry: Address = Address::from_hex(&addry).unwrap();
     let addry: Addr = addry.to_vec().into();
 
@@ -48,6 +50,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .await
         .unwrap();
     info!("result: {:?}", result);
+
+    let result = queries_v16::get_current_pparams(client, era).await.unwrap();
+    println!("result: {:?}", result);
 
     client.send_release().await.unwrap();
 }

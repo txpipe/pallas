@@ -54,6 +54,7 @@ pub enum HardForkQuery {
     GetCurrentEra,
 }
 
+pub type Epoch = u64;
 pub type Proto = u16;
 pub type Era = u16;
 
@@ -87,6 +88,98 @@ pub struct SystemStart {
 
     #[n(2)]
     pub picoseconds_of_day: u64,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct RationalNumber {
+    pub numerator: u64,
+    pub denominator: u64,
+}
+
+pub type UnitInterval = RationalNumber;
+pub type PositiveInterval = RationalNumber;
+
+pub type ProtocolVersionMajor = u64;
+pub type ProtocolVersionMinor = u64;
+
+pub type CostModel = Vec<i64>;
+
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(map)]
+pub struct CostMdls {
+    #[n(0)]
+    pub plutus_v1: Option<CostModel>,
+
+    #[n(1)]
+    pub plutus_v2: Option<CostModel>,
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct ExUnitPrices {
+    #[n(0)]
+    mem_price: PositiveInterval,
+
+    #[n(1)]
+    step_price: PositiveInterval,
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct ExUnits {
+    #[n(0)]
+    pub mem: u32,
+    #[n(1)]
+    pub steps: u64,
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(array)]
+pub struct ProtocolParam {
+    #[n(0)]
+    pub minfee_a: Option<u32>,
+    #[n(1)]
+    pub minfee_b: Option<u32>,
+    #[n(2)]
+    pub max_block_body_size: Option<u32>,
+    #[n(3)]
+    pub max_transaction_size: Option<u32>,
+    #[n(4)]
+    pub max_block_header_size: Option<u32>,
+    #[n(5)]
+    pub key_deposit: Option<Coin>,
+    #[n(6)]
+    pub pool_deposit: Option<Coin>,
+    #[n(7)]
+    pub maximum_epoch: Option<Epoch>,
+    #[n(8)]
+    pub desired_number_of_stake_pools: Option<u32>,
+    #[n(9)]
+    pub pool_pledge_influence: Option<RationalNumber>,
+    #[n(10)]
+    pub expansion_rate: Option<UnitInterval>,
+    #[n(11)]
+    pub treasury_growth_rate: Option<UnitInterval>,
+    #[n(12)]
+    pub protocol_version_major: Option<ProtocolVersionMajor>,
+    #[n(13)]
+    pub protocol_version_minor: Option<ProtocolVersionMinor>,
+    #[n(14)]
+    pub min_pool_cost: Option<Coin>,
+    #[n(15)]
+    pub ada_per_utxo_byte: Option<Coin>,
+    #[n(16)]
+    pub cost_models_for_script_languages: Option<CostMdls>,
+    #[n(17)]
+    pub execution_costs: Option<ExUnitPrices>,
+    #[n(18)]
+    pub max_tx_ex_units: Option<ExUnits>,
+    #[n(19)]
+    pub max_block_ex_units: Option<ExUnits>,
+    #[n(20)]
+    pub max_value_size: Option<u32>,
+    #[n(21)]
+    pub collateral_percentage: Option<u32>,
+    #[n(22)]
+    pub max_collateral_inputs: Option<u32>,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
@@ -174,6 +267,18 @@ pub async fn get_current_era(client: &mut Client) -> Result<Era, ClientError> {
 
 pub async fn get_system_start(client: &mut Client) -> Result<SystemStart, ClientError> {
     let query = Request::GetSystemStart;
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+pub async fn get_current_pparams(
+    client: &mut Client,
+    era: u16,
+) -> Result<Vec<ProtocolParam>, ClientError> {
+    let query = BlockQuery::GetCurrentPParams;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
 
     Ok(result)
