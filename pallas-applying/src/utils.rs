@@ -4,10 +4,12 @@ pub mod environment;
 pub mod validation;
 
 pub use environment::*;
+use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{minicbor::encode, utils::KeyValuePairs};
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::alonzo::{
-    AssetName, Coin, Multiasset, NetworkId, PolicyId, TransactionBody, VKeyWitness, Value,
+    AssetName, Coin, Multiasset, NetworkId, PolicyId, TransactionBody, TransactionOutput,
+    VKeyWitness, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -227,4 +229,16 @@ pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &Vec<u8>) -> bool 
     signature_source.copy_from_slice(vk_wit.signature.as_slice());
     let sig: Signature = From::<[u8; Signature::SIZE]>::from(signature_source);
     public_key.verify(data_to_verify, &sig)
+}
+
+pub fn get_payment_part(tx_out: &TransactionOutput) -> Option<ShelleyPaymentPart> {
+    let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(tx_out.address.clone()))?;
+    Some(addr.payment().clone())
+}
+
+pub fn get_shelley_address(address: Vec<u8>) -> Option<ShelleyAddress> {
+    match Address::from_bytes(&address) {
+        Ok(Address::Shelley(sa)) => Some(sa),
+        _ => None,
+    }
 }

@@ -1,14 +1,15 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size,
-    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature, FeePolicy,
+    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size, get_payment_part,
+    get_shelley_address, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
+    FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
-use pallas_addresses::{Address, PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
+use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::encode,
     utils::{Bytes, KeepRaw},
@@ -182,20 +183,13 @@ fn check_fees(
 
 fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
-        let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(output.address.clone()))?;
+        let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(output.address.clone()))
+            .ok_or(ShelleyMA(AddressDecoding))?;
         if addr.network().value() != *network_id {
             return Err(ShelleyMA(WrongNetworkID));
         }
     }
     Ok(())
-}
-
-fn get_shelley_address(address: Vec<u8>) -> Result<ShelleyAddress, ValidationError> {
-    match Address::from_bytes(&address) {
-        Ok(Address::Shelley(sa)) => Ok(sa),
-        Ok(_) => Err(ShelleyMA(WrongEraOutput)),
-        Err(_) => Err(ShelleyMA(AddressDecoding)),
-    }
 }
 
 fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
@@ -227,7 +221,7 @@ fn check_witnesses(
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
-                    match get_payment_part(alonzo_comp_output)? {
+                    match get_payment_part(alonzo_comp_output).ok_or(ShelleyMA(AddressDecoding))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, tx_hash, vk_wits)?
                         }
@@ -245,11 +239,6 @@ fn check_witnesses(
         }
     }
     check_remaining_vk_wits(vk_wits, tx_hash)
-}
-
-fn get_payment_part(tx_out: &TransactionOutput) -> Result<ShelleyPaymentPart, ValidationError> {
-    let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(tx_out.address.clone()))?;
-    Ok(addr.payment().clone())
 }
 
 fn check_vk_wit(
@@ -321,7 +310,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult 
                     return Ok(());
                 }
             }
-            Ok(())
+            Err(ShelleyMA(MintingLacksPolicy))
         }
     }
 }

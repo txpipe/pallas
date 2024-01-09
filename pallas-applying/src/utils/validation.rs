@@ -78,6 +78,11 @@ pub enum AlonzoError {
     VKWrongSignature,
     MissingReqSigner,
     ReqSignerWrongSig,
+    MissingScriptWitness,
+    MintingLacksPolicy,
+    InputDecoding,
+    UnneededNativeScript,
+    UnneededPlutusScript,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

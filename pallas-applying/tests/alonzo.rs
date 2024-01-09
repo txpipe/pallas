@@ -15,11 +15,11 @@ use pallas_codec::{
         decode::{Decode, Decoder},
         encode,
     },
-    utils::{Bytes, KeyValuePairs},
+    utils::{Bytes, KeepRaw, KeyValuePairs},
 };
 use pallas_primitives::alonzo::{
-    AddrKeyhash, MintedTx, MintedWitnessSet, NetworkId, TransactionBody, TransactionOutput,
-    VKeyWitness, Value,
+    AddrKeyhash, MintedTx, MintedWitnessSet, NativeScript, NetworkId, TransactionBody,
+    TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 use std::borrow::Cow;
@@ -170,6 +170,48 @@ mod alonzo_tests {
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
+    // e55dd217f14615f91b1ac5a31ee75ef1b7397cd5ded298fa38b38e0915dd77a2
+    fn successful_mainnet_tx_with_minting() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo3.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo3.address")),
+                Value::Coin(100107582),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 6447035,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
@@ -1615,6 +1657,308 @@ mod alonzo_tests {
             Ok(()) => assert!(false, "Witness signature should verify the transaction"),
             Err(err) => match err {
                 Alonzo(VKWrongSignature) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // plutus scripts is empty.
+    fn missing_plutus_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.plutus_script = Some(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Missing Plutus script"),
+            Err(err) => match err {
+                Alonzo(MissingScriptWitness) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // plutus scripts contains an extra script.
+    fn extra_plutus_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let native_script: NativeScript = NativeScript::InvalidBefore(0u64);
+        let mut encode_native_script_buf: Vec<u8> = Vec::new();
+        let _ = encode(native_script, &mut encode_native_script_buf);
+        let keep_raw_native_script: KeepRaw<NativeScript> = Decode::decode(
+            &mut Decoder::new(&encode_native_script_buf.as_slice()),
+            &mut (),
+        )
+        .unwrap();
+        tx_wits.native_script = Some(vec![keep_raw_native_script]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded Plutus script"),
+            Err(err) => match err {
+                Alonzo(UnneededNativeScript) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_minting, except that minting is not
+    // supported by the corresponding native script.
+    fn minting_lacks_policy() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo3.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo3.address")),
+                Value::Coin(100107582),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.native_script = Some(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 6447035,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Minting policy is not supported by native script"),
+            Err(err) => match err {
+                Alonzo(MintingLacksPolicy) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
