@@ -11,11 +11,12 @@ use crate::utils::{
 };
 use pallas_addresses::{Address, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{minicbor::encode, utils::KeepRaw};
+use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{
-        AddrKeyhash, MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript, PolicyId,
-        Redeemer, RequiredSigners, TransactionBody, TransactionInput, TransactionOutput,
-        VKeyWitness, Value,
+        AddrKeyhash, Mint, MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript,
+        PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners, TransactionBody,
+        TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -398,7 +399,7 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     };
     check_needed_scripts_are_included(tx_body, utxos, &native_scripts, &plutus_scripts)?;
     check_datums(tx_body, utxos, &tx_wits.plutus_data)?;
-    check_redeemers(tx_body, utxos, tx_wits)?;
+    check_redeemers(tx_body, tx_wits, utxos)?;
     check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
     check_vkey_input_wits(mtx, &tx_wits.vkeywitness, utxos)
 }
@@ -433,38 +434,179 @@ fn check_needed_scripts_are_included(
 
 fn check_datums(
     tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-    plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
+    utxos: &UTxOs,
+    option_plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
 ) -> ValidationResult {
-    check_input_datum_hash_in_witness_set(tx_body, plutus_data)?;
-    check_datums_from_witness_set_in_inputs_or_output(tx_body, plutus_data)
+    let mut plutus_data: Vec<(bool, &KeepRaw<PlutusData>)> = match option_plutus_data {
+        Some(plutus_data) => plutus_data.iter().map(|x| (false, x)).collect(),
+        None => Vec::new(),
+    };
+    check_input_datum_hash_in_witness_set(tx_body, utxos, &mut plutus_data)?;
+    check_datums_from_witness_set_in_inputs_or_outputs(tx_body, &plutus_data)
 }
 
 // Each datum hash in a Plutus script input matches the hash of a datum in the
 // transaction witness set.
 fn check_input_datum_hash_in_witness_set(
-    _tx_body: &TransactionBody,
-    _plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
+    tx_body: &TransactionBody,
+    utxos: &UTxOs,
+    plutus_data: &mut Vec<(bool, &KeepRaw<PlutusData>)>,
 ) -> ValidationResult {
+    for input in &tx_body.inputs {
+        match utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .and_then(MultiEraOutput::as_alonzo)
+        {
+            Some(output) => {
+                if let Some(datum_hash) = output.datum_hash {
+                    find_datum_hash(datum_hash, plutus_data)?
+                }
+            }
+            None => return Err(Alonzo(InputNotInUTxO)),
+        }
+    }
     Ok(())
+}
+
+fn find_datum_hash(
+    datum_hash: Hash<32>,
+    plutus_data: &mut Vec<(bool, &KeepRaw<PlutusData>)>,
+) -> ValidationResult {
+    for (found, datum) in plutus_data {
+        let computed_datum_hash = pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor());
+        if datum_hash == computed_datum_hash {
+            *found = true;
+            return Ok(());
+        }
+    }
+    Err(Alonzo(DatumMissing))
 }
 
 // Each datum object in the transaction witness set corresponds either to an
 // output datum hash or to the datum hash of a Plutus script input.
-fn check_datums_from_witness_set_in_inputs_or_output(
-    _tx_body: &TransactionBody,
-    _plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
+fn check_datums_from_witness_set_in_inputs_or_outputs(
+    tx_body: &TransactionBody,
+    plutus_data: &Vec<(bool, &KeepRaw<PlutusData>)>,
 ) -> ValidationResult {
+    for (found, datum) in plutus_data {
+        if !found {
+            find_datum(datum, &tx_body.outputs)?
+        }
+    }
     Ok(())
+}
+
+fn find_datum(datum: &KeepRaw<PlutusData>, outputs: &[TransactionOutput]) -> ValidationResult {
+    for output in outputs {
+        if let Some(hash) = output.datum_hash {
+            if pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor()) == hash {
+                return Ok(());
+            }
+        }
+    }
+    Err(Alonzo(UnneededDatum))
 }
 
 // The set of redeemers in the transaction witness set should match the set of
 // Plutus scripts needed to validate the transaction.
 fn check_redeemers(
-    _tx_body: &TransactionBody,
-    _utxos: &UTxOs,
-    _tx_wits: &MintedWitnessSet,
+    tx_body: &TransactionBody,
+    tx_wits: &MintedWitnessSet,
+    utxos: &UTxOs,
 ) -> ValidationResult {
+    let redeemer_pointers: Vec<RedeemerPointer> = match &tx_wits.redeemer {
+        Some(redeemers) => redeemers
+            .iter()
+            .map(|x| RedeemerPointer {
+                tag: x.tag.clone(),
+                index: x.index,
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+    let plutus_scripts: Vec<RedeemerPointer> =
+        mk_plutus_script_redeemer_pointers(tx_body, tx_wits, utxos);
+    redeemer_pointers_coincide(&redeemer_pointers, &plutus_scripts)
+}
+
+fn mk_plutus_script_redeemer_pointers(
+    tx_body: &TransactionBody,
+    tx_wits: &MintedWitnessSet,
+    utxos: &UTxOs,
+) -> Vec<RedeemerPointer> {
+    match &tx_wits.plutus_script {
+        Some(plutus_scripts) => {
+            let sorted_inputs: Vec<TransactionInput> = sort_inputs(&tx_body.inputs);
+            let mut res: Vec<RedeemerPointer> = Vec::new();
+            for (index, input) in sorted_inputs.iter().enumerate() {
+                if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
+                    for plutus_script in plutus_scripts.iter() {
+                        let hashed_script: PolicyId = compute_plutus_script_hash(plutus_script);
+                        if script_hash == hashed_script {
+                            res.push(RedeemerPointer {
+                                tag: RedeemerTag::Spend,
+                                index: index as u32,
+                            })
+                        }
+                    }
+                }
+            }
+            match &tx_body.mint {
+                Some(minted_value) => {
+                    let sorted_policies: Vec<PolicyId> = sort_policies(minted_value);
+                    for (index, policy) in sorted_policies.iter().enumerate() {
+                        for plutus_script in plutus_scripts.iter() {
+                            let hashed_script: PolicyId = compute_plutus_script_hash(plutus_script);
+                            if *policy == hashed_script {
+                                res.push(RedeemerPointer {
+                                    tag: RedeemerTag::Mint,
+                                    index: index as u32,
+                                })
+                            }
+                        }
+                    }
+                }
+                None => (),
+            }
+            res
+        }
+        None => Vec::new(),
+    }
+}
+
+// Lexicographical sorting for inputs.
+fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
+    let mut res: Vec<TransactionInput> = unsorted_inputs.to_owned();
+    res.sort();
+    res
+}
+
+// Lexicographical sorting for PolicyID's.
+fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
+    let mut res: Vec<PolicyId> = mint
+        .clone()
+        .to_vec()
+        .iter()
+        .map(|(policy_id, _)| *policy_id)
+        .collect();
+    res.sort();
+    res
+}
+
+fn redeemer_pointers_coincide(
+    redeemers: &Vec<RedeemerPointer>,
+    plutus_scripts: &Vec<RedeemerPointer>,
+) -> ValidationResult {
+    for redeemer_pointer in redeemers {
+        if plutus_scripts.iter().all(|x| x != redeemer_pointer) {
+            return Err(Alonzo(UnneededRedeemer));
+        }
+    }
+    for plutus_script_red_pointer in plutus_scripts {
+        if redeemers.iter().all(|x| x != plutus_script_red_pointer) {
+            return Err(Alonzo(RedeemerMissing));
+        }
+    }
     Ok(())
 }
 
@@ -493,7 +635,7 @@ fn check_script_inputs(
     }
     for (input_script_covered, _) in inputs {
         if !input_script_covered {
-            return Err(Alonzo(MissingScriptWitness));
+            return Err(Alonzo(ScriptWitnessMissing));
         }
     }
     Ok(())
@@ -578,7 +720,7 @@ fn check_vkey_input_wits(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
-        &mut mk_alonzo_vk_wits_check_list(vkey_wits, Alonzo(MissingVKWitness))?;
+        &mut mk_alonzo_vk_wits_check_list(vkey_wits, Alonzo(VKWitnessMissing))?;
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
     inputs_and_collaterals.extend(tx_body.inputs.clone());
@@ -619,7 +761,7 @@ fn check_vk_wit(
             }
         }
     }
-    Err(Alonzo(MissingVKWitness))
+    Err(Alonzo(VKWitnessMissing))
 }
 
 fn check_remaining_vk_wits(
@@ -652,7 +794,7 @@ fn check_required_signers(
                     find_and_check_req_signer(req_signer, vkey_wits, data_to_verify)?
                 }
             }
-            None => return Err(Alonzo(MissingReqSigner)),
+            None => return Err(Alonzo(ReqSignerMissing)),
         }
     }
     Ok(())
@@ -673,7 +815,7 @@ fn find_and_check_req_signer(
             }
         }
     }
-    Err(Alonzo(MissingReqSigner))
+    Err(Alonzo(ReqSignerMissing))
 }
 
 // The required script languages are included in the protocol parameters.

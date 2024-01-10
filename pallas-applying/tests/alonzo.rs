@@ -18,8 +18,8 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw, KeyValuePairs},
 };
 use pallas_primitives::alonzo::{
-    AddrKeyhash, MintedTx, MintedWitnessSet, NativeScript, NetworkId, TransactionBody,
-    TransactionOutput, VKeyWitness, Value,
+    AddrKeyhash, ExUnits, MintedTx, MintedWitnessSet, NativeScript, NetworkId, PlutusData,
+    Redeemer, RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 use std::borrow::Cow;
@@ -96,7 +96,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -236,10 +243,7 @@ mod alonzo_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.inputs = Vec::new();
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -328,10 +332,7 @@ mod alonzo_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.validity_interval_start = Some(44237277); // One slot after the block.
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -385,10 +386,7 @@ mod alonzo_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.ttl = Some(6447028); // One slot before the block.
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -495,7 +493,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -553,10 +558,7 @@ mod alonzo_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.collateral = None;
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -617,7 +619,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -727,7 +736,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -861,7 +877,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -983,7 +1006,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -1088,10 +1118,7 @@ mod alonzo_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.fee = tx_body.fee - 1;
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1154,10 +1181,7 @@ mod alonzo_tests {
         new_outputs.insert(0, altered_output);
         tx_body.outputs = new_outputs;
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1211,10 +1235,7 @@ mod alonzo_tests {
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.network_id = Some(NetworkId::Two);
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1284,7 +1305,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -1444,7 +1472,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -1507,10 +1542,7 @@ mod alonzo_tests {
             .unwrap();
         tx_body.required_signers = Some(vec![req_signer]);
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_body, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1541,7 +1573,7 @@ mod alonzo_tests {
                 "All required signers should have signed the transaction"
             ),
             Err(err) => match err {
-                Alonzo(MissingReqSigner) => (),
+                Alonzo(ReqSignerMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1564,10 +1596,7 @@ mod alonzo_tests {
         let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.vkeywitness = Some(vec![]);
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_wits, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1595,7 +1624,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Missing verification key witness"),
             Err(err) => match err {
-                Alonzo(MissingVKWitness) => (),
+                Alonzo(VKWitnessMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1625,10 +1654,7 @@ mod alonzo_tests {
             ).unwrap().into();
         tx_wits.vkeywitness = Some(vec![wit]);
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_wits, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1687,7 +1713,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -1745,10 +1778,7 @@ mod alonzo_tests {
         let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.plutus_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_wits, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1776,7 +1806,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Missing Plutus script"),
             Err(err) => match err {
-                Alonzo(MissingScriptWitness) => (),
+                Alonzo(ScriptWitnessMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1807,7 +1837,14 @@ mod alonzo_tests {
                             )])),
                         )])),
                     ),
-                    None,
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
                 ),
                 (
                     // (tx hash, tx output index):
@@ -1873,10 +1910,7 @@ mod alonzo_tests {
         .unwrap();
         tx_wits.native_script = Some(vec![keep_raw_native_script]);
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_wits, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1927,10 +1961,7 @@ mod alonzo_tests {
         let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.native_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
-        match encode(tx_wits, &mut tx_buf) {
-            Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
-        };
+        let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -1959,6 +1990,515 @@ mod alonzo_tests {
             Ok(()) => assert!(false, "Minting policy is not supported by native script"),
             Err(err) => match err {
                 Alonzo(MintingLacksPolicy) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the datum of
+    // the input script UTxO is removed from the MintedWitnessSet.
+    fn missing_input_datum() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.plutus_data = None;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Missing datum"),
+            Err(err) => match err {
+                Alonzo(DatumMissing) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // PlutusData is extended with an unnecessary new element.
+    fn extra_input_datum() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let old_datum: KeepRaw<PlutusData> = tx_wits.plutus_data.unwrap().pop().unwrap();
+        let new_datum: PlutusData = PlutusData::Array(Vec::new());
+        let mut new_datum_buf: Vec<u8> = Vec::new();
+        let _ = encode(new_datum, &mut new_datum_buf);
+        let keep_raw_new_datum: KeepRaw<PlutusData> =
+            Decode::decode(&mut Decoder::new(&new_datum_buf.as_slice()), &mut ()).unwrap();
+        tx_wits.plutus_data = Some(vec![old_datum, keep_raw_new_datum]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded datum"),
+            Err(err) => match err {
+                Alonzo(UnneededDatum) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // Redeemers is extended with an unnecessary new element.
+    fn extra_redeemer() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let old_redeemer: Redeemer = tx_wits.redeemer.unwrap().pop().unwrap();
+        let new_redeemer: Redeemer = Redeemer {
+            tag: RedeemerTag::Spend,
+            index: 15,
+            data: PlutusData::Array(Vec::new()),
+            ex_units: ExUnits { mem: 0, steps: 0 },
+        };
+        tx_wits.redeemer = Some(vec![old_redeemer, new_redeemer]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Err(err) => match err {
+                Alonzo(UnneededRedeemer) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // Redeemers is empty.
+    fn missing_redeemer() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.redeemer = None;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Err(err) => match err {
+                Alonzo(RedeemerMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

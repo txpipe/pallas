@@ -74,15 +74,18 @@ pub enum AlonzoError {
     RedeemerMissing,
     TxExUnitsExceeded,
     MaxTxSizeExceeded,
-    MissingVKWitness,
+    VKWitnessMissing,
     VKWrongSignature,
-    MissingReqSigner,
+    ReqSignerMissing,
     ReqSignerWrongSig,
-    MissingScriptWitness,
+    ScriptWitnessMissing,
     MintingLacksPolicy,
     InputDecoding,
     UnneededNativeScript,
     UnneededPlutusScript,
+    UnneededRedeemer,
+    DatumMissing,
+    UnneededDatum,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
