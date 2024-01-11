@@ -2,8 +2,8 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
-    get_payment_part, get_shelley_address, mk_alonzo_vk_wits_check_list, values_are_equal,
-    verify_signature, FeePolicy,
+    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
+    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature, FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -19,7 +19,7 @@ use pallas_primitives::{
     byron::TxOut,
 };
 use pallas_traverse::{ComputeHash, Era, MultiEraInput, MultiEraOutput};
-use std::ops::Deref;
+use std::{cmp::max, ops::Deref};
 
 pub fn validate_shelley_ma_tx(
     mtx: &MintedTx,
@@ -86,12 +86,12 @@ fn check_min_lovelace(
     prot_pps: &ShelleyProtParams,
     era: &Era,
 ) -> ValidationResult {
-    for TransactionOutput { amount, .. } in &tx_body.outputs {
-        match (era, amount) {
-            (Era::Shelley, Value::Coin(lovelace))
-            | (Era::Allegra, Value::Coin(lovelace))
-            | (Era::Mary, Value::Multiasset(lovelace, _)) => {
-                if *lovelace < prot_pps.min_lovelace {
+    for output in &tx_body.outputs {
+        match era {
+            Era::Shelley | Era::Allegra | Era::Mary => {
+                if get_lovelace_from_alonzo_val(&output.amount)
+                    < compute_min_lovelace(output, prot_pps)
+                {
                     return Err(ShelleyMA(MinLovelaceUnreached));
                 }
             }
@@ -99,6 +99,17 @@ fn check_min_lovelace(
         }
     }
     Ok(())
+}
+
+fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &ShelleyProtParams) -> u64 {
+    match &output.amount {
+        Value::Coin(_) => prot_pps.min_lovelace,
+        Value::Multiasset(lovelace, _) => {
+            let utxo_entry_size: u64 = 27 + get_val_size_in_words(&output.amount);
+            let coins_per_utxo_word: u64 = prot_pps.min_lovelace / 27;
+            max(*lovelace, utxo_entry_size * coins_per_utxo_word)
+        }
+    }
 }
 
 fn check_preservation_of_value(

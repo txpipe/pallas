@@ -51,7 +51,7 @@ pub struct AlonzoProtParams {
     pub max_val_size: u64,
     pub collateral_percent: u64,
     pub max_collateral_inputs: u64,
-    pub coints_per_utxo_word: u64,
+    pub coins_per_utxo_word: u64,
 }
 
 #[derive(Debug, Clone)]

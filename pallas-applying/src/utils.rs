@@ -198,7 +198,7 @@ fn find_assets(assets: &KeyValuePairs<AssetName, Coin>, asset_name: &AssetName) 
     None
 }
 
-pub fn get_lovelace_from_alonzo_value(val: &Value) -> Coin {
+pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
     match val {
         Value::Coin(res) => *res,
         Value::Multiasset(res, _) => *res,
@@ -250,4 +250,10 @@ pub fn extract_auxiliary_data<'a>(mtx: &'a MintedTx) -> Option<&'a [u8]> {
     Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
         .as_ref()
         .map(KeepRaw::raw_cbor)
+}
+
+pub fn get_val_size_in_words(val: &Value) -> u64 {
+    let mut tx_buf: Vec<u8> = Vec::new();
+    let _ = encode(val, &mut tx_buf);
+    (tx_buf.len() as u64 + 7) / 8 // ceiling of the result of dividing
 }

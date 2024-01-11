@@ -2,7 +2,7 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_value, get_network_id_value, get_payment_part,
+    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_val_size_in_words,
     mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
@@ -307,13 +307,21 @@ fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
 
 // All transaction outputs should contain at least the minimum lovelace.
 fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &AlonzoProtParams) -> ValidationResult {
-    for TransactionOutput { amount, .. } in tx_body.outputs.iter() {
-        // multiply prot_pps parameter by size of entire output
-        if get_lovelace_from_alonzo_value(amount) < prot_pps.coints_per_utxo_word {
-            return Err(Alonzo(OutputMinLovelace));
+    for output in tx_body.outputs.iter() {
+        if get_lovelace_from_alonzo_val(&output.amount) < compute_min_lovelace(output, prot_pps) {
+            return Err(Alonzo(MinLovelaceUnreached));
         }
     }
     Ok(())
+}
+
+fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams) -> u64 {
+    let utxo_entry_size: u64 = get_val_size_in_words(&output.amount)
+        + match output.datum_hash {
+            Some(_) => 37, // utxoEntrySizeWithoutVal (27) + dataHashSize (10)
+            None => 27,    // utxoEntrySizeWithoutVal
+        };
+    prot_pps.coins_per_utxo_word * utxo_entry_size
 }
 
 // The size of the value in each of the outputs should not be greater than the

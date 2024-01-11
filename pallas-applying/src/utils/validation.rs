@@ -68,7 +68,7 @@ pub enum AlonzoError {
     NonLovelaceCollateral,
     NegativeValue,
     PreservationOfValue,
-    OutputMinLovelace,
+    MinLovelaceUnreached,
     OutputWrongNetworkID,
     TxWrongNetworkID,
     RedeemerMissing,
