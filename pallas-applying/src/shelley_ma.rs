@@ -1,23 +1,20 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size, get_payment_part,
-    get_shelley_address, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
-    FeePolicy,
+    add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
+    get_payment_part, get_shelley_address, mk_alonzo_vk_wits_check_list, values_are_equal,
+    verify_signature, FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
 use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::{
-    minicbor::encode,
-    utils::{Bytes, KeepRaw},
-};
+use pallas_codec::{minicbor::encode, utils::KeepRaw};
 use pallas_primitives::{
     alonzo::{
-        AuxiliaryData, MintedTx, MintedWitnessSet, Multiasset, NativeScript, PolicyId,
-        TransactionBody, TransactionOutput, VKeyWitness, Value,
+        MintedTx, MintedWitnessSet, Multiasset, NativeScript, PolicyId, TransactionBody,
+        TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -46,12 +43,6 @@ pub fn validate_shelley_ma_tx(
     check_metadata(tx_body, mtx)?;
     check_witnesses(tx_body, tx_wits, utxos)?;
     check_minting(tx_body, mtx)
-}
-
-fn extract_auxiliary_data<'a>(mtx: &'a MintedTx) -> Option<&'a [u8]> {
-    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
-        .as_ref()
-        .map(KeepRaw::raw_cbor)
 }
 
 fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
@@ -193,8 +184,7 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
 }
 
 fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    let auxiliary_data_hash: &Option<Bytes> = &tx_body.auxiliary_data_hash;
-    match (auxiliary_data_hash, &extract_auxiliary_data(mtx)) {
+    match (&tx_body.auxiliary_data_hash, extract_auxiliary_data(mtx)) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()

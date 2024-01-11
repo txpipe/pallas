@@ -15,7 +15,7 @@ use pallas_codec::{
         decode::{Decode, Decoder},
         encode,
     },
-    utils::{Bytes, KeepRaw, KeyValuePairs},
+    utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
 };
 use pallas_primitives::alonzo::{
     AddrKeyhash, ExUnits, MintedTx, MintedWitnessSet, NativeScript, NetworkId, PlutusData,
@@ -219,6 +219,48 @@ mod alonzo_tests {
             }),
             prot_magic: 764824073,
             block_slot: 6447035,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
+    // 8b6debb3340e5dac098ddb25fa647a99de12a6c1987c98b17ae074d6917dba16
+    fn successful_mainnet_tx_with_metadata() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo4.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo4.address")),
+                Value::Coin(3224834468),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 6447038,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
@@ -2499,6 +2541,52 @@ mod alonzo_tests {
             Ok(()) => assert!(false, "Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(RedeemerMissing) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_metadata, except that the AuxiliaryData is
+    // removed.
+    fn auxiliary_data_removed() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo4.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        mtx.auxiliary_data = Nullable::Null;
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo4.address")),
+                Value::Coin(3224834468),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coints_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 6447038,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Err(err) => match err {
+                Alonzo(MetadataHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

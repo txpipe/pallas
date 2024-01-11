@@ -86,6 +86,7 @@ pub enum AlonzoError {
     UnneededRedeemer,
     DatumMissing,
     UnneededDatum,
+    MetadataHash,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

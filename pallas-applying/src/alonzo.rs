@@ -1,7 +1,7 @@
 //! Utilities required for Shelley-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_alonzo_comp_tx_size,
+    add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
     get_lovelace_from_alonzo_value, get_network_id_value, get_payment_part,
     mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
@@ -743,7 +743,7 @@ fn check_vkey_input_wits(
             None => return Err(Alonzo(InputNotInUTxO)),
         }
     }
-    check_remaining_vk_wits(vk_wits, tx_hash)
+    check_remaining_vk_wits(vk_wits, tx_hash) // required for native scripts
 }
 
 fn check_vk_wit(
@@ -824,8 +824,20 @@ fn check_languages(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationR
 }
 
 // The metadata of the transaction is valid.
-fn check_metadata(_tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    Ok(())
+fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match (&tx_body.auxiliary_data_hash, extract_auxiliary_data(mtx)) {
+        (Some(metadata_hash), Some(metadata)) => {
+            if metadata_hash.as_slice()
+                == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
+            {
+                Ok(())
+            } else {
+                Err(Alonzo(MetadataHash))
+            }
+        }
+        (None, None) => Ok(()),
+        _ => Err(Alonzo(MetadataHash)),
+    }
 }
 
 // The script data integrity hash matches the hash of the redeemers, languages

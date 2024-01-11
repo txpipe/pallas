@@ -14,7 +14,7 @@ use pallas_codec::{
         decode::{Decode, Decoder},
         encode,
     },
-    utils::Bytes,
+    utils::{Bytes, Nullable},
 };
 use pallas_primitives::alonzo::{
     MintedTx, MintedWitnessSet, TransactionBody, TransactionOutput, VKeyWitness, Value,
@@ -175,7 +175,7 @@ mod shelley_ma_tests {
             )],
         );
         // Clear the set of inputs in the transaction.
-        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         tx_body.inputs = Vec::new();
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
@@ -249,7 +249,7 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         tx_body.ttl = None;
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
@@ -396,7 +396,7 @@ mod shelley_ma_tests {
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         tx_body.fee = tx_body.fee - 1;
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
@@ -479,7 +479,7 @@ mod shelley_ma_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
             (&tx_body.outputs).split_first().unwrap();
         let addr: ShelleyAddress =
@@ -540,11 +540,13 @@ mod shelley_ma_tests {
     }
 
     #[test]
-    // Like successful_mainnet_shelley_tx_with_metadata (hash:
-    // c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a)
+    // Same as successful_mainnet_shelley_tx_with_metadata (hash:
+    // c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a), except
+    // that the AuxiliaryData is removed.
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        mtx.auxiliary_data = Nullable::Null;
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -568,8 +570,11 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Ok(()) => assert!(false, "Output with wrong network ID should be rejected"),
+            Err(err) => match err {
+                ShelleyMA(MetadataHash) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
         }
     }
 
@@ -581,7 +586,7 @@ mod shelley_ma_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_wits: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.vkeywitness = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
@@ -629,7 +634,7 @@ mod shelley_ma_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_wits: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let mut wit: VKeyWitness = tx_wits.vkeywitness.clone().unwrap().pop().unwrap();
         let mut sig_as_vec: Vec<u8> = wit.signature.to_vec();
         sig_as_vec.pop();
@@ -682,7 +687,7 @@ mod shelley_ma_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_wits: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.native_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {

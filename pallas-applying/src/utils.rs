@@ -5,11 +5,14 @@ pub mod validation;
 
 pub use environment::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::{minicbor::encode, utils::KeyValuePairs};
+use pallas_codec::{
+    minicbor::encode,
+    utils::{KeepRaw, KeyValuePairs},
+};
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::alonzo::{
-    AssetName, Coin, Multiasset, NetworkId, PolicyId, TransactionBody, TransactionOutput,
-    VKeyWitness, Value,
+    AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NetworkId, PolicyId, TransactionBody,
+    TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -241,4 +244,10 @@ pub fn get_shelley_address(address: Vec<u8>) -> Option<ShelleyAddress> {
         Ok(Address::Shelley(sa)) => Some(sa),
         _ => None,
     }
+}
+
+pub fn extract_auxiliary_data<'a>(mtx: &'a MintedTx) -> Option<&'a [u8]> {
+    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
+        .as_ref()
+        .map(KeepRaw::raw_cbor)
 }
