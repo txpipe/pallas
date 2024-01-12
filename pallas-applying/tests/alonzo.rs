@@ -5,7 +5,7 @@ use hex;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
-        AlonzoError::*, AlonzoProtParams, Environment, FeePolicy, Language, MultiEraProtParams,
+        AlonzoError, AlonzoProtParams, Environment, FeePolicy, Language, MultiEraProtParams,
         ValidationError::*,
     },
     validate, UTxOs,
@@ -313,7 +313,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
-                Alonzo(TxInsEmpty) => (),
+                Alonzo(AlonzoError::TxInsEmpty) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -351,7 +351,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
             Err(err) => match err {
-                Alonzo(InputNotInUTxO) => (),
+                Alonzo(AlonzoError::InputNotInUTxO) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -405,7 +405,7 @@ mod alonzo_tests {
                 "Validity interval lower bound should have been reached",
             ),
             Err(err) => match err {
-                Alonzo(BlockPrecedesValInt) => (),
+                Alonzo(AlonzoError::BlockPrecedesValInt) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -459,7 +459,7 @@ mod alonzo_tests {
                 "Validity interval upper bound should not have been surpassed",
             ),
             Err(err) => match err {
-                Alonzo(BlockExceedsValInt) => (),
+                Alonzo(AlonzoError::BlockExceedsValInt) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -504,7 +504,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Fee should not be below minimum"),
             Err(err) => match err {
-                Alonzo(FeeBelowMin) => (),
+                Alonzo(AlonzoError::FeeBelowMin) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -628,7 +628,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "No collateral inputs"),
             Err(err) => match err {
-                Alonzo(CollateralMissing) => (),
+                Alonzo(AlonzoError::CollateralMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -747,7 +747,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
             Err(err) => match err {
-                Alonzo(TooManyCollaterals) => (),
+                Alonzo(AlonzoError::TooManyCollaterals) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -887,7 +887,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
             Err(err) => match err {
-                Alonzo(CollateralNotVKeyLocked) => (),
+                Alonzo(AlonzoError::CollateralNotVKeyLocked) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1016,7 +1016,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Collateral inputs should contain only lovelace"),
             Err(err) => match err {
-                Alonzo(NonLovelaceCollateral) => (),
+                Alonzo(AlonzoError::NonLovelaceCollateral) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1137,7 +1137,7 @@ mod alonzo_tests {
                 "Collateral inputs should contain the minimum lovelace"
             ),
             Err(err) => match err {
-                Alonzo(CollateralMinLovelace) => (),
+                Alonzo(AlonzoError::CollateralMinLovelace) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1188,7 +1188,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Preservation of value doesn't hold"),
             Err(err) => match err {
-                Alonzo(PreservationOfValue) => (),
+                Alonzo(AlonzoError::PreservationOfValue) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1262,7 +1262,7 @@ mod alonzo_tests {
                 "Transaction network ID should match environment network_id"
             ),
             Err(err) => match err {
-                Alonzo(OutputWrongNetworkID) => (),
+                Alonzo(AlonzoError::OutputWrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1316,7 +1316,7 @@ mod alonzo_tests {
                 "Transaction network ID should match environment network_id"
             ),
             Err(err) => match err {
-                Alonzo(TxWrongNetworkID) => (),
+                Alonzo(AlonzoError::TxWrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1433,7 +1433,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Transaction ex units should be below maximum"),
             Err(err) => match err {
-                Alonzo(TxExUnitsExceeded) => (),
+                Alonzo(AlonzoError::TxExUnitsExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1482,7 +1482,7 @@ mod alonzo_tests {
                 "Transaction size should not exceed the maximum allowed by the protocol parameter"
             ),
             Err(err) => match err {
-                Alonzo(MaxTxSizeExceeded) => (),
+                Alonzo(AlonzoError::MaxTxSizeExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1615,7 +1615,7 @@ mod alonzo_tests {
                 "All required signers should have signed the transaction"
             ),
             Err(err) => match err {
-                Alonzo(ReqSignerMissing) => (),
+                Alonzo(AlonzoError::ReqSignerMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1666,7 +1666,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Missing verification key witness"),
             Err(err) => match err {
-                Alonzo(VKWitnessMissing) => (),
+                Alonzo(AlonzoError::VKWitnessMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1724,7 +1724,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Witness signature should verify the transaction"),
             Err(err) => match err {
-                Alonzo(VKWrongSignature) => (),
+                Alonzo(AlonzoError::VKWrongSignature) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1848,7 +1848,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Missing Plutus script"),
             Err(err) => match err {
-                Alonzo(ScriptWitnessMissing) => (),
+                Alonzo(AlonzoError::ScriptWitnessMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1980,7 +1980,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Unneeded Plutus script"),
             Err(err) => match err {
-                Alonzo(UnneededNativeScript) => (),
+                Alonzo(AlonzoError::UnneededNativeScript) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2031,7 +2031,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Minting policy is not supported by native script"),
             Err(err) => match err {
-                Alonzo(MintingLacksPolicy) => (),
+                Alonzo(AlonzoError::MintingLacksPolicy) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2155,7 +2155,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Missing datum"),
             Err(err) => match err {
-                Alonzo(DatumMissing) => (),
+                Alonzo(AlonzoError::DatumMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2285,7 +2285,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Unneeded datum"),
             Err(err) => match err {
-                Alonzo(UnneededDatum) => (),
+                Alonzo(AlonzoError::UnneededDatum) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2416,7 +2416,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Unneeded redeemer"),
             Err(err) => match err {
-                Alonzo(UnneededRedeemer) => (),
+                Alonzo(AlonzoError::UnneededRedeemer) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2540,7 +2540,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Unneeded redeemer"),
             Err(err) => match err {
-                Alonzo(RedeemerMissing) => (),
+                Alonzo(AlonzoError::RedeemerMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2586,7 +2586,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Unneeded redeemer"),
             Err(err) => match err {
-                Alonzo(MetadataHash) => (),
+                Alonzo(AlonzoError::MetadataHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2631,7 +2631,52 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Unneeded redeemer"),
             Err(err) => match err {
-                Alonzo(MinLovelaceUnreached) => (),
+                Alonzo(AlonzoError::MinLovelaceUnreached) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the value size exceeds the
+    // environment parameter.
+    fn max_val_exceeded() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(include_str!("../../test_data/alonzo1.address")),
+                Value::Coin(1549646822),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 0,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 34482,
+            }),
+            prot_magic: 764824073,
+            block_slot: 44237276,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Err(err) => match err {
+                Alonzo(AlonzoError::MaxValSizeExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

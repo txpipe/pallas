@@ -37,7 +37,7 @@ pub fn validate_alonzo_tx(
     check_fee(tx_body, size, mtx, utxos, prot_pps)?;
     check_preservation_of_value(tx_body, utxos)?;
     check_min_lovelace(tx_body, prot_pps)?;
-    check_output_values_size(tx_body, prot_pps)?;
+    check_output_val_size(tx_body, prot_pps)?;
     check_network_id(tx_body, network_id)?;
     check_tx_size(size, prot_pps)?;
     check_tx_ex_units(mtx, prot_pps)?;
@@ -326,10 +326,15 @@ fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams)
 
 // The size of the value in each of the outputs should not be greater than the
 // maximum allowed.
-fn check_output_values_size(
-    _tx_body: &TransactionBody,
-    _prot_pps: &AlonzoProtParams,
+fn check_output_val_size(
+    tx_body: &TransactionBody,
+    prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
+    for output in tx_body.outputs.iter() {
+        if get_val_size_in_words(&output.amount) > prot_pps.max_val_size {
+            return Err(Alonzo(MaxValSizeExceeded));
+        }
+    }
     Ok(())
 }
 

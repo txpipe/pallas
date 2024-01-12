@@ -69,6 +69,7 @@ pub enum AlonzoError {
     NegativeValue,
     PreservationOfValue,
     MinLovelaceUnreached,
+    MaxValSizeExceeded,
     OutputWrongNetworkID,
     TxWrongNetworkID,
     RedeemerMissing,
