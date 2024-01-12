@@ -10,11 +10,11 @@ use crate::utils::{
     ValidationResult,
 };
 use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::{minicbor::encode, utils::KeepRaw};
+use pallas_codec::minicbor::encode;
 use pallas_primitives::{
     alonzo::{
-        MintedTx, MintedWitnessSet, Multiasset, NativeScript, PolicyId, TransactionBody,
-        TransactionOutput, VKeyWitness, Value,
+        MintedTx, MintedWitnessSet, NativeScript, PolicyId, TransactionBody, TransactionOutput,
+        VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -296,34 +296,28 @@ fn check_remaining_vk_wits(
 }
 
 fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    let values: &Option<Multiasset<i64>> = &tx_body.mint;
-    let scripts: &Option<Vec<KeepRaw<NativeScript>>> = &mtx.transaction_witness_set.native_script;
-    match (values, scripts) {
-        (None, _) => Ok(()),
-        (Some(_), None) => Err(ShelleyMA(MintingLacksPolicy)),
-        (Some(minted_value), Some(raw_native_script_wits)) => {
-            let native_script_wits: &Vec<NativeScript> = &raw_native_script_wits
-                .iter()
-                .map(|x| x.clone().unwrap())
-                .collect();
+    match &tx_body.mint {
+        Some(minted_value) => {
+            let native_script_wits: Vec<NativeScript> =
+                match &mtx.transaction_witness_set.native_script {
+                    None => Vec::new(),
+                    Some(keep_raw_native_script_wits) => keep_raw_native_script_wits
+                        .iter()
+                        .map(|x| x.clone().unwrap())
+                        .collect(),
+                };
             for (policy, _) in minted_value.iter() {
-                if check_policy(policy, native_script_wits) {
-                    return Ok(());
+                if native_script_wits
+                    .iter()
+                    .all(|script| compute_script_hash(script) != *policy)
+                {
+                    return Err(ShelleyMA(MintingLacksPolicy));
                 }
             }
-            Err(ShelleyMA(MintingLacksPolicy))
+            Ok(())
         }
+        None => Ok(()),
     }
-}
-
-fn check_policy(policy: &PolicyId, native_script_wits: &[NativeScript]) -> bool {
-    for script in native_script_wits.iter() {
-        let hashed_script: PolicyId = compute_script_hash(script);
-        if *policy == hashed_script {
-            return true;
-        }
-    }
-    false
 }
 
 fn compute_script_hash(script: &NativeScript) -> PolicyId {

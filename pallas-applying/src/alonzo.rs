@@ -615,8 +615,8 @@ fn redeemer_pointers_coincide(
             return Err(Alonzo(UnneededRedeemer));
         }
     }
-    for plutus_script_red_pointer in plutus_scripts {
-        if redeemers.iter().all(|x| x != plutus_script_red_pointer) {
+    for ps_redeemer_pointer in plutus_scripts {
+        if redeemers.iter().all(|x| x != ps_redeemer_pointer) {
             return Err(Alonzo(RedeemerMissing));
         }
     }
@@ -864,7 +864,32 @@ fn check_script_data_hash(
 }
 
 // Each minted / burned asset is paired with an appropriate native script or
-// minting policy.
-fn check_minting(_tx_body: &TransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    Ok(())
+// Plutus script.
+fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match &tx_body.mint {
+        Some(minted_value) => {
+            let native_script_wits: Vec<NativeScript> =
+                match &mtx.transaction_witness_set.native_script {
+                    None => Vec::new(),
+                    Some(keep_raw_native_script_wits) => keep_raw_native_script_wits
+                        .iter()
+                        .map(|x| x.clone().unwrap())
+                        .collect(),
+                };
+            let plutus_script_wits: Vec<PlutusScript> = Vec::new();
+            for (policy, _) in minted_value.iter() {
+                if native_script_wits
+                    .iter()
+                    .all(|native_script| compute_native_script_hash(native_script) != *policy)
+                    && plutus_script_wits
+                        .iter()
+                        .all(|plutus_script| compute_plutus_script_hash(plutus_script) != *policy)
+                {
+                    return Err(Alonzo(MintingLacksPolicy));
+                }
+            }
+            Ok(())
+        }
+        None => Ok(()),
+    }
 }
