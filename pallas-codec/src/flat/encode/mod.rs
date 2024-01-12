@@ -3,6 +3,9 @@ mod error;
 
 use crate::flat::filler::Filler;
 
+#[cfg(feature = "num-bigint")]
+use num_bigint::BigInt;
+
 pub use encoder::Encoder;
 pub use error::Error;
 
@@ -26,9 +29,10 @@ impl Encode for u8 {
     }
 }
 
-impl Encode for i128 {
+#[cfg(feature = "num-bigint")]
+impl Encode for BigInt {
     fn encode(&self, e: &mut Encoder) -> Result<(), Error> {
-        e.big_integer(*self);
+        e.big_integer(self.clone());
 
         Ok(())
     }

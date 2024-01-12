@@ -1,7 +1,9 @@
 use super::Decode;
-use crate::flat::zigzag;
-
 use super::Error;
+use crate::flat::zigzag::ZigZag;
+
+#[cfg(feature = "num-bigint")]
+use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug)]
 pub struct Decoder<'b> {
@@ -24,7 +26,8 @@ impl<'b> Decoder<'b> {
         T::decode(self)
     }
 
-    /// Decode an integer of any size.
+    /// Decode an isize integer.
+    ///
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
     /// We take the 7 least significant bits as the 7 least significant bits of
@@ -35,10 +38,11 @@ impl<'b> Decoder<'b> {
     /// any more bits. Finally we use zigzag to convert the unsigned integer
     /// back to a signed integer.
     pub fn integer(&mut self) -> Result<isize, Error> {
-        Ok(zigzag::to_isize(self.word()?))
+        Ok(self.word()?.zigzag())
     }
 
-    /// Decode an integer of 128 bits size.
+    /// Decode an integer of an arbitrary size..
+    ///
     /// This is byte alignment agnostic.
     /// First we decode the next 8 bits of the buffer.
     /// We take the 7 least significant bits as the 7 least significant bits of
@@ -48,8 +52,9 @@ impl<'b> Decoder<'b> {
     /// so on. If the most significant bit was instead 0 we stop decoding
     /// any more bits. Finally we use zigzag to convert the unsigned integer
     /// back to a signed integer.
-    pub fn big_integer(&mut self) -> Result<i128, Error> {
-        Ok(zigzag::to_i128(self.big_word()?))
+    #[cfg(feature = "num-bigint")]
+    pub fn big_integer(&mut self) -> Result<BigInt, Error> {
+        Ok(self.big_word()?.zigzag())
     }
 
     /// Decode a single bit of the buffer to get a bool.
@@ -162,15 +167,16 @@ impl<'b> Decoder<'b> {
     /// filling in the next 7 least significant bits of the unsigned integer and
     /// so on. If the most significant bit was instead 0 we stop decoding
     /// any more bits.
-    pub fn big_word(&mut self) -> Result<u128, Error> {
+    #[cfg(feature = "num-bigint")]
+    pub fn big_word(&mut self) -> Result<BigUint, Error> {
         let mut leading_bit = 1;
-        let mut final_word: u128 = 0;
+        let mut final_word: BigUint = (0 as u8).into();
         let mut shl: u128 = 0;
         // continue looping if lead bit is 1 which is 128 as a u8 otherwise exit
         while leading_bit > 0 {
             let word8 = self.bits8(8)?;
             let word7 = word8 & 127;
-            final_word |= (word7 as u128) << shl;
+            final_word |= <u8 as Into<BigUint>>::into(word7) << shl;
             shl += 7;
             leading_bit = word8 & 128;
         }
