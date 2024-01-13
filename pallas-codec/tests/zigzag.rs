@@ -1,18 +1,18 @@
-use pallas_codec::flat::zigzag::{to_isize, to_usize};
+use pallas_codec::flat::zigzag::ZigZag;
 use proptest::prelude::*;
 
 proptest! {
     #[test]
     fn zigzag(i: isize) {
-        let u = to_usize(i);
-        let converted_i = to_isize(u);
+        let u = i.zigzag();
+        let converted_i = u.zigzag();
         assert_eq!(converted_i, i);
     }
 
     #[test]
     fn zagzig(u: usize) {
-        let i = to_isize(u);
-        let converted_u = to_usize(i);
+        let i = u.zigzag();
+        let converted_u = i.zigzag();
         assert_eq!(converted_u, u);
     }
 }
