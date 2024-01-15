@@ -59,6 +59,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -174,6 +175,20 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: vec![
+                    197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
+                    29175, 4, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773,
+                    100, 100, 100, 29773, 100, 150000, 32, 150000, 32, 150000, 32, 150000, 1000, 0,
+                    1, 150000, 32, 150000, 1000, 0, 8, 148000, 425507, 118, 0, 1, 1, 150000, 1000,
+                    0, 8, 150000, 112536, 247, 1, 150000, 10000, 1, 136542, 1326, 1, 1000, 150000,
+                    1000, 1, 150000, 32, 150000, 32, 150000, 32, 1, 1, 150000, 1, 150000, 4,
+                    103599, 248, 1, 103599, 248, 1, 145276, 1366, 1, 179690, 497, 1, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 150000, 32, 150000, 32, 148000, 425507,
+                    118, 0, 1, 1, 61516, 11218, 0, 1, 150000, 32, 148000, 425507, 118, 0, 1, 1,
+                    148000, 425507, 118, 0, 1, 1, 2477736, 29175, 4, 0, 82363, 4, 150000, 5000, 0,
+                    1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
+                ],
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -216,6 +231,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 6447035,
@@ -258,6 +274,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 6447038,
@@ -305,6 +322,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -343,6 +361,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -394,6 +413,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -448,6 +468,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -496,6 +517,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -620,6 +642,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -739,6 +762,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 0, // no collateral inputs are allowed
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -879,6 +903,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -1008,6 +1033,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -1126,6 +1152,7 @@ mod alonzo_tests {
                 collateral_percent: 700,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -1180,6 +1207,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -1251,6 +1279,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -1305,6 +1334,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -1425,6 +1455,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -1471,6 +1502,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -1604,6 +1636,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -1658,6 +1691,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -1716,6 +1750,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -1840,6 +1875,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -1972,6 +2008,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -2023,6 +2060,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 6447035,
@@ -2147,6 +2185,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -2277,6 +2316,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -2408,6 +2448,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -2532,6 +2573,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 58924928,
@@ -2578,6 +2620,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 6447038,
@@ -2623,6 +2666,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 10000000,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -2668,6 +2712,7 @@ mod alonzo_tests {
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
                 coins_per_utxo_word: 34482,
+                cost_model: Vec::new(),
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
@@ -2677,6 +2722,148 @@ mod alonzo_tests {
             Ok(()) => assert!(false, "Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxValSizeExceeded) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the redeemers
+    // list is modified in such a way that all other checks pass, but the
+    // integrity hash related to script execution no longer matches the one
+    // contained in the TransactionBody.
+    fn script_integrity_hash() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[
+                (
+                    // (tx hash, tx output index):
+                    // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
+                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    Value::Multiasset(
+                        1724100,
+                        KeyValuePairs::from(Vec::from([(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse()
+                                .unwrap(),
+                            KeyValuePairs::from(Vec::from([(
+                                Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
+                                1,
+                            )])),
+                        )])),
+                    ),
+                    Some(
+                        hex::decode(
+                            "0C125EDC771B9E590D96B3C7B01CC24F906BD552CECE6D861BFA5F23281E0BBE",
+                        )
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    ),
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
+                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
+                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
+                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
+                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    Value::Coin(29792207),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
+                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    Value::Coin(61233231),
+                    None,
+                ),
+                (
+                    // (tx hash, tx output index):
+                    // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
+                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    Value::Coin(20292207),
+                    None,
+                ),
+            ],
+        );
+        add_collateral(
+            &mtx.transaction_body,
+            &mut utxos,
+            &[(
+                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                Value::Coin(5000000),
+                None,
+            )],
+        );
+        let mut tx_witness_set: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut redeemer: Redeemer = tx_witness_set.redeemer.unwrap().pop().unwrap();
+        redeemer.ex_units = ExUnits { mem: 0, steps: 0 };
+        tx_witness_set.redeemer = Some(vec![redeemer]);
+        let mut tx_witness_set_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_witness_set, &mut tx_witness_set_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_witness_set_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                languages: vec![Language::PlutusV1, Language::PlutusV2],
+                max_block_ex_mem: 50000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 10000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 34482,
+                cost_model: vec![
+                    197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
+                    29175, 4, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773,
+                    100, 100, 100, 29773, 100, 150000, 32, 150000, 32, 150000, 32, 150000, 1000, 0,
+                    1, 150000, 32, 150000, 1000, 0, 8, 148000, 425507, 118, 0, 1, 1, 150000, 1000,
+                    0, 8, 150000, 112536, 247, 1, 150000, 10000, 1, 136542, 1326, 1, 1000, 150000,
+                    1000, 1, 150000, 32, 150000, 32, 150000, 32, 1, 1, 150000, 1, 150000, 4,
+                    103599, 248, 1, 103599, 248, 1, 145276, 1366, 1, 179690, 497, 1, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 150000, 32, 150000, 32, 148000, 425507,
+                    118, 0, 1, 1, 61516, 11218, 0, 1, 150000, 32, 148000, 425507, 118, 0, 1, 1,
+                    148000, 425507, 118, 0, 1, 1, 2477736, 29175, 4, 0, 82363, 4, 150000, 5000, 0,
+                    1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
+                ],
+            }),
+            prot_magic: 764824073,
+            block_slot: 58924928,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Wrong script integrity hash"),
+            Err(err) => match err {
+                Alonzo(AlonzoError::ScriptIntegrityHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

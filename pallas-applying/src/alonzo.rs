@@ -2,15 +2,19 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_val_size_in_words,
-    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
+    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
+    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
-use pallas_addresses::{Address, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::{minicbor::encode, utils::KeepRaw};
+use hex;
+use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
+use pallas_codec::{
+    minicbor::{encode, Encoder},
+    utils::{Bytes, KeepRaw},
+};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{
@@ -21,6 +25,7 @@ use pallas_primitives::{
     byron::TxOut,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
+use std::ops::Deref;
 
 pub fn validate_alonzo_tx(
     mtx: &MintedTx,
@@ -44,7 +49,7 @@ pub fn validate_alonzo_tx(
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, prot_pps)?;
     check_metadata(tx_body, mtx)?;
-    check_script_data_hash(tx_body, mtx, prot_pps)?;
+    check_script_data_hash(tx_body, mtx)?;
     check_minting(tx_body, mtx)
 }
 
@@ -176,7 +181,7 @@ fn check_collaterals(
 // The set of collateral inputs is not empty.
 // The number of collateral inputs is below maximum allowed by protocol.
 fn check_collaterals_number(
-    collaterals: &Vec<TransactionInput>,
+    collaterals: &[TransactionInput],
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
     let number_collateral: u64 = collaterals.len() as u64;
@@ -190,10 +195,7 @@ fn check_collaterals_number(
 }
 
 // Each collateral input refers to a verification-key address.
-fn check_collaterals_address(
-    collaterals: &Vec<TransactionInput>,
-    utxos: &UTxOs,
-) -> ValidationResult {
+fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) -> ValidationResult {
     for collateral in collaterals {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
             Some(multi_era_output) => {
@@ -209,13 +211,6 @@ fn check_collaterals_address(
         };
     }
     Ok(())
-}
-
-fn get_shelley_address(address: Vec<u8>) -> Result<ShelleyAddress, ValidationError> {
-    match Address::from_bytes(&address) {
-        Ok(Address::Shelley(sa)) => Ok(sa),
-        _ => Err(Alonzo(AddressDecoding)),
-    }
 }
 
 // Collateral inputs contain only lovelace, and in a number not lower than the
@@ -347,7 +342,8 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
 // The network ID of each output matches the global network ID.
 fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
-        let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(output.address.clone()))?;
+        let addr: ShelleyAddress =
+            get_shelley_address(Bytes::deref(&output.address)).ok_or(Alonzo(AddressDecoding))?;
         if addr.network().value() != *network_id {
             return Err(Alonzo(OutputWrongNetworkID));
         }
@@ -463,7 +459,7 @@ fn check_datums(
 fn check_input_datum_hash_in_witness_set(
     tx_body: &TransactionBody,
     utxos: &UTxOs,
-    plutus_data: &mut Vec<(bool, &KeepRaw<PlutusData>)>,
+    plutus_data: &mut [(bool, &KeepRaw<PlutusData>)],
 ) -> ValidationResult {
     for input in &tx_body.inputs {
         match utxos
@@ -483,7 +479,7 @@ fn check_input_datum_hash_in_witness_set(
 
 fn find_datum_hash(
     datum_hash: Hash<32>,
-    plutus_data: &mut Vec<(bool, &KeepRaw<PlutusData>)>,
+    plutus_data: &mut [(bool, &KeepRaw<PlutusData>)],
 ) -> ValidationResult {
     for (found, datum) in plutus_data {
         let computed_datum_hash = pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor());
@@ -499,7 +495,7 @@ fn find_datum_hash(
 // output datum hash or to the datum hash of a Plutus script input.
 fn check_datums_from_witness_set_in_inputs_or_outputs(
     tx_body: &TransactionBody,
-    plutus_data: &Vec<(bool, &KeepRaw<PlutusData>)>,
+    plutus_data: &[(bool, &KeepRaw<PlutusData>)],
 ) -> ValidationResult {
     for (found, datum) in plutus_data {
         if !found {
@@ -607,8 +603,8 @@ fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
 }
 
 fn redeemer_pointers_coincide(
-    redeemers: &Vec<RedeemerPointer>,
-    plutus_scripts: &Vec<RedeemerPointer>,
+    redeemers: &[RedeemerPointer],
+    plutus_scripts: &[RedeemerPointer],
 ) -> ValidationResult {
     for redeemer_pointer in redeemers {
         if plutus_scripts.iter().all(|x| x != redeemer_pointer) {
@@ -761,8 +757,8 @@ fn check_vkey_input_wits(
 
 fn check_vk_wit(
     payment_key_hash: &AddrKeyhash,
-    wits: &mut Vec<(bool, VKeyWitness)>,
-    data_to_verify: &Vec<u8>,
+    wits: &mut [(bool, VKeyWitness)],
+    data_to_verify: &[u8],
 ) -> ValidationResult {
     for (vkey_wit_covered, vkey_wit) in wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
@@ -778,8 +774,8 @@ fn check_vk_wit(
 }
 
 fn check_remaining_vk_wits(
-    wits: &mut Vec<(bool, VKeyWitness)>,
-    data_to_verify: &Vec<u8>,
+    wits: &mut [(bool, VKeyWitness)],
+    data_to_verify: &[u8],
 ) -> ValidationResult {
     for (covered, vkey_wit) in wits {
         if !*covered {
@@ -798,7 +794,7 @@ fn check_remaining_vk_wits(
 fn check_required_signers(
     required_signers: &Option<RequiredSigners>,
     vkey_wits: &Option<Vec<VKeyWitness>>,
-    data_to_verify: &Vec<u8>,
+    data_to_verify: &[u8],
 ) -> ValidationResult {
     if let Some(req_signers) = &required_signers {
         match &vkey_wits {
@@ -816,8 +812,8 @@ fn check_required_signers(
 // Try to find the verification key in the witnesses, and verify the signature.
 fn find_and_check_req_signer(
     vkey_hash: &AddrKeyhash,
-    vkey_wits: &Vec<VKeyWitness>,
-    data_to_verify: &Vec<u8>,
+    vkey_wits: &[VKeyWitness],
+    data_to_verify: &[u8],
 ) -> ValidationResult {
     for vkey_wit in vkey_wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *vkey_hash {
@@ -855,12 +851,65 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
 
 // The script data integrity hash matches the hash of the redeemers, languages
 // and datums of the transaction witness set.
-fn check_script_data_hash(
-    _tx_body: &TransactionBody,
-    _mtx: &MintedTx,
-    _prot_pps: &AlonzoProtParams,
-) -> ValidationResult {
-    Ok(())
+fn check_script_data_hash(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match tx_body.script_data_hash {
+        Some(script_data_hash) => match (
+            &mtx.transaction_witness_set.plutus_data,
+            &mtx.transaction_witness_set.redeemer,
+        ) {
+            (Some(plutus_data), Some(redeemer)) => {
+                let plutus_data: Vec<PlutusData> = plutus_data
+                    .iter()
+                    .map(|x| KeepRaw::unwrap(x.clone()))
+                    .collect();
+                if script_data_hash == compute_script_integrity_hash(&plutus_data, redeemer) {
+                    Ok(())
+                } else {
+                    Err(Alonzo(ScriptIntegrityHash))
+                }
+            }
+            (_, _) => Err(Alonzo(ScriptIntegrityHash)),
+        },
+        None => {
+            if option_vec_is_empty(&mtx.transaction_witness_set.plutus_data)
+                && option_vec_is_empty(&mtx.transaction_witness_set.redeemer)
+            {
+                Ok(())
+            } else {
+                Err(Alonzo(ScriptIntegrityHash))
+            }
+        }
+    }
+}
+
+fn compute_script_integrity_hash(plutus_data: &[PlutusData], redeemer: &[Redeemer]) -> Hash<32> {
+    let mut value_to_hash: Vec<u8> = Vec::new();
+    // First, the Redeemer.
+    let _ = encode(redeemer, &mut value_to_hash);
+    // Next, the PlutusData.
+    let mut plutus_data_encoder: Encoder<Vec<u8>> = Encoder::new(Vec::new());
+    let _ = plutus_data_encoder.begin_array();
+    for single_plutus_data in plutus_data.iter() {
+        let _ = plutus_data_encoder.encode(single_plutus_data);
+    }
+    let _ = plutus_data_encoder.end();
+    value_to_hash.extend(plutus_data_encoder.writer().clone());
+    // Finally, the cost model.
+    value_to_hash.extend(cost_model_cbor());
+    pallas_crypto::hash::Hasher::<256>::hash(&value_to_hash)
+}
+
+fn cost_model_cbor() -> Vec<u8> {
+    hex::decode(
+        "a141005901d59f1a000302590001011a00060bc719026d00011a000249f01903e800011a000249f018201a0025cea81971f70419744d186419744d186419744d186419744d186419744d186419744d18641864186419744d18641a000249f018201a000249f018201a000249f018201a000249f01903e800011a000249f018201a000249f01903e800081a000242201a00067e2318760001011a000249f01903e800081a000249f01a0001b79818f7011a000249f0192710011a0002155e19052e011903e81a000249f01903e8011a000249f018201a000249f018201a000249f0182001011a000249f0011a000249f0041a000194af18f8011a000194af18f8011a0002377c190556011a0002bdea1901f1011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000242201a00067e23187600010119f04c192bd200011a000249f018201a000242201a00067e2318760001011a000242201a00067e2318760001011a0025cea81971f704001a000141bb041a000249f019138800011a000249f018201a000302590001011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a00330da70101ff"
+    ).unwrap()
+}
+
+fn option_vec_is_empty<T>(option_vec: &Option<Vec<T>>) -> bool {
+    match option_vec {
+        Some(vec) => vec.is_empty(),
+        None => true,
+    }
 }
 
 // Each minted / burned asset is paired with an appropriate native script or

@@ -1,6 +1,7 @@
 //! Types used for representing the environment required for validation in each
 //! era.
 
+use pallas_primitives::alonzo::CostModel;
 use std::vec::Vec;
 
 #[derive(Debug)]
@@ -52,6 +53,7 @@ pub struct AlonzoProtParams {
     pub collateral_percent: u64,
     pub max_collateral_inputs: u64,
     pub coins_per_utxo_word: u64,
+    pub cost_model: CostModel,
 }
 
 #[derive(Debug, Clone)]

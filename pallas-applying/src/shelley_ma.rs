@@ -185,8 +185,8 @@ fn check_fees(
 
 fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
-        let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(output.address.clone()))
-            .ok_or(ShelleyMA(AddressDecoding))?;
+        let addr: ShelleyAddress =
+            get_shelley_address(&output.address).ok_or(ShelleyMA(AddressDecoding))?;
         if addr.network().value() != *network_id {
             return Err(ShelleyMA(WrongNetworkID));
         }
@@ -244,8 +244,8 @@ fn check_witnesses(
 
 fn check_vk_wit(
     payment_key_hash: &PaymentKeyHash,
-    data_to_verify: &Vec<u8>,
-    wits: &mut Vec<(bool, VKeyWitness)>,
+    data_to_verify: &[u8],
+    wits: &mut [(bool, VKeyWitness)],
 ) -> ValidationResult {
     for (found, vkey_wit) in wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
@@ -281,7 +281,7 @@ fn check_native_script_witness(
 
 fn check_remaining_vk_wits(
     wits: &mut Vec<(bool, VKeyWitness)>,
-    data_to_verify: &Vec<u8>,
+    data_to_verify: &[u8],
 ) -> ValidationResult {
     for (covered, vkey_wit) in wits {
         if !*covered {

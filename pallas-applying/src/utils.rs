@@ -7,7 +7,7 @@ pub use environment::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::encode,
-    utils::{KeepRaw, KeyValuePairs},
+    utils::{Bytes, KeepRaw, KeyValuePairs},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::alonzo::{
@@ -16,6 +16,7 @@ use pallas_primitives::alonzo::{
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
+use std::ops::Deref;
 pub use validation::*;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
@@ -224,7 +225,7 @@ pub fn mk_alonzo_vk_wits_check_list(
         .collect::<Vec<(bool, VKeyWitness)>>())
 }
 
-pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &Vec<u8>) -> bool {
+pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &[u8]) -> bool {
     let mut public_key_source: [u8; PublicKey::SIZE] = [0; PublicKey::SIZE];
     public_key_source.copy_from_slice(vk_wit.vkey.as_slice());
     let public_key: PublicKey = From::<[u8; PublicKey::SIZE]>::from(public_key_source);
@@ -235,12 +236,12 @@ pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &Vec<u8>) -> bool 
 }
 
 pub fn get_payment_part(tx_out: &TransactionOutput) -> Option<ShelleyPaymentPart> {
-    let addr: ShelleyAddress = get_shelley_address(Vec::<u8>::from(tx_out.address.clone()))?;
+    let addr: ShelleyAddress = get_shelley_address(Bytes::deref(&tx_out.address))?;
     Some(addr.payment().clone())
 }
 
-pub fn get_shelley_address(address: Vec<u8>) -> Option<ShelleyAddress> {
-    match Address::from_bytes(&address) {
+pub fn get_shelley_address(address: &[u8]) -> Option<ShelleyAddress> {
+    match Address::from_bytes(address) {
         Ok(Address::Shelley(sa)) => Some(sa),
         _ => None,
     }
