@@ -6,7 +6,7 @@ Starting at the root of the repository, simply go to *pallas-applying* and run `
 
 ## Explanations
 ### Byron
-*pallas-applying/tests/byron.rs* contains multiple unit tests for validation on the Byron era.
+*pallas-applying/tests/byron.rs* contains multiple unit tests for validation in the Byron era.
 
 The first one, **suceessful_mainnet_tx**, is a positive unit test. It takes the CBOR of a mainnet transaction. Namely, the one whose hash is `a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26`, which can be viewed on Cardano Explorer [here](https://cexplorer.io/tx/a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26). Such a transaction has a single input which is added to the UTxO, prior to validation, by associating it to a transaction output sitting at its real (mainnet) address. This information was taken from Cardano Explorer as well, following the address link of the only input to the transaction, and taking its raw address CBOR content.
 
@@ -21,7 +21,7 @@ Then comes a series of negative unit tests, namely:
 - **wrong_signature** takes the mainnet transaction, alters the content of its witness, and calls validation on it.
 
 ### ShelleyMA
-*pallas-applying/tests/byron.rs* contains multiple unit tests for validation on the ShelleyMA era, which is composed of the Shelley era itself as well as its two hardforks, Allegra and Mary.
+*pallas-applying/tests/shelley_ma_.rs* contains multiple unit tests for validation in the ShelleyMA era, which is composed of the Shelley era itself as well as its two hardforks, Allegra and Mary.
 
 Note that, since phase-1 validations do not include the execution of native scripts or any of their extensions introduced in Allegra and Mary, there is virtually no difference between the Shelley era and the Allegra hardfork. The Mary hardfork does however introduce features involved in phase-1 validations, namely checking whether the policies of all minted / burnt assets have a matching native script in the transaction witnesses set.
 
@@ -45,3 +45,45 @@ List of negative unit tests:
 - **missing_vk_witness** takes successful_mainnet_shelley_tx and removes the verification-key witness associated to one of its inputs.
 - **vk_witness_changed** takes successful_mainnet_shelley_tx and modifies the verification-key witness associated to one of its inputs.
 - **missing_native_script_witness** takes successful_mainnet_shelley_tx_with_script and removes the native script associated to one of its inputs.
+
+### Alonzo
+*pallas-applying/tests/alonzo.rs* contains multiple unit tests for validation in the Alonzo era.
+
+Note that phase-1 validations do not include the execution of native scripts or Plutus scripts, which would correspond to phase-2 validations.
+
+List of positive unit tests:
+- **successful_mainnet_tx** ([here](https://cexplorer.io/tx/704b3b9c96f44cd5676e5dcb5dc0bb2555c66427625ccefe620101665da86868) to see on Cardano explorer) is a simple Alonzo transaction, with no native or Plutus scripts, no metadata, and no minting.
+- **successful_mainnet_tx_with_plutus_script** ([here](https://cexplorer.io/tx/65160f403d2c7419784ae997d32b93a6679d81468af8173ccd7949df6704f7ba) to see on Cardano explorer) is an Alonzo transaction with a Plutus script (including the related data structure, like redeemers, datums, collateral inputs), but no metadata or minting.
+- **successful_mainnet_tx_with_minting** ([here](https://cexplorer.io/tx/c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a) to see on Cardano Explorer) is an Alonzo transaction with metadata, but no native or Plutus scripts, and no minting.
+- **successful_mainnet_tx_with_metadata** ([here](https://cexplorer.io/tx/8b6debb3340e5dac098ddb25fa647a99de12a6c1987c98b17ae074d6917dba16) to see on Cardano Explorer) is an Alonzo transaction containing metadata, but no scripts (native or Plutus) and no minting.
+
+List of negative unit tests:
+- **empty_ins** takes successful_mainnet_tx and removes its input.
+- **unfound_utxo_input** takes successful_mainnet_tx and calls validation on it with an empty UTxO (which causes the input to be unfound).
+- **validity_interval_lower_bound_unreached** takes sucessful_mainnet_tx and modifies its time interval in such a way that its validity time interval *lower* bound is located exactly one slot after the block slot.
+- **validity_interval_upper_bound_surpassed** takes sucessful_mainnt_tx and modifies its time interval in such a way that its validity time interval *upper* bound is located exactly one slot before the block slot.
+- **min_fees_unreached** submits validation on sucessful_mainnet_tx with an environment requesting the minimum fee to be higher than the one that the transaction actually paid.
+- **no_collateral_inputs** takes successful_mainnet_tx_with_plutus_script and removes its collateral inputs before submitting the transaction for validation.
+- **too_many_collateral_inputs** takes successful_mainnet_tx_with_plutus_script and submits its for validation with an environment allowing no collateral inputs.
+- **collateral_is_not_verification_key_locked** takes sucessful_mainnet_tx_with_plutus_script and modifies the address of one of the collateral inputs to become a script-locked output instead of a verification-key-locked one.
+- **collateral_with_other_assets** takes sucessful_mainnet_tx_with_plutus_script and adds non-lovelace assets to it.
+- **collateral_without_min_lovelace** takes sucessful_mainnet_tx_with_plutus_script and submits it for validation with an environment requesting a higher lovelace percentage (when compared to the fee paid by the transaction) in collateral inputs than the actual amount paid by the transaction collateral.
+- **preservation_of_value** modifies sucessful_mainnet_tx_with_plutus_script in such a way that the preservation-of-value equality does not hold.
+- **output_network_ids** takes sucessful_mainnet_tx and modifies the network ID in the address of one of its outputs.
+- **tx_network_id** takes sucessful_mainnet_tx and modifies its network ID.
+- **tx_ex_units_exceeded** takes sucessful_mainnet_tx_with_plutus_script and validates it with an environment whose Plutus script execution values are below the needs of the transaction.
+- **max_tx_size_exceeded** takes sucessful_mainnet_tx and validates it with an environment allowing only transactions whose size is lower than that of sucessful_mainnet_tx.
+- **missing_required_signer** takes sucessful_mainnet_tx_with_plutus_script and submits it for validation after changing one of the required signers.
+- **missing_vk_witness** removes a verification-key witness from sucessful_mainnet_tx befor submitting it for validation.
+- **wrong_signature** modifies the signature of the verification-key witness in sucessful_mainnet_tx before trying to validate it.
+- **missing_plutus_script** takes sucessful_mainnet_tx_with_plutus_script and removes its Plutus script before submitting it for validation.
+- **extra_plutus_script** takes sucessful_mainnet_tx_with_plutus_script and adds a new, unneeded native script to its witness set.
+- **minting_lacks_policy** takes sucessful_mainnet_tx_with_minting and removes the native script policy contained in it before submitting it for validation.
+- **missing_input_datum** takes sucessful_mainnet_tx_with_plutus_script and removes the datum contained in its witness set.
+- **extra_input_datum** takes sucessful_mainnet_tx_with_plutus_script and adds an unneded datum to its witness set.
+- **extra_redeemer** takes sucessful_mainnet_tx_with_plutus_script and adds an unneeded redeemer to its witness set.
+- **missing_redeemer** takes sucessful_mainnet_tx_with_plutus_script and removes its redeemer.
+- **auxiliary_data_removed** takes sucessful_mainnet_tx_with_metadata and removes its auxiliary data (a.k.a. metadata).
+- **min_lovelace_unreached** takes sucessful_mainnet_tx and submits validation on it with an environment requesting more lovelace on outputs than the amount actually paid by one of the outputs of the transaction.
+- **max_val_exceeded** takes sucessful_mainnet_tx and submits validation on it with an environment disallowing value sizes as high as the size ofg one of the values in one of the transaction outputs of sucessful_mainnet_tx.
+- **script_integrity_hash** takes sucessful_mainnet_tx_with_plutus_script and modifies the execution values of one of the redeemers in the witness set of the transaction, in such a way that all checks pass but the integrity hash of script-related data of the transaction is different from the script data hash contained in the body of the transaction.
