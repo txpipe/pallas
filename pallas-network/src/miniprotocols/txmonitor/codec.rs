@@ -80,14 +80,19 @@ impl<'b> Decode<'b, ()> for Message {
             // find the specs
             4 => Ok(Message::AwaitAcquire),
             5 => Ok(Message::RequestNextTx),
-            6 => match d.datatype()? {
-                pallas_codec::minicbor::data::Type::Array
-                | pallas_codec::minicbor::data::Type::ArrayIndef => {
-                    let tx = d.decode()?;
-                    Ok(Message::ResponseNextTx(Some(tx)))
-                }
-                _ => Ok(Message::ResponseNextTx(None)),
-            },
+            6 => match d.datatype() {
+                Ok(datatype) => {
+                    match datatype {
+                        pallas_codec::minicbor::data::Type::Array
+                        | pallas_codec::minicbor::data::Type::ArrayIndef => {
+                            let tx = d.decode()?;
+                            Ok(Message::ResponseNextTx(Some(tx)))
+                        }
+                        _ => Ok(Message::ResponseNextTx(None))
+                    }
+                },
+                Err(_) => Ok(Message::ResponseNextTx(None))
+            }
             7 => {
                 let id = d.decode()?;
                 Ok(Message::RequestHasTx(id))
