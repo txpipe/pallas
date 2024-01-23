@@ -87,3 +87,6 @@ List of negative unit tests:
 - **min_lovelace_unreached** takes sucessful_mainnet_tx and submits validation on it with an environment requesting more lovelace on outputs than the amount actually paid by one of the outputs of the transaction.
 - **max_val_exceeded** takes sucessful_mainnet_tx and submits validation on it with an environment disallowing value sizes as high as the size ofg one of the values in one of the transaction outputs of sucessful_mainnet_tx.
 - **script_integrity_hash** takes sucessful_mainnet_tx_with_plutus_script and modifies the execution values of one of the redeemers in the witness set of the transaction, in such a way that all checks pass but the integrity hash of script-related data of the transaction is different from the script data hash contained in the body of the transaction.
+
+### Babbage
+*pallas-applying/tests/babbage.rs* contains multiple unit tests for validation in the Alonzo era.

@@ -1,4 +1,4 @@
-//! Utilities required for Shelley-era transaction validation.
+//! Utilities required for Alonzo-era transaction validation.
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
