@@ -57,6 +57,42 @@ fn test_basic_append() {
 }
 
 #[test]
+fn test_crawl_after_point() {
+    with_tmp_db(30, |mut db| {
+        for i in 0..=5 {
+            let (slot, hash, body) = dummy_block(i * 10);
+            db.roll_forward(slot, hash, body).unwrap();
+        }
+
+        let (intersect_slot, intersect_hash, _) = dummy_block(3 * 10);
+        let (target_slot, target_hash, _) = dummy_block(4 * 10);
+
+        let mut wal = db
+            .crawl_after_point((intersect_slot, intersect_hash))
+            .unwrap()
+            .unwrap();
+
+        let (seq, log) = wal.next().unwrap().unwrap();
+
+        assert_eq!(seq, 5);
+        assert!(log.is_apply());
+        assert_eq!(log.slot(), Some(target_slot));
+        assert_eq!(log.hash(), Some(&target_hash));
+
+        drop(wal);
+
+        db.roll_back(intersect_slot).unwrap();
+
+        let mut wal = db
+            .crawl_after_point((intersect_slot, intersect_hash))
+            .unwrap()
+            .unwrap();
+
+        assert!(wal.next().is_none());
+    });
+}
+
+#[test]
 fn test_rollback_undos() {
     with_tmp_db(30, |mut db| {
         for i in 0..=5 {

@@ -303,21 +303,47 @@ impl Store {
         }
     }
 
-    pub fn find_wal_seq(
+    /// Crawl the WAL starting at the action immediately after the most recent
+    /// Apply or Mark action for the specified block. Returns None if no Apply
+    /// or Mark action for the specified block was found on the WAL.
+    pub fn crawl_after_point(
         &self,
-        block: Option<(BlockSlot, BlockHash)>,
-    ) -> Result<Option<Seq>, Error> {
-        if block.is_none() {
-            return Ok(None);
+        block: (BlockSlot, BlockHash),
+    ) -> Result<Option<WalIterator>, Error> {
+        let (slot, hash) = block;
+
+        let seq = match self.find_wal_seq(block)? {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        let seq = Box::<[u8]>::from(DBInt(seq));
+        let from = rocksdb::IteratorMode::From(&seq, rocksdb::Direction::Forward);
+        let mut iter = WalKV::iter_entries(&self.db, from);
+
+        // check that our point is indeed in our iterator, in case it was pruned
+        // after we got the sequence number above
+        match iter.next() {
+            Some(Ok((_, action))) => {
+                // if action is not Mark or Apply for our point then return None
+                if action.slot().is_some_and(|s| s == slot)
+                    && action.hash().is_some_and(|h| h.eq(&hash))
+                    && (action.is_apply() || action.is_mark())
+                {
+                    // confirmed our point was on the iter, return rest of iter
+                    Ok(Some(WalIterator(iter)))
+                } else {
+                    Ok(None)
+                }
+            }
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
         }
+    }
 
-        let (slot, hash) = block.unwrap();
+    pub fn find_wal_seq(&self, block: (BlockSlot, BlockHash)) -> Result<Option<Seq>, Error> {
+        let (slot, hash) = block;
 
-        // TODO: Not sure this is 100% accurate:
-        // i.e Apply(X), Apply(cursor), Undo(cursor), Mark(x)
-        // We want to start at Apply(cursor) or Mark(cursor), but even then,
-        // what if we have more than one Apply(cursor), how do we know
-        // which is correct?
         let found = WalKV::scan_until(&self.db, rocksdb::IteratorMode::End, |v| {
             (v.is_mark() || v.is_apply())
                 && v.slot().is_some_and(|s| s == slot)
@@ -326,7 +352,7 @@ impl Store {
 
         match found {
             Some(DBInt(seq)) => Ok(Some(seq)),
-            None => Err(Error::NotFound),
+            None => Ok(None),
         }
     }
 
