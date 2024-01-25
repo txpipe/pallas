@@ -200,7 +200,7 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
-) -> Result<Box<dyn Iterator<Item = FallibleBlock>>, Box<dyn std::error::Error>> {
+) -> Result<Box<dyn Iterator<Item = FallibleBlock> + Send + Sync>, Box<dyn std::error::Error>> {
     let names = build_stack_of_chunk_names(dir)?;
 
     match point {
