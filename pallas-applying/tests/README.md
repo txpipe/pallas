@@ -90,3 +90,5 @@ List of negative unit tests:
 
 ### Babbage
 *pallas-applying/tests/babbage.rs* contains multiple unit tests for validation in the Alonzo era.
+
+Babbage introduces novel ways to provide Plutus-script-related data, like the introduction of reference scripts and novel ways to provide for collateral.

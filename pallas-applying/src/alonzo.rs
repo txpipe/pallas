@@ -311,12 +311,12 @@ fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &AlonzoProtParams) ->
 }
 
 fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams) -> u64 {
-    let utxo_entry_size: u64 = get_val_size_in_words(&output.amount)
+    let output_entry_size: u64 = get_val_size_in_words(&output.amount)
         + match output.datum_hash {
             Some(_) => 37, // utxoEntrySizeWithoutVal (27) + dataHashSize (10)
             None => 27,    // utxoEntrySizeWithoutVal
         };
-    prot_pps.coins_per_utxo_word * utxo_entry_size
+    prot_pps.coins_per_utxo_word * output_entry_size
 }
 
 // The size of the value in each of the outputs should not be greater than the
