@@ -336,8 +336,8 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
 impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionOutput {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
-            minicbor::data::Type::Map => Ok(TransactionOutput::Map(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array => Ok(TransactionOutput::Array(d.decode_with(ctx)?)),
+            minicbor::data::Type::Map => Ok(TransactionOutput::Current(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => Ok(TransactionOutput::Legacy(d.decode_with(ctx)?)),
             _ => Err(minicbor::decode::Error::message(
                 "unknown cbor data type for TransactionOutput enum",
             )),
@@ -352,10 +352,10 @@ impl<C> minicbor::encode::Encode<C> for TransactionOutput {
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            TransactionOutput::Map(map) => {
+            TransactionOutput::Current(map) => {
                 e.encode_with(map, ctx)?;
             }
-            TransactionOutput::Array(array) => {
+            TransactionOutput::Legacy(array) => {
                 e.encode_with(array, ctx)?;
             }
         };

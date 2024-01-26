@@ -580,7 +580,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let datum = hex::decode(hex_datum).unwrap().into();
             let tag = TagWrap::<_, 24>::new(datum);
             let inline_datum = Some((1_u16, tag));
-            let values = localstate::queries_v16::TransactionOutput::Map(
+            let values = localstate::queries_v16::TransactionOutput::Current(
                 localstate::queries_v16::PostAlonsoTransactionOutput {
                     address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
                         .to_vec()
@@ -798,7 +798,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let datum = hex::decode(hex_datum).unwrap().into();
         let tag = TagWrap::<_, 24>::new(datum);
         let inline_datum = Some((1_u16, tag));
-        let values = localstate::queries_v16::TransactionOutput::Map(
+        let values = localstate::queries_v16::TransactionOutput::Current(
             localstate::queries_v16::PostAlonsoTransactionOutput {
                 address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
                     .to_vec()

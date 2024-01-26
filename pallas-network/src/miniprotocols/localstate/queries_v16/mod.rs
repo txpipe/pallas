@@ -229,8 +229,8 @@ pub type Datum = (Era, TagWrap<Bytes, 24>);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TransactionOutput {
-    Map(PostAlonsoTransactionOutput),
-    Array(LegacyTransactionOutput),
+    Current(PostAlonsoTransactionOutput),
+    Legacy(LegacyTransactionOutput),
 }
 
 #[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
