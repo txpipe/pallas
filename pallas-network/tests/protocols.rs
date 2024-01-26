@@ -580,13 +580,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let datum = hex::decode(hex_datum).unwrap().into();
             let tag = TagWrap::<_, 24>::new(datum);
             let inline_datum = Some((1_u16, tag));
-            let values = localstate::queries_v16::Values {
-                address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
-                    .to_vec()
-                    .into(),
-                amount: Value::Coin(lovelace),
-                inline_datum,
-            };
+            let values = localstate::queries_v16::TransactionOutput::Map(
+                localstate::queries_v16::PostAlonsoTransactionOutput {
+                    address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                        .to_vec()
+                        .into(),
+                    amount: Value::Coin(lovelace),
+                    inline_datum,
+                    script_ref: None,
+                },
+            );
 
             let utxo = KeyValuePairs::from(vec![(
                 localstate::queries_v16::UTxO {
@@ -795,13 +798,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let datum = hex::decode(hex_datum).unwrap().into();
         let tag = TagWrap::<_, 24>::new(datum);
         let inline_datum = Some((1_u16, tag));
-        let values = localstate::queries_v16::Values {
-            address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
-                .to_vec()
-                .into(),
-            amount: Value::Coin(lovelace),
-            inline_datum,
-        };
+        let values = localstate::queries_v16::TransactionOutput::Map(
+            localstate::queries_v16::PostAlonsoTransactionOutput {
+                address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                    .to_vec()
+                    .into(),
+                amount: Value::Coin(lovelace),
+                inline_datum,
+                script_ref: None,
+            },
+        );
 
         let utxo = KeyValuePairs::from(vec![(
             localstate::queries_v16::UTxO {
