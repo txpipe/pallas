@@ -408,6 +408,7 @@ fn collect_all_aux_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
 
 pub fn map_tx(tx: &trv::MultiEraTx) -> u5c::Tx {
     u5c::Tx {
+        hash: tx.hash().to_vec().into(),
         inputs: tx.inputs().iter().map(|i| map_tx_input(i, tx)).collect(),
         outputs: tx.outputs().iter().map(map_tx_output).collect(),
         certificates: tx.certs().iter().map(map_cert).collect(),
@@ -468,6 +469,7 @@ pub fn map_block(block: &trv::MultiEraBlock) -> u5c::Block {
         header: u5c::BlockHeader {
             slot: block.slot(),
             hash: block.hash().to_vec().into(),
+            height: block.number()
         }
         .into(),
         body: u5c::BlockBody {
