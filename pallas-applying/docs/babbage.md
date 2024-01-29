@@ -34,7 +34,7 @@ This document covers the terminology and equations related to the Babbage ledger
 		- ***TxIn = TxId x Ix*** is the set of transaction inputs, where
 			- ***TxId*** is the type of transaction IDs.
 			- ***Ix = ℕ*** is the set of indices, which are used to refer to a specific transaction output.
-			- ***txSpendIns(txBody) ∈ P(TxIn)*** gives the set of regular inputs—i.e., transaction inputs without taking into account collateral and reference inputs).
+			- ***txSpendIns(txBody) ∈ P(TxIn)*** gives the set of *regular* inputs—i.e., transaction inputs without taking into account collateral and reference inputs).
 				- ***txSpendInsVKey(txBody) ∈ P(TxIn)*** gives the subset of regular inputs of the transaction which are verification-key locked—i.e., without taking into account script inputs from ***txSpendIns(txBody)***.
 			- ***txCollateralIns(txBody) ∈ P(TxIn)*** gives the set of *collateral* inputs of the transaction.
 			- ***txReferenceIns(txBody) ∈ P(TxIn)*** gives the set of *reference* inputs of the transaction.
@@ -205,7 +205,7 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 - **Witnesses**:
 	- **Minting policies, native scripts and Plutus scripts, reference scripts**:
 
-		- **The set of scripts composed of the minting policies and the scripts in *regular* script inputs—i.e., native scripts and Plutus scripts in regular inputs, not in reference inputs—equals the set of scripts contained in the transaction witness set**:
+		- **Each minting policy or script hash in a script input address can be matched to a script in the transaction witness set, except when it can be found in a reference input**:
 
 			<code>{h: (\_, h) ∈ scriptsNeeded(utxo, txBody)} - {scriptHash(s): s ∈ refScripts(txBody, utxo)} = {scriptHash(s) : s ∈ txScripts(tx, utxo)}</code>
 		- **Each datum hash in a Plutus script input matches the hash of a datum in the transaction witness set**:
@@ -235,3 +235,6 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 - **The script data integrity hash matches the hash of the redeemers, languages and datums of the transaction witness set**:
 
 	<code>scriptDataHash(txBody) = hashScriptIntegrity(pps, txRedeemers(txWits), languages(tx, utxo), txDats(txWits))</code>
+- **Each minted / burned asset can be related to the corresponding native or Plutus script in the transaction witness set**
+
+	<code>policies(minted(txBody)) ⊆ {scriptHash(s): s ∈ txScripts(tx, utxo)}</code>

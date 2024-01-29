@@ -16,6 +16,7 @@ pub enum MultiEraProtParams {
     Byron(ByronProtParams),
     Shelley(ShelleyProtParams),
     Alonzo(AlonzoProtParams),
+    Babbage(BabbageProtParams),
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +51,9 @@ pub struct AlonzoProtParams {
     pub max_collateral_inputs: u64,
     pub coins_per_utxo_word: u64,
 }
+
+#[derive(Debug, Clone)]
+pub struct BabbageProtParams {}
 
 impl Environment {
     pub fn prot_params(&self) -> &MultiEraProtParams {

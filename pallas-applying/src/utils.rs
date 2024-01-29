@@ -10,9 +10,12 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw, KeyValuePairs},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
-use pallas_primitives::alonzo::{
-    AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NetworkId, PolicyId, TransactionBody,
-    TransactionOutput, VKeyWitness, Value,
+use pallas_primitives::{
+    alonzo::{
+        AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NetworkId, PolicyId, TransactionBody,
+        TransactionOutput, VKeyWitness, Value,
+    },
+    babbage::MintedTransactionBody,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -22,6 +25,14 @@ pub use validation::*;
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
 pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u64> {
+    let mut buff: Vec<u8> = Vec::new();
+    match encode(tx_body, &mut buff) {
+        Ok(()) => Some(buff.len() as u64),
+        Err(_) => None,
+    }
+}
+
+pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u64> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx_body, &mut buff) {
         Ok(()) => Some(buff.len() as u64),

@@ -2,12 +2,17 @@ use pallas_applying::UTxOs;
 use pallas_codec::{minicbor::bytes::ByteVec, utils::TagWrap};
 use pallas_primitives::{
     alonzo::{MintedTx, TransactionBody, TransactionOutput, Value},
+    babbage::{
+        MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef,
+        MintedTransactionBody, MintedTransactionOutput, MintedTx as BabbageMintedTx,
+        PseudoTransactionOutput,
+    },
     byron::{Address, MintedTxPayload, Tx, TxOut},
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::{borrow::Cow, iter::zip, vec::Vec};
 
-use pallas_codec::utils::Bytes;
+use pallas_codec::utils::{Bytes, CborWrap};
 use pallas_crypto::hash::Hash;
 
 pub fn cbor_to_bytes(input: &str) -> Vec<u8> {
@@ -18,8 +23,12 @@ pub fn minted_tx_from_cbor(tx_cbor: &[u8]) -> MintedTx<'_> {
     pallas_codec::minicbor::decode::<MintedTx>(tx_cbor).unwrap()
 }
 
-pub fn minted_tx_payload_from_cbor(tx_cbor: &[u8]) -> MintedTxPayload<'_> {
-    pallas_codec::minicbor::decode::<MintedTxPayload>(tx_cbor).unwrap()
+pub fn babbage_minted_tx_from_cbor(tx_cbor: &[u8]) -> BabbageMintedTx<'_> {
+    pallas_codec::minicbor::decode::<BabbageMintedTx>(&tx_cbor[..]).unwrap()
+}
+
+pub fn minted_tx_payload_from_cbor<'a>(tx_cbor: &'a Vec<u8>) -> MintedTxPayload<'a> {
+    pallas_codec::minicbor::decode::<MintedTxPayload>(&tx_cbor[..]).unwrap()
 }
 
 pub fn mk_utxo_for_byron_tx<'a>(tx: &Tx, tx_outs_info: &[(String, u64)]) -> UTxOs<'a> {
@@ -49,6 +58,8 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
 ) -> UTxOs<'a> {
     let mut utxos: UTxOs = UTxOs::new();
     for (tx_in, (address, amount, datum_hash)) in zip(tx_body.inputs.clone(), tx_outs_info) {
+        let multi_era_in: MultiEraInput =
+            MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
         let address_bytes: Bytes = match hex::decode(address) {
             Ok(bytes_vec) => Bytes::from(bytes_vec),
             _ => panic!("Unable to decode input address"),
@@ -58,8 +69,6 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
             amount: amount.clone(),
             datum_hash: *datum_hash,
         };
-        let multi_era_in: MultiEraInput =
-            MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
         let multi_era_out: MultiEraOutput =
             MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)));
         utxos.insert(multi_era_in, multi_era_out);
@@ -67,7 +76,37 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
     utxos
 }
 
-pub fn add_collateral(
+pub fn mk_utxo_for_babbage_tx<'a>(
+    tx_body: &MintedTransactionBody,
+    tx_outs_info: &'a [(
+        String, // address in string format
+        Value,
+        Option<MintedDatumOption>,
+        Option<CborWrap<MintedScriptRef>>,
+    )],
+) -> UTxOs<'a> {
+    let mut utxos: UTxOs = UTxOs::new();
+    for (tx_in, (addr, val, datum_opt, script_ref)) in zip(tx_body.inputs.clone(), tx_outs_info) {
+        let multi_era_in: MultiEraInput =
+            MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+        let address_bytes: Bytes = match hex::decode(addr) {
+            Ok(bytes_vec) => Bytes::from(bytes_vec),
+            _ => panic!("Unable to decode input address"),
+        };
+        let tx_out: MintedTransactionOutput =
+            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+                address: address_bytes,
+                value: val.clone(),
+                datum_option: datum_opt.clone(),
+                script_ref: script_ref.clone(),
+            });
+        let multi_era_out: MultiEraOutput = MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
+        utxos.insert(multi_era_in, multi_era_out);
+    }
+    utxos
+}
+
+pub fn add_collateral<'a>(
     tx_body: &TransactionBody,
     utxos: &mut UTxOs<'_>,
     collateral_info: &[(String, Value, Option<Hash<32>>)],

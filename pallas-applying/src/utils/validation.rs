@@ -7,6 +7,7 @@ pub enum ValidationError {
     Byron(ByronError),
     ShelleyMA(ShelleyMAError),
     Alonzo(AlonzoError),
+    Babbage(BabbageError),
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +90,12 @@ pub enum AlonzoError {
     UnneededDatum,
     MetadataHash,
     ScriptIntegrityHash,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum BabbageError {
+    UnknownTxSize,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
