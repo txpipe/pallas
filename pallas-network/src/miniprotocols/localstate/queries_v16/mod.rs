@@ -221,15 +221,21 @@ pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct UTxOByAddress {
     #[n(0)]
-    pub utxo: KeyValuePairs<UTxO, Values>,
+    pub utxo: KeyValuePairs<UTxO, TransactionOutput>,
 }
 
 // Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
 pub type Datum = (Era, TagWrap<Bytes, 24>);
 
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TransactionOutput {
+    Current(PostAlonsoTransactionOutput),
+    Legacy(LegacyTransactionOutput),
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
 #[cbor(map)]
-pub struct Values {
+pub struct PostAlonsoTransactionOutput {
     #[n(0)]
     pub address: Bytes,
 
@@ -238,6 +244,21 @@ pub struct Values {
 
     #[n(2)]
     pub inline_datum: Option<Datum>,
+
+    #[n(3)]
+    pub script_ref: Option<TagWrap<Bytes, 24>>,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
+pub struct LegacyTransactionOutput {
+    #[n(0)]
+    pub address: Bytes,
+
+    #[n(1)]
+    pub amount: Value,
+
+    #[n(2)]
+    pub datum_hash: Option<Hash<32>>,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone, StdHash, Eq)]
