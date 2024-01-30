@@ -16,8 +16,27 @@ macro_rules! create_struct_and_impls {
             }
         }
 
+        impl AsRef<[$inner_type]> for $struct_name {
+            fn as_ref(&self) -> &[$inner_type] {
+                &self.0
+            }
+        }
+
         impl $struct_name {
             pub fn iter(&self) -> impl Iterator<Item = &$inner_type> {
+                self.0.iter()
+            }
+
+            pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut $inner_type> {
+                self.0.iter_mut()
+            }
+        }
+
+        impl<'a> IntoIterator for &'a $struct_name {
+            type Item = &'a $inner_type;
+            type IntoIter = std::slice::Iter<'a, $inner_type>;
+
+            fn into_iter(self) -> Self::IntoIter {
                 self.0.iter()
             }
         }

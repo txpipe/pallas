@@ -3,6 +3,7 @@ use pallas_primitives::{
     alonzo::{self, BootstrapWitness, NativeScript, PlutusData, Redeemer, VKeyWitness},
     babbage::PlutusV2Script,
 };
+use pallas_primitives::babbage::from_option_keep_raw_plutus_datas;
 
 use crate::MultiEraTx;
 
@@ -81,12 +82,8 @@ impl<'b> MultiEraTx<'b> {
                 .iter()
                 .flatten()
                 .collect(),
-            Self::Babbage(x) => x
-                .transaction_witness_set
-                .plutus_data
-                .iter()
-                .flatten()
-                .collect(),
+            Self::Babbage(x) =>
+                from_option_keep_raw_plutus_datas(&x.transaction_witness_set.plutus_data),
             _ => std::iter::empty().collect(),
         }
     }

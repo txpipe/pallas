@@ -517,6 +517,19 @@ create_struct_and_impls!(PlutusDatas, PlutusData, false);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct KeepRawPlutusDatas<'b>(Vec<KeepRaw<'b, PlutusData>>);
 
+impl KeepRawPlutusDatas<'_> {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+}
+
+pub fn from_option_keep_raw_plutus_datas<'b, 'c>(x: &'c Option<KeepRawPlutusDatas<'b>>) -> Vec<&'c KeepRaw<'b, PlutusData>> {
+    match x {
+        Some(x) => x.0.iter().collect(),
+        None => Vec::new(),
+    }
+}
+
 impl<'b> From<Vec<KeepRaw<'b, PlutusData>>> for KeepRawPlutusDatas<'b> {
     fn from(xs: Vec<KeepRaw<'b, PlutusData>>) -> Self {
         KeepRawPlutusDatas(xs)
@@ -535,8 +548,17 @@ impl<'b> From<KeepRawPlutusDatas<'b>> for Vec<KeepRaw<'b, PlutusData>> {
     }
 }
 
-impl<'b> KeepRawPlutusDatas<'b> {
-    pub fn iter(&self) -> impl Iterator<Item = &KeepRaw<'b, PlutusData>> {
+impl<'b> From<&'b KeepRawPlutusDatas<'b>> for &'b Vec<KeepRaw<'b, PlutusData>> {
+    fn from(c: &'b KeepRawPlutusDatas<'b>) -> Self {
+        &c.0
+    }
+}
+
+impl<'b> IntoIterator for &'b KeepRawPlutusDatas<'b> {
+    type Item = &'b KeepRaw<'b, PlutusData>;
+    type IntoIter = std::slice::Iter<'b, KeepRaw<'b, PlutusData>>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
 }
