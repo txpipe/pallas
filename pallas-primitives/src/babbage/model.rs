@@ -11,6 +11,7 @@ use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArr
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
+use pallas_codec::minicbor::data::Tag;
 
 pub use crate::alonzo::VrfCert;
 
@@ -451,56 +452,109 @@ pub use crate::alonzo::BootstrapWitness;
 #[cbor(map)]
 pub struct WitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<Vec<VKeyWitness>>,
+    pub vkeywitness: Option<VKeyWitnesses>,
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<NativeScripts>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
+    pub bootstrap_witness: Option<BootstrapWitnesses>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_script: Option<PlutusV1Scripts>,
 
     #[n(4)]
-    pub plutus_data: Option<Vec<PlutusData>>,
+    pub plutus_data: Option<PlutusDatas>,
 
     #[n(5)]
     pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_script: Option<PlutusV2Scripts>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v3_script: Option<PlutusV3Scripts>,
 }
+
+
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct MintedWitnessSet<'b> {
     #[n(0)]
-    pub vkeywitness: Option<Vec<VKeyWitness>>,
+    pub vkeywitness: Option<VKeyWitnesses>,
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<NativeScripts>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
+    pub bootstrap_witness: Option<BootstrapWitnesses>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_script: Option<PlutusV1Scripts>,
 
     #[b(4)]
-    pub plutus_data: Option<Vec<KeepRaw<'b, PlutusData>>>,
+    pub plutus_data: Option<KeepRawPlutusDatas<'b>>,
 
     #[n(5)]
     pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_script: Option<PlutusV2Scripts>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v3_script: Option<PlutusV3Scripts>,
+}
+
+create_struct_and_impls!(VKeyWitnesses, VKeyWitness, false);
+create_struct_and_impls!(NativeScripts, NativeScript, false);
+create_struct_and_impls!(BootstrapWitnesses, BootstrapWitness, false);
+create_struct_and_impls!(PlutusV1Scripts, PlutusV1Script, false);
+create_struct_and_impls!(PlutusV2Scripts, PlutusV2Script, false);
+create_struct_and_impls!(PlutusV3Scripts, PlutusV3Script, false);
+create_struct_and_impls!(PlutusDatas, PlutusData, false);
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct KeepRawPlutusDatas<'b>(Vec<KeepRaw<'b, PlutusData>>);
+
+impl<'b> From<Vec<KeepRaw<'b, PlutusData>>> for KeepRawPlutusDatas<'b> {
+    fn from(xs: Vec<KeepRaw<'b, PlutusData>>) -> Self {
+        KeepRawPlutusDatas(xs)
+    }
+}
+
+impl From<KeepRawPlutusDatas<'_>> for PlutusDatas {
+    fn from(x: KeepRawPlutusDatas<'_>) -> Self {
+        PlutusDatas(x.0.into_iter().map(|x| x.unwrap()).collect())
+    }
+}
+
+impl<'b> From<KeepRawPlutusDatas<'b>> for Vec<KeepRaw<'b, PlutusData>> {
+    fn from(c: KeepRawPlutusDatas<'b>) -> Self {
+        c.0
+    }
+}
+
+impl<'b> KeepRawPlutusDatas<'b> {
+    pub fn iter(&self) -> impl Iterator<Item = &KeepRaw<'b, PlutusData>> {
+        self.0.iter()
+    }
+}
+
+impl <'b, C> minicbor::decode::Decode<'b, C> for KeepRawPlutusDatas<'b>  {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        if d.probe().tag().is_ok() {
+            d.tag()?;
+        }
+        Ok(KeepRawPlutusDatas(d.decode_with(ctx)?))
+    }
+}
+
+impl <'b, C> minicbor::encode::Encode<C> for KeepRawPlutusDatas<'b> {
+    fn encode<W: minicbor::encode::Write>(&self, e: &mut minicbor::Encoder<W>, ctx: &mut C) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode_with(&self.0, ctx)?;
+        Ok(())
+    }
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -510,9 +564,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
             native_script: x.native_script,
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
-            plutus_data: x
-                .plutus_data
-                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
+            plutus_data: x.plutus_data.map(|x| x.into()),
             redeemer: x.redeemer,
             plutus_v2_script: x.plutus_v2_script,
             plutus_v3_script: x.plutus_v3_script,
@@ -656,6 +708,7 @@ pub use crate::alonzo::AuxiliaryData;
 
 pub use crate::alonzo::TransactionIndex;
 use crate::alonzo::{AddrKeyhashes, TransactionInputs};
+use crate::create_struct_and_impls;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct PseudoBlock<T1, T2, T3, T4>
@@ -797,6 +850,7 @@ mod tests {
             include_str!("../../../test_data/conway1.artificial.block"),
             include_str!("../../../test_data/conway1.block"),
             include_str!("../../../test_data/conway2.block"),
+            include_str!("../../../test_data/conway3.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

@@ -471,7 +471,7 @@ pub enum Certificate {
         cost: Coin,
         margin: UnitInterval,
         reward_account: RewardAccount,
-        pool_owners: Vec<AddrKeyhash>,
+        pool_owners: AddrKeyhashes,
         relays: Vec<Relay>,
         pool_metadata: Option<PoolMetadata>,
     },
