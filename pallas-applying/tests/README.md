@@ -92,3 +92,6 @@ List of negative unit tests:
 *pallas-applying/tests/babbage.rs* contains multiple unit tests for validation in the Alonzo era.
 
 Babbage introduces novel ways to provide Plutus-script-related data, like the introduction of reference scripts and novel ways to provide for collateral.
+
+List of positive unit tests:
+- **successful_mainnet_tx** ([here](https://cexplorer.io/tx/b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d) to see on Cardano explorer) is a simple Alonzo transaction, with no native or Plutus scripts, no metadata, and no minting.

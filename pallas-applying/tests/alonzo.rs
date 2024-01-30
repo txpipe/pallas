@@ -148,7 +148,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -573,7 +573,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -698,7 +698,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -954,7 +954,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1082,7 +1082,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1369,7 +1369,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1533,7 +1533,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1768,7 +1768,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1891,7 +1891,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2072,7 +2072,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2195,7 +2195,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2324,7 +2324,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2454,7 +2454,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2712,7 +2712,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(

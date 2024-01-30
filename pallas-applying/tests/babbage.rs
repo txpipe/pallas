@@ -2,7 +2,7 @@ pub mod common;
 
 use common::*;
 use pallas_applying::{
-    utils::{BabbageProtParams, Environment, MultiEraProtParams},
+    utils::{BabbageProtParams, Environment, FeePolicy, MultiEraProtParams},
     validate, UTxOs,
 };
 use pallas_codec::utils::CborWrap;
@@ -33,7 +33,21 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {}),
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
