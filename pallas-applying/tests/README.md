@@ -94,4 +94,5 @@ List of negative unit tests:
 Babbage introduces novel ways to provide Plutus-script-related data, like the introduction of reference scripts and novel ways to provide for collateral.
 
 List of positive unit tests:
-- **successful_mainnet_tx** ([here](https://cexplorer.io/tx/b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d) to see on Cardano explorer) is a simple Alonzo transaction, with no native or Plutus scripts, no metadata, and no minting.
+- **successful_mainnet_tx** ([here](https://cexplorer.io/tx/b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d) to see on Cardano explorer) is a simple Babbage transaction, with no native or Plutus scripts, no metadata, and no minting.
+- **successful_mainnet_tx_with_plutus_script** ([here](https://cexplorer.io/tx/f33d6f7eb877132af7307e385bb24a7d2c12298c8ac0b1460296748810925ccc) to see on Cardano explorer) is a Babbage transaction with a Plutus script (including the related data structure, like redeemers, datums, collateral inputs), but neither metadata nor minting.
