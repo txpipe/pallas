@@ -96,6 +96,12 @@ pub enum AlonzoError {
 #[non_exhaustive]
 pub enum BabbageError {
     UnknownTxSize,
+    TxInsEmpty,
+    InputNotInUTxO,
+    CollateralNotInUTxO,
+    RefInputNotInUTxO,
+    BlockPrecedesValInt,
+    BlockExceedsValInt,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
