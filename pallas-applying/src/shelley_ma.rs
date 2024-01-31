@@ -222,7 +222,9 @@ fn check_witnesses(
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
-                    match get_payment_part(alonzo_comp_output).ok_or(ShelleyMA(AddressDecoding))? {
+                    match get_payment_part(&alonzo_comp_output.address)
+                        .ok_or(ShelleyMA(AddressDecoding))?
+                    {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, tx_hash, vk_wits)?
                         }

@@ -30,6 +30,7 @@ This document covers the terminology and equations related to the Babbage ledger
 			- ***txCollateralReturn(txBody) ∈ TxOut*** is the collateral return output of the transaction.
 				- ***allOuts(txBody) ∈ P(TxOut)*** is defined as ***txOuts(txBody) ∪ {txCollateralReturn(txBody)}***.
 			- ***balance : P(TxOut) → Value*** gives the sum of all multi-asset values in a set of transaction outputs.
+				- ***txCollateralBalance(txBody, utxo) ∈ Value*** gives the value paid as collateral by the transaction, defined by the following equation: ***txCollatralBalance(txBody, utxo) := balance(txCollateralIns(txBody) ◁ utxo) - balance(txCollateralReturn(txBody))***.
 			- ***outputEntrySize(txOut) ∈ ℕ*** gives the size of the transaction output when serialized, in bytes (plus an offset required only in the Babbage era).
 		- ***TxIn = TxId x Ix*** is the set of transaction inputs, where
 			- ***TxId*** is the type of transaction IDs.
@@ -142,7 +143,7 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 - **The upper bound of the validity time interval is suitable for script execution**: if there are minting policies, native scripts or Plutus scripts involved in the transaction, and if the upper bound of its validity interval is a finite number, then it can be translated to system time.
 
 - **Fees**:
-	- **The fee paid by the transaction should be greater than or equal to the minimum fee**:
+	- **The fee paid by the transaction is greater than or equal to the minimum fee**:
 
 		<code>fee(txBody) ≥ minFees(pps, txBody)</code>
 	- **Collateral**: if there are Plutus scripts in the transaction, then
@@ -157,20 +158,20 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 			<code>∀(a,\_,\_,\_) ∈ txCollateralIns(txBody) ◁ utxo: isVKeyAddress(a)</code>
 		- **The balance between collateral inputs and outputs contains only ADA**:
 
-			<code>isADAOnly(balance(txCollateralIns(txBody) ◁ utxo) - balance(txCollateralReturn(txBody)))</code>
-		- **The total lovelace contained in collateral inputs should be greater than or equal to the minimum fee percentage**:
+			<code>isADAOnly(txCollateralBalance(txBody, utxo))</code>
+		- **The paid collateral is greater than or equal to the minimum fee percentage**:
 
-			<code>balance(txCollateralIns(txBody) ◁ utxo)) >= fee(txBody) * collateralPercent(pps)</code>
-		- **If a number of collateral lovelace is specified in the transaction body, then it should equal the actual collateral paid by the transaction**:
+			<code>txCollateralBalance(txBody, utxo) >= fee(txBody) * collateralPercent(pps)</code>
+		- **If a number of collateral lovelace is specified in the transaction body, then it equals the actual collateral paid by the transaction**:
 
 			<code>balance(txCollateralIns(txBody) ◁ utxo) - balance(txCollateralReturn(txBody)) = txTotalColl(txBody)</code>
-- **The preservation of value property holds**: Assuming no staking or delegation actions are involved, it should be that
+- **The preservation of value property holds**: Assuming no staking or delegation actions are involved, it is the case that
 
 	<code>consumed(utxo, txBody) = produced(txBody) + fee(txBody) + minted(txBody)</code>
-- **All transaction outputs (regular outputs and collateral return outputs) should contain at least the minimum lovelace**:
+- **All transaction outputs (regular outputs and collateral return outputs) contains at least the minimum lovelace**:
 
 	<code>∀ txOut ∈ txOuts(txBody): adaValueOf(coinsPerUTxOWord(pps) * (outputEntrySize(txOut) + 160)) ≤ getValue(txOut)</code>
-- **The size of the value in each of the outputs should not be greater than the maximum allowed**:
+- **The size of the value in each of the outputs is not greater than the maximum allowed**:
 
 	<code>valSize(getValue(txOut)) ≤ maxValSize(pps)</code>
 - **The network ID of each regular output as well as that of the collateral return output match the global network ID**:
@@ -180,7 +181,7 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 - **The transaction size does not exceed the protocol limit**:
 
 	<code>txSize(txBody) ≤ maxTxSize(pps)</code>
-- **The number of execution units of the transaction should not exceed the maximum allowed**:
+- **The number of execution units of the transaction does not exceed the maximum allowed**:
 
 	<code>txExUnits(txBody) ≤ maxTxExUnits(pps)</code>
 - **No ADA is minted**:
@@ -214,15 +215,15 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 		- **Each datum in the transaction witness set can be related to the datum hash in a Plutus script input, or in a reference input, or in a regular output, or in the collateral return output**:
 
 			<code>{datumHash(d): d ∈ txDats(txWits)} ⊆ {h: (a,\_,h,\_) ∈ txSpendIns(txBody) ◁ utxo, isPlutusScriptAddress(a, txWits), isDatumHash(h)} ∪ {h: (\_,\_,h,\_) ∈ txReferenceIns(tx) ◁ utxo, isDatumHash(h)} ∪ {h: (\_,\_,h,\_) ∈ allOuts(txBody), isDatumHash(h)}</code>
-		- **The set of redeemers in the transaction witness set should match the set of Plutus scripts needed to validate the transaction**:
+		- **The set of redeemers in the transaction witness set matches the set of Plutus scripts needed to validate the transaction**:
 
 			<code>{(tag, index): (tag, index, \_, \_) ∈ txRedeemers(txWits)} = {redeemerPointer(txBody, sp): (sp, h) ∈ scriptsNeeded(utxo, txBody), (∃s ∈ txScripts(tx, utxo): isPlutusScript(s), h = scriptHash(s)}</code>
 	- **Verification-key witnesses**:
-		- **The owner of each transaction input and each collateral input should have signed the transaction**: for each ***txIn ∈ txSpendInsVKey(txBody)*** there should exist ***(vk, σ) ∈ txVKWits(tx)*** such that:
+		- **The owner of each transaction input and each collateral input has signed the transaction**: for each ***txIn ∈ txSpendInsVKey(txBody)*** there exists ***(vk, σ) ∈ txVKWits(tx)*** such that:
 
 			- <code>verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>)</code>
 			- <code>paymentCredential<sub>utxo</sub>(txIn) = keyHash(vk)</code>
-		- **All required signers (needed by one of the Plutus scripts of the transaction) have a corresponding match in the transaction witness set**: for each ***key_hash ∈ requiredSigners(txBody)***, there should exist ***(vk, σ) ∈ txVKWits(tx)*** such that:
+		- **All required signers (needed by one of the Plutus scripts of the transaction) have a corresponding match in the transaction witness set**: for each ***key_hash ∈ requiredSigners(txBody)***, there exists ***(vk, σ) ∈ txVKWits(tx)*** such that:
 
 			- <code>verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>)</code>
 			- <code>keyHash(vk) = key_hash</code>

@@ -1,11 +1,16 @@
 //! Utilities required for Babbage-era transaction validation.
 
 use crate::utils::{
-    get_babbage_tx_size, BabbageError::*, BabbageProtParams, UTxOs, ValidationError::*,
-    ValidationResult,
+    add_values, empty_value, get_babbage_tx_size, get_payment_part, lovelace_diff_or_fail,
+    BabbageError::*, BabbageProtParams, FeePolicy, UTxOs, ValidationError::*, ValidationResult,
 };
-use pallas_primitives::babbage::{MintedTransactionBody, MintedTx};
-use pallas_traverse::MultiEraInput;
+use pallas_addresses::ShelleyPaymentPart;
+use pallas_codec::utils::Bytes;
+use pallas_primitives::babbage::{
+    MintedTransactionBody, MintedTx, MintedWitnessSet, PlutusV1Script, PlutusV2Script,
+    PseudoTransactionOutput, TransactionInput, Value,
+};
+use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
 pub fn validate_babbage_tx(
     mtx: &MintedTx,
@@ -115,13 +120,159 @@ fn check_upper_bound(tx_body: &MintedTransactionBody, block_slot: &u64) -> Valid
 }
 
 fn check_fee(
-    _tx_body: &MintedTransactionBody,
-    _size: &u64,
-    _mtx: &MintedTx,
-    _utxos: &UTxOs,
-    _prot_pps: &BabbageProtParams,
+    tx_body: &MintedTransactionBody,
+    size: &u64,
+    mtx: &MintedTx,
+    utxos: &UTxOs,
+    prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
+    check_min_fee(tx_body, size, prot_pps)?;
+    if presence_of_plutus_scripts(mtx) {
+        check_collaterals(tx_body, mtx, utxos, prot_pps)?
+    }
     Ok(())
+}
+
+// The fee paid by the transaction should be greater than or equal to the
+// minimum fee.
+fn check_min_fee(
+    tx_body: &MintedTransactionBody,
+    size: &u64,
+    prot_pps: &BabbageProtParams,
+) -> ValidationResult {
+    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
+    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+        return Err(Babbage(FeeBelowMin));
+    }
+    Ok(())
+}
+
+fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
+    let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
+    let plutus_v1_scripts: &[PlutusV1Script] = &minted_witness_set
+        .plutus_v1_script
+        .clone()
+        .unwrap_or_default();
+    let plutus_v2_scripts: &[PlutusV2Script] = &minted_witness_set
+        .plutus_v2_script
+        .clone()
+        .unwrap_or_default();
+    !plutus_v1_scripts.is_empty() || !plutus_v2_scripts.is_empty()
+}
+
+fn check_collaterals(
+    tx_body: &MintedTransactionBody,
+    mtx: &MintedTx,
+    utxos: &UTxOs,
+    prot_pps: &BabbageProtParams,
+) -> ValidationResult {
+    let collaterals: &[TransactionInput] = &tx_body
+        .collateral
+        .clone()
+        .ok_or(Babbage(CollateralMissing))?;
+    check_collaterals_number(collaterals, prot_pps)?;
+    check_collaterals_address(collaterals, utxos)?;
+    check_collaterals_assets(tx_body, mtx, utxos, prot_pps)
+}
+
+// The set of collateral inputs is not empty.
+// The number of collateral inputs is below maximum allowed by protocol.
+fn check_collaterals_number(
+    collaterals: &[TransactionInput],
+    prot_pps: &BabbageProtParams,
+) -> ValidationResult {
+    if collaterals.is_empty() {
+        Err(Babbage(CollateralMissing))
+    } else if collaterals.len() > prot_pps.max_collateral_inputs as usize {
+        Err(Babbage(TooManyCollaterals))
+    } else {
+        Ok(())
+    }
+}
+
+// Each collateral input refers to a verification-key address.
+fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) -> ValidationResult {
+    for collateral in collaterals {
+        match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
+            Some(multi_era_output) => {
+                if let Some(babbage_output) = MultiEraOutput::as_babbage(multi_era_output) {
+                    let address: &Bytes = match babbage_output {
+                        PseudoTransactionOutput::Legacy(inner) => &inner.address,
+                        PseudoTransactionOutput::PostAlonzo(inner) => &inner.address,
+                    };
+                    if let ShelleyPaymentPart::Script(_) =
+                        get_payment_part(address).ok_or(Babbage(InputDecoding))?
+                    {
+                        return Err(Babbage(CollateralNotVKeyLocked));
+                    }
+                }
+            }
+            None => return Err(Babbage(CollateralNotInUTxO)),
+        }
+    }
+    Ok(())
+}
+
+// The balance between collateral inputs and output contains only lovelace.
+// The balance is not lower than the minimum allowed.
+// The balance matches exactly the collateral annotated in the transaction body.
+fn check_collaterals_assets(
+    tx_body: &MintedTransactionBody,
+    mtx: &MintedTx,
+    utxos: &UTxOs,
+    prot_pps: &BabbageProtParams,
+) -> ValidationResult {
+    match &tx_body.collateral {
+        Some(collaterals) => {
+            let mut coll_input: Value = empty_value();
+            for collateral in collaterals {
+                match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
+                    Some(multi_era_output) => {
+                        coll_input = add_values(
+                            &coll_input,
+                            &val_from_multi_era_output(multi_era_output),
+                            &Babbage(NegativeValue),
+                        )?
+                    }
+                    None => return Err(Babbage(CollateralNotInUTxO)),
+                }
+            }
+            let coll_return: Value = match &tx_body.collateral_return {
+                Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
+                Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+                None => Value::Coin(0),
+            };
+            // The balance between collateral inputs and output contains only lovelace.
+            let paid_collateral: u64 =
+                lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
+            let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percent;
+            // The balance is not lower than the minimum allowed.
+            if paid_collateral * 100 < fee_percentage {
+                return Err(Babbage(CollateralMinLovelace));
+            }
+            // The balance matches exactly the collateral annotated in the transaction body.
+            if let Some(annotated_collateral) = &mtx.transaction_body.total_collateral {
+                if paid_collateral != *annotated_collateral {
+                    return Err(Babbage(CollateralAnnotation));
+                }
+            }
+        }
+        None => return Err(Babbage(CollateralMissing)),
+    }
+    Ok(())
+}
+
+fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
+    match multi_era_output {
+        MultiEraOutput::Byron(output) => Value::Coin(output.amount),
+        MultiEraOutput::AlonzoCompatible(output) => output.amount.clone(),
+        babbage_output => match babbage_output.as_babbage() {
+            Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
+            Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+            None => unimplemented!(), /* Non-exhaustive type MultiEraOutput must have included a
+                                      new variant. */
+        },
+    }
 }
 
 fn check_preservation_of_value(

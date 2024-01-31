@@ -13,7 +13,7 @@ use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
         AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NetworkId, PolicyId, TransactionBody,
-        TransactionOutput, VKeyWitness, Value,
+        VKeyWitness, Value,
     },
     babbage::MintedTransactionBody,
 };
@@ -61,6 +61,58 @@ pub fn add_values(
             )?,
         )),
     }
+}
+
+pub fn lovelace_diff_or_fail(
+    first: &Value,
+    second: &Value,
+    err: &ValidationError,
+) -> Result<u64, ValidationError> {
+    match (first, second) {
+        (Value::Coin(f), Value::Coin(s)) => {
+            if f >= s {
+                Ok(f - s)
+            } else {
+                Err(err.clone())
+            }
+        }
+        (Value::Coin(_), Value::Multiasset(_, _)) => Err(err.clone()),
+        (Value::Multiasset(f, fma), Value::Coin(s)) => {
+            if f >= s && fma.is_empty() {
+                Ok(f - s)
+            } else {
+                Err(err.clone())
+            }
+        }
+        (Value::Multiasset(f, fma), Value::Multiasset(s, sma)) => {
+            if f >= s && multi_assets_are_equal(fma, sma) {
+                Ok(f - s)
+            } else {
+                Err(err.clone())
+            }
+        }
+    }
+}
+
+pub fn multi_assets_are_equal(fma: &Multiasset<Coin>, sma: &Multiasset<Coin>) -> bool {
+    for (fpolicy, fassets) in fma.iter() {
+        match find_policy(sma, fpolicy) {
+            Some(sassets) => {
+                for (fasset_name, famount) in fassets.iter() {
+                    match find_assets(&sassets, fasset_name) {
+                        Some(samount) => {
+                            if *famount != samount {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    };
+                }
+            }
+            None => return false,
+        }
+    }
+    true
 }
 
 pub fn add_minted_value(
@@ -166,24 +218,7 @@ pub fn values_are_equal(first: &Value, second: &Value) -> bool {
             if f != s {
                 false
             } else {
-                for (fpolicy, fassets) in fma.iter() {
-                    match find_policy(sma, fpolicy) {
-                        Some(sassets) => {
-                            for (fasset_name, famount) in fassets.iter() {
-                                match find_assets(&sassets, fasset_name) {
-                                    Some(samount) => {
-                                        if *famount != samount {
-                                            return false;
-                                        }
-                                    }
-                                    None => return false,
-                                };
-                            }
-                        }
-                        None => return false,
-                    }
-                }
-                true
+                multi_assets_are_equal(fma, sma)
             }
         }
     }
@@ -246,8 +281,8 @@ pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &[u8]) -> bool {
     public_key.verify(data_to_verify, &sig)
 }
 
-pub fn get_payment_part(tx_out: &TransactionOutput) -> Option<ShelleyPaymentPart> {
-    let addr: ShelleyAddress = get_shelley_address(Bytes::deref(&tx_out.address))?;
+pub fn get_payment_part(address: &Bytes) -> Option<ShelleyPaymentPart> {
+    let addr: ShelleyAddress = get_shelley_address(Bytes::deref(address))?;
     Some(addr.payment().clone())
 }
 

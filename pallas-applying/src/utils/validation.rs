@@ -102,6 +102,16 @@ pub enum BabbageError {
     RefInputNotInUTxO,
     BlockPrecedesValInt,
     BlockExceedsValInt,
+    FeeBelowMin,
+    CollateralMissing,
+    TooManyCollaterals,
+    InputDecoding,
+    CollateralNotVKeyLocked,
+    CollateralMinLovelace,
+    NonLovelaceCollateral,
+    CollateralWrongAssets,
+    NegativeValue,
+    CollateralAnnotation,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

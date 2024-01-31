@@ -201,14 +201,15 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
                     if let ShelleyPaymentPart::Script(_) =
-                        get_payment_part(alonzo_comp_output).ok_or(Alonzo(InputDecoding))?
+                        get_payment_part(&alonzo_comp_output.address)
+                            .ok_or(Alonzo(InputDecoding))?
                     {
                         return Err(Alonzo(CollateralNotVKeyLocked));
                     }
                 }
             }
             None => return Err(Alonzo(CollateralNotInUTxO)),
-        };
+        }
     }
     Ok(())
 }
@@ -664,7 +665,7 @@ fn get_script_hash_from_input(input: &TransactionInput, utxos: &UTxOs) -> Option
     utxos
         .get(&MultiEraInput::from_alonzo_compatible(input))
         .and_then(MultiEraOutput::as_alonzo)
-        .and_then(get_payment_part)
+        .and_then(|tx_out| get_payment_part(&tx_out.address))
         .and_then(|payment_part| match payment_part {
             ShelleyPaymentPart::Script(script_hash) => Some(script_hash),
             _ => None,
@@ -741,7 +742,9 @@ fn check_vkey_input_wits(
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
-                    match get_payment_part(alonzo_comp_output).ok_or(Alonzo(InputDecoding))? {
+                    match get_payment_part(&alonzo_comp_output.address)
+                        .ok_or(Alonzo(InputDecoding))?
+                    {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
                         }
