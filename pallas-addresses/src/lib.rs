@@ -322,47 +322,47 @@ fn parse_network(header: u8) -> Network {
 macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt, pointer) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
-            if payload.len() >= 29 {
-                let net = parse_network(header);
-                let h1 = slice_to_hash(&payload[0..=27])?;
-                let p1 = ShelleyPaymentPart::$payment(h1);
-                let p2 = ShelleyDelegationPart::from_pointer(&payload[28..])?;
-                let addr = ShelleyAddress(net, p1, p2);
-
-                Ok(addr.into())
-            } else {
-                Err(Error::InvalidAddressLength(payload.len()))
+            if payload.len() < 29 {
+                return Err(Error::InvalidAddressLength(payload.len()))
             }
+
+            let net = parse_network(header);
+            let h1 = slice_to_hash(&payload[0..=27])?;
+            let p1 = ShelleyPaymentPart::$payment(h1);
+            let p2 = ShelleyDelegationPart::from_pointer(&payload[28..])?;
+            let addr = ShelleyAddress(net, p1, p2);
+
+            Ok(addr.into())
         }
     };
     ($name:tt, $payment:tt, $delegation:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
-            let net = parse_network(header);
-            if payload.len() == 56 {
-                let h1 = slice_to_hash(&payload[0..=27])?;
-                let p1 = ShelleyPaymentPart::$payment(h1);
-                let h2 = slice_to_hash(&payload[28..=55])?;
-                let p2 = ShelleyDelegationPart::$delegation(h2);
-                let addr = ShelleyAddress(net, p1, p2);
-
-                Ok(addr.into())
-            } else {
-                Err(Error::InvalidAddressLength(payload.len()))
+            if payload.len() != 56 {
+                return Err(Error::InvalidAddressLength(payload.len()))
             }
+
+            let net = parse_network(header);
+            let h1 = slice_to_hash(&payload[0..=27])?;
+            let p1 = ShelleyPaymentPart::$payment(h1);
+            let h2 = slice_to_hash(&payload[28..=55])?;
+            let p2 = ShelleyDelegationPart::$delegation(h2);
+            let addr = ShelleyAddress(net, p1, p2);
+
+            Ok(addr.into())
         }
     };
     ($name:tt, $payment:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
-            let net = parse_network(header);
-            if payload.len() == 28 {
-                let h1 = slice_to_hash(&payload[0..=27])?;
-                let p1 = ShelleyPaymentPart::$payment(h1);
-                let addr = ShelleyAddress(net, p1, ShelleyDelegationPart::Null);
-
-                Ok(addr.into())
-            } else {
-                Err(Error::InvalidAddressLength(payload.len()))
+            if payload.len() != 28 {
+                return Err(Error::InvalidAddressLength(payload.len()))
             }
+
+            let net = parse_network(header);
+            let h1 = slice_to_hash(&payload[0..=27])?;
+            let p1 = ShelleyPaymentPart::$payment(h1);
+            let addr = ShelleyAddress(net, p1, ShelleyDelegationPart::Null);
+
+            Ok(addr.into())
         }
     };
 }
@@ -370,14 +370,15 @@ macro_rules! parse_shelley_fn {
 macro_rules! parse_stake_fn {
     ($name:tt, $type:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
-            let net = parse_network(header);
-            if payload.len() == 28 {
-                let p1 = StakePayload::$type(&payload[0..=27])?;
-                let addr = StakeAddress(net, p1);
-                Ok(addr.into())
-            } else {
-                Err(Error::InvalidAddressLength(payload.len()))
+            if payload.len() != 28 {
+                return Err(Error::InvalidAddressLength(payload.len()))
             }
+
+            let net = parse_network(header);
+            let p1 = StakePayload::$type(&payload[0..=27])?;
+            let addr = StakeAddress(net, p1);
+
+            Ok(addr.into())
         }
     };
 }
