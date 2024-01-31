@@ -323,7 +323,7 @@ macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt, pointer) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             if payload.len() < 29 {
-                return Err(Error::InvalidAddressLength(payload.len()))
+                return Err(Error::InvalidAddressLength(payload.len()));
             }
 
             let net = parse_network(header);
@@ -338,7 +338,7 @@ macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt, $delegation:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             if payload.len() != 56 {
-                return Err(Error::InvalidAddressLength(payload.len()))
+                return Err(Error::InvalidAddressLength(payload.len()));
             }
 
             let net = parse_network(header);
@@ -354,7 +354,7 @@ macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             if payload.len() != 28 {
-                return Err(Error::InvalidAddressLength(payload.len()))
+                return Err(Error::InvalidAddressLength(payload.len()));
             }
 
             let net = parse_network(header);
@@ -371,7 +371,7 @@ macro_rules! parse_stake_fn {
     ($name:tt, $type:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
             if payload.len() != 28 {
-                return Err(Error::InvalidAddressLength(payload.len()))
+                return Err(Error::InvalidAddressLength(payload.len()));
             }
 
             let net = parse_network(header);
