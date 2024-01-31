@@ -315,7 +315,7 @@ mod alonzo_tests {
     }
 
     #[test]
-    // Same as successful_mainnet_tx, but the validation is called with an empty
+    // Same as successful_mainnet_tx, but validation is called with an empty
     // UTxO set.
     fn unfound_utxo_input() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
@@ -454,7 +454,7 @@ mod alonzo_tests {
     #[test]
     // Same as succesful_mainnet_tx, except that validation is called with an
     // Environment requesting fees that exceed those paid by the transaction.
-    fn min_fees_unreached() {
+    fn min_fee_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
