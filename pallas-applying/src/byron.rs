@@ -2,9 +2,9 @@
 
 use std::borrow::Cow;
 
-use crate::types::{
+use crate::utils::{
     ByronError::*,
-    ByronProtParams, MultiEraInput, MultiEraOutput, SigningTag, UTxOs,
+    ByronProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -23,7 +23,7 @@ use pallas_crypto::{
 use pallas_primitives::byron::{
     Address, MintedTxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
 };
-use pallas_traverse::OriginalHash;
+use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 
 pub fn validate_byron_tx(
     mtxp: &MintedTxPayload,
@@ -251,11 +251,11 @@ fn get_data_to_verify(
     let mut enc: Encoder<&mut Vec<u8>> = Encoder::new(buff);
     match sign {
         TaggedSignature::PkWitness(_) => {
-            enc.encode(SigningTag::Tx as u64)
+            enc.encode(1u64)
                 .map_err(|_| Byron(UnableToProcessWitness))?;
         }
         TaggedSignature::RedeemWitness(_) => {
-            enc.encode(SigningTag::RedeemTx as u64)
+            enc.encode(2u64)
                 .map_err(|_| Byron(UnableToProcessWitness))?;
         }
     }

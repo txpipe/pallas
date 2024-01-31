@@ -1,7 +1,9 @@
 use super::Encode;
-use crate::flat::zigzag;
-
 use super::Error;
+use crate::flat::zigzag::ZigZag;
+
+#[cfg(feature = "num-bigint")]
+use num_bigint::{BigInt, BigUint};
 
 pub struct Encoder {
     pub buffer: Vec<u8>,
@@ -89,7 +91,8 @@ impl Encoder {
         Ok(self)
     }
 
-    /// Encode an integer of any size.
+    /// Encode an isize integer.
+    ///
     /// This is byte alignment agnostic.
     /// First we use zigzag once to double the number and encode the negative
     /// sign as the least significant bit. Next we encode the 7 least
@@ -97,25 +100,21 @@ impl Encoder {
     /// 127 we encode a leading 1 followed by repeating the encoding above for
     /// the next 7 bits and so on.
     pub fn integer(&mut self, i: isize) -> &mut Self {
-        let i = zigzag::to_usize(i);
-
-        self.word(i);
-
+        self.word(i.zigzag());
         self
     }
 
-    /// Encode an integer of 128 bits size.
+    /// Encode an arbitrarily sized integer.
+    ///
     /// This is byte alignment agnostic.
     /// First we use zigzag once to double the number and encode the negative
     /// sign as the least significant bit. Next we encode the 7 least
     /// significant bits of the unsigned integer. If the number is greater than
     /// 127 we encode a leading 1 followed by repeating the encoding above for
     /// the next 7 bits and so on.
-    pub fn big_integer(&mut self, i: i128) -> &mut Self {
-        let i = zigzag::to_u128(i);
-
-        self.big_word(i);
-
+    #[cfg(feature = "num-bigint")]
+    pub fn big_integer(&mut self, i: BigInt) -> &mut Self {
+        self.big_word(i.zigzag());
         self
     }
 
@@ -181,18 +180,25 @@ impl Encoder {
     /// We encode the 7 least significant bits of the unsigned byte. If the char
     /// value is greater than 127 we encode a leading 1 followed by
     /// repeating the above for the next 7 bits and so on.
-    pub fn big_word(&mut self, c: u128) -> &mut Self {
+    #[cfg(feature = "num-bigint")]
+    pub fn big_word(&mut self, c: BigUint) -> &mut Self {
         let mut d = c;
+        let zero = (0 as u8).into();
         loop {
-            let mut w = (d & 127) as u8;
+            let m: usize = 127;
+            let mut w = (d.clone() & <usize as Into<BigUint>>::into(m))
+                .to_bytes_be()
+                .pop()
+                .unwrap();
+
             d >>= 7;
 
-            if d != 0 {
+            if d != zero {
                 w |= 128;
             }
             self.bits(8, w);
 
-            if d == 0 {
+            if d == zero {
                 break;
             }
         }

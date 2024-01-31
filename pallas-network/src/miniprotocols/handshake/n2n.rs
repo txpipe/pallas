@@ -33,19 +33,19 @@ impl VersionTable {
         let values = vec![
             (
                 PROTOCOL_V7,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V8,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V9,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V10,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
         ]
         .into_iter()
@@ -58,25 +58,25 @@ impl VersionTable {
         let values = vec![
             (
                 PROTOCOL_V7,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V8,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V9,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V10,
-                VersionData::new(network_magic, false, None, None),
+                VersionData::new(network_magic, true, None, None),
             ),
             (
                 PROTOCOL_V11,
                 VersionData::new(
                     network_magic,
-                    false,
+                    true,
                     Some(PEER_SHARING_DISABLED),
                     Some(false),
                 ),
@@ -85,7 +85,7 @@ impl VersionTable {
                 PROTOCOL_V12,
                 VersionData::new(
                     network_magic,
-                    false,
+                    true,
                     Some(PEER_SHARING_DISABLED),
                     Some(false),
                 ),
@@ -94,7 +94,7 @@ impl VersionTable {
                 PROTOCOL_V13,
                 VersionData::new(
                     network_magic,
-                    false,
+                    true,
                     Some(PEER_SHARING_DISABLED),
                     Some(false),
                 ),
@@ -112,7 +112,7 @@ impl VersionTable {
                 PROTOCOL_V11,
                 VersionData::new(
                     network_magic,
-                    false,
+                    true,
                     Some(PEER_SHARING_DISABLED),
                     Some(false),
                 ),
@@ -121,7 +121,7 @@ impl VersionTable {
                 PROTOCOL_V12,
                 VersionData::new(
                     network_magic,
-                    false,
+                    true,
                     Some(PEER_SHARING_DISABLED),
                     Some(false),
                 ),
@@ -130,7 +130,7 @@ impl VersionTable {
                 PROTOCOL_V13,
                 VersionData::new(
                     network_magic,
-                    false,
+                    true,
                     Some(PEER_SHARING_DISABLED),
                     Some(false),
                 ),
@@ -146,7 +146,7 @@ impl VersionTable {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData {
     network_magic: u64,
-    initiator_and_responder_diffusion_mode: bool,
+    initiator_only_diffusion_mode: bool,
     peer_sharing: Option<u8>,
     query: Option<bool>,
 }
@@ -154,13 +154,13 @@ pub struct VersionData {
 impl VersionData {
     pub fn new(
         network_magic: u64,
-        initiator_and_responder_diffusion_mode: bool,
+        initiator_only_diffusion_mode: bool,
         peer_sharing: Option<u8>,
         query: Option<bool>,
     ) -> Self {
         VersionData {
             network_magic,
-            initiator_and_responder_diffusion_mode,
+            initiator_only_diffusion_mode,
             peer_sharing,
             query,
         }
@@ -177,14 +177,14 @@ impl Encode<()> for VersionData {
             (Some(peer_sharing), Some(query)) => {
                 e.array(4)?
                     .u64(self.network_magic)?
-                    .bool(self.initiator_and_responder_diffusion_mode)?
+                    .bool(self.initiator_only_diffusion_mode)?
                     .u8(peer_sharing)?
                     .bool(query)?;
             }
             _ => {
                 e.array(2)?
                     .u64(self.network_magic)?
-                    .bool(self.initiator_and_responder_diffusion_mode)?;
+                    .bool(self.initiator_only_diffusion_mode)?;
             }
         };
 
@@ -196,7 +196,7 @@ impl<'b> Decode<'b, ()> for VersionData {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let len = d.array()?;
         let network_magic = d.u64()?;
-        let initiator_and_responder_diffusion_mode = d.bool()?;
+        let initiator_only_diffusion_mode = d.bool()?;
         let peer_sharing = match len {
             Some(4) => Some(d.u8()?),
             _ => None,
@@ -208,7 +208,7 @@ impl<'b> Decode<'b, ()> for VersionData {
 
         Ok(Self {
             network_magic,
-            initiator_and_responder_diffusion_mode,
+            initiator_only_diffusion_mode,
             peer_sharing,
             query,
         })

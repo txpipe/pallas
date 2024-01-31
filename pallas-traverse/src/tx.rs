@@ -64,13 +64,17 @@ impl<'b> MultiEraTx<'b> {
     /// Try decode a transaction via every era's encoding format, starting with
     /// the most recent and returning on first success, or None if none are
     /// successful
+    ///
+    /// NOTE: Until Conway is officially released, this method favors Babbage
+    /// decoding over Conway decoding. This means that we'll attempt to
+    /// decode using Babbage first even if Conway is newer.
     pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
         if let Ok(tx) = minicbor::decode(cbor) {
-            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
+            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
-            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))));
+            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
@@ -198,17 +202,20 @@ impl<'b> MultiEraTx<'b> {
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
         match self {
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .reference_inputs
-                .as_ref()
-                .map(|inputs| {
-                    inputs
-                        .iter()
-                        .map(MultiEraInput::from_alonzo_compatible)
-                        .collect()
-                })
-                .unwrap_or_default(),
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             _ => vec![],
         }
     }
