@@ -259,12 +259,11 @@ fn check_collaterals_assets(
 
 // The preservation of value property holds.
 fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
-    let neg_val_err: ValidationError = Alonzo(NegativeValue);
     let input: Value = get_consumed(tx_body, utxos)?;
     let produced: Value = get_produced(tx_body)?;
-    let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &neg_val_err)?;
+    let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &Alonzo(NegativeValue))?;
     if let Some(m) = &tx_body.mint {
-        add_minted_value(&output, m, &neg_val_err)?;
+        add_minted_value(&output, m, &Alonzo(NegativeValue))?;
     }
     if !values_are_equal(&input, &output) {
         return Err(Alonzo(PreservationOfValue));
@@ -273,17 +272,18 @@ fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
 }
 
 fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
-    let neg_val_err: ValidationError = Alonzo(NegativeValue);
     let mut res: Value = empty_value();
     for input in tx_body.inputs.iter() {
         let utxo_value: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(Alonzo(InputNotInUTxO))?;
         match MultiEraOutput::as_alonzo(utxo_value) {
-            Some(TransactionOutput { amount, .. }) => res = add_values(&res, amount, &neg_val_err)?,
+            Some(TransactionOutput { amount, .. }) => {
+                res = add_values(&res, amount, &Alonzo(NegativeValue))?
+            }
             None => match MultiEraOutput::as_byron(utxo_value) {
                 Some(TxOut { amount, .. }) => {
-                    res = add_values(&res, &Value::Coin(*amount), &neg_val_err)?
+                    res = add_values(&res, &Value::Coin(*amount), &Alonzo(NegativeValue))?
                 }
                 _ => return Err(Alonzo(InputNotInUTxO)),
             },
@@ -293,10 +293,9 @@ fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<Value, Valid
 }
 
 fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
-    let neg_val_err: ValidationError = Alonzo(NegativeValue);
     let mut res: Value = empty_value();
     for TransactionOutput { amount, .. } in tx_body.outputs.iter() {
-        res = add_values(&res, amount, &neg_val_err)?;
+        res = add_values(&res, amount, &Alonzo(NegativeValue))?;
     }
     Ok(res)
 }

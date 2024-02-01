@@ -1122,7 +1122,7 @@ mod alonzo_tests {
 
     #[test]
     // Same as succesful_mainnet_tx, except that the fee is reduced by exactly 1,
-    // and so the "preservation of value" property doesn't hold.
+    // and so the "preservation of value" property does not hold.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -1162,7 +1162,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Preservation of value doesn't hold"),
+            Ok(()) => panic!("Preservation of value does not hold"),
             Err(err) => match err {
                 Alonzo(AlonzoError::PreservationOfValue) => (),
                 _ => panic!("Unexpected error ({:?})", err),

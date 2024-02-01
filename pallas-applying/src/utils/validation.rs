@@ -112,6 +112,7 @@ pub enum BabbageError {
     CollateralWrongAssets,
     NegativeValue,
     CollateralAnnotation,
+    PreservationOfValue,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

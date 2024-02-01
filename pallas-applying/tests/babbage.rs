@@ -697,7 +697,7 @@ mod babbage_tests {
     }
 
     #[test]
-    // Same as sucessful_mainnet_tx_with_plutus_script, except that the balance
+    // Same as succesful_mainnet_tx_with_plutus_script, except that the balance
     // between assets in collateral inputs and assets in collateral return output
     // contains assets other than lovelace.
     fn collateral_with_other_assets() {
@@ -973,6 +973,60 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Collateral annotation"),
             Err(err) => match err {
                 Babbage(BabbageError::CollateralAnnotation) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as succesful_mainnet_tx, except that the fee is reduced by exactly 1,
+    // and so the "preservation of value" property doesn't hold.
+    fn preservation_of_value() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage3.address")),
+            Value::Coin(103324335),
+            None,
+            None,
+        )];
+        let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        tx_body.fee = tx_body.fee - 1;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_body, &mut tx_buf);
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72316896,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Preservation of value does not hold"),
+            Err(err) => match err {
+                Babbage(BabbageError::PreservationOfValue) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

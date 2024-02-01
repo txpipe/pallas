@@ -1,8 +1,12 @@
 //! Utilities required for Babbage-era transaction validation.
 
 use crate::utils::{
-    add_values, empty_value, get_babbage_tx_size, get_payment_part, lovelace_diff_or_fail,
-    BabbageError::*, BabbageProtParams, FeePolicy, UTxOs, ValidationError::*, ValidationResult,
+    add_minted_value, add_values, empty_value, get_babbage_tx_size, get_payment_part,
+    lovelace_diff_or_fail, values_are_equal,
+    BabbageError::*,
+    BabbageProtParams, FeePolicy, UTxOs,
+    ValidationError::{self, *},
+    ValidationResult,
 };
 use pallas_addresses::ShelleyPaymentPart;
 use pallas_codec::utils::Bytes;
@@ -269,17 +273,55 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
         babbage_output => match babbage_output.as_babbage() {
             Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
             Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
-            None => unimplemented!(), /* Non-exhaustive type MultiEraOutput must have included a
-                                      new variant. */
+            None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
+                                       * type MultiEraOutput was extended with another variant */
         },
     }
 }
 
-fn check_preservation_of_value(
-    _tx_body: &MintedTransactionBody,
-    _utxos: &UTxOs,
-) -> ValidationResult {
+// The preservation of value property holds.
+fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
+    let input: Value = get_consumed(tx_body, utxos)?;
+    let produced: Value = get_produced(tx_body)?;
+    let output: Value = add_values(
+        &produced,
+        &Value::Coin(tx_body.fee),
+        &Babbage(NegativeValue),
+    )?;
+    if let Some(m) = &tx_body.mint {
+        add_minted_value(&output, m, &Babbage(NegativeValue))?;
+    }
+    if !values_are_equal(&input, &output) {
+        return Err(Babbage(PreservationOfValue));
+    }
     Ok(())
+}
+
+fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
+    let mut res: Value = empty_value();
+    for input in tx_body.inputs.iter() {
+        let multi_era_output: &MultiEraOutput = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(Babbage(InputNotInUTxO))?;
+        let val: Value = val_from_multi_era_output(multi_era_output);
+        res = add_values(&res, &val, &Babbage(NegativeValue))?;
+    }
+    Ok(res)
+}
+
+fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationError> {
+    let mut res: Value = empty_value();
+    for output in tx_body.outputs.iter() {
+        match output {
+            PseudoTransactionOutput::Legacy(output) => {
+                res = add_values(&res, &output.amount, &Babbage(NegativeValue))?
+            }
+            PseudoTransactionOutput::PostAlonzo(output) => {
+                res = add_values(&res, &output.value, &Babbage(NegativeValue))?
+            }
+        }
+    }
+    Ok(res)
 }
 
 fn check_min_lovelace(
