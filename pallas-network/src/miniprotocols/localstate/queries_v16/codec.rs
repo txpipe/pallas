@@ -94,10 +94,10 @@ impl Encode<()> for BlockQuery {
                 e.u16(19)?;
                 e.encode(x)?;
             }
-            BlockQuery::GetStakeSnapshots(x) => {
+            BlockQuery::GetStakeSnapshots(pools) => {
                 e.array(2)?;
                 e.u16(20)?;
-                e.encode(x)?;
+                e.encode(pools)?;
             }
             BlockQuery::GetPoolDistr(x) => {
                 e.array(2)?;
@@ -143,7 +143,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             // 17 => Ok(Self::GetStakePoolParams(())),
             18 => Ok(Self::GetRewardInfoPools),
             // 19 => Ok(Self::GetPoolState(())),
-            // 20 => Ok(Self::GetStakeSnapshots(())),
+            20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
             // 21 => Ok(Self::GetPoolDistr(())),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
             // 23 => Ok(Self::GetConstitutionHash),

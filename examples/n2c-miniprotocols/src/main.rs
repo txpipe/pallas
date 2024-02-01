@@ -54,6 +54,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_current_pparams(client, era).await.unwrap();
     println!("result: {:?}", result);
 
+    let result = queries_v16::get_stake_snapshots(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
     client.send_release().await.unwrap();
 }
 

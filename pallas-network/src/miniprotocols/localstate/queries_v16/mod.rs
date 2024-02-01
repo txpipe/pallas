@@ -41,7 +41,7 @@ pub enum BlockQuery {
     GetStakePoolParams(AnyCbor),
     GetRewardInfoPools,
     GetPoolState(AnyCbor),
-    GetStakeSnapshots(AnyCbor),
+    GetStakeSnapshots(Pools),
     GetPoolDistr(AnyCbor),
     GetStakeDelegDeposits(AnyCbor),
     GetConstitutionHash,
@@ -210,6 +210,10 @@ pub type Addr = Bytes;
 
 pub type Addrs = Vec<Addr>;
 
+// pub type Pools = Option<Vec<Hash<28>>>;
+// pub type Pools = Vec<Hash<28>>;
+pub type Pools = Vec<Vec<u8>>;
+
 pub type Coin = AnyUInt;
 
 pub type PolicyId = Hash<28>;
@@ -268,6 +272,39 @@ pub struct UTxO {
 
     #[n(1)]
     pub index: AnyUInt,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq)]
+pub struct StakeSnapshot {
+    #[n(0)]
+    pub snapshots: Snapshots,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Snapshots {
+    #[n(0)]
+    pub stake_snapshots: KeyValuePairs<Bytes, Stakes>,
+
+    #[n(1)]
+    pub snapshot_stake_mark_total: u64,
+
+    #[n(2)]
+    pub snapshot_stake_set_total: u64,
+
+    #[n(3)]
+    pub snapshot_stake_go_total: u64,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Stakes {
+    #[n(0)]
+    pub snapshot_mark_pool: u64,
+
+    #[n(1)]
+    pub snapshot_set_pool: u64,
+
+    #[n(2)]
+    pub snapshot_go_pool: u64,
 }
 
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
@@ -332,6 +369,23 @@ pub async fn get_utxo_by_address(
     addrs: Addrs,
 ) -> Result<UTxOByAddress, ClientError> {
     let query = BlockQuery::GetUTxOByAddress(addrs);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+pub async fn get_stake_snapshots(
+    client: &mut Client,
+    era: u16,
+) -> Result<StakeSnapshot, ClientError> {
+    let h = hex::decode("ff7b882facd434ac990c4293aa60f3b8a8016e7ad51644939597e90c").unwrap();
+    let pool_id_bytes = b"pool1lec5sxj3hzwz0f0t597r3g52a6lryv0v3vu3n382u6qpuqquhw6".to_vec();
+    let hash_bytes = Hash::<28>::from(h.as_slice());
+    let pools = Vec::from([]);
+    // let pools = TagWrap::<_, 258>::new(pools);
+    let query = BlockQuery::GetStakeSnapshots(pools);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
