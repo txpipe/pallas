@@ -260,11 +260,11 @@ fn check_collaterals_assets(
 
 // The preservation of value property holds.
 fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
-    let input: Value = get_consumed(tx_body, utxos)?;
+    let mut input: Value = get_consumed(tx_body, utxos)?;
     let produced: Value = get_produced(tx_body)?;
     let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &Alonzo(NegativeValue))?;
     if let Some(m) = &tx_body.mint {
-        add_minted_value(&output, m, &Alonzo(NegativeValue))?;
+        input = add_minted_value(&input, m, &Alonzo(NegativeValue))?;
     }
     if !values_are_equal(&input, &output) {
         return Err(Alonzo(PreservationOfValue));
