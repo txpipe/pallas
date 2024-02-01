@@ -13,7 +13,7 @@ use pallas_addresses::{ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
     MintedTransactionBody, MintedTx, MintedWitnessSet, PlutusV1Script, PlutusV2Script,
-    PseudoTransactionOutput, TransactionInput, Value,
+    PseudoTransactionOutput, Redeemer, TransactionInput, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::ops::Deref;
@@ -399,7 +399,24 @@ fn check_tx_size(_size: &u64, _prot_pps: &BabbageProtParams) -> ValidationResult
     Ok(())
 }
 
-fn check_tx_ex_units(_mtx: &MintedTx, _prot_pps: &BabbageProtParams) -> ValidationResult {
+fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> ValidationResult {
+    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+    if presence_of_plutus_scripts(mtx) {
+        match &tx_wits.redeemer {
+            Some(redeemers_vec) => {
+                let mut steps: u64 = 0;
+                let mut mem: u32 = 0;
+                for Redeemer { ex_units, .. } in redeemers_vec {
+                    mem += ex_units.mem;
+                    steps += ex_units.steps;
+                }
+                if mem > prot_pps.max_tx_ex_mem || steps > prot_pps.max_tx_ex_steps {
+                    return Err(Babbage(TxExUnitsExceeded));
+                }
+            }
+            None => return Err(Babbage(RedeemerMissing)),
+        }
+    }
     Ok(())
 }
 

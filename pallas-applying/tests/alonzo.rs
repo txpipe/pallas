@@ -1292,7 +1292,7 @@ mod alonzo_tests {
 
     #[test]
     // Same as successful_mainnet_tx_with_plutus_script, except that the Environment
-    // execution values are below the ones assocaited with the transaction.
+    // execution values are below the ones associated with the transaction.
     fn tx_ex_units_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);

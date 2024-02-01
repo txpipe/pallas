@@ -118,6 +118,8 @@ pub enum BabbageError {
     AddressDecoding,
     OutputWrongNetworkID,
     TxWrongNetworkID,
+    TxExUnitsExceeded,
+    RedeemerMissing,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
