@@ -395,7 +395,10 @@ fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Vali
     Ok(())
 }
 
-fn check_tx_size(_size: &u64, _prot_pps: &BabbageProtParams) -> ValidationResult {
+fn check_tx_size(size: &u64, prot_pps: &BabbageProtParams) -> ValidationResult {
+    if *size > prot_pps.max_tx_size {
+        return Err(Babbage(MaxTxSizeExceeded));
+    }
     Ok(())
 }
 

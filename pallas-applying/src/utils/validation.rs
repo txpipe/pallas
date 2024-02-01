@@ -120,6 +120,7 @@ pub enum BabbageError {
     TxWrongNetworkID,
     TxExUnitsExceeded,
     RedeemerMissing,
+    MaxTxSizeExceeded,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;
