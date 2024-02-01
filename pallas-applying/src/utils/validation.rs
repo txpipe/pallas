@@ -113,6 +113,7 @@ pub enum BabbageError {
     NegativeValue,
     CollateralAnnotation,
     PreservationOfValue,
+    MinLovelaceUnreached,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

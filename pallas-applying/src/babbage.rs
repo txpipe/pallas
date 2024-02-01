@@ -1,8 +1,8 @@
 //! Utilities required for Babbage-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_babbage_tx_size, get_payment_part,
-    lovelace_diff_or_fail, values_are_equal,
+    add_minted_value, add_values, empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val,
+    get_payment_part, get_val_size_in_words, lovelace_diff_or_fail, values_are_equal,
     BabbageError::*,
     BabbageProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -325,10 +325,23 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
 }
 
 fn check_min_lovelace(
-    _tx_body: &MintedTransactionBody,
-    _prot_pps: &BabbageProtParams,
+    tx_body: &MintedTransactionBody,
+    prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
+    for output in tx_body.outputs.iter() {
+        let val: &Value = match output {
+            PseudoTransactionOutput::Legacy(output) => &output.amount,
+            PseudoTransactionOutput::PostAlonzo(output) => &output.value,
+        };
+        if get_lovelace_from_alonzo_val(val) < compute_min_lovelace(val, prot_pps) {
+            return Err(Babbage(MinLovelaceUnreached));
+        }
+    }
     Ok(())
+}
+
+fn compute_min_lovelace(val: &Value, prot_pps: &BabbageProtParams) -> u64 {
+    prot_pps.coins_per_utxo_word * (get_val_size_in_words(val) + 160)
 }
 
 fn check_output_val_size(

@@ -2545,7 +2545,7 @@ mod alonzo_tests {
     }
 
     #[test]
-    // Same as successful_mainnet_tx, except that the minimum lovelace in the UTxO
+    // Same as successful_mainnet_tx, except that the minimum lovelace in an output
     // is unreached.
     fn min_lovelace_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
@@ -2573,7 +2573,7 @@ mod alonzo_tests {
                 max_val_size: 5000,
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
-                coins_per_utxo_word: 10000000,
+                coins_per_utxo_word: 10000000, // This was 34482 during Alonzo on mainnet.
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
