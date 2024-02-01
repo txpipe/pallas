@@ -1,7 +1,8 @@
 //! Utilities required for Babbage-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val,
+    add_minted_value, add_values, compute_native_script_hash, compute_plutus_script_hash,
+    compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val,
     get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
     lovelace_diff_or_fail, values_are_equal,
     BabbageError::*,
@@ -12,8 +13,8 @@ use crate::utils::{
 use pallas_addresses::{ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
-    MintedTransactionBody, MintedTx, MintedWitnessSet, PlutusV1Script, PlutusV2Script,
-    PseudoTransactionOutput, Redeemer, TransactionInput, Value,
+    MintedTransactionBody, MintedTx, MintedWitnessSet, NativeScript, PlutusV1Script,
+    PlutusV2Script, PseudoTransactionOutput, Redeemer, TransactionInput, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::ops::Deref;
@@ -283,7 +284,7 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
 
 // The preservation of value property holds.
 fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
-    let input: Value = get_consumed(tx_body, utxos)?;
+    let mut input: Value = get_consumed(tx_body, utxos)?;
     let produced: Value = get_produced(tx_body)?;
     let output: Value = add_values(
         &produced,
@@ -291,7 +292,7 @@ fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
         &Babbage(NegativeValue),
     )?;
     if let Some(m) = &tx_body.mint {
-        add_minted_value(&output, m, &Babbage(NegativeValue))?;
+        input = add_minted_value(&input, m, &Babbage(NegativeValue))?;
     }
     if !values_are_equal(&input, &output) {
         return Err(Babbage(PreservationOfValue));
@@ -423,8 +424,47 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> Validation
     Ok(())
 }
 
-fn check_minting(_tx_body: &MintedTransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    Ok(())
+// Each minted / burned asset is paired with an appropriate native script or
+// Plutus script.
+fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match &tx_body.mint {
+        Some(minted_value) => {
+            let native_script_wits: Vec<NativeScript> =
+                match &mtx.transaction_witness_set.native_script {
+                    None => Vec::new(),
+                    Some(keep_raw_native_script_wits) => keep_raw_native_script_wits
+                        .iter()
+                        .map(|x| x.clone().unwrap())
+                        .collect(),
+                };
+            let v1_script_wits: Vec<PlutusV1Script> =
+                match &mtx.transaction_witness_set.plutus_v1_script {
+                    None => Vec::new(),
+                    Some(v1_script_wits) => v1_script_wits.clone(),
+                };
+            let v2_script_wits: Vec<PlutusV2Script> =
+                match &mtx.transaction_witness_set.plutus_v2_script {
+                    None => Vec::new(),
+                    Some(v2_script_wits) => v2_script_wits.clone(),
+                };
+            for (policy, _) in minted_value.iter() {
+                if native_script_wits
+                    .iter()
+                    .all(|script| compute_native_script_hash(script) != *policy)
+                    && v1_script_wits
+                        .iter()
+                        .all(|script| compute_plutus_script_hash(script) != *policy)
+                    && v2_script_wits
+                        .iter()
+                        .all(|script| compute_plutus_v2_script_hash(script) != *policy)
+                {
+                    return Err(Babbage(MintingLacksPolicy));
+                }
+            }
+            Ok(())
+        }
+        None => Ok(()),
+    }
 }
 
 fn check_well_formedness(_tx_body: &MintedTransactionBody, _mtx: &MintedTx) -> ValidationResult {

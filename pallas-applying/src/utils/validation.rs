@@ -121,6 +121,7 @@ pub enum BabbageError {
     TxExUnitsExceeded,
     RedeemerMissing,
     MaxTxSizeExceeded,
+    MintingLacksPolicy,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

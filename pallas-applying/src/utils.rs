@@ -12,10 +12,10 @@ use pallas_codec::{
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
-        AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NetworkId, PolicyId, TransactionBody,
-        VKeyWitness, Value,
+        AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NativeScript, NetworkId,
+        PlutusScript, PolicyId, TransactionBody, VKeyWitness, Value,
     },
-    babbage::MintedTransactionBody,
+    babbage::{MintedTransactionBody, PlutusV2Script},
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -99,14 +99,17 @@ pub fn multi_assets_are_equal(fma: &Multiasset<Coin>, sma: &Multiasset<Coin>) ->
         match find_policy(sma, fpolicy) {
             Some(sassets) => {
                 for (fasset_name, famount) in fassets.iter() {
-                    match find_assets(&sassets, fasset_name) {
-                        Some(samount) => {
-                            if *famount != samount {
-                                return false;
+                    // Discard the case where there is 0 of an asset
+                    if *famount != 0 {
+                        match find_assets(&sassets, fasset_name) {
+                            Some(samount) => {
+                                if *famount != samount {
+                                    return false;
+                                }
                             }
-                        }
-                        None => return false,
-                    };
+                            None => return false,
+                        };
+                    }
                 }
             }
             None => return false,
@@ -303,4 +306,23 @@ pub fn get_val_size_in_words(val: &Value) -> u64 {
     let mut tx_buf: Vec<u8> = Vec::new();
     let _ = encode(val, &mut tx_buf);
     (tx_buf.len() as u64 + 7) / 8 // ceiling of the result of dividing
+}
+
+pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
+    let mut payload = Vec::new();
+    let _ = encode(script, &mut payload);
+    payload.insert(0, 0);
+    pallas_crypto::hash::Hasher::<224>::hash(&payload)
+}
+
+pub fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
+    let mut payload: Vec<u8> = Vec::from(script.as_ref());
+    payload.insert(0, 1);
+    pallas_crypto::hash::Hasher::<224>::hash(&payload)
+}
+
+pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
+    let mut payload: Vec<u8> = Vec::from(script.as_ref());
+    payload.insert(0, 1);
+    pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }

@@ -1,9 +1,10 @@
 //! Utilities required for Alonzo-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
-    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
+    add_minted_value, add_values, compute_native_script_hash, compute_plutus_script_hash,
+    empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val,
+    get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
+    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -707,19 +708,6 @@ fn check_minting_policies(
     }
 }
 
-fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
-    let mut payload = Vec::new();
-    let _ = encode(script, &mut payload);
-    payload.insert(0, 0);
-    pallas_crypto::hash::Hasher::<224>::hash(&payload)
-}
-
-fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
-    let mut payload: Vec<u8> = Vec::from(script.as_ref());
-    payload.insert(0, 1);
-    pallas_crypto::hash::Hasher::<224>::hash(&payload)
-}
-
 // The owner of each transaction input and each collateral input should have
 // signed the transaction.
 fn check_vkey_input_wits(
@@ -927,7 +915,11 @@ fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult 
                         .map(|x| x.clone().unwrap())
                         .collect(),
                 };
-            let plutus_script_wits: Vec<PlutusScript> = Vec::new();
+            let plutus_script_wits: Vec<PlutusScript> =
+                match &mtx.transaction_witness_set.plutus_script {
+                    None => Vec::new(),
+                    Some(plutus_script_wits) => plutus_script_wits.clone(),
+                };
             for (policy, _) in minted_value.iter() {
                 if native_script_wits
                     .iter()
