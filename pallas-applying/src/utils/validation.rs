@@ -117,6 +117,7 @@ pub enum BabbageError {
     MaxValSizeExceeded,
     AddressDecoding,
     OutputWrongNetworkID,
+    TxWrongNetworkID,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

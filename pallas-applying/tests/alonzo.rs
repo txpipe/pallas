@@ -1282,7 +1282,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Transaction network ID should match environment network_id"),
+            Ok(()) => panic!("Transaction network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxWrongNetworkID) => (),
                 _ => panic!("Unexpected error ({:?})", err),

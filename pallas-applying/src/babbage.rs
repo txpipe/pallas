@@ -2,8 +2,8 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val,
-    get_payment_part, get_shelley_address, get_val_size_in_words, lovelace_diff_or_fail,
-    values_are_equal,
+    get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
+    lovelace_diff_or_fail, values_are_equal,
     BabbageError::*,
     BabbageProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -384,7 +384,14 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
     Ok(())
 }
 
-fn check_tx_network_id(_tx_body: &MintedTransactionBody, _network_id: &u8) -> ValidationResult {
+// The network ID of the transaction body is either undefined or equal to the
+// global network ID.
+fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
+    if let Some(tx_network_id) = tx_body.network_id {
+        if get_network_id_value(tx_network_id) != *network_id {
+            return Err(Babbage(TxWrongNetworkID));
+        }
+    }
     Ok(())
 }
 
