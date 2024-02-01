@@ -2,7 +2,7 @@ pub mod common;
 
 use common::*;
 use hex;
-use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
+use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
         BabbageError, BabbageProtParams, Environment, FeePolicy, MultiEraProtParams,
@@ -17,7 +17,7 @@ use pallas_codec::minicbor::{
 use pallas_codec::utils::{Bytes, CborWrap, KeyValuePairs};
 use pallas_primitives::babbage::{
     MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef, MintedTransactionBody,
-    MintedTx, PseudoDatumOption, PseudoTransactionOutput, Value,
+    MintedTransactionOutput, MintedTx, PseudoDatumOption, PseudoTransactionOutput, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
 use std::borrow::Cow;
@@ -1123,6 +1123,91 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Max value size exceeded"),
             Err(err) => match err {
                 Babbage(BabbageError::MaxValSizeExceeded) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the first output's transaction
+    // network ID is altered.
+    fn output_network_id() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage3.address")),
+            Value::Coin(103324335),
+            None,
+            None,
+        )];
+        let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let (first_output, rest): (&MintedTransactionOutput, &[MintedTransactionOutput]) =
+            (&tx_body.outputs).split_first().unwrap();
+        let (address_bytes, val): (Bytes, Value) = match first_output {
+            PseudoTransactionOutput::Legacy(output) => {
+                (output.address.clone(), output.amount.clone())
+            }
+            PseudoTransactionOutput::PostAlonzo(output) => {
+                (output.address.clone(), output.value.clone())
+            }
+        };
+        let address: ShelleyAddress = match Address::from_bytes(&address_bytes) {
+            Ok(Address::Shelley(sa)) => sa,
+            _ => panic!("Decoded output address and found the wrong era"),
+        };
+        let altered_address: ShelleyAddress = ShelleyAddress::new(
+            Network::Testnet,
+            address.payment().clone(),
+            address.delegation().clone(),
+        );
+        let altered_output: MintedTransactionOutput =
+            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+                address: Bytes::from(altered_address.to_vec()),
+                value: val,
+                datum_option: None,
+                script_ref: None,
+            });
+        let mut new_outputs = Vec::from(rest);
+        new_outputs.insert(0, altered_output);
+        tx_body.outputs = new_outputs;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_body, &mut tx_buf);
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72316896,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(
+                false,
+                "Output network ID should match environment network ID"
+            ),
+            Err(err) => match err {
+                Babbage(BabbageError::OutputWrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

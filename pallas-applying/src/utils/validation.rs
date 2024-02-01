@@ -115,6 +115,8 @@ pub enum BabbageError {
     PreservationOfValue,
     MinLovelaceUnreached,
     MaxValSizeExceeded,
+    AddressDecoding,
+    OutputWrongNetworkID,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

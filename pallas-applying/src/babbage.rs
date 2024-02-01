@@ -2,19 +2,21 @@
 
 use crate::utils::{
     add_minted_value, add_values, empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val,
-    get_payment_part, get_val_size_in_words, lovelace_diff_or_fail, values_are_equal,
+    get_payment_part, get_shelley_address, get_val_size_in_words, lovelace_diff_or_fail,
+    values_are_equal,
     BabbageError::*,
     BabbageProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
-use pallas_addresses::ShelleyPaymentPart;
+use pallas_addresses::{ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::utils::Bytes;
 use pallas_primitives::babbage::{
     MintedTransactionBody, MintedTx, MintedWitnessSet, PlutusV1Script, PlutusV2Script,
     PseudoTransactionOutput, TransactionInput, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
+use std::ops::Deref;
 
 pub fn validate_babbage_tx(
     mtx: &MintedTx,
@@ -367,10 +369,18 @@ fn check_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Validat
     check_tx_network_id(tx_body, network_id)
 }
 
-fn check_tx_outs_network_id(
-    _tx_body: &MintedTransactionBody,
-    _network_id: &u8,
-) -> ValidationResult {
+fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
+    for output in tx_body.outputs.iter() {
+        let addr_bytes: &Bytes = match output {
+            PseudoTransactionOutput::Legacy(output) => &output.address,
+            PseudoTransactionOutput::PostAlonzo(output) => &output.address,
+        };
+        let addr: ShelleyAddress =
+            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(Babbage(AddressDecoding))?;
+        if addr.network().value() != *network_id {
+            return Err(Babbage(OutputWrongNetworkID));
+        }
+    }
     Ok(())
 }
 
