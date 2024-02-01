@@ -114,6 +114,7 @@ pub enum BabbageError {
     CollateralAnnotation,
     PreservationOfValue,
     MinLovelaceUnreached,
+    MaxValSizeExceeded,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

@@ -1079,4 +1079,52 @@ mod babbage_tests {
             },
         }
     }
+
+    #[test]
+    // Same as successful_mainnet_tx, except that the value size exceeds the
+    // environment parameter.
+    fn max_val_exceeded() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
+        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage3.address")),
+            Value::Coin(103324335),
+            None,
+            None,
+        )];
+        let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 0,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72316896,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Max value size exceeded"),
+            Err(err) => match err {
+                Babbage(BabbageError::MaxValSizeExceeded) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
 }

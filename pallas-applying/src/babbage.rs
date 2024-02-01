@@ -344,10 +344,21 @@ fn compute_min_lovelace(val: &Value, prot_pps: &BabbageProtParams) -> u64 {
     prot_pps.coins_per_utxo_word * (get_val_size_in_words(val) + 160)
 }
 
+// The size of the value in each of the outputs should not be greater than the
+// maximum allowed.
 fn check_output_val_size(
-    _tx_body: &MintedTransactionBody,
-    _prot_pps: &BabbageProtParams,
+    tx_body: &MintedTransactionBody,
+    prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
+    for output in tx_body.outputs.iter() {
+        let val: &Value = match output {
+            PseudoTransactionOutput::Legacy(output) => &output.amount,
+            PseudoTransactionOutput::PostAlonzo(output) => &output.value,
+        };
+        if get_val_size_in_words(val) > prot_pps.max_val_size {
+            return Err(Babbage(MaxValSizeExceeded));
+        }
+    }
     Ok(())
 }
 
