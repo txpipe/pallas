@@ -1,10 +1,10 @@
 //! Utilities required for Babbage-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, compute_native_script_hash, compute_plutus_script_hash,
-    compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val,
-    get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
-    lovelace_diff_or_fail, values_are_equal,
+    add_minted_value, add_values, aux_data_from_babbage_minted_tx, compute_native_script_hash,
+    compute_plutus_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
+    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
+    get_val_size_in_words, lovelace_diff_or_fail, values_are_equal,
     BabbageError::*,
     BabbageProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -479,8 +479,24 @@ fn check_languages(_mtx: &MintedTx, _prot_pps: &BabbageProtParams) -> Validation
     Ok(())
 }
 
-fn check_auxiliary_data(_tx_body: &MintedTransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    Ok(())
+// The metadata of the transaction is valid.
+fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match (
+        &tx_body.auxiliary_data_hash,
+        aux_data_from_babbage_minted_tx(mtx),
+    ) {
+        (Some(metadata_hash), Some(metadata)) => {
+            if metadata_hash.as_slice()
+                == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
+            {
+                Ok(())
+            } else {
+                Err(Babbage(MetadataHash))
+            }
+        }
+        (None, None) => Ok(()),
+        _ => Err(Babbage(MetadataHash)),
+    }
 }
 
 fn check_script_data_hash(_tx_body: &MintedTransactionBody, _mtx: &MintedTx) -> ValidationResult {

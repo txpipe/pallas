@@ -1,8 +1,8 @@
 //! Utilities required for Alonzo-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, compute_native_script_hash, compute_plutus_script_hash,
-    empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val,
+    add_minted_value, add_values, aux_data_from_alonzo_minted_tx, compute_native_script_hash,
+    compute_plutus_script_hash, empty_value, get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val,
     get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
     mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
@@ -49,7 +49,7 @@ pub fn validate_alonzo_tx(
     check_tx_ex_units(mtx, prot_pps)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, prot_pps)?;
-    check_metadata(tx_body, mtx)?;
+    check_auxiliary_data(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx)?;
     check_minting(tx_body, mtx)
 }
@@ -823,8 +823,11 @@ fn check_languages(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationR
 }
 
 // The metadata of the transaction is valid.
-fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    match (&tx_body.auxiliary_data_hash, extract_auxiliary_data(mtx)) {
+fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match (
+        &tx_body.auxiliary_data_hash,
+        aux_data_from_alonzo_minted_tx(mtx),
+    ) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()

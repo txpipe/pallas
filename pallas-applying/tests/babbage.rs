@@ -10,11 +10,14 @@ use pallas_applying::{
     },
     validate, UTxOs,
 };
-use pallas_codec::minicbor::{
-    decode::{Decode, Decoder},
-    encode,
-};
 use pallas_codec::utils::{Bytes, CborWrap, KeyValuePairs};
+use pallas_codec::{
+    minicbor::{
+        decode::{Decode, Decoder},
+        encode,
+    },
+    utils::Nullable,
+};
 use pallas_primitives::babbage::{
     MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef, MintedTransactionBody,
     MintedTransactionOutput, MintedTx, MintedWitnessSet, NetworkId, PseudoDatumOption,
@@ -237,6 +240,87 @@ mod babbage_tests {
             Option<CborWrap<MintedScriptRef>>,
         )] = &[(
             String::from(include_str!("../../test_data/babbage5.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72316896,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
+    // 7ae8cbe887d5d4cdaa51bce93d296206d4fcc77963e65fad3a64d0e6df672260
+    fn successful_mainnet_tx_with_metadata() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage6.tx"));
+        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage6.0.address")),
+                Value::Multiasset(
+                    1689618,
+                    KeyValuePairs::from(Vec::from([(
+                        "dc8f23301b0e3d71af9ac5d1559a060271aa6cf56ac98bdaeea19e18"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(hex::decode("303734").unwrap()),
+                            1,
+                        )])),
+                    )])),
+                ),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage6.1.address")),
+                Value::Coin(5000000),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage6.collateral.address")),
             Value::Coin(5000000),
             None,
             None,
@@ -1641,6 +1725,91 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 Babbage(BabbageError::MintingLacksPolicy) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_metadata, except that the AuxiliaryData is
+    // removed.
+    fn auxiliary_data_removed() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage6.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        mtx.auxiliary_data = Nullable::Null;
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage6.0.address")),
+                Value::Multiasset(
+                    1689618,
+                    KeyValuePairs::from(Vec::from([(
+                        "dc8f23301b0e3d71af9ac5d1559a060271aa6cf56ac98bdaeea19e18"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(hex::decode("303734").unwrap()),
+                            1,
+                        )])),
+                    )])),
+                ),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage6.1.address")),
+                Value::Coin(5000000),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage6.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72316896,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Transaction auxiliary data removed"),
+            Err(err) => match err {
+                Babbage(BabbageError::MetadataHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

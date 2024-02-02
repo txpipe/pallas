@@ -122,6 +122,7 @@ pub enum BabbageError {
     RedeemerMissing,
     MaxTxSizeExceeded,
     MintingLacksPolicy,
+    MetadataHash,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

@@ -12,10 +12,10 @@ use pallas_codec::{
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
-        AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NativeScript, NetworkId,
-        PlutusScript, PolicyId, TransactionBody, VKeyWitness, Value,
+        AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
+        NetworkId, PlutusScript, PolicyId, TransactionBody, VKeyWitness, Value,
     },
-    babbage::{MintedTransactionBody, PlutusV2Script},
+    babbage::{MintedTransactionBody, MintedTx as BabbageMintedTx, PlutusV2Script},
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -296,7 +296,13 @@ pub fn get_shelley_address(address: &[u8]) -> Option<ShelleyAddress> {
     }
 }
 
-pub fn extract_auxiliary_data<'a>(mtx: &'a MintedTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoMintedTx) -> Option<&'a [u8]> {
+    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
+        .as_ref()
+        .map(KeepRaw::raw_cbor)
+}
+
+pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageMintedTx) -> Option<&'a [u8]> {
     Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
         .as_ref()
         .map(KeepRaw::raw_cbor)
