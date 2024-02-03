@@ -97,6 +97,12 @@ impl Encode<()> for BlockQuery {
             BlockQuery::GetStakeSnapshots(pools) => {
                 e.array(2)?;
                 e.u16(20)?;
+
+                if !pools.is_empty() {
+                    e.array(Vec::len(pools) as u64)?;
+                    e.tag(Tag::Unassigned(258))?;
+                }
+
                 e.encode(pools)?;
             }
             BlockQuery::GetPoolDistr(x) => {

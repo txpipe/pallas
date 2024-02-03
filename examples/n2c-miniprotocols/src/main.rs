@@ -1,4 +1,5 @@
 use pallas::{
+    codec::utils::Bytes,
     ledger::{addresses::Address, traverse::MultiEraBlock},
     network::{
         facades::NodeClient,
@@ -54,7 +55,16 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_current_pparams(client, era).await.unwrap();
     println!("result: {:?}", result);
 
-    let result = queries_v16::get_stake_snapshots(client, era).await.unwrap();
+    // Stake pool ID/verification key hash (either Bech32-encoded or hex-encoded).
+    let pool_idx: Bytes = hex::decode("fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b")
+        .unwrap()
+        .into();
+
+    // Empty list means all pools.
+    let pools = vec![Some(pool_idx.to_vec().into())];
+    let result = queries_v16::get_stake_snapshots(client, era, pools)
+        .await
+        .unwrap();
     println!("result: {:?}", result);
 
     client.send_release().await.unwrap();
