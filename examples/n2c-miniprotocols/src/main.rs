@@ -56,7 +56,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     println!("result: {:?}", result);
 
     // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
-    // Empty list means all pools.
+    // Empty Vec means all pools.
     let pools = vec![];
     let result = queries_v16::get_stake_snapshots(client, era, pools)
         .await
