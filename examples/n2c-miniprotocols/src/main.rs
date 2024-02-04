@@ -1,5 +1,4 @@
 use pallas::{
-    codec::utils::Bytes,
     ledger::{addresses::Address, traverse::MultiEraBlock},
     network::{
         facades::NodeClient,
