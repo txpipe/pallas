@@ -219,14 +219,12 @@ Let ***tx ∈ Tx*** be one of its Babbage transactions, with transaction body **
 
 			<code>{(tag, index): (tag, index, \_, \_) ∈ txRedeemers(txWits)} = {redeemerPointer(txBody, sp): (sp, h) ∈ scriptsNeeded(utxo, txBody), (∃s ∈ txScripts(tx, utxo): isPlutusScript(s), h = scriptHash(s)}</code>
 	- **Verification-key witnesses**:
-		- **The owner of each transaction input and each collateral input has signed the transaction**: for each ***txIn ∈ txSpendInsVKey(txBody)*** there exists ***(vk, σ) ∈ txVKWits(tx)*** such that:
+		- **The owner of each transaction input and each collateral input has signed the transaction**:
 
-			- <code>verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>)</code>
-			- <code>paymentCredential<sub>utxo</sub>(txIn) = keyHash(vk)</code>
+			<code>∀ txIn ∈ txSpendInsVKey(txBody): (∃ (vk, σ) ∈ txVKWits(tx): verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>) ∧ paymentCredential<sub>utxo</sub>(txIn) = keyHash(vk))</code>
 		- **All required signers (needed by one of the Plutus scripts of the transaction) have a corresponding match in the transaction witness set**: for each ***key_hash ∈ requiredSigners(txBody)***, there exists ***(vk, σ) ∈ txVKWits(tx)*** such that:
 
-			- <code>verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>)</code>
-			- <code>keyHash(vk) = key_hash</code>
+			<code>∀ key_hash ∈ requiredSigners(txBody): (∃ (vk, σ) ∈ txVKWits(tx): verify(vk, σ, ⟦txBody⟧<sub>TxBody</sub>) ∧ keyHash(vk) = key_hash) </code>
 - **The required script languages are included in the protocol parameters**:
 
 	<code>languages(tx, utxo) ⊆ {l : (l -> _) ∈ costModels(pps, language)}</code>

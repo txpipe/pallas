@@ -123,6 +123,16 @@ pub enum BabbageError {
     MaxTxSizeExceeded,
     MintingLacksPolicy,
     MetadataHash,
+    DatumMissing,
+    UnneededDatum,
+    ScriptWitnessMissing,
+    UnneededNativeScript,
+    UnneededPlutusV1Script,
+    UnneededPlutusV2Script,
+    ReqSignerMissing,
+    ReqSignerWrongSig,
+    VKWitnessMissing,
+    VKWrongSignature,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

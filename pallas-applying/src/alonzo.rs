@@ -19,9 +19,9 @@ use pallas_codec::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{
-        AddrKeyhash, Mint, MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript,
-        PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners, TransactionBody,
-        TransactionInput, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, Mint, MintedTx, MintedWitnessSet, Multiasset, NativeScript, PlutusData,
+        PlutusScript, PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners,
+        TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -434,7 +434,7 @@ fn check_needed_scripts_are_included(
             return Err(Alonzo(UnneededNativeScript));
         }
     }
-    for (plutus_script_covered, _) in native_scripts.iter() {
+    for (plutus_script_covered, _) in plutus_scripts.iter() {
         if !plutus_script_covered {
             return Err(Alonzo(UnneededPlutusScript));
         }
@@ -534,19 +534,23 @@ fn check_redeemers(
             .collect(),
         None => Vec::new(),
     };
-    let plutus_scripts: Vec<RedeemerPointer> =
-        mk_plutus_script_redeemer_pointers(tx_body, tx_wits, utxos);
+    let plutus_scripts: Vec<RedeemerPointer> = mk_plutus_script_redeemer_pointers(
+        &sort_inputs(&tx_body.inputs),
+        &tx_body.mint,
+        tx_wits,
+        utxos,
+    );
     redeemer_pointers_coincide(&redeemer_pointers, &plutus_scripts)
 }
 
 fn mk_plutus_script_redeemer_pointers(
-    tx_body: &TransactionBody,
+    sorted_inputs: &[TransactionInput],
+    mint: &Option<Multiasset<i64>>,
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
 ) -> Vec<RedeemerPointer> {
     match &tx_wits.plutus_script {
         Some(plutus_scripts) => {
-            let sorted_inputs: Vec<TransactionInput> = sort_inputs(&tx_body.inputs);
             let mut res: Vec<RedeemerPointer> = Vec::new();
             for (index, input) in sorted_inputs.iter().enumerate() {
                 if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
@@ -561,7 +565,7 @@ fn mk_plutus_script_redeemer_pointers(
                     }
                 }
             }
-            match &tx_body.mint {
+            match mint {
                 Some(minted_value) => {
                     let sorted_policies: Vec<PolicyId> = sort_policies(minted_value);
                     for (index, policy) in sorted_policies.iter().enumerate() {
