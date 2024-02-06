@@ -1,6 +1,7 @@
 // TODO: this should move to pallas::ledger crate at some point
 
 use pallas_crypto::hash::Hash;
+use std::collections::BTreeSet;
 use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
@@ -210,7 +211,7 @@ pub type Addr = Bytes;
 
 pub type Addrs = Vec<Addr>;
 
-pub type Pools = Vec<Option<Bytes>>;
+pub type Pools = BTreeSet<Bytes>;
 
 pub type Coin = AnyUInt;
 
@@ -388,7 +389,7 @@ pub async fn get_utxo_by_address(
 pub async fn get_stake_snapshots(
     client: &mut Client,
     era: u16,
-    pools: Vec<Option<Bytes>>,
+    pools: BTreeSet<Bytes>,
 ) -> Result<StakeSnapshot, ClientError> {
     let query = BlockQuery::GetStakeSnapshots(pools);
     let query = LedgerQuery::BlockQuery(era, query);

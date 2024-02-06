@@ -99,7 +99,7 @@ impl Encode<()> for BlockQuery {
                 e.u16(20)?;
 
                 if !pools.is_empty() {
-                    e.array(Vec::len(pools) as u64)?;
+                    e.array(1)?;
                     e.tag(Tag::Unassigned(258))?;
                 }
 
