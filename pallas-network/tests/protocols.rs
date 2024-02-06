@@ -2,13 +2,15 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
-use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
+use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, TagWrap};
 use pallas_crypto::hash::Hash;
 use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
 use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
-use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UnitInterval, Value};
+use pallas_network::miniprotocols::localstate::queries_v16::{
+    Addr, Addrs, Snapshots, Stakes, UnitInterval, Value,
+};
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
 use pallas_network::miniprotocols::{
@@ -658,6 +660,50 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             server.statequery().send_result(result).await.unwrap();
 
+            // server receives query from client
+
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            assert_eq!(
+                query,
+                localstate::queries_v16::Request::LedgerQuery(
+                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                        5,
+                        localstate::queries_v16::BlockQuery::GetStakeSnapshots(vec![]),
+                    ),
+                )
+            );
+
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let pool_id: Bytes =
+                hex::decode("fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b")
+                    .unwrap()
+                    .into();
+
+            let stake_snapshots = KeyValuePairs::from(vec![(
+                pool_id,
+                Stakes {
+                    snapshot_mark_pool: 0,
+                    snapshot_set_pool: 0,
+                    snapshot_go_pool: 0,
+                },
+            )]);
+
+            let snapshots = Snapshots {
+                stake_snapshots,
+                snapshot_stake_mark_total: 0,
+                snapshot_stake_set_total: 0,
+                snapshot_stake_go_total: 0,
+            };
+
+            let result = AnyCbor::from_encode(localstate::queries_v16::StakeSnapshot { snapshots });
+            server.statequery().send_result(result).await.unwrap();
+
             assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
             // server receives re-acquire from the client
@@ -873,6 +919,46 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 max_collateral_inputs: None,
             }]
         );
+
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
+            localstate::queries_v16::LedgerQuery::BlockQuery(
+                5,
+                localstate::queries_v16::BlockQuery::GetStakeSnapshots(vec![]),
+            ),
+        ));
+
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: localstate::queries_v16::StakeSnapshot = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        let pool_id: Bytes =
+            hex::decode("fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b")
+                .unwrap()
+                .into();
+
+        let stake_snapshots = KeyValuePairs::from(vec![(
+            pool_id,
+            Stakes {
+                snapshot_mark_pool: 0,
+                snapshot_set_pool: 0,
+                snapshot_go_pool: 0,
+            },
+        )]);
+
+        let snapshots = Snapshots {
+            stake_snapshots,
+            snapshot_stake_mark_total: 0,
+            snapshot_stake_set_total: 0,
+            snapshot_stake_go_total: 0,
+        };
+
+        assert_eq!(result, localstate::queries_v16::StakeSnapshot { snapshots });
 
         // client sends a ReAquire
         client

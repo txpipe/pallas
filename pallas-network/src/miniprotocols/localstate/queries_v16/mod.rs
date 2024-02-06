@@ -41,7 +41,7 @@ pub enum BlockQuery {
     GetStakePoolParams(AnyCbor),
     GetRewardInfoPools,
     GetPoolState(AnyCbor),
-    GetStakeSnapshots(AnyCbor),
+    GetStakeSnapshots(Pools),
     GetPoolDistr(AnyCbor),
     GetStakeDelegDeposits(AnyCbor),
     GetConstitutionHash,
@@ -210,6 +210,8 @@ pub type Addr = Bytes;
 
 pub type Addrs = Vec<Addr>;
 
+pub type Pools = Vec<Option<Bytes>>;
+
 pub type Coin = AnyUInt;
 
 pub type PolicyId = Hash<28>;
@@ -270,6 +272,40 @@ pub struct UTxO {
     pub index: AnyUInt,
 }
 
+#[derive(Debug, Encode, Decode, PartialEq)]
+pub struct StakeSnapshot {
+    #[n(0)]
+    pub snapshots: Snapshots,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Snapshots {
+    #[n(0)]
+    pub stake_snapshots: KeyValuePairs<Bytes, Stakes>,
+
+    #[n(1)]
+    pub snapshot_stake_mark_total: u64,
+
+    #[n(2)]
+    pub snapshot_stake_set_total: u64,
+
+    #[n(3)]
+    pub snapshot_stake_go_total: u64,
+}
+
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Stakes {
+    #[n(0)]
+    pub snapshot_mark_pool: u64,
+
+    #[n(1)]
+    pub snapshot_set_pool: u64,
+
+    #[n(2)]
+    pub snapshot_go_pool: u64,
+}
+
+/// Get the current tip of the ledger.
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
     let query = Request::GetChainPoint;
     let result = client.query(query).await?;
@@ -277,6 +313,7 @@ pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> 
     Ok(result)
 }
 
+/// Get the current era.
 pub async fn get_current_era(client: &mut Client) -> Result<Era, ClientError> {
     let query = HardForkQuery::GetCurrentEra;
     let query = LedgerQuery::HardForkQuery(query);
@@ -286,6 +323,7 @@ pub async fn get_current_era(client: &mut Client) -> Result<Era, ClientError> {
     Ok(result)
 }
 
+/// Get the system start time.
 pub async fn get_system_start(client: &mut Client) -> Result<SystemStart, ClientError> {
     let query = Request::GetSystemStart;
     let result = client.query(query).await?;
@@ -293,6 +331,7 @@ pub async fn get_system_start(client: &mut Client) -> Result<SystemStart, Client
     Ok(result)
 }
 
+/// Get the current protocol parameters.
 pub async fn get_current_pparams(
     client: &mut Client,
     era: u16,
@@ -305,6 +344,7 @@ pub async fn get_current_pparams(
     Ok(result)
 }
 
+/// Get the block number for the current tip.
 pub async fn get_block_epoch_number(client: &mut Client, era: u16) -> Result<u32, ClientError> {
     let query = BlockQuery::GetEpochNo;
     let query = LedgerQuery::BlockQuery(era, query);
@@ -314,6 +354,7 @@ pub async fn get_block_epoch_number(client: &mut Client, era: u16) -> Result<u32
     Ok(result)
 }
 
+/// Get the current stake distribution for the given era.
 pub async fn get_stake_distribution(
     client: &mut Client,
     era: u16,
@@ -326,12 +367,30 @@ pub async fn get_stake_distribution(
     Ok(result)
 }
 
+/// Get the UTxO set for the given era.
 pub async fn get_utxo_by_address(
     client: &mut Client,
     era: u16,
     addrs: Addrs,
 ) -> Result<UTxOByAddress, ClientError> {
     let query = BlockQuery::GetUTxOByAddress(addrs);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get stake snapshots for the given era and stake pools.
+/// If `pools` are empty, all pools are queried.
+/// Otherwise, only the specified pool is queried.
+/// Note: This Query is limited by 1 pool per request.
+pub async fn get_stake_snapshots(
+    client: &mut Client,
+    era: u16,
+    pools: Vec<Option<Bytes>>,
+) -> Result<StakeSnapshot, ClientError> {
+    let query = BlockQuery::GetStakeSnapshots(pools);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;

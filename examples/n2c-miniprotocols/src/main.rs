@@ -54,6 +54,14 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_current_pparams(client, era).await.unwrap();
     println!("result: {:?}", result);
 
+    // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
+    // Empty Vec means all pools.
+    let pools = vec![];
+    let result = queries_v16::get_stake_snapshots(client, era, pools)
+        .await
+        .unwrap();
+    println!("result: {:?}", result);
+
     client.send_release().await.unwrap();
 }
 
