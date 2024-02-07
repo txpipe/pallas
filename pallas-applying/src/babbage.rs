@@ -839,7 +839,7 @@ fn check_redeemers(
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
 ) -> ValidationResult {
-    let _redeemer_pointers: Vec<RedeemerPointer> = match &tx_wits.redeemer {
+    let redeemer_pointers: Vec<RedeemerPointer> = match &tx_wits.redeemer {
         Some(redeemers) => redeemers
             .iter()
             .map(|x| RedeemerPointer {
@@ -849,13 +849,13 @@ fn check_redeemers(
             .collect(),
         None => Vec::new(),
     };
-    let _plutus_scripts: Vec<RedeemerPointer> = mk_plutus_script_redeemer_pointers(
+    let plutus_scripts: Vec<RedeemerPointer> = mk_plutus_script_redeemer_pointers(
         &sort_inputs(&tx_body.inputs),
         &tx_body.mint,
         tx_wits,
         utxos,
     );
-    Ok(())
+    redeemer_pointers_coincide(&redeemer_pointers, &plutus_scripts)
 }
 
 // Lexicographical sorting for inputs.
@@ -945,6 +945,23 @@ fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
         .collect();
     res.sort();
     res
+}
+
+fn redeemer_pointers_coincide(
+    redeemers: &[RedeemerPointer],
+    plutus_scripts: &[RedeemerPointer],
+) -> ValidationResult {
+    for redeemer_pointer in redeemers {
+        if plutus_scripts.iter().all(|x| x != redeemer_pointer) {
+            return Err(Babbage(UnneededRedeemer));
+        }
+    }
+    for ps_redeemer_pointer in plutus_scripts {
+        if redeemers.iter().all(|x| x != ps_redeemer_pointer) {
+            return Err(Babbage(RedeemerMissing));
+        }
+    }
+    Ok(())
 }
 
 // All required signers (needed by a Plutus script) have a corresponding match

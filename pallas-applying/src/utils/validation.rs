@@ -120,6 +120,7 @@ pub enum BabbageError {
     TxWrongNetworkID,
     TxExUnitsExceeded,
     RedeemerMissing,
+    UnneededRedeemer,
     MaxTxSizeExceeded,
     MintingLacksPolicy,
     MetadataHash,
