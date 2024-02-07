@@ -10,7 +10,7 @@ use pallas_applying::{
     },
     validate, UTxOs,
 };
-use pallas_codec::utils::{Bytes, CborWrap, KeyValuePairs};
+use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
 use pallas_codec::{
     minicbor::{
         decode::{Decode, Decoder},
@@ -19,9 +19,9 @@ use pallas_codec::{
     utils::Nullable,
 };
 use pallas_primitives::babbage::{
-    MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef, MintedTransactionBody,
-    MintedTransactionOutput, MintedTx, MintedWitnessSet, NetworkId, PseudoDatumOption,
-    PseudoTransactionOutput, Value,
+    ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef,
+    MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NetworkId,
+    PlutusData, PseudoDatumOption, PseudoTransactionOutput, Redeemer, RedeemerTag, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
 use std::borrow::Cow;
@@ -1810,6 +1810,397 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Transaction auxiliary data removed"),
             Err(err) => match err {
                 Babbage(BabbageError::MetadataHash) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as sucessful_mainnet_tx_with_plutus_script, except that the script hash
+    // in the script UTxO cannot be matched to a script in the witness set.
+    fn script_input_lacks_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage4.0.address")),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage4.1.address")),
+                Value::Multiasset(
+                    1795660,
+                    KeyValuePairs::from(Vec::from([(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            1,
+                        )])),
+                    )])),
+                ),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage4.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.plutus_v1_script = Some(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72317003,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(
+                false,
+                "Script hash in input is not matched to a script in the witness set"
+            ),
+            Err(err) => match err {
+                Babbage(BabbageError::ScriptWitnessMissing) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the datum of
+    // the input script UTxO is removed from the MintedWitnessSet.
+    fn missing_input_datum() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage4.0.address")),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage4.1.address")),
+                Value::Multiasset(
+                    1795660,
+                    KeyValuePairs::from(Vec::from([(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            1,
+                        )])),
+                    )])),
+                ),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage4.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        tx_wits.plutus_data = Some(Vec::new());
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72317003,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(
+                false,
+                "Datum matching the script input datum hash is missing"
+            ),
+            Err(err) => match err {
+                Babbage(BabbageError::DatumMissing) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // PlutusData is extended with an unnecessary new element.
+    fn extra_input_datum() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage4.0.address")),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage4.1.address")),
+                Value::Multiasset(
+                    1795660,
+                    KeyValuePairs::from(Vec::from([(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            1,
+                        )])),
+                    )])),
+                ),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage4.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let old_datum: KeepRaw<PlutusData> = tx_wits.plutus_data.unwrap().pop().unwrap();
+        let new_datum: PlutusData = PlutusData::Array(Vec::new());
+        let mut new_datum_buf: Vec<u8> = Vec::new();
+        let _ = encode(new_datum, &mut new_datum_buf);
+        let keep_raw_new_datum: KeepRaw<PlutusData> =
+            Decode::decode(&mut Decoder::new(&new_datum_buf.as_slice()), &mut ()).unwrap();
+        tx_wits.plutus_data = Some(vec![old_datum, keep_raw_new_datum]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72317003,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded datum"),
+            Err(err) => match err {
+                Babbage(BabbageError::UnneededDatum) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_script, except that the list of
+    // Redeemers is extended with an unnecessary new element.
+    fn extra_redeemer() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage4.0.address")),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage4.1.address")),
+                Value::Multiasset(
+                    1795660,
+                    KeyValuePairs::from(Vec::from([(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            1,
+                        )])),
+                    )])),
+                ),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage4.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let old_redeemer: Redeemer = tx_wits.redeemer.unwrap().pop().unwrap();
+        let new_redeemer: Redeemer = Redeemer {
+            tag: RedeemerTag::Spend,
+            index: 15,
+            data: PlutusData::Array(Vec::new()),
+            ex_units: ExUnits { mem: 0, steps: 0 },
+        };
+        tx_wits.redeemer = Some(vec![old_redeemer, new_redeemer]);
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_wits, &mut tx_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72317003,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Unneeded datum"),
+            Err(err) => match err {
+                Babbage(BabbageError::UnneededRedeemer) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
