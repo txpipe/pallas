@@ -99,6 +99,7 @@ pub enum BabbageError {
     TxInsEmpty,
     InputNotInUTxO,
     CollateralNotInUTxO,
+    ReferenceInputNotInUTxO,
     RefInputNotInUTxO,
     BlockPrecedesValInt,
     BlockExceedsValInt,

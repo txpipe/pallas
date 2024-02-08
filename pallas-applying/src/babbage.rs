@@ -18,8 +18,8 @@ use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
         AddrKeyhash, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx,
-        MintedWitnessSet, Multiasset, NativeScript, PlutusData, PlutusV1Script, PlutusV2Script,
-        PolicyId, PseudoDatumOption, PseudoTransactionOutput, Redeemer, RequiredSigners,
+        MintedWitnessSet, NativeScript, PlutusData, PlutusV1Script, PlutusV2Script, PolicyId,
+        PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, RequiredSigners,
         TransactionInput, VKeyWitness, Value,
     },
 };
@@ -48,7 +48,7 @@ pub fn validate_babbage_tx(
     check_minting(tx_body, mtx)?;
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
-    check_languages(mtx, prot_pps)?;
+    check_languages(mtx, block_slot)?;
     check_auxiliary_data(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx)
 }
@@ -84,7 +84,7 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
         Some(reference_inputs) => {
             for reference_input in reference_inputs {
                 if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(reference_input))) {
-                    return Err(Babbage(CollateralNotInUTxO));
+                    return Err(Babbage(ReferenceInputNotInUTxO));
                 }
             }
         }
@@ -142,7 +142,7 @@ fn check_fee(
 ) -> ValidationResult {
     check_min_fee(tx_body, size, prot_pps)?;
     if presence_of_plutus_scripts(mtx) {
-        check_collaterals(tx_body, mtx, utxos, prot_pps)?
+        check_collaterals(tx_body, utxos, prot_pps)?
     }
     Ok(())
 }
@@ -176,7 +176,6 @@ fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
 
 fn check_collaterals(
     tx_body: &MintedTransactionBody,
-    mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
@@ -186,7 +185,7 @@ fn check_collaterals(
         .ok_or(Babbage(CollateralMissing))?;
     check_collaterals_number(collaterals, prot_pps)?;
     check_collaterals_address(collaterals, utxos)?;
-    check_collaterals_assets(tx_body, mtx, utxos, prot_pps)
+    check_collaterals_assets(tx_body, utxos, prot_pps)
 }
 
 // The set of collateral inputs is not empty.
@@ -221,7 +220,9 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
                     }
                 }
             }
-            None => return Err(Babbage(CollateralNotInUTxO)),
+            None => {
+                return Err(Babbage(CollateralNotInUTxO));
+            }
         }
     }
     Ok(())
@@ -232,7 +233,6 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
 // The balance matches exactly the collateral annotated in the transaction body.
 fn check_collaterals_assets(
     tx_body: &MintedTransactionBody,
-    mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
@@ -248,7 +248,9 @@ fn check_collaterals_assets(
                             &Babbage(NegativeValue),
                         )?
                     }
-                    None => return Err(Babbage(CollateralNotInUTxO)),
+                    None => {
+                        return Err(Babbage(CollateralNotInUTxO));
+                    }
                 }
             }
             let coll_return: Value = match &tx_body.collateral_return {
@@ -265,7 +267,7 @@ fn check_collaterals_assets(
                 return Err(Babbage(CollateralMinLovelace));
             }
             // The balance matches exactly the collateral annotated in the transaction body.
-            if let Some(annotated_collateral) = &mtx.transaction_body.total_collateral {
+            if let Some(annotated_collateral) = &tx_body.total_collateral {
                 if paid_collateral != *annotated_collateral {
                     return Err(Babbage(CollateralAnnotation));
                 }
@@ -483,39 +485,48 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let vkey_wits: &Option<Vec<VKeyWitness>> = &tx_wits.vkeywitness;
-    let mut native_scripts: Vec<(bool, PolicyId)> = match &tx_wits.native_script {
+    let native_scripts: Vec<PolicyId> = match &tx_wits.native_script {
         Some(scripts) => scripts
             .clone()
             .iter()
-            .map(|script| (false, compute_native_script_hash(script)))
+            .map(|raw_script| compute_native_script_hash(raw_script))
             .collect(),
         None => Vec::new(),
     };
-    let mut plutus_v1_scripts: Vec<(bool, PolicyId)> = match &tx_wits.plutus_v1_script {
+    let plutus_v1_scripts: Vec<PolicyId> = match &tx_wits.plutus_v1_script {
         Some(scripts) => scripts
             .clone()
             .iter()
-            .map(|script| (false, compute_plutus_script_hash(script)))
+            .map(compute_plutus_script_hash)
             .collect(),
         None => Vec::new(),
     };
-    let mut plutus_v2_scripts: Vec<(bool, PolicyId)> = match &tx_wits.plutus_v2_script {
+    let plutus_v2_scripts: Vec<PolicyId> = match &tx_wits.plutus_v2_script {
         Some(scripts) => scripts
             .clone()
             .iter()
-            .map(|script| (false, compute_plutus_v2_script_hash(script)))
+            .map(compute_plutus_v2_script_hash)
             .collect(),
         None => Vec::new(),
     };
-    check_needed_scripts_except_reference_scripts(
+    let reference_scripts: Vec<PolicyId> = get_reference_script_hashes(tx_body, utxos);
+    check_needed_scripts(
         tx_body,
         utxos,
-        &mut native_scripts,
-        &mut plutus_v1_scripts,
-        &mut plutus_v2_scripts,
+        &native_scripts,
+        &plutus_v1_scripts,
+        &plutus_v2_scripts,
+        &reference_scripts,
     )?;
     check_datums(tx_body, utxos, &tx_wits.plutus_data)?;
-    check_redeemers(tx_body, tx_wits, utxos)?;
+    check_redeemers(
+        &plutus_v1_scripts,
+        &plutus_v2_scripts,
+        &reference_scripts,
+        tx_body,
+        tx_wits,
+        utxos,
+    )?;
     check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
     check_vkey_input_wits(mtx, &tx_wits.vkeywitness, utxos)
 }
@@ -523,65 +534,88 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
 // Each minting policy or script hash in a script input address can be matched
 // to a script in the transaction witness set, except when it can be found in a
 // reference input
-fn check_needed_scripts_except_reference_scripts(
+fn check_needed_scripts(
     tx_body: &MintedTransactionBody,
     utxos: &UTxOs,
-    native_scripts: &mut Vec<(bool, PolicyId)>,
-    plutus_v1_scripts: &mut Vec<(bool, PolicyId)>,
-    plutus_v2_scripts: &mut Vec<(bool, PolicyId)>,
+    native_scripts: &[PolicyId],
+    plutus_v1_scripts: &[PolicyId],
+    plutus_v2_scripts: &[PolicyId],
+    reference_scripts: &[PolicyId],
 ) -> ValidationResult {
-    let reference_scripts: &Vec<ScriptHash> = &get_reference_script_hashes(tx_body, utxos);
-    native_scripts.retain(|(_, native_script_hash)| {
+    let mut native_scripts: Vec<(bool, PolicyId)> =
+        native_scripts
+            .clone()
+            .iter()
+            .map(|&script_hash| (false, script_hash))
+            .collect();
+    let mut filtered_native_scripts: Vec<(bool, PolicyId)> = native_scripts.to_owned();
+    filtered_native_scripts.retain(|&(_, native_script_hash)| {
         !reference_scripts
             .iter()
-            .any(|reference_script_hash| *reference_script_hash == *native_script_hash)
+            .any(|&reference_script_hash| reference_script_hash == native_script_hash)
     });
-    plutus_v1_scripts.retain(|(_, plutus_script_v1_hash)| {
+    let mut plutus_v1_scripts: Vec<(bool, PolicyId)> =
+        plutus_v1_scripts
+            .clone()
+            .iter()
+            .map(|&script_hash| (false, script_hash))
+            .collect();
+    let mut filtered_plutus_v1_scripts: Vec<(bool, PolicyId)> = plutus_v1_scripts.to_owned();
+    filtered_plutus_v1_scripts.retain(|&(_, plutus_v1_script_hash)| {
         !reference_scripts
             .iter()
-            .any(|reference_script_hash| *reference_script_hash == *plutus_script_v1_hash)
+            .any(|&reference_script_hash| reference_script_hash == plutus_v1_script_hash)
     });
-    plutus_v2_scripts.retain(|(_, plutus_script_v2_hash)| {
+    let mut plutus_v2_scripts: Vec<(bool, PolicyId)> =
+        plutus_v2_scripts
+            .clone()
+            .iter()
+            .map(|&script_hash| (false, script_hash))
+            .collect();
+    let mut filtered_plutus_v2_scripts: Vec<(bool, PolicyId)> = plutus_v2_scripts.to_owned();
+    filtered_plutus_v2_scripts.retain(|&(_, plutus_v2_script_hash)| {
         !reference_scripts
             .iter()
-            .any(|reference_script_hash| *reference_script_hash == *plutus_script_v2_hash)
+            .any(|&reference_script_hash| reference_script_hash == plutus_v2_script_hash)
     });
-    check_script_inputs(
+    check_input_scripts(
         tx_body,
-        native_scripts,
-        plutus_v1_scripts,
-        plutus_v2_scripts,
+        &mut filtered_native_scripts,
+        &mut filtered_plutus_v1_scripts,
+        &mut filtered_plutus_v2_scripts,
+        reference_scripts,
         utxos,
     )?;
     check_minting_policies(
         tx_body,
-        native_scripts,
-        plutus_v1_scripts,
-        plutus_v2_scripts,
+        &mut filtered_native_scripts,
+        &mut filtered_plutus_v1_scripts,
+        &mut filtered_plutus_v2_scripts,
+        reference_scripts,
     )?;
-    for (native_script_covered, _) in native_scripts.iter() {
-        if !native_script_covered {
+    for (covered, _) in filtered_native_scripts.iter() {
+        if !covered {
             return Err(Babbage(UnneededNativeScript));
         }
     }
-    for (plutus_v1_script_covered, _) in plutus_v1_scripts.iter() {
-        if !plutus_v1_script_covered {
+    for (covered, _) in filtered_plutus_v1_scripts.iter() {
+        if !covered {
             return Err(Babbage(UnneededPlutusV1Script));
         }
     }
-    for (plutus_v2_script_covered, _) in plutus_v2_scripts.iter() {
-        if !plutus_v2_script_covered {
+    for (covered, _) in filtered_plutus_v2_scripts.iter() {
+        if !covered {
             return Err(Babbage(UnneededPlutusV2Script));
         }
     }
     Ok(())
 }
 
-fn get_reference_script_hashes(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Vec<ScriptHash> {
-    let mut res: Vec<ScriptHash> = Vec::new();
+fn get_reference_script_hashes(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
+    let mut res: Vec<PolicyId> = Vec::new();
     if let Some(reference_inputs) = &tx_body.reference_inputs {
-        for input in reference_inputs {
-            if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
+        for input in reference_inputs.iter() {
+            if let Some(script_hash) = get_script_hash_from_reference_input(input, utxos) {
                 res.push(script_hash)
             }
         }
@@ -589,43 +623,52 @@ fn get_reference_script_hashes(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
     res
 }
 
-fn check_script_inputs(
+fn check_input_scripts(
     tx_body: &MintedTransactionBody,
     native_scripts: &mut [(bool, PolicyId)],
     plutus_v1_scripts: &mut [(bool, PolicyId)],
     plutus_v2_scripts: &mut [(bool, PolicyId)],
+    reference_scripts: &[PolicyId],
     utxos: &UTxOs,
 ) -> ValidationResult {
-    let mut inputs: Vec<(bool, ScriptHash)> = get_script_hashes(tx_body, utxos);
-    for (input_script_covered, input_script_hash) in &mut inputs {
+    let mut needed_input_scripts: Vec<(bool, ScriptHash)> =
+        get_script_hashes_from_inputs(tx_body, utxos);
+    for (covered, hash) in &mut needed_input_scripts {
         for (native_script_covered, native_script_hash) in native_scripts.iter_mut() {
-            if *input_script_hash == *native_script_hash {
-                *input_script_covered = true;
+            if *hash == *native_script_hash {
+                *covered = true;
                 *native_script_covered = true;
             }
         }
-        for (plutus_script_covered, plutus_v1_script_hash) in plutus_v1_scripts.iter_mut() {
-            if *input_script_hash == *plutus_v1_script_hash {
-                *input_script_covered = true;
-                *plutus_script_covered = true;
+        for (plutus_v1_script_covered, plutus_v1_script_hash) in plutus_v1_scripts.iter_mut() {
+            if *hash == *plutus_v1_script_hash {
+                *covered = true;
+                *plutus_v1_script_covered = true;
             }
         }
-        for (plutus_script_covered, plutus_v2_script_hash) in plutus_v2_scripts.iter_mut() {
-            if *input_script_hash == *plutus_v2_script_hash {
-                *input_script_covered = true;
-                *plutus_script_covered = true;
+        for (plutus_v2_script_covered, plutus_v2_script_hash) in plutus_v2_scripts.iter_mut() {
+            if *hash == *plutus_v2_script_hash {
+                *covered = true;
+                *plutus_v2_script_covered = true;
             }
         }
     }
-    for (input_script_covered, _) in inputs {
-        if !input_script_covered {
+    for (covered, hash) in needed_input_scripts {
+        if !covered
+            && !reference_scripts
+                .iter()
+                .any(|reference_script_hash| *reference_script_hash == hash)
+        {
             return Err(Babbage(ScriptWitnessMissing));
         }
     }
     Ok(())
 }
 
-fn get_script_hashes(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Vec<(bool, ScriptHash)> {
+fn get_script_hashes_from_inputs(
+    tx_body: &MintedTransactionBody,
+    utxos: &UTxOs,
+) -> Vec<(bool, ScriptHash)> {
     let mut res: Vec<(bool, ScriptHash)> = Vec::new();
     for input in tx_body.inputs.iter() {
         if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
@@ -654,11 +697,53 @@ fn get_script_hash_from_input(input: &TransactionInput, utxos: &UTxOs) -> Option
     }
 }
 
+fn get_script_hash_from_reference_input(
+    ref_input: &TransactionInput,
+    utxos: &UTxOs,
+) -> Option<PolicyId> {
+    match utxos
+        .get(&MultiEraInput::from_alonzo_compatible(ref_input))
+        .and_then(MultiEraOutput::as_babbage)
+    {
+        Some(PseudoTransactionOutput::Legacy(_)) => None,
+        Some(PseudoTransactionOutput::PostAlonzo(output)) => {
+            if let Some(script_ref_cborwrap) = &output.script_ref {
+                match script_ref_cborwrap.clone().unwrap() {
+                    PseudoScript::NativeScript(native_script) => {
+                        // First, the NativeScript header.
+                        let mut val_to_hash: Vec<u8> = vec![0];
+                        // Then, the CBOR content.
+                        val_to_hash.extend_from_slice(native_script.raw_cbor());
+                        return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
+                    }
+                    PseudoScript::PlutusV1Script(plutus_v1_script) => {
+                        // First, the PlutusV1Script header.
+                        let mut val_to_hash: Vec<u8> = vec![1];
+                        // Then, the CBOR content.
+                        val_to_hash.extend_from_slice(plutus_v1_script.as_ref());
+                        return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
+                    }
+                    PseudoScript::PlutusV2Script(plutus_v2_script) => {
+                        // First, the PlutusV2Script header.
+                        let mut val_to_hash: Vec<u8> = vec![2];
+                        // Then, the CBOR content.
+                        val_to_hash.extend_from_slice(plutus_v2_script.as_ref());
+                        return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 fn check_minting_policies(
     tx_body: &MintedTransactionBody,
     native_scripts: &mut [(bool, PolicyId)],
     plutus_v1_scripts: &mut [(bool, PolicyId)],
     plutus_v2_scripts: &mut [(bool, PolicyId)],
+    reference_scripts: &[PolicyId],
 ) -> ValidationResult {
     match &tx_body.mint {
         None => Ok(()),
@@ -682,6 +767,11 @@ fn check_minting_policies(
                     if *policy == *plutus_v2_script_hash {
                         *policy_covered = true;
                         *plutus_script_covered = true;
+                    }
+                }
+                for reference_script_hash in reference_scripts.iter() {
+                    if *policy == *reference_script_hash {
+                        *policy_covered = true;
                     }
                 }
             }
@@ -835,6 +925,9 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
 }
 
 fn check_redeemers(
+    plutus_v1_scripts: &[PolicyId],
+    plutus_v2_scripts: &[PolicyId],
+    reference_scripts: &[PolicyId],
     tx_body: &MintedTransactionBody,
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
@@ -850,9 +943,10 @@ fn check_redeemers(
         None => Vec::new(),
     };
     let plutus_scripts: Vec<RedeemerPointer> = mk_plutus_script_redeemer_pointers(
-        &sort_inputs(&tx_body.inputs),
-        &tx_body.mint,
-        tx_wits,
+        plutus_v1_scripts,
+        plutus_v2_scripts,
+        reference_scripts,
+        tx_body,
         utxos,
     );
     redeemer_pointers_coincide(&redeemer_pointers, &plutus_scripts)
@@ -866,70 +960,35 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
 }
 
 fn mk_plutus_script_redeemer_pointers(
-    sorted_inputs: &[TransactionInput],
-    mint: &Option<Multiasset<i64>>,
-    tx_wits: &MintedWitnessSet,
+    plutus_v1_scripts: &[PolicyId],
+    plutus_v2_scripts: &[PolicyId],
+    reference_scripts: &[PolicyId],
+    tx_body: &MintedTransactionBody,
     utxos: &UTxOs,
 ) -> Vec<RedeemerPointer> {
     let mut res: Vec<RedeemerPointer> = Vec::new();
-    if let Some(plutus_v1_scripts) = &tx_wits.plutus_v1_script {
-        for (index, input) in sorted_inputs.iter().enumerate() {
-            if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
-                for plutus_script in plutus_v1_scripts.iter() {
-                    let hashed_script: PolicyId = compute_plutus_script_hash(plutus_script);
-                    if script_hash == hashed_script {
-                        res.push(RedeemerPointer {
-                            tag: RedeemerTag::Spend,
-                            index: index as u32,
-                        })
-                    }
-                }
-            }
-        }
-        match mint {
-            Some(minted_value) => {
-                for (index, policy) in sort_policies(minted_value).iter().enumerate() {
-                    for plutus_v1_script in plutus_v1_scripts.iter() {
-                        if *policy == compute_plutus_script_hash(plutus_v1_script) {
-                            res.push(RedeemerPointer {
-                                tag: RedeemerTag::Mint,
-                                index: index as u32,
-                            })
-                        }
-                    }
-                }
-            }
-            None => (),
+    let sorted_inputs: &Vec<TransactionInput> = &sort_inputs(&tx_body.inputs);
+    for (index, input) in sorted_inputs.iter().enumerate() {
+        if get_script_hash_from_input(input, utxos).is_some() {
+            res.push(RedeemerPointer {
+                tag: RedeemerTag::Spend,
+                index: index as u32,
+            })
         }
     }
-    if let Some(plutus_v2_scripts) = &tx_wits.plutus_v2_script {
-        for (index, input) in sorted_inputs.iter().enumerate() {
-            if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
-                for plutus_v2_script in plutus_v2_scripts.iter() {
-                    let hashed_script: PolicyId = compute_plutus_v2_script_hash(plutus_v2_script);
-                    if script_hash == hashed_script {
-                        res.push(RedeemerPointer {
-                            tag: RedeemerTag::Spend,
-                            index: index as u32,
-                        })
-                    }
-                }
+    if let Some(mint) = &tx_body.mint {
+        for (index, policy) in sort_policies(mint).iter().enumerate() {
+            if is_phase_2_script(
+                policy,
+                plutus_v1_scripts,
+                plutus_v2_scripts,
+                reference_scripts,
+            ) {
+                res.push(RedeemerPointer {
+                    tag: RedeemerTag::Mint,
+                    index: index as u32,
+                })
             }
-        }
-        match mint {
-            Some(minted_value) => {
-                for (index, policy) in sort_policies(minted_value).iter().enumerate() {
-                    for plutus_v2_script in plutus_v2_scripts.iter() {
-                        if *policy == compute_plutus_v2_script_hash(plutus_v2_script) {
-                            res.push(RedeemerPointer {
-                                tag: RedeemerTag::Mint,
-                                index: index as u32,
-                            })
-                        }
-                    }
-                }
-            }
-            None => (),
         }
     }
     res
@@ -947,17 +1006,34 @@ fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
     res
 }
 
+fn is_phase_2_script(
+    policy: &PolicyId,
+    plutus_v1_scripts: &[PolicyId],
+    plutus_v2_scripts: &[PolicyId],
+    reference_scripts: &[PolicyId],
+) -> bool {
+    plutus_v1_scripts
+        .iter()
+        .any(|v1_script| policy == v1_script)
+        || plutus_v2_scripts
+            .iter()
+            .any(|v2_script| policy == v2_script)
+        || reference_scripts
+            .iter()
+            .any(|ref_script| policy == ref_script)
+}
+
 fn redeemer_pointers_coincide(
     redeemers: &[RedeemerPointer],
     plutus_scripts: &[RedeemerPointer],
 ) -> ValidationResult {
     for redeemer_pointer in redeemers {
-        if plutus_scripts.iter().all(|x| x != redeemer_pointer) {
+        if !plutus_scripts.iter().any(|x| x == redeemer_pointer) {
             return Err(Babbage(UnneededRedeemer));
         }
     }
     for ps_redeemer_pointer in plutus_scripts {
-        if redeemers.iter().all(|x| x != ps_redeemer_pointer) {
+        if !redeemers.iter().any(|x| x == ps_redeemer_pointer) {
             return Err(Babbage(RedeemerMissing));
         }
     }

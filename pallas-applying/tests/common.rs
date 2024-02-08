@@ -154,27 +154,72 @@ pub fn add_collateral_babbage<'a>(
 ) {
     match &tx_body.collateral {
         Some(collaterals) => {
-            for (tx_in, (addr, val, datum_opt, script_ref)) in
-                zip(collaterals.clone(), collateral_info)
-            {
-                let multi_era_in: MultiEraInput =
-                    MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
-                let address_bytes: Bytes = match hex::decode(addr) {
-                    Ok(bytes_vec) => Bytes::from(bytes_vec),
-                    _ => panic!("Unable to decode input address"),
-                };
-                let tx_out: MintedTransactionOutput =
-                    PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
-                        address: address_bytes,
-                        value: val.clone(),
-                        datum_option: datum_opt.clone(),
-                        script_ref: script_ref.clone(),
-                    });
-                let multi_era_out: MultiEraOutput =
-                    MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
-                utxos.insert(multi_era_in, multi_era_out);
+            if collaterals.is_empty() {
+                panic!("UTxO addition error - collateral input missing")
+            } else {
+                for (tx_in, (addr, val, datum_opt, script_ref)) in
+                    zip(collaterals.clone(), collateral_info)
+                {
+                    let multi_era_in: MultiEraInput =
+                        MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+                    let address_bytes: Bytes = match hex::decode(addr) {
+                        Ok(bytes_vec) => Bytes::from(bytes_vec),
+                        _ => panic!("Unable to decode input address"),
+                    };
+                    let tx_out: MintedTransactionOutput =
+                        PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+                            address: address_bytes,
+                            value: val.clone(),
+                            datum_option: datum_opt.clone(),
+                            script_ref: script_ref.clone(),
+                        });
+                    let multi_era_out: MultiEraOutput =
+                        MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
+                    utxos.insert(multi_era_in, multi_era_out);
+                }
             }
         }
-        None => panic!("Adding collateral to UTxO failed due to an empty list of collaterals"),
+        None => panic!("UTxO addition error - collateral input missing"),
+    }
+}
+
+pub fn add_ref_input_babbage<'a>(
+    tx_body: &MintedTransactionBody,
+    utxos: &mut UTxOs<'a>,
+    ref_input_info: &'a [(
+        String, // address in string format
+        Value,
+        Option<MintedDatumOption>,
+        Option<CborWrap<MintedScriptRef>>,
+    )],
+) {
+    match &tx_body.reference_inputs {
+        Some(ref_inputs) => {
+            if ref_inputs.is_empty() {
+                panic!("UTxO addition error - reference input missing")
+            } else {
+                for (tx_in, (addr, val, datum_opt, script_ref)) in
+                    zip(ref_inputs.clone(), ref_input_info)
+                {
+                    let multi_era_in: MultiEraInput =
+                        MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+                    let address_bytes: Bytes = match hex::decode(addr) {
+                        Ok(bytes_vec) => Bytes::from(bytes_vec),
+                        _ => panic!("Unable to decode input address"),
+                    };
+                    let tx_out: MintedTransactionOutput =
+                        PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+                            address: address_bytes,
+                            value: val.clone(),
+                            datum_option: datum_opt.clone(),
+                            script_ref: script_ref.clone(),
+                        });
+                    let multi_era_out: MultiEraOutput =
+                        MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
+                    utxos.insert(multi_era_in, multi_era_out);
+                }
+            }
+        }
+        None => panic!("UTxO addition error - reference input missing"),
     }
 }
