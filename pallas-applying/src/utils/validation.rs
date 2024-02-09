@@ -135,6 +135,7 @@ pub enum BabbageError {
     ReqSignerWrongSig,
     VKWitnessMissing,
     VKWrongSignature,
+    UnsupportedPlutusLanguage,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

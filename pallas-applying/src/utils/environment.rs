@@ -54,6 +54,7 @@ pub struct AlonzoProtParams {
 
 #[derive(Debug, Clone)]
 pub struct BabbageProtParams {
+    pub plutus_v2_cost_model_starting_slot: u64,
     pub fee_policy: FeePolicy,
     pub max_tx_size: u64,
     pub max_block_ex_mem: u64,

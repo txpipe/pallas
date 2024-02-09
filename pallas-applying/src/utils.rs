@@ -296,6 +296,10 @@ pub fn get_shelley_address(address: &[u8]) -> Option<ShelleyAddress> {
     }
 }
 
+pub fn is_byron_address(address: &[u8]) -> bool {
+    matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
+}
+
 pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoMintedTx) -> Option<&'a [u8]> {
     Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
         .as_ref()

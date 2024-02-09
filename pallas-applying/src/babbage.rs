@@ -4,8 +4,8 @@ use crate::utils::{
     add_minted_value, add_values, aux_data_from_babbage_minted_tx, compute_native_script_hash,
     compute_plutus_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
     get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
-    get_val_size_in_words, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list, values_are_equal,
-    verify_signature,
+    get_val_size_in_words, is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list,
+    values_are_equal, verify_signature,
     BabbageError::*,
     BabbageProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -17,7 +17,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
-        AddrKeyhash, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx,
+        AddrKeyhash, Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx,
         MintedWitnessSet, NativeScript, PlutusData, PlutusV1Script, PlutusV2Script, PolicyId,
         PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, RequiredSigners,
         TransactionInput, VKeyWitness, Value,
@@ -48,7 +48,7 @@ pub fn validate_babbage_tx(
     check_minting(tx_body, mtx)?;
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
-    check_languages(mtx, block_slot)?;
+    check_languages(mtx, utxos, block_slot, prot_pps)?;
     check_auxiliary_data(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx)
 }
@@ -542,37 +542,31 @@ fn check_needed_scripts(
     plutus_v2_scripts: &[PolicyId],
     reference_scripts: &[PolicyId],
 ) -> ValidationResult {
-    let mut native_scripts: Vec<(bool, PolicyId)> =
-        native_scripts
-            .clone()
-            .iter()
-            .map(|&script_hash| (false, script_hash))
-            .collect();
-    let mut filtered_native_scripts: Vec<(bool, PolicyId)> = native_scripts.to_owned();
+    let mut filtered_native_scripts: Vec<(bool, PolicyId)> = native_scripts
+        .clone()
+        .iter()
+        .map(|&script_hash| (false, script_hash))
+        .collect();
     filtered_native_scripts.retain(|&(_, native_script_hash)| {
         !reference_scripts
             .iter()
             .any(|&reference_script_hash| reference_script_hash == native_script_hash)
     });
-    let mut plutus_v1_scripts: Vec<(bool, PolicyId)> =
-        plutus_v1_scripts
-            .clone()
-            .iter()
-            .map(|&script_hash| (false, script_hash))
-            .collect();
-    let mut filtered_plutus_v1_scripts: Vec<(bool, PolicyId)> = plutus_v1_scripts.to_owned();
+    let mut filtered_plutus_v1_scripts: Vec<(bool, PolicyId)> = plutus_v1_scripts
+        .clone()
+        .iter()
+        .map(|&script_hash| (false, script_hash))
+        .collect();
     filtered_plutus_v1_scripts.retain(|&(_, plutus_v1_script_hash)| {
         !reference_scripts
             .iter()
             .any(|&reference_script_hash| reference_script_hash == plutus_v1_script_hash)
     });
-    let mut plutus_v2_scripts: Vec<(bool, PolicyId)> =
-        plutus_v2_scripts
-            .clone()
-            .iter()
-            .map(|&script_hash| (false, script_hash))
-            .collect();
-    let mut filtered_plutus_v2_scripts: Vec<(bool, PolicyId)> = plutus_v2_scripts.to_owned();
+    let mut filtered_plutus_v2_scripts: Vec<(bool, PolicyId)> = plutus_v2_scripts
+        .clone()
+        .iter()
+        .map(|&script_hash| (false, script_hash))
+        .collect();
     filtered_plutus_v2_scripts.retain(|&(_, plutus_v2_script_hash)| {
         !reference_scripts
             .iter()
@@ -1148,8 +1142,168 @@ fn check_remaining_vk_wits(
     Ok(())
 }
 
-fn check_languages(_mtx: &MintedTx, _prot_pps: &BabbageProtParams) -> ValidationResult {
+fn check_languages(
+    mtx: &MintedTx,
+    utxos: &UTxOs,
+    block_slot: &u64,
+    prot_pps: &BabbageProtParams,
+) -> ValidationResult {
+    let available_langs: Vec<Language> = available_langs(mtx, utxos, block_slot, prot_pps);
+    for tx_lang in tx_languages(mtx, utxos).iter() {
+        if !available_langs
+            .iter()
+            .any(|available_lang| *available_lang == *tx_lang)
+        {
+            return Err(Babbage(UnsupportedPlutusLanguage));
+        }
+    }
     Ok(())
+}
+
+fn available_langs(
+    mtx: &MintedTx,
+    utxos: &UTxOs,
+    block_slot: &u64,
+    prot_pps: &BabbageProtParams,
+) -> Vec<Language> {
+    let block_langs: Vec<Language> = block_langs(block_slot, prot_pps);
+    let allowed_langs: Vec<Language> = allowed_langs(mtx, utxos);
+    block_langs
+        .iter()
+        .filter(|&cost_model_language| allowed_langs.contains(cost_model_language))
+        .cloned()
+        .collect::<Vec<Language>>()
+}
+
+fn block_langs(block_slot: &u64, prot_pps: &BabbageProtParams) -> Vec<Language> {
+    if *block_slot >= prot_pps.plutus_v2_cost_model_starting_slot {
+        vec![Language::PlutusV1, Language::PlutusV2]
+    } else {
+        vec![Language::PlutusV1]
+    }
+}
+
+fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
+    let all_outputs: Vec<&MintedTransactionOutput> = compute_all_outputs(mtx, utxos);
+    if any_byron_addresses(&all_outputs) {
+        vec![]
+    } else if any_datums_or_script_refs(&all_outputs)
+        || any_reference_inputs(&mtx.transaction_body.reference_inputs)
+    {
+        vec![Language::PlutusV2]
+    } else {
+        vec![Language::PlutusV1, Language::PlutusV2]
+    }
+}
+
+fn compute_all_outputs<'a>(
+    mtx: &'a MintedTx,
+    utxos: &'a UTxOs,
+) -> Vec<&'a MintedTransactionOutput<'a>> {
+    let mut res: Vec<&MintedTransactionOutput> = Vec::new();
+    for input in mtx.transaction_body.inputs.iter() {
+        if let Some(output) = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .and_then(MultiEraOutput::as_babbage)
+        {
+            res.push(output)
+        }
+    }
+    if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
+        for ref_input in reference_inputs.iter() {
+            if let Some(output) = utxos
+                .get(&MultiEraInput::from_alonzo_compatible(ref_input))
+                .and_then(MultiEraOutput::as_babbage)
+            {
+                res.push(output)
+            }
+        }
+    }
+    for output in mtx.transaction_body.outputs.iter() {
+        res.push(output)
+    }
+    res
+}
+
+fn any_byron_addresses(all_outputs: &[&MintedTransactionOutput]) -> bool {
+    for output in all_outputs.iter() {
+        match output {
+            PseudoTransactionOutput::Legacy(output) => {
+                if is_byron_address(&output.address) {
+                    return true;
+                }
+            }
+            PseudoTransactionOutput::PostAlonzo(output) => {
+                if is_byron_address(&output.address) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn any_datums_or_script_refs(all_outputs: &[&MintedTransactionOutput]) -> bool {
+    for output in all_outputs.iter() {
+        match output {
+            PseudoTransactionOutput::Legacy(_) => (),
+            PseudoTransactionOutput::PostAlonzo(output) => {
+                if output.script_ref.is_some() {
+                    return true;
+                } else if let Some(PseudoDatumOption::Data(_)) = &output.datum_option {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn any_reference_inputs(reference_inputs: &Option<Vec<TransactionInput>>) -> bool {
+    match reference_inputs {
+        Some(reference_inputs) => !reference_inputs.is_empty(),
+        None => false,
+    }
+}
+
+fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
+    let mut v1_scripts: bool = false;
+    let mut v2_scripts: bool = false;
+    if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script {
+        if !v1_scripts_vec.is_empty() {
+            v1_scripts = true
+        }
+    }
+    if let Some(v2_scripts_vec) = &mtx.transaction_witness_set.plutus_v2_script {
+        if !v2_scripts_vec.is_empty() {
+            v2_scripts = true;
+        }
+    }
+    if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
+        for ref_input in reference_inputs.iter() {
+            if let Some(PseudoTransactionOutput::PostAlonzo(output)) = utxos
+                .get(&MultiEraInput::from_alonzo_compatible(ref_input))
+                .and_then(MultiEraOutput::as_babbage)
+            {
+                if let Some(script_ref_cborwrap) = &output.script_ref {
+                    match script_ref_cborwrap.clone().unwrap() {
+                        PseudoScript::PlutusV1Script(_) => v1_scripts = true,
+                        PseudoScript::PlutusV2Script(_) => v2_scripts = true,
+                        _ => (),
+                    }
+                }
+            }
+        }
+    }
+    if !v1_scripts && !v2_scripts {
+        vec![]
+    } else if v1_scripts && !v2_scripts {
+        vec![Language::PlutusV1]
+    } else if !v1_scripts && v2_scripts {
+        vec![Language::PlutusV2]
+    } else {
+        vec![Language::PlutusV1, Language::PlutusV2]
+    }
 }
 
 // The metadata of the transaction is valid.
