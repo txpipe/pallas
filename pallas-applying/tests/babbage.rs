@@ -52,7 +52,6 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -137,7 +136,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -231,7 +229,6 @@ mod babbage_tests {
         add_ref_input_babbage(&mtx.transaction_body, &mut utxos, ref_input_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -344,7 +341,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -426,7 +422,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -477,7 +472,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -515,7 +509,6 @@ mod babbage_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -570,7 +563,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -628,7 +620,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -680,7 +671,6 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 76, // This value was 44 during Babbage on mainnet.
@@ -774,7 +764,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -863,7 +852,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -972,7 +960,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1072,7 +1059,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1160,7 +1146,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1257,7 +1242,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1312,7 +1296,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1361,7 +1344,6 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1410,7 +1392,6 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1493,7 +1474,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1551,7 +1531,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1643,7 +1622,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1693,7 +1671,6 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1818,7 +1795,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1907,7 +1883,6 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2001,7 +1976,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2098,7 +2072,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2201,7 +2174,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2302,7 +2274,6 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
-                plutus_v2_cost_model_starting_slot: 72748820,
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2325,6 +2296,103 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Unneeded datum"),
             Err(err) => match err {
                 Babbage(BabbageError::UnneededRedeemer) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v1_script, except that the
+    // redeemers list is modified in such a way that all other checks pass, but
+    // the integrity hash related to script execution no longer matches the one
+    // contained in the TransactionBody.
+    fn script_integrity_hash() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
+        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from(include_str!("../../test_data/babbage4.0.address")),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from(include_str!("../../test_data/babbage4.1.address")),
+                Value::Multiasset(
+                    1795660,
+                    KeyValuePairs::from(Vec::from([(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            1,
+                        )])),
+                    )])),
+                ),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from(include_str!("../../test_data/babbage4.collateral.address")),
+            Value::Coin(5000000),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let mut tx_witness_set: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut redeemer: Redeemer = tx_witness_set.redeemer.unwrap().pop().unwrap();
+        redeemer.ex_units = ExUnits { mem: 0, steps: 0 };
+        tx_witness_set.redeemer = Some(vec![redeemer]);
+        let mut tx_witness_set_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_witness_set, &mut tx_witness_set_buf);
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(&tx_witness_set_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 764824073,
+            block_slot: 72317003,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => assert!(false, "Wrong script integrity hash"),
+            Err(err) => match err {
+                Babbage(BabbageError::ScriptIntegrityHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

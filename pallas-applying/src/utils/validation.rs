@@ -136,6 +136,7 @@ pub enum BabbageError {
     VKWitnessMissing,
     VKWrongSignature,
     UnsupportedPlutusLanguage,
+    ScriptIntegrityHash,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

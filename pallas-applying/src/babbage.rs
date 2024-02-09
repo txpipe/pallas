@@ -12,7 +12,10 @@ use crate::utils::{
     ValidationResult,
 };
 use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::utils::{Bytes, KeepRaw};
+use pallas_codec::{
+    minicbor::{encode, Encoder},
+    utils::{Bytes, KeepRaw},
+};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
@@ -48,9 +51,9 @@ pub fn validate_babbage_tx(
     check_minting(tx_body, mtx)?;
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
-    check_languages(mtx, utxos, block_slot, prot_pps)?;
+    check_languages(mtx, utxos, block_slot)?;
     check_auxiliary_data(tx_body, mtx)?;
-    check_script_data_hash(tx_body, mtx)
+    check_script_data_hash(tx_body, mtx, utxos, block_slot)
 }
 
 // The set of transaction inputs is not empty.
@@ -543,7 +546,6 @@ fn check_needed_scripts(
     reference_scripts: &[PolicyId],
 ) -> ValidationResult {
     let mut filtered_native_scripts: Vec<(bool, PolicyId)> = native_scripts
-        .clone()
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
@@ -553,7 +555,6 @@ fn check_needed_scripts(
             .any(|&reference_script_hash| reference_script_hash == native_script_hash)
     });
     let mut filtered_plutus_v1_scripts: Vec<(bool, PolicyId)> = plutus_v1_scripts
-        .clone()
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
@@ -563,7 +564,6 @@ fn check_needed_scripts(
             .any(|&reference_script_hash| reference_script_hash == plutus_v1_script_hash)
     });
     let mut filtered_plutus_v2_scripts: Vec<(bool, PolicyId)> = plutus_v2_scripts
-        .clone()
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
@@ -1142,13 +1142,8 @@ fn check_remaining_vk_wits(
     Ok(())
 }
 
-fn check_languages(
-    mtx: &MintedTx,
-    utxos: &UTxOs,
-    block_slot: &u64,
-    prot_pps: &BabbageProtParams,
-) -> ValidationResult {
-    let available_langs: Vec<Language> = available_langs(mtx, utxos, block_slot, prot_pps);
+fn check_languages(mtx: &MintedTx, utxos: &UTxOs, block_slot: &u64) -> ValidationResult {
+    let available_langs: Vec<Language> = available_langs(mtx, utxos, block_slot);
     for tx_lang in tx_languages(mtx, utxos).iter() {
         if !available_langs
             .iter()
@@ -1160,13 +1155,8 @@ fn check_languages(
     Ok(())
 }
 
-fn available_langs(
-    mtx: &MintedTx,
-    utxos: &UTxOs,
-    block_slot: &u64,
-    prot_pps: &BabbageProtParams,
-) -> Vec<Language> {
-    let block_langs: Vec<Language> = block_langs(block_slot, prot_pps);
+fn available_langs(mtx: &MintedTx, utxos: &UTxOs, block_slot: &u64) -> Vec<Language> {
+    let block_langs: Vec<Language> = block_langs(block_slot);
     let allowed_langs: Vec<Language> = allowed_langs(mtx, utxos);
     block_langs
         .iter()
@@ -1175,8 +1165,8 @@ fn available_langs(
         .collect::<Vec<Language>>()
 }
 
-fn block_langs(block_slot: &u64, prot_pps: &BabbageProtParams) -> Vec<Language> {
-    if *block_slot >= prot_pps.plutus_v2_cost_model_starting_slot {
+fn block_langs(block_slot: &u64) -> Vec<Language> {
+    if *block_slot >= 72748820 {
         vec![Language::PlutusV1, Language::PlutusV2]
     } else {
         vec![Language::PlutusV1]
@@ -1326,6 +1316,121 @@ fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> Vali
     }
 }
 
-fn check_script_data_hash(_tx_body: &MintedTransactionBody, _mtx: &MintedTx) -> ValidationResult {
-    Ok(())
+fn check_script_data_hash(
+    tx_body: &MintedTransactionBody,
+    mtx: &MintedTx,
+    utxos: &UTxOs,
+    block_slot: &u64,
+) -> ValidationResult {
+    match tx_body.script_data_hash {
+        Some(script_data_hash) => match (
+            &mtx.transaction_witness_set.plutus_data,
+            &mtx.transaction_witness_set.redeemer,
+        ) {
+            (Some(plutus_data), Some(redeemer)) => {
+                let plutus_data: Vec<PlutusData> = plutus_data
+                    .iter()
+                    .map(|x| KeepRaw::unwrap(x.clone()))
+                    .collect();
+                if script_data_hash
+                    == compute_script_integrity_hash(
+                        &tx_languages(mtx, utxos),
+                        &plutus_data,
+                        redeemer,
+                        block_slot,
+                    )
+                {
+                    Ok(())
+                } else {
+                    Err(Babbage(ScriptIntegrityHash))
+                }
+            }
+            (_, _) => Err(Babbage(ScriptIntegrityHash)),
+        },
+        None => {
+            if option_vec_is_empty(&mtx.transaction_witness_set.plutus_data)
+                && option_vec_is_empty(&mtx.transaction_witness_set.redeemer)
+            {
+                Ok(())
+            } else {
+                Err(Babbage(ScriptIntegrityHash))
+            }
+        }
+    }
+}
+
+fn compute_script_integrity_hash(
+    tx_languages: &[Language],
+    plutus_data: &[PlutusData],
+    redeemer: &[Redeemer],
+    block_slot: &u64,
+) -> Hash<32> {
+    let mut value_to_hash: Vec<u8> = Vec::new();
+    // First, the Redeemer.
+    let _ = encode(redeemer, &mut value_to_hash);
+    // Next, the PlutusData.
+    let mut plutus_data_encoder: Encoder<Vec<u8>> = Encoder::new(Vec::new());
+    let _ = plutus_data_encoder.begin_array();
+    for single_plutus_data in plutus_data.iter() {
+        let _ = plutus_data_encoder.encode(single_plutus_data);
+    }
+    let _ = plutus_data_encoder.end();
+    value_to_hash.extend(plutus_data_encoder.writer().clone());
+    // Finally, the cost model.
+    value_to_hash.extend(cost_model_cbor(tx_languages, block_slot));
+    pallas_crypto::hash::Hasher::<256>::hash(&value_to_hash)
+}
+
+// Precondition: !tx_languages.is_empty()
+fn cost_model_cbor(tx_languages: &[Language], block_slot: &u64) -> Vec<u8> {
+    if *block_slot < 72748820 {
+        hex::decode(
+            "a141005901d59f1a000302590001011a00060bc719026d00011a000249f01903e800011a000249f018201a0025cea81971f70419744d186419744d186419744d186419744d186419744d186419744d18641864186419744d18641a000249f018201a000249f018201a000249f018201a000249f01903e800011a000249f018201a000249f01903e800081a000242201a00067e2318760001011a000249f01903e800081a000249f01a0001b79818f7011a000249f0192710011a0002155e19052e011903e81a000249f01903e8011a000249f018201a000249f018201a000249f0182001011a000249f0011a000249f0041a000194af18f8011a000194af18f8011a0002377c190556011a0002bdea1901f1011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000242201a00067e23187600010119f04c192bd200011a000249f018201a000242201a00067e2318760001011a000242201a00067e2318760001011a0025cea81971f704001a000141bb041a000249f019138800011a000249f018201a000302590001011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a00330da70101ff"
+        ).unwrap()
+    } else if *block_slot <= 84844885 {
+        // Prior to first block in epoch 394
+        if tx_languages.contains(&Language::PlutusV1) && !tx_languages.contains(&Language::PlutusV2)
+        {
+            hex::decode(
+                "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a009063b91903fd0aff"
+            ).unwrap()
+        } else if !tx_languages.contains(&Language::PlutusV1)
+            && tx_languages.contains(&Language::PlutusV2)
+        {
+            hex::decode(
+                "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201b00000004a817c8001b00000004a817c8001a009063b91903fd0a1b00000004a817c800001b00000004a817c800"
+            ).unwrap()
+        } else {
+            // Precondition allows us to conclude both PlutusV1 and PlutusV2 are required by
+            // the transaction
+            hex::decode(
+                "a241005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a009063b91903fd0aff0198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201b00000004a817c8001b00000004a817c8001a009063b91903fd0a1b00000004a817c800001b00000004a817c800"
+            ).unwrap()
+        }
+    } else {
+        // Starting from first block in epoch 394
+        if tx_languages.contains(&Language::PlutusV1) && !tx_languages.contains(&Language::PlutusV2)
+        {
+            hex::decode(
+                "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
+            ).unwrap()
+        } else if !tx_languages.contains(&Language::PlutusV1)
+            && tx_languages.contains(&Language::PlutusV2)
+        {
+            hex::decode(
+                "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
+            ).unwrap()
+        } else {
+            hex::decode(
+                "a241005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff0198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
+            ).unwrap()
+        }
+    }
+}
+
+fn option_vec_is_empty<T>(option_vec: &Option<Vec<T>>) -> bool {
+    match option_vec {
+        Some(vec) => vec.is_empty(),
+        None => true,
+    }
 }
