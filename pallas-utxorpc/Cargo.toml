@@ -11,8 +11,7 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-#utxorpc = { path = "../../../utxorpc/rust-sdk" }
-utxorpc = { version = "1.0.0-alpha.1" }
+utxorpc-spec = { version = "0.3.0" }
 pallas-traverse = { version = "=0.22.0", path = "../pallas-traverse" }
 pallas-primitives = { version = "=0.22.0", path = "../pallas-primitives" }
 pallas-codec = { version = "=0.22.0", path = "../pallas-codec" }

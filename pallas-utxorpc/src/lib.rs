@@ -6,7 +6,7 @@ use pallas_traverse as trv;
 
 use trv::OriginalHash;
 
-use utxorpc::proto::cardano::v1 as u5c;
+use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 pub fn map_purpose(x: &alonzo::RedeemerTag) -> u5c::RedeemerPurpose {
     match x {
@@ -469,7 +469,7 @@ pub fn map_block(block: &trv::MultiEraBlock) -> u5c::Block {
         header: u5c::BlockHeader {
             slot: block.slot(),
             hash: block.hash().to_vec().into(),
-            height: block.number()
+            height: block.number(),
         }
         .into(),
         body: u5c::BlockBody {
