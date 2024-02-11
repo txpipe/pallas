@@ -391,17 +391,34 @@ where
         }
     }
 
-    fn scan_until<F>(
-        db: &rocksdb::DB,
-        mode: rocksdb::IteratorMode,
-        predicate: F,
-    ) -> Result<Option<K>, Error>
+    fn scan_until<F>(db: &rocksdb::DB, mode: rocksdb::IteratorMode, predicate: F) -> Option<K>
     where
         F: Fn(&V) -> bool,
     {
+        // TODO: Is flatten really safe? We are essentially skipping errors
         for (k, v) in Self::iter_entries(db, mode).flatten() {
             if predicate(&v) {
-                return Ok(Some(k));
+                return Some(k);
+            }
+        }
+
+        None
+    }
+
+    fn iter_after_predicate<'a, F>(
+        db: &'a rocksdb::DB,
+        mode: rocksdb::IteratorMode<'a>,
+        predicate: F,
+    ) -> Result<Option<EntryIterator<'a, K, V>>, Error>
+    where
+        F: Fn(&V) -> bool,
+    {
+        let mut iter = Self::iter_entries(db, mode);
+
+        while let Some(entry) = iter.next() {
+            let (_, v) = entry?;
+            if predicate(&v) {
+                return Ok(Some(iter));
             }
         }
 

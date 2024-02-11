@@ -1,6 +1,8 @@
 use futures_core::Stream;
 
-use super::{Log, Seq, Store};
+use crate::kvtable::Error;
+
+use super::{BlockHash, BlockSlot, Log, Seq, Store};
 
 pub struct RollStream;
 
@@ -24,6 +26,55 @@ impl RollStream {
                     yield val;
                     last_seq = Some(seq);
                 }
+            }
+        }
+    }
+
+    pub fn start_from_point(
+        store: Store,
+        block: (BlockSlot, BlockHash),
+    ) -> impl Stream<Item = Result<Log, Error>> {
+        let (slot, hash) = block;
+
+        async_stream::try_stream! {
+            // find seq for point on WAL, or return not found
+            if let Some(wal_seq) = store.find_wal_seq(block) {
+                let mut last_seq = wal_seq;
+                let mut iter = store.crawl_from(Some(wal_seq));
+
+                // yield NotFound if found intersect WAL seq no longer on WAL
+                let (_, val) = iter.next().ok_or(Error::NotFound)??;
+
+                if (val.is_apply() || val.is_mark()) && (val.slot() == Some(slot)) && (val.hash() == Some(&hash.into())) {
+                    // first, yield the intersect point entry
+                    yield val;
+
+                    // then the rest of the iterator
+                    for entry in iter {
+                        let (seq, val) = entry?;
+                        yield val;
+                        last_seq = seq;
+                    }
+
+                    loop {
+                        store.tip_change.notified().await;
+                        // TODO: not safe
+                        let iter = store.crawl_after(Some(last_seq));
+
+                        for entry in iter {
+                            let (seq, val) = entry?;
+
+                            yield val;
+                            last_seq = seq
+                        }
+                    }
+                } else {
+                    // yield NotFound if intersect not found on iterator created with found WAL seq
+                    Err(Error::NotFound)?
+                }
+            } else {
+                // yield NotFound if no intersect with WAL found (no seq for point)
+                Err(Error::NotFound)?
             }
         }
     }

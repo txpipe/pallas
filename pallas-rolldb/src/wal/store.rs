@@ -303,30 +303,48 @@ impl Store {
         }
     }
 
-    pub fn find_wal_seq(
-        &self,
-        block: Option<(BlockSlot, BlockHash)>,
-    ) -> Result<Option<Seq>, Error> {
-        if block.is_none() {
-            return Ok(None);
+    pub fn crawl_from(&self, seq: Option<u64>) -> WalIterator {
+        if let Some(seq) = seq {
+            let seq = Box::<[u8]>::from(DBInt(seq));
+            let from = rocksdb::IteratorMode::From(&seq, rocksdb::Direction::Forward);
+            let iter = WalKV::iter_entries(&self.db, from);
+
+            WalIterator(iter)
+        } else {
+            let from = rocksdb::IteratorMode::Start;
+            let iter = WalKV::iter_entries(&self.db, from);
+            WalIterator(iter)
         }
+    }
 
-        let (slot, hash) = block.unwrap();
+    pub fn find_wal_seq(&self, block: (BlockSlot, BlockHash)) -> Option<Seq> {
+        let (slot, hash) = block;
 
-        // TODO: Not sure this is 100% accurate:
-        // i.e Apply(X), Apply(cursor), Undo(cursor), Mark(x)
-        // We want to start at Apply(cursor) or Mark(cursor), but even then,
-        // what if we have more than one Apply(cursor), how do we know
-        // which is correct?
         let found = WalKV::scan_until(&self.db, rocksdb::IteratorMode::End, |v| {
             (v.is_mark() || v.is_apply())
                 && v.slot().is_some_and(|s| s == slot)
                 && v.hash().is_some_and(|h| h.eq(&hash))
-        })?;
+        });
 
         match found {
-            Some(DBInt(seq)) => Ok(Some(seq)),
-            None => Err(Error::NotFound),
+            Some(DBInt(seq)) => Some(seq),
+            None => None,
+        }
+    }
+
+    pub fn crawl_after_point(
+        &self,
+        block: (BlockSlot, BlockHash),
+    ) -> Result<Option<WalIterator>, Error> {
+        let (slot, hash) = block;
+
+        match WalKV::iter_after_predicate(&self.db, rocksdb::IteratorMode::Start, |v| {
+            (v.is_mark() || v.is_apply())
+                && v.slot().is_some_and(|s| s == slot)
+                && v.hash().is_some_and(|h| h.eq(&hash))
+        })? {
+            Some(iter) => Ok(Some(WalIterator(iter))),
+            None => Ok(None),
         }
     }
 
