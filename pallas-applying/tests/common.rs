@@ -14,12 +14,12 @@ pub fn cbor_to_bytes(input: &str) -> Vec<u8> {
     hex::decode(input).unwrap()
 }
 
-pub fn minted_tx_from_cbor<'a>(tx_cbor: &'a Vec<u8>) -> MintedTx<'a> {
-    pallas_codec::minicbor::decode::<MintedTx>(&tx_cbor[..]).unwrap()
+pub fn minted_tx_from_cbor(tx_cbor: &[u8]) -> MintedTx<'_> {
+    pallas_codec::minicbor::decode::<MintedTx>(tx_cbor).unwrap()
 }
 
-pub fn minted_tx_payload_from_cbor<'a>(tx_cbor: &'a Vec<u8>) -> MintedTxPayload<'a> {
-    pallas_codec::minicbor::decode::<MintedTxPayload>(&tx_cbor[..]).unwrap()
+pub fn minted_tx_payload_from_cbor(tx_cbor: &[u8]) -> MintedTxPayload<'_> {
+    pallas_codec::minicbor::decode::<MintedTxPayload>(tx_cbor).unwrap()
 }
 
 pub fn mk_utxo_for_byron_tx<'a>(tx: &Tx, tx_outs_info: &[(String, u64)]) -> UTxOs<'a> {
@@ -34,7 +34,7 @@ pub fn mk_utxo_for_byron_tx<'a>(tx: &Tx, tx_outs_info: &[(String, u64)]) -> UTxO
         };
         let tx_out: TxOut = TxOut {
             address: input_tx_out_addr,
-            amount: amount.clone(),
+            amount: *amount,
         };
         let multi_era_in: MultiEraInput = MultiEraInput::Byron(Box::new(Cow::Owned(tx_in)));
         let multi_era_out: MultiEraOutput = MultiEraOutput::Byron(Box::new(Cow::Owned(tx_out)));
@@ -56,7 +56,7 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
         let tx_out: TransactionOutput = TransactionOutput {
             address: address_bytes,
             amount: amount.clone(),
-            datum_hash: datum_hash.clone(),
+            datum_hash: *datum_hash,
         };
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
@@ -67,9 +67,9 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
     utxos
 }
 
-pub fn add_collateral<'a>(
+pub fn add_collateral(
     tx_body: &TransactionBody,
-    utxos: &mut UTxOs<'a>,
+    utxos: &mut UTxOs<'_>,
     collateral_info: &[(String, Value, Option<Hash<32>>)],
 ) {
     match &tx_body.collateral {
@@ -82,7 +82,7 @@ pub fn add_collateral<'a>(
                 let tx_out: TransactionOutput = TransactionOutput {
                     address: address_bytes,
                     amount: amount.clone(),
-                    datum_hash: datum_hash.clone(),
+                    datum_hash: *datum_hash,
                 };
                 let multi_era_in: MultiEraInput =
                     MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));

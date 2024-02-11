@@ -37,7 +37,7 @@ pub enum Error {
 /// inside `cmp` function you will compare the first element of the chunk e.g.
 /// `let cmp = |chunk: &Vec<i32>, point: &i32| chunk[0].cmp(point)`.
 fn chunk_binary_search<ChunkT, PointT>(
-    chunks: &Vec<ChunkT>,
+    chunks: &[ChunkT],
     point: &PointT,
     cmp: impl Fn(&ChunkT, &PointT) -> Result<Ordering, Box<dyn std::error::Error>>,
 ) -> Result<Option<usize>, Box<dyn std::error::Error>> {
