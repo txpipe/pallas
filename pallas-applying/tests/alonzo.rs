@@ -1,7 +1,7 @@
 pub mod common;
 
 use common::*;
-use hex;
+
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
@@ -65,7 +65,7 @@ mod alonzo_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -179,7 +179,7 @@ mod alonzo_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -220,7 +220,7 @@ mod alonzo_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -261,7 +261,7 @@ mod alonzo_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -283,7 +283,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -306,10 +306,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Inputs set should not be empty"),
+            Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxInsEmpty) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -343,10 +343,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
+            Ok(()) => panic!("All inputs should be within the UTxO set"),
             Err(err) => match err {
                 Alonzo(AlonzoError::InputNotInUTxO) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -370,7 +370,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -393,13 +393,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
-                "Validity interval lower bound should have been reached",
-            ),
+            Ok(()) => panic!("Validity interval lower bound should have been reached",),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockPrecedesValInt) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -423,7 +420,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -446,13 +443,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
-                "Validity interval upper bound should not have been surpassed",
-            ),
+            Ok(()) => panic!("Validity interval upper bound should not have been surpassed",),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockExceedsValInt) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -493,10 +487,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Fee should not be below minimum"),
+            Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::FeeBelowMin) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -593,7 +587,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -616,10 +610,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "No collateral inputs"),
+            Ok(()) => panic!("No collateral inputs"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -734,10 +728,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
+            Ok(()) => panic!("Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TooManyCollaterals) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -832,7 +826,7 @@ mod alonzo_tests {
         };
         let altered_address: ShelleyAddress = ShelleyAddress::new(
             old_shelley_address.network(),
-            ShelleyPaymentPart::Script(old_shelley_address.payment().as_hash().clone()),
+            ShelleyPaymentPart::Script(*old_shelley_address.payment().as_hash()),
             old_shelley_address.delegation().clone(),
         );
         let tx_in = mtx
@@ -873,10 +867,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
+            Ok(()) => panic!("Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralNotVKeyLocked) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1001,10 +995,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Collateral inputs should contain only lovelace"),
+            Ok(()) => panic!("Collateral inputs should contain only lovelace"),
             Err(err) => match err {
                 Alonzo(AlonzoError::NonLovelaceCollateral) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1118,13 +1112,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
-                "Collateral inputs should contain the minimum lovelace"
-            ),
+            Ok(()) => panic!("Collateral inputs should contain the minimum lovelace"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralMinLovelace) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1144,11 +1135,11 @@ mod alonzo_tests {
             )],
         );
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
-        tx_body.fee = tx_body.fee - 1;
+        tx_body.fee -= 1;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -1171,10 +1162,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Preservation of value doesn't hold"),
+            Ok(()) => panic!("Preservation of value doesn't hold"),
             Err(err) => match err {
                 Alonzo(AlonzoError::PreservationOfValue) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1187,7 +1178,7 @@ mod alonzo_tests {
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
-            (&tx_body.outputs).split_first().unwrap();
+            tx_body.outputs.split_first().unwrap();
         let addr: ShelleyAddress =
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
@@ -1210,7 +1201,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1241,13 +1232,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
-                "Transaction network ID should match environment network_id"
-            ),
+            Ok(()) => panic!("Transaction network ID should match environment network_id"),
             Err(err) => match err {
                 Alonzo(AlonzoError::OutputWrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1263,7 +1251,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1294,13 +1282,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
-                "Transaction network ID should match environment network_id"
-            ),
+            Ok(()) => panic!("Transaction network ID should match environment network_id"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxWrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1414,10 +1399,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Transaction ex units should be below maximum"),
+            Ok(()) => panic!("Transaction ex units should be below maximum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxExUnitsExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1459,13 +1444,12 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
+            Ok(()) => panic!(
                 "Transaction size should not exceed the maximum allowed by the protocol parameter"
             ),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxTxSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1568,7 +1552,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -1591,13 +1575,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(
-                false,
-                "All required signers should have signed the transaction"
-            ),
+            Ok(()) => panic!("All required signers should have signed the transaction"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ReqSignerMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1621,7 +1602,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -1644,10 +1625,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Missing verification key witness"),
+            Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWitnessMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1678,7 +1659,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -1701,10 +1682,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Witness signature should verify the transaction"),
+            Ok(()) => panic!("Witness signature should verify the transaction"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWrongSignature) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1801,7 +1782,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -1824,10 +1805,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Missing Plutus script"),
+            Ok(()) => panic!("Missing Plutus script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ScriptWitnessMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1924,7 +1905,7 @@ mod alonzo_tests {
         let mut encode_native_script_buf: Vec<u8> = Vec::new();
         let _ = encode(native_script, &mut encode_native_script_buf);
         let keep_raw_native_script: KeepRaw<NativeScript> = Decode::decode(
-            &mut Decoder::new(&encode_native_script_buf.as_slice()),
+            &mut Decoder::new(encode_native_script_buf.as_slice()),
             &mut (),
         )
         .unwrap();
@@ -1932,7 +1913,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -1955,10 +1936,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded Plutus script"),
+            Ok(()) => panic!("Unneeded Plutus script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededNativeScript) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -1982,7 +1963,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -2005,10 +1986,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Minting policy is not supported by native script"),
+            Ok(()) => panic!("Minting policy is not supported by native script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MintingLacksPolicy) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2105,7 +2086,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -2128,10 +2109,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Missing datum"),
+            Ok(()) => panic!("Missing datum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::DatumMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2229,12 +2210,12 @@ mod alonzo_tests {
         let mut new_datum_buf: Vec<u8> = Vec::new();
         let _ = encode(new_datum, &mut new_datum_buf);
         let keep_raw_new_datum: KeepRaw<PlutusData> =
-            Decode::decode(&mut Decoder::new(&new_datum_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(new_datum_buf.as_slice()), &mut ()).unwrap();
         tx_wits.plutus_data = Some(vec![old_datum, keep_raw_new_datum]);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -2257,10 +2238,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded datum"),
+            Ok(()) => panic!("Unneeded datum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededDatum) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2364,7 +2345,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -2387,10 +2368,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededRedeemer) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2487,7 +2468,7 @@ mod alonzo_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -2510,10 +2491,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::RedeemerMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2555,10 +2536,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MetadataHash) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2599,10 +2580,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MinLovelaceUnreached) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2643,10 +2624,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Unneeded redeemer"),
+            Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxValSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -2747,7 +2728,7 @@ mod alonzo_tests {
         let mut tx_witness_set_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_witness_set, &mut tx_witness_set_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_witness_set_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
@@ -2770,10 +2751,10 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Wrong script integrity hash"),
+            Ok(()) => panic!("Wrong script integrity hash"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ScriptIntegrityHash) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }

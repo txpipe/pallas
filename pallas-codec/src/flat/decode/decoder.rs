@@ -170,7 +170,7 @@ impl<'b> Decoder<'b> {
     #[cfg(feature = "num-bigint")]
     pub fn big_word(&mut self) -> Result<BigUint, Error> {
         let mut leading_bit = 1;
-        let mut final_word: BigUint = (0 as u8).into();
+        let mut final_word: BigUint = (0_u8).into();
         let mut shl: u128 = 0;
         // continue looping if lead bit is 1 which is 128 as a u8 otherwise exit
         while leading_bit > 0 {

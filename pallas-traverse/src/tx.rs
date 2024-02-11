@@ -266,8 +266,8 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn mints(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
-	    MultiEraTx::Byron(_) => vec![],
-	    MultiEraTx::AlonzoCompatible(x, _) => x
+            MultiEraTx::Byron(_) => vec![],
+            MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .mint
                 .iter()
@@ -298,7 +298,7 @@ impl<'b> MultiEraTx<'b> {
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn collateral(&self) -> Vec<MultiEraInput> {
         match self {
-	    MultiEraTx::Byron(_) => vec![],
+            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .collateral
@@ -342,7 +342,7 @@ impl<'b> MultiEraTx<'b> {
     pub fn total_collateral(&self) -> Option<u64> {
         match self {
             MultiEraTx::Babbage(x) => x.transaction_body.total_collateral,
-	    MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
+            MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
             _ => None,
         }
     }
