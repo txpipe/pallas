@@ -1,15 +1,18 @@
 use futures_core::Stream;
 
-use super::{Log, Seq, Store};
+use super::{BlockHash, BlockSlot, Log, Seq, Store};
 
 pub struct RollStream;
 
 impl RollStream {
-    pub fn start_after(store: Store, seq: Option<Seq>) -> impl Stream<Item = Log> {
+    pub fn intersect(
+        store: Store,
+        intersect: Vec<(BlockSlot, BlockHash)>,
+    ) -> impl Stream<Item = Log> {
         async_stream::stream! {
-            let mut last_seq = seq;
+            let mut last_seq = None;
 
-            let iter = store.crawl_after(last_seq);
+            let iter = store.crawl_from_intersect(&intersect).unwrap();
 
             for (seq, val) in iter.flatten() {
                 yield val;
