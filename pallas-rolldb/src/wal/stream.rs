@@ -1,6 +1,6 @@
 use futures_core::Stream;
 
-use super::{BlockHash, BlockSlot, Log, Seq, Store};
+use super::{BlockHash, BlockSlot, Log, Store};
 
 pub struct RollStream;
 
@@ -62,7 +62,7 @@ mod tests {
             }
         });
 
-        let s = super::RollStream::start_after(db.clone(), None);
+        let s = super::RollStream::intersect(db.clone(), vec![]);
 
         pin_mut!(s);
 
