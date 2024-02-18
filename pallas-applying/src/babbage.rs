@@ -1332,14 +1332,16 @@ fn check_script_data_hash(
                     .iter()
                     .map(|x| KeepRaw::unwrap(x.clone()))
                     .collect();
-                if script_data_hash
-                    == compute_script_integrity_hash(
-                        &tx_languages(mtx, utxos),
-                        &plutus_data,
-                        redeemer,
-                        block_slot,
-                    )
-                {
+                // The Plutus data part of the script integrity hash may either need to be
+                // serialized as a indefinite-length array, or a definite-length one.
+                // TODO: compute only the correct hash, not both of them.
+                let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
+                    &tx_languages(mtx, utxos),
+                    &plutus_data,
+                    redeemer,
+                    block_slot,
+                );
+                if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
                     Ok(())
                 } else {
                     Err(Babbage(ScriptIntegrityHash))
@@ -1359,26 +1361,46 @@ fn check_script_data_hash(
     }
 }
 
+// The Plutus data is encoded both as an indefinite-length and a definite-length
+// array. Hence, two hashes are computed.
+// TODO: compute only the necessary form, which requires knowing the original
+// encoding in the MintedWitnessSet.
 fn compute_script_integrity_hash(
     tx_languages: &[Language],
     plutus_data: &[PlutusData],
     redeemer: &[Redeemer],
     block_slot: &u64,
-) -> Hash<32> {
-    let mut value_to_hash: Vec<u8> = Vec::new();
-    // First, the Redeemer.
-    let _ = encode(redeemer, &mut value_to_hash);
-    // Next, the PlutusData.
-    let mut plutus_data_encoder: Encoder<Vec<u8>> = Encoder::new(Vec::new());
-    let _ = plutus_data_encoder.begin_array();
-    for single_plutus_data in plutus_data.iter() {
-        let _ = plutus_data_encoder.encode(single_plutus_data);
+) -> (Hash<32>, Hash<32>) {
+    // Indefinite Plutus data serialization
+    let mut value_to_hash_with_indef: Vec<u8> = Vec::new();
+    let _ = encode(redeemer, &mut value_to_hash_with_indef);
+    if !plutus_data.is_empty() {
+        let mut plutus_data_encoder_indef: Encoder<Vec<u8>> = Encoder::new(Vec::new());
+        let _ = plutus_data_encoder_indef.begin_array();
+        for single_plutus_data in plutus_data.iter() {
+            let _ = plutus_data_encoder_indef.encode(single_plutus_data);
+        }
+        let _ = plutus_data_encoder_indef.end();
+        value_to_hash_with_indef.extend(plutus_data_encoder_indef.writer().clone());
     }
-    let _ = plutus_data_encoder.end();
-    value_to_hash.extend(plutus_data_encoder.writer().clone());
-    // Finally, the cost model.
-    value_to_hash.extend(cost_model_cbor(tx_languages, block_slot));
-    pallas_crypto::hash::Hasher::<256>::hash(&value_to_hash)
+    let cost_model = cost_model_cbor(tx_languages, block_slot);
+    value_to_hash_with_indef.extend(&cost_model);
+    // Definite Plutus data serialization
+    let mut value_to_hash_with_def: Vec<u8> = Vec::new();
+    let _ = encode(redeemer, &mut value_to_hash_with_def);
+    if !plutus_data.is_empty() {
+        let mut plutus_data_encoder_def: Encoder<Vec<u8>> = Encoder::new(Vec::new());
+        let _ = plutus_data_encoder_def.array(plutus_data.len() as u64);
+        for single_plutus_data in plutus_data.iter() {
+            let _ = plutus_data_encoder_def.encode(single_plutus_data);
+        }
+        value_to_hash_with_def.extend(plutus_data_encoder_def.writer().clone());
+    }
+    value_to_hash_with_def.extend(&cost_model);
+    (
+        pallas_crypto::hash::Hasher::<256>::hash(&value_to_hash_with_indef),
+        pallas_crypto::hash::Hasher::<256>::hash(&value_to_hash_with_def),
+    )
 }
 
 // Precondition: !tx_languages.is_empty()

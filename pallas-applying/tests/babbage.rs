@@ -1911,8 +1911,8 @@ mod babbage_tests {
     }
 
     #[test]
-    // Same as sucessful_mainnet_tx_with_plutus_v1_script, except that the script hash
-    // in the script UTxO cannot be matched to a script in the witness set.
+    // Same as sucessful_mainnet_tx_with_plutus_v1_script, except that the script
+    // hash in the script UTxO cannot be matched to a script in the witness set.
     fn script_input_lacks_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
         let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
