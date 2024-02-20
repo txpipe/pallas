@@ -11,7 +11,7 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-rocksdb = { version = "0.21.0", default-features = false, features = ["multi-threaded-cf"] }
+rocksdb = { version = "0.22.0", default-features = false, features = ["multi-threaded-cf"] }
 bincode = "1.3.3"
 serde = "1.0.188"
 thiserror = "1.0.49"
