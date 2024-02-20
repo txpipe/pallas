@@ -16,6 +16,7 @@ pub enum MultiEraProtParams {
     Byron(ByronProtParams),
     Shelley(ShelleyProtParams),
     Alonzo(AlonzoProtParams),
+    Babbage(BabbageProtParams),
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,20 @@ pub struct FeePolicy {
 
 #[derive(Debug, Clone)]
 pub struct AlonzoProtParams {
+    pub fee_policy: FeePolicy,
+    pub max_tx_size: u64,
+    pub max_block_ex_mem: u64,
+    pub max_block_ex_steps: u64,
+    pub max_tx_ex_mem: u32,
+    pub max_tx_ex_steps: u64,
+    pub max_val_size: u64,
+    pub collateral_percent: u64,
+    pub max_collateral_inputs: u64,
+    pub coins_per_utxo_word: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct BabbageProtParams {
     pub fee_policy: FeePolicy,
     pub max_tx_size: u64,
     pub max_block_ex_mem: u64,

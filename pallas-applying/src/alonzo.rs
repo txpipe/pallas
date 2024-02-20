@@ -1,9 +1,10 @@
-//! Utilities required for Shelley-era transaction validation.
+//! Utilities required for Alonzo-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
-    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
+    add_minted_value, add_values, aux_data_from_alonzo_minted_tx, compute_native_script_hash,
+    compute_plutus_script_hash, empty_value, get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val,
+    get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
+    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, FeePolicy, UTxOs,
     ValidationError::{self, *},
@@ -18,9 +19,9 @@ use pallas_codec::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{
-        AddrKeyhash, Mint, MintedTx, MintedWitnessSet, NativeScript, PlutusData, PlutusScript,
-        PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners, TransactionBody,
-        TransactionInput, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, Mint, MintedTx, MintedWitnessSet, Multiasset, NativeScript, PlutusData,
+        PlutusScript, PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners,
+        TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };
@@ -48,7 +49,7 @@ pub fn validate_alonzo_tx(
     check_tx_ex_units(mtx, prot_pps)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, prot_pps)?;
-    check_metadata(tx_body, mtx)?;
+    check_auxiliary_data(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx)?;
     check_minting(tx_body, mtx)
 }
@@ -201,14 +202,15 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
                     if let ShelleyPaymentPart::Script(_) =
-                        get_payment_part(alonzo_comp_output).ok_or(Alonzo(InputDecoding))?
+                        get_payment_part(&alonzo_comp_output.address)
+                            .ok_or(Alonzo(InputDecoding))?
                     {
                         return Err(Alonzo(CollateralNotVKeyLocked));
                     }
                 }
             }
             None => return Err(Alonzo(CollateralNotInUTxO)),
-        };
+        }
     }
     Ok(())
 }
@@ -258,12 +260,11 @@ fn check_collaterals_assets(
 
 // The preservation of value property holds.
 fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
-    let neg_val_err: ValidationError = Alonzo(NegativeValue);
-    let input: Value = get_consumed(tx_body, utxos)?;
+    let mut input: Value = get_consumed(tx_body, utxos)?;
     let produced: Value = get_produced(tx_body)?;
-    let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &neg_val_err)?;
+    let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &Alonzo(NegativeValue))?;
     if let Some(m) = &tx_body.mint {
-        add_minted_value(&output, m, &neg_val_err)?;
+        input = add_minted_value(&input, m, &Alonzo(NegativeValue))?;
     }
     if !values_are_equal(&input, &output) {
         return Err(Alonzo(PreservationOfValue));
@@ -272,17 +273,18 @@ fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
 }
 
 fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
-    let neg_val_err: ValidationError = Alonzo(NegativeValue);
     let mut res: Value = empty_value();
     for input in tx_body.inputs.iter() {
         let utxo_value: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(Alonzo(InputNotInUTxO))?;
         match MultiEraOutput::as_alonzo(utxo_value) {
-            Some(TransactionOutput { amount, .. }) => res = add_values(&res, amount, &neg_val_err)?,
+            Some(TransactionOutput { amount, .. }) => {
+                res = add_values(&res, amount, &Alonzo(NegativeValue))?
+            }
             None => match MultiEraOutput::as_byron(utxo_value) {
                 Some(TxOut { amount, .. }) => {
-                    res = add_values(&res, &Value::Coin(*amount), &neg_val_err)?
+                    res = add_values(&res, &Value::Coin(*amount), &Alonzo(NegativeValue))?
                 }
                 _ => return Err(Alonzo(InputNotInUTxO)),
             },
@@ -292,10 +294,9 @@ fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<Value, Valid
 }
 
 fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
-    let neg_val_err: ValidationError = Alonzo(NegativeValue);
     let mut res: Value = empty_value();
     for TransactionOutput { amount, .. } in tx_body.outputs.iter() {
-        res = add_values(&res, amount, &neg_val_err)?;
+        res = add_values(&res, amount, &Alonzo(NegativeValue))?;
     }
     Ok(res)
 }
@@ -311,12 +312,12 @@ fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &AlonzoProtParams) ->
 }
 
 fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams) -> u64 {
-    let utxo_entry_size: u64 = get_val_size_in_words(&output.amount)
+    let output_entry_size: u64 = get_val_size_in_words(&output.amount)
         + match output.datum_hash {
             Some(_) => 37, // utxoEntrySizeWithoutVal (27) + dataHashSize (10)
             None => 27,    // utxoEntrySizeWithoutVal
         };
-    prot_pps.coins_per_utxo_word * utxo_entry_size
+    prot_pps.coins_per_utxo_word * output_entry_size
 }
 
 // The size of the value in each of the outputs should not be greater than the
@@ -433,7 +434,7 @@ fn check_needed_scripts_are_included(
             return Err(Alonzo(UnneededNativeScript));
         }
     }
-    for (plutus_script_covered, _) in native_scripts.iter() {
+    for (plutus_script_covered, _) in plutus_scripts.iter() {
         if !plutus_script_covered {
             return Err(Alonzo(UnneededPlutusScript));
         }
@@ -533,19 +534,23 @@ fn check_redeemers(
             .collect(),
         None => Vec::new(),
     };
-    let plutus_scripts: Vec<RedeemerPointer> =
-        mk_plutus_script_redeemer_pointers(tx_body, tx_wits, utxos);
+    let plutus_scripts: Vec<RedeemerPointer> = mk_plutus_script_redeemer_pointers(
+        &sort_inputs(&tx_body.inputs),
+        &tx_body.mint,
+        tx_wits,
+        utxos,
+    );
     redeemer_pointers_coincide(&redeemer_pointers, &plutus_scripts)
 }
 
 fn mk_plutus_script_redeemer_pointers(
-    tx_body: &TransactionBody,
+    sorted_inputs: &[TransactionInput],
+    mint: &Option<Multiasset<i64>>,
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
 ) -> Vec<RedeemerPointer> {
     match &tx_wits.plutus_script {
         Some(plutus_scripts) => {
-            let sorted_inputs: Vec<TransactionInput> = sort_inputs(&tx_body.inputs);
             let mut res: Vec<RedeemerPointer> = Vec::new();
             for (index, input) in sorted_inputs.iter().enumerate() {
                 if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
@@ -560,7 +565,7 @@ fn mk_plutus_script_redeemer_pointers(
                     }
                 }
             }
-            match &tx_body.mint {
+            match mint {
                 Some(minted_value) => {
                     let sorted_policies: Vec<PolicyId> = sort_policies(minted_value);
                     for (index, policy) in sorted_policies.iter().enumerate() {
@@ -664,7 +669,7 @@ fn get_script_hash_from_input(input: &TransactionInput, utxos: &UTxOs) -> Option
     utxos
         .get(&MultiEraInput::from_alonzo_compatible(input))
         .and_then(MultiEraOutput::as_alonzo)
-        .and_then(get_payment_part)
+        .and_then(|tx_out| get_payment_part(&tx_out.address))
         .and_then(|payment_part| match payment_part {
             ShelleyPaymentPart::Script(script_hash) => Some(script_hash),
             _ => None,
@@ -707,19 +712,6 @@ fn check_minting_policies(
     }
 }
 
-fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
-    let mut payload = Vec::new();
-    let _ = encode(script, &mut payload);
-    payload.insert(0, 0);
-    pallas_crypto::hash::Hasher::<224>::hash(&payload)
-}
-
-fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
-    let mut payload: Vec<u8> = Vec::from(script.as_ref());
-    payload.insert(0, 1);
-    pallas_crypto::hash::Hasher::<224>::hash(&payload)
-}
-
 // The owner of each transaction input and each collateral input should have
 // signed the transaction.
 fn check_vkey_input_wits(
@@ -741,7 +733,9 @@ fn check_vkey_input_wits(
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
-                    match get_payment_part(alonzo_comp_output).ok_or(Alonzo(InputDecoding))? {
+                    match get_payment_part(&alonzo_comp_output.address)
+                        .ok_or(Alonzo(InputDecoding))?
+                    {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
                         }
@@ -833,8 +827,11 @@ fn check_languages(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationR
 }
 
 // The metadata of the transaction is valid.
-fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    match (&tx_body.auxiliary_data_hash, extract_auxiliary_data(mtx)) {
+fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+    match (
+        &tx_body.auxiliary_data_hash,
+        aux_data_from_alonzo_minted_tx(mtx),
+    ) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
@@ -925,7 +922,11 @@ fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult 
                         .map(|x| x.clone().unwrap())
                         .collect(),
                 };
-            let plutus_script_wits: Vec<PlutusScript> = Vec::new();
+            let plutus_script_wits: Vec<PlutusScript> =
+                match &mtx.transaction_witness_set.plutus_script {
+                    None => Vec::new(),
+                    Some(plutus_script_wits) => plutus_script_wits.clone(),
+                };
             for (policy, _) in minted_value.iter() {
                 if native_script_wits
                     .iter()

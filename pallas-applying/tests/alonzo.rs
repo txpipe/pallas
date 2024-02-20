@@ -148,7 +148,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -315,7 +315,7 @@ mod alonzo_tests {
     }
 
     #[test]
-    // Same as successful_mainnet_tx, but the validation is called with an empty
+    // Same as successful_mainnet_tx, but validation is called with an empty
     // UTxO set.
     fn unfound_utxo_input() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
@@ -454,7 +454,7 @@ mod alonzo_tests {
     #[test]
     // Same as succesful_mainnet_tx, except that validation is called with an
     // Environment requesting fees that exceed those paid by the transaction.
-    fn min_fees_unreached() {
+    fn min_fee_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
@@ -573,7 +573,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -698,7 +698,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -954,7 +954,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1082,7 +1082,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1122,7 +1122,7 @@ mod alonzo_tests {
 
     #[test]
     // Same as succesful_mainnet_tx, except that the fee is reduced by exactly 1,
-    // and so the "preservation of value" property doesn't hold.
+    // and so the "preservation of value" property does not hold.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -1162,7 +1162,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Preservation of value doesn't hold"),
+            Ok(()) => panic!("Preservation of value does not hold"),
             Err(err) => match err {
                 Alonzo(AlonzoError::PreservationOfValue) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -1232,7 +1232,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Transaction network ID should match environment network_id"),
+            Ok(()) => panic!("Output network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::OutputWrongNetworkID) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -1282,7 +1282,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Transaction network ID should match environment network_id"),
+            Ok(()) => panic!("Transaction network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxWrongNetworkID) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -1292,7 +1292,7 @@ mod alonzo_tests {
 
     #[test]
     // Same as successful_mainnet_tx_with_plutus_script, except that the Environment
-    // execution values are below the ones assocaited with the transaction.
+    // execution values are below the ones associated with the transaction.
     fn tx_ex_units_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -1369,7 +1369,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1533,7 +1533,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1768,7 +1768,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1891,7 +1891,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -1986,7 +1986,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Minting policy is not supported by native script"),
+            Ok(()) => panic!("Minting policy is not supported by the correponding native script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MintingLacksPolicy) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -2072,7 +2072,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2195,7 +2195,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2324,7 +2324,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2454,7 +2454,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(
@@ -2536,7 +2536,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Unneeded redeemer"),
+            Ok(()) => panic!("Transaction auxiliary data removed"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MetadataHash) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -2545,7 +2545,7 @@ mod alonzo_tests {
     }
 
     #[test]
-    // Same as successful_mainnet_tx, except that the minimum lovelace in the UTxO
+    // Same as successful_mainnet_tx, except that the minimum lovelace in an output
     // is unreached.
     fn min_lovelace_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
@@ -2573,14 +2573,14 @@ mod alonzo_tests {
                 max_val_size: 5000,
                 collateral_percent: 150,
                 max_collateral_inputs: 3,
-                coins_per_utxo_word: 10000000,
+                coins_per_utxo_word: 10000000, // This was 34482 during Alonzo on mainnet.
             }),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Unneeded redeemer"),
+            Ok(()) => panic!("Output minimum lovelace is unreached"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MinLovelaceUnreached) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -2624,7 +2624,7 @@ mod alonzo_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Unneeded redeemer"),
+            Ok(()) => panic!("Max value size exceeded"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxValSizeExceeded) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -2712,7 +2712,7 @@ mod alonzo_tests {
                 ),
             ],
         );
-        add_collateral(
+        add_collateral_alonzo(
             &mtx.transaction_body,
             &mut utxos,
             &[(

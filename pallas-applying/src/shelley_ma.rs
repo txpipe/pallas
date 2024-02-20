@@ -1,9 +1,10 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, empty_value, extract_auxiliary_data, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
-    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature, FeePolicy,
+    add_minted_value, add_values, aux_data_from_alonzo_minted_tx, empty_value,
+    get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
+    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
+    FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -195,7 +196,10 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
 }
 
 fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    match (&tx_body.auxiliary_data_hash, extract_auxiliary_data(mtx)) {
+    match (
+        &tx_body.auxiliary_data_hash,
+        aux_data_from_alonzo_minted_tx(mtx),
+    ) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
@@ -222,7 +226,9 @@ fn check_witnesses(
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
                 if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
-                    match get_payment_part(alonzo_comp_output).ok_or(ShelleyMA(AddressDecoding))? {
+                    match get_payment_part(&alonzo_comp_output.address)
+                        .ok_or(ShelleyMA(AddressDecoding))?
+                    {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, tx_hash, vk_wits)?
                         }
