@@ -435,6 +435,7 @@ pub async fn get_stake_snapshots(
     Ok(result)
 }
 
+/// Get the genesis configuration for the given era.
 pub async fn get_genesis_config(
     client: &mut Client,
     era: u16,
