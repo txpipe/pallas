@@ -123,7 +123,7 @@ async fn main() {
     do_localstate_query(&mut client).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
-    // do_chainsync(&mut client).await;
+    do_chainsync(&mut client).await;
 }
 
 // change the following to match the Cardano node named-pipe in your local
