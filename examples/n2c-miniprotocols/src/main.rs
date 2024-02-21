@@ -1,4 +1,7 @@
+use std::collections::BTreeSet;
+
 use pallas::{
+    codec::utils::Bytes,
     ledger::{addresses::Address, traverse::MultiEraBlock},
     network::{
         facades::NodeClient,
@@ -55,11 +58,14 @@ async fn do_localstate_query(client: &mut NodeClient) {
     println!("result: {:?}", result);
 
     // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
-    // Empty Vec means all pools.
-    let pools = vec![];
+    // Empty Set means all pools.
+    let pools: BTreeSet<Bytes> = BTreeSet::new();
     let result = queries_v16::get_stake_snapshots(client, era, pools)
         .await
         .unwrap();
+    println!("result: {:?}", result);
+
+    let result = queries_v16::get_genesis_config(client, era).await.unwrap();
     println!("result: {:?}", result);
 
     client.send_release().await.unwrap();
@@ -117,7 +123,7 @@ async fn main() {
     do_localstate_query(&mut client).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
-    do_chainsync(&mut client).await;
+    // do_chainsync(&mut client).await;
 }
 
 // change the following to match the Cardano node named-pipe in your local

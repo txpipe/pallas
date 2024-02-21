@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
@@ -673,7 +674,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 localstate::queries_v16::Request::LedgerQuery(
                     localstate::queries_v16::LedgerQuery::BlockQuery(
                         5,
-                        localstate::queries_v16::BlockQuery::GetStakeSnapshots(vec![]),
+                        localstate::queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
                     ),
                 )
             );
@@ -923,7 +924,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
             localstate::queries_v16::LedgerQuery::BlockQuery(
                 5,
-                localstate::queries_v16::BlockQuery::GetStakeSnapshots(vec![]),
+                localstate::queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
             ),
         ));
 

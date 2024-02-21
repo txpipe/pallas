@@ -1,4 +1,4 @@
-use minicbor::{data::Tag, Decode, Encode};
+use minicbor::{data::Tag, display, Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash as StdHash, ops::Deref};
 
@@ -681,7 +681,12 @@ impl AnyCbor {
     where
         T: Encode<()>,
     {
+        let uni = [130, 3, 130, 0, 130, 0, 130, 5, 129, 11];
+        let code = format!("{}", display(&uni));
+        println!("code1: {}", code);
         let inner = minicbor::to_vec(other).unwrap();
+        let code = format!("{}", display(&inner));
+        println!("code2: {}", code);
         Self { inner }
     }
 
@@ -689,6 +694,8 @@ impl AnyCbor {
     where
         for<'b> T: Decode<'b, ()>,
     {
+        let code = format!("{}", display(&self.inner));
+        println!("code3: {}", code);
         minicbor::decode(&self.inner)
     }
 }
