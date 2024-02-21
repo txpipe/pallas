@@ -266,6 +266,7 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn mints(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
+            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .mint
@@ -280,7 +281,6 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
                 .collect(),
-            MultiEraTx::Byron(_) => vec![],
             // TODO: Is this still AlonzoCompatible? Zero vals not allowed or something
             MultiEraTx::Conway(x) => x
                 .transaction_body
@@ -298,6 +298,7 @@ impl<'b> MultiEraTx<'b> {
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn collateral(&self) -> Vec<MultiEraInput> {
         match self {
+            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .collateral
@@ -312,7 +313,6 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
-            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .collateral
@@ -330,6 +330,11 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return
                 .as_ref()
                 .map(MultiEraOutput::from_babbage),
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .collateral_return
+                .as_ref()
+                .map(MultiEraOutput::from_babbage),
             _ => None,
         }
     }
@@ -337,6 +342,7 @@ impl<'b> MultiEraTx<'b> {
     pub fn total_collateral(&self) -> Option<u64> {
         match self {
             MultiEraTx::Babbage(x) => x.transaction_body.total_collateral,
+            MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
             _ => None,
         }
     }

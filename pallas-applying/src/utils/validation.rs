@@ -7,6 +7,7 @@ pub enum ValidationError {
     Byron(ByronError),
     ShelleyMA(ShelleyMAError),
     Alonzo(AlonzoError),
+    Babbage(BabbageError),
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +89,53 @@ pub enum AlonzoError {
     DatumMissing,
     UnneededDatum,
     MetadataHash,
+    ScriptIntegrityHash,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum BabbageError {
+    UnknownTxSize,
+    TxInsEmpty,
+    InputNotInUTxO,
+    CollateralNotInUTxO,
+    ReferenceInputNotInUTxO,
+    RefInputNotInUTxO,
+    BlockPrecedesValInt,
+    BlockExceedsValInt,
+    FeeBelowMin,
+    CollateralMissing,
+    TooManyCollaterals,
+    InputDecoding,
+    CollateralNotVKeyLocked,
+    CollateralMinLovelace,
+    NonLovelaceCollateral,
+    CollateralWrongAssets,
+    NegativeValue,
+    CollateralAnnotation,
+    PreservationOfValue,
+    MinLovelaceUnreached,
+    MaxValSizeExceeded,
+    AddressDecoding,
+    OutputWrongNetworkID,
+    TxWrongNetworkID,
+    TxExUnitsExceeded,
+    RedeemerMissing,
+    UnneededRedeemer,
+    MaxTxSizeExceeded,
+    MintingLacksPolicy,
+    MetadataHash,
+    DatumMissing,
+    UnneededDatum,
+    ScriptWitnessMissing,
+    UnneededNativeScript,
+    UnneededPlutusV1Script,
+    UnneededPlutusV2Script,
+    ReqSignerMissing,
+    ReqSignerWrongSig,
+    VKWitnessMissing,
+    VKWrongSignature,
+    UnsupportedPlutusLanguage,
     ScriptIntegrityHash,
 }
 

@@ -1,8 +1,27 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+
+<a name="v0.23.0"></a>
+## [v0.23.0] - 2024-02-11
+### Build
+- **deps:** update itertools requirement from 0.10.5 to 0.12.1 ([#390](https://github.com/txpipe/pallas/issues/390))
+
+### Chore
+- fix new lint warnings ([#400](https://github.com/txpipe/pallas/issues/400))
+- update utxorpc-spec to 0.3.0 ([#399](https://github.com/txpipe/pallas/issues/399))
+
 ### Feat
-- **hardano:** enable async for read_blocks_from_point iterator ([#379](https://github.com/txpipe/pallas/issues/379))
+- **network:** implement stake snapshot local state query ([#394](https://github.com/txpipe/pallas/issues/394))
+
+### Fix
+- support multiple pools in stake snapshot query ([#396](https://github.com/txpipe/pallas/issues/396))
+- contemplate legacy tx outputs in utxo by address query ([#386](https://github.com/txpipe/pallas/issues/386))
+- favor Babbage over Conway for tx decoding ([#389](https://github.com/txpipe/pallas/issues/389))
+- **addresses:** check length before decoding ([#377](https://github.com/txpipe/pallas/issues/377))
+- **traverse:** fix conway txs not returning reference inputs ([#388](https://github.com/txpipe/pallas/issues/388))
+- **traverse:** add missing tx field getters for Conway ([#392](https://github.com/txpipe/pallas/issues/392))
+- **utxorpc:** map missing struct values ([#387](https://github.com/txpipe/pallas/issues/387))
 
 
 <a name="v0.22.0"></a>
@@ -10,6 +29,7 @@
 ### Feat
 - implement `GetCurrentPParams` local state query ([#322](https://github.com/txpipe/pallas/issues/322))
 - **applying:** implement Alonzo phase-1 validations ([#380](https://github.com/txpipe/pallas/issues/380))
+- **hardano:** enable async for read_blocks_from_point iterator ([#379](https://github.com/txpipe/pallas/issues/379))
 - **network:** implement server side KeepAlive ([#376](https://github.com/txpipe/pallas/issues/376))
 
 ### Fix
@@ -1079,7 +1099,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.23.0...HEAD
+[v0.23.0]: https://github.com/txpipe/pallas/compare/v0.22.0...v0.23.0
 [v0.22.0]: https://github.com/txpipe/pallas/compare/v0.21.0...v0.22.0
 [v0.21.0]: https://github.com/txpipe/pallas/compare/v0.20.0...v0.21.0
 [v0.20.0]: https://github.com/txpipe/pallas/compare/v0.19.1...v0.20.0

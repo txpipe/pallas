@@ -107,7 +107,7 @@ mod byron_tests {
             Ok(_) => (),
             Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
-        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Byron(ByronProtParams {
@@ -122,7 +122,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Inputs set should not be empty"),
+            Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 Byron(ByronError::TxInsEmpty) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -143,7 +143,7 @@ mod byron_tests {
             Ok(_) => (),
             Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
-        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
@@ -165,7 +165,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Outputs set should not be empty"),
+            Ok(()) => panic!("Outputs set should not be empty"),
             Err(err) => match err {
                 Byron(ByronError::TxOutsEmpty) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -193,7 +193,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must be within the UTxO set"),
+            Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 Byron(ByronError::InputNotInUTxO) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -220,7 +220,7 @@ mod byron_tests {
             Ok(_) => (),
             Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
-        mtxp.transaction = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
@@ -242,7 +242,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All outputs must contain lovelace"),
+            Ok(()) => panic!("All outputs must contain lovelace"),
             Err(err) => match err {
                 Byron(ByronError::OutputWithoutLovelace) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -276,7 +276,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Fees should not be below minimum"),
+            Ok(()) => panic!("Fees should not be below minimum"),
             Err(err) => match err {
                 Byron(ByronError::FeesBelowMin) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -310,7 +310,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Transaction size cannot exceed protocol limit"),
+            Ok(()) => panic!("Transaction size cannot exceed protocol limit"),
             Err(err) => match err {
                 Byron(ByronError::MaxTxSizeExceeded) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -330,7 +330,7 @@ mod byron_tests {
             Ok(_) => (),
             Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
-        mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
@@ -352,7 +352,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must have a witness signature"),
+            Ok(()) => panic!("All inputs must have a witness signature"),
             Err(err) => match err {
                 Byron(ByronError::MissingWitness) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -381,7 +381,7 @@ mod byron_tests {
             Ok(_) => (),
             Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
-        mtxp.witness = Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+        mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
@@ -403,7 +403,7 @@ mod byron_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Witness signature should verify the transaction"),
+            Ok(()) => panic!("Witness signature should verify the transaction"),
             Err(err) => match err {
                 Byron(ByronError::WrongSignature) => (),
                 _ => panic!("Unexpected error ({:?})", err),

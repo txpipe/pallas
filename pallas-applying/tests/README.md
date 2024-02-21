@@ -87,3 +87,42 @@ List of negative unit tests:
 - **min_lovelace_unreached** takes sucessful_mainnet_tx and submits validation on it with an environment requesting more lovelace on outputs than the amount actually paid by one of the outputs of the transaction.
 - **max_val_exceeded** takes sucessful_mainnet_tx and submits validation on it with an environment disallowing value sizes as high as the size ofg one of the values in one of the transaction outputs of sucessful_mainnet_tx.
 - **script_integrity_hash** takes sucessful_mainnet_tx_with_plutus_script and modifies the execution values of one of the redeemers in the witness set of the transaction, in such a way that all checks pass but the integrity hash of script-related data of the transaction is different from the script data hash contained in the body of the transaction.
+
+### Babbage
+*pallas-applying/tests/babbage.rs* contains multiple unit tests for validation in the Alonzo era.
+
+Babbage introduces novel ways to provide Plutus-script-related data, like the introduction of reference scripts and novel ways to provide for collateral.
+
+List of positive unit tests:
+- **successful_mainnet_tx** ([here](https://cexplorer.io/tx/b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d) to see on Cardano explorer) is a simple Babbage transaction, with no native, Plutus V1 or Plutus V2 scripts, nor metadata or minting.
+- **successful_mainnet_tx_with_plutus_v1_script** ([here](https://cexplorer.io/tx/f33d6f7eb877132af7307e385bb24a7d2c12298c8ac0b1460296748810925ccc) to see on Cardano explorer) is a Babbage transaction with a Plutus V1 script.
+- **successful_mainnet_tx_with_plutus_v2_script** ([here](https://cexplorer.io/tx/ac96a0a2dfdb876b237a8ae674eadab453fd146fb97b221cfd29a1812046fa36) to see on Cardano explorer) is a Babbage transaction with a Plutus V2 script.
+- **successful_mainnet_tx_with_minting** ([here](https://cexplorer.io/tx/8702b0a5835c16663101f68295e33e3b3868c487f736d3c8a0a4246242675a15) to see on Cardano explorer) is a simple Babbage transaction with minting.
+- **successful_mainnet_tx_with_metadata** ([here](https://cexplorer.io/tx/7ae8cbe887d5d4cdaa51bce93d296206d4fcc77963e65fad3a64d0e6df672260) to see on Cardano explorer) is a simple Babbage transaction with metadata.
+
+List of negative unit tests:
+- **empty_ins** takes successful_mainnet_tx and removes its input.
+- **unfound_utxo_input** takes successful_mainnet_tx and calls validation on it with an empty UTxO (which causes the input to be unfound).
+- **validity_interval_lower_bound_unreached** takes sucessful_mainnet_tx and modifies its time interval in such a way that its validity time interval *lower* bound is located exactly one slot after the block slot.
+- **validity_interval_upper_bound_surpassed** takes sucessful_mainnt_tx and modifies its time interval in such a way that its validity time interval *upper* bound is located exactly one slot before the block slot.
+- **min_fees_unreached** submits validation on sucessful_mainnet_tx with an environment requesting the minimum fee to be higher than the one that the transaction actually paid.
+- **no_collateral_inputs** takes successful_mainnet_tx_with_plutus_v1_script and removes its collateral inputs before submitting the transaction for validation.
+- **too_many_collateral_inputs** takes successful_mainnet_tx_with_plutus_v1_script and submits its for validation with an environment allowing no collateral inputs.
+- **collateral_is_not_verification_key_locked** takes sucessful_mainnet_tx_with_plutus_v1_script and modifies the address of one of the collateral inputs to become a script-locked output instead of a verification-key-locked one.
+- **collateral_with_other_assets** takes sucessful_mainnet_tx_with_plutus_v1_script and adds non-lovelace assets to it.
+- **collateral_without_min_lovelace** takes sucessful_mainnet_tx_with_plutus_v1_script and submits it for validation with an environment requesting a higher lovelace percentage (when compared to the fee paid by the transaction) in collateral inputs than the actual amount paid by the transaction collateral.
+- **collateral_annotation** takes sucessful_mainnet_tx_with_plutus_v1_script and modifies the collateral annotation to make it wrong.
+- **preservation_of_value** modifies sucessful_mainnet_tx_with_plutus_v1_script in such a way that the preservation-of-value equality does not hold.
+- **min_lovelace_unreached** takes sucessful_mainnet_tx and submits validation on it with an environment requesting more lovelace on outputs than the amount actually paid by one of the outputs of the transaction.
+- **max_val_exceeded** takes sucessful_mainnet_tx and submits validation on it with an environment disallowing value sizes as high as the size ofg one of the values in one of the transaction outputs of sucessful_mainnet_tx.
+- **output_network_id** takes sucessful_mainnet_tx and modifies the network ID in the address of one of its outputs.
+- **tx_network_id** takes sucessful_mainnet_tx and modifies its network ID.
+- **tx_ex_units_exceeded** takes sucessful_mainnet_tx_with_plutus_v1_script and validates it with an environment whose Plutus script execution values are below the needs of the transaction.
+- **max_tx_size_exceeded** takes sucessful_mainnet_tx and validates it with an environment allowing only transactions whose size is lower than that of sucessful_mainnet_tx.
+- **minting_lacks_policy** takes sucessful_mainnet_tx_with_minting and removes the native script policy contained in it before submitting it for validation.
+- **auxiliary_data_removed** takes sucessful_mainnet_tx_with_metadata and removes its auxiliary data (a.k.a. metadata).
+- **script_input_lacks_script** takes sucessful_mainnet_tx_with_plutus_v1_script and clears the Plutus V1 scripts list in the witness set, making the script required by the transaction inexistent.
+- **missing_input_datum** takes sucessful_mainnet_tx_with_plutus_v1_script and removes the datum contained in its witness set.
+- **extra_input_datum** takes sucessful_mainnet_tx_with_plutus_v1_script and adds an unneded datum to its witness set.
+- **extra_redeemer** takes sucessful_mainnet_tx_with_plutus_v1_script and adds an unneeded redeemer to its witness set.
+- **script_integrity_hash** takes sucessful_mainnet_tx_with_plutus_v1_script and modifies the execution values of one of the redeemers in the witness set of the transaction, in such a way that all checks pass but the integrity hash of script-related data of the transaction is different from the script data hash contained in the body of the transaction.

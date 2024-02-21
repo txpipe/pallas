@@ -10,9 +10,12 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw, KeyValuePairs},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
-use pallas_primitives::alonzo::{
-    AssetName, AuxiliaryData, Coin, MintedTx, Multiasset, NetworkId, PolicyId, TransactionBody,
-    TransactionOutput, VKeyWitness, Value,
+use pallas_primitives::{
+    alonzo::{
+        AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
+        NetworkId, PlutusScript, PolicyId, TransactionBody, VKeyWitness, Value,
+    },
+    babbage::{MintedTransactionBody, MintedTx as BabbageMintedTx, PlutusV2Script},
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -22,6 +25,14 @@ pub use validation::*;
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
 pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u64> {
+    let mut buff: Vec<u8> = Vec::new();
+    match encode(tx_body, &mut buff) {
+        Ok(()) => Some(buff.len() as u64),
+        Err(_) => None,
+    }
+}
+
+pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u64> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx_body, &mut buff) {
         Ok(()) => Some(buff.len() as u64),
@@ -50,6 +61,61 @@ pub fn add_values(
             )?,
         )),
     }
+}
+
+pub fn lovelace_diff_or_fail(
+    first: &Value,
+    second: &Value,
+    err: &ValidationError,
+) -> Result<u64, ValidationError> {
+    match (first, second) {
+        (Value::Coin(f), Value::Coin(s)) => {
+            if f >= s {
+                Ok(f - s)
+            } else {
+                Err(err.clone())
+            }
+        }
+        (Value::Coin(_), Value::Multiasset(_, _)) => Err(err.clone()),
+        (Value::Multiasset(f, fma), Value::Coin(s)) => {
+            if f >= s && fma.is_empty() {
+                Ok(f - s)
+            } else {
+                Err(err.clone())
+            }
+        }
+        (Value::Multiasset(f, fma), Value::Multiasset(s, sma)) => {
+            if f >= s && multi_assets_are_equal(fma, sma) {
+                Ok(f - s)
+            } else {
+                Err(err.clone())
+            }
+        }
+    }
+}
+
+pub fn multi_assets_are_equal(fma: &Multiasset<Coin>, sma: &Multiasset<Coin>) -> bool {
+    for (fpolicy, fassets) in fma.iter() {
+        match find_policy(sma, fpolicy) {
+            Some(sassets) => {
+                for (fasset_name, famount) in fassets.iter() {
+                    // Discard the case where there is 0 of an asset
+                    if *famount != 0 {
+                        match find_assets(&sassets, fasset_name) {
+                            Some(samount) => {
+                                if *famount != samount {
+                                    return false;
+                                }
+                            }
+                            None => return false,
+                        };
+                    }
+                }
+            }
+            None => return false,
+        }
+    }
+    true
 }
 
 pub fn add_minted_value(
@@ -155,24 +221,7 @@ pub fn values_are_equal(first: &Value, second: &Value) -> bool {
             if f != s {
                 false
             } else {
-                for (fpolicy, fassets) in fma.iter() {
-                    match find_policy(sma, fpolicy) {
-                        Some(sassets) => {
-                            for (fasset_name, famount) in fassets.iter() {
-                                match find_assets(&sassets, fasset_name) {
-                                    Some(samount) => {
-                                        if *famount != samount {
-                                            return false;
-                                        }
-                                    }
-                                    None => return false,
-                                };
-                            }
-                        }
-                        None => return false,
-                    }
-                }
-                true
+                multi_assets_are_equal(fma, sma)
             }
         }
     }
@@ -235,8 +284,8 @@ pub fn verify_signature(vk_wit: &VKeyWitness, data_to_verify: &[u8]) -> bool {
     public_key.verify(data_to_verify, &sig)
 }
 
-pub fn get_payment_part(tx_out: &TransactionOutput) -> Option<ShelleyPaymentPart> {
-    let addr: ShelleyAddress = get_shelley_address(Bytes::deref(&tx_out.address))?;
+pub fn get_payment_part(address: &Bytes) -> Option<ShelleyPaymentPart> {
+    let addr: ShelleyAddress = get_shelley_address(Bytes::deref(address))?;
     Some(addr.payment().clone())
 }
 
@@ -247,7 +296,17 @@ pub fn get_shelley_address(address: &[u8]) -> Option<ShelleyAddress> {
     }
 }
 
-pub fn extract_auxiliary_data<'a>(mtx: &'a MintedTx) -> Option<&'a [u8]> {
+pub fn is_byron_address(address: &[u8]) -> bool {
+    matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
+}
+
+pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoMintedTx) -> Option<&'a [u8]> {
+    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
+        .as_ref()
+        .map(KeepRaw::raw_cbor)
+}
+
+pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageMintedTx) -> Option<&'a [u8]> {
     Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
         .as_ref()
         .map(KeepRaw::raw_cbor)
@@ -257,4 +316,23 @@ pub fn get_val_size_in_words(val: &Value) -> u64 {
     let mut tx_buf: Vec<u8> = Vec::new();
     let _ = encode(val, &mut tx_buf);
     (tx_buf.len() as u64 + 7) / 8 // ceiling of the result of dividing
+}
+
+pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
+    let mut payload = Vec::new();
+    let _ = encode(script, &mut payload);
+    payload.insert(0, 0);
+    pallas_crypto::hash::Hasher::<224>::hash(&payload)
+}
+
+pub fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
+    let mut payload: Vec<u8> = Vec::from(script.as_ref());
+    payload.insert(0, 1);
+    pallas_crypto::hash::Hasher::<224>::hash(&payload)
+}
+
+pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
+    let mut payload: Vec<u8> = Vec::from(script.as_ref());
+    payload.insert(0, 1);
+    pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }

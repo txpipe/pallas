@@ -55,7 +55,7 @@ mod shelley_ma_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -89,7 +89,7 @@ mod shelley_ma_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -123,7 +123,7 @@ mod shelley_ma_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -157,7 +157,7 @@ mod shelley_ma_tests {
         };
         match validate(&metx, &utxos, &env) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({:?})", err),
         }
     }
 
@@ -180,10 +180,10 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
@@ -199,10 +199,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Inputs set should not be empty"),
+            Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TxInsEmpty) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -228,10 +228,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "All inputs must be within the UTxO set"),
+            Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::InputNotInUTxO) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -254,10 +254,10 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
@@ -273,10 +273,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "TTL must always be present in Shelley transactions"),
+            Ok(()) => panic!("TTL must always be present in Shelley transactions"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::AlonzoCompNotShelley) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -309,10 +309,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "TTL cannot be exceeded"),
+            Ok(()) => panic!("TTL cannot be exceeded"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TTLExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -345,10 +345,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Tx size exceeds max limit"),
+            Ok(()) => panic!("Tx size exceeds max limit"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MaxTxSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -382,10 +382,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Output amount must be above min lovelace value"),
+            Ok(()) => panic!("Output amount must be above min lovelace value"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MinLovelaceUnreached) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -397,14 +397,14 @@ mod shelley_ma_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
-        tx_body.fee = tx_body.fee - 1;
+        tx_body.fee -= 1;
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -428,10 +428,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Preservation of value property doesn't hold"),
+            Ok(()) => panic!("Preservation of value property doesn't hold"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PreservationOfValue) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -464,10 +464,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Fee should not be below minimum"),
+            Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::FeesBelowMin) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -481,7 +481,7 @@ mod shelley_ma_tests {
         // Modify the first output address.
         let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
-            (&tx_body.outputs).split_first().unwrap();
+            (tx_body.outputs).split_first().unwrap();
         let addr: ShelleyAddress =
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
@@ -504,10 +504,10 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
@@ -531,10 +531,10 @@ mod shelley_ma_tests {
             )],
         );
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Output with wrong network ID should be rejected"),
+            Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -570,10 +570,10 @@ mod shelley_ma_tests {
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Output with wrong network ID should be rejected"),
+            Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MetadataHash) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -591,10 +591,10 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
@@ -618,10 +618,10 @@ mod shelley_ma_tests {
             )],
         );
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Missing verification key witness"),
+            Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingVKWitness) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -644,10 +644,10 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
@@ -671,10 +671,10 @@ mod shelley_ma_tests {
             )],
         );
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Missing verification key witness"),
+            Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongSignature) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }
@@ -692,10 +692,10 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
         };
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
@@ -719,10 +719,10 @@ mod shelley_ma_tests {
             )],
         );
         match validate(&metx, &utxos, &env) {
-            Ok(()) => assert!(false, "Missing native script witness"),
+            Ok(()) => panic!("Missing native script witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingScriptWitness) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({:?})", err),
             },
         }
     }

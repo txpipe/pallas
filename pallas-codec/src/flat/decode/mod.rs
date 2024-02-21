@@ -42,7 +42,7 @@ impl Decode<'_> for isize {
 #[cfg(feature = "num-bigint")]
 impl Decode<'_> for BigInt {
     fn decode(d: &mut Decoder) -> Result<Self, Error> {
-        Ok(d.big_integer()?.into())
+        d.big_integer()
     }
 }
 

@@ -50,6 +50,9 @@ pub enum Error {
     #[error("invalid hash size {0}")]
     InvalidHashSize(usize),
 
+    #[error("invalid address length {0}")]
+    InvalidAddressLength(usize),
+
     #[error("invalid pointer data")]
     InvalidPointerData,
 
@@ -319,6 +322,10 @@ fn parse_network(header: u8) -> Network {
 macro_rules! parse_shelley_fn {
     ($name:tt, $payment:tt, pointer) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
+            if payload.len() < 29 {
+                return Err(Error::InvalidAddressLength(payload.len()));
+            }
+
             let net = parse_network(header);
             let h1 = slice_to_hash(&payload[0..=27])?;
             let p1 = ShelleyPaymentPart::$payment(h1);
@@ -330,6 +337,10 @@ macro_rules! parse_shelley_fn {
     };
     ($name:tt, $payment:tt, $delegation:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
+            if payload.len() != 56 {
+                return Err(Error::InvalidAddressLength(payload.len()));
+            }
+
             let net = parse_network(header);
             let h1 = slice_to_hash(&payload[0..=27])?;
             let p1 = ShelleyPaymentPart::$payment(h1);
@@ -342,6 +353,10 @@ macro_rules! parse_shelley_fn {
     };
     ($name:tt, $payment:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
+            if payload.len() != 28 {
+                return Err(Error::InvalidAddressLength(payload.len()));
+            }
+
             let net = parse_network(header);
             let h1 = slice_to_hash(&payload[0..=27])?;
             let p1 = ShelleyPaymentPart::$payment(h1);
@@ -355,6 +370,10 @@ macro_rules! parse_shelley_fn {
 macro_rules! parse_stake_fn {
     ($name:tt, $type:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
+            if payload.len() != 28 {
+                return Err(Error::InvalidAddressLength(payload.len()));
+            }
+
             let net = parse_network(header);
             let p1 = StakePayload::$type(&payload[0..=27])?;
             let addr = StakeAddress(net, p1);
