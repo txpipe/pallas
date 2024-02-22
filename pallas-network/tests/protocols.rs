@@ -745,6 +745,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let result = AnyCbor::from_encode(genesis);
             server.statequery().send_result(result).await.unwrap();
 
+            assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
             // server receives re-acquire from the client
 
             let maybe_point = match server.statequery().recv_while_acquired().await.unwrap() {
