@@ -10,7 +10,7 @@ use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    Addr, Addrs, Snapshots, Stakes, UnitInterval, Value,
+    Addr, Addrs, Fraction, Genesis, Snapshots, Stakes, SystemStart, UnitInterval, Value,
 };
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
@@ -498,7 +498,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             assert_eq!(query, localstate::queries_v16::Request::GetSystemStart);
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let result = AnyCbor::from_encode(localstate::queries_v16::SystemStart {
+            let result = AnyCbor::from_encode(SystemStart {
                 year: 2020,
                 day_of_year: 1,
                 picoseconds_of_day: 999999999,
@@ -527,7 +527,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             );
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let fraction = localstate::queries_v16::Fraction { num: 10, dem: 20 };
+            let fraction = Fraction { num: 10, dem: 20 };
             let pool = localstate::queries_v16::Pool {
                 stakes: fraction.clone(),
                 hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
@@ -705,6 +705,46 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let result = AnyCbor::from_encode(localstate::queries_v16::StakeSnapshot { snapshots });
             server.statequery().send_result(result).await.unwrap();
 
+            // server receives query from client
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            assert_eq!(
+                query,
+                localstate::queries_v16::Request::LedgerQuery(
+                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                        5,
+                        localstate::queries_v16::BlockQuery::GetGenesisConfig,
+                    ),
+                )
+            );
+
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let genesis = vec![Genesis {
+                system_start: SystemStart {
+                    year: 2021,
+                    day_of_year: 150,
+                    picoseconds_of_day: 0,
+                },
+                network_magic: 42,
+                network_id: 42,
+                active_slots_coefficient: Fraction { num: 6, dem: 10 },
+                security_param: 2160,
+                epoch_length: 432000,
+                slots_per_kes_period: 129600,
+                max_kes_evolutions: 62,
+                slot_length: 1,
+                update_quorum: 5,
+                max_lovelace_supply: AnyUInt::MajorByte(2),
+            }];
+
+            let result = AnyCbor::from_encode(genesis);
+            server.statequery().send_result(result).await.unwrap();
+
             assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
             // server receives re-acquire from the client
@@ -759,7 +799,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: localstate::queries_v16::SystemStart = client
+        let result: SystemStart = client
             .statequery()
             .recv_while_querying()
             .await
@@ -793,7 +833,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .into_decode()
             .unwrap();
 
-        let fraction = localstate::queries_v16::Fraction { num: 10, dem: 20 };
+        let fraction = Fraction { num: 10, dem: 20 };
         let pool = localstate::queries_v16::Pool {
             stakes: fraction.clone(),
             hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
@@ -960,6 +1000,43 @@ pub async fn local_state_query_server_and_client_happy_path() {
         };
 
         assert_eq!(result, localstate::queries_v16::StakeSnapshot { snapshots });
+
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
+            localstate::queries_v16::LedgerQuery::BlockQuery(
+                5,
+                localstate::queries_v16::BlockQuery::GetGenesisConfig,
+            ),
+        ));
+
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: Vec<Genesis> = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        let genesis = vec![Genesis {
+            system_start: SystemStart {
+                year: 2021,
+                day_of_year: 150,
+                picoseconds_of_day: 0,
+            },
+            network_magic: 42,
+            network_id: 42,
+            active_slots_coefficient: Fraction { num: 6, dem: 10 },
+            security_param: 2160,
+            epoch_length: 432000,
+            slots_per_kes_period: 129600,
+            max_kes_evolutions: 62,
+            slot_length: 1,
+            update_quorum: 5,
+            max_lovelace_supply: AnyUInt::MajorByte(2),
+        }];
+
+        assert_eq!(result, genesis);
 
         // client sends a ReAquire
         client

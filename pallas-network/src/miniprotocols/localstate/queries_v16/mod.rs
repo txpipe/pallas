@@ -306,6 +306,42 @@ pub struct Stakes {
     pub snapshot_go_pool: u64,
 }
 
+#[derive(Debug, Encode, Decode, PartialEq)]
+pub struct Genesis {
+    #[n(0)]
+    pub system_start: SystemStart,
+
+    #[n(1)]
+    pub network_magic: u32,
+
+    #[n(2)]
+    pub network_id: u32,
+
+    #[n(3)]
+    pub active_slots_coefficient: Fraction,
+
+    #[n(4)]
+    pub security_param: u32,
+
+    #[n(5)]
+    pub epoch_length: u32,
+
+    #[n(6)]
+    pub slots_per_kes_period: u32,
+
+    #[n(7)]
+    pub max_kes_evolutions: u32,
+
+    #[n(8)]
+    pub slot_length: u32,
+
+    #[n(9)]
+    pub update_quorum: u32,
+
+    #[n(10)]
+    pub max_lovelace_supply: Coin,
+}
+
 /// Get the current tip of the ledger.
 pub async fn get_chain_point(client: &mut Client) -> Result<Point, ClientError> {
     let query = Request::GetChainPoint;
@@ -392,6 +428,19 @@ pub async fn get_stake_snapshots(
     pools: BTreeSet<Bytes>,
 ) -> Result<StakeSnapshot, ClientError> {
     let query = BlockQuery::GetStakeSnapshots(pools);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the genesis configuration for the given era.
+pub async fn get_genesis_config(
+    client: &mut Client,
+    era: u16,
+) -> Result<Vec<Genesis>, ClientError> {
+    let query = BlockQuery::GetGenesisConfig;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;

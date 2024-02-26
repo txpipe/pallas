@@ -65,6 +65,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     println!("result: {:?}", result);
 
+    let result = queries_v16::get_genesis_config(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
     client.send_release().await.unwrap();
 }
 
