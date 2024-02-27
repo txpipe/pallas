@@ -13,6 +13,9 @@ pub enum Error {
 
     #[error("not found")]
     NotFound,
+
+    #[error("unexpected wal seq ({0} vs {1})")]
+    UnexpectedWalSeq(u64, u64),
 }
 
 pub struct DBHash(pub Hash<32>);

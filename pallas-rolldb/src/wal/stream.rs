@@ -1,31 +1,49 @@
 use futures_core::Stream;
 
-use super::{BlockHash, BlockSlot, Log, Store};
+use crate::kvtable::Error;
+
+use super::{Log, Store};
 
 pub struct RollStream;
 
 impl RollStream {
-    pub fn intersect(
+    pub fn stream_wal(
         store: Store,
-        intersect: Vec<(BlockSlot, BlockHash)>,
-    ) -> impl Stream<Item = Log> {
-        async_stream::stream! {
-            let mut last_seq = None;
+        last_wal_seq: Option<u64>,
+    ) -> impl Stream<Item = Result<Log, Error>> {
+        async_stream::try_stream! {
+            let mut last_seq = last_wal_seq;
 
-            let iter = store.crawl_from_intersect(&intersect).unwrap();
+            let iter = store.crawl_after(last_wal_seq);
 
-            for (seq, val) in iter.flatten() {
-                yield val;
-                last_seq = Some(seq);
+            for entry in iter {
+                let (wal_seq, log) = entry?;
+
+                if let Some(prev_seq) = last_seq {
+                    if wal_seq != (prev_seq + 1) {
+                        Err(Error::UnexpectedWalSeq(prev_seq + 1, wal_seq))?
+                    }
+                };
+
+                yield log;
+                last_seq = Some(wal_seq);
             }
 
             loop {
                 store.tip_change.notified().await;
                 let iter = store.crawl_after(last_seq);
 
-                for (seq, val) in iter.flatten() {
-                    yield val;
-                    last_seq = Some(seq);
+                for entry in iter {
+                    let (wal_seq, log) = entry?;
+
+                    if let Some(prev_seq) = last_seq {
+                        if wal_seq != (prev_seq + 1) {
+                            Err(Error::UnexpectedWalSeq(prev_seq + 1, wal_seq))?
+                        }
+                    };
+
+                    yield log;
+                    last_seq = Some(wal_seq);
                 }
             }
         }
@@ -62,17 +80,17 @@ mod tests {
             }
         });
 
-        let s = super::RollStream::intersect(db.clone(), vec![]);
+        let s = super::RollStream::stream_wal(db.clone(), None);
 
         pin_mut!(s);
 
         let evt = s.next().await;
-        let evt = evt.unwrap();
+        let evt = evt.unwrap().unwrap();
         assert!(evt.is_origin());
 
         for i in 0..=200 {
             let evt = s.next().await;
-            let evt = evt.unwrap();
+            let evt = evt.unwrap().unwrap();
             assert!(evt.is_apply());
             assert_eq!(evt.slot().unwrap(), i * 10);
         }
