@@ -138,7 +138,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
             // 7 => Ok(Self::GetUTxOWhole),
             // 8 => Ok(Self::DebugEpochState),
-            // 9 => Ok(Self::GetCBOR(())),
+            9 => Ok(Self::GetCBOR(d.decode()?)),
             // 10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(())),
             11 => Ok(Self::GetGenesisConfig),
             // 12 => Ok(Self::DebugNewEpochState),
