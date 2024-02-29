@@ -399,7 +399,9 @@ where
     where
         F: Fn(&V) -> bool,
     {
-        for (k, v) in Self::iter_entries(db, mode).flatten() {
+        for entry in Self::iter_entries(db, mode) {
+            let (k, v) = entry?;
+
             if predicate(&v) {
                 return Ok(Some(k));
             }

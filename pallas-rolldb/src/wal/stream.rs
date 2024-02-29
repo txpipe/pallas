@@ -1,5 +1,7 @@
 use futures_core::Stream;
 
+use crate::kvtable::Error;
+
 use super::{BlockHash, BlockSlot, Log, Store};
 
 pub struct RollStream;
@@ -8,13 +10,15 @@ impl RollStream {
     pub fn intersect(
         store: Store,
         intersect: Vec<(BlockSlot, BlockHash)>,
-    ) -> impl Stream<Item = Log> {
-        async_stream::stream! {
-            let mut last_seq = None;
+    ) -> Result<impl Stream<Item = Result<Log, Error>>, Error> {
+        let mut last_seq = store.find_wal_seq(&intersect)?;
 
-            let iter = store.crawl_from_intersect(&intersect).unwrap();
+        Ok(async_stream::try_stream! {
+            let iter = store.crawl_after(last_seq);
 
-            for (seq, val) in iter.flatten() {
+            for entry in iter {
+                let (seq, val) = entry?;
+
                 yield val;
                 last_seq = Some(seq);
             }
@@ -23,12 +27,14 @@ impl RollStream {
                 store.tip_change.notified().await;
                 let iter = store.crawl_after(last_seq);
 
-                for (seq, val) in iter.flatten() {
+                for entry in iter {
+                    let (seq, val) = entry?;
+
                     yield val;
                     last_seq = Some(seq);
                 }
             }
-        }
+        })
     }
 }
 
@@ -62,17 +68,17 @@ mod tests {
             }
         });
 
-        let s = super::RollStream::intersect(db.clone(), vec![]);
+        let s = super::RollStream::intersect(db.clone(), vec![]).unwrap();
 
         pin_mut!(s);
 
         let evt = s.next().await;
-        let evt = evt.unwrap();
+        let evt = evt.unwrap().unwrap();
         assert!(evt.is_origin());
 
         for i in 0..=200 {
             let evt = s.next().await;
-            let evt = evt.unwrap();
+            let evt = evt.unwrap().unwrap();
             assert!(evt.is_apply());
             assert_eq!(evt.slot().unwrap(), i * 10);
         }
