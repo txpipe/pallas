@@ -31,7 +31,7 @@ pub enum BlockQuery {
     GetUTxOByAddress(Addrs),
     GetUTxOWhole,
     DebugEpochState,
-    GetCBOR(AnyCbor),
+    GetCBOR(Box<BlockQuery>),
     GetFilteredDelegationsAndRewardAccounts(AnyCbor),
     GetGenesisConfig,
     DebugNewEpochState,
@@ -428,6 +428,19 @@ pub async fn get_stake_snapshots(
     pools: BTreeSet<Bytes>,
 ) -> Result<StakeSnapshot, ClientError> {
     let query = BlockQuery::GetStakeSnapshots(pools);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+pub async fn get_cbor(
+    client: &mut Client,
+    era: u16,
+    query: BlockQuery,
+) -> Result<Vec<TagWrap<Bytes, 24>>, ClientError> {
+    let query = BlockQuery::GetCBOR(Box::new(query));
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
