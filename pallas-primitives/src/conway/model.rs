@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, Set};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -66,7 +66,7 @@ pub use crate::alonzo::RewardAccount;
 
 pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
 
-pub type RequiredSigners = Vec<AddrKeyhash>;
+pub type RequiredSigners = Set<AddrKeyhash>; // TODO: NON EMPTY SET
 
 pub use crate::alonzo::Port;
 
@@ -106,7 +106,7 @@ pub enum Certificate {
         cost: Coin,
         margin: UnitInterval,
         reward_account: RewardAccount,
-        pool_owners: Vec<AddrKeyhash>,
+        pool_owners: Set<AddrKeyhash>,
         relays: Vec<Relay>,
         pool_metadata: Option<PoolMetadata>,
     },
@@ -645,7 +645,7 @@ impl<C> minicbor::Encode<C> for DRepVotingThresholds {
 #[cbor(map)]
 pub struct PseudoTransactionBody<T1> {
     #[n(0)]
-    pub inputs: Vec<TransactionInput>,
+    pub inputs: Set<TransactionInput>,
 
     #[n(1)]
     pub outputs: Vec<T1>,
@@ -657,7 +657,7 @@ pub struct PseudoTransactionBody<T1> {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<Vec<Certificate>>, // TODO: NON EMPTY
+    pub certificates: Option<Set<Certificate>>, // TODO: NON EMPTY ORDERED SET
 
     #[n(5)]
     pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>, // TODO: NON EMPTY
@@ -677,7 +677,7 @@ pub struct PseudoTransactionBody<T1> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(13)]
-    pub collateral: Option<Vec<TransactionInput>>, // TODO: NON EMPTY SET
+    pub collateral: Option<Set<TransactionInput>>, // TODO: NON EMPTY SET
 
     #[n(14)]
     pub required_signers: Option<Vec<AddrKeyhash>>, // TODO: NON EMPTY SET
@@ -692,14 +692,14 @@ pub struct PseudoTransactionBody<T1> {
     pub total_collateral: Option<Coin>,
 
     #[n(18)]
-    pub reference_inputs: Option<Vec<TransactionInput>>, // TODO: NON EMPTY SET
+    pub reference_inputs: Option<Set<TransactionInput>>, // TODO: NON EMPTY SET
 
     // -- NEW IN CONWAY
     #[n(19)]
     pub voting_procedures: Option<VotingProcedures>,
 
     #[n(20)]
-    pub proposal_procedures: Option<Vec<ProposalProcedure>>, // TODO: NON EMPTY MAP
+    pub proposal_procedures: Option<Set<ProposalProcedure>>, // TODO: NON EMPTY ORDERED SET
 
     #[n(21)]
     pub treasury_value: Option<Coin>,
@@ -858,7 +858,7 @@ pub enum GovAction {
     NoConfidence(Option<GovActionId>),
     UpdateCommittee(
         Option<GovActionId>,
-        Vec<CommitteeColdCredential>,
+        Set<CommitteeColdCredential>,
         KeyValuePairs<CommitteeColdCredential, Epoch>,
         UnitInterval,
     ),
@@ -1229,70 +1229,80 @@ pub use crate::alonzo::BootstrapWitness;
 #[cbor(map)]
 pub struct WitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<Vec<VKeyWitness>>,
+    pub vkeywitness: Option<Set<VKeyWitness>>, // TODO: NON EMPTY SET
 
     #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
+    pub native_script: Option<Set<NativeScript>>, // TODO: NON EMPTY SET
 
     #[n(2)]
-    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
+    pub bootstrap_witness: Option<Set<BootstrapWitness>>, // TODO: NON EMPTY SET
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_script: Option<Set<PlutusV1Script>>, // TODO: NON EMPTY SET
 
     #[n(4)]
-    pub plutus_data: Option<Vec<PlutusData>>,
+    pub plutus_data: Option<Set<PlutusData>>, // TODO: NON EMPTY SET
 
     #[n(5)]
     pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_script: Option<Set<PlutusV2Script>>, // TODO: NON EMPTY SET
 
     #[n(7)]
-    pub plutus_v3_script: Option<Vec<PlutusV3Script>>,
+    pub plutus_v3_script: Option<Set<PlutusV3Script>>, // TODO: NON EMPTY SET
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct MintedWitnessSet<'b> {
     #[n(0)]
-    pub vkeywitness: Option<Vec<VKeyWitness>>,
+    pub vkeywitness: Option<Set<VKeyWitness>>, // TODO: NON EMPTY SET
 
     #[n(1)]
-    pub native_script: Option<Vec<KeepRaw<'b, NativeScript>>>,
+    pub native_script: Option<Set<KeepRaw<'b, NativeScript>>>, // TODO: NON EMPTY SET
 
     #[n(2)]
-    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
+    pub bootstrap_witness: Option<Set<BootstrapWitness>>, // TODO: NON EMPTY SET
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_script: Option<Set<PlutusV1Script>>, // TODO: NON EMPTY SET
 
     #[b(4)]
-    pub plutus_data: Option<Vec<KeepRaw<'b, PlutusData>>>,
+    pub plutus_data: Option<Set<KeepRaw<'b, PlutusData>>>, // TODO: NON EMPTY SET
 
     #[n(5)]
     pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_script: Option<Set<PlutusV2Script>>, // TODO: NON EMPTY SET
 
     #[n(7)]
-    pub plutus_v3_script: Option<Vec<PlutusV3Script>>,
+    pub plutus_v3_script: Option<Set<PlutusV3Script>>, // TODO: NON EMPTY SET
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
     fn from(x: MintedWitnessSet<'b>) -> Self {
         WitnessSet {
             vkeywitness: x.vkeywitness,
-            native_script: x
-                .native_script
-                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
+            native_script: x.native_script.map(|xs| {
+                Set::from(
+                    xs.to_vec()
+                        .into_iter()
+                        .map(|x| x.unwrap())
+                        .collect::<Vec<_>>(),
+                )
+            }),
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
-            plutus_data: x
-                .plutus_data
-                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
+            plutus_data: x.plutus_data.map(|xs| {
+                Set::from(
+                    xs.to_vec()
+                        .into_iter()
+                        .map(|x| x.unwrap())
+                        .collect::<Vec<_>>(),
+                )
+            }),
             redeemer: x.redeemer,
             plutus_v2_script: x.plutus_v2_script,
             plutus_v3_script: x.plutus_v3_script,
@@ -1520,7 +1530,10 @@ mod tests {
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = [include_str!("../../../test_data/conway1.artificial.block")];
+        let test_blocks = [
+            include_str!("../../../test_data/conway1.block"),
+            include_str!("../../../test_data/conway1.artificial.block"),
+        ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
