@@ -37,14 +37,9 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             _ => Err(TxAndProtParamsDiffer),
         },
         MultiEraProtParams::Alonzo(app) => match metx {
-            MultiEraTx::AlonzoCompatible(mtx, Era::Alonzo) => validate_alonzo_tx(
-                mtx,
-                utxos,
-                app,
-                env.block_slot(),
-                env.prot_magic(),
-                env.network_id(),
-            ),
+            MultiEraTx::AlonzoCompatible(mtx, Era::Alonzo) => {
+                validate_alonzo_tx(mtx, utxos, app, env.block_slot(), env.network_id())
+            }
             _ => Err(TxAndProtParamsDiffer),
         },
         MultiEraProtParams::Babbage(bpp) => match metx {

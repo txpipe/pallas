@@ -33,7 +33,6 @@ pub fn validate_alonzo_tx(
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
     block_slot: &u64,
-    network_magic: &u32,
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
@@ -51,7 +50,7 @@ pub fn validate_alonzo_tx(
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, prot_pps)?;
     check_auxiliary_data(tx_body, mtx)?;
-    check_script_data_hash(tx_body, mtx, network_magic, network_id)?;
+    check_script_data_hash(tx_body, mtx)?;
     check_minting(tx_body, mtx)
 }
 
@@ -849,12 +848,7 @@ fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &MintedTx) -> Validation
 
 // The script data integrity hash matches the hash of the redeemers, languages
 // and datums of the transaction witness set.
-fn check_script_data_hash(
-    tx_body: &TransactionBody,
-    mtx: &MintedTx,
-    network_magic: &u32,
-    network_id: &u8,
-) -> ValidationResult {
+fn check_script_data_hash(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     match tx_body.script_data_hash {
         Some(script_data_hash) => match (
             &mtx.transaction_witness_set.plutus_data,
@@ -865,14 +859,7 @@ fn check_script_data_hash(
                     .iter()
                     .map(|x| KeepRaw::unwrap(x.clone()))
                     .collect();
-                if script_data_hash
-                    == compute_script_integrity_hash(
-                        &plutus_data,
-                        redeemer,
-                        network_magic,
-                        network_id,
-                    )
-                {
+                if script_data_hash == compute_script_integrity_hash(&plutus_data, redeemer) {
                     Ok(())
                 } else {
                     Err(Alonzo(ScriptIntegrityHash))
@@ -892,12 +879,7 @@ fn check_script_data_hash(
     }
 }
 
-fn compute_script_integrity_hash(
-    plutus_data: &[PlutusData],
-    redeemer: &[Redeemer],
-    network_magic: &u32,
-    network_id: &u8,
-) -> Hash<32> {
+fn compute_script_integrity_hash(plutus_data: &[PlutusData], redeemer: &[Redeemer]) -> Hash<32> {
     let mut value_to_hash: Vec<u8> = Vec::new();
     // First, the Redeemer.
     let _ = encode(redeemer, &mut value_to_hash);
@@ -910,22 +892,15 @@ fn compute_script_integrity_hash(
     let _ = plutus_data_encoder.end();
     value_to_hash.extend(plutus_data_encoder.writer().clone());
     // Finally, the cost model.
-    value_to_hash.extend(cost_model_cbor(*network_magic, *network_id));
+    value_to_hash.extend(cost_model_cbor());
     pallas_crypto::hash::Hasher::<256>::hash(&value_to_hash)
 }
 
-fn cost_model_cbor(network_magic: u32, network_id: u8) -> Vec<u8> {
-    if network_magic == 1 && network_id == 0 {
-        // Preprod
-        hex::decode("").unwrap()
-    } else if network_magic == 2 && network_id == 0 {
-        // Preview
-        hex::decode("").unwrap()
-    } else {
-        hex::decode(
-            "a141005901d59f1a000302590001011a00060bc719026d00011a000249f01903e800011a000249f018201a0025cea81971f70419744d186419744d186419744d186419744d186419744d186419744d18641864186419744d18641a000249f018201a000249f018201a000249f018201a000249f01903e800011a000249f018201a000249f01903e800081a000242201a00067e2318760001011a000249f01903e800081a000249f01a0001b79818f7011a000249f0192710011a0002155e19052e011903e81a000249f01903e8011a000249f018201a000249f018201a000249f0182001011a000249f0011a000249f0041a000194af18f8011a000194af18f8011a0002377c190556011a0002bdea1901f1011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000242201a00067e23187600010119f04c192bd200011a000249f018201a000242201a00067e2318760001011a000242201a00067e2318760001011a0025cea81971f704001a000141bb041a000249f019138800011a000249f018201a000302590001011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a00330da70101ff"
-        ).unwrap()
-    }
+fn cost_model_cbor() -> Vec<u8> {
+    // Mainnet, preprod and preview all have the same cost model during the Alonzo era.
+    hex::decode(
+        "a141005901d59f1a000302590001011a00060bc719026d00011a000249f01903e800011a000249f018201a0025cea81971f70419744d186419744d186419744d186419744d186419744d186419744d18641864186419744d18641a000249f018201a000249f018201a000249f018201a000249f01903e800011a000249f018201a000249f01903e800081a000242201a00067e2318760001011a000249f01903e800081a000249f01a0001b79818f7011a000249f0192710011a0002155e19052e011903e81a000249f01903e8011a000249f018201a000249f018201a000249f0182001011a000249f0011a000249f0041a000194af18f8011a000194af18f8011a0002377c190556011a0002bdea1901f1011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000242201a00067e23187600010119f04c192bd200011a000249f018201a000242201a00067e2318760001011a000242201a00067e2318760001011a0025cea81971f704001a000141bb041a000249f019138800011a000249f018201a000302590001011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a00330da70101ff"
+    ).unwrap()
 }
 
 fn option_vec_is_empty<T>(option_vec: &Option<Vec<T>>) -> bool {
