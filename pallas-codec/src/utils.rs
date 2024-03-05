@@ -482,8 +482,8 @@ where
 
 /// Set
 ///
-/// No duplicates, optional 258 tag (until era after Conway, at which point is
-/// it required)
+/// Optional 258 tag (until era after Conway, at which point is it required) with
+/// a vec of items which should contain no duplicates
 #[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Set<T>(Vec<T>);
 
