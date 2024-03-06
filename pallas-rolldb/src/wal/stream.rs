@@ -46,7 +46,7 @@ mod tests {
     #[tokio::test]
     async fn test_stream_waiting() {
         let path = tempfile::tempdir().unwrap().into_path();
-        let mut db = Store::open(path.clone(), 30).unwrap();
+        let mut db = Store::open(path.clone(), 30, None).unwrap();
 
         for i in 0..=100 {
             let (slot, hash, body) = dummy_block(i * 10);

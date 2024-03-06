@@ -2,7 +2,7 @@ use super::{BlockBody, BlockHash, BlockSlot, Store};
 
 fn with_tmp_db<T>(k_param: u64, op: fn(store: Store) -> T) {
     let path = tempfile::tempdir().unwrap().into_path();
-    let store = Store::open(path.clone(), k_param).unwrap();
+    let store = Store::open(path.clone(), k_param, None).unwrap();
 
     op(store);
 
