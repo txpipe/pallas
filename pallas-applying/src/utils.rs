@@ -333,6 +333,6 @@ pub fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
 
 pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
     let mut payload: Vec<u8> = Vec::from(script.as_ref());
-    payload.insert(0, 1);
+    payload.insert(0, 2);
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }
