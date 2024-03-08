@@ -17,7 +17,7 @@ pallas-crypto = { version = "=0.23.0", path = "../pallas-crypto" }
 pallas-codec = { version = "=0.23.0", path = "../pallas-codec" }
 serde = { version = "1.0.136", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.79", optional = true }
-base64 = "0.21.2"
+base64 = "0.22.0"
 
 [features]
 json = ["serde", "serde_json"]
