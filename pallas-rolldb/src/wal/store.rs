@@ -167,10 +167,15 @@ pub struct Store {
     pub tip_change: Arc<tokio::sync::Notify>,
     wal_seq: u64,
     k_param: u64,
+    immutable_overlap: u64,
 }
 
 impl Store {
-    pub fn open(path: impl AsRef<Path>, k_param: u64) -> Result<Self, Error> {
+    pub fn open(
+        path: impl AsRef<Path>,
+        k_param: u64,
+        immutable_overlap: Option<u64>,
+    ) -> Result<Self, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
@@ -184,6 +189,7 @@ impl Store {
             tip_change: Arc::new(tokio::sync::Notify::new()),
             wal_seq,
             k_param,
+            immutable_overlap: immutable_overlap.unwrap_or(0),
         };
 
         Ok(out)
@@ -378,7 +384,7 @@ impl Store {
             // get the number of slots that have passed since the wal point
             let slot_delta = tip - value.slot().unwrap_or(0);
 
-            if slot_delta <= self.k_param {
+            if slot_delta <= self.k_param + self.immutable_overlap {
                 break;
             } else {
                 WalKV::stage_delete(&self.db, wal_key, &mut batch);
