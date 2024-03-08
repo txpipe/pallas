@@ -341,6 +341,97 @@ mod babbage_tests {
 
     #[test]
     // Transaction hash:
+    // 1825d08e4496cca673fd9e47898b92cf97fdc293a40cf5cff99c5b123b364384
+    fn successful_preprod_tx_with_plutus_v2_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage13.tx"));
+        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let plutus_data_cbor: Vec<u8> = hex::decode(
+            "D8799FD8799F1A1DCD650019300BFF1B0000018B2B449D97581C28B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85FF"
+        ).unwrap();
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[
+            (
+                String::from("30DAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5EDAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5E"),
+                Value::Multiasset(
+                    2000000,
+                    KeyValuePairs::from(Vec::from([(
+                        "CCFC2EFE9C1C360EF60D7D2E35CDD359FAD373A62A8905345F8A8BC4"
+                            .parse()
+                            .unwrap(),
+                        KeyValuePairs::from(Vec::from([(
+                            Bytes::from(
+                                hex::decode(
+                                    "4F7261636C65546872656164546F6B656E",
+                                )
+                                .unwrap(),
+                            ),
+                            1,
+                        )])),
+                    )])),
+                ),
+                Some(PseudoDatumOption::Data(
+                    CborWrap(
+                        KeepRaw::<PlutusData>::decode(
+                            &mut Decoder::new(&plutus_data_cbor),
+                            &mut (),
+                        ).unwrap(),
+                    )
+                )),
+                None,
+            ),
+            (
+                String::from("0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567"),
+                Value::Coin(86112645),
+                None,
+                None,
+            ),
+        ];
+        let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567"),
+            Value::Coin(70884589),
+            None,
+            None,
+        )];
+        add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+                fee_policy: FeePolicy {
+                    summand: 155381,
+                    multiplier: 44,
+                },
+                max_tx_size: 16384,
+                max_block_ex_mem: 62000000,
+                max_block_ex_steps: 40000000000,
+                max_tx_ex_mem: 14000000,
+                max_tx_ex_steps: 10000000000,
+                max_val_size: 5000,
+                collateral_percent: 150,
+                max_collateral_inputs: 3,
+                coins_per_utxo_word: 4310,
+            }),
+            prot_magic: 1,
+            block_slot: 41558438,
+            network_id: 0,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
     // 8702b0a5835c16663101f68295e33e3b3868c487f736d3c8a0a4246242675a15
     fn successful_mainnet_tx_with_minting() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage5.tx"));
