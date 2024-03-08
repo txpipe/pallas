@@ -202,16 +202,13 @@ impl<'b> MultiEraTx<'b> {
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
         match self {
-            MultiEraTx::Conway(x) => {
-                if let Some(ref_inputs) = &x.transaction_body.reference_inputs {
-                    ref_inputs
-                        .iter()
-                        .map(MultiEraInput::from_alonzo_compatible)
-                        .collect()
-                } else {
-                    vec![]
-                }
-            }
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .reference_inputs

@@ -4,7 +4,7 @@ use minicbor::{
     Decode, Encode,
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt, hash::Hash as StdHash, ops::Deref};
+use std::{array::IntoIter, fmt, hash::Hash as StdHash, ops::Deref};
 
 static TAG_SET: u64 = 258;
 
@@ -482,8 +482,8 @@ where
 
 /// Set
 ///
-/// Optional 258 tag (until era after Conway, at which point is it required) with
-/// a vec of items which should contain no duplicates
+/// Optional 258 tag (until era after Conway, at which point is it required)
+/// with a vec of items which should contain no duplicates
 #[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Set<T>(Vec<T>);
 
@@ -504,6 +504,14 @@ impl<T> Deref for Set<T> {
 impl<T> From<Vec<T>> for Set<T> {
     fn from(value: Vec<T>) -> Self {
         Set(value)
+    }
+}
+impl<'a, T> IntoIterator for &'a Set<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 
