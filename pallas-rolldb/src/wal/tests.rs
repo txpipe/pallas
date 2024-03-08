@@ -9,6 +9,15 @@ fn with_tmp_db<T>(k_param: u64, op: fn(store: Store) -> T) {
     Store::destroy(path).unwrap();
 }
 
+fn with_tmp_db_overlap<T>(k_param: u64, overlap: u64, op: fn(store: Store) -> T) {
+    let path = tempfile::tempdir().unwrap().into_path();
+    let store = Store::open(path.clone(), k_param, Some(overlap)).unwrap();
+
+    op(store);
+
+    Store::destroy(path).unwrap();
+}
+
 fn dummy_block(slot: u64) -> (BlockSlot, BlockHash, BlockBody) {
     let hash = pallas_crypto::hash::Hasher::<256>::hash(slot.to_be_bytes().as_slice());
     (slot, hash, slot.to_be_bytes().to_vec())
@@ -109,11 +118,36 @@ fn test_prune_linear() {
             db.roll_forward(slot, hash, body).unwrap();
         }
 
+        // db contains slots: 0, 10, ..., 980, 990
+        // this should prune slots less than (990 - 30) = 960
         db.prune_wal().unwrap();
 
         let mut wal = db.crawl_after(None);
 
         for i in 96..100 {
+            let (_, val) = wal.next().unwrap().unwrap();
+            assert_eq!(val.slot().unwrap(), i * 10);
+        }
+
+        assert!(wal.next().is_none());
+    });
+}
+
+#[test]
+fn test_prune_linear_with_overlap() {
+    with_tmp_db_overlap(30, 20, |mut db| {
+        for i in 0..100 {
+            let (slot, hash, body) = dummy_block(i * 10);
+            db.roll_forward(slot, hash, body).unwrap();
+        }
+
+        // db contains slots: 0, 10, ..., 980, 990
+        // this should prune slots less than (990 - 30 - 20) = 940
+        db.prune_wal().unwrap();
+
+        let mut wal = db.crawl_after(None);
+
+        for i in 94..100 {
             let (_, val) = wal.next().unwrap().unwrap();
             assert_eq!(val.slot().unwrap(), i * 10);
         }
