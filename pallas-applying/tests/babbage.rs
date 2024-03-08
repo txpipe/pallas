@@ -1609,7 +1609,9 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
-        tx_body.network_id = Some(NetworkId::Two);
+        // Note that NetworkId::One maps to 0 through
+        // crate::utils::get_network_id_value, which is not correct in mainnet.
+        tx_body.network_id = Some(NetworkId::One);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =

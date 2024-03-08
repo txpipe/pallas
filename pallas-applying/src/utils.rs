@@ -257,8 +257,8 @@ pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
 
 pub fn get_network_id_value(network_id: NetworkId) -> u8 {
     match network_id {
-        NetworkId::One => 1,
-        NetworkId::Two => 2,
+        NetworkId::One => 0,
+        NetworkId::Two => 1,
     }
 }
 

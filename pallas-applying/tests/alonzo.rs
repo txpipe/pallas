@@ -1247,7 +1247,9 @@ mod alonzo_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
-        tx_body.network_id = Some(NetworkId::Two);
+        // Note that NetworkId::One maps to 0 through
+        // crate::utils::get_network_id_value, which is not correct in mainnet.
+        tx_body.network_id = Some(NetworkId::One);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
