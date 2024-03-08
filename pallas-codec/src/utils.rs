@@ -4,7 +4,7 @@ use minicbor::{
     Decode, Encode,
 };
 use serde::{Deserialize, Serialize};
-use std::{array::IntoIter, fmt, hash::Hash as StdHash, ops::Deref};
+use std::{fmt, hash::Hash as StdHash, ops::Deref};
 
 static TAG_SET: u64 = 258;
 
@@ -506,6 +506,14 @@ impl<T> From<Vec<T>> for Set<T> {
         Set(value)
     }
 }
+
+impl<T> From<Set<KeepRaw<'_, T>>> for Set<T> {
+    fn from(value: Set<KeepRaw<'_, T>>) -> Self {
+        let inner = value.0.into_iter().map(|x| x.unwrap()).collect();
+        Self(inner)
+    }
+}
+
 impl<'a, T> IntoIterator for &'a Set<T> {
     type Item = &'a T;
     type IntoIter = std::slice::Iter<'a, T>;

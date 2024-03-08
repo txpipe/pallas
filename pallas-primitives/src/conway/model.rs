@@ -1285,24 +1285,10 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
     fn from(x: MintedWitnessSet<'b>) -> Self {
         WitnessSet {
             vkeywitness: x.vkeywitness,
-            native_script: x.native_script.map(|xs| {
-                Set::from(
-                    xs.to_vec()
-                        .into_iter()
-                        .map(|x| x.unwrap())
-                        .collect::<Vec<_>>(),
-                )
-            }),
+            native_script: x.native_script.map(Into::into),
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
-            plutus_data: x.plutus_data.map(|xs| {
-                Set::from(
-                    xs.to_vec()
-                        .into_iter()
-                        .map(|x| x.unwrap())
-                        .collect::<Vec<_>>(),
-                )
-            }),
+            plutus_data: x.plutus_data.map(Into::into),
             redeemer: x.redeemer,
             plutus_v2_script: x.plutus_v2_script,
             plutus_v3_script: x.plutus_v3_script,
