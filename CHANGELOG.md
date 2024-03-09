@@ -2,6 +2,25 @@
 ## [Unreleased]
 
 
+<a name="v0.24.0"></a>
+## [v0.24.0] - 2024-03-09
+### Build
+- **deps:** update base64 requirement from 0.21.2 to 0.22.0 ([#417](https://github.com/txpipe/pallas/issues/417))
+- **deps:** update rocksdb requirement from 0.21.0 to 0.22.0 ([#403](https://github.com/txpipe/pallas/issues/403))
+
+### Feat
+- implement GetCBOR local state query ([#413](https://github.com/txpipe/pallas/issues/413))
+- add Babbage phase-1 validations ([#405](https://github.com/txpipe/pallas/issues/405))
+- **crypto:** add Blake2b hasher for 20-bytes digests ([#416](https://github.com/txpipe/pallas/issues/416))
+- **network:** implement `GetGenesisConfig` local state query ([#407](https://github.com/txpipe/pallas/issues/407))
+- **rolldb:** allow optionally overlap of WAL over immutable chain ([#419](https://github.com/txpipe/pallas/issues/419))
+- **rolldb:** allow crawl from intersect options ([#404](https://github.com/txpipe/pallas/issues/404))
+
+### Fix
+- allow extra bytes when decoding base address ([#420](https://github.com/txpipe/pallas/issues/420))
+- **primitives:** contemplate Conway's CBOR `set` tag ([#421](https://github.com/txpipe/pallas/issues/421))
+
+
 <a name="v0.23.0"></a>
 ## [v0.23.0] - 2024-02-11
 ### Build
@@ -1099,7 +1118,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.24.0...HEAD
+[v0.24.0]: https://github.com/txpipe/pallas/compare/v0.23.0...v0.24.0
 [v0.23.0]: https://github.com/txpipe/pallas/compare/v0.22.0...v0.23.0
 [v0.22.0]: https://github.com/txpipe/pallas/compare/v0.21.0...v0.22.0
 [v0.21.0]: https://github.com/txpipe/pallas/compare/v0.20.0...v0.21.0
