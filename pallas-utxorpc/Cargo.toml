@@ -11,7 +11,7 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-utxorpc-spec = { version = "0.3.0" }
+utxorpc-spec = { version = "0.4.0" }
 pallas-traverse = { version = "=0.24.0", path = "../pallas-traverse" }
 pallas-primitives = { version = "=0.24.0", path = "../pallas-primitives" }
 pallas-codec = { version = "=0.24.0", path = "../pallas-codec" }
