@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashSet, ops::Deref};
 
-use pallas_codec::{minicbor, utils::KeepRaw};
+use pallas_codec::{minicbor, utils::Nullable};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo,
@@ -470,41 +470,66 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub(crate) fn aux_data(&self) -> Option<&KeepRaw<'_, alonzo::AuxiliaryData>> {
-        match self {
-            MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
-                pallas_codec::utils::Nullable::Some(x) => Some(x),
-                pallas_codec::utils::Nullable::Null => None,
-                pallas_codec::utils::Nullable::Undefined => None,
-            },
-            MultiEraTx::Babbage(x) => match &x.auxiliary_data {
-                pallas_codec::utils::Nullable::Some(x) => Some(x),
-                pallas_codec::utils::Nullable::Null => None,
-                pallas_codec::utils::Nullable::Undefined => None,
-            },
-            MultiEraTx::Byron(_) => None,
-            MultiEraTx::Conway(x) => match &x.auxiliary_data {
-                pallas_codec::utils::Nullable::Some(x) => Some(x),
-                pallas_codec::utils::Nullable::Null => None,
-                pallas_codec::utils::Nullable::Undefined => None,
-            },
-        }
-    }
-
     pub fn metadata(&self) -> MultiEraMeta {
-        match self.aux_data() {
-            Some(x) => match x.deref() {
-                alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
-                alonzo::AuxiliaryData::ShelleyMa(x) => {
-                    MultiEraMeta::AlonzoCompatible(&x.transaction_metadata)
+        match self {
+            MultiEraTx::Byron(_) => MultiEraMeta::NotApplicable,
+            MultiEraTx::AlonzoCompatible(x, _) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        alonzo::AuxiliaryData::Shelley(y) => MultiEraMeta::AlonzoCompatible(y),
+                        alonzo::AuxiliaryData::ShelleyMa(y) => {
+                            MultiEraMeta::AlonzoCompatible(&y.transaction_metadata)
+                        }
+                        alonzo::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(z) = &y.metadata {
+                                MultiEraMeta::AlonzoCompatible(z)
+                            } else {
+                                MultiEraMeta::Empty
+                            }
+                        }
+                    }
+                } else {
+                    MultiEraMeta::Empty
                 }
-                alonzo::AuxiliaryData::PostAlonzo(x) => x
-                    .metadata
-                    .as_ref()
-                    .map(MultiEraMeta::AlonzoCompatible)
-                    .unwrap_or_default(),
-            },
-            None => MultiEraMeta::Empty,
+            }
+            MultiEraTx::Babbage(x) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        babbage::AuxiliaryData::Shelley(y) => MultiEraMeta::AlonzoCompatible(y),
+                        babbage::AuxiliaryData::ShelleyMa(y) => {
+                            MultiEraMeta::AlonzoCompatible(&y.transaction_metadata)
+                        }
+                        babbage::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(z) = &y.metadata {
+                                MultiEraMeta::AlonzoCompatible(z)
+                            } else {
+                                MultiEraMeta::Empty
+                            }
+                        }
+                    }
+                } else {
+                    MultiEraMeta::Empty
+                }
+            }
+            MultiEraTx::Conway(x) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        conway::AuxiliaryData::Shelley(y) => MultiEraMeta::AlonzoCompatible(y),
+                        conway::AuxiliaryData::ShelleyMa(y) => {
+                            MultiEraMeta::AlonzoCompatible(&y.transaction_metadata)
+                        }
+                        conway::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(z) = &y.metadata {
+                                MultiEraMeta::AlonzoCompatible(z)
+                            } else {
+                                MultiEraMeta::Empty
+                            }
+                        }
+                    }
+                } else {
+                    MultiEraMeta::Empty
+                }
+            }
         }
     }
 

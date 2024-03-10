@@ -1,39 +1,137 @@
 use std::ops::Deref;
 
-use pallas_primitives::alonzo;
+use pallas_codec::utils::Nullable;
+use pallas_primitives::{alonzo, babbage, conway};
 
 use crate::MultiEraTx;
 
 impl<'b> MultiEraTx<'b> {
     pub fn aux_plutus_v1_scripts(&self) -> &[alonzo::PlutusScript] {
-        if let Some(aux_data) = self.aux_data() {
-            if let alonzo::AuxiliaryData::PostAlonzo(x) = aux_data.deref() {
-                if let Some(plutus) = &x.plutus_scripts {
-                    return plutus.as_ref();
+        match self {
+            MultiEraTx::Byron(_) => &[],
+            MultiEraTx::AlonzoCompatible(x, _) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        alonzo::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(scripts) = y.plutus_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        _ => &[],
+                    }
+                } else {
+                    &[]
+                }
+            }
+            MultiEraTx::Babbage(x) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        babbage::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(scripts) = y.plutus_v1_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        _ => &[],
+                    }
+                } else {
+                    &[]
+                }
+            }
+            MultiEraTx::Conway(x) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        conway::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(scripts) = y.plutus_v1_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        _ => &[],
+                    }
+                } else {
+                    &[]
                 }
             }
         }
-
-        &[]
     }
 
     pub fn aux_native_scripts(&self) -> &[alonzo::NativeScript] {
-        if let Some(aux_data) = self.aux_data() {
-            match aux_data.deref() {
-                alonzo::AuxiliaryData::PostAlonzo(x) => {
-                    if let Some(scripts) = &x.native_scripts {
-                        return scripts.as_ref();
+        match self {
+            MultiEraTx::Byron(_) => &[],
+            MultiEraTx::AlonzoCompatible(x, _) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        alonzo::AuxiliaryData::ShelleyMa(y) => {
+                            if let Some(scripts) = y.auxiliary_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        alonzo::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(scripts) = y.native_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        _ => &[],
                     }
+                } else {
+                    &[]
                 }
-                alonzo::AuxiliaryData::ShelleyMa(x) => {
-                    if let Some(scripts) = &x.auxiliary_scripts {
-                        return scripts.as_ref();
+            }
+            MultiEraTx::Babbage(x) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        babbage::AuxiliaryData::ShelleyMa(y) => {
+                            if let Some(scripts) = y.auxiliary_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        babbage::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(scripts) = y.native_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        _ => &[],
                     }
+                } else {
+                    &[]
                 }
-                _ => (),
+            }
+            MultiEraTx::Conway(x) => {
+                if let Nullable::Some(ad) = &x.auxiliary_data {
+                    match ad.deref() {
+                        conway::AuxiliaryData::ShelleyMa(y) => {
+                            if let Some(scripts) = y.auxiliary_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        conway::AuxiliaryData::PostAlonzo(y) => {
+                            if let Some(scripts) = y.native_scripts.as_ref() {
+                                scripts.as_ref()
+                            } else {
+                                &[]
+                            }
+                        }
+                        _ => &[],
+                    }
+                } else {
+                    &[]
+                }
             }
         }
-
-        &[]
     }
 }

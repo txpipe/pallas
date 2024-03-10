@@ -151,6 +151,12 @@ impl ComputeHash<32> for babbage::DatumOption {
     }
 }
 
+impl ComputeHash<32> for babbage::AuxiliaryData {
+    fn compute_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
 // conway
 
 impl ComputeHash<28> for conway::PlutusV3Script {
@@ -174,6 +180,12 @@ impl OriginalHash<32> for KeepRaw<'_, conway::TransactionBody> {
 impl OriginalHash<32> for KeepRaw<'_, conway::MintedTransactionBody<'_>> {
     fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+impl ComputeHash<32> for conway::AuxiliaryData {
+    fn compute_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash_cbor(self)
     }
 }
 

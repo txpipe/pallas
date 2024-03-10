@@ -4,10 +4,11 @@ use pallas_codec::utils::{CborWrap, KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     babbage::{
-        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, PlutusData, PlutusV1Script,
-        PlutusV2Script, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
-        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput,
-        Tx as BabbageTx, Value, WitnessSet,
+        AuxiliaryData, DatumOption, ExUnits as PallasExUnits, Metadatum as PallasMetadatum,
+        NativeScript, NetworkId, PlutusData, PlutusV1Script, PlutusV2Script,
+        PostAlonzoTransactionOutput, PseudoScript as PallasScript, PseudoTransactionOutput,
+        Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx as BabbageTx, Value,
+        WitnessSet,
     },
     Fragment,
 };
@@ -16,8 +17,8 @@ use pallas_traverse::ComputeHash;
 use crate::{
     transaction::{
         model::{
-            BuilderEra, BuiltTransaction, DatumKind, ExUnits, Output, RedeemerPurpose, ScriptKind,
-            StagingTransaction,
+            BuilderEra, BuiltTransaction, DatumKind, ExUnits, Metadatum, Output, RedeemerPurpose,
+            ScriptKind, StagingTransaction,
         },
         opt_if_empty, Bytes, Bytes32, TransactionStatus,
     },
@@ -206,6 +207,20 @@ impl BuildBabbage for StagingTransaction {
             }
         };
 
+        let metadata = match self.metadata {
+            Some(x) => {
+                let mut out = vec![];
+                for (label, md) in x.0.into_iter() {
+                    let new_md = metadatum_conversion(md)?;
+                    out.push((label, new_md))
+                }
+                Some(out.into())
+            }
+            None => None,
+        };
+
+        let auxiliary_data = metadata.map(AuxiliaryData::Shelley);
+
         let mut pallas_tx = BabbageTx {
             transaction_body: TransactionBody {
                 inputs,
@@ -213,10 +228,10 @@ impl BuildBabbage for StagingTransaction {
                 ttl: self.invalid_from_slot,
                 validity_interval_start: self.valid_from_slot,
                 fee: self.fee.unwrap_or_default(),
-                certificates: None,        // TODO
-                withdrawals: None,         // TODO
-                update: None,              // TODO
-                auxiliary_data_hash: None, // TODO (accept user input)
+                certificates: None, // TODO
+                withdrawals: None,  // TODO
+                update: None,       // TODO
+                auxiliary_data_hash: None,
                 mint,
                 script_data_hash: self.script_data_hash.map(|x| x.0.into()),
                 collateral: opt_if_empty(collateral),
@@ -235,11 +250,10 @@ impl BuildBabbage for StagingTransaction {
                 plutus_data: opt_if_empty(plutus_data),
                 redeemer: opt_if_empty(redeemers),
             },
-            success: true,               // TODO
-            auxiliary_data: None.into(), // TODO
+            auxiliary_data: auxiliary_data.into(),
+            success: true, // TODO
         };
 
-        // TODO: pallas auxiliary_data_hash should be Hash<32> not Bytes
         pallas_tx.transaction_body.auxiliary_data_hash = pallas_tx
             .auxiliary_data
             .clone()
@@ -259,6 +273,33 @@ impl BuildBabbage for StagingTransaction {
     // fn build_babbage(staging_tx: StagingTransaction) -> Result<BuiltTransaction,
     // TxBuilderError> {     todo!()
     // }
+}
+
+fn metadatum_conversion(metadatum: Metadatum) -> Result<PallasMetadatum, TxBuilderError> {
+    match metadatum {
+        Metadatum::Int(x) => Ok(PallasMetadatum::Int(
+            x.try_into().map_err(|_| TxBuilderError::IntOutOfBounds)?,
+        )),
+        Metadatum::Text(x) => Ok(PallasMetadatum::Text(x)),
+        Metadatum::Array(x) => Ok(PallasMetadatum::Array(
+            x.into_iter()
+                .map(|y| metadatum_conversion(y))
+                .collect::<Result<Vec<_>, _>>()?,
+        )),
+        Metadatum::Bytes(x) => Ok(PallasMetadatum::Bytes(x.into())),
+        Metadatum::Map(x) => {
+            let mut out = vec![];
+
+            for (k, v) in x.into_iter() {
+                let new_k = metadatum_conversion(k)?;
+                let new_v = metadatum_conversion(v)?;
+
+                out.push((new_k, new_v))
+            }
+
+            Ok(PallasMetadatum::Map(out.into()))
+        }
+    }
 }
 
 fn babbage_output(
