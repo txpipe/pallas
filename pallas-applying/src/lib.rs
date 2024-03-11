@@ -43,9 +43,14 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             _ => Err(TxAndProtParamsDiffer),
         },
         MultiEraProtParams::Babbage(bpp) => match metx {
-            MultiEraTx::Babbage(mtx) => {
-                validate_babbage_tx(mtx, utxos, bpp, env.block_slot(), env.network_id())
-            }
+            MultiEraTx::Babbage(mtx) => validate_babbage_tx(
+                mtx,
+                utxos,
+                bpp,
+                env.block_slot(),
+                env.prot_magic(),
+                env.network_id(),
+            ),
             _ => Err(TxAndProtParamsDiffer),
         },
     }
