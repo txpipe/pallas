@@ -523,12 +523,11 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraSigners::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,
-            // TODO: still compat?
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .required_signers
                 .as_ref()
-                .map(MultiEraSigners::AlonzoCompatible)
+                .map(|x| MultiEraSigners::AlonzoCompatible(x.deref()))
                 .unwrap_or_default(),
         }
     }

@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, Set};
+use pallas_codec::utils::{
+    Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet, Nullable, Set,
+};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
@@ -36,7 +38,7 @@ pub use crate::alonzo::PolicyId;
 
 pub use crate::alonzo::AssetName;
 
-pub use crate::alonzo::Multiasset;
+pub use crate::alonzo::Multiasset; // TODO: Non empty
 
 pub use crate::alonzo::Mint;
 
@@ -66,7 +68,7 @@ pub use crate::alonzo::RewardAccount;
 
 pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
 
-pub type RequiredSigners = Set<AddrKeyhash>; // TODO: NON EMPTY SET
+pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
 pub use crate::alonzo::Port;
 
@@ -657,13 +659,11 @@ pub struct PseudoTransactionBody<T1> {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<Set<Certificate>>, // TODO: NON EMPTY ORDERED SET
+    pub certificates: Option<NonEmptySet<Certificate>>,
 
     #[n(5)]
     pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>, // TODO: NON EMPTY
 
-    // #[n(6)]
-    // pub update: Option<Update>,
     #[n(7)]
     pub auxiliary_data_hash: Option<Bytes>,
 
@@ -677,10 +677,10 @@ pub struct PseudoTransactionBody<T1> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(13)]
-    pub collateral: Option<Set<TransactionInput>>, // TODO: NON EMPTY SET
+    pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
-    pub required_signers: Option<Vec<AddrKeyhash>>, // TODO: NON EMPTY SET
+    pub required_signers: Option<RequiredSigners>,
 
     #[n(15)]
     pub network_id: Option<NetworkId>,
@@ -692,14 +692,14 @@ pub struct PseudoTransactionBody<T1> {
     pub total_collateral: Option<Coin>,
 
     #[n(18)]
-    pub reference_inputs: Option<Set<TransactionInput>>, // TODO: NON EMPTY SET
+    pub reference_inputs: Option<NonEmptySet<TransactionInput>>,
 
     // -- NEW IN CONWAY
     #[n(19)]
     pub voting_procedures: Option<VotingProcedures>,
 
     #[n(20)]
-    pub proposal_procedures: Option<Set<ProposalProcedure>>, // TODO: NON EMPTY ORDERED SET
+    pub proposal_procedures: Option<NonEmptySet<ProposalProcedure>>,
 
     #[n(21)]
     pub treasury_value: Option<Coin>,
@@ -778,7 +778,7 @@ impl<C> minicbor::Encode<C> for Vote {
     }
 }
 
-pub type VotingProcedures = KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>>;
+pub type VotingProcedures = KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>>; // TODO: Non empty
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
@@ -1229,56 +1229,56 @@ pub use crate::alonzo::BootstrapWitness;
 #[cbor(map)]
 pub struct WitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<Set<VKeyWitness>>, // TODO: NON EMPTY SET
+    pub vkeywitness: Option<NonEmptySet<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Set<NativeScript>>, // TODO: NON EMPTY SET
+    pub native_script: Option<NonEmptySet<NativeScript>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Set<BootstrapWitness>>, // TODO: NON EMPTY SET
+    pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Set<PlutusV1Script>>, // TODO: NON EMPTY SET
+    pub plutus_v1_script: Option<NonEmptySet<PlutusV1Script>>,
 
     #[n(4)]
-    pub plutus_data: Option<Set<PlutusData>>, // TODO: NON EMPTY SET
+    pub plutus_data: Option<NonEmptySet<PlutusData>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<Vec<Redeemer>>, // TODO: accept new map representation. + non empty
 
     #[n(6)]
-    pub plutus_v2_script: Option<Set<PlutusV2Script>>, // TODO: NON EMPTY SET
+    pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Set<PlutusV3Script>>, // TODO: NON EMPTY SET
+    pub plutus_v3_script: Option<NonEmptySet<PlutusV3Script>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct MintedWitnessSet<'b> {
     #[n(0)]
-    pub vkeywitness: Option<Set<VKeyWitness>>, // TODO: NON EMPTY SET
+    pub vkeywitness: Option<NonEmptySet<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Set<KeepRaw<'b, NativeScript>>>, // TODO: NON EMPTY SET
+    pub native_script: Option<NonEmptySet<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Set<BootstrapWitness>>, // TODO: NON EMPTY SET
+    pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Set<PlutusV1Script>>, // TODO: NON EMPTY SET
+    pub plutus_v1_script: Option<NonEmptySet<PlutusV1Script>>,
 
     #[b(4)]
-    pub plutus_data: Option<Set<KeepRaw<'b, PlutusData>>>, // TODO: NON EMPTY SET
+    pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<Vec<Redeemer>>, // TODO: accept new map representation. + non empty
 
     #[n(6)]
-    pub plutus_v2_script: Option<Set<PlutusV2Script>>, // TODO: NON EMPTY SET
+    pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Set<PlutusV3Script>>, // TODO: NON EMPTY SET
+    pub plutus_v3_script: Option<NonEmptySet<PlutusV3Script>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
