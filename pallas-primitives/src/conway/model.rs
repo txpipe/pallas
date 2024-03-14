@@ -11,8 +11,8 @@ use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
 use pallas_codec::utils::{
-    Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet, NonZeroInt, Nullable,
-    PositiveCoin, Set,
+    Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet, NonZeroInt,
+    Nullable, PositiveCoin, Set,
 };
 
 // required for derive attrs to work
@@ -42,9 +42,7 @@ pub use crate::alonzo::PolicyId;
 
 pub use crate::alonzo::AssetName;
 
-// pub use crate::alonzo::Multiasset; // TODO: Non empty
-
-pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
+pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 pub use crate::alonzo::Mint;
 
@@ -118,7 +116,7 @@ pub use crate::alonzo::MoveInstantaneousReward;
 
 pub use crate::alonzo::RewardAccount;
 
-pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+pub type Withdrawals = NonEmptyKeyValuePairs<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
@@ -830,7 +828,8 @@ impl<C> minicbor::Encode<C> for Vote {
     }
 }
 
-pub type VotingProcedures = KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>>; // TODO: Non empty
+pub type VotingProcedures =
+    NonEmptyKeyValuePairs<Voter, NonEmptyKeyValuePairs<GovActionId, VotingProcedure>>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
@@ -1294,25 +1293,19 @@ pub struct RedeemersValue {
 // TODO: Redeemers needs to be KeepRaw because of script data hash
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Redeemers(KeyValuePairs<RedeemersKey, RedeemersValue>); // TODO: non empty
+pub struct Redeemers(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>);
 
 impl Deref for Redeemers {
-    type Target = KeyValuePairs<RedeemersKey, RedeemersValue>;
+    type Target = NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl TryFrom<KeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
-    type Error = KeyValuePairs<RedeemersKey, RedeemersValue>;
-
-    fn try_from(value: KeyValuePairs<RedeemersKey, RedeemersValue>) -> Result<Self, Self::Error> {
-        if value.is_empty() {
-            Err(value)
-        } else {
-            Ok(Redeemers(value))
-        }
+impl From<NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
+    fn from(value: NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>) -> Self {
+        Redeemers(value)
     }
 }
 
@@ -1321,10 +1314,6 @@ impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
         match d.datatype()? {
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
                 let redeemers: Vec<Redeemer> = d.decode_with(ctx)?;
-
-                if redeemers.is_empty() {
-                    return Err(Error::message("decoding empty redeemers"));
-                }
 
                 let kvs = redeemers
                     .into_iter()
@@ -1340,9 +1329,11 @@ impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
                             },
                         )
                     })
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .map_err(|_| Error::message("decoding empty redeemers"))?;
 
-                Ok(Self(kvs.into()))
+                Ok(Self(kvs))
             }
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
                 Ok(Self(d.decode_with(ctx)?))

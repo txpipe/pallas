@@ -158,6 +158,139 @@ where
     }
 }
 
+/// Custom collection to ensure ordered pairs of values (non-empty)
+///
+/// Since the ordering of the entries requires a particular order to maintain
+/// canonicalization for isomorphic decoding / encoding operators, we use a Vec
+/// as the underlaying struct for storage of the items (as opposed to a BTreeMap
+/// or HashMap).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(try_from = "Vec::<(K, V)>", into = "Vec::<(K, V)>")]
+pub enum NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    Def(Vec<(K, V)>),
+    Indef(Vec<(K, V)>),
+}
+
+impl<K, V> NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    pub fn to_vec(self) -> Vec<(K, V)> {
+        self.into()
+    }
+}
+
+impl<K, V> From<NonEmptyKeyValuePairs<K, V>> for Vec<(K, V)>
+where
+    K: Clone,
+    V: Clone,
+{
+    fn from(other: NonEmptyKeyValuePairs<K, V>) -> Self {
+        match other {
+            NonEmptyKeyValuePairs::Def(x) => x,
+            NonEmptyKeyValuePairs::Indef(x) => x,
+        }
+    }
+}
+
+impl<K, V> TryFrom<Vec<(K, V)>> for NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    type Error = String;
+
+    fn try_from(value: Vec<(K, V)>) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            Err("NonEmptyKeyValuePairs must contain at least one element".into())
+        } else {
+            Ok(NonEmptyKeyValuePairs::Def(value))
+        }
+    }
+}
+
+impl<K, V> Deref for NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    type Target = Vec<(K, V)>;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            NonEmptyKeyValuePairs::Def(x) => x,
+            NonEmptyKeyValuePairs::Indef(x) => x,
+        }
+    }
+}
+
+impl<'b, C, K, V> minicbor::decode::Decode<'b, C> for NonEmptyKeyValuePairs<K, V>
+where
+    K: Decode<'b, C> + Clone,
+    V: Decode<'b, C> + Clone,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let datatype = d.datatype()?;
+
+        let items: Result<Vec<_>, _> = d.map_iter_with::<C, K, V>(ctx)?.collect();
+        let items = items?;
+
+        if items.is_empty() {
+            return Err(Error::message(
+                "decoding empty map as NonEmptyKeyValuePairs",
+            ));
+        }
+
+        match datatype {
+            minicbor::data::Type::Map => Ok(NonEmptyKeyValuePairs::Def(items)),
+            minicbor::data::Type::MapIndef => Ok(NonEmptyKeyValuePairs::Indef(items)),
+            _ => Err(minicbor::decode::Error::message(
+                "invalid data type for nonemptykeyvaluepairs",
+            )),
+        }
+    }
+}
+
+impl<C, K, V> minicbor::encode::Encode<C> for NonEmptyKeyValuePairs<K, V>
+where
+    K: Encode<C> + Clone,
+    V: Encode<C> + Clone,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            NonEmptyKeyValuePairs::Def(x) => {
+                e.map(x.len() as u64)?;
+
+                for (k, v) in x.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+            }
+            NonEmptyKeyValuePairs::Indef(x) => {
+                e.begin_map()?;
+
+                for (k, v) in x.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+
+                e.end()?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// A struct that maintains a reference to whether a cbor array was indef or not
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum MaybeIndefArray<A> {
