@@ -588,7 +588,7 @@ pub struct ProtocolParamUpdate {
     #[n(27)]
     pub min_committee_size: Option<u32>,
     #[n(28)]
-    pub committee_term_limit: Option<u32>,
+    pub committee_term_limit: Option<Epoch>,
     #[n(29)]
     pub governance_action_validity_period: Option<Epoch>,
     #[n(30)]
@@ -597,6 +597,8 @@ pub struct ProtocolParamUpdate {
     pub drep_deposit: Option<Coin>,
     #[n(32)]
     pub drep_inactivity_period: Option<Epoch>,
+    #[n(33)]
+    pub minfee_refscript_cost_per_byte: Option<Epoch>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -1240,7 +1242,14 @@ pub use crate::alonzo::Constr;
 
 pub use crate::alonzo::ExUnits;
 
-pub use crate::alonzo::ExUnitPrices;
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct ExUnitPrices {
+    #[n(0)]
+    mem_price: RationalNumber,
+
+    #[n(1)]
+    step_price: RationalNumber,
+}
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
