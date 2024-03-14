@@ -1,6 +1,9 @@
 use std::{borrow::Cow, collections::HashSet, ops::Deref};
 
-use pallas_codec::{minicbor, utils::KeepRaw};
+use pallas_codec::{
+    minicbor,
+    utils::KeepRaw,
+};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo,
@@ -281,12 +284,20 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
                 .collect(),
-            // TODO: Is this still AlonzoCompatible? Zero vals not allowed or something
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .mint
                 .iter()
                 .flat_map(|x| x.iter())
+                .map(|(k, v)| {
+                    (
+                        k,
+                        (v.into_iter()
+                            .map(|(a, b)| (a, b.into()))
+                            .collect::<Vec<_>>()
+                            .into()),
+                    )
+                })
                 .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
                 .collect(),
         }

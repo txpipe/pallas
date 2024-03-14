@@ -8,7 +8,8 @@ use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
 use pallas_codec::utils::{
-    Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet, Nullable, Set,
+    Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet, NonZeroInt, Nullable,
+    PositiveCoin, Set,
 };
 
 // required for derive attrs to work
@@ -38,13 +39,61 @@ pub use crate::alonzo::PolicyId;
 
 pub use crate::alonzo::AssetName;
 
-pub use crate::alonzo::Multiasset; // TODO: Non empty
+// pub use crate::alonzo::Multiasset; // TODO: Non empty
+
+pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 pub use crate::alonzo::Mint;
 
 pub use crate::alonzo::Coin;
 
-pub use crate::alonzo::Value;
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub enum Value {
+    Coin(Coin),
+    Multiasset(Coin, Multiasset<PositiveCoin>),
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => {
+                d.array()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value::Multiasset(coin, multiasset))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor data type for Alonzo Value enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for Value {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // TODO: check how to deal with uint variants (u32 vs u64)
+        match self {
+            Value::Coin(coin) => {
+                e.encode_with(coin, ctx)?;
+            }
+            Value::Multiasset(coin, other) => {
+                e.array(2)?;
+                e.encode_with(coin, ctx)?;
+                e.encode_with(other, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
@@ -671,7 +720,7 @@ pub struct PseudoTransactionBody<T1> {
     pub validity_interval_start: Option<u64>,
 
     #[n(9)]
-    pub mint: Option<Multiasset<i64>>, // TODO: MULTI ASSET NON EMPTY
+    pub mint: Option<Multiasset<NonZeroInt>>,
 
     #[n(11)]
     pub script_data_hash: Option<Hash<32>>,
@@ -705,7 +754,7 @@ pub struct PseudoTransactionBody<T1> {
     pub treasury_value: Option<Coin>,
 
     #[n(22)]
-    pub donation: Option<u64>, // TODO: NON ZERO (POSITIVE COIN)
+    pub donation: Option<PositiveCoin>,
 }
 
 pub type TransactionBody = PseudoTransactionBody<TransactionOutput>;

@@ -754,6 +754,110 @@ impl From<&AnyUInt> for u64 {
     }
 }
 
+/// Introduced in Conway
+/// positive_coin = 1 .. 18446744073709551615
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct PositiveCoin(u64);
+
+impl TryFrom<u64> for PositiveCoin {
+    type Error = u64;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        if value == 0 {
+            return Err(value);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl From<PositiveCoin> for u64 {
+    fn from(value: PositiveCoin) -> Self {
+        value.0
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for PositiveCoin {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let n = d.decode_with(ctx)?;
+
+        if n == 0 {
+            return Err(Error::message("decoding 0 as PositiveCoin"));
+        }
+
+        Ok(Self(n))
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for PositiveCoin {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode(self.0)?;
+
+        Ok(())
+    }
+}
+
+/// Introduced in Conway
+/// negInt64 = -9223372036854775808 .. -1
+/// posInt64 = 1 .. 9223372036854775807
+/// nonZeroInt64 = negInt64 / posInt64 ; this is the same as the current int64 definition but without zero
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct NonZeroInt(i64);
+
+impl TryFrom<i64> for NonZeroInt {
+    type Error = i64;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if value == 0 {
+            return Err(value);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl From<NonZeroInt> for i64 {
+    fn from(value: NonZeroInt) -> Self {
+        value.0
+    }
+}
+
+impl From<&NonZeroInt> for i64 {
+    fn from(x: &NonZeroInt) -> Self {
+        i64::from(*x)
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for NonZeroInt {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let n = d.decode_with(ctx)?;
+
+        if n == 0 {
+            return Err(Error::message("decoding 0 as NonZeroInt"));
+        }
+
+        Ok(Self(n))
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for NonZeroInt {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode(self.0)?;
+
+        Ok(())
+    }
+}
+
 /// Decodes a struct while preserving original CBOR
 ///
 /// # Examples
