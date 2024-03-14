@@ -1,9 +1,6 @@
 use std::{borrow::Cow, collections::HashSet, ops::Deref};
 
-use pallas_codec::{
-    minicbor,
-    utils::KeepRaw,
-};
+use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo,

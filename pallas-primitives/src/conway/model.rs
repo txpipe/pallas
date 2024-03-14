@@ -2,6 +2,9 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Conway CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/conway/test-suite/cddl-files/conway.cddl) file in IOHK repo.
 
+use std::ops::Deref;
+
+use pallas_codec::minicbor::decode::Error;
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{Decode, Encode};
@@ -1272,6 +1275,97 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct RedeemersKey {
+    #[n(0)]
+    pub tag: RedeemerTag,
+    #[n(1)]
+    pub index: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct RedeemersValue {
+    #[n(0)]
+    pub data: PlutusData,
+    #[n(1)]
+    pub ex_units: ExUnits,
+}
+
+// TODO: Redeemers needs to be KeepRaw because of script data hash
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Redeemers(KeyValuePairs<RedeemersKey, RedeemersValue>); // TODO: non empty
+
+impl Deref for Redeemers {
+    type Target = KeyValuePairs<RedeemersKey, RedeemersValue>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TryFrom<KeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
+    type Error = KeyValuePairs<RedeemersKey, RedeemersValue>;
+
+    fn try_from(value: KeyValuePairs<RedeemersKey, RedeemersValue>) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            Err(value)
+        } else {
+            Ok(Redeemers(value))
+        }
+    }
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                let redeemers: Vec<Redeemer> = d.decode_with(ctx)?;
+
+                if redeemers.is_empty() {
+                    return Err(Error::message("decoding empty redeemers"));
+                }
+
+                let kvs = redeemers
+                    .into_iter()
+                    .map(|x| {
+                        (
+                            RedeemersKey {
+                                tag: x.tag,
+                                index: x.index,
+                            },
+                            RedeemersValue {
+                                data: x.data,
+                                ex_units: x.ex_units,
+                            },
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                Ok(Self(kvs.into()))
+            }
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(Self(d.decode_with(ctx)?))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "invalid type for redeemers struct",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for Redeemers {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode_with(&self.0, ctx)?;
+
+        Ok(())
+    }
+}
+
 pub use crate::alonzo::BootstrapWitness;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -1293,7 +1387,7 @@ pub struct WitnessSet {
     pub plutus_data: Option<NonEmptySet<PlutusData>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>, // TODO: accept new map representation. + non empty
+    pub redeemer: Option<Redeemers>,
 
     #[n(6)]
     pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
@@ -1321,7 +1415,7 @@ pub struct MintedWitnessSet<'b> {
     pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>, // TODO: accept new map representation. + non empty
+    pub redeemer: Option<Redeemers>, // TODO: KeepRaw
 
     #[n(6)]
     pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
