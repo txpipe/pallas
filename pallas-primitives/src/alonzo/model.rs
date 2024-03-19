@@ -110,7 +110,7 @@ pub struct Nonce {
     pub hash: Option<Hash<32>>,
 }
 
-pub type ScriptHash = Bytes;
+pub type ScriptHash = Hash<28>;
 
 pub type PolicyId = Hash<28>;
 
@@ -298,8 +298,8 @@ pub type DnsName = String;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Relay {
-    SingleHostAddr(Option<Port>, Option<IPv4>, Option<IPv6>),
-    SingleHostName(Option<Port>, DnsName),
+    SingleHostAddr(Nullable<Port>, Nullable<IPv4>, Nullable<IPv6>),
+    SingleHostName(Nullable<Port>, DnsName),
     MultiHostName(DnsName),
 }
 
@@ -473,7 +473,7 @@ pub enum Certificate {
         reward_account: RewardAccount,
         pool_owners: Vec<AddrKeyhash>,
         relays: Vec<Relay>,
-        pool_metadata: Option<PoolMetadata>,
+        pool_metadata: Nullable<PoolMetadata>,
     },
     PoolRetirement(PoolKeyhash, Epoch),
     GenesisKeyDelegation(Genesishash, GenesisDelegateHash, VrfKeyhash),
@@ -1197,7 +1197,7 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ExUnits {
     #[n(0)]
     pub mem: u32,
@@ -1214,7 +1214,7 @@ pub struct ExUnitPrices {
     step_price: PositiveInterval,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1242,7 +1242,7 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct RedeemerPointer {
     #[n(0)]
     pub tag: RedeemerTag,

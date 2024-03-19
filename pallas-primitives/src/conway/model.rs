@@ -2,18 +2,25 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Conway CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/conway/test-suite/cddl-files/conway.cddl) file in IOHK repo.
 
+use std::ops::Deref;
+
+use pallas_codec::minicbor::decode::Error;
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
-use pallas_codec::utils::{Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable, Set};
+use pallas_codec::utils::{
+    Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
+    NonZeroInt, Nullable, PositiveCoin, Set,
+};
 
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
 pub use crate::alonzo::VrfCert;
 
+use crate::babbage;
 pub use crate::babbage::HeaderBody;
 
 pub use crate::babbage::OperationalCert;
@@ -36,13 +43,59 @@ pub use crate::alonzo::PolicyId;
 
 pub use crate::alonzo::AssetName;
 
-pub use crate::alonzo::Multiasset;
+pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
 
 pub use crate::alonzo::Mint;
 
 pub use crate::alonzo::Coin;
 
-pub use crate::alonzo::Value;
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub enum Value {
+    Coin(Coin),
+    Multiasset(Coin, Multiasset<PositiveCoin>),
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => {
+                d.array()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
+                Ok(Value::Multiasset(coin, multiasset))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor data type for Alonzo Value enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for Value {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // TODO: check how to deal with uint variants (u32 vs u64)
+        match self {
+            Value::Coin(coin) => {
+                e.encode_with(coin, ctx)?;
+            }
+            Value::Multiasset(coin, other) => {
+                e.array(2)?;
+                e.encode_with(coin, ctx)?;
+                e.encode_with(other, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
@@ -64,9 +117,9 @@ pub use crate::alonzo::MoveInstantaneousReward;
 
 pub use crate::alonzo::RewardAccount;
 
-pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+pub type Withdrawals = NonEmptyKeyValuePairs<RewardAccount, Coin>;
 
-pub type RequiredSigners = Set<AddrKeyhash>; // TODO: NON EMPTY SET
+pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
 pub use crate::alonzo::Port;
 
@@ -108,7 +161,7 @@ pub enum Certificate {
         reward_account: RewardAccount,
         pool_owners: Set<AddrKeyhash>,
         relays: Vec<Relay>,
-        pool_metadata: Option<PoolMetadata>,
+        pool_metadata: Nullable<PoolMetadata>,
     },
     PoolRetirement(PoolKeyhash, Epoch),
 
@@ -121,10 +174,10 @@ pub enum Certificate {
     StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
 
     AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
-    ResignCommitteeCold(CommitteeColdCredential),
-    RegDRepCert(DRepCredential, Coin, Option<Anchor>),
+    ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
+    RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
     UnRegDRepCert(DRepCredential, Coin),
-    UpdateDRepCert(StakeCredential, Option<Anchor>),
+    UpdateDRepCert(StakeCredential, Nullable<Anchor>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
@@ -222,7 +275,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
             }
             15 => {
                 let a = d.decode_with(ctx)?;
-                Ok(Certificate::ResignCommitteeCold(a))
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::ResignCommitteeCold(a, b))
             }
             16 => {
                 let a = d.decode_with(ctx)?;
@@ -354,10 +408,11 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
-            Certificate::ResignCommitteeCold(a) => {
-                e.array(2)?;
+            Certificate::ResignCommitteeCold(a, b) => {
+                e.array(3)?;
                 e.u16(15)?;
                 e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
             }
             Certificate::RegDRepCert(a, b, c) => {
                 e.array(4)?;
@@ -536,7 +591,7 @@ pub struct ProtocolParamUpdate {
     #[n(27)]
     pub min_committee_size: Option<u32>,
     #[n(28)]
-    pub committee_term_limit: Option<u32>,
+    pub committee_term_limit: Option<Epoch>,
     #[n(29)]
     pub governance_action_validity_period: Option<Epoch>,
     #[n(30)]
@@ -545,6 +600,8 @@ pub struct ProtocolParamUpdate {
     pub drep_deposit: Option<Coin>,
     #[n(32)]
     pub drep_inactivity_period: Option<Epoch>,
+    #[n(33)]
+    pub minfee_refscript_cost_per_byte: Option<Epoch>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -553,6 +610,7 @@ pub struct PoolVotingThresholds {
     pub committee_normal: UnitInterval,
     pub committee_no_confidence: UnitInterval,
     pub hard_fork_initiation: UnitInterval,
+    pub security_voting_threshold: UnitInterval,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for PoolVotingThresholds {
@@ -564,6 +622,7 @@ impl<'b, C> minicbor::Decode<'b, C> for PoolVotingThresholds {
             committee_normal: d.decode_with(ctx)?,
             committee_no_confidence: d.decode_with(ctx)?,
             hard_fork_initiation: d.decode_with(ctx)?,
+            security_voting_threshold: d.decode_with(ctx)?,
         })
     }
 }
@@ -574,12 +633,13 @@ impl<C> minicbor::Encode<C> for PoolVotingThresholds {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(4)?;
+        e.array(5)?;
 
         e.encode_with(&self.motion_no_confidence, ctx)?;
         e.encode_with(&self.committee_normal, ctx)?;
         e.encode_with(&self.committee_no_confidence, ctx)?;
         e.encode_with(&self.hard_fork_initiation, ctx)?;
+        e.encode_with(&self.security_voting_threshold, ctx)?;
 
         Ok(())
     }
@@ -657,13 +717,11 @@ pub struct PseudoTransactionBody<T1> {
     pub ttl: Option<u64>,
 
     #[n(4)]
-    pub certificates: Option<Set<Certificate>>, // TODO: NON EMPTY ORDERED SET
+    pub certificates: Option<NonEmptySet<Certificate>>,
 
     #[n(5)]
     pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>, // TODO: NON EMPTY
 
-    // #[n(6)]
-    // pub update: Option<Update>,
     #[n(7)]
     pub auxiliary_data_hash: Option<Bytes>,
 
@@ -671,16 +729,16 @@ pub struct PseudoTransactionBody<T1> {
     pub validity_interval_start: Option<u64>,
 
     #[n(9)]
-    pub mint: Option<Multiasset<i64>>, // TODO: MULTI ASSET NON EMPTY
+    pub mint: Option<Multiasset<NonZeroInt>>,
 
     #[n(11)]
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(13)]
-    pub collateral: Option<Set<TransactionInput>>, // TODO: NON EMPTY SET
+    pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
-    pub required_signers: Option<Vec<AddrKeyhash>>, // TODO: NON EMPTY SET
+    pub required_signers: Option<RequiredSigners>,
 
     #[n(15)]
     pub network_id: Option<NetworkId>,
@@ -692,20 +750,20 @@ pub struct PseudoTransactionBody<T1> {
     pub total_collateral: Option<Coin>,
 
     #[n(18)]
-    pub reference_inputs: Option<Set<TransactionInput>>, // TODO: NON EMPTY SET
+    pub reference_inputs: Option<NonEmptySet<TransactionInput>>,
 
     // -- NEW IN CONWAY
     #[n(19)]
     pub voting_procedures: Option<VotingProcedures>,
 
     #[n(20)]
-    pub proposal_procedures: Option<Set<ProposalProcedure>>, // TODO: NON EMPTY ORDERED SET
+    pub proposal_procedures: Option<NonEmptySet<ProposalProcedure>>,
 
     #[n(21)]
     pub treasury_value: Option<Coin>,
 
     #[n(22)]
-    pub donation: Option<u64>, // TODO: NON ZERO (POSITIVE COIN)
+    pub donation: Option<PositiveCoin>,
 }
 
 pub type TransactionBody = PseudoTransactionBody<TransactionOutput>;
@@ -778,12 +836,13 @@ impl<C> minicbor::Encode<C> for Vote {
     }
 }
 
-pub type VotingProcedures = KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>>;
+pub type VotingProcedures =
+    NonEmptyKeyValuePairs<Voter, NonEmptyKeyValuePairs<GovActionId, VotingProcedure>>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
     pub vote: Vote,
-    pub anchor: Option<Anchor>,
+    pub anchor: Nullable<Anchor>,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for VotingProcedure {
@@ -852,17 +911,21 @@ impl<C> minicbor::Encode<C> for ProposalProcedure {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum GovAction {
-    ParameterChange(Option<GovActionId>, Box<ProtocolParamUpdate>),
-    HardForkInitiation(Option<GovActionId>, Vec<ProtocolVersion>),
-    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>),
-    NoConfidence(Option<GovActionId>),
+    ParameterChange(
+        Nullable<GovActionId>,
+        Box<ProtocolParamUpdate>,
+        Nullable<ScriptHash>,
+    ),
+    HardForkInitiation(Nullable<GovActionId>, ProtocolVersion),
+    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>, Nullable<ScriptHash>),
+    NoConfidence(Nullable<GovActionId>),
     UpdateCommittee(
-        Option<GovActionId>,
+        Nullable<GovActionId>,
         Set<CommitteeColdCredential>,
         KeyValuePairs<CommitteeColdCredential, Epoch>,
         UnitInterval,
     ),
-    NewConstitution(Option<GovActionId>, Constitution),
+    NewConstitution(Nullable<GovActionId>, Constitution),
     Information,
 }
 
@@ -875,7 +938,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
             0 => {
                 let a = d.decode_with(ctx)?;
                 let b = d.decode_with(ctx)?;
-                Ok(GovAction::ParameterChange(a, b))
+                let c = d.decode_with(ctx)?;
+                Ok(GovAction::ParameterChange(a, b, c))
             }
             1 => {
                 let a = d.decode_with(ctx)?;
@@ -884,7 +948,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
             }
             2 => {
                 let a = d.decode_with(ctx)?;
-                Ok(GovAction::TreasuryWithdrawals(a))
+                let b = d.decode_with(ctx)?;
+                Ok(GovAction::TreasuryWithdrawals(a, b))
             }
             3 => {
                 let a = d.decode_with(ctx)?;
@@ -917,11 +982,12 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            GovAction::ParameterChange(a, b) => {
-                e.array(3)?;
+            GovAction::ParameterChange(a, b, c) => {
+                e.array(4)?;
                 e.u16(0)?;
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
             }
             GovAction::HardForkInitiation(a, b) => {
                 e.array(3)?;
@@ -929,10 +995,11 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
-            GovAction::TreasuryWithdrawals(a) => {
-                e.array(2)?;
+            GovAction::TreasuryWithdrawals(a, b) => {
+                e.array(3)?;
                 e.u16(2)?;
                 e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
             }
             GovAction::NoConfidence(a) => {
                 e.array(2)?;
@@ -953,7 +1020,7 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
-            // TODO: CDDL SAYS JUST "6", no group (array)
+            // TODO: CDDL says just "6", not group/array "(6)"?
             GovAction::Information => {
                 e.array(1)?;
                 e.u16(6)?;
@@ -964,8 +1031,8 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub struct Constitution(Anchor, Option<ScriptHash>);
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct Constitution(Anchor, Nullable<ScriptHash>);
 
 impl<'b, C> minicbor::Decode<'b, C> for Constitution {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
@@ -1153,15 +1220,37 @@ where
     }
 }
 
-pub use crate::babbage::TransactionOutput;
-
-pub use crate::babbage::MintedTransactionOutput;
-
 pub use crate::babbage::PseudoPostAlonzoTransactionOutput;
 
-pub use crate::babbage::PostAlonzoTransactionOutput;
+pub type TransactionOutput = PseudoTransactionOutput<PostAlonzoTransactionOutput>;
 
-pub use crate::babbage::MintedPostAlonzoTransactionOutput;
+pub type MintedTransactionOutput<'b> =
+    PseudoTransactionOutput<MintedPostAlonzoTransactionOutput<'b>>;
+
+impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
+    fn from(value: MintedTransactionOutput<'b>) -> Self {
+        match value {
+            PseudoTransactionOutput::Legacy(x) => Self::Legacy(x),
+            PseudoTransactionOutput::PostAlonzo(x) => Self::PostAlonzo(x.into()),
+        }
+    }
+}
+
+pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption, ScriptRef>;
+
+pub type MintedPostAlonzoTransactionOutput<'b> =
+    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>, MintedScriptRef<'b>>;
+
+impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
+    fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
+        Self {
+            address: value.address,
+            value: value.value,
+            datum_option: value.datum_option.map(|x| x.into()),
+            script_ref: value.script_ref.map(|x| CborWrap(x.unwrap().into())),
+        }
+    }
+}
 
 pub use crate::alonzo::VKeyWitness;
 
@@ -1189,9 +1278,16 @@ pub use crate::alonzo::Constr;
 
 pub use crate::alonzo::ExUnits;
 
-pub use crate::alonzo::ExUnitPrices;
-
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct ExUnitPrices {
+    #[n(0)]
+    mem_price: RationalNumber,
+
+    #[n(1)]
+    step_price: RationalNumber,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1203,9 +1299,9 @@ pub enum RedeemerTag {
     #[n(3)]
     Reward,
     #[n(4)]
-    DRep,
+    Vote,
     #[n(5)]
-    VotingProposal,
+    Propose,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -1223,62 +1319,145 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct RedeemersKey {
+    #[n(0)]
+    pub tag: RedeemerTag,
+    #[n(1)]
+    pub index: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct RedeemersValue {
+    #[n(0)]
+    pub data: PlutusData,
+    #[n(1)]
+    pub ex_units: ExUnits,
+}
+
+// TODO: Redeemers needs to be KeepRaw because of script data hash
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Redeemers(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>);
+
+impl Deref for Redeemers {
+    type Target = NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
+    fn from(value: NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>) -> Self {
+        Redeemers(value)
+    }
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
+                let redeemers: Vec<Redeemer> = d.decode_with(ctx)?;
+
+                let kvs = redeemers
+                    .into_iter()
+                    .map(|x| {
+                        (
+                            RedeemersKey {
+                                tag: x.tag,
+                                index: x.index,
+                            },
+                            RedeemersValue {
+                                data: x.data,
+                                ex_units: x.ex_units,
+                            },
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .map_err(|_| Error::message("decoding empty redeemers"))?;
+
+                Ok(Self(kvs))
+            }
+            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+                Ok(Self(d.decode_with(ctx)?))
+            }
+            _ => Err(minicbor::decode::Error::message(
+                "invalid type for redeemers struct",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::Encode<C> for Redeemers {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode_with(&self.0, ctx)?;
+
+        Ok(())
+    }
+}
+
 pub use crate::alonzo::BootstrapWitness;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct WitnessSet {
     #[n(0)]
-    pub vkeywitness: Option<Set<VKeyWitness>>, // TODO: NON EMPTY SET
+    pub vkeywitness: Option<NonEmptySet<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Set<NativeScript>>, // TODO: NON EMPTY SET
+    pub native_script: Option<NonEmptySet<NativeScript>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Set<BootstrapWitness>>, // TODO: NON EMPTY SET
+    pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Set<PlutusV1Script>>, // TODO: NON EMPTY SET
+    pub plutus_v1_script: Option<NonEmptySet<PlutusV1Script>>,
 
     #[n(4)]
-    pub plutus_data: Option<Set<PlutusData>>, // TODO: NON EMPTY SET
+    pub plutus_data: Option<NonEmptySet<PlutusData>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<Redeemers>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Set<PlutusV2Script>>, // TODO: NON EMPTY SET
+    pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Set<PlutusV3Script>>, // TODO: NON EMPTY SET
+    pub plutus_v3_script: Option<NonEmptySet<PlutusV3Script>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct MintedWitnessSet<'b> {
     #[n(0)]
-    pub vkeywitness: Option<Set<VKeyWitness>>, // TODO: NON EMPTY SET
+    pub vkeywitness: Option<NonEmptySet<VKeyWitness>>,
 
     #[n(1)]
-    pub native_script: Option<Set<KeepRaw<'b, NativeScript>>>, // TODO: NON EMPTY SET
+    pub native_script: Option<NonEmptySet<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
-    pub bootstrap_witness: Option<Set<BootstrapWitness>>, // TODO: NON EMPTY SET
+    pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Set<PlutusV1Script>>, // TODO: NON EMPTY SET
+    pub plutus_v1_script: Option<NonEmptySet<PlutusV1Script>>,
 
     #[b(4)]
-    pub plutus_data: Option<Set<KeepRaw<'b, PlutusData>>>, // TODO: NON EMPTY SET
+    pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<KeepRaw<'b, Redeemers>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Set<PlutusV2Script>>, // TODO: NON EMPTY SET
+    pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<Set<PlutusV3Script>>, // TODO: NON EMPTY SET
+    pub plutus_v3_script: Option<NonEmptySet<PlutusV3Script>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -1289,7 +1468,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
             plutus_data: x.plutus_data.map(Into::into),
-            redeemer: x.redeemer,
+            redeemer: x.redeemer.map(|x| x.unwrap()),
             plutus_v2_script: x.plutus_v2_script,
             plutus_v3_script: x.plutus_v3_script,
         }
@@ -1348,6 +1527,17 @@ impl<'b> From<MintedScriptRef<'b>> for ScriptRef {
     }
 }
 
+// TODO: Remove in favour of multierascriptref
+impl<'b> From<babbage::MintedScriptRef<'b>> for MintedScriptRef<'b> {
+    fn from(value: babbage::MintedScriptRef<'b>) -> Self {
+        match value {
+            babbage::MintedScriptRef::NativeScript(x) => Self::NativeScript(x),
+            babbage::MintedScriptRef::PlutusV1Script(x) => Self::PlutusV1Script(x),
+            babbage::MintedScriptRef::PlutusV2Script(x) => Self::PlutusV2Script(x),
+        }
+    }
+}
+
 impl<'b, C, T> minicbor::Decode<'b, C> for PseudoScript<T>
 where
     T: minicbor::Decode<'b, ()>,
@@ -1363,9 +1553,10 @@ where
             1 => Ok(Self::PlutusV1Script(d.decode()?)),
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
             3 => Ok(Self::PlutusV3Script(d.decode()?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant for script enum",
-            )),
+            x => Err(minicbor::decode::Error::message(format!(
+                "invalid variant for script enum: {}",
+                x
+            ))),
         }
     }
 }
@@ -1518,7 +1709,7 @@ mod tests {
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = [
             include_str!("../../../test_data/conway1.block"),
-            include_str!("../../../test_data/conway1.artificial.block"),
+            include_str!("../../../test_data/conway2.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

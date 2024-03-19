@@ -7,13 +7,15 @@ impl<'b> MultiEraPolicyAssets<'b> {
         match self {
             MultiEraPolicyAssets::AlonzoCompatibleMint(x, _) => x,
             MultiEraPolicyAssets::AlonzoCompatibleOutput(x, _) => x,
+            MultiEraPolicyAssets::ConwayMint(x, _) => x,
         }
     }
 
     pub fn is_output(&self) -> bool {
         match self {
-            MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => true,
             MultiEraPolicyAssets::AlonzoCompatibleMint(_, _) => false,
+            MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => true,
+            MultiEraPolicyAssets::ConwayMint(_, _) => false,
         }
     }
 
@@ -21,6 +23,7 @@ impl<'b> MultiEraPolicyAssets<'b> {
         match self {
             MultiEraPolicyAssets::AlonzoCompatibleMint(_, _) => true,
             MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => false,
+            MultiEraPolicyAssets::ConwayMint(_, _) => true,
         }
     }
 
@@ -33,6 +36,10 @@ impl<'b> MultiEraPolicyAssets<'b> {
             MultiEraPolicyAssets::AlonzoCompatibleOutput(p, x) => x
                 .iter()
                 .map(|(k, v)| MultiEraAsset::AlonzoCompatibleOutput(p, k, *v))
+                .collect(),
+            MultiEraPolicyAssets::ConwayMint(p, x) => x
+                .iter()
+                .map(|(k, v)| MultiEraAsset::ConwayMint(p, k, *v))
                 .collect(),
         }
     }
@@ -48,6 +55,10 @@ impl<'b> MultiEraPolicyAssets<'b> {
             MultiEraPolicyAssets::AlonzoCompatibleOutput(_, x) => {
                 x.iter().map(|(k, v)| (k.as_slice(), *v as i128)).collect()
             }
+            MultiEraPolicyAssets::ConwayMint(_, x) => x
+                .iter()
+                .map(|(k, v)| (k.as_slice(), i64::from(v) as i128))
+                .collect(),
         }
     }
 }
@@ -57,20 +68,23 @@ impl<'b> MultiEraAsset<'b> {
         match self {
             MultiEraAsset::AlonzoCompatibleMint(x, ..) => x,
             MultiEraAsset::AlonzoCompatibleOutput(x, ..) => x,
+            MultiEraAsset::ConwayMint(x, ..) => x,
         }
     }
 
     pub fn name(&self) -> &[u8] {
         match self {
-            MultiEraAsset::AlonzoCompatibleOutput(_, x, _) => x,
             MultiEraAsset::AlonzoCompatibleMint(_, x, _) => x,
+            MultiEraAsset::AlonzoCompatibleOutput(_, x, _) => x,
+            MultiEraAsset::ConwayMint(_, x, _) => x,
         }
     }
 
     pub fn is_output(&self) -> bool {
         match self {
-            MultiEraAsset::AlonzoCompatibleOutput(..) => true,
             MultiEraAsset::AlonzoCompatibleMint(..) => false,
+            MultiEraAsset::AlonzoCompatibleOutput(..) => true,
+            MultiEraAsset::ConwayMint(..) => false,
         }
     }
 
@@ -78,6 +92,7 @@ impl<'b> MultiEraAsset<'b> {
         match self {
             MultiEraAsset::AlonzoCompatibleMint(..) => true,
             MultiEraAsset::AlonzoCompatibleOutput(..) => false,
+            MultiEraAsset::ConwayMint(..) => true,
         }
     }
 
@@ -85,20 +100,23 @@ impl<'b> MultiEraAsset<'b> {
         match self {
             MultiEraAsset::AlonzoCompatibleMint(_, _, x) => Some(*x),
             MultiEraAsset::AlonzoCompatibleOutput(_, _, _) => None,
+            MultiEraAsset::ConwayMint(_, _, x) => Some(x.into()),
         }
     }
 
     pub fn output_coin(&self) -> Option<u64> {
         match self {
-            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => Some(*x),
             MultiEraAsset::AlonzoCompatibleMint(_, _, _) => None,
+            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => Some(*x),
+            MultiEraAsset::ConwayMint(_, _, _) => None,
         }
     }
 
     pub fn any_coin(&self) -> i128 {
         match self {
-            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => *x as i128,
             MultiEraAsset::AlonzoCompatibleMint(_, _, x) => *x as i128,
+            MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => *x as i128,
+            MultiEraAsset::ConwayMint(_, _, x) => i64::from(x) as i128,
         }
     }
 
