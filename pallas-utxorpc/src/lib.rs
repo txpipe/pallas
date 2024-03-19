@@ -22,7 +22,7 @@ pub fn map_purpose(x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
 pub fn map_redeemer(x: &trv::MultiEraRedeemer) -> u5c::Redeemer {
     u5c::Redeemer {
         purpose: map_purpose(&x.tag()).into(),
-        datum: map_plutus_datum(&x.data()).into(),
+        datum: map_plutus_datum(x.data()).into(),
     }
 }
 
@@ -70,7 +70,7 @@ pub fn map_tx_output(x: &trv::MultiEraOutput) -> u5c::TxOutput {
                 script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
             }
             .into(),
-            Some(conway::PseudoScript::PlutusV3Script(x)) => todo!(),
+            Some(conway::PseudoScript::PlutusV3Script(_)) => todo!(),
             None => None,
         },
     }
