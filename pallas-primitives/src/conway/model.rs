@@ -1287,7 +1287,7 @@ pub struct ExUnitPrices {
     step_price: RationalNumber,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1451,7 +1451,7 @@ pub struct MintedWitnessSet<'b> {
     pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
 
     #[n(5)]
-    pub redeemer: Option<Redeemers>, // TODO: KeepRaw
+    pub redeemer: Option<KeepRaw<'b, Redeemers>>,
 
     #[n(6)]
     pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
@@ -1468,7 +1468,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
             plutus_data: x.plutus_data.map(Into::into),
-            redeemer: x.redeemer,
+            redeemer: x.redeemer.map(|x| x.unwrap()),
             plutus_v2_script: x.plutus_v2_script,
             plutus_v3_script: x.plutus_v3_script,
         }

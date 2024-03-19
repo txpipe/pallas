@@ -22,6 +22,7 @@ pub mod input;
 pub mod meta;
 pub mod output;
 pub mod probe;
+pub mod redeemers;
 pub mod signers;
 pub mod size;
 pub mod time;
@@ -107,6 +108,16 @@ pub enum MultiEraCert<'b> {
     NotApplicable,
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
     Conway(Box<Cow<'b, conway::Certificate>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraRedeemer<'b> {
+    AlonzoCompatible(Box<Cow<'b, alonzo::Redeemer>>),
+    Conway(
+        Box<Cow<'b, conway::RedeemersKey>>,
+        Box<Cow<'b, conway::RedeemersValue>>,
+    ),
 }
 
 #[derive(Debug, Clone, Default)]

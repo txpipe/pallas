@@ -8,27 +8,28 @@ use trv::OriginalHash;
 
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
-pub fn map_purpose(x: &alonzo::RedeemerTag) -> u5c::RedeemerPurpose {
+pub fn map_purpose(x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
     match x {
-        babbage::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
-        babbage::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
-        babbage::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
-        babbage::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
+        conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
+        conway::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
+        conway::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
+        conway::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
+        conway::RedeemerTag::Vote => todo!(),
+        conway::RedeemerTag::Propose => todo!(),
     }
 }
 
-pub fn map_redeemer(x: &alonzo::Redeemer) -> u5c::Redeemer {
+pub fn map_redeemer(x: &trv::MultiEraRedeemer) -> u5c::Redeemer {
     u5c::Redeemer {
-        purpose: map_purpose(&x.tag).into(),
-        datum: map_plutus_datum(&x.data).into(),
+        purpose: map_purpose(&x.tag()).into(),
+        datum: map_plutus_datum(&x.data()).into(),
     }
 }
 
 pub fn map_tx_input(i: &trv::MultiEraInput, tx: &trv::MultiEraTx) -> u5c::TxInput {
-    let redeemer = tx
-        .redeemers()
-        .iter()
-        .find(|r| (r.index as u64) == i.index());
+    let redeemers = tx.redeemers();
+
+    let redeemer = redeemers.iter().find(|r| (r.index() as u64) == i.index());
 
     u5c::TxInput {
         tx_hash: i.hash().to_vec().into(),
@@ -69,7 +70,7 @@ pub fn map_tx_output(x: &trv::MultiEraOutput) -> u5c::TxOutput {
                 script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
             }
             .into(),
-            Some(conway::PseudoScript::PlutusV3Script(x)) => None,
+            Some(conway::PseudoScript::PlutusV3Script(x)) => todo!(),
             None => None,
         },
     }

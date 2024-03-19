@@ -1,11 +1,11 @@
 use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
     alonzo::{self, BootstrapWitness, NativeScript, PlutusData, VKeyWitness},
-    babbage::{PlutusV2Script, Redeemer},
-    conway::{self, PlutusV3Script},
+    babbage::PlutusV2Script,
+    conway::PlutusV3Script,
 };
 
-use crate::MultiEraTx;
+use crate::{MultiEraRedeemer, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     pub fn vkey_witnesses(&self) -> &[VKeyWitness] {
@@ -128,23 +128,30 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    // TODO: MultiEraRedeemer?
-    pub fn redeemers(&self) -> &[Redeemer] {
+    pub fn redeemers(&self) -> Vec<MultiEraRedeemer> {
         match self {
-            Self::Byron(_) => &[],
+            Self::Byron(_) => vec![],
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
                 .redeemer
-                .as_ref()
-                .map(|x| x.as_ref())
-                .unwrap_or(&[]),
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraRedeemer::from_alonzo_compatible)
+                .collect(),
             Self::Babbage(x) => x
                 .transaction_witness_set
                 .redeemer
-                .as_ref()
-                .map(|x| x.as_ref())
-                .unwrap_or(&[]),
-            Self::Conway(_) => todo!(),
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraRedeemer::from_alonzo_compatible)
+                .collect(),
+            Self::Conway(x) => x
+                .transaction_witness_set
+                .redeemer
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraRedeemer::from_conway(k, v))
+                .collect(),
         }
     }
 

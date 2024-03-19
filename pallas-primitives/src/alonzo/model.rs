@@ -1197,7 +1197,7 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ExUnits {
     #[n(0)]
     pub mem: u32,
@@ -1214,7 +1214,7 @@ pub struct ExUnitPrices {
     step_price: PositiveInterval,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1242,7 +1242,7 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct RedeemerPointer {
     #[n(0)]
     pub tag: RedeemerTag,
