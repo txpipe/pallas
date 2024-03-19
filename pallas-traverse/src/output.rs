@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 use crate::{Era, MultiEraOutput, MultiEraPolicyAssets};
 
@@ -19,6 +19,10 @@ impl<'b> MultiEraOutput<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(output)))
     }
 
+    pub fn from_conway(output: &'b conway::MintedTransactionOutput<'b>) -> Self {
+        Self::Conway(Box::new(Cow::Borrowed(output)))
+    }
+
     pub fn datum(&self) -> Option<babbage::MintedDatumOption> {
         match self {
             MultiEraOutput::AlonzoCompatible(x) => {
@@ -30,19 +34,32 @@ impl<'b> MultiEraOutput<'b> {
                 }
                 babbage::MintedTransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
             },
-            _ => None,
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::MintedTransactionOutput::Legacy(x) => {
+                    x.datum_hash.map(babbage::MintedDatumOption::Hash)
+                }
+                conway::MintedTransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+            },
         }
     }
 
-    pub fn script_ref(&self) -> Option<babbage::MintedScriptRef> {
+    pub fn script_ref(&self) -> Option<conway::MintedScriptRef> {
         match &self {
+            MultiEraOutput::AlonzoCompatible(_) => None,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(_) => None,
                 babbage::MintedTransactionOutput::PostAlonzo(x) => {
+                    x.script_ref.clone().map(|x| x.unwrap().into())
+                }
+            },
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::MintedTransactionOutput::Legacy(_) => None,
+                conway::MintedTransactionOutput::PostAlonzo(x) => {
                     x.script_ref.clone().map(|x| x.unwrap())
                 }
             },
-            _ => None,
         }
     }
 
@@ -56,14 +73,10 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Byron(x) => {
                 Ok(ByronAddress::new(&x.address.payload.0, x.address.crc).into())
             }
-        }
-    }
-
-    pub fn as_babbage(&self) -> Option<&babbage::MintedTransactionOutput> {
-        match self {
-            MultiEraOutput::AlonzoCompatible(_) => None,
-            MultiEraOutput::Babbage(x) => Some(x),
-            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::MintedTransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                conway::MintedTransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+            },
         }
     }
 
@@ -72,6 +85,16 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::AlonzoCompatible(x) => Some(x),
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(_) => None,
+        }
+    }
+
+    pub fn as_babbage(&self) -> Option<&babbage::MintedTransactionOutput> {
+        match self {
+            MultiEraOutput::AlonzoCompatible(_) => None,
+            MultiEraOutput::Babbage(x) => Some(x),
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(_) => None,
         }
     }
 
@@ -80,6 +103,16 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::AlonzoCompatible(_) => None,
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(x) => Some(x),
+            MultiEraOutput::Conway(_) => None,
+        }
+    }
+
+    pub fn as_conway(&self) -> Option<&conway::MintedTransactionOutput> {
+        match self {
+            MultiEraOutput::AlonzoCompatible(_) => None,
+            MultiEraOutput::Babbage(_) => None,
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(x) => Some(x),
         }
     }
 
@@ -89,6 +122,7 @@ impl<'b> MultiEraOutput<'b> {
             Self::AlonzoCompatible(x) => minicbor::to_vec(x).unwrap(),
             Self::Babbage(x) => minicbor::to_vec(x).unwrap(),
             Self::Byron(x) => minicbor::to_vec(x).unwrap(),
+            Self::Conway(x) => minicbor::to_vec(x).unwrap(),
         }
     }
 
@@ -104,10 +138,15 @@ impl<'b> MultiEraOutput<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(Self::AlonzoCompatible(tx))
             }
-            Era::Babbage | Era::Conway => {
+            Era::Babbage => {
                 let tx = minicbor::decode(cbor)?;
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(Self::Babbage(tx))
+            }
+            Era::Conway => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Conway(tx))
             }
         }
     }
@@ -119,7 +158,10 @@ impl<'b> MultiEraOutput<'b> {
     /// lovelace).
     pub fn lovelace_amount(&self) -> u64 {
         match self {
-            MultiEraOutput::Byron(x) => x.amount,
+            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
+                alonzo::Value::Coin(c) => c,
+                alonzo::Value::Multiasset(c, _) => c,
+            },
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(x) => match x.amount {
                     babbage::Value::Coin(c) => c,
@@ -130,9 +172,16 @@ impl<'b> MultiEraOutput<'b> {
                     babbage::Value::Multiasset(c, _) => c,
                 },
             },
-            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
-                alonzo::Value::Coin(c) => c,
-                alonzo::Value::Multiasset(c, _) => c,
+            MultiEraOutput::Byron(x) => x.amount,
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::MintedTransactionOutput::Legacy(x) => match x.amount {
+                    babbage::Value::Coin(c) => c,
+                    babbage::Value::Multiasset(c, _) => c,
+                },
+                conway::MintedTransactionOutput::PostAlonzo(x) => match x.value {
+                    babbage::Value::Coin(c) => c,
+                    babbage::Value::Multiasset(c, _) => c,
+                },
             },
         }
     }
@@ -144,7 +193,13 @@ impl<'b> MultiEraOutput<'b> {
     /// list.
     pub fn non_ada_assets(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
-            MultiEraOutput::Byron(_) => vec![],
+            MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
+                alonzo::Value::Coin(_) => vec![],
+                alonzo::Value::Multiasset(_, x) => x
+                    .iter()
+                    .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                    .collect(),
+            },
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(x) => match &x.amount {
                     babbage::Value::Coin(_) => vec![],
@@ -161,12 +216,22 @@ impl<'b> MultiEraOutput<'b> {
                         .collect(),
                 },
             },
-            MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
-                alonzo::Value::Coin(_) => vec![],
-                alonzo::Value::Multiasset(_, x) => x
-                    .iter()
-                    .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
-                    .collect(),
+            MultiEraOutput::Byron(_) => vec![],
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::MintedTransactionOutput::Legacy(x) => match &x.amount {
+                    babbage::Value::Coin(_) => vec![],
+                    babbage::Value::Multiasset(_, x) => x
+                        .iter()
+                        .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                        .collect(),
+                },
+                conway::MintedTransactionOutput::PostAlonzo(x) => match &x.value {
+                    babbage::Value::Coin(_) => vec![],
+                    babbage::Value::Multiasset(_, x) => x
+                        .iter()
+                        .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                        .collect(),
+                },
             },
         }
     }

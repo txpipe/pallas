@@ -11,8 +11,8 @@ use pallas_codec::minicbor::{Decode, Encode};
 use pallas_crypto::hash::Hash;
 
 use pallas_codec::utils::{
-    Bytes, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet, NonZeroInt,
-    Nullable, PositiveCoin, Set,
+    Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
+    NonZeroInt, Nullable, PositiveCoin, Set,
 };
 
 // required for derive attrs to work
@@ -20,6 +20,7 @@ use pallas_codec::minicbor;
 
 pub use crate::alonzo::VrfCert;
 
+use crate::babbage;
 pub use crate::babbage::HeaderBody;
 
 pub use crate::babbage::OperationalCert;
@@ -42,7 +43,7 @@ pub use crate::alonzo::PolicyId;
 
 pub use crate::alonzo::AssetName;
 
-pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
+pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
 
 pub use crate::alonzo::Mint;
 
@@ -160,7 +161,7 @@ pub enum Certificate {
         reward_account: RewardAccount,
         pool_owners: Set<AddrKeyhash>,
         relays: Vec<Relay>,
-        pool_metadata: Option<PoolMetadata>,
+        pool_metadata: Nullable<PoolMetadata>,
     },
     PoolRetirement(PoolKeyhash, Epoch),
 
@@ -173,10 +174,10 @@ pub enum Certificate {
     StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
 
     AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
-    ResignCommitteeCold(CommitteeColdCredential),
-    RegDRepCert(DRepCredential, Coin, Option<Anchor>),
+    ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
+    RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
     UnRegDRepCert(DRepCredential, Coin),
-    UpdateDRepCert(StakeCredential, Option<Anchor>),
+    UpdateDRepCert(StakeCredential, Nullable<Anchor>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
@@ -274,7 +275,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
             }
             15 => {
                 let a = d.decode_with(ctx)?;
-                Ok(Certificate::ResignCommitteeCold(a))
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::ResignCommitteeCold(a, b))
             }
             16 => {
                 let a = d.decode_with(ctx)?;
@@ -406,10 +408,11 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
-            Certificate::ResignCommitteeCold(a) => {
-                e.array(2)?;
+            Certificate::ResignCommitteeCold(a, b) => {
+                e.array(3)?;
                 e.u16(15)?;
                 e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
             }
             Certificate::RegDRepCert(a, b, c) => {
                 e.array(4)?;
@@ -607,6 +610,7 @@ pub struct PoolVotingThresholds {
     pub committee_normal: UnitInterval,
     pub committee_no_confidence: UnitInterval,
     pub hard_fork_initiation: UnitInterval,
+    pub security_voting_threshold: UnitInterval,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for PoolVotingThresholds {
@@ -618,6 +622,7 @@ impl<'b, C> minicbor::Decode<'b, C> for PoolVotingThresholds {
             committee_normal: d.decode_with(ctx)?,
             committee_no_confidence: d.decode_with(ctx)?,
             hard_fork_initiation: d.decode_with(ctx)?,
+            security_voting_threshold: d.decode_with(ctx)?,
         })
     }
 }
@@ -628,12 +633,13 @@ impl<C> minicbor::Encode<C> for PoolVotingThresholds {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(4)?;
+        e.array(5)?;
 
         e.encode_with(&self.motion_no_confidence, ctx)?;
         e.encode_with(&self.committee_normal, ctx)?;
         e.encode_with(&self.committee_no_confidence, ctx)?;
         e.encode_with(&self.hard_fork_initiation, ctx)?;
+        e.encode_with(&self.security_voting_threshold, ctx)?;
 
         Ok(())
     }
@@ -836,7 +842,7 @@ pub type VotingProcedures =
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
     pub vote: Vote,
-    pub anchor: Option<Anchor>,
+    pub anchor: Nullable<Anchor>,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for VotingProcedure {
@@ -905,17 +911,21 @@ impl<C> minicbor::Encode<C> for ProposalProcedure {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum GovAction {
-    ParameterChange(Option<GovActionId>, Box<ProtocolParamUpdate>),
-    HardForkInitiation(Option<GovActionId>, Vec<ProtocolVersion>),
-    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>),
-    NoConfidence(Option<GovActionId>),
+    ParameterChange(
+        Nullable<GovActionId>,
+        Box<ProtocolParamUpdate>,
+        Nullable<ScriptHash>,
+    ),
+    HardForkInitiation(Nullable<GovActionId>, ProtocolVersion),
+    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>, Nullable<ScriptHash>),
+    NoConfidence(Nullable<GovActionId>),
     UpdateCommittee(
-        Option<GovActionId>,
+        Nullable<GovActionId>,
         Set<CommitteeColdCredential>,
         KeyValuePairs<CommitteeColdCredential, Epoch>,
         UnitInterval,
     ),
-    NewConstitution(Option<GovActionId>, Constitution),
+    NewConstitution(Nullable<GovActionId>, Constitution),
     Information,
 }
 
@@ -928,7 +938,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
             0 => {
                 let a = d.decode_with(ctx)?;
                 let b = d.decode_with(ctx)?;
-                Ok(GovAction::ParameterChange(a, b))
+                let c = d.decode_with(ctx)?;
+                Ok(GovAction::ParameterChange(a, b, c))
             }
             1 => {
                 let a = d.decode_with(ctx)?;
@@ -937,7 +948,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
             }
             2 => {
                 let a = d.decode_with(ctx)?;
-                Ok(GovAction::TreasuryWithdrawals(a))
+                let b = d.decode_with(ctx)?;
+                Ok(GovAction::TreasuryWithdrawals(a, b))
             }
             3 => {
                 let a = d.decode_with(ctx)?;
@@ -970,11 +982,12 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            GovAction::ParameterChange(a, b) => {
-                e.array(3)?;
+            GovAction::ParameterChange(a, b, c) => {
+                e.array(4)?;
                 e.u16(0)?;
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
             }
             GovAction::HardForkInitiation(a, b) => {
                 e.array(3)?;
@@ -982,10 +995,11 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
-            GovAction::TreasuryWithdrawals(a) => {
-                e.array(2)?;
+            GovAction::TreasuryWithdrawals(a, b) => {
+                e.array(3)?;
                 e.u16(2)?;
                 e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
             }
             GovAction::NoConfidence(a) => {
                 e.array(2)?;
@@ -1006,7 +1020,7 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
-            // TODO: CDDL SAYS JUST "6", no group (array)
+            // TODO: CDDL says just "6", not group/array "(6)"?
             GovAction::Information => {
                 e.array(1)?;
                 e.u16(6)?;
@@ -1017,8 +1031,8 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub struct Constitution(Anchor, Option<ScriptHash>);
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct Constitution(Anchor, Nullable<ScriptHash>);
 
 impl<'b, C> minicbor::Decode<'b, C> for Constitution {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
@@ -1206,15 +1220,37 @@ where
     }
 }
 
-pub use crate::babbage::TransactionOutput;
-
-pub use crate::babbage::MintedTransactionOutput;
-
 pub use crate::babbage::PseudoPostAlonzoTransactionOutput;
 
-pub use crate::babbage::PostAlonzoTransactionOutput;
+pub type TransactionOutput = PseudoTransactionOutput<PostAlonzoTransactionOutput>;
 
-pub use crate::babbage::MintedPostAlonzoTransactionOutput;
+pub type MintedTransactionOutput<'b> =
+    PseudoTransactionOutput<MintedPostAlonzoTransactionOutput<'b>>;
+
+impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
+    fn from(value: MintedTransactionOutput<'b>) -> Self {
+        match value {
+            PseudoTransactionOutput::Legacy(x) => Self::Legacy(x),
+            PseudoTransactionOutput::PostAlonzo(x) => Self::PostAlonzo(x.into()),
+        }
+    }
+}
+
+pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption, ScriptRef>;
+
+pub type MintedPostAlonzoTransactionOutput<'b> =
+    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>, MintedScriptRef<'b>>;
+
+impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
+    fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
+        Self {
+            address: value.address,
+            value: value.value,
+            datum_option: value.datum_option.map(|x| x.into()),
+            script_ref: value.script_ref.map(|x| CborWrap(x.unwrap().into())),
+        }
+    }
+}
 
 pub use crate::alonzo::VKeyWitness;
 
@@ -1263,9 +1299,9 @@ pub enum RedeemerTag {
     #[n(3)]
     Reward,
     #[n(4)]
-    DRep,
+    Vote,
     #[n(5)]
-    VotingProposal,
+    Propose,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -1491,6 +1527,17 @@ impl<'b> From<MintedScriptRef<'b>> for ScriptRef {
     }
 }
 
+// TODO: Remove in favour of multierascriptref
+impl<'b> From<babbage::MintedScriptRef<'b>> for MintedScriptRef<'b> {
+    fn from(value: babbage::MintedScriptRef<'b>) -> Self {
+        match value {
+            babbage::MintedScriptRef::NativeScript(x) => Self::NativeScript(x),
+            babbage::MintedScriptRef::PlutusV1Script(x) => Self::PlutusV1Script(x),
+            babbage::MintedScriptRef::PlutusV2Script(x) => Self::PlutusV2Script(x),
+        }
+    }
+}
+
 impl<'b, C, T> minicbor::Decode<'b, C> for PseudoScript<T>
 where
     T: minicbor::Decode<'b, ()>,
@@ -1506,9 +1553,10 @@ where
             1 => Ok(Self::PlutusV1Script(d.decode()?)),
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
             3 => Ok(Self::PlutusV3Script(d.decode()?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant for script enum",
-            )),
+            x => Err(minicbor::decode::Error::message(format!(
+                "invalid variant for script enum: {}",
+                x
+            ))),
         }
     }
 }
@@ -1661,7 +1709,7 @@ mod tests {
     fn block_isomorphic_decoding_encoding() {
         let test_blocks = [
             include_str!("../../../test_data/conway1.block"),
-            include_str!("../../../test_data/conway1.artificial.block"),
+            include_str!("../../../test_data/conway2.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

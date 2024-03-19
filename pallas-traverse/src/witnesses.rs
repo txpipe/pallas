@@ -144,21 +144,7 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
-            Self::Conway(_) => &[],
-        }
-    }
-
-    pub fn conway_redeemers(&self) -> &[conway::Redeemer] {
-        match self {
-            Self::Byron(_) => &[],
-            Self::AlonzoCompatible(_, _) => &[],
-            Self::Babbage(_) => &[],
-            Self::Conway(x) => x
-                .transaction_witness_set
-                .redeemer
-                .as_ref()
-                .map(|x| x.as_ref())
-                .unwrap_or(&[]),
+            Self::Conway(_) => todo!(),
         }
     }
 

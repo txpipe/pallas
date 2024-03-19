@@ -1138,7 +1138,7 @@ impl<C> minicbor::Encode<C> for AnyCbor {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(from = "Option::<T>", into = "Option::<T>")]
 pub enum Nullable<T>
 where

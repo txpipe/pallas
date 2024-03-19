@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use pallas_codec::utils::KeyValuePairs;
-use pallas_primitives::{alonzo, babbage};
+use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse as trv;
 
 use trv::OriginalHash;
@@ -57,19 +57,20 @@ pub fn map_tx_output(x: &trv::MultiEraOutput) -> u5c::TxOutput {
             _ => vec![].into(),
         },
         script: match x.script_ref() {
-            Some(babbage::PseudoScript::NativeScript(x)) => u5c::Script {
+            Some(conway::PseudoScript::NativeScript(x)) => u5c::Script {
                 script: u5c::script::Script::Native(map_native_script(&x)).into(),
             }
             .into(),
-            Some(babbage::PseudoScript::PlutusV1Script(x)) => u5c::Script {
+            Some(conway::PseudoScript::PlutusV1Script(x)) => u5c::Script {
                 script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
             }
             .into(),
-            Some(babbage::PseudoScript::PlutusV2Script(x)) => u5c::Script {
+            Some(conway::PseudoScript::PlutusV2Script(x)) => u5c::Script {
                 script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
             }
             .into(),
-            _ => None,
+            Some(conway::PseudoScript::PlutusV3Script(x)) => None,
+            None => None,
         },
     }
 }
@@ -92,16 +93,17 @@ pub fn map_stake_credential(x: &babbage::StakeCredential) -> u5c::StakeCredentia
 pub fn map_relay(x: &alonzo::Relay) -> u5c::Relay {
     match x {
         babbage::Relay::SingleHostAddr(port, v4, v6) => u5c::Relay {
-            ip_v4: v4.as_ref().map(|x| x.to_vec().into()).unwrap_or_default(),
-            ip_v6: v6.as_ref().map(|x| x.to_vec().into()).unwrap_or_default(),
+            // ip_v4: v4.map(|x| x.to_vec().into()).into().unwrap_or_default(),
+            ip_v4: Option::from(v4.clone().map(|x| x.to_vec().into())).unwrap_or_default(),
+            ip_v6: Option::from(v6.clone().map(|x| x.to_vec().into())).unwrap_or_default(),
             dns_name: String::default(),
-            port: port.unwrap_or_default(),
+            port: Option::from(port.clone()).unwrap_or_default(),
         },
         babbage::Relay::SingleHostName(port, name) => u5c::Relay {
             ip_v4: Default::default(),
             ip_v6: Default::default(),
             dns_name: name.clone(),
-            port: port.unwrap_or_default(),
+            port: Option::from(port.clone()).unwrap_or_default(),
         },
         babbage::Relay::MultiHostName(name) => u5c::Relay {
             ip_v4: Default::default(),
@@ -149,10 +151,13 @@ pub fn map_cert(x: &trv::MultiEraCert) -> u5c::Certificate {
             reward_account: reward_account.to_vec().into(),
             pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
             relays: relays.iter().map(map_relay).collect(),
-            pool_metadata: pool_metadata.as_ref().map(|x| u5c::PoolMetadata {
-                url: x.url.clone(),
-                hash: x.hash.to_vec().into(),
-            }),
+            pool_metadata: pool_metadata
+                .clone()
+                .map(|x| u5c::PoolMetadata {
+                    url: x.url.clone(),
+                    hash: x.hash.to_vec().into(),
+                })
+                .into(),
         }),
         babbage::Certificate::PoolRetirement(a, b) => {
             u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
