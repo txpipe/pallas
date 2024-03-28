@@ -6,7 +6,7 @@ use pallas_traverse as trv;
 
 use trv::OriginalHash;
 
-use utxorpc::proto::cardano::v1 as u5c;
+use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 pub fn map_purpose(x: &alonzo::RedeemerTag) -> u5c::RedeemerPurpose {
     match x {
@@ -408,6 +408,7 @@ fn collect_all_aux_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
 
 pub fn map_tx(tx: &trv::MultiEraTx) -> u5c::Tx {
     u5c::Tx {
+        hash: tx.hash().to_vec().into(),
         inputs: tx.inputs().iter().map(|i| map_tx_input(i, tx)).collect(),
         outputs: tx.outputs().iter().map(map_tx_output).collect(),
         certificates: tx.certs().iter().map(map_cert).collect(),
@@ -468,6 +469,7 @@ pub fn map_block(block: &trv::MultiEraBlock) -> u5c::Block {
         header: u5c::BlockHeader {
             slot: block.slot(),
             hash: block.hash().to_vec().into(),
+            height: block.number(),
         }
         .into(),
         body: u5c::BlockBody {

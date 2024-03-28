@@ -183,7 +183,7 @@ impl Encoder {
     #[cfg(feature = "num-bigint")]
     pub fn big_word(&mut self, c: BigUint) -> &mut Self {
         let mut d = c;
-        let zero = (0 as u8).into();
+        let zero = (0_u8).into();
         loop {
             let m: usize = 127;
             let mut w = (d.clone() & <usize as Into<BigUint>>::into(m))

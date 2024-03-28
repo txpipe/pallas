@@ -364,7 +364,7 @@ mod tests {
 
         let generated = tx
             .plutus_v1_scripts()
-            .get(0)
+            .first()
             .unwrap()
             .compute_hash()
             .to_string();

@@ -1,40 +1,51 @@
 //! Logic for validating and applying new blocks and txs to the chain state
 
+pub mod alonzo;
+pub mod babbage;
 pub mod byron;
 pub mod shelley_ma;
-pub mod types;
+pub mod utils;
 
+use alonzo::validate_alonzo_tx;
+use babbage::validate_babbage_tx;
 use byron::validate_byron_tx;
 use pallas_traverse::{Era, MultiEraTx};
 use shelley_ma::validate_shelley_ma_tx;
 
-pub use types::{
+pub use utils::{
     Environment, MultiEraProtParams, UTxOs, ValidationError::TxAndProtParamsDiffer,
     ValidationResult,
 };
 
 pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> ValidationResult {
-    match env {
-        Environment {
-            prot_params: MultiEraProtParams::Byron(bpp),
-            prot_magic,
-            ..
-        } => match metx {
-            MultiEraTx::Byron(mtxp) => validate_byron_tx(mtxp, utxos, bpp, prot_magic),
+    match env.prot_params() {
+        MultiEraProtParams::Byron(bpp) => match metx {
+            MultiEraTx::Byron(mtxp) => validate_byron_tx(mtxp, utxos, bpp, env.prot_magic()),
             _ => Err(TxAndProtParamsDiffer),
         },
-        Environment {
-            prot_params: MultiEraProtParams::Shelley(spp),
-            block_slot,
-            network_id,
-            ..
-        } => match metx.era() {
-            Era::Shelley | Era::Allegra | Era::Mary => match metx.as_alonzo() {
-                Some(mtx) => {
-                    validate_shelley_ma_tx(mtx, utxos, spp, block_slot, network_id, &metx.era())
-                }
-                None => Err(TxAndProtParamsDiffer),
-            },
+        MultiEraProtParams::Shelley(spp) => match metx {
+            MultiEraTx::AlonzoCompatible(mtx, Era::Shelley)
+            | MultiEraTx::AlonzoCompatible(mtx, Era::Allegra)
+            | MultiEraTx::AlonzoCompatible(mtx, Era::Mary) => validate_shelley_ma_tx(
+                mtx,
+                utxos,
+                spp,
+                env.block_slot(),
+                env.network_id(),
+                &metx.era(),
+            ),
+            _ => Err(TxAndProtParamsDiffer),
+        },
+        MultiEraProtParams::Alonzo(app) => match metx {
+            MultiEraTx::AlonzoCompatible(mtx, Era::Alonzo) => {
+                validate_alonzo_tx(mtx, utxos, app, env.block_slot(), env.network_id())
+            }
+            _ => Err(TxAndProtParamsDiffer),
+        },
+        MultiEraProtParams::Babbage(bpp) => match metx {
+            MultiEraTx::Babbage(mtx) => {
+                validate_babbage_tx(mtx, utxos, bpp, env.block_slot(), env.network_id())
+            }
             _ => Err(TxAndProtParamsDiffer),
         },
     }

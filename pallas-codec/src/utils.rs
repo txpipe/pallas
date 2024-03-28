@@ -1,6 +1,12 @@
-use minicbor::{data::Tag, Decode, Encode};
+use minicbor::{
+    data::{Tag, Type},
+    decode::Error,
+    Decode, Encode,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash as StdHash, ops::Deref};
+
+static TAG_SET: u64 = 258;
 
 /// Utility for skipping parts of the CBOR payload, use only for debugging
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -469,6 +475,83 @@ where
                 e.array(0)?;
             }
         }
+
+        Ok(())
+    }
+}
+
+/// Set
+///
+/// Optional 258 tag (until era after Conway, at which point is it required)
+/// with a vec of items which should contain no duplicates
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
+pub struct Set<T>(Vec<T>);
+
+impl<T> Set<T> {
+    pub fn to_vec(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<T> Deref for Set<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> From<Vec<T>> for Set<T> {
+    fn from(value: Vec<T>) -> Self {
+        Set(value)
+    }
+}
+
+impl<T> From<Set<KeepRaw<'_, T>>> for Set<T> {
+    fn from(value: Set<KeepRaw<'_, T>>) -> Self {
+        let inner = value.0.into_iter().map(|x| x.unwrap()).collect();
+        Self(inner)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Set<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'b, C, T> minicbor::decode::Decode<'b, C> for Set<T>
+where
+    T: Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        // decode optional set tag (this will be required in era following Conway)
+        if d.datatype()? == Type::Tag {
+            let found_tag = d.tag()?;
+
+            if found_tag != Tag::Unassigned(TAG_SET) {
+                return Err(Error::message(format!("Unrecognised tag: {found_tag:?}")));
+            }
+        }
+
+        Ok(Self(d.decode_with(ctx)?))
+    }
+}
+
+impl<C, T> minicbor::encode::Encode<C> for Set<T>
+where
+    T: Encode<C>,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(TAG_SET))?;
+        e.encode_with(&self.0, ctx)?;
 
         Ok(())
     }

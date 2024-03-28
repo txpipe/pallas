@@ -1242,6 +1242,15 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct RedeemerPointer {
+    #[n(0)]
+    pub tag: RedeemerTag,
+
+    #[n(1)]
+    pub index: u32,
+}
+
 /* bootstrap_witness =
 [ public_key : $vkey
 , signature  : $signature

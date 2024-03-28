@@ -114,6 +114,7 @@ macro_rules! common_hasher {
     };
 }
 
+common_hasher!(160);
 common_hasher!(224);
 common_hasher!(256);
 

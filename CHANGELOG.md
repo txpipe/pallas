@@ -2,6 +2,60 @@
 ## [Unreleased]
 
 
+<a name="v0.24.0"></a>
+## [v0.24.0] - 2024-03-09
+### Build
+- **deps:** update base64 requirement from 0.21.2 to 0.22.0 ([#417](https://github.com/txpipe/pallas/issues/417))
+- **deps:** update rocksdb requirement from 0.21.0 to 0.22.0 ([#403](https://github.com/txpipe/pallas/issues/403))
+
+### Feat
+- implement GetCBOR local state query ([#413](https://github.com/txpipe/pallas/issues/413))
+- add Babbage phase-1 validations ([#405](https://github.com/txpipe/pallas/issues/405))
+- **crypto:** add Blake2b hasher for 20-bytes digests ([#416](https://github.com/txpipe/pallas/issues/416))
+- **network:** implement `GetGenesisConfig` local state query ([#407](https://github.com/txpipe/pallas/issues/407))
+- **rolldb:** allow optionally overlap of WAL over immutable chain ([#419](https://github.com/txpipe/pallas/issues/419))
+- **rolldb:** allow crawl from intersect options ([#404](https://github.com/txpipe/pallas/issues/404))
+
+### Fix
+- allow extra bytes when decoding base address ([#420](https://github.com/txpipe/pallas/issues/420))
+- **primitives:** contemplate Conway's CBOR `set` tag ([#421](https://github.com/txpipe/pallas/issues/421))
+
+
+<a name="v0.23.0"></a>
+## [v0.23.0] - 2024-02-11
+### Build
+- **deps:** update itertools requirement from 0.10.5 to 0.12.1 ([#390](https://github.com/txpipe/pallas/issues/390))
+
+### Chore
+- fix new lint warnings ([#400](https://github.com/txpipe/pallas/issues/400))
+- update utxorpc-spec to 0.3.0 ([#399](https://github.com/txpipe/pallas/issues/399))
+
+### Feat
+- **network:** implement stake snapshot local state query ([#394](https://github.com/txpipe/pallas/issues/394))
+
+### Fix
+- support multiple pools in stake snapshot query ([#396](https://github.com/txpipe/pallas/issues/396))
+- contemplate legacy tx outputs in utxo by address query ([#386](https://github.com/txpipe/pallas/issues/386))
+- favor Babbage over Conway for tx decoding ([#389](https://github.com/txpipe/pallas/issues/389))
+- **addresses:** check length before decoding ([#377](https://github.com/txpipe/pallas/issues/377))
+- **traverse:** fix conway txs not returning reference inputs ([#388](https://github.com/txpipe/pallas/issues/388))
+- **traverse:** add missing tx field getters for Conway ([#392](https://github.com/txpipe/pallas/issues/392))
+- **utxorpc:** map missing struct values ([#387](https://github.com/txpipe/pallas/issues/387))
+
+
+<a name="v0.22.0"></a>
+## [v0.22.0] - 2024-01-25
+### Feat
+- implement `GetCurrentPParams` local state query ([#322](https://github.com/txpipe/pallas/issues/322))
+- **applying:** implement Alonzo phase-1 validations ([#380](https://github.com/txpipe/pallas/issues/380))
+- **hardano:** enable async for read_blocks_from_point iterator ([#379](https://github.com/txpipe/pallas/issues/379))
+- **network:** implement server side KeepAlive ([#376](https://github.com/txpipe/pallas/issues/376))
+
+### Fix
+- **codec:** Fix flat encoding and decoding of arbitrarily size integers ([#378](https://github.com/txpipe/pallas/issues/378))
+- **network:** use initiatorOnlyDiffusionMode correctly after spec fix ([#384](https://github.com/txpipe/pallas/issues/384))
+
+
 <a name="v0.21.0"></a>
 ## [v0.21.0] - 2024-01-04
 ### Build
@@ -33,20 +87,25 @@
 - **wallet:** implement HD private keys & encrypted wrapper ([#358](https://github.com/txpipe/pallas/issues/358))
 
 ### Fix
+- add missing Cargo metadata required for publish
+- add missing READMEs for crate publish
 - update pallas-applying to work with keepraw native scripts ([#370](https://github.com/txpipe/pallas/issues/370))
+- add txbuilder to unstable feature gate ([#349](https://github.com/txpipe/pallas/issues/349))
 - correct datum kind for set_datum_hash ([#350](https://github.com/txpipe/pallas/issues/350))
 - return witness objects for conway era multieratx ([#346](https://github.com/txpipe/pallas/issues/346))
 - fix unable to build and sign txs ([#345](https://github.com/txpipe/pallas/issues/345))
-- add txbuilder to unstable feature gate ([#349](https://github.com/txpipe/pallas/issues/349))
 - **hardano:** remove panics from immutable db parsing ([#351](https://github.com/txpipe/pallas/issues/351))
-- **network:** set so_linger socket option to match cardano-node ([#369](https://github.com/txpipe/pallas/issues/369))
 - **network:** demux using one mpsc channel per miniprotocol ([#366](https://github.com/txpipe/pallas/issues/366))
 - **network:** add tcp_nodelay to bearer ([#365](https://github.com/txpipe/pallas/issues/365))
 - **network:** use correct client state transition for n2n txsub ([#348](https://github.com/txpipe/pallas/issues/348))
+- **network:** set so_linger socket option to match cardano-node ([#369](https://github.com/txpipe/pallas/issues/369))
 - **network:** relax connect args lifetime ([#367](https://github.com/txpipe/pallas/issues/367))
 
 ### Refactor
 - **network:** split bearer into read/write ([#364](https://github.com/txpipe/pallas/issues/364))
+
+### Release
+- v0.21.0 ([#375](https://github.com/txpipe/pallas/issues/375))
 
 
 <a name="v0.20.0"></a>
@@ -1059,7 +1118,10 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.24.0...HEAD
+[v0.24.0]: https://github.com/txpipe/pallas/compare/v0.23.0...v0.24.0
+[v0.23.0]: https://github.com/txpipe/pallas/compare/v0.22.0...v0.23.0
+[v0.22.0]: https://github.com/txpipe/pallas/compare/v0.21.0...v0.22.0
 [v0.21.0]: https://github.com/txpipe/pallas/compare/v0.20.0...v0.21.0
 [v0.20.0]: https://github.com/txpipe/pallas/compare/v0.19.1...v0.20.0
 [v0.19.1]: https://github.com/txpipe/pallas/compare/v0.19.0...v0.19.1

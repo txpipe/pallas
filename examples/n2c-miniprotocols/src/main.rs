@@ -1,4 +1,7 @@
+use std::collections::BTreeSet;
+
 use pallas::{
+    codec::utils::Bytes,
     ledger::{addresses::Address, traverse::MultiEraBlock},
     network::{
         facades::NodeClient,
@@ -52,6 +55,24 @@ async fn do_localstate_query(client: &mut NodeClient) {
     info!("result: {:?}", result);
 
     let result = queries_v16::get_current_pparams(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
+    // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
+    // Empty Set means all pools.
+    let pools: BTreeSet<Bytes> = BTreeSet::new();
+    let result = queries_v16::get_stake_snapshots(client, era, pools)
+        .await
+        .unwrap();
+    println!("result: {:?}", result);
+
+    let result = queries_v16::get_genesis_config(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
+    // Ensure decoding across version disparities by always receiving a valid
+    // response using the wrap function for the query result with CBOR-in-CBOR
+    // concept.
+    let query = queries_v16::BlockQuery::GetCurrentPParams;
+    let result = queries_v16::get_cbor(client, era, query).await.unwrap();
     println!("result: {:?}", result);
 
     client.send_release().await.unwrap();
