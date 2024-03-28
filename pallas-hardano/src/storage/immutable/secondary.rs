@@ -1,12 +1,11 @@
 use std::{
-    fs::File,
-    io::{BufReader, Read, Seek},
-    path::Path,
+    fs::File, io::{BufReader, Read, Seek}, path::Path
 };
 
 pub type PrimaryIndex = super::primary::Reader;
 
 use binary_layout::prelude::*;
+use tracing::warn;
 
 use crate::storage::immutable::{primary, secondary};
 
@@ -109,6 +108,13 @@ impl Iterator for Reader {
 
                 Some(Ok(entry))
             }
+            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                if self.current.is_some() {
+                    warn!("inconsistent state between primary and secondary index");
+                }
+                self.current = None;
+                None
+            }
             Err(err) => {
                 self.current = None;
                 Some(Err(err))
@@ -135,6 +141,15 @@ mod tests {
     #[test]
     fn can_parse_all_entries() {
         let reader = super::read_entries(Path::new("../test_data"), "01836").unwrap();
+
+        for entry in reader {
+            entry.unwrap();
+        }
+    }
+    
+    #[test]
+    fn can_parse_inconsistent_entries() {
+        let reader = super::read_entries(Path::new("../test_data/inconsistent_indexes"), "10366").unwrap();
 
         for entry in reader {
             entry.unwrap();
