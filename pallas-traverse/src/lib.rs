@@ -4,7 +4,7 @@ use std::{borrow::Cow, fmt::Display, hash::Hash as StdHash};
 
 use thiserror::Error;
 
-use pallas_codec::utils::{KeepRaw, KeyValuePairs};
+use pallas_codec::utils::{KeepRaw, KeyValuePairs, NonEmptyKeyValuePairs, NonZeroInt};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
@@ -22,6 +22,7 @@ pub mod input;
 pub mod meta;
 pub mod output;
 pub mod probe;
+pub mod redeemers;
 pub mod signers;
 pub mod size;
 pub mod time;
@@ -90,6 +91,7 @@ pub enum MultiEraTx<'b> {
 pub enum MultiEraOutput<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
     Babbage(Box<Cow<'b, babbage::MintedTransactionOutput<'b>>>),
+    Conway(Box<Cow<'b, conway::MintedTransactionOutput<'b>>>),
     Byron(Box<Cow<'b, byron::TxOut>>),
 }
 
@@ -106,6 +108,16 @@ pub enum MultiEraCert<'b> {
     NotApplicable,
     AlonzoCompatible(Box<Cow<'b, alonzo::Certificate>>),
     Conway(Box<Cow<'b, conway::Certificate>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraRedeemer<'b> {
+    AlonzoCompatible(Box<Cow<'b, alonzo::Redeemer>>),
+    Conway(
+        Box<Cow<'b, conway::RedeemersKey>>,
+        Box<Cow<'b, conway::RedeemersValue>>,
+    ),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -128,6 +140,10 @@ pub enum MultiEraPolicyAssets<'b> {
         &'b alonzo::PolicyId,
         &'b KeyValuePairs<alonzo::AssetName, u64>,
     ),
+    ConwayMint(
+        &'b alonzo::PolicyId,
+        &'b NonEmptyKeyValuePairs<alonzo::AssetName, NonZeroInt>,
+    ),
 }
 
 #[derive(Debug, Clone)]
@@ -135,6 +151,7 @@ pub enum MultiEraPolicyAssets<'b> {
 pub enum MultiEraAsset<'b> {
     AlonzoCompatibleOutput(&'b alonzo::PolicyId, &'b alonzo::AssetName, u64),
     AlonzoCompatibleMint(&'b alonzo::PolicyId, &'b alonzo::AssetName, i64),
+    ConwayMint(&'b alonzo::PolicyId, &'b alonzo::AssetName, NonZeroInt),
 }
 
 #[derive(Debug, Clone)]

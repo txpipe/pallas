@@ -934,7 +934,7 @@ fn check_redeemers(
         Some(redeemers) => redeemers
             .iter()
             .map(|x| RedeemerPointer {
-                tag: x.tag.clone(),
+                tag: x.tag,
                 index: x.index,
             })
             .collect(),
