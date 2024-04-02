@@ -41,7 +41,9 @@ pub enum Error {
     IncompatibleVersion,
 }
 
-pub type RunningKeepAlive = tokio::task::JoinHandle<Result<(), Error>>;
+pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
+
+pub type KeepAliveHandle = tokio::task::JoinHandle<Result<(), Error>>;
 
 pub enum KeepAliveLoop {
     Client(keepalive::Client, Duration),
@@ -64,14 +66,13 @@ impl KeepAliveLoop {
         let mut interval = tokio::time::interval(interval);
 
         loop {
+            interval.tick().await;
             warn!("sending keepalive request");
 
             client
                 .keepalive_roundtrip()
                 .await
                 .map_err(Error::KeepAliveClientLoop)?;
-
-            interval.tick().await;
         }
     }
 
@@ -86,7 +87,7 @@ impl KeepAliveLoop {
         }
     }
 
-    pub fn spawn(self) -> RunningKeepAlive {
+    pub fn spawn(self) -> KeepAliveHandle {
         match self {
             KeepAliveLoop::Client(client, interval) => {
                 tokio::spawn(Self::run_client(client, interval))
@@ -99,7 +100,7 @@ impl KeepAliveLoop {
 /// Client of N2N Ouroboros
 pub struct PeerClient {
     pub plexer: RunningPlexer,
-    //pub keepalive: RunningKeepAlive,
+    pub keepalive: KeepAliveHandle,
     pub chainsync: chainsync::N2NClient,
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
@@ -137,12 +138,15 @@ impl PeerClient {
             return Err(Error::IncompatibleVersion);
         }
 
-        let keepalive = KeepAliveLoop::client(keepalive, Duration::from_secs(20)).spawn();
-        keepalive.await.unwrap().unwrap();
+        let keepalive = KeepAliveLoop::client(
+            keepalive,
+            Duration::from_secs(DEFAULT_KEEP_ALIVE_INTERVAL_SEC),
+        )
+        .spawn();
 
         let client = Self {
             plexer,
-            //keepalive,
+            keepalive,
             chainsync: chainsync::Client::new(cs_channel),
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),

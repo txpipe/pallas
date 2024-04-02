@@ -27,19 +27,11 @@ pub enum ClientError {
     Plexer(multiplexer::Error),
 }
 
-pub struct KeepAliveSharedState {
-    saved_cookie: u16,
-}
-
-pub struct Client(State, multiplexer::ChannelBuffer, KeepAliveSharedState);
+pub struct Client(State, multiplexer::ChannelBuffer);
 
 impl Client {
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(
-            State::Client,
-            multiplexer::ChannelBuffer::new(channel),
-            KeepAliveSharedState { saved_cookie: 0 },
-        )
+        Self(State::Client, multiplexer::ChannelBuffer::new(channel))
     }
 
     pub fn state(&self) -> &State {

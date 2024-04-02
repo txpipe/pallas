@@ -5,7 +5,7 @@ use pallas::{
         miniprotocols::{blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
     },
 };
-use std::time::Duration;
+
 use thiserror::Error;
 use tokio::time::Instant;
 
@@ -117,14 +117,6 @@ async fn do_chainsync(
     }
 }
 
-async fn do_keepalive(mut keepalive_client: keepalive::Client) -> Result<(), Error> {
-    loop {
-        tokio::time::sleep(Duration::from_secs(20)).await;
-        keepalive_client.send_keepalive().await?;
-        tracing::info!("keepalive sent");
-    }
-}
-
 #[tokio::main]
 async fn main() {
     tracing::subscriber::set_global_default(
@@ -145,25 +137,10 @@ async fn main() {
             plexer,
             chainsync,
             blockfetch,
-            keepalive,
             ..
         } = peer;
 
-        let chainsync_handle = tokio::spawn(do_chainsync(chainsync, blockfetch));
-        let keepalive_handle = tokio::spawn(do_keepalive(keepalive));
-
-        // If any of these concurrent tasks exit or fail, the others are canceled.
-        let (chainsync_result, keepalive_result) =
-            tokio::try_join!(chainsync_handle, keepalive_handle)
-                .expect("error joining tokio threads");
-
-        if let Err(err) = chainsync_result {
-            tracing::error!("chainsync error: {:?}", err);
-        }
-
-        if let Err(err) = keepalive_result {
-            tracing::error!("keepalive error: {:?}", err);
-        }
+        do_chainsync(chainsync, blockfetch).await.unwrap();
 
         plexer.abort().await;
 
