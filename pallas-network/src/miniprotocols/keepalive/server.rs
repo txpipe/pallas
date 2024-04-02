@@ -113,14 +113,11 @@ impl Server {
     }
 
     pub async fn send_keepalive_response(&mut self) -> Result<(), ServerError> {
-        match self.state().clone() {
-            State::Server(cookie) => {
-                let msg = Message::ResponseKeepAlive(cookie);
-                self.send_message(&msg).await?;
-                self.0 = State::Client;
-                debug!("sent keepalive response message with cookie {}", cookie);
-            }
-            _ => (),
+        if let State::Server(cookie) = self.state().clone() {
+            let msg = Message::ResponseKeepAlive(cookie);
+            self.send_message(&msg).await?;
+            self.0 = State::Client;
+            debug!("sent keepalive response message with cookie {}", cookie);
         }
 
         Ok(())
