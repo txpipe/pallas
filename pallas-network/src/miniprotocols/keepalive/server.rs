@@ -41,7 +41,7 @@ impl Server {
     fn has_agency(&self) -> bool {
         match &self.0 {
             State::Client => false,
-            State::Server => true,
+            State::Server(..) => true,
             State::Done => false,
         }
     }
@@ -64,8 +64,7 @@ impl Server {
 
     fn assert_outbound_state(&self, msg: &Message) -> Result<(), ServerError> {
         match (&self.0, msg) {
-            (State::Server, Message::ResponseKeepAlive(..)) => Ok(()),
-
+            (State::Server(..), Message::ResponseKeepAlive(..)) => Ok(()),
             _ => Err(ServerError::InvalidOutbound),
         }
     }
@@ -97,33 +96,40 @@ impl Server {
         Ok(msg)
     }
 
-    pub async fn send_keepalive_response(
-        &mut self,
-        cookie: KeepAliveCookie,
-    ) -> Result<(), ServerError> {
-        let msg = Message::ResponseKeepAlive(cookie);
-        self.send_message(&msg).await?;
-        self.0 = State::Client;
-        debug!("sent keepalive response message with cookie {}", cookie);
+    pub async fn recv_keepalive_request(&mut self) -> Result<(), ServerError> {
+        match self.recv_message().await? {
+            Message::KeepAlive(cookie) => {
+                debug!("received keepalive message with cookie {}", cookie);
+                self.0 = State::Server(cookie);
+                Ok(())
+            }
+            Message::Done => {
+                debug!("client sent done message in keepalive protocol");
+                self.0 = State::Done;
+                Ok(())
+            }
+            _ => Err(ServerError::InvalidInbound),
+        }
+    }
+
+    pub async fn send_keepalive_response(&mut self) -> Result<(), ServerError> {
+        match self.state().clone() {
+            State::Server(cookie) => {
+                let msg = Message::ResponseKeepAlive(cookie);
+                self.send_message(&msg).await?;
+                self.0 = State::Client;
+                debug!("sent keepalive response message with cookie {}", cookie);
+            }
+            _ => (),
+        }
 
         Ok(())
     }
 
-    pub async fn keepalive_receive_and_respond(&mut self) -> Result<Option<()>, ServerError> {
-        match self.recv_message().await? {
-            Message::KeepAlive(cookie) => {
-                debug!("received keepalive message with cookie {}", cookie);
+    pub async fn keepalive_roundtrip(&mut self) -> Result<(), ServerError> {
+        self.recv_keepalive_request().await?;
+        self.send_keepalive_response().await?;
 
-                self.0 = State::Server;
-                Some(self.send_keepalive_response(cookie).await).transpose()
-            }
-            Message::Done => {
-                debug!("client sent done message in keepalive protocol");
-
-                self.0 = State::Done;
-                Ok(None)
-            }
-            _ => Err(ServerError::InvalidInbound),
-        }
+        Ok(())
     }
 }
