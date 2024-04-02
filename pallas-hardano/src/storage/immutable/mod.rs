@@ -324,7 +324,7 @@ mod tests {
 
     use pallas_network::miniprotocols::Point;
     use pallas_traverse::MultiEraBlock;
-    use tracing::trace;
+    use tracing::{trace, warn};
 
     #[test]
     fn chunk_binary_search_test() {
@@ -581,7 +581,14 @@ mod tests {
 
         let path = Path::new("../test_data/full_snapshots");
 
-        let dir = std::fs::read_dir(path).expect("can't access full_snapshots dir");
+        let dir = match std::fs::read_dir(path) {
+            Ok(x) => x,
+            Err(_) => {
+                warn!("full_snapshot folder not available");
+                return;
+            }
+        };
+
         for snapshot in dir {
             let snapshot = snapshot.unwrap();
             let immutable = snapshot.path().join("immutable");
