@@ -2,6 +2,20 @@
 ## [Unreleased]
 
 
+<a name="v0.25.0"></a>
+## [v0.25.0] - 2024-04-02
+### Build
+- **deps:** update utxorpc-spec requirement from 0.3.0 to 0.4.4 ([#425](https://github.com/txpipe/pallas/issues/425))
+
+### Feat
+- add Conway 2024-03 CDDL conformity ([#424](https://github.com/txpipe/pallas/issues/424))
+- **applying:** add support for preview / preprod networks ([#422](https://github.com/txpipe/pallas/issues/422))
+
+### Test
+- **hardano:** fix failing tests on CI context ([#429](https://github.com/txpipe/pallas/issues/429))
+- **hardano:** discover snapshots by inspecting test_data dir ([#428](https://github.com/txpipe/pallas/issues/428))
+
+
 <a name="v0.24.0"></a>
 ## [v0.24.0] - 2024-03-09
 ### Build
@@ -1118,7 +1132,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.25.0...HEAD
+[v0.25.0]: https://github.com/txpipe/pallas/compare/v0.24.0...v0.25.0
 [v0.24.0]: https://github.com/txpipe/pallas/compare/v0.23.0...v0.24.0
 [v0.23.0]: https://github.com/txpipe/pallas/compare/v0.22.0...v0.23.0
 [v0.22.0]: https://github.com/txpipe/pallas/compare/v0.21.0...v0.22.0
