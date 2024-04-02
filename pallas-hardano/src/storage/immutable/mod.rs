@@ -528,18 +528,8 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore]
-    fn can_read_whole_mithril_snapshot() {
-        tracing::subscriber::set_global_default(
-            tracing_subscriber::FmtSubscriber::builder()
-                .with_max_level(tracing::Level::DEBUG)
-                .finish(),
-        )
-        .unwrap();
-
-        let path = option_env!("PALLAS_MITHRIL_SNAPSHOT_PATH").unwrap();
-        let reader = super::read_blocks(Path::new(path)).unwrap();
+    fn read_full_snapshot(path: &Path) {
+        let reader = super::read_blocks(&path).unwrap();
 
         let mut count = 0;
         let mut last_slot = None;
@@ -576,9 +566,12 @@ mod tests {
         assert!(count > 0);
     }
 
+    // This test will inspect the /test_data/full_snapshots dir in the repo hoping
+    // to find full mithril snapshots to process. Full snapshots are ignored in git
+    // for obvious reasons. Is up to the developer to download and extract snapshots
+    // into that folder. If no snapshots are available, this test will pass.
     #[test]
-    #[ignore]
-    fn can_read_whole_mithril_snapshot_2() {
+    fn read_available_full_snapshots() {
         tracing::subscriber::set_global_default(
             tracing_subscriber::FmtSubscriber::builder()
                 .with_max_level(tracing::Level::DEBUG)
@@ -586,41 +579,15 @@ mod tests {
         )
         .unwrap();
 
-        let path = option_env!("PALLAS_MITHRIL_SNAPSHOT_PATH").unwrap();
-        let reader = super::read_blocks_from_point(Path::new(path), Point::Origin).unwrap();
+        let path = Path::new("../test_data/full_snapshots");
 
-        let mut count = 0;
-        let mut last_slot = None;
-        let mut last_height = None;
-        let mut last_hash = None;
-
-        for block in reader.take_while(Result::is_ok) {
-            let block = block.unwrap();
-            let block = MultiEraBlock::decode(&block).unwrap();
-
-            trace!("slot: {}, hash: {}", block.slot(), block.hash());
-
-            if let Some(last_slot) = last_slot {
-                assert!(last_slot < block.slot());
+        let dir = std::fs::read_dir(path).expect("can't access full_snapshots dir");
+        for snapshot in dir {
+            let snapshot = snapshot.unwrap();
+            let immutable = snapshot.path().join("immutable");
+            if immutable.is_dir() {
+                read_full_snapshot(&immutable);
             }
-
-            if let Some(last_height) = last_height {
-                assert_eq!(last_height + 1, block.number());
-            }
-
-            if let Some(last_hash) = last_hash {
-                if let Some(expected) = block.header().previous_hash() {
-                    assert_eq!(last_hash, expected)
-                }
-            }
-
-            last_slot = Some(block.slot());
-            last_height = Some(block.number());
-            last_hash = Some(block.hash());
-
-            count += 1;
         }
-
-        assert!(count > 0);
     }
 }
