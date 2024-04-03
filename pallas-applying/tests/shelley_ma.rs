@@ -14,8 +14,8 @@ use pallas_codec::{
     utils::{Bytes, Nullable},
 };
 use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, ShelleyProtParams, TransactionBody, TransactionOutput, VKeyWitness,
-    Value,
+    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, ShelleyProtParams,
+    TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraProtocolParameters, MultiEraTx};
 
@@ -40,10 +40,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -72,10 +102,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 17584925,
@@ -104,10 +164,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5860488,
@@ -136,10 +226,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 24381863,
@@ -177,10 +297,40 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -204,10 +354,40 @@ mod shelley_ma_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -247,10 +427,40 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -281,10 +491,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 9999999,
@@ -315,10 +555,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 0,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 0,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -350,10 +620,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 10000000000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 10000000000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -394,10 +694,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -428,10 +758,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 70, // This value was 44 during Shelley on mainnet.
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 70,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -485,10 +845,40 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -530,10 +920,40 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5860488,
@@ -568,10 +988,40 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -619,10 +1069,40 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,
@@ -665,10 +1145,40 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 4096,
-                min_lovelace: 1000000,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
             }),
             prot_magic: 764824073,
             block_slot: 5281340,

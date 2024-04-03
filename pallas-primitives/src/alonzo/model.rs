@@ -711,12 +711,55 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct ShelleyProtParams {
-    pub summand: u64,
-    pub multiplier: u64,
-    pub max_tx_size: u64,
-    pub min_lovelace: u64,
+    #[n(0)]
+    pub minfee_a: u32,
+
+    #[n(1)]
+    pub minfee_b: u32,
+
+    #[n(2)]
+    pub max_block_body_size: u32,
+
+    #[n(3)]
+    pub max_transaction_size: u32,
+
+    #[n(4)]
+    pub max_block_header_size: u32,
+
+    #[n(5)]
+    pub key_deposit: Coin,
+
+    #[n(6)]
+    pub pool_deposit: Coin,
+
+    #[n(7)]
+    pub maximum_epoch: Epoch,
+
+    #[n(8)]
+    pub desired_number_of_stake_pools: u32,
+
+    #[n(9)]
+    pub pool_pledge_influence: RationalNumber,
+
+    #[n(10)]
+    pub expansion_rate: UnitInterval,
+
+    #[n(11)]
+    pub treasury_growth_rate: UnitInterval,
+
+    #[n(12)]
+    pub decentralization_constant: UnitInterval,
+
+    #[n(13)]
+    pub extra_entropy: Nonce,
+
+    #[n(14)]
+    pub protocol_version: ProtocolVersion,
+
+    #[n(15)]
+    pub min_utxo_value: Coin,
 }
 
 #[derive(Debug, Clone)]

@@ -36,7 +36,7 @@ pub fn validate_alonzo_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let size: &u64 = &get_alonzo_comp_tx_size(tx_body).ok_or(Alonzo(UnknownTxSize))?;
+    let size: &u32 = &get_alonzo_comp_tx_size(tx_body).ok_or(Alonzo(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, mtx, block_slot)?;
@@ -131,7 +131,7 @@ fn check_upper_bound(
 
 fn check_fee(
     tx_body: &TransactionBody,
-    size: &u64,
+    size: &u32,
     mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
@@ -147,10 +147,10 @@ fn check_fee(
 // minimum fee.
 fn check_min_fee(
     tx_body: &TransactionBody,
-    size: &u64,
+    size: &u32,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    if tx_body.fee < prot_pps.summand + prot_pps.multiplier * size {
+    if tx_body.fee < prot_pps.summand + prot_pps.multiplier * (*size as u64) {
         return Err(Alonzo(FeeBelowMin));
     }
     Ok(())
@@ -363,8 +363,8 @@ fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> Validation
 }
 
 // The transaction size does not exceed the protocol limit.
-fn check_tx_size(size: &u64, prot_pps: &AlonzoProtParams) -> ValidationResult {
-    if *size > prot_pps.max_tx_size {
+fn check_tx_size(size: &u32, prot_pps: &AlonzoProtParams) -> ValidationResult {
+    if *size as u64 > prot_pps.max_tx_size {
         return Err(Alonzo(MaxTxSizeExceeded));
     }
     Ok(())

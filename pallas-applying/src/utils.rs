@@ -24,10 +24,10 @@ pub use validation::*;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u64> {
+pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx_body, &mut buff) {
-        Ok(()) => Some(buff.len() as u64),
+        Ok(()) => Some(buff.len() as u32),
         Err(_) => None,
     }
 }
