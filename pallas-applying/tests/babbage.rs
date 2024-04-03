@@ -4,10 +4,7 @@ use common::*;
 use hex;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
-    utils::{
-        BabbageError, BabbageProtParams, Environment, FeePolicy, MultiEraProtParams,
-        ValidationError::*,
-    },
+    utils::{BabbageError, Environment, ValidationError::*},
     validate, UTxOs,
 };
 use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
@@ -18,13 +15,16 @@ use pallas_codec::{
     },
     utils::Nullable,
 };
-use pallas_primitives::babbage::{
-    ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef,
-    MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NetworkId,
-    PlutusData, PlutusV2Script, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer,
-    RedeemerTag, Value,
+use pallas_primitives::{
+    babbage::{
+        BabbageProtParams, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
+        MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx,
+        MintedWitnessSet, NetworkId, PlutusData, PlutusV2Script, PseudoDatumOption, PseudoScript,
+        PseudoTransactionOutput, Redeemer, RedeemerTag, Value,
+    },
+    FeePolicy,
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
+use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraProtocolParameters, MultiEraTx};
 use std::borrow::Cow;
 
 #[cfg(test)]
@@ -51,7 +51,7 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -135,7 +135,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -228,7 +228,7 @@ mod babbage_tests {
         )];
         add_ref_input_babbage(&mtx.transaction_body, &mut utxos, ref_input_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -314,7 +314,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -405,7 +405,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -517,7 +517,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -598,7 +598,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -648,7 +648,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -685,7 +685,7 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -739,7 +739,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -796,7 +796,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -847,7 +847,7 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 76, // This value was 44 during Babbage on mainnet.
@@ -940,7 +940,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1028,7 +1028,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1136,7 +1136,7 @@ mod babbage_tests {
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1235,7 +1235,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1322,7 +1322,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1418,7 +1418,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1472,7 +1472,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1520,7 +1520,7 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1568,7 +1568,7 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1650,7 +1650,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1709,7 +1709,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1800,7 +1800,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1849,7 +1849,7 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1973,7 +1973,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2061,7 +2061,7 @@ mod babbage_tests {
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2154,7 +2154,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2250,7 +2250,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2352,7 +2352,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2452,7 +2452,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2549,7 +2549,7 @@ mod babbage_tests {
             Decode::decode(&mut Decoder::new(&tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Babbage(BabbageProtParams {
+            prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
