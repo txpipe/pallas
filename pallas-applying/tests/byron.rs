@@ -2,9 +2,7 @@ pub mod common;
 
 use common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
 use pallas_applying::{
-    utils::{
-        ByronError, ByronProtParams, Environment, FeePolicy, MultiEraProtParams, ValidationError::*,
-    },
+    utils::{ByronError, Environment, ValidationError::*},
     validate, UTxOs,
 };
 
@@ -15,8 +13,11 @@ use pallas_codec::{
     },
     utils::{CborWrap, MaybeIndefArray},
 };
-use pallas_primitives::byron::{MintedTxPayload, Twit, Tx, TxOut, Witnesses};
-use pallas_traverse::MultiEraTx;
+use pallas_primitives::{
+    byron::{ByronProtParams, MintedTxPayload, Twit, Tx, TxOut, Witnesses},
+    FeePolicy,
+};
+use pallas_traverse::{MultiEraProtocolParameters, MultiEraTx};
 use std::vec::Vec;
 
 #[cfg(test)]
@@ -38,7 +39,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -70,7 +71,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -110,7 +111,7 @@ mod byron_tests {
         mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -153,7 +154,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -181,7 +182,7 @@ mod byron_tests {
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -230,7 +231,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -264,7 +265,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 1000,
                     multiplier: 1000,
@@ -298,7 +299,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -340,7 +341,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -391,7 +392,7 @@ mod byron_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Byron(ByronProtParams {
+            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
