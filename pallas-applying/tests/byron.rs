@@ -37,9 +37,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 6341,
@@ -67,9 +79,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -105,9 +129,21 @@ mod byron_tests {
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -146,9 +182,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -172,9 +220,21 @@ mod byron_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -219,9 +279,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -251,9 +323,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 1000,
                 multiplier: 1000,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -283,9 +367,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 0,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 0,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -301,7 +397,7 @@ mod byron_tests {
     }
 
     #[test]
-    // The input to the transaction does not have a corresponding witness.
+    // The input to the transaction does not have a matching witness.
     fn missing_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/byron1.tx"));
         let mut mtxp: MintedTxPayload = minted_tx_payload_from_cbor(&cbor_bytes);
@@ -323,9 +419,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
@@ -372,9 +480,21 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                script_version: 0,
+                slot_duration: 20000,
+                max_block_size: 2000000,
+                max_header_size: 2000000,
+                max_tx_size: 4096,
+                max_proposal_size: 700,
+                mpc_thd: 20000000000000,
+                heavy_del_thd: 300000000000,
+                update_vote_thd: 1000000000000,
+                update_proposal_thd: 100000000000000,
+                update_implicit: 10000,
+                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
                 summand: 155381,
                 multiplier: 44,
-                max_tx_size: 4096,
+                unlock_stake_epoch: 18446744073709551615,
             }),
             prot_magic: 764824073,
             block_slot: 3241381,
