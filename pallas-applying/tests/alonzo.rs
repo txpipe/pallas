@@ -4,10 +4,7 @@ use common::*;
 
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
-    utils::{
-        AlonzoError, AlonzoProtParams, Environment, FeePolicy, MultiEraProtParams,
-        ValidationError::*,
-    },
+    utils::{AlonzoError, Environment, ValidationError::*},
     validate, UTxOs,
 };
 use pallas_codec::{
@@ -17,11 +14,15 @@ use pallas_codec::{
     },
     utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
 };
-use pallas_primitives::alonzo::{
-    AddrKeyhash, ExUnits, MintedTx, MintedWitnessSet, NativeScript, NetworkId, PlutusData,
-    Redeemer, RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
+use pallas_primitives::{
+    alonzo::{
+        AddrKeyhash, AlonzoProtParams, ExUnits, MintedTx, MintedWitnessSet, NativeScript,
+        NetworkId, PlutusData, Redeemer, RedeemerTag, TransactionBody, TransactionOutput,
+        VKeyWitness, Value,
+    },
+    FeePolicy,
 };
-use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
+use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraProtocolParameters, MultiEraTx};
 use std::borrow::Cow;
 
 #[cfg(test)]
@@ -44,7 +45,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -158,7 +159,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -199,7 +200,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -240,7 +241,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -286,7 +287,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -323,7 +324,7 @@ mod alonzo_tests {
         let utxos: UTxOs = UTxOs::new();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -373,7 +374,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -423,7 +424,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -467,7 +468,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 79, // This value was 44 during Alonzo on mainnet.
@@ -590,7 +591,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -708,7 +709,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -847,7 +848,7 @@ mod alonzo_tests {
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -975,7 +976,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1092,7 +1093,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1142,7 +1143,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1212,7 +1213,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1264,7 +1265,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1381,7 +1382,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1426,7 +1427,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1557,7 +1558,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1607,7 +1608,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1664,7 +1665,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1787,7 +1788,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1918,7 +1919,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -1968,7 +1969,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2091,7 +2092,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2220,7 +2221,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2350,7 +2351,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2473,7 +2474,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2518,7 +2519,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2562,7 +2563,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2606,7 +2607,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -2733,7 +2734,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Alonzo(AlonzoProtParams {
+            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
