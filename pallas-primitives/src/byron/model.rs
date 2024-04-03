@@ -14,8 +14,6 @@ use pallas_codec::minicbor;
 
 use std::hash::Hash as StdHash;
 
-use crate::FeePolicy;
-
 // Basic Cardano Types
 
 pub type Blake2b256 = Hash<32>;
@@ -584,9 +582,12 @@ pub struct Up {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct ByronProtParams {
     #[n(0)]
-    pub fee_policy: FeePolicy,
+    pub summand: u64,
 
     #[n(1)]
+    pub multiplier: u64,
+
+    #[n(2)]
     pub max_tx_size: u64,
 }
 

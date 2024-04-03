@@ -15,14 +15,11 @@ use pallas_codec::{
     },
     utils::Nullable,
 };
-use pallas_primitives::{
-    babbage::{
-        BabbageProtParams, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
-        MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx,
-        MintedWitnessSet, NetworkId, PlutusData, PlutusV2Script, PseudoDatumOption, PseudoScript,
-        PseudoTransactionOutput, Redeemer, RedeemerTag, Value,
-    },
-    FeePolicy,
+use pallas_primitives::babbage::{
+    BabbageProtParams, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
+    MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
+    NetworkId, PlutusData, PlutusV2Script, PseudoDatumOption, PseudoScript,
+    PseudoTransactionOutput, Redeemer, RedeemerTag, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraProtocolParameters, MultiEraTx};
 use std::borrow::Cow;
@@ -52,10 +49,8 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -136,10 +131,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -229,10 +222,8 @@ mod babbage_tests {
         add_ref_input_babbage(&mtx.transaction_body, &mut utxos, ref_input_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -315,10 +306,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -406,10 +395,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -518,10 +505,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -599,10 +584,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -649,10 +632,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -686,10 +667,8 @@ mod babbage_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -740,10 +719,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -797,10 +774,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -848,10 +823,8 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 76, // This value was 44 during Babbage on mainnet.
-                },
+                summand: 155381,
+                multiplier: 76, // This value was 44 during Babbage on mainnet.
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -941,10 +914,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1029,10 +1000,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1137,10 +1106,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1236,10 +1203,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1323,10 +1288,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1419,10 +1382,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1473,10 +1434,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1521,10 +1480,8 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1569,10 +1526,8 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1651,10 +1606,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1710,10 +1663,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1801,10 +1752,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1850,10 +1799,8 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 154, // 1 less than the size of the transaction.
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -1974,10 +1921,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -2062,10 +2007,8 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -2155,10 +2098,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -2251,10 +2192,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -2353,10 +2292,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -2453,10 +2390,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,
@@ -2550,10 +2485,8 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(BabbageProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 62000000,
                 max_block_ex_steps: 40000000000,

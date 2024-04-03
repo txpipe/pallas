@@ -14,13 +14,9 @@ use pallas_codec::{
     },
     utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
 };
-use pallas_primitives::{
-    alonzo::{
-        AddrKeyhash, AlonzoProtParams, ExUnits, MintedTx, MintedWitnessSet, NativeScript,
-        NetworkId, PlutusData, Redeemer, RedeemerTag, TransactionBody, TransactionOutput,
-        VKeyWitness, Value,
-    },
-    FeePolicy,
+use pallas_primitives::alonzo::{
+    AddrKeyhash, AlonzoProtParams, ExUnits, MintedTx, MintedWitnessSet, NativeScript, NetworkId,
+    PlutusData, Redeemer, RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraProtocolParameters, MultiEraTx};
 use std::borrow::Cow;
@@ -46,10 +42,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -160,10 +154,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -201,10 +193,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -242,10 +232,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -288,10 +276,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -325,10 +311,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -375,10 +359,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -425,10 +407,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -469,10 +449,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 79, // This value was 44 during Alonzo on mainnet.
-                },
+                summand: 155381,
+                multiplier: 79, // This value was 44 during Alonzo on mainnet.
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -592,10 +570,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -710,10 +686,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -849,10 +823,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -977,10 +949,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1094,10 +1064,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1144,10 +1112,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1214,10 +1180,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1266,10 +1230,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1383,10 +1345,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1428,10 +1388,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 158, // 1 byte less than the size of the transaction.
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1559,10 +1517,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1609,10 +1565,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1666,10 +1620,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1789,10 +1741,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1920,10 +1870,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -1970,10 +1918,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2093,10 +2039,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2222,10 +2166,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2352,10 +2294,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2475,10 +2415,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2520,10 +2458,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2564,10 +2500,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2608,10 +2542,8 @@ mod alonzo_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,
@@ -2735,10 +2667,8 @@ mod alonzo_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 16384,
                 max_block_ex_mem: 50000000,
                 max_block_ex_steps: 40000000000,

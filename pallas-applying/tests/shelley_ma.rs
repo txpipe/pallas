@@ -13,12 +13,9 @@ use pallas_codec::{
     },
     utils::{Bytes, Nullable},
 };
-use pallas_primitives::{
-    alonzo::{
-        MintedTx, MintedWitnessSet, ShelleyProtParams, TransactionBody, TransactionOutput,
-        VKeyWitness, Value,
-    },
-    FeePolicy,
+use pallas_primitives::alonzo::{
+    MintedTx, MintedWitnessSet, ShelleyProtParams, TransactionBody, TransactionOutput, VKeyWitness,
+    Value,
 };
 use pallas_traverse::{Era, MultiEraProtocolParameters, MultiEraTx};
 
@@ -43,10 +40,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -77,10 +72,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -111,10 +104,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -145,10 +136,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -188,10 +177,8 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -217,10 +204,8 @@ mod shelley_ma_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -262,10 +247,8 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -298,10 +281,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -334,10 +315,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 0,
                 min_lovelace: 1000000,
             }),
@@ -371,10 +350,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 10000000000000,
             }),
@@ -417,10 +394,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -453,10 +428,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 70, // This value was 44 during Shelley on mainnet.
-                },
+                summand: 155381,
+                multiplier: 70, // This value was 44 during Shelley on mainnet.
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -512,10 +485,8 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -559,10 +530,8 @@ mod shelley_ma_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -599,10 +568,8 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -652,10 +619,8 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),
@@ -700,10 +665,8 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                fee_policy: FeePolicy {
-                    summand: 155381,
-                    multiplier: 44,
-                },
+                summand: 155381,
+                multiplier: 44,
                 max_tx_size: 4096,
                 min_lovelace: 1000000,
             }),

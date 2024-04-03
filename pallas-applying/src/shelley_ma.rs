@@ -17,7 +17,6 @@ use pallas_primitives::{
         TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
-    FeePolicy,
 };
 use pallas_traverse::{ComputeHash, Era, MultiEraInput, MultiEraOutput};
 use std::{cmp::max, ops::Deref};
@@ -177,8 +176,7 @@ fn check_fees(
     size: &u64,
     prot_pps: &ShelleyProtParams,
 ) -> ValidationResult {
-    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
-    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+    if tx_body.fee < prot_pps.summand + prot_pps.multiplier * size {
         return Err(ShelleyMA(FeesBelowMin));
     }
     Ok(())

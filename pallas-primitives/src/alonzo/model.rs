@@ -13,8 +13,6 @@ use pallas_codec::utils::{Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, N
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
-use crate::FeePolicy;
-
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct VrfCert(#[n(0)] pub Bytes, #[n(1)] pub Bytes);
 
@@ -715,14 +713,16 @@ pub struct Update {
 
 #[derive(Debug, Clone)]
 pub struct ShelleyProtParams {
-    pub fee_policy: FeePolicy,
+    pub summand: u64,
+    pub multiplier: u64,
     pub max_tx_size: u64,
     pub min_lovelace: u64,
 }
 
 #[derive(Debug, Clone)]
 pub struct AlonzoProtParams {
-    pub fee_policy: FeePolicy,
+    pub summand: u64,
+    pub multiplier: u64,
     pub max_tx_size: u64,
     pub max_block_ex_mem: u64,
     pub max_block_ex_steps: u64,

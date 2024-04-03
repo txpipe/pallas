@@ -12,7 +12,7 @@ use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArr
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
-use crate::{alonzo::VrfCert, FeePolicy};
+use crate::alonzo::VrfCert;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
@@ -232,7 +232,8 @@ pub struct Update {
 
 #[derive(Debug, Clone)]
 pub struct BabbageProtParams {
-    pub fee_policy: FeePolicy,
+    pub summand: u64,
+    pub multiplier: u64,
     pub max_tx_size: u64,
     pub max_block_ex_mem: u64,
     pub max_block_ex_steps: u64,

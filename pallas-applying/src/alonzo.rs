@@ -24,7 +24,6 @@ use pallas_primitives::{
         RequiredSigners, TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
-    FeePolicy,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
@@ -151,8 +150,7 @@ fn check_min_fee(
     size: &u64,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
-    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+    if tx_body.fee < prot_pps.summand + prot_pps.multiplier * size {
         return Err(Alonzo(FeeBelowMin));
     }
     Ok(())
