@@ -3,10 +3,7 @@ pub mod common;
 use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
-    utils::{
-        Environment, FeePolicy, MultiEraProtParams, ShelleyMAError, ShelleyProtParams,
-        ValidationError::*,
-    },
+    utils::{Environment, ShelleyMAError, ValidationError::*},
     validate, UTxOs,
 };
 use pallas_codec::{
@@ -16,10 +13,14 @@ use pallas_codec::{
     },
     utils::{Bytes, Nullable},
 };
-use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, TransactionBody, TransactionOutput, VKeyWitness, Value,
+use pallas_primitives::{
+    alonzo::{
+        MintedTx, MintedWitnessSet, ShelleyProtParams, TransactionBody, TransactionOutput,
+        VKeyWitness, Value,
+    },
+    FeePolicy,
 };
-use pallas_traverse::{Era, MultiEraTx};
+use pallas_traverse::{Era, MultiEraProtocolParameters, MultiEraTx};
 
 #[cfg(test)]
 mod shelley_ma_tests {
@@ -41,7 +42,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -75,7 +76,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -109,7 +110,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -143,7 +144,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -186,7 +187,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -215,7 +216,7 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -260,7 +261,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -296,7 +297,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -332,7 +333,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -369,7 +370,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -415,7 +416,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -451,7 +452,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 70, // This value was 44 during Shelley on mainnet.
@@ -510,7 +511,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -557,7 +558,7 @@ mod shelley_ma_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -597,7 +598,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -650,7 +651,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
@@ -698,7 +699,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let env: Environment = Environment {
-            prot_params: MultiEraProtParams::Shelley(ShelleyProtParams {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 fee_policy: FeePolicy {
                     summand: 155381,
                     multiplier: 44,
