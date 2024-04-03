@@ -4,9 +4,8 @@ use crate::utils::{
     add_minted_value, add_values, aux_data_from_alonzo_minted_tx, empty_value,
     get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
     get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
-    FeePolicy,
     ShelleyMAError::*,
-    ShelleyProtParams, UTxOs,
+    UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -14,10 +13,11 @@ use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymen
 use pallas_codec::minicbor::encode;
 use pallas_primitives::{
     alonzo::{
-        MintedTx, MintedWitnessSet, NativeScript, PolicyId, TransactionBody, TransactionOutput,
-        VKeyWitness, Value,
+        MintedTx, MintedWitnessSet, NativeScript, PolicyId, ShelleyProtParams, TransactionBody,
+        TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
+    FeePolicy,
 };
 use pallas_traverse::{ComputeHash, Era, MultiEraInput, MultiEraOutput};
 use std::{cmp::max, ops::Deref};

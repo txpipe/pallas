@@ -7,7 +7,7 @@ use crate::utils::{
     get_val_size_in_words, is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list,
     values_are_equal, verify_signature,
     BabbageError::*,
-    BabbageProtParams, FeePolicy, UTxOs,
+    UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -20,11 +20,12 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
-        AddrKeyhash, Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx,
-        MintedWitnessSet, NativeScript, PlutusData, PlutusV1Script, PlutusV2Script, PolicyId,
-        PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, RequiredSigners,
-        TransactionInput, VKeyWitness, Value,
+        AddrKeyhash, BabbageProtParams, Language, Mint, MintedTransactionBody,
+        MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript, PlutusData,
+        PlutusV1Script, PlutusV2Script, PolicyId, PseudoDatumOption, PseudoScript,
+        PseudoTransactionOutput, Redeemer, RequiredSigners, TransactionInput, VKeyWitness, Value,
     },
+    FeePolicy,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
