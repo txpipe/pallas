@@ -150,7 +150,7 @@ fn check_min_fee(
     size: &u32,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    if tx_body.fee < prot_pps.summand + prot_pps.multiplier * (*size as u64) {
+    if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
         return Err(Alonzo(FeeBelowMin));
     }
     Ok(())
@@ -184,7 +184,7 @@ fn check_collaterals_number(
     collaterals: &[TransactionInput],
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let number_collateral: u64 = collaterals.len() as u64;
+    let number_collateral: u32 = collaterals.len() as u32;
     if number_collateral == 0 {
         Err(Alonzo(CollateralMissing))
     } else if number_collateral > prot_pps.max_collateral_inputs {
@@ -221,7 +221,7 @@ fn check_collaterals_assets(
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percent;
+    let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
     match &tx_body.collateral {
         Some(collaterals) => {
             for collateral in collaterals {
@@ -316,7 +316,7 @@ fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams)
             Some(_) => 37, // utxoEntrySizeWithoutVal (27) + dataHashSize (10)
             None => 27,    // utxoEntrySizeWithoutVal
         };
-    prot_pps.coins_per_utxo_word * output_entry_size
+    prot_pps.ada_per_utxo_byte * output_entry_size
 }
 
 // The size of the value in each of the outputs should not be greater than the
@@ -326,7 +326,7 @@ fn check_output_val_size(
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
-        if get_val_size_in_words(&output.amount) > prot_pps.max_val_size {
+        if get_val_size_in_words(&output.amount) > prot_pps.max_value_size as u64 {
             return Err(Alonzo(MaxValSizeExceeded));
         }
     }
@@ -364,7 +364,7 @@ fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> Validation
 
 // The transaction size does not exceed the protocol limit.
 fn check_tx_size(size: &u32, prot_pps: &AlonzoProtParams) -> ValidationResult {
-    if *size as u64 > prot_pps.max_tx_size {
+    if *size > prot_pps.max_transaction_size {
         return Err(Alonzo(MaxTxSizeExceeded));
     }
     Ok(())
@@ -383,7 +383,7 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationR
                     mem += ex_units.mem;
                     steps += ex_units.steps;
                 }
-                if mem > prot_pps.max_tx_ex_mem || steps > prot_pps.max_tx_ex_steps {
+                if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
                     return Err(Alonzo(TxExUnitsExceeded));
                 }
             }

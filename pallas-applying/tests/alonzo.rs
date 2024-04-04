@@ -15,8 +15,9 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
 };
 use pallas_primitives::alonzo::{
-    AddrKeyhash, AlonzoProtParams, ExUnits, MintedTx, MintedWitnessSet, NativeScript, NetworkId,
-    PlutusData, Redeemer, RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
+    AddrKeyhash, AlonzoProtParams, CostModel, ExUnitPrices, ExUnits, Language, MintedTx,
+    MintedWitnessSet, NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber,
+    Redeemer, RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraProtocolParameters, MultiEraTx};
 use std::borrow::Cow;
@@ -35,25 +36,13 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -77,7 +66,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -102,42 +91,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -147,25 +136,13 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -186,25 +163,13 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo3.address")),
+                String::from("612e137a27a74aca6caff726fb9da65c371ad2d7f1cc8645648fcc11d1"),
                 Value::Coin(100107582),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447035,
             network_id: 1,
@@ -225,25 +190,13 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo4.address")),
+                String::from("01f64b141bfa7761c00a48a137b15d433af02c9275dbf52ea95566b59cb4f05ecc9fd8c9066ef7fd907db854c76caf6462b132ce133dc7cc44"),
                 Value::Coin(3224834468),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447038,
             network_id: 1,
@@ -262,7 +215,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -275,19 +228,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -310,19 +251,7 @@ mod alonzo_tests {
         let utxos: UTxOs = UTxOs::new();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -345,7 +274,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -358,25 +287,13 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Validity interval lower bound should have been reached",),
+            Ok(()) => panic!("Validity interval lower bound should have been reached"),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockPrecedesValInt) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -393,7 +310,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -406,25 +323,13 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Validity interval upper bound should not have been surpassed",),
+            Ok(()) => panic!("Validity interval upper bound should not have been surpassed"),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockExceedsValInt) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -442,25 +347,15 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
+        alonzo_prot_params.minfee_a = 79; // This value was 44 during Alonzo on mainnet
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 79, // This value was 44 during Alonzo on mainnet.
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -486,7 +381,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -510,43 +405,43 @@ mod alonzo_tests {
                 ),
                 (
                     // (tx hash, tx output index):
-                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)    
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -556,7 +451,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -569,19 +464,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -609,7 +492,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -634,42 +517,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -679,25 +562,15 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_300();
+        alonzo_prot_params.max_collateral_inputs = 0; // This value was 3 during Alonzo on mainnet
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 0, // no collateral inputs are allowed
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -723,7 +596,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -748,50 +621,48 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
             ],
         );
-        let old_address: Address = match hex::decode(String::from(include_str!(
-            "../../test_data/alonzo2.collateral.address"
-        ))) {
+        let old_address: Address = match hex::decode(String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da")) {
             Ok(bytes_vec) => Address::from_bytes(bytes_vec.as_slice()).unwrap(),
             _ => panic!("Unable to parse collateral input address"),
         };
@@ -822,19 +693,7 @@ mod alonzo_tests {
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -849,7 +708,7 @@ mod alonzo_tests {
     }
 
     #[test]
-    // Same as sucessful_mainnet_tx_with_plutus_script, except that the output
+    // Same as successful_mainnet_tx_with_plutus_script, except that the output
     // associated to the collateral input contains assets other than lovelace.
     fn collateral_with_other_assets() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
@@ -861,7 +720,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -886,42 +745,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -931,7 +790,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Multiasset(
                     5000000,
                     KeyValuePairs::from(Vec::from([(
@@ -948,19 +807,7 @@ mod alonzo_tests {
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -987,7 +834,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -1012,42 +859,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1057,25 +904,15 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_300();
+        alonzo_prot_params.collateral_percentage = 700; // This was 150 during Alonzo on mainnet.
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 700,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -1098,7 +935,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1111,19 +948,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -1150,7 +975,7 @@ mod alonzo_tests {
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
                 Ok(_) => panic!("Decoded output address and found the wrong era"),
-                Err(e) => panic!("Unable to parse output address ({:?})", e),
+                Err(e) => panic!("Unable to parse output address({:?})", e),
             };
         let altered_address: ShelleyAddress = ShelleyAddress::new(
             Network::Testnet,
@@ -1173,25 +998,13 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -1223,25 +1036,13 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -1268,7 +1069,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -1293,42 +1094,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1338,25 +1139,16 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_300();
+        alonzo_prot_params.max_tx_ex_units.mem = 4649575; // This is 1 lower than that of the transaction
+        alonzo_prot_params.max_tx_ex_units.steps = 1765246503; // This is 1 lower than that of the transaction
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 4649575, // 1 lower than that of the transaction
-                max_tx_ex_steps: 1765246503, // 1 lower than that of the transaction
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -1381,25 +1173,15 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
+        alonzo_prot_params.max_transaction_size = 158; // 1 byte less than the size of the tx
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 158, // 1 byte less than the size of the transaction.
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -1428,7 +1210,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -1453,42 +1235,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1498,7 +1280,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1516,19 +1298,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -1551,7 +1321,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1564,19 +1334,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -1599,7 +1357,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1611,7 +1369,7 @@ mod alonzo_tests {
         // "c50047bafa1adfbfd588d7c8be89f7ab17aecd47c4cc0ed5c1318caca57c8215d77d6878f0eb2bd2620b4ea552415a3028f98102275c9a564278d0f400000000"
         wit.signature = hex::decode(
             "c50047bafa1adfbfd588d7c8be89f7ab17aecd47c4cc0ed5c1318caca57c8215d77d6878f0eb2bd2620b4ea552415a3028f98102275c9a564278d0f400000000"
-            ).unwrap().into();
+        ).unwrap().into();
         tx_wits.vkeywitness = Some(vec![wit]);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -1619,19 +1377,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -1657,7 +1403,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -1682,42 +1428,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1727,7 +1473,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1740,19 +1486,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -1778,7 +1512,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -1803,42 +1537,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1848,7 +1582,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1869,19 +1603,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -1904,7 +1626,7 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo3.address")),
+                String::from("612e137a27a74aca6caff726fb9da65c371ad2d7f1cc8645648fcc11d1"),
                 Value::Coin(100107582),
                 None,
             )],
@@ -1917,25 +1639,13 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447035,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Minting policy is not supported by the correponding native script"),
+            Ok(()) => panic!("Minting policy is not supported by a matching native script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MintingLacksPolicy) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -1955,7 +1665,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -1980,42 +1690,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2025,7 +1735,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2038,19 +1748,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -2076,7 +1774,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -2101,42 +1799,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2146,7 +1844,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2165,19 +1863,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -2203,7 +1889,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -2228,42 +1914,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2273,7 +1959,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2293,19 +1979,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -2331,7 +2005,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -2356,42 +2030,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2401,7 +2075,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2414,25 +2088,13 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
-            Ok(()) => panic!("Unneeded redeemer"),
+            Ok(()) => panic!("Redeemer missing"),
             Err(err) => match err {
                 Alonzo(AlonzoError::RedeemerMissing) => (),
                 _ => panic!("Unexpected error ({:?})", err),
@@ -2451,25 +2113,13 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo4.address")),
+                String::from("01f64b141bfa7761c00a48a137b15d433af02c9275dbf52ea95566b59cb4f05ecc9fd8c9066ef7fd907db854c76caf6462b132ce133dc7cc44"),
                 Value::Coin(3224834468),
                 None,
             )],
         );
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447038,
             network_id: 1,
@@ -2493,25 +2143,15 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
+        alonzo_prot_params.ada_per_utxo_byte = 10000000; // This was 34482 during Alonzo on mainnet.
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 10000000, // This was 34482 during Alonzo on mainnet.
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -2535,25 +2175,15 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(include_str!("../../test_data/alonzo1.address")),
+                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
                 Value::Coin(1549646822),
                 None,
             )],
         );
+        let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
+        alonzo_prot_params.max_value_size = 0; // This was 5000 during Alonzo on mainnet
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 0,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
@@ -2581,7 +2211,7 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (117325a52d60be3a1e4072af39d9e630bf61ce59d315d6c1bf4c4d140f8066ea, 0)
-                    String::from(include_str!("../../test_data/alonzo2.0.address")),
+                    String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
                         KeyValuePairs::from(Vec::from([(
@@ -2606,42 +2236,42 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from(include_str!("../../test_data/alonzo2.1.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from(include_str!("../../test_data/alonzo2.2.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from(include_str!("../../test_data/alonzo2.3.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from(include_str!("../../test_data/alonzo2.4.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from(include_str!("../../test_data/alonzo2.5.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from(include_str!("../../test_data/alonzo2.6.address")),
+                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2651,7 +2281,7 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from(include_str!("../../test_data/alonzo2.collateral.address")),
+                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2666,19 +2296,7 @@ mod alonzo_tests {
             Decode::decode(&mut Decoder::new(tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Alonzo(AlonzoProtParams {
-                summand: 155381,
-                multiplier: 44,
-                max_tx_size: 16384,
-                max_block_ex_mem: 50000000,
-                max_block_ex_steps: 40000000000,
-                max_tx_ex_mem: 10000000,
-                max_tx_ex_steps: 10000000000,
-                max_val_size: 5000,
-                collateral_percent: 150,
-                max_collateral_inputs: 3,
-                coins_per_utxo_word: 34482,
-            }),
+            prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
@@ -2689,6 +2307,156 @@ mod alonzo_tests {
                 Alonzo(AlonzoError::ScriptIntegrityHash) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
+        }
+    }
+
+    fn mk_params_epoch_334() -> AlonzoProtParams {
+        AlonzoProtParams {
+            minfee_a: 44,
+            minfee_b: 155381,
+            max_block_body_size: 65536,
+            max_transaction_size: 16384,
+            max_block_header_size: 1100,
+            key_deposit: 2000000,
+            pool_deposit: 500000000,
+            maximum_epoch: 18,
+            desired_number_of_stake_pools: 500,
+            pool_pledge_influence: RationalNumber {
+                numerator: 3,
+                denominator: 10,
+            },
+            expansion_rate: RationalNumber {
+                numerator: 3,
+                denominator: 1000,
+            },
+            treasury_growth_rate: RationalNumber {
+                numerator: 2,
+                denominator: 10,
+            },
+            decentralization_constant: RationalNumber {
+                numerator: 0,
+                denominator: 1,
+            },
+            extra_entropy: Nonce {
+                variant: NonceVariant::NeutralNonce,
+                hash: None,
+            },
+            protocol_version: (6, 0),
+            min_pool_cost: 340000000,
+            ada_per_utxo_byte: 34482,
+            cost_models_for_script_languages: KeyValuePairs::<Language, CostModel>::from(vec![(
+                Language::PlutusV1,
+                vec![
+                    197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
+                    29175, 4, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773,
+                    100, 100, 100, 29773, 100, 150000, 32, 150000, 32, 150000, 32, 150000, 1000, 0,
+                    1, 150000, 32, 150000, 1000, 0, 8, 148000, 425507, 118, 0, 1, 1, 150000, 1000,
+                    0, 8, 150000, 112536, 247, 1, 150000, 10000, 1, 136542, 1326, 1, 1000, 150000,
+                    1000, 1, 150000, 32, 150000, 32, 150000, 32, 1, 1, 150000, 1, 150000, 4,
+                    103599, 248, 1, 103599, 248, 1, 145276, 1366, 1, 179690, 497, 1, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 150000, 32, 150000, 32, 148000, 425507,
+                    118, 0, 1, 1, 61516, 11218, 0, 1, 150000, 32, 148000, 425507, 118, 0, 1, 1,
+                    148000, 425507, 118, 0, 1, 1, 2477736, 29175, 4, 0, 82363, 4, 150000, 5000, 0,
+                    1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
+                ],
+            )]),
+            execution_costs: ExUnitPrices {
+                mem_price: RationalNumber {
+                    numerator: 577,
+                    denominator: 10000,
+                },
+                step_price: RationalNumber {
+                    numerator: 721,
+                    denominator: 10000000,
+                },
+            },
+            max_tx_ex_units: ExUnits {
+                mem: 10000000,
+                steps: 10000000000,
+            },
+            max_block_ex_units: ExUnits {
+                mem: 50000000,
+                steps: 40000000000,
+            },
+            max_value_size: 5000,
+            collateral_percentage: 150,
+            max_collateral_inputs: 3,
+        }
+    }
+
+    fn mk_params_epoch_300() -> AlonzoProtParams {
+        AlonzoProtParams {
+            minfee_a: 44,
+            minfee_b: 155381,
+            max_block_body_size: 81920,
+            max_transaction_size: 16384,
+            max_block_header_size: 1100,
+            key_deposit: 2000000,
+            pool_deposit: 500000000,
+            maximum_epoch: 18,
+            desired_number_of_stake_pools: 500,
+            pool_pledge_influence: RationalNumber {
+                numerator: 3,
+                denominator: 10,
+            },
+            expansion_rate: RationalNumber {
+                numerator: 3,
+                denominator: 1000,
+            },
+            treasury_growth_rate: RationalNumber {
+                numerator: 2,
+                denominator: 10,
+            },
+            decentralization_constant: RationalNumber {
+                numerator: 0,
+                denominator: 1,
+            },
+            extra_entropy: Nonce {
+                variant: NonceVariant::NeutralNonce,
+                hash: None,
+            },
+            protocol_version: (6, 0),
+            min_pool_cost: 340000000,
+            ada_per_utxo_byte: 34482,
+            cost_models_for_script_languages: KeyValuePairs::<Language, CostModel>::from(vec![(
+                Language::PlutusV1,
+                vec![
+                    197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
+                    29175, 4, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773, 100, 29773,
+                    100, 100, 100, 29773, 100, 150000, 32, 150000, 32, 150000, 32, 150000, 1000, 0,
+                    1, 150000, 32, 150000, 1000, 0, 8, 148000, 425507, 118, 0, 1, 1, 150000, 1000,
+                    0, 8, 150000, 112536, 247, 1, 150000, 10000, 1, 136542, 1326, 1, 1000, 150000,
+                    1000, 1, 150000, 32, 150000, 32, 150000, 32, 1, 1, 150000, 1, 150000, 4,
+                    103599, 248, 1, 103599, 248, 1, 145276, 1366, 1, 179690, 497, 1, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 150000, 32, 150000, 32, 148000, 425507,
+                    118, 0, 1, 1, 61516, 11218, 0, 1, 150000, 32, 148000, 425507, 118, 0, 1, 1,
+                    148000, 425507, 118, 0, 1, 1, 2477736, 29175, 4, 0, 82363, 4, 150000, 5000, 0,
+                    1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
+                    150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
+                ],
+            )]),
+            execution_costs: ExUnitPrices {
+                mem_price: RationalNumber {
+                    numerator: 577,
+                    denominator: 10000,
+                },
+                step_price: RationalNumber {
+                    numerator: 721,
+                    denominator: 10000000,
+                },
+            },
+            max_tx_ex_units: ExUnits {
+                mem: 14000000,
+                steps: 10000000000,
+            },
+            max_block_ex_units: ExUnits {
+                mem: 62000000,
+                steps: 40000000000,
+            },
+            max_value_size: 5000,
+            collateral_percentage: 150,
+            max_collateral_inputs: 3,
         }
     }
 }
