@@ -22,9 +22,12 @@ pub enum ByronError {
     UnableToComputeFees,
     FeesBelowMin,
     MaxTxSizeExceeded,
-    UnableToProcessWitness,
     MissingWitness,
     WrongSignature,
+    UnknownTxOutFormat,
+    UnknownAddressFormat,
+    UnknownWitnessFormat,
+    EncodingErrorWitsCheck,
 }
 
 #[derive(Debug, Clone)]
