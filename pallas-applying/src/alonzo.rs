@@ -55,7 +55,7 @@ pub fn validate_alonzo_tx(
 }
 
 // The set of transaction inputs is not empty.
-fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
+pub fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
     if tx_body.inputs.is_empty() {
         return Err(Alonzo(TxInsEmpty));
     }
@@ -64,7 +64,10 @@ fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
 
 // All transaction inputs and collateral inputs are in the set of (yet) unspent
 // transaction outputs.
-fn check_ins_and_collateral_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
+pub fn check_ins_and_collateral_in_utxos(
+    tx_body: &TransactionBody,
+    utxos: &UTxOs,
+) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
             return Err(Alonzo(InputNotInUTxO));
@@ -85,7 +88,7 @@ fn check_ins_and_collateral_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -
 
 // The block slot is contained in the transaction validity interval, and the
 // upper bound is translatable to UTC time.
-fn check_tx_validity_interval(
+pub fn check_tx_validity_interval(
     tx_body: &TransactionBody,
     mtx: &MintedTx,
     block_slot: &u64,
@@ -129,7 +132,7 @@ fn check_upper_bound(
     }
 }
 
-fn check_fee(
+pub fn check_fee(
     tx_body: &TransactionBody,
     size: &u32,
     mtx: &MintedTx,
@@ -258,7 +261,7 @@ fn check_collaterals_assets(
 }
 
 // The preservation of value property holds.
-fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
+pub fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     let mut input: Value = get_consumed(tx_body, utxos)?;
     let produced: Value = get_produced(tx_body)?;
     let output: Value = add_values(&produced, &Value::Coin(tx_body.fee), &Alonzo(NegativeValue))?;
@@ -301,7 +304,10 @@ fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
 }
 
 // All transaction outputs should contain at least the minimum lovelace.
-fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &AlonzoProtParams) -> ValidationResult {
+pub fn check_min_lovelace(
+    tx_body: &TransactionBody,
+    prot_pps: &AlonzoProtParams,
+) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         if get_lovelace_from_alonzo_val(&output.amount) < compute_min_lovelace(output, prot_pps) {
             return Err(Alonzo(MinLovelaceUnreached));
@@ -321,7 +327,7 @@ fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams)
 
 // The size of the value in each of the outputs should not be greater than the
 // maximum allowed.
-fn check_output_val_size(
+pub fn check_output_val_size(
     tx_body: &TransactionBody,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
@@ -334,7 +340,7 @@ fn check_output_val_size(
 }
 
 // The network ID of the transaction and its output addresses is correct.
-fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
+pub fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     check_tx_outs_network_id(tx_body, network_id)?;
     check_tx_network_id(tx_body, network_id)
 }
@@ -363,7 +369,7 @@ fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> Validation
 }
 
 // The transaction size does not exceed the protocol limit.
-fn check_tx_size(size: &u32, prot_pps: &AlonzoProtParams) -> ValidationResult {
+pub fn check_tx_size(size: &u32, prot_pps: &AlonzoProtParams) -> ValidationResult {
     if *size > prot_pps.max_transaction_size {
         return Err(Alonzo(MaxTxSizeExceeded));
     }
@@ -372,7 +378,7 @@ fn check_tx_size(size: &u32, prot_pps: &AlonzoProtParams) -> ValidationResult {
 
 // The number of execution units of the transaction should not exceed the
 // maximum allowed.
-fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationResult {
+pub fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationResult {
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     if presence_of_plutus_scripts(mtx) {
         match &tx_wits.redeemer {
@@ -393,7 +399,7 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationR
     Ok(())
 }
 
-fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
+pub fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
@@ -821,12 +827,12 @@ fn find_and_check_req_signer(
 }
 
 // The required script languages are included in the protocol parameters.
-fn check_languages(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationResult {
+pub fn check_languages(_mtx: &MintedTx, _prot_pps: &AlonzoProtParams) -> ValidationResult {
     Ok(())
 }
 
 // The metadata of the transaction is valid.
-fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+pub fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     match (
         &tx_body.auxiliary_data_hash,
         aux_data_from_alonzo_minted_tx(mtx),
@@ -847,7 +853,7 @@ fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &MintedTx) -> Validation
 
 // The script data integrity hash matches the hash of the redeemers, languages
 // and datums of the transaction witness set.
-fn check_script_data_hash(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+pub fn check_script_data_hash(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     match tx_body.script_data_hash {
         Some(script_data_hash) => match (
             &mtx.transaction_witness_set.plutus_data,
@@ -912,7 +918,7 @@ fn option_vec_is_empty<T>(option_vec: &Option<Vec<T>>) -> bool {
 
 // Each minted / burned asset is paired with an appropriate native script or
 // Plutus script.
-fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+pub fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
             let native_script_wits: Vec<NativeScript> =

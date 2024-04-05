@@ -45,14 +45,14 @@ pub fn validate_shelley_ma_tx(
     check_minting(tx_body, mtx)
 }
 
-fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
+pub fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
     if tx_body.inputs.is_empty() {
         return Err(ShelleyMA(TxInsEmpty));
     }
     Ok(())
 }
 
-fn check_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
+pub fn check_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
             return Err(ShelleyMA(InputNotInUTxO));
@@ -61,7 +61,7 @@ fn check_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationRes
     Ok(())
 }
 
-fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
+pub fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     match tx_body.ttl {
         Some(ttl) => {
             if ttl < *block_slot {
@@ -74,14 +74,14 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     }
 }
 
-fn check_tx_size(size: &u32, prot_pps: &ShelleyProtParams) -> ValidationResult {
+pub fn check_tx_size(size: &u32, prot_pps: &ShelleyProtParams) -> ValidationResult {
     if *size > prot_pps.max_transaction_size {
         return Err(ShelleyMA(MaxTxSizeExceeded));
     }
     Ok(())
 }
 
-fn check_min_lovelace(
+pub fn check_min_lovelace(
     tx_body: &TransactionBody,
     prot_pps: &ShelleyProtParams,
     era: &Era,
@@ -112,7 +112,7 @@ fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &ShelleyProtParams
     }
 }
 
-fn check_preservation_of_value(
+pub fn check_preservation_of_value(
     tx_body: &TransactionBody,
     utxos: &UTxOs,
     era: &Era,
@@ -171,7 +171,7 @@ fn get_produced(tx_body: &TransactionBody, era: &Era) -> Result<Value, Validatio
     Ok(res)
 }
 
-fn check_fees(
+pub fn check_fees(
     tx_body: &TransactionBody,
     size: &u32,
     prot_pps: &ShelleyProtParams,
@@ -182,7 +182,7 @@ fn check_fees(
     Ok(())
 }
 
-fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
+pub fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let addr: ShelleyAddress =
             get_shelley_address(&output.address).ok_or(ShelleyMA(AddressDecoding))?;
@@ -193,7 +193,7 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
     Ok(())
 }
 
-fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+pub fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     match (
         &tx_body.auxiliary_data_hash,
         aux_data_from_alonzo_minted_tx(mtx),
@@ -212,7 +212,7 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
     }
 }
 
-fn check_witnesses(
+pub fn check_witnesses(
     tx_body: &TransactionBody,
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
@@ -299,7 +299,7 @@ fn check_remaining_vk_wits(
     Ok(())
 }
 
-fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+pub fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
             let native_script_wits: Vec<NativeScript> =

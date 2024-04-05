@@ -42,21 +42,21 @@ pub fn validate_byron_tx(
     check_witnesses(mtxp, utxos, prot_magic)
 }
 
-fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
+pub fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
     if tx.inputs.clone().to_vec().is_empty() {
         return Err(Byron(TxInsEmpty));
     }
     Ok(())
 }
 
-fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
+pub fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
     if tx.outputs.clone().to_vec().is_empty() {
         return Err(Byron(TxOutsEmpty));
     }
     Ok(())
 }
 
-fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
+pub fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     for input in tx.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_byron(input))) {
             return Err(Byron(InputNotInUTxO));
@@ -65,7 +65,7 @@ fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     Ok(())
 }
 
-fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
+pub fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
     for output in tx.outputs.iter() {
         if output.amount == 0 {
             return Err(Byron(OutputWithoutLovelace));
@@ -74,7 +74,12 @@ fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
     Ok(())
 }
 
-fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) -> ValidationResult {
+pub fn check_fees(
+    tx: &Tx,
+    size: &u64,
+    utxos: &UTxOs,
+    prot_pps: &ByronProtParams,
+) -> ValidationResult {
     let mut inputs_balance: u64 = 0;
     let mut only_redeem_utxos: bool = true;
     for input in tx.inputs.iter() {
@@ -119,7 +124,7 @@ fn is_redeem_utxo(input: &TxIn, utxos: &UTxOs) -> bool {
     }
 }
 
-fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
+pub fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
     if *size > prot_pps.max_tx_size {
         return Err(Byron(MaxTxSizeExceeded));
     }
@@ -139,7 +144,11 @@ pub enum TaggedSignature<'a> {
     RedeemWitness(&'a ByronSignature),
 }
 
-fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> ValidationResult {
+pub fn check_witnesses(
+    mtxp: &MintedTxPayload,
+    utxos: &UTxOs,
+    prot_magic: &u32,
+) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
     let tx_hash: Hash<32> = mtxp.transaction.original_hash();
     let witnesses: Vec<(&PubKey, TaggedSignature)> = tag_witnesses(&mtxp.witness)?;
