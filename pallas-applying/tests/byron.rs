@@ -31,7 +31,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron2.address")),
+                String::from("83581CDC7E4DD6A44886816DEC9A4B2021056A8FCAF500C09E316028F2985FA002"),
                 19999000000,
             )],
         );
@@ -73,7 +73,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -113,7 +113,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -176,7 +176,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -273,7 +273,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -317,7 +317,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -361,7 +361,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -413,7 +413,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );
@@ -474,7 +474,7 @@ mod byron_tests {
         let utxos: UTxOs = mk_utxo_for_byron_tx(
             &mtxp.transaction,
             &[(
-                String::from(include_str!("../../test_data/byron1.address")),
+                String::from("83581cff66e7549ee0706abe5ce63ba325f792f2c1145d918baf563db2b457a101581e581cca3e553c9c63c5927480e7434620200eb3a162ef0b6cf6f671ba925100"),
                 19999000000,
             )],
         );

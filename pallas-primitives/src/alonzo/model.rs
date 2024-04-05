@@ -765,18 +765,15 @@ pub struct ShelleyProtParams {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct AlonzoProtParams {
     #[n(0)]
-    // former multiplier: u64
     pub minfee_a: u32,
 
     #[n(1)]
-    // former summand: u64
     pub minfee_b: u32,
 
     #[n(2)]
     pub max_block_body_size: u32,
 
     #[n(3)]
-    // former max_tx_size"u64
     pub max_transaction_size: u32,
 
     #[n(4)]
@@ -816,7 +813,6 @@ pub struct AlonzoProtParams {
     pub min_pool_cost: Coin,
 
     #[n(16)]
-    // former coins_per_utxo_word: u64 == Coin
     pub ada_per_utxo_byte: Coin,
 
     #[n(17)]
@@ -826,24 +822,18 @@ pub struct AlonzoProtParams {
     pub execution_costs: ExUnitPrices,
 
     #[n(19)]
-    // Former max_tx_ex_mem and max_tx_ex_steps
-    // (mem: u32, steps: u64)
     pub max_tx_ex_units: ExUnits,
 
     #[n(20)]
-    // Former max_block_ex_mem and max_block_ex_steps
     pub max_block_ex_units: ExUnits,
 
     #[n(21)]
-    // former max_val_size: u64
     pub max_value_size: u32,
 
     #[n(22)]
-    // former collateral_percent: u64
     pub collateral_percentage: u32,
 
     #[n(24)]
-    // former : u64
     pub max_collateral_inputs: u32,
 }
 

@@ -32,10 +32,10 @@ pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u32> {
     }
 }
 
-pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u64> {
+pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx_body, &mut buff) {
-        Ok(()) => Some(buff.len() as u64),
+        Ok(()) => Some(buff.len() as u32),
         Err(_) => None,
     }
 }
