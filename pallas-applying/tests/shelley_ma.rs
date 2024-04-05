@@ -739,7 +739,7 @@ mod shelley_ma_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => panic!("Preservation of value property doesn't hold"),
             Err(err) => match err {
-                ShelleyMA(ShelleyMAError::PreservationOfValue) => (),
+                ShelleyMA(ShelleyMAError::PreservationOfValueProp) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
         }
@@ -965,7 +965,7 @@ mod shelley_ma_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
-                ShelleyMA(ShelleyMAError::MetadataHash) => (),
+                ShelleyMA(ShelleyMAError::UnneededAuxDataHash) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
         }

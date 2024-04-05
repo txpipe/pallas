@@ -268,7 +268,7 @@ pub fn mk_alonzo_vk_wits_check_list(
 ) -> Result<Vec<(bool, VKeyWitness)>, ValidationError> {
     Ok(wits
         .clone()
-        .ok_or(err)?
+        .ok_or(err)? // An error indicating wits is a None value
         .iter()
         .map(|x| (false, x.clone()))
         .collect::<Vec<(bool, VKeyWitness)>>())

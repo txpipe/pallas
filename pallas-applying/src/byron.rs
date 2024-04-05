@@ -188,7 +188,8 @@ fn find_tx_out<'a>(input: &'a TxIn, utxos: &'a UTxOs) -> Result<&'a TxOut, Valid
         .get(&key)
         .ok_or(Byron(InputNotInUTxO))?
         .as_byron()
-        .ok_or(Byron(UnknownTxOutFormat)) // Unable to parse the MultiEraOutput as a Byron TxOut
+        .ok_or(Byron(UnknownTxOutFormat)) // Unable to parse the MultiEraOutput
+                                          // as a Byron TxOut
 }
 
 fn find_raw_witness<'a>(
@@ -196,9 +197,7 @@ fn find_raw_witness<'a>(
     witnesses: &'a Vec<(&'a PubKey, TaggedSignature<'a>)>,
 ) -> Result<(&'a PubKey, &'a TaggedSignature<'a>), ValidationError> {
     let address: ByronAddress = mk_byron_address(&tx_out.address);
-    let addr_payload: AddressPayload = address
-        .decode()
-        .map_err(|_| Byron(UnknownAddressFormat))?; // Unable to decode address
+    let addr_payload: AddressPayload = address.decode().map_err(|_| Byron(UnknownAddressFormat))?; // Unable to decode address
     let root: AddressId = addr_payload.root;
     let attr: AddrAttrs = addr_payload.attributes;
     let addr_type: AddrType = addr_payload.addrtype;
@@ -261,11 +260,13 @@ fn get_data_to_verify(
     match sign {
         TaggedSignature::PkWitness(_) => {
             enc.encode(1u64)
-                .map_err(|_| Byron(EncodingErrorWitsCheck))?; // Encoding error while checking wits
+                .map_err(|_| Byron(EncodingErrorWitsCheck))?;
+            // Encoding error while checking wits
         }
         TaggedSignature::RedeemWitness(_) => {
             enc.encode(2u64)
-                .map_err(|_| Byron(EncodingErrorWitsCheck))?; // Encoding error while checking wits
+                .map_err(|_| Byron(EncodingErrorWitsCheck))?;
+            // Encoding error while checking wits
         }
     }
     enc.encode(prot_magic)
