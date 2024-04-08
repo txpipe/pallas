@@ -5,7 +5,7 @@ use crate::utils::{
     get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
     get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     ShelleyMAError::*,
-    UTxOs,
+    ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -13,8 +13,8 @@ use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymen
 use pallas_codec::minicbor::encode;
 use pallas_primitives::{
     alonzo::{
-        MintedTx, MintedWitnessSet, NativeScript, PolicyId, ShelleyProtParams, TransactionBody,
-        TransactionOutput, VKeyWitness, Value,
+        MintedTx, MintedWitnessSet, NativeScript, PolicyId, TransactionBody, TransactionOutput,
+        VKeyWitness, Value,
     },
     byron::TxOut,
 };

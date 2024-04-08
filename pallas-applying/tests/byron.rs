@@ -2,7 +2,9 @@ pub mod common;
 
 use common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
 use pallas_applying::{
-    utils::{ByronError, Environment, ValidationError::*},
+    utils::{
+        ByronError, ByronProtParams, Environment, MultiEraProtocolParameters, ValidationError::*,
+    },
     validate, UTxOs,
 };
 
@@ -13,8 +15,8 @@ use pallas_codec::{
     },
     utils::{CborWrap, MaybeIndefArray},
 };
-use pallas_primitives::byron::{ByronProtParams, MintedTxPayload, Twit, Tx, TxOut, Witnesses};
-use pallas_traverse::{MultiEraProtocolParameters, MultiEraTx};
+use pallas_primitives::byron::{MintedTxPayload, Twit, Tx, TxOut, Witnesses};
+use pallas_traverse::MultiEraTx;
 use std::vec::Vec;
 
 #[cfg(test)]

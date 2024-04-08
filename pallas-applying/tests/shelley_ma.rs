@@ -3,7 +3,10 @@ pub mod common;
 use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
-    utils::{Environment, ShelleyMAError, ValidationError::*},
+    utils::{
+        Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
+        ValidationError::*,
+    },
     validate, UTxOs,
 };
 use pallas_codec::{
@@ -14,10 +17,10 @@ use pallas_codec::{
     utils::{Bytes, Nullable},
 };
 use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, ShelleyProtParams,
-    TransactionBody, TransactionOutput, VKeyWitness, Value,
+    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, TransactionBody,
+    TransactionOutput, VKeyWitness, Value,
 };
-use pallas_traverse::{Era, MultiEraProtocolParameters, MultiEraTx};
+use pallas_traverse::{Era, MultiEraTx};
 
 #[cfg(test)]
 mod shelley_ma_tests {

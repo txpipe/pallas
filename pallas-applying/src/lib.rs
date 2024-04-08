@@ -9,11 +9,11 @@ pub mod utils;
 use alonzo::validate_alonzo_tx;
 use babbage::validate_babbage_tx;
 use byron::validate_byron_tx;
-use pallas_traverse::{Era, MultiEraProtocolParameters, MultiEraTx};
+use pallas_traverse::{Era, MultiEraTx};
 use shelley_ma::validate_shelley_ma_tx;
 
 pub use utils::{
-    Environment, UTxOs,
+    Environment, MultiEraProtocolParameters, UTxOs,
     ValidationError::{TxAndProtParamsDiffer, UnknownProtParams},
     ValidationResult,
 };
@@ -54,6 +54,5 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             ),
             _ => Err(TxAndProtParamsDiffer),
         },
-        _ => Err(UnknownProtParams),
     }
 }

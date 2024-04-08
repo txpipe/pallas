@@ -4,7 +4,10 @@ use common::*;
 use hex;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
-    utils::{BabbageError, Environment, ValidationError::*},
+    utils::{
+        BabbageError, BabbageProtParams, Environment, MultiEraProtocolParameters,
+        ValidationError::*,
+    },
     validate, UTxOs,
 };
 use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
@@ -16,13 +19,12 @@ use pallas_codec::{
     utils::Nullable,
 };
 use pallas_primitives::babbage::{
-    BabbageProtParams, CostMdls, ExUnitPrices, ExUnits, MintedDatumOption,
-    MintedPostAlonzoTransactionOutput, MintedScriptRef, MintedTransactionBody,
-    MintedTransactionOutput, MintedTx, MintedWitnessSet, NetworkId, Nonce, NonceVariant,
-    PlutusData, PlutusV2Script, PseudoDatumOption, PseudoScript, PseudoTransactionOutput,
-    RationalNumber, Redeemer, RedeemerTag, Value,
+    CostMdls, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
+    MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
+    NetworkId, Nonce, NonceVariant, PlutusData, PlutusV2Script, PseudoDatumOption, PseudoScript,
+    PseudoTransactionOutput, RationalNumber, Redeemer, RedeemerTag, Value,
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraProtocolParameters, MultiEraTx};
+use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
 use std::borrow::Cow;
 
 #[cfg(test)]

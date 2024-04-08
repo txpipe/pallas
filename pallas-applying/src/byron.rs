@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use crate::utils::{
     ByronError::*,
-    UTxOs,
+    ByronProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -21,8 +21,7 @@ use pallas_crypto::{
     key::ed25519::{PublicKey, Signature},
 };
 use pallas_primitives::byron::{
-    Address, ByronProtParams, MintedTxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn,
-    TxOut,
+    Address, MintedTxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 

@@ -6,7 +6,7 @@ use crate::utils::{
     get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
     mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
-    UTxOs,
+    AlonzoProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -19,9 +19,9 @@ use pallas_codec::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{
-        AddrKeyhash, AlonzoProtParams, Mint, MintedTx, MintedWitnessSet, Multiasset, NativeScript,
-        PlutusData, PlutusScript, PolicyId, Redeemer, RedeemerPointer, RedeemerTag,
-        RequiredSigners, TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, Mint, MintedTx, MintedWitnessSet, Multiasset, NativeScript, PlutusData,
+        PlutusScript, PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners,
+        TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
     },
     byron::TxOut,
 };

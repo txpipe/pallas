@@ -170,15 +170,6 @@ pub enum MultiEraUpdate<'b> {
     Babbage(Box<Cow<'b, babbage::Update>>),
 }
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum MultiEraProtocolParameters {
-    Byron(byron::ByronProtParams),
-    Shelley(alonzo::ShelleyProtParams),
-    Alonzo(alonzo::AlonzoProtParams),
-    Babbage(babbage::BabbageProtParams),
-}
-
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraSigners<'b> {

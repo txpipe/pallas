@@ -579,54 +579,6 @@ pub struct Up {
     pub votes: MaybeIndefArray<UpVote>,
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct ByronProtParams {
-    #[n(0)]
-    pub script_version: u16,
-
-    #[n(1)]
-    pub slot_duration: u64,
-
-    #[n(2)]
-    pub max_block_size: u64,
-
-    #[n(3)]
-    pub max_header_size: u64,
-
-    #[n(4)]
-    pub max_tx_size: u64,
-
-    #[n(5)]
-    pub max_proposal_size: u64,
-
-    #[n(6)]
-    pub mpc_thd: u64,
-
-    #[n(7)]
-    pub heavy_del_thd: u64,
-
-    #[n(8)]
-    pub update_vote_thd: u64,
-
-    #[n(9)]
-    pub update_proposal_thd: u64,
-
-    #[n(10)]
-    pub update_implicit: u64,
-
-    #[n(11)]
-    pub soft_fork_rule: (u64, u64, u64),
-
-    #[n(12)]
-    pub summand: u64,
-
-    #[n(13)]
-    pub multiplier: u64,
-
-    #[n(14)]
-    pub unlock_stake_epoch: u64,
-}
-
 // Blocks
 
 pub type Difficulty = MaybeIndefArray<u64>;
