@@ -9,13 +9,20 @@ use pallas_primitives::{
     babbage::CostMdls as BabbageCostMdls,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 #[non_exhaustive]
 pub enum MultiEraProtocolParameters {
-    Byron(ByronProtParams),
-    Shelley(ShelleyProtParams),
-    Alonzo(AlonzoProtParams),
-    Babbage(BabbageProtParams),
+    #[n(0)]
+    Byron(#[n(1)] ByronProtParams),
+
+    #[n(2)]
+    Shelley(#[n(3)] ShelleyProtParams),
+
+    #[n(4)]
+    Alonzo(#[n(5)] AlonzoProtParams),
+
+    #[n(6)]
+    Babbage(#[n(7)] BabbageProtParams),
 }
 
 #[derive(Debug, Clone, Encode, Decode)]
