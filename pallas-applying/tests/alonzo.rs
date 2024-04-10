@@ -2129,7 +2129,7 @@ mod alonzo_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => panic!("Transaction auxiliary data removed"),
             Err(err) => match err {
-                Alonzo(AlonzoError::MetadataHash) => (),
+                Alonzo(AlonzoError::UnneededAuxDataHash) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
         }
