@@ -12,7 +12,7 @@ use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArr
 // required for derive attrs to work
 use pallas_codec::minicbor;
 
-pub use crate::alonzo::VrfCert;
+use crate::alonzo::VrfCert;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {

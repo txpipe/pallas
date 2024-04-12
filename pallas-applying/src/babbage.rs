@@ -7,7 +7,7 @@ use crate::utils::{
     get_val_size_in_words, is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list,
     values_are_equal, verify_signature,
     BabbageError::*,
-    BabbageProtParams, FeePolicy, UTxOs,
+    BabbageProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -38,7 +38,7 @@ pub fn validate_babbage_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body.clone();
-    let size: &u64 = &get_babbage_tx_size(tx_body).ok_or(Babbage(UnknownTxSize))?;
+    let size: &u32 = &get_babbage_tx_size(tx_body).ok_or(Babbage(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
@@ -139,7 +139,7 @@ fn check_upper_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
 
 fn check_fee(
     tx_body: &MintedTransactionBody,
-    size: &u64,
+    size: &u32,
     mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &BabbageProtParams,
@@ -155,11 +155,10 @@ fn check_fee(
 // minimum fee.
 fn check_min_fee(
     tx_body: &MintedTransactionBody,
-    size: &u64,
+    size: &u32,
     prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
-    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
-    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+    if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
         return Err(Babbage(FeeBelowMin));
     }
     Ok(())
@@ -200,7 +199,7 @@ fn check_collaterals_number(
 ) -> ValidationResult {
     if collaterals.is_empty() {
         Err(Babbage(CollateralMissing))
-    } else if collaterals.len() > prot_pps.max_collateral_inputs as usize {
+    } else if collaterals.len() as u32 > prot_pps.max_collateral_inputs {
         Err(Babbage(TooManyCollaterals))
     } else {
         Ok(())
@@ -265,7 +264,7 @@ fn check_collaterals_assets(
             // The balance between collateral inputs and output contains only lovelace.
             let paid_collateral: u64 =
                 lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
-            let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percent;
+            let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
             // The balance is not lower than the minimum allowed.
             if paid_collateral * 100 < fee_percentage {
                 return Err(Babbage(CollateralMinLovelace));
@@ -357,7 +356,7 @@ fn check_min_lovelace(
 }
 
 fn compute_min_lovelace(val: &Value, prot_pps: &BabbageProtParams) -> u64 {
-    prot_pps.coins_per_utxo_word * (get_val_size_in_words(val) + 160)
+    prot_pps.ada_per_utxo_byte * (get_val_size_in_words(val) + 160)
 }
 
 // The size of the value in each of the outputs should not be greater than the
@@ -371,7 +370,7 @@ fn check_output_val_size(
             PseudoTransactionOutput::Legacy(output) => &output.amount,
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
-        if get_val_size_in_words(val) > prot_pps.max_val_size {
+        if get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
             return Err(Babbage(MaxValSizeExceeded));
         }
     }
@@ -409,8 +408,8 @@ fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Vali
     Ok(())
 }
 
-fn check_tx_size(size: &u64, prot_pps: &BabbageProtParams) -> ValidationResult {
-    if *size > prot_pps.max_tx_size {
+fn check_tx_size(size: &u32, prot_pps: &BabbageProtParams) -> ValidationResult {
+    if *size > prot_pps.max_transaction_size {
         return Err(Babbage(MaxTxSizeExceeded));
     }
     Ok(())
@@ -427,7 +426,7 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> Validation
                     mem += ex_units.mem;
                     steps += ex_units.steps;
                 }
-                if mem > prot_pps.max_tx_ex_mem || steps > prot_pps.max_tx_ex_steps {
+                if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
                     return Err(Babbage(TxExUnitsExceeded));
                 }
             }

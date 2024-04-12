@@ -4,6 +4,7 @@
 #[non_exhaustive]
 pub enum ValidationError {
     TxAndProtParamsDiffer,
+    UnknownProtParams,
     Byron(ByronError),
     ShelleyMA(ShelleyMAError),
     Alonzo(AlonzoError),

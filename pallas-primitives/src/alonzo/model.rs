@@ -1208,10 +1208,10 @@ pub struct ExUnits {
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ExUnitPrices {
     #[n(0)]
-    mem_price: PositiveInterval,
+    pub mem_price: PositiveInterval,
 
     #[n(1)]
-    step_price: PositiveInterval,
+    pub step_price: PositiveInterval,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
