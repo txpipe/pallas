@@ -5,7 +5,7 @@ use crate::utils::{
     compute_plutus_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
     get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
     get_val_size_in_words, is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list,
-    values_are_equal, verify_signature,
+    value_from_multi_era_output, values_are_equal, verify_signature,
     BabbageError::*,
     BabbageProtParams, UTxOs,
     ValidationError::{self, *},
@@ -188,7 +188,7 @@ fn check_collaterals(
         .ok_or(Babbage(CollateralMissing))?;
     check_collaterals_number(collaterals, prot_pps)?;
     check_collaterals_address(collaterals, utxos)?;
-    check_collaterals_assets(tx_body, utxos, prot_pps)
+    check_collaterals_assets(tx_body, collaterals, utxos, prot_pps)
 }
 
 // The set of collateral inputs is not empty.
@@ -217,7 +217,7 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
                         PseudoTransactionOutput::PostAlonzo(inner) => &inner.address,
                     };
                     if let ShelleyPaymentPart::Script(_) =
-                        get_payment_part(address).ok_or(Babbage(InputDecoding))?
+                        get_payment_part(address).ok_or(Babbage(UnknownAddressFormat))?
                     {
                         return Err(Babbage(CollateralNotVKeyLocked));
                     }
@@ -236,62 +236,64 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
 // The balance matches exactly the collateral annotated in the transaction body.
 fn check_collaterals_assets(
     tx_body: &MintedTransactionBody,
+    collaterals: &[TransactionInput],
     utxos: &UTxOs,
     prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
-    match &tx_body.collateral {
-        Some(collaterals) => {
-            let mut coll_input: Value = empty_value();
-            for collateral in collaterals {
-                match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
-                    Some(multi_era_output) => {
-                        coll_input = add_values(
-                            &coll_input,
-                            &val_from_multi_era_output(multi_era_output),
-                            &Babbage(NegativeValue),
-                        )?
-                    }
-                    None => {
-                        return Err(Babbage(CollateralNotInUTxO));
-                    }
-                }
+    let mut coll_input: Value = empty_value();
+    for collateral in collaterals {
+        match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
+            Some(multi_era_output) => {
+                coll_input = add_values(
+                    &coll_input,
+                    &value_from_multi_era_output(multi_era_output),
+                    &Babbage(NegativeValue),
+                )?
             }
-            let coll_return: Value = match &tx_body.collateral_return {
-                Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
-                Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
-                None => Value::Coin(0),
-            };
-            // The balance between collateral inputs and output contains only lovelace.
-            let paid_collateral: u64 =
-                lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
-            let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
-            // The balance is not lower than the minimum allowed.
-            if paid_collateral * 100 < fee_percentage {
-                return Err(Babbage(CollateralMinLovelace));
-            }
-            // The balance matches exactly the collateral annotated in the transaction body.
-            if let Some(annotated_collateral) = &tx_body.total_collateral {
-                if paid_collateral != *annotated_collateral {
-                    return Err(Babbage(CollateralAnnotation));
-                }
+            None => {
+                return Err(Babbage(CollateralNotInUTxO));
             }
         }
-        None => return Err(Babbage(CollateralMissing)),
-    }
-    Ok(())
-}
-
-fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
-    match multi_era_output {
-        MultiEraOutput::Byron(output) => Value::Coin(output.amount),
-        MultiEraOutput::AlonzoCompatible(output) => output.amount.clone(),
-        babbage_output => match babbage_output.as_babbage() {
+        let coll_return: Value = match &tx_body.collateral_return {
             Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
             Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
-            None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
-                                       * type MultiEraOutput was extended with another variant */
-        },
+            None => Value::Coin(0),
+        };
+        // The balance between collateral inputs and output contains only lovelace.
+        let paid_collateral: u64 =
+            lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
+        let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
+        // The balance is not lower than the minimum allowed.
+        if paid_collateral * 100 < fee_percentage {
+            return Err(Babbage(CollateralMinLovelace));
+        }
+        // The balance matches exactly the collateral annotated in the transaction body.
+        if let Some(annotated_collateral) = &tx_body.total_collateral {
+            if paid_collateral != *annotated_collateral {
+                return Err(Babbage(CollateralAnnotation));
+            }
+        }
     }
+    let coll_return: Value = match &tx_body.collateral_return {
+        Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
+        Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+        None => Value::Coin(0),
+    };
+    // The balance between collateral inputs and output contains only lovelace.
+    let paid_collateral: u64 =
+        lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
+    let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
+    // The balance is not lower than the minimum allowed.
+    if paid_collateral * 100 < fee_percentage {
+        return Err(Babbage(CollateralMinLovelace));
+    }
+    // The balance matches exactly the collateral annotated in the transaction body.
+    if let Some(annotated_collateral) = &tx_body.total_collateral {
+        if paid_collateral != *annotated_collateral {
+            return Err(Babbage(CollateralAnnotation));
+        }
+    }
+    Ok(())
 }
 
 // The preservation of value property holds.
@@ -321,7 +323,7 @@ fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value,
         let multi_era_output: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(Babbage(InputNotInUTxO))?;
-        let val: Value = val_from_multi_era_output(multi_era_output);
+        let val: Value = value_from_multi_era_output(multi_era_output);
         res = add_values(&res, &val, &Babbage(NegativeValue))?;
     }
     Ok(res)
@@ -392,7 +394,7 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
             PseudoTransactionOutput::PostAlonzo(output) => &output.address,
         };
         let addr: ShelleyAddress =
-            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(Babbage(AddressDecoding))?;
+            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(Babbage(UnknownAddressFormat))?;
         if addr.network().value() != *network_id {
             return Err(Babbage(OutputWrongNetworkID));
         }
@@ -1103,7 +1105,7 @@ fn check_vkey_input_wits(
                         PseudoTransactionOutput::Legacy(output) => &output.address,
                         PseudoTransactionOutput::PostAlonzo(output) => &output.address,
                     };
-                    match get_payment_part(address).ok_or(Babbage(InputDecoding))? {
+                    match get_payment_part(address).ok_or(Babbage(UnknownAddressFormat))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
                         }
@@ -1347,11 +1349,12 @@ pub fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> 
             {
                 Ok(())
             } else {
-                Err(Babbage(MetadataHash))
+                Err(Babbage(WrongMetadataHash))
             }
         }
+        (None, Some(_)) => Err(Babbage(AuxDataHashMissing)),
+        (Some(_), None) => Err(Babbage(UnneededAuxDataHash)),
         (None, None) => Ok(()),
-        _ => Err(Babbage(MetadataHash)),
     }
 }
 
@@ -1390,15 +1393,17 @@ pub fn check_script_data_hash(
                     Err(Babbage(ScriptIntegrityHash))
                 }
             }
-            (_, _) => Err(Babbage(ScriptIntegrityHash)),
+            (Some(_), None) => Err(Babbage(RedeemerMissing)),
+            (None, Some(_)) => Err(Babbage(DatumMissing)),
+            (None, None) => Err(Babbage(RedeemerAndDatumMissing)),
         },
         None => {
-            if option_vec_is_empty(&mtx.transaction_witness_set.plutus_data)
-                && option_vec_is_empty(&mtx.transaction_witness_set.redeemer)
-            {
-                Ok(())
+            if !option_vec_is_empty(&mtx.transaction_witness_set.plutus_data) {
+                Err(Babbage(UnneededDatum))
+            } else if !option_vec_is_empty(&mtx.transaction_witness_set.redeemer) {
+                Err(Babbage(UnneededRedeemer))
             } else {
-                Err(Babbage(ScriptIntegrityHash))
+                Ok(())
             }
         }
     }
