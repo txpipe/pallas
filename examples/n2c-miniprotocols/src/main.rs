@@ -25,6 +25,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_system_start(client).await.unwrap();
     info!("result: {:?}", result);
 
+    let result = queries_v16::get_chain_block_no(client).await.unwrap();
+    info!("result: {:?}", result);
+
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
