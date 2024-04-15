@@ -3,6 +3,8 @@
 use pallas_addresses::ByronAddress;
 use pallas_crypto::hash::Hash;
 use serde::Deserialize;
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
@@ -19,23 +21,47 @@ pub struct GenesisFile {
     pub vss_certs: Option<HashMap<String, VssCert>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[serde_as]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockVersionData {
-    pub heavy_del_thd: String,
-    pub max_block_size: String,
-    pub max_header_size: String,
-    pub max_proposal_size: String,
-    pub max_tx_size: String,
-    pub mpc_thd: String,
-    pub script_version: u32,
-    pub slot_duration: String,
+    pub script_version: u16,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub heavy_del_thd: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub max_block_size: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub max_header_size: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub max_proposal_size: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub max_tx_size: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub mpc_thd: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub slot_duration: u64,
+
     pub softfork_rule: SoftForkRule,
     pub tx_fee_policy: TxFeePolicy,
-    pub unlock_stake_epoch: String,
-    pub update_implicit: String,
-    pub update_proposal_thd: String,
-    pub update_vote_thd: String,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub unlock_stake_epoch: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub update_implicit: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub update_proposal_thd: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub update_vote_thd: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,18 +95,34 @@ pub struct VssCert {
     pub signing_key: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[serde_as]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SoftForkRule {
-    pub init_thd: String,
-    pub min_thd: String,
-    pub thd_decrement: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub init_thd: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub min_thd: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub thd_decrement: u64,
 }
 
-#[derive(Debug, Deserialize)]
+impl From<SoftForkRule> for (u64, u64, u64) {
+    fn from(value: SoftForkRule) -> Self {
+        (value.init_thd, value.min_thd, value.thd_decrement)
+    }
+}
+
+#[serde_as]
+#[derive(Debug, Deserialize, Clone)]
 pub struct TxFeePolicy {
-    pub multiplier: String,
-    pub summand: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub multiplier: u64,
+
+    #[serde_as(as = "DisplayFromStr")]
+    pub summand: u64,
 }
 
 pub fn from_file(path: &std::path::Path) -> Result<GenesisFile, std::io::Error> {
