@@ -11,10 +11,12 @@ where
     D: Deserializer<'de>,
 {
     let s = f32::deserialize(deserializer)?;
-    let r = BigRational::from_float(s).unwrap();
+    let r = BigRational::from_float(s)
+        .ok_or(serde::de::Error::custom("can't turn float into rational"))?;
+
     let r = pallas_primitives::alonzo::RationalNumber {
-        numerator: r.numer().try_into().unwrap(),
-        denominator: r.denom().try_into().unwrap(),
+        numerator: r.numer().try_into().map_err(serde::de::Error::custom)?,
+        denominator: r.denom().try_into().map_err(serde::de::Error::custom)?,
     };
 
     Ok(r)
