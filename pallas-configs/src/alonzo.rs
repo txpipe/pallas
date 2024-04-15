@@ -66,7 +66,7 @@ pub struct CostModel(HashMap<String, i64>);
 
 impl From<CostModel> for pallas_primitives::alonzo::CostModel {
     fn from(value: CostModel) -> Self {
-        value.0.into_values().into_iter().collect()
+        value.0.into_values().collect()
     }
 }
 
