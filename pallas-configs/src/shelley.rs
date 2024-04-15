@@ -8,11 +8,17 @@ pub struct GenDelegs {
     pub vrf: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolVersion {
-    pub minor: Option<u32>,
-    pub major: Option<u32>,
+    pub minor: u64,
+    pub major: u64,
+}
+
+impl From<ProtocolVersion> for pallas_primitives::alonzo::ProtocolVersion {
+    fn from(value: ProtocolVersion) -> Self {
+        (value.major, value.minor)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,20 +30,22 @@ pub struct ExtraEntropy {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolParams {
-    pub protocol_version: Option<ProtocolVersion>,
+    pub protocol_version: ProtocolVersion,
+    pub max_tx_size: u32,
+    pub max_block_body_size: u32,
+    pub max_block_header_size: u32,
+    pub key_deposit: u64,
+    #[serde(rename = "minUTxOValue")]
+    pub min_utxo_value: u64,
+    pub min_fee_a: u32,
+    pub min_fee_b: u32,
+    pub pool_deposit: u64,
+    pub n_opt: u32,
+    pub min_pool_cost: u64,
+
     pub decentralisation_param: Option<u32>,
     pub e_max: Option<u32>,
     pub extra_entropy: Option<ExtraEntropy>,
-    pub max_tx_size: u64,
-    pub max_block_body_size: Option<u32>,
-    pub max_block_header_size: Option<u32>,
-    pub min_fee_a: u64,
-    pub min_fee_b: u64,
-    pub min_u_tx_o_value: u64,
-    pub pool_deposit: Option<u64>,
-    pub min_pool_cost: Option<u64>,
-    pub key_deposit: Option<u32>,
-    pub n_opt: Option<u32>,
     pub rho: Option<f32>,
     pub tau: Option<f32>,
     pub a0: Option<f32>,
