@@ -96,7 +96,7 @@ async fn do_chainsync(client: &mut NodeClient) {
     info!("intersected point is {:?}", point);
 
     loop {
-        let next = client.chainsync().request_next().await.unwrap();
+        let next = client.chainsync().request_or_await_next().await.unwrap();
         match next {
             chainsync::NextResponse::RollForward(h, _) => {
                 let block_number = MultiEraBlock::decode(&h).unwrap().number();
