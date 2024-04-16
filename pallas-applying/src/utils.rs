@@ -15,7 +15,7 @@ use pallas_primitives::{
         AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
         NetworkId, PlutusScript, PolicyId, VKeyWitness, Value,
     },
-    babbage::{MintedTransactionBody, MintedTx as BabbageMintedTx, PlutusV2Script},
+    babbage::{MintedTx as BabbageMintedTx, PlutusV2Script},
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -38,9 +38,9 @@ pub fn get_alonzo_comp_tx_size(mtx: &AlonzoMintedTx) -> u32 {
     }
 }
 
-pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u32> {
+pub fn get_babbage_tx_size(mtx: &BabbageMintedTx) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
-    match encode(tx_body, &mut buff) {
+    match encode(mtx, &mut buff) {
         Ok(()) => Some(buff.len() as u32),
         Err(_) => None,
     }
