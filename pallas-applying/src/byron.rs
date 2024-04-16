@@ -12,10 +12,7 @@ use crate::utils::{
 use pallas_addresses::byron::{
     AddrAttrs, AddrType, AddressId, AddressPayload, ByronAddress, SpendingData,
 };
-use pallas_codec::{
-    minicbor::{encode, Encoder},
-    utils::CborWrap,
-};
+use pallas_codec::{minicbor::Encoder, utils::CborWrap};
 use pallas_crypto::{
     hash::Hash,
     key::ed25519::{PublicKey, Signature},
@@ -32,13 +29,13 @@ pub fn validate_byron_tx(
     prot_magic: &u32,
 ) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
-    let size: &u64 = &get_tx_size(tx)?;
+    let size: u64 = get_tx_size(mtxp);
     check_ins_not_empty(tx)?;
     check_outs_not_empty(tx)?;
     check_ins_in_utxos(tx, utxos)?;
     check_outs_have_lovelace(tx)?;
-    check_fees(tx, size, utxos, prot_pps)?;
-    check_size(size, prot_pps)?;
+    check_fees(tx, &size, utxos, prot_pps)?;
+    check_size(&size, prot_pps)?;
     check_witnesses(mtxp, utxos, prot_magic)
 }
 
@@ -126,12 +123,8 @@ fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
     Ok(())
 }
 
-fn get_tx_size(tx: &Tx) -> Result<u64, ValidationError> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(tx, &mut buff) {
-        Ok(()) => Ok(buff.len() as u64),
-        Err(_) => Err(Byron(UnknownTxSize)),
-    }
+fn get_tx_size(mtxp: &MintedTxPayload) -> u64 {
+    (mtxp.transaction.raw_cbor().len() + mtxp.witness.raw_cbor().len()) as u64
 }
 
 pub enum TaggedSignature<'a> {
