@@ -286,7 +286,7 @@ where
     ///
     /// Returns an error if the message cannot be sent, or if the inbound
     /// message is invalid
-    pub async fn request_or_await_next(&mut self) -> Result<NextResponse<O>, Error> {
+    pub async fn request_or_await_next(&mut self) -> Result<NextResponse<O>, ClientError> {
         if self.has_agency() {
             self.request_next().await
         } else {
