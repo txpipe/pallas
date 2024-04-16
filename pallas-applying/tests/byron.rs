@@ -39,6 +39,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -81,6 +82,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -131,6 +133,7 @@ mod byron_tests {
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -184,6 +187,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -222,6 +226,7 @@ mod byron_tests {
         let utxos: UTxOs = UTxOs::new();
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -281,6 +286,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -325,6 +331,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -369,6 +376,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -421,6 +429,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
@@ -482,6 +491,7 @@ mod byron_tests {
         );
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
+                block_version: (1, 0, 0),
                 script_version: 0,
                 slot_duration: 20000,
                 max_block_size: 2000000,
