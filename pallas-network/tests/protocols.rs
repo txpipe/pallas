@@ -850,7 +850,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         assert_eq!(
             result,
             localstate::queries_v16::ChainBlockNumber {
-                slot_timeline: 1,
+                slot_timeline: 1, // current
                 block_number: 2143789,
             }
         );
