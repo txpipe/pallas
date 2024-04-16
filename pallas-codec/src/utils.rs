@@ -1,7 +1,7 @@
 use minicbor::{
     data::{Tag, Type},
     decode::Error,
-    display, Decode, Encode,
+    Decode, Encode,
 };
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash as StdHash, ops::Deref};
@@ -1099,8 +1099,6 @@ impl AnyCbor {
     where
         for<'b> T: Decode<'b, ()>,
     {
-        let code = format!("{}", display(&self.inner));
-        println!("code1: {}", code);
         minicbor::decode(&self.inner)
     }
 }
