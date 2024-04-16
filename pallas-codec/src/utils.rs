@@ -938,7 +938,8 @@ impl<C> minicbor::encode::Encode<C> for PositiveCoin {
 /// Introduced in Conway
 /// negInt64 = -9223372036854775808 .. -1
 /// posInt64 = 1 .. 9223372036854775807
-/// nonZeroInt64 = negInt64 / posInt64 ; this is the same as the current int64 definition but without zero
+/// nonZeroInt64 = negInt64 / posInt64 ; this is the same as the current int64
+/// definition but without zero
 #[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NonZeroInt(i64);

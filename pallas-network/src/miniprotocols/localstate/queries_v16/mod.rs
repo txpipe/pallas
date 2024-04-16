@@ -91,6 +91,15 @@ pub struct SystemStart {
     pub picoseconds_of_day: u64,
 }
 
+#[derive(Debug, Encode, Decode, PartialEq)]
+pub struct ChainBlockNumber {
+    #[n(0)]
+    pub slot_timeline: u32,
+
+    #[n(1)]
+    pub block_number: u32,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RationalNumber {
     pub numerator: u64,
@@ -363,6 +372,14 @@ pub async fn get_current_era(client: &mut Client) -> Result<Era, ClientError> {
 /// Get the system start time.
 pub async fn get_system_start(client: &mut Client) -> Result<SystemStart, ClientError> {
     let query = Request::GetSystemStart;
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the block number for the current tip.
+pub async fn get_chain_block_no(client: &mut Client) -> Result<ChainBlockNumber, ClientError> {
+    let query = Request::GetChainBlockNo;
     let result = client.query(query).await?;
 
     Ok(result)
