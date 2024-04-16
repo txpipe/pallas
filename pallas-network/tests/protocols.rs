@@ -836,10 +836,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
             }
         );
 
-        /////////////
-        //  start  //
-        /////////////
-
         let request = AnyCbor::from_encode(localstate::queries_v16::Request::GetChainBlockNo);
         client.statequery().send_query(request).await.unwrap();
 
@@ -858,10 +854,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 block_number: 2143789,
             }
         );
-
-        //////////////
-        //  finish  //
-        //////////////
 
         let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
             localstate::queries_v16::LedgerQuery::BlockQuery(
