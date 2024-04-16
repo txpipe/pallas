@@ -7,13 +7,13 @@ pub use environment::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::encode,
-    utils::{Bytes, KeepRaw, KeyValuePairs},
+    utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
         AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
-        NetworkId, PlutusScript, PolicyId, TransactionBody, VKeyWitness, Value,
+        NetworkId, PlutusScript, PolicyId, VKeyWitness, Value,
     },
     babbage::{MintedTransactionBody, MintedTx as BabbageMintedTx, PlutusV2Script},
 };
@@ -24,11 +24,17 @@ pub use validation::*;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u32> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(tx_body, &mut buff) {
-        Ok(()) => Some(buff.len() as u32),
-        Err(_) => None,
+pub fn get_alonzo_comp_tx_size(mtx: &AlonzoMintedTx) -> u32 {
+    match &mtx.auxiliary_data {
+        Nullable::Some(aux_data) => {
+            (aux_data.raw_cbor().len()
+                + mtx.transaction_body.raw_cbor().len()
+                + mtx.transaction_witness_set.raw_cbor().len()) as u32
+        }
+        _ => {
+            (mtx.transaction_body.raw_cbor().len() + mtx.transaction_witness_set.raw_cbor().len())
+                as u32
+        }
     }
 }
 

@@ -36,16 +36,16 @@ pub fn validate_alonzo_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let size: &u32 = &get_alonzo_comp_tx_size(tx_body).ok_or(Alonzo(UnknownTxSize))?;
+    let size: u32 = get_alonzo_comp_tx_size(mtx);
     check_ins_not_empty(tx_body)?;
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, mtx, block_slot)?;
-    check_fee(tx_body, size, mtx, utxos, prot_pps)?;
+    check_fee(tx_body, &size, mtx, utxos, prot_pps)?;
     check_preservation_of_value(tx_body, utxos)?;
     check_min_lovelace(tx_body, prot_pps)?;
     check_output_val_size(tx_body, prot_pps)?;
     check_network_id(tx_body, network_id)?;
-    check_tx_size(size, prot_pps)?;
+    check_tx_size(&size, prot_pps)?;
     check_tx_ex_units(mtx, prot_pps)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, prot_pps)?;
