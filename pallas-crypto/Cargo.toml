@@ -12,7 +12,7 @@ authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
 
 [dependencies]
 hex = "0.4"
-cryptoxide = { version = "0.4.1" }
+cryptoxide = { version = "0.4.4" }
 thiserror = "1.0"
 rand_core = "0.6"
 pallas-codec = { version = "=0.25.0", path = "../pallas-codec" }
