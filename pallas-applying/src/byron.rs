@@ -42,21 +42,21 @@ pub fn validate_byron_tx(
     check_witnesses(mtxp, utxos, prot_magic)
 }
 
-fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
+pub fn check_ins_not_empty(tx: &Tx) -> ValidationResult {
     if tx.inputs.clone().to_vec().is_empty() {
         return Err(Byron(TxInsEmpty));
     }
     Ok(())
 }
 
-fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
+pub fn check_outs_not_empty(tx: &Tx) -> ValidationResult {
     if tx.outputs.clone().to_vec().is_empty() {
         return Err(Byron(TxOutsEmpty));
     }
     Ok(())
 }
 
-fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
+pub fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     for input in tx.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_byron(input))) {
             return Err(Byron(InputNotInUTxO));
@@ -65,7 +65,7 @@ fn check_ins_in_utxos(tx: &Tx, utxos: &UTxOs) -> ValidationResult {
     Ok(())
 }
 
-fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
+pub fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
     for output in tx.outputs.iter() {
         if output.amount == 0 {
             return Err(Byron(OutputWithoutLovelace));
@@ -74,7 +74,12 @@ fn check_outs_have_lovelace(tx: &Tx) -> ValidationResult {
     Ok(())
 }
 
-fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) -> ValidationResult {
+pub fn check_fees(
+    tx: &Tx,
+    size: &u64,
+    utxos: &UTxOs,
+    prot_pps: &ByronProtParams,
+) -> ValidationResult {
     let mut inputs_balance: u64 = 0;
     let mut only_redeem_utxos: bool = true;
     for input in tx.inputs.iter() {
@@ -119,7 +124,7 @@ fn is_redeem_utxo(input: &TxIn, utxos: &UTxOs) -> bool {
     }
 }
 
-fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
+pub fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
     if *size > prot_pps.max_tx_size {
         return Err(Byron(MaxTxSizeExceeded));
     }
@@ -139,7 +144,11 @@ pub enum TaggedSignature<'a> {
     RedeemWitness(&'a ByronSignature),
 }
 
-fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> ValidationResult {
+pub fn check_witnesses(
+    mtxp: &MintedTxPayload,
+    utxos: &UTxOs,
+    prot_magic: &u32,
+) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
     let tx_hash: Hash<32> = mtxp.transaction.original_hash();
     let witnesses: Vec<(&PubKey, TaggedSignature)> = tag_witnesses(&mtxp.witness)?;
@@ -167,7 +176,7 @@ fn tag_witnesses(wits: &[Twit]) -> Result<Vec<(&PubKey, TaggedSignature)>, Valid
             Twit::RedeemWitness(CborWrap((pk, sig))) => {
                 res.push((pk, TaggedSignature::RedeemWitness(sig)));
             }
-            _ => return Err(Byron(UnableToProcessWitness)),
+            _ => return Err(Byron(UnknownWitnessFormat)), // Unsupported witness format
         }
     }
     Ok(res)
@@ -179,7 +188,8 @@ fn find_tx_out<'a>(input: &'a TxIn, utxos: &'a UTxOs) -> Result<&'a TxOut, Valid
         .get(&key)
         .ok_or(Byron(InputNotInUTxO))?
         .as_byron()
-        .ok_or(Byron(InputNotInUTxO))
+        .ok_or(Byron(UnknownTxOutFormat)) // Unable to parse the MultiEraOutput
+                                          // as a Byron TxOut
 }
 
 fn find_raw_witness<'a>(
@@ -187,9 +197,7 @@ fn find_raw_witness<'a>(
     witnesses: &'a Vec<(&'a PubKey, TaggedSignature<'a>)>,
 ) -> Result<(&'a PubKey, &'a TaggedSignature<'a>), ValidationError> {
     let address: ByronAddress = mk_byron_address(&tx_out.address);
-    let addr_payload: AddressPayload = address
-        .decode()
-        .map_err(|_| Byron(UnableToProcessWitness))?;
+    let addr_payload: AddressPayload = address.decode().map_err(|_| Byron(UnknownAddressFormat))?; // Unable to decode address
     let root: AddressId = addr_payload.root;
     let attr: AddrAttrs = addr_payload.attributes;
     let addr_type: AddrType = addr_payload.addrtype;
@@ -197,7 +205,7 @@ fn find_raw_witness<'a>(
         if redeems(pub_key, sign, &root, &attr, &addr_type) {
             match addr_type {
                 AddrType::PubKey | AddrType::Redeem => return Ok((pub_key, sign)),
-                _ => return Err(Byron(UnableToProcessWitness)),
+                _ => return Err(Byron(UnknownAddressFormat)), // Unknown address type
             }
         }
     }
@@ -252,17 +260,19 @@ fn get_data_to_verify(
     match sign {
         TaggedSignature::PkWitness(_) => {
             enc.encode(1u64)
-                .map_err(|_| Byron(UnableToProcessWitness))?;
+                .map_err(|_| Byron(EncodingErrorWitsCheck))?;
+            // Encoding error while checking wits
         }
         TaggedSignature::RedeemWitness(_) => {
             enc.encode(2u64)
-                .map_err(|_| Byron(UnableToProcessWitness))?;
+                .map_err(|_| Byron(EncodingErrorWitsCheck))?;
+            // Encoding error while checking wits
         }
     }
     enc.encode(prot_magic)
-        .map_err(|_| Byron(UnableToProcessWitness))?;
+        .map_err(|_| Byron(EncodingErrorWitsCheck))?; // Encoding error while checking wits
     enc.encode(tx_hash)
-        .map_err(|_| Byron(UnableToProcessWitness))?;
+        .map_err(|_| Byron(EncodingErrorWitsCheck))?; // Encoding error while checking wits
     Ok(enc.into_writer().clone())
 }
 

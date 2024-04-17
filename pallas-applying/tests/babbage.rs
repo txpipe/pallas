@@ -1719,7 +1719,7 @@ mod babbage_tests {
         match validate(&metx, &utxos, &env) {
             Ok(()) => assert!(false, "Transaction auxiliary data removed"),
             Err(err) => match err {
-                Babbage(BabbageError::MetadataHash) => (),
+                Babbage(BabbageError::UnneededAuxDataHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

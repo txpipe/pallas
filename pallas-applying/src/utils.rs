@@ -15,7 +15,9 @@ use pallas_primitives::{
         AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
         NetworkId, PlutusScript, PolicyId, TransactionBody, VKeyWitness, Value,
     },
-    babbage::{MintedTransactionBody, MintedTx as BabbageMintedTx, PlutusV2Script},
+    babbage::{
+        MintedTransactionBody, MintedTx as BabbageMintedTx, PlutusV2Script, PseudoTransactionOutput,
+    },
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -248,6 +250,19 @@ fn find_assets(assets: &KeyValuePairs<AssetName, Coin>, asset_name: &AssetName) 
     None
 }
 
+pub fn value_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
+    match multi_era_output {
+        MultiEraOutput::Byron(output) => Value::Coin(output.amount),
+        MultiEraOutput::AlonzoCompatible(output) => output.amount.clone(),
+        babbage_output => match babbage_output.as_babbage() {
+            Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
+            Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+            None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
+                                       * type MultiEraOutput was extended with another variant */
+        },
+    }
+}
+
 pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
     match val {
         Value::Coin(res) => *res,
@@ -268,7 +283,7 @@ pub fn mk_alonzo_vk_wits_check_list(
 ) -> Result<Vec<(bool, VKeyWitness)>, ValidationError> {
     Ok(wits
         .clone()
-        .ok_or(err)?
+        .ok_or(err)? // An error indicating wits is a None value
         .iter()
         .map(|x| (false, x.clone()))
         .collect::<Vec<(bool, VKeyWitness)>>())
