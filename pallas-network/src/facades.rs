@@ -12,10 +12,11 @@ use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, txsubmission,
-    PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-    PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
-    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_TX_SUBMISSION,
+    blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, txmonitor,
+    txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
+    PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH,
+    PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE,
+    PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
@@ -278,6 +279,7 @@ pub struct NodeClient {
     chainsync: chainsync::N2CClient,
     statequery: localstate::Client,
     submission: localtxsubmission::Client,
+    monitor: txmonitor::Client,
 }
 
 impl NodeClient {
@@ -288,6 +290,7 @@ impl NodeClient {
         let cs_channel = plexer.subscribe_client(PROTOCOL_N2C_CHAIN_SYNC);
         let sq_channel = plexer.subscribe_client(PROTOCOL_N2C_STATE_QUERY);
         let tx_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_SUBMISSION);
+        let mo_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_MONITOR);
 
         let plexer = plexer.spawn();
 
@@ -297,6 +300,7 @@ impl NodeClient {
             chainsync: chainsync::Client::new(cs_channel),
             statequery: localstate::Client::new(sq_channel),
             submission: localtxsubmission::Client::new(tx_channel),
+            monitor: txmonitor::Client::new(mo_channel),
         }
     }
 
@@ -403,6 +407,10 @@ impl NodeClient {
 
     pub fn submission(&mut self) -> &mut localtxsubmission::Client {
         &mut self.submission
+    }
+
+    pub fn monitor(&mut self) -> &mut txmonitor::Client {
+        &mut self.monitor
     }
 
     pub async fn abort(self) {
