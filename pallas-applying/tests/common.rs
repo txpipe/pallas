@@ -9,7 +9,7 @@ use pallas_primitives::{
     },
     byron::{Address, MintedTxPayload, Tx, TxOut},
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput};
+use pallas_traverse::{Era, MultiEraInput, MultiEraOutput};
 use std::{borrow::Cow, iter::zip, vec::Vec};
 
 use pallas_codec::utils::{Bytes, CborWrap};
@@ -74,7 +74,7 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
             datum_hash: *datum_hash,
         };
         let multi_era_out: MultiEraOutput =
-            MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)));
+            MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)), Era::Alonzo);
         utxos.insert(multi_era_in, multi_era_out);
     }
     utxos
@@ -134,7 +134,7 @@ pub fn add_collateral_alonzo<'a>(
                 let multi_era_in: MultiEraInput =
                     MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
                 let multi_era_out: MultiEraOutput =
-                    MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)));
+                    MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(tx_out)), Era::Alonzo);
                 utxos.insert(multi_era_in, multi_era_out);
             }
         }

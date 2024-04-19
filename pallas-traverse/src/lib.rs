@@ -86,10 +86,10 @@ pub enum MultiEraTx<'b> {
     Conway(Box<Cow<'b, conway::MintedTx<'b>>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum MultiEraOutput<'b> {
-    AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>),
+    AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>, Era),
     Babbage(Box<Cow<'b, babbage::MintedTransactionOutput<'b>>>),
     Conway(Box<Cow<'b, conway::MintedTransactionOutput<'b>>>),
     Byron(Box<Cow<'b, byron::TxOut>>),

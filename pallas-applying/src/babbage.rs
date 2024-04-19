@@ -284,7 +284,7 @@ fn check_collaterals_assets(
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
     match multi_era_output {
         MultiEraOutput::Byron(output) => Value::Coin(output.amount),
-        MultiEraOutput::AlonzoCompatible(output) => output.amount.clone(),
+        MultiEraOutput::AlonzoCompatible(output, _) => output.amount.clone(),
         babbage_output => match babbage_output.as_babbage() {
             Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
             Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
