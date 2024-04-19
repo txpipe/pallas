@@ -1,4 +1,7 @@
+use std::collections::BTreeSet;
+
 use pallas::{
+    codec::utils::Bytes,
     ledger::{addresses::Address, traverse::MultiEraBlock},
     network::{
         facades::NodeClient,
@@ -22,6 +25,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_system_start(client).await.unwrap();
     info!("result: {:?}", result);
 
+    let result = queries_v16::get_chain_block_no(client).await.unwrap();
+    info!("result: {:?}", result);
+
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
@@ -39,7 +45,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let addrx: Address = Address::from_bech32(&addrx).unwrap();
     let addrx: Addr = addrx.to_vec().into();
 
-    let addry = "008c5bf0f2af6f1ef08bb3f6ec702dd16e1c514b7e1d12f7549b47db9f4d943c7af0aaec774757d4745d1a2c8dd3220e6ec2c9df23f757a2f8".to_string();
+    let addry =
+    "008c5bf0f2af6f1ef08bb3f6ec702dd16e1c514b7e1d12f7549b47db9f4d943c7af0aaec774757d4745d1a2c8dd3220e6ec2c9df23f757a2f8"
+    .to_string();
     let addry: Address = Address::from_hex(&addry).unwrap();
     let addry: Addr = addry.to_vec().into();
 
@@ -48,6 +56,27 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .await
         .unwrap();
     info!("result: {:?}", result);
+
+    let result = queries_v16::get_current_pparams(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
+    // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
+    // Empty Set means all pools.
+    let pools: BTreeSet<Bytes> = BTreeSet::new();
+    let result = queries_v16::get_stake_snapshots(client, era, pools)
+        .await
+        .unwrap();
+    println!("result: {:?}", result);
+
+    let result = queries_v16::get_genesis_config(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
+    // Ensure decoding across version disparities by always receiving a valid
+    // response using the wrap function for the query result with CBOR-in-CBOR
+    // concept.
+    let query = queries_v16::BlockQuery::GetCurrentPParams;
+    let result = queries_v16::get_cbor(client, era, query).await.unwrap();
+    println!("result: {:?}", result);
 
     client.send_release().await.unwrap();
 }
@@ -67,7 +96,7 @@ async fn do_chainsync(client: &mut NodeClient) {
     info!("intersected point is {:?}", point);
 
     loop {
-        let next = client.chainsync().request_next().await.unwrap();
+        let next = client.chainsync().request_or_await_next().await.unwrap();
         match next {
             chainsync::NextResponse::RollForward(h, _) => {
                 let block_number = MultiEraBlock::decode(&h).unwrap().number();

@@ -82,6 +82,26 @@ impl Log {
     pub fn is_origin(&self) -> bool {
         matches!(self, Log::Origin)
     }
+
+    /// Checks if entry is a forward event (apply or mark)
+    pub fn is_forward(&self) -> bool {
+        self.is_mark() || self.is_apply()
+    }
+
+    /// Checks if entry is a forward event that matches the specified point
+    pub fn equals_point(&self, point: &(BlockSlot, BlockHash)) -> bool {
+        if !self.is_forward() {
+            return false;
+        }
+
+        self.slot().is_some_and(|x| x == point.0) && self.hash().is_some_and(|x| x.eq(&point.1))
+    }
+
+    /// Checks if entry is a forward event that matches any of the specified
+    /// points
+    pub fn equals_any_point(&self, points: &[(BlockSlot, BlockHash)]) -> bool {
+        points.iter().any(|x| self.equals_point(x))
+    }
 }
 
 // slot => block hash
@@ -147,10 +167,15 @@ pub struct Store {
     pub tip_change: Arc<tokio::sync::Notify>,
     wal_seq: u64,
     k_param: u64,
+    immutable_overlap: u64,
 }
 
 impl Store {
-    pub fn open(path: impl AsRef<Path>, k_param: u64) -> Result<Self, Error> {
+    pub fn open(
+        path: impl AsRef<Path>,
+        k_param: u64,
+        immutable_overlap: Option<u64>,
+    ) -> Result<Self, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
@@ -164,6 +189,7 @@ impl Store {
             tip_change: Arc::new(tokio::sync::Notify::new()),
             wal_seq,
             k_param,
+            immutable_overlap: immutable_overlap.unwrap_or(0),
         };
 
         Ok(out)
@@ -303,30 +329,45 @@ impl Store {
         }
     }
 
-    pub fn find_wal_seq(
-        &self,
-        block: Option<(BlockSlot, BlockHash)>,
-    ) -> Result<Option<Seq>, Error> {
-        if block.is_none() {
+    pub fn find_wal_seq(&self, intersect: &[(BlockSlot, BlockHash)]) -> Result<Option<Seq>, Error> {
+        if intersect.is_empty() {
             return Ok(None);
         }
 
-        let (slot, hash) = block.unwrap();
-
-        // TODO: Not sure this is 100% accurate:
-        // i.e Apply(X), Apply(cursor), Undo(cursor), Mark(x)
-        // We want to start at Apply(cursor) or Mark(cursor), but even then,
-        // what if we have more than one Apply(cursor), how do we know
-        // which is correct?
         let found = WalKV::scan_until(&self.db, rocksdb::IteratorMode::End, |v| {
-            (v.is_mark() || v.is_apply())
-                && v.slot().is_some_and(|s| s == slot)
-                && v.hash().is_some_and(|h| h.eq(&hash))
+            v.equals_any_point(intersect)
         })?;
 
         match found {
             Some(DBInt(seq)) => Ok(Some(seq)),
             None => Err(Error::NotFound),
+        }
+    }
+
+    pub fn crawl_from_intersect(
+        &self,
+        options: &[(BlockSlot, BlockHash)],
+    ) -> Result<WalIterator, Error> {
+        let seq = self.find_wal_seq(options)?;
+
+        // TODO: we need to create a RocksDB snapshot (with `db.snapshot()`) to use as
+        // the source for sequence scan and the iterator to ensure that sequence
+        // hasn't been pruned between operations. For the time being we consider
+        // this is a very narrow edge-case.
+
+        if let Some(seq) = seq {
+            let seq = Box::<[u8]>::from(DBInt(seq));
+            let from = rocksdb::IteratorMode::From(&seq, rocksdb::Direction::Forward);
+            let mut iter = WalKV::iter_entries(&self.db, from);
+
+            // skip current
+            iter.next();
+
+            Ok(WalIterator(iter))
+        } else {
+            let from = rocksdb::IteratorMode::Start;
+            let iter = WalKV::iter_entries(&self.db, from);
+            Ok(WalIterator(iter))
         }
     }
 
@@ -343,7 +384,7 @@ impl Store {
             // get the number of slots that have passed since the wal point
             let slot_delta = tip - value.slot().unwrap_or(0);
 
-            if slot_delta <= self.k_param {
+            if slot_delta <= self.k_param + self.immutable_overlap {
                 break;
             } else {
                 WalKV::stage_delete(&self.db, wal_key, &mut batch);

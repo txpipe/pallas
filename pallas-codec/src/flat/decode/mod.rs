@@ -3,6 +3,9 @@ mod error;
 
 use crate::flat::filler::Filler;
 
+#[cfg(feature = "num-bigint")]
+use num_bigint::BigInt;
+
 pub use decoder::Decoder;
 pub use error::Error;
 
@@ -36,7 +39,8 @@ impl Decode<'_> for isize {
     }
 }
 
-impl Decode<'_> for i128 {
+#[cfg(feature = "num-bigint")]
+impl Decode<'_> for BigInt {
     fn decode(d: &mut Decoder) -> Result<Self, Error> {
         d.big_integer()
     }

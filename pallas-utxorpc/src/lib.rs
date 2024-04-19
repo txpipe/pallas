@@ -1,13 +1,12 @@
 use std::ops::Deref;
 
 use pallas_codec::utils::KeyValuePairs;
-use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage};
+use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse as trv;
 
 use trv::OriginalHash;
 
-use utxorpc::proto::cardano::v1 as u5c;
+pub use utxorpc_spec::utxorpc::v1alpha as spec;
 
 pub trait Context {
     fn get_spent_tx_output<'a>(tx_hash: Hash<32>, index: u32) -> Option<trv::MultiEraOutput<'a>>;

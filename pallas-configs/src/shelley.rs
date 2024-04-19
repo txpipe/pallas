@@ -1,5 +1,26 @@
-use serde::Deserialize;
-use std::collections::HashMap;
+use num_rational::BigRational;
+use pallas_crypto::hash::Hash;
+use pallas_primitives::conway::RationalNumber;
+use serde::{Deserialize, Deserializer};
+use std::{collections::HashMap, str::FromStr};
+
+fn deserialize_rational<'de, D>(
+    deserializer: D,
+) -> Result<pallas_primitives::alonzo::RationalNumber, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = f32::deserialize(deserializer)?;
+    let r = BigRational::from_float(s)
+        .ok_or(serde::de::Error::custom("can't turn float into rational"))?;
+
+    let r = pallas_primitives::alonzo::RationalNumber {
+        numerator: r.numer().try_into().map_err(serde::de::Error::custom)?,
+        denominator: r.denom().try_into().map_err(serde::de::Error::custom)?,
+    };
+
+    Ok(r)
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -8,39 +29,81 @@ pub struct GenDelegs {
     pub vrf: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolVersion {
-    pub minor: Option<u32>,
-    pub major: Option<u32>,
+    pub minor: u64,
+    pub major: u64,
 }
 
-#[derive(Debug, Deserialize)]
+impl From<ProtocolVersion> for pallas_primitives::alonzo::ProtocolVersion {
+    fn from(value: ProtocolVersion) -> Self {
+        (value.major, value.minor)
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum NonceVariant {
+    NeutralNonce,
+    Nonce,
+}
+
+impl From<NonceVariant> for pallas_primitives::alonzo::NonceVariant {
+    fn from(value: NonceVariant) -> Self {
+        match value {
+            NonceVariant::NeutralNonce => Self::NeutralNonce,
+            NonceVariant::Nonce => Self::Nonce,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtraEntropy {
-    pub tag: Option<String>,
+    pub tag: NonceVariant,
+    pub hash: Option<String>,
+}
+
+impl From<ExtraEntropy> for pallas_primitives::alonzo::Nonce {
+    fn from(value: ExtraEntropy) -> Self {
+        Self {
+            variant: value.tag.into(),
+            hash: value
+                .hash
+                .map(|x| Hash::<32>::from_str(&x).expect("invalid nonce hash value")),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolParams {
-    pub protocol_version: Option<ProtocolVersion>,
-    pub decentralisation_param: Option<u32>,
-    pub e_max: Option<u32>,
-    pub extra_entropy: Option<ExtraEntropy>,
-    pub max_tx_size: u64,
-    pub max_block_body_size: Option<u32>,
-    pub max_block_header_size: Option<u32>,
-    pub min_fee_a: u64,
-    pub min_fee_b: u64,
-    pub min_u_tx_o_value: u64,
-    pub pool_deposit: Option<u64>,
-    pub min_pool_cost: Option<u64>,
-    pub key_deposit: Option<u32>,
-    pub n_opt: Option<u32>,
-    pub rho: Option<f32>,
-    pub tau: Option<f32>,
-    pub a0: Option<f32>,
+    pub protocol_version: ProtocolVersion,
+    pub max_tx_size: u32,
+    pub max_block_body_size: u32,
+    pub max_block_header_size: u32,
+    pub key_deposit: u64,
+    #[serde(rename = "minUTxOValue")]
+    pub min_utxo_value: u64,
+    pub min_fee_a: u32,
+    pub min_fee_b: u32,
+    pub pool_deposit: u64,
+    pub n_opt: u32,
+    pub min_pool_cost: u64,
+    pub e_max: u32,
+    pub extra_entropy: ExtraEntropy,
+
+    #[serde(deserialize_with = "deserialize_rational")]
+    pub decentralisation_param: RationalNumber,
+
+    #[serde(deserialize_with = "deserialize_rational")]
+    pub rho: pallas_primitives::alonzo::RationalNumber,
+
+    #[serde(deserialize_with = "deserialize_rational")]
+    pub tau: pallas_primitives::alonzo::RationalNumber,
+
+    #[serde(deserialize_with = "deserialize_rational")]
+    pub a0: pallas_primitives::alonzo::RationalNumber,
 }
 
 #[derive(Debug, Deserialize)]

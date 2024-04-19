@@ -1,15 +1,18 @@
 use futures_core::Stream;
 
-use super::{Log, Seq, Store};
+use super::{BlockHash, BlockSlot, Log, Store};
 
 pub struct RollStream;
 
 impl RollStream {
-    pub fn start_after(store: Store, seq: Option<Seq>) -> impl Stream<Item = Log> {
+    pub fn intersect(
+        store: Store,
+        intersect: Vec<(BlockSlot, BlockHash)>,
+    ) -> impl Stream<Item = Log> {
         async_stream::stream! {
-            let mut last_seq = seq;
+            let mut last_seq = None;
 
-            let iter = store.crawl_after(last_seq);
+            let iter = store.crawl_from_intersect(&intersect).unwrap();
 
             for (seq, val) in iter.flatten() {
                 yield val;
@@ -43,7 +46,7 @@ mod tests {
     #[tokio::test]
     async fn test_stream_waiting() {
         let path = tempfile::tempdir().unwrap().into_path();
-        let mut db = Store::open(path.clone(), 30).unwrap();
+        let mut db = Store::open(path.clone(), 30, None).unwrap();
 
         for i in 0..=100 {
             let (slot, hash, body) = dummy_block(i * 10);
@@ -59,7 +62,7 @@ mod tests {
             }
         });
 
-        let s = super::RollStream::start_after(db.clone(), None);
+        let s = super::RollStream::intersect(db.clone(), vec![]);
 
         pin_mut!(s);
 

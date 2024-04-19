@@ -1,7 +1,8 @@
 use std::net::SocketAddr;
 use std::path::Path;
+use std::time::Duration;
 use thiserror::Error;
-use tracing::error;
+use tracing::{debug, error, warn};
 
 use tokio::net::{TcpListener, ToSocketAddrs};
 
@@ -30,53 +31,104 @@ pub enum Error {
     #[error("handshake protocol error")]
     HandshakeProtocol(handshake::Error),
 
+    #[error("keepalive client loop error")]
+    KeepAliveClientLoop(keepalive::ClientError),
+
+    #[error("keepalive server loop error")]
+    KeepAliveServerLoop(keepalive::ServerError),
+
     #[error("handshake version not accepted")]
     IncompatibleVersion,
+}
+
+pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
+
+pub type KeepAliveHandle = tokio::task::JoinHandle<Result<(), Error>>;
+
+pub enum KeepAliveLoop {
+    Client(keepalive::Client, Duration),
+    Server(keepalive::Server),
+}
+
+impl KeepAliveLoop {
+    pub fn client(client: keepalive::Client, interval: Duration) -> Self {
+        Self::Client(client, interval)
+    }
+
+    pub fn server(server: keepalive::Server) -> Self {
+        Self::Server(server)
+    }
+
+    pub async fn run_client(
+        mut client: keepalive::Client,
+        interval: Duration,
+    ) -> Result<(), Error> {
+        let mut interval = tokio::time::interval(interval);
+
+        loop {
+            interval.tick().await;
+            warn!("sending keepalive request");
+
+            client
+                .keepalive_roundtrip()
+                .await
+                .map_err(Error::KeepAliveClientLoop)?;
+        }
+    }
+
+    pub async fn run_server(mut server: keepalive::Server) -> Result<(), Error> {
+        loop {
+            debug!("waiting keepalive request");
+
+            server
+                .keepalive_roundtrip()
+                .await
+                .map_err(Error::KeepAliveServerLoop)?;
+        }
+    }
+
+    pub fn spawn(self) -> KeepAliveHandle {
+        match self {
+            KeepAliveLoop::Client(client, interval) => {
+                tokio::spawn(Self::run_client(client, interval))
+            }
+            KeepAliveLoop::Server(server) => tokio::spawn(Self::run_server(server)),
+        }
+    }
 }
 
 /// Client of N2N Ouroboros
 pub struct PeerClient {
     pub plexer: RunningPlexer,
-    pub handshake: handshake::N2NClient,
+    pub keepalive: KeepAliveHandle,
     pub chainsync: chainsync::N2NClient,
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
-    pub keepalive: keepalive::Client,
 }
 
 impl PeerClient {
-    pub fn new(bearer: Bearer) -> Self {
-        let mut plexer = multiplexer::Plexer::new(bearer);
-
-        let hs_channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
-        let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
-        let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
-        let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
-        let keepalive_channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
-
-        let plexer = plexer.spawn();
-
-        Self {
-            plexer,
-            handshake: handshake::Client::new(hs_channel),
-            chainsync: chainsync::Client::new(cs_channel),
-            blockfetch: blockfetch::Client::new(bf_channel),
-            txsubmission: txsubmission::Client::new(txsub_channel),
-            keepalive: keepalive::Client::new(keepalive_channel),
-        }
-    }
-
     pub async fn connect(addr: impl ToSocketAddrs, magic: u64) -> Result<Self, Error> {
         let bearer = Bearer::connect_tcp(addr)
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
+        let mut plexer = multiplexer::Plexer::new(bearer);
+
+        let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
+        let mut handshake = handshake::Client::new(channel);
+
+        let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
+        let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
+        let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
+
+        let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
+        let keepalive = keepalive::Client::new(channel);
+
+        let plexer = plexer.spawn();
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic);
 
-        let handshake = client
-            .handshake()
+        let handshake = handshake
             .handshake(versions)
             .await
             .map_err(Error::HandshakeProtocol)?;
@@ -86,11 +138,21 @@ impl PeerClient {
             return Err(Error::IncompatibleVersion);
         }
 
-        Ok(client)
-    }
+        let keepalive = KeepAliveLoop::client(
+            keepalive,
+            Duration::from_secs(DEFAULT_KEEP_ALIVE_INTERVAL_SEC),
+        )
+        .spawn();
 
-    pub fn handshake(&mut self) -> &mut handshake::N2NClient {
-        &mut self.handshake
+        let client = Self {
+            plexer,
+            keepalive,
+            chainsync: chainsync::Client::new(cs_channel),
+            blockfetch: blockfetch::Client::new(bf_channel),
+            txsubmission: txsubmission::Client::new(txsub_channel),
+        };
+
+        Ok(client)
     }
 
     pub fn chainsync(&mut self) -> &mut chainsync::N2NClient {
@@ -114,10 +176,6 @@ impl PeerClient {
         &mut self.txsubmission
     }
 
-    pub fn keepalive(&mut self) -> &mut keepalive::Client {
-        &mut self.keepalive
-    }
-
     pub async fn abort(self) {
         self.plexer.abort().await
     }
@@ -125,11 +183,12 @@ impl PeerClient {
 
 /// Server of N2N Ouroboros
 pub struct PeerServer {
-    plexer: RunningPlexer,
-    handshake: handshake::N2NServer,
-    chainsync: chainsync::N2NServer,
-    blockfetch: blockfetch::Server,
-    txsubmission: txsubmission::Server,
+    pub plexer: RunningPlexer,
+    pub handshake: handshake::N2NServer,
+    pub chainsync: chainsync::N2NServer,
+    pub blockfetch: blockfetch::Server,
+    pub txsubmission: txsubmission::Server,
+    pub keepalive: keepalive::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<u64>,
 }
@@ -142,11 +201,13 @@ impl PeerServer {
         let cs_channel = plexer.subscribe_server(PROTOCOL_N2N_CHAIN_SYNC);
         let bf_channel = plexer.subscribe_server(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_server(PROTOCOL_N2N_TX_SUBMISSION);
+        let keepalive_channel = plexer.subscribe_server(PROTOCOL_N2N_KEEP_ALIVE);
 
         let hs = handshake::N2NServer::new(hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
         let bf = blockfetch::Server::new(bf_channel);
         let txsub = txsubmission::Server::new(txsub_channel);
+        let keepalive = keepalive::Server::new(keepalive_channel);
 
         let plexer = plexer.spawn();
 
@@ -156,6 +217,7 @@ impl PeerServer {
             chainsync: cs,
             blockfetch: bf,
             txsubmission: txsub,
+            keepalive,
             accepted_address: None,
             accepted_version: None,
         }
@@ -198,6 +260,10 @@ impl PeerServer {
 
     pub fn txsubmission(&mut self) -> &mut txsubmission::Server {
         &mut self.txsubmission
+    }
+
+    pub fn keepalive(&mut self) -> &mut keepalive::Server {
+        &mut self.keepalive
     }
 
     pub async fn abort(self) {

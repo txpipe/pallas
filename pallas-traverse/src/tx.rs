@@ -64,13 +64,17 @@ impl<'b> MultiEraTx<'b> {
     /// Try decode a transaction via every era's encoding format, starting with
     /// the most recent and returning on first success, or None if none are
     /// successful
+    ///
+    /// NOTE: Until Conway is officially released, this method favors Babbage
+    /// decoding over Conway decoding. This means that we'll attempt to
+    /// decode using Babbage first even if Conway is newer.
     pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
         if let Ok(tx) = minicbor::decode(cbor) {
-            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
+            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
-            return Ok(MultiEraTx::Babbage(Box::new(Cow::Owned(tx))));
+            return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
         }
 
         if let Ok(tx) = minicbor::decode(cbor) {
@@ -112,7 +116,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
-                .map(MultiEraOutput::from_alonzo_compatible)
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era()))
                 .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
@@ -130,7 +134,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
-                .map(MultiEraOutput::from_babbage)
+                .map(MultiEraOutput::from_conway)
                 .collect(),
         }
     }
@@ -141,7 +145,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
-                .map(MultiEraOutput::from_alonzo_compatible),
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era())),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .outputs
@@ -156,7 +160,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
-                .map(MultiEraOutput::from_babbage),
+                .map(MultiEraOutput::from_conway),
         }
     }
 
@@ -198,17 +202,20 @@ impl<'b> MultiEraTx<'b> {
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
         match self {
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .reference_inputs
-                .as_ref()
-                .map(|inputs| {
-                    inputs
-                        .iter()
-                        .map(MultiEraInput::from_alonzo_compatible)
-                        .collect()
-                })
-                .unwrap_or_default(),
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             _ => vec![],
         }
     }
@@ -259,6 +266,7 @@ impl<'b> MultiEraTx<'b> {
 
     pub fn mints(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
+            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .mint
@@ -273,14 +281,12 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
                 .collect(),
-            MultiEraTx::Byron(_) => vec![],
-            // TODO: Is this still AlonzoCompatible? Zero vals not allowed or something
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .mint
                 .iter()
                 .flat_map(|x| x.iter())
-                .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
+                .map(|(k, v)| MultiEraPolicyAssets::ConwayMint(k, v))
                 .collect(),
         }
     }
@@ -291,6 +297,7 @@ impl<'b> MultiEraTx<'b> {
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
     pub fn collateral(&self) -> Vec<MultiEraInput> {
         match self {
+            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
                 .collateral
@@ -305,7 +312,6 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
-            MultiEraTx::Byron(_) => vec![],
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .collateral
@@ -323,6 +329,11 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return
                 .as_ref()
                 .map(MultiEraOutput::from_babbage),
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .collateral_return
+                .as_ref()
+                .map(MultiEraOutput::from_conway),
             _ => None,
         }
     }
@@ -330,6 +341,7 @@ impl<'b> MultiEraTx<'b> {
     pub fn total_collateral(&self) -> Option<u64> {
         match self {
             MultiEraTx::Babbage(x) => x.transaction_body.total_collateral,
+            MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
             _ => None,
         }
     }
@@ -510,12 +522,11 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraSigners::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,
-            // TODO: still compat?
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .required_signers
                 .as_ref()
-                .map(MultiEraSigners::AlonzoCompatible)
+                .map(|x| MultiEraSigners::AlonzoCompatible(x.deref()))
                 .unwrap_or_default(),
         }
     }

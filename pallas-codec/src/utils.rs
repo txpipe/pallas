@@ -1,6 +1,12 @@
-use minicbor::{data::Tag, Decode, Encode};
+use minicbor::{
+    data::{Tag, Type},
+    decode::Error,
+    Decode, Encode,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash as StdHash, ops::Deref};
+
+static TAG_SET: u64 = 258;
 
 /// Utility for skipping parts of the CBOR payload, use only for debugging
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -137,6 +143,139 @@ where
                 }
             }
             KeyValuePairs::Indef(x) => {
+                e.begin_map()?;
+
+                for (k, v) in x.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+
+                e.end()?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Custom collection to ensure ordered pairs of values (non-empty)
+///
+/// Since the ordering of the entries requires a particular order to maintain
+/// canonicalization for isomorphic decoding / encoding operators, we use a Vec
+/// as the underlaying struct for storage of the items (as opposed to a BTreeMap
+/// or HashMap).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(try_from = "Vec::<(K, V)>", into = "Vec::<(K, V)>")]
+pub enum NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    Def(Vec<(K, V)>),
+    Indef(Vec<(K, V)>),
+}
+
+impl<K, V> NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    pub fn to_vec(self) -> Vec<(K, V)> {
+        self.into()
+    }
+}
+
+impl<K, V> From<NonEmptyKeyValuePairs<K, V>> for Vec<(K, V)>
+where
+    K: Clone,
+    V: Clone,
+{
+    fn from(other: NonEmptyKeyValuePairs<K, V>) -> Self {
+        match other {
+            NonEmptyKeyValuePairs::Def(x) => x,
+            NonEmptyKeyValuePairs::Indef(x) => x,
+        }
+    }
+}
+
+impl<K, V> TryFrom<Vec<(K, V)>> for NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    type Error = String;
+
+    fn try_from(value: Vec<(K, V)>) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            Err("NonEmptyKeyValuePairs must contain at least one element".into())
+        } else {
+            Ok(NonEmptyKeyValuePairs::Def(value))
+        }
+    }
+}
+
+impl<K, V> Deref for NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    type Target = Vec<(K, V)>;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            NonEmptyKeyValuePairs::Def(x) => x,
+            NonEmptyKeyValuePairs::Indef(x) => x,
+        }
+    }
+}
+
+impl<'b, C, K, V> minicbor::decode::Decode<'b, C> for NonEmptyKeyValuePairs<K, V>
+where
+    K: Decode<'b, C> + Clone,
+    V: Decode<'b, C> + Clone,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let datatype = d.datatype()?;
+
+        let items: Result<Vec<_>, _> = d.map_iter_with::<C, K, V>(ctx)?.collect();
+        let items = items?;
+
+        if items.is_empty() {
+            return Err(Error::message(
+                "decoding empty map as NonEmptyKeyValuePairs",
+            ));
+        }
+
+        match datatype {
+            minicbor::data::Type::Map => Ok(NonEmptyKeyValuePairs::Def(items)),
+            minicbor::data::Type::MapIndef => Ok(NonEmptyKeyValuePairs::Indef(items)),
+            _ => Err(minicbor::decode::Error::message(
+                "invalid data type for nonemptykeyvaluepairs",
+            )),
+        }
+    }
+}
+
+impl<C, K, V> minicbor::encode::Encode<C> for NonEmptyKeyValuePairs<K, V>
+where
+    K: Encode<C> + Clone,
+    V: Encode<C> + Clone,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            NonEmptyKeyValuePairs::Def(x) => {
+                e.map(x.len() as u64)?;
+
+                for (k, v) in x.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+            }
+            NonEmptyKeyValuePairs::Indef(x) => {
                 e.begin_map()?;
 
                 for (k, v) in x.iter() {
@@ -474,6 +613,172 @@ where
     }
 }
 
+/// Set
+///
+/// Optional 258 tag (until era after Conway, at which point is it required)
+/// with a vec of items which should contain no duplicates
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
+pub struct Set<T>(Vec<T>);
+
+impl<T> Set<T> {
+    pub fn to_vec(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<T> Deref for Set<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> From<Vec<T>> for Set<T> {
+    fn from(value: Vec<T>) -> Self {
+        Set(value)
+    }
+}
+
+impl<T> From<Set<KeepRaw<'_, T>>> for Set<T> {
+    fn from(value: Set<KeepRaw<'_, T>>) -> Self {
+        let inner = value.0.into_iter().map(|x| x.unwrap()).collect();
+        Self(inner)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Set<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'b, C, T> minicbor::decode::Decode<'b, C> for Set<T>
+where
+    T: Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        // decode optional set tag (this will be required in era following Conway)
+        if d.datatype()? == Type::Tag {
+            let found_tag = d.tag()?;
+
+            if found_tag != Tag::Unassigned(TAG_SET) {
+                return Err(Error::message(format!("Unrecognised tag: {found_tag:?}")));
+            }
+        }
+
+        Ok(Self(d.decode_with(ctx)?))
+    }
+}
+
+impl<C, T> minicbor::encode::Encode<C> for Set<T>
+where
+    T: Encode<C>,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(TAG_SET))?;
+        e.encode_with(&self.0, ctx)?;
+
+        Ok(())
+    }
+}
+
+/// Non-empty Set
+///
+/// Optional 258 tag (until era after Conway, at which point is it required)
+/// with a vec of items which should contain no duplicates
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
+pub struct NonEmptySet<T>(Vec<T>);
+
+impl<T> NonEmptySet<T> {
+    pub fn to_vec(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<T> Deref for NonEmptySet<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> TryFrom<Vec<T>> for NonEmptySet<T> {
+    type Error = Vec<T>;
+
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            Err(value)
+        } else {
+            Ok(NonEmptySet(value))
+        }
+    }
+}
+
+impl<T> From<NonEmptySet<KeepRaw<'_, T>>> for NonEmptySet<T> {
+    fn from(value: NonEmptySet<KeepRaw<'_, T>>) -> Self {
+        let inner = value.0.into_iter().map(|x| x.unwrap()).collect();
+        Self(inner)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a NonEmptySet<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'b, C, T> minicbor::decode::Decode<'b, C> for NonEmptySet<T>
+where
+    T: Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        // decode optional set tag (this will be required in era following Conway)
+        if d.datatype()? == Type::Tag {
+            let found_tag = d.tag()?;
+
+            if found_tag != Tag::Unassigned(TAG_SET) {
+                return Err(Error::message(format!("Unrecognised tag: {found_tag:?}")));
+            }
+        }
+
+        let inner: Vec<T> = d.decode_with(ctx)?;
+
+        if inner.is_empty() {
+            return Err(Error::message("decoding empty set as NonEmptySet"));
+        }
+
+        Ok(Self(inner))
+    }
+}
+
+impl<C, T> minicbor::encode::Encode<C> for NonEmptySet<T>
+where
+    T: Encode<C>,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(TAG_SET))?;
+        e.encode_with(&self.0, ctx)?;
+
+        Ok(())
+    }
+}
+
 /// A uint structure that preserves original int length
 #[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash)]
 pub enum AnyUInt {
@@ -579,6 +884,111 @@ impl From<AnyUInt> for u64 {
 impl From<&AnyUInt> for u64 {
     fn from(x: &AnyUInt) -> Self {
         u64::from(*x)
+    }
+}
+
+/// Introduced in Conway
+/// positive_coin = 1 .. 18446744073709551615
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct PositiveCoin(u64);
+
+impl TryFrom<u64> for PositiveCoin {
+    type Error = u64;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        if value == 0 {
+            return Err(value);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl From<PositiveCoin> for u64 {
+    fn from(value: PositiveCoin) -> Self {
+        value.0
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for PositiveCoin {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let n = d.decode_with(ctx)?;
+
+        if n == 0 {
+            return Err(Error::message("decoding 0 as PositiveCoin"));
+        }
+
+        Ok(Self(n))
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for PositiveCoin {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode(self.0)?;
+
+        Ok(())
+    }
+}
+
+/// Introduced in Conway
+/// negInt64 = -9223372036854775808 .. -1
+/// posInt64 = 1 .. 9223372036854775807
+/// nonZeroInt64 = negInt64 / posInt64 ; this is the same as the current int64
+/// definition but without zero
+#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct NonZeroInt(i64);
+
+impl TryFrom<i64> for NonZeroInt {
+    type Error = i64;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if value == 0 {
+            return Err(value);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl From<NonZeroInt> for i64 {
+    fn from(value: NonZeroInt) -> Self {
+        value.0
+    }
+}
+
+impl From<&NonZeroInt> for i64 {
+    fn from(x: &NonZeroInt) -> Self {
+        i64::from(*x)
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for NonZeroInt {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let n = d.decode_with(ctx)?;
+
+        if n == 0 {
+            return Err(Error::message("decoding 0 as NonZeroInt"));
+        }
+
+        Ok(Self(n))
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for NonZeroInt {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode(self.0)?;
+
+        Ok(())
     }
 }
 
@@ -729,7 +1139,7 @@ impl<C> minicbor::Encode<C> for AnyCbor {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(from = "Option::<T>", into = "Option::<T>")]
 pub enum Nullable<T>
 where

@@ -1,5 +1,5 @@
 use super::*;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
 
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
@@ -94,10 +94,16 @@ impl Encode<()> for BlockQuery {
                 e.u16(19)?;
                 e.encode(x)?;
             }
-            BlockQuery::GetStakeSnapshots(x) => {
+            BlockQuery::GetStakeSnapshots(pools) => {
                 e.array(2)?;
                 e.u16(20)?;
-                e.encode(x)?;
+
+                if !pools.is_empty() {
+                    e.array(1)?;
+                    e.tag(Tag::Unassigned(258))?;
+                }
+
+                e.encode(pools)?;
             }
             BlockQuery::GetPoolDistr(x) => {
                 e.array(2)?;
@@ -132,7 +138,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
             // 7 => Ok(Self::GetUTxOWhole),
             // 8 => Ok(Self::DebugEpochState),
-            // 9 => Ok(Self::GetCBOR(())),
+            9 => Ok(Self::GetCBOR(d.decode()?)),
             // 10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(())),
             11 => Ok(Self::GetGenesisConfig),
             // 12 => Ok(Self::DebugNewEpochState),
@@ -143,7 +149,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             // 17 => Ok(Self::GetStakePoolParams(())),
             18 => Ok(Self::GetRewardInfoPools),
             // 19 => Ok(Self::GetPoolState(())),
-            // 20 => Ok(Self::GetStakeSnapshots(())),
+            20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
             // 21 => Ok(Self::GetPoolDistr(())),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
             // 23 => Ok(Self::GetConstitutionHash),
@@ -299,6 +305,64 @@ impl<C> minicbor::encode::Encode<C> for Value {
                 e.array(2)?;
                 e.encode_with(coin, ctx)?;
                 e.encode_with(other, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for RationalNumber {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.tag()?;
+        d.array()?;
+
+        Ok(RationalNumber {
+            numerator: d.decode_with(ctx)?,
+            denominator: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for RationalNumber {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::Unassigned(30))?;
+        e.array(2)?;
+        e.encode_with(self.numerator, ctx)?;
+        e.encode_with(self.denominator, ctx)?;
+
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionOutput {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            minicbor::data::Type::Map => Ok(TransactionOutput::Current(d.decode_with(ctx)?)),
+            minicbor::data::Type::Array => Ok(TransactionOutput::Legacy(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor data type for TransactionOutput enum",
+            )),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for TransactionOutput {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            TransactionOutput::Current(map) => {
+                e.encode_with(map, ctx)?;
+            }
+            TransactionOutput::Legacy(array) => {
+                e.encode_with(array, ctx)?;
             }
         };
 

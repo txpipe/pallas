@@ -8,6 +8,37 @@ prop_compose! {
     }
 }
 
+#[cfg(feature = "num-bigint")]
+mod bigint {
+    use super::arb_big_vec;
+    use num_bigint::{BigInt, Sign};
+    use pallas_codec::flat::{decode, encode};
+    use proptest::prelude::*;
+
+    prop_compose! {
+        fn arb_isize()(i: isize) -> BigInt {
+            i.into()
+        }
+    }
+
+    fn arb_bigint() -> impl Strategy<Value = BigInt> {
+        prop_oneof![
+            arb_isize(),
+            arb_big_vec().prop_map(|xs| BigInt::from_bytes_be(Sign::Plus, &xs)),
+            arb_big_vec().prop_map(|xs| BigInt::from_bytes_be(Sign::Minus, &xs))
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn encode_bigint(x in arb_bigint()) {
+            let bytes = encode(&x).unwrap();
+            let decoded: BigInt = decode(&bytes).unwrap();
+            assert_eq!(decoded, x);
+        }
+    }
+}
+
 #[test]
 fn encode_bool() {
     let bytes = encode(&true).unwrap();

@@ -280,6 +280,20 @@ where
         self.recv_while_can_await().await
     }
 
+    /// Either requests the next block, or waits for one to become available.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be sent, or if the inbound
+    /// message is invalid
+    pub async fn request_or_await_next(&mut self) -> Result<NextResponse<O>, ClientError> {
+        if self.has_agency() {
+            self.request_next().await
+        } else {
+            self.recv_while_must_reply().await
+        }
+    }
+
     /// Attempt to intersect the chain at its origin (genesis block)
     ///
     /// # Errors
