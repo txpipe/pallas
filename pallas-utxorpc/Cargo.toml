@@ -11,7 +11,6 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-
 pallas-traverse = { version = "=0.25.0", path = "../pallas-traverse" }
 pallas-primitives = { version = "=0.25.0", path = "../pallas-primitives" }
 pallas-codec = { version = "=0.25.0", path = "../pallas-codec" }
