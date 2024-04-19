@@ -6,6 +6,8 @@ use pallas_traverse as trv;
 
 use trv::OriginalHash;
 
+pub use utxorpc_spec::utxorpc::v1alpha as spec;
+
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 pub fn map_purpose(x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
