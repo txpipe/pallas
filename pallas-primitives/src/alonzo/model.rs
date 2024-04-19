@@ -768,7 +768,7 @@ pub struct VKeyWitness {
     pub signature: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum NativeScript {
     ScriptPubkey(AddrKeyhash),
     ScriptAll(Vec<NativeScript>),
