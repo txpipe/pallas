@@ -1179,7 +1179,7 @@ impl<C> minicbor::Encode<C> for GovActionId {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PseudoTransactionOutput<T> {
     Legacy(LegacyTransactionOutput),
     PostAlonzo(T),

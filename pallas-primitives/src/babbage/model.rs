@@ -313,7 +313,7 @@ impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PseudoTransactionOutput<T> {
     Legacy(LegacyTransactionOutput),
     PostAlonzo(T),
@@ -368,7 +368,7 @@ impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct PseudoPostAlonzoTransactionOutput<T1, T2> {
     #[n(0)]
