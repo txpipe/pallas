@@ -10,15 +10,15 @@ use trv::OriginalHash;
 use utxorpc::proto::cardano::v1 as u5c;
 
 pub trait Context {
-    fn get_spent_tx_output<'a>(tx_hash: Hash<32>, index: u64) -> Option<trv::MultiEraOutput<'a>>;
+    fn get_spent_tx_output<'a>(tx_hash: Hash<32>, index: u32) -> Option<trv::MultiEraOutput<'a>>;
 }
 
 pub struct Mapper<C: Context> {
     context: Option<C>,
 }
 
-impl<C: Context> Mapper {
-    pub fn map_purpose(x: &alonzo::RedeemerTag) -> u5c::RedeemerPurpose {
+impl<C: Context> Mapper<C> {
+    pub fn map_purpose(&self, x: &alonzo::RedeemerTag) -> u5c::RedeemerPurpose {
         match x {
             babbage::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
             babbage::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
@@ -27,38 +27,56 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_redeemer(x: &alonzo::Redeemer) -> u5c::Redeemer {
+    pub fn map_redeemer(&self, x: &alonzo::Redeemer) -> u5c::Redeemer {
         u5c::Redeemer {
-            purpose: map_purpose(&x.tag).into(),
-            datum: map_plutus_datum(&x.data).into(),
+            purpose: self.map_purpose(&x.tag).into(),
+            datum: self.map_plutus_datum(&x.data).into(),
         }
     }
 
-    pub fn map_tx_input(i: &trv::MultiEraInput, tx: &trv::MultiEraTx) -> u5c::TxInput {
+    pub fn map_tx_input(&self, i: &trv::MultiEraInput, tx: &trv::MultiEraTx) -> u5c::TxInput {
         let redeemer = tx
             .redeemers()
             .iter()
             .find(|r| (r.index as u64) == i.index());
 
+        let as_output = match &self.context {
+            Some(_) => {
+                let tx_output = C::get_spent_tx_output(i.hash().clone(), i.index() as u32);
+                match tx_output {
+                    Some(output) => Some(self.map_tx_output(&output)),
+                    None => panic!(
+                        "Failed to fetch transaction output for hash: {:?}, index: {}",
+                        i.hash(),
+                        i.index()
+                    ),
+                }
+            }
+            None => None,
+        };
+
         u5c::TxInput {
             tx_hash: i.hash().to_vec().into(),
             output_index: i.index() as u32,
-            redeemer: redeemer.map(map_redeemer),
-            // TODO: map output data from some context
-            as_output: None,
+            redeemer: redeemer.map(|x| self.map_redeemer(x)),
+            as_output,
         }
     }
 
-    pub fn map_tx_output(x: &trv::MultiEraOutput) -> u5c::TxOutput {
+    pub fn map_tx_output(&self, x: &trv::MultiEraOutput) -> u5c::TxOutput {
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
             coin: x.lovelace_amount(),
             // TODO: this is wrong, we're crating a new item for each asset even if they share
             // the same policy id. We need to adjust Pallas' interface to make this mapping more
             // ergonomic.
-            assets: x.non_ada_assets().iter().map(map_policy_assets).collect(),
+            assets: x
+                .non_ada_assets()
+                .iter()
+                .map(|x| self.map_policy_assets(x))
+                .collect(),
             datum: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => map_plutus_datum(&x.0).into(),
+                Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
                 _ => None,
             },
             datum_hash: match x.datum() {
@@ -68,7 +86,7 @@ impl<C: Context> Mapper {
             },
             script: match x.script_ref() {
                 Some(babbage::PseudoScript::NativeScript(x)) => u5c::Script {
-                    script: u5c::script::Script::Native(map_native_script(&x)).into(),
+                    script: u5c::script::Script::Native(self.map_native_script(&x)).into(),
                 }
                 .into(),
                 Some(babbage::PseudoScript::PlutusV1Script(x)) => u5c::Script {
@@ -84,7 +102,7 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_stake_credential(x: &babbage::StakeCredential) -> u5c::StakeCredential {
+    pub fn map_stake_credential(&self, x: &babbage::StakeCredential) -> u5c::StakeCredential {
         let inner = match x {
             babbage::StakeCredential::AddrKeyhash(x) => {
                 u5c::stake_credential::StakeCredential::AddrKeyHash(x.to_vec().into())
@@ -99,7 +117,7 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_relay(x: &alonzo::Relay) -> u5c::Relay {
+    pub fn map_relay(&self, x: &alonzo::Relay) -> u5c::Relay {
         match x {
             babbage::Relay::SingleHostAddr(port, v4, v6) => u5c::Relay {
                 ip_v4: v4.as_ref().map(|x| x.to_vec().into()).unwrap_or_default(),
@@ -122,17 +140,17 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_cert(x: &trv::MultiEraCert) -> u5c::Certificate {
+    pub fn map_cert(&self, x: &trv::MultiEraCert) -> u5c::Certificate {
         let inner = match x.as_alonzo().unwrap() {
             babbage::Certificate::StakeRegistration(a) => {
-                u5c::certificate::Certificate::StakeRegistration(map_stake_credential(a))
+                u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
             }
             babbage::Certificate::StakeDeregistration(a) => {
-                u5c::certificate::Certificate::StakeDeregistration(map_stake_credential(a))
+                u5c::certificate::Certificate::StakeDeregistration(self.map_stake_credential(a))
             }
             babbage::Certificate::StakeDelegation(a, b) => {
                 u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
-                    stake_credential: map_stake_credential(a).into(),
+                    stake_credential: self.map_stake_credential(a).into(),
                     pool_keyhash: b.to_vec().into(),
                 })
             }
@@ -158,7 +176,7 @@ impl<C: Context> Mapper {
                 .into(),
                 reward_account: reward_account.to_vec().into(),
                 pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
-                relays: relays.iter().map(map_relay).collect(),
+                relays: relays.iter().map(|x| self.map_relay(x)).collect(),
                 pool_metadata: pool_metadata.as_ref().map(|x| u5c::PoolMetadata {
                     url: x.url.clone(),
                     hash: x.hash.to_vec().into(),
@@ -191,7 +209,7 @@ impl<C: Context> Mapper {
                         babbage::InstantaneousRewardTarget::StakeCredentials(x) => x
                             .iter()
                             .map(|(k, v)| u5c::MirTarget {
-                                stake_credential: map_stake_credential(k).into(),
+                                stake_credential: self.map_stake_credential(k).into(),
                                 delta_coin: *v,
                             })
                             .collect(),
@@ -210,14 +228,14 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_withdrawals(x: &(&[u8], u64)) -> u5c::Withdrawal {
+    pub fn map_withdrawals(&self, x: &(&[u8], u64)) -> u5c::Withdrawal {
         u5c::Withdrawal {
             reward_account: Vec::from(x.0).into(),
             coin: x.1,
         }
     }
 
-    pub fn map_asset(x: &trv::MultiEraAsset) -> u5c::Asset {
+    pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
         u5c::Asset {
             name: x.name().to_vec().into(),
             output_coin: x.output_coin().unwrap_or_default(),
@@ -225,39 +243,39 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_policy_assets(x: &trv::MultiEraPolicyAssets) -> u5c::Multiasset {
+    pub fn map_policy_assets(&self, x: &trv::MultiEraPolicyAssets) -> u5c::Multiasset {
         u5c::Multiasset {
             policy_id: x.policy().to_vec().into(),
-            assets: x.assets().iter().map(map_asset).collect(),
+            assets: x.assets().iter().map(|x| self.map_asset(x)).collect(),
         }
     }
 
-    pub fn map_vkey_witness(x: &alonzo::VKeyWitness) -> u5c::VKeyWitness {
+    pub fn map_vkey_witness(&self, x: &alonzo::VKeyWitness) -> u5c::VKeyWitness {
         u5c::VKeyWitness {
             vkey: x.vkey.to_vec().into(),
             signature: x.signature.to_vec().into(),
         }
     }
 
-    pub fn map_native_script(x: &alonzo::NativeScript) -> u5c::NativeScript {
+    pub fn map_native_script(&self, x: &alonzo::NativeScript) -> u5c::NativeScript {
         let inner = match x {
             babbage::NativeScript::ScriptPubkey(x) => {
                 u5c::native_script::NativeScript::ScriptPubkey(x.to_vec().into())
             }
             babbage::NativeScript::ScriptAll(x) => {
                 u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(map_native_script).collect(),
+                    items: x.iter().map(|x| self.map_native_script(x)).collect(),
                 })
             }
             babbage::NativeScript::ScriptAny(x) => {
                 u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(map_native_script).collect(),
+                    items: x.iter().map(|x| self.map_native_script(x)).collect(),
                 })
             }
             babbage::NativeScript::ScriptNOfK(n, k) => {
                 u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
                     k: *n,
-                    scripts: k.iter().map(map_native_script).collect(),
+                    scripts: k.iter().map(|x| self.map_native_script(x)).collect(),
                 })
             }
             babbage::NativeScript::InvalidBefore(s) => {
@@ -273,11 +291,11 @@ impl<C: Context> Mapper {
         }
     }
 
-    fn collect_all_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
+    fn collect_all_scripts(&self, tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
         let ns = tx
             .native_scripts()
             .iter()
-            .map(|x| map_native_script(x.deref()))
+            .map(|x| self.map_native_script(x.deref()))
             .map(|x| u5c::Script {
                 script: u5c::script::Script::Native(x).into(),
             });
@@ -301,35 +319,36 @@ impl<C: Context> Mapper {
         ns.chain(p1).chain(p2).collect()
     }
 
-    pub fn map_plutus_constr(x: &alonzo::Constr<alonzo::PlutusData>) -> u5c::Constr {
+    pub fn map_plutus_constr(&self, x: &alonzo::Constr<alonzo::PlutusData>) -> u5c::Constr {
         u5c::Constr {
             tag: x.tag as u32,
             any_constructor: x.any_constructor.unwrap_or_default(),
-            fields: x.fields.iter().map(map_plutus_datum).collect(),
+            fields: x.fields.iter().map(|x| self.map_plutus_datum(x)).collect(),
         }
     }
 
     pub fn map_plutus_map(
+        &self,
         x: &KeyValuePairs<alonzo::PlutusData, alonzo::PlutusData>,
     ) -> u5c::PlutusDataMap {
         u5c::PlutusDataMap {
             pairs: x
                 .iter()
                 .map(|(k, v)| u5c::PlutusDataPair {
-                    key: map_plutus_datum(k).into(),
-                    value: map_plutus_datum(v).into(),
+                    key: self.map_plutus_datum(k).into(),
+                    value: self.map_plutus_datum(v).into(),
                 })
                 .collect(),
         }
     }
 
-    pub fn map_plutus_array(x: &[alonzo::PlutusData]) -> u5c::PlutusDataArray {
+    pub fn map_plutus_array(&self, x: &[alonzo::PlutusData]) -> u5c::PlutusDataArray {
         u5c::PlutusDataArray {
-            items: x.iter().map(map_plutus_datum).collect(),
+            items: x.iter().map(|x| self.map_plutus_datum(x)).collect(),
         }
     }
 
-    pub fn map_plutus_bigint(x: &alonzo::BigInt) -> u5c::BigInt {
+    pub fn map_plutus_bigint(&self, x: &alonzo::BigInt) -> u5c::BigInt {
         let inner = match x {
             babbage::BigInt::Int(x) => u5c::big_int::BigInt::Int(i128::from(x.0) as i64),
             babbage::BigInt::BigUInt(x) => {
@@ -345,17 +364,19 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_plutus_datum(x: &alonzo::PlutusData) -> u5c::PlutusData {
+    pub fn map_plutus_datum(&self, x: &alonzo::PlutusData) -> u5c::PlutusData {
         let inner = match x {
             babbage::PlutusData::Constr(x) => {
-                u5c::plutus_data::PlutusData::Constr(map_plutus_constr(x))
+                u5c::plutus_data::PlutusData::Constr(self.map_plutus_constr(x))
             }
-            babbage::PlutusData::Map(x) => u5c::plutus_data::PlutusData::Map(map_plutus_map(x)),
+            babbage::PlutusData::Map(x) => {
+                u5c::plutus_data::PlutusData::Map(self.map_plutus_map(x))
+            }
             babbage::PlutusData::Array(x) => {
-                u5c::plutus_data::PlutusData::Array(map_plutus_array(x))
+                u5c::plutus_data::PlutusData::Array(self.map_plutus_array(x))
             }
             babbage::PlutusData::BigInt(x) => {
-                u5c::plutus_data::PlutusData::BigInt(map_plutus_bigint(x))
+                u5c::plutus_data::PlutusData::BigInt(self.map_plutus_bigint(x))
             }
             babbage::PlutusData::BoundedBytes(x) => {
                 u5c::plutus_data::PlutusData::BoundedBytes(x.to_vec().into())
@@ -367,7 +388,7 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_metadatum(x: &alonzo::Metadatum) -> u5c::Metadatum {
+    pub fn map_metadatum(&self, x: &alonzo::Metadatum) -> u5c::Metadatum {
         let inner = match x {
             babbage::Metadatum::Int(x) => u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64),
             babbage::Metadatum::Bytes(x) => {
@@ -375,14 +396,14 @@ impl<C: Context> Mapper {
             }
             babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
             babbage::Metadatum::Array(x) => u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
-                items: x.iter().map(map_metadatum).collect(),
+                items: x.iter().map(|x| self.map_metadatum(x)).collect(),
             }),
             babbage::Metadatum::Map(x) => u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
                 pairs: x
                     .iter()
                     .map(|(k, v)| u5c::MetadatumPair {
-                        key: map_metadatum(k).into(),
-                        value: map_metadatum(v).into(),
+                        key: self.map_metadatum(k).into(),
+                        value: self.map_metadatum(v).into(),
                     })
                     .collect(),
             }),
@@ -393,18 +414,18 @@ impl<C: Context> Mapper {
         }
     }
 
-    pub fn map_metadata(label: u64, datum: &alonzo::Metadatum) -> u5c::Metadata {
+    pub fn map_metadata(&self, label: u64, datum: &alonzo::Metadatum) -> u5c::Metadata {
         u5c::Metadata {
             label,
-            value: map_metadatum(datum).into(),
+            value: self.map_metadatum(datum).into(),
         }
     }
 
-    fn collect_all_aux_scripts(tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
+    fn collect_all_aux_scripts(&self, tx: &trv::MultiEraTx) -> Vec<u5c::Script> {
         let ns = tx
             .aux_native_scripts()
             .iter()
-            .map(map_native_script)
+            .map(|x| self.map_native_script(x))
             .map(|x| u5c::Script {
                 script: u5c::script::Script::Native(x).into(),
             });
