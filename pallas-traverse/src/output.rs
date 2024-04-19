@@ -11,8 +11,8 @@ impl<'b> MultiEraOutput<'b> {
         Self::Byron(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn from_alonzo_compatible(output: &'b alonzo::TransactionOutput) -> Self {
-        Self::AlonzoCompatible(Box::new(Cow::Borrowed(output)))
+    pub fn from_alonzo_compatible(output: &'b alonzo::TransactionOutput, era: Era) -> Self {
+        Self::AlonzoCompatible(Box::new(Cow::Borrowed(output)), era)
     }
 
     pub fn from_babbage(output: &'b babbage::MintedTransactionOutput<'b>) -> Self {
@@ -25,7 +25,7 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn datum(&self) -> Option<babbage::MintedDatumOption> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => {
+            MultiEraOutput::AlonzoCompatible(x, _) => {
                 x.datum_hash.map(babbage::MintedDatumOption::Hash)
             }
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
@@ -46,7 +46,7 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn script_ref(&self) -> Option<conway::MintedScriptRef> {
         match &self {
-            MultiEraOutput::AlonzoCompatible(_) => None,
+            MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(_) => None,
                 babbage::MintedTransactionOutput::PostAlonzo(x) => {
@@ -65,7 +65,7 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn address(&self) -> Result<Address, AddressError> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => Address::from_bytes(&x.address),
+            MultiEraOutput::AlonzoCompatible(x, _) => Address::from_bytes(&x.address),
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
                 babbage::MintedTransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
                 babbage::MintedTransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
@@ -82,7 +82,7 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn as_alonzo(&self) -> Option<&alonzo::TransactionOutput> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => Some(x),
+            MultiEraOutput::AlonzoCompatible(x, _) => Some(x),
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(_) => None,
@@ -91,7 +91,7 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn as_babbage(&self) -> Option<&babbage::MintedTransactionOutput> {
         match self {
-            MultiEraOutput::AlonzoCompatible(_) => None,
+            MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(x) => Some(x),
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(_) => None,
@@ -100,7 +100,7 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn as_byron(&self) -> Option<&byron::TxOut> {
         match self {
-            MultiEraOutput::AlonzoCompatible(_) => None,
+            MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(x) => Some(x),
             MultiEraOutput::Conway(_) => None,
@@ -109,17 +109,26 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn as_conway(&self) -> Option<&conway::MintedTransactionOutput> {
         match self {
-            MultiEraOutput::AlonzoCompatible(_) => None,
+            MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(x) => Some(x),
         }
     }
 
+    pub fn era(&self) -> Era {
+        match self {
+            MultiEraOutput::AlonzoCompatible(_, x) => *x,
+            MultiEraOutput::Babbage(_) => Era::Babbage,
+            MultiEraOutput::Conway(_) => Era::Conway,
+            MultiEraOutput::Byron(_) => Era::Byron,
+        }
+    }
+
     pub fn encode(&self) -> Vec<u8> {
         // to_vec is infallible
         match self {
-            Self::AlonzoCompatible(x) => minicbor::to_vec(x).unwrap(),
+            Self::AlonzoCompatible(x, _) => minicbor::to_vec(x).unwrap(),
             Self::Babbage(x) => minicbor::to_vec(x).unwrap(),
             Self::Byron(x) => minicbor::to_vec(x).unwrap(),
             Self::Conway(x) => minicbor::to_vec(x).unwrap(),
@@ -136,7 +145,7 @@ impl<'b> MultiEraOutput<'b> {
             Era::Shelley | Era::Allegra | Era::Mary | Era::Alonzo => {
                 let tx = minicbor::decode(cbor)?;
                 let tx = Box::new(Cow::Owned(tx));
-                Ok(Self::AlonzoCompatible(tx))
+                Ok(Self::AlonzoCompatible(tx, era))
             }
             Era::Babbage => {
                 let tx = minicbor::decode(cbor)?;
@@ -158,7 +167,7 @@ impl<'b> MultiEraOutput<'b> {
     /// lovelace).
     pub fn lovelace_amount(&self) -> u64 {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => match x.amount {
+            MultiEraOutput::AlonzoCompatible(x, _) => match x.amount {
                 alonzo::Value::Coin(c) => c,
                 alonzo::Value::Multiasset(c, _) => c,
             },
@@ -193,7 +202,7 @@ impl<'b> MultiEraOutput<'b> {
     /// list.
     pub fn non_ada_assets(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x) => match &x.amount {
+            MultiEraOutput::AlonzoCompatible(x, _) => match &x.amount {
                 alonzo::Value::Coin(_) => vec![],
                 alonzo::Value::Multiasset(_, x) => x
                     .iter()

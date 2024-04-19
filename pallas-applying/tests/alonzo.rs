@@ -686,12 +686,14 @@ mod alonzo_tests {
             .unwrap();
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
-        let multi_era_out: MultiEraOutput =
-            MultiEraOutput::AlonzoCompatible(Box::new(Cow::Owned(TransactionOutput {
+        let multi_era_out: MultiEraOutput = MultiEraOutput::AlonzoCompatible(
+            Box::new(Cow::Owned(TransactionOutput {
                 address: Bytes::try_from(altered_address.to_hex()).unwrap(),
                 amount: Value::Coin(5000000),
                 datum_hash: None,
-            })));
+            })),
+            Era::Alonzo,
+        );
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let env: Environment = Environment {

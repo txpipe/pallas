@@ -116,7 +116,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
-                .map(MultiEraOutput::from_alonzo_compatible)
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era()))
                 .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
@@ -145,7 +145,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
-                .map(MultiEraOutput::from_alonzo_compatible),
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era())),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .outputs
