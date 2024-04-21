@@ -20,10 +20,10 @@ pallas-crypto = { version = "=0.25.0", path = "../pallas-crypto/" }
 pallas-codec = { version = "=0.25.0", path = "../pallas-codec/" }
 pallas-utxorpc = { version = "=0.25.0", path = "../pallas-utxorpc/" }
 pallas-configs = { version = "=0.25.0", path = "../pallas-configs/" }
+pallas-txbuilder = { version = "=0.25.0", path = "../pallas-txbuilder/" }
 pallas-rolldb = { version = "=0.25.0", path = "../pallas-rolldb/", optional = true }
 pallas-wallet = { version = "=0.25.0", path = "../pallas-wallet/", optional = true }
 pallas-hardano = { version = "=0.25.0", path = "../pallas-hardano/", optional = true }
-pallas-txbuilder = { version = "=0.25.0", path = "../pallas-txbuilder/", optional = true }
 
 [features]
-unstable = ["pallas-rolldb", "pallas-wallet", "pallas-hardano", "pallas-txbuilder"]
+unstable = ["pallas-rolldb", "pallas-wallet", "pallas-hardano"]
