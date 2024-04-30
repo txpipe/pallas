@@ -20,7 +20,7 @@ async fn block_matches<'a>(block: &MultiEraBlock<'a>) -> bool {
 // An arbitrary predicate to decide whether to save the transaction or not;
 // fill in with your own purpose built logic
 async fn tx_matches<'a>(_tx: &MultiEraTx<'a>) -> bool {
-    return false;
+    false
 }
 
 #[tokio::main]
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Connect to the local node over the file socket
-    let mut client = NodeClient::connect(args.socket_path.clone(), args.network_magic.clone())
+    let mut client = NodeClient::connect(args.socket_path.clone(), args.network_magic)
         .await
         .unwrap();
 
@@ -98,10 +98,10 @@ struct Args {
 }
 
 impl Args {
-    pub fn tx_path(self: &Self, tx: &MultiEraTx) -> String {
+    pub fn tx_path(&self, tx: &MultiEraTx) -> String {
         format!("{}/txs/{}.cbor", self.out.to_str().unwrap(), tx.hash())
     }
-    pub fn block_path(self: &Self, block: &MultiEraBlock) -> String {
+    pub fn block_path(&self, block: &MultiEraBlock) -> String {
         format!(
             "{}/blocks/{}.cbor",
             self.out.to_str().unwrap(),
@@ -114,7 +114,7 @@ pub fn parse_point(s: &str) -> Result<Point, Box<dyn std::error::Error + Send + 
     if s == "origin" {
         return std::result::Result::Ok(Point::Origin);
     }
-    let parts: Vec<_> = s.split("/").collect();
+    let parts: Vec<_> = s.split('/').collect();
     let slot = parts[0].parse()?;
     let hash = hex::decode(parts[1])?;
     std::result::Result::Ok(Point::Specific(slot, hash))
