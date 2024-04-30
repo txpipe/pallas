@@ -26,7 +26,7 @@ async fn tx_matches<'a>(_tx: &MultiEraTx<'a>) -> bool {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    
+
     // Connect to the local node over the file socket
     let mut client = NodeClient::connect(args.socket_path.clone(), args.network_magic)
         .await
@@ -63,7 +63,8 @@ async fn main() -> Result<()> {
                     if tx_matches(&tx).await {
                         println!("Found matching tx in block {}/{}", slot, hash);
                         // Make sure we create the out diretory
-                        std::fs::create_dir_all(format!("{}/txs", args.out.to_str().unwrap())).context("couldn't create output directory")?;
+                        std::fs::create_dir_all(format!("{}/txs", args.out.to_str().unwrap()))
+                            .context("couldn't create output directory")?;
                         save_file(args.tx_path(&tx), tx.encode().as_slice())?;
                     }
                 }
@@ -71,7 +72,8 @@ async fn main() -> Result<()> {
                 if block_matches(&block).await {
                     println!("Found matching block {}/{}", slot, hash);
                     // Make sure we create the out diretory
-                    std::fs::create_dir_all(format!("{}/blocks", args.out.to_str().unwrap())).context("couldn't create output directory")?;
+                    std::fs::create_dir_all(format!("{}/blocks", args.out.to_str().unwrap()))
+                        .context("couldn't create output directory")?;
                     let path = args.block_path(&block);
                     // We drop the block, because the block is
                     // holding a reference to bytes, which we need to save it
