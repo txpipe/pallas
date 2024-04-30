@@ -51,14 +51,23 @@ async fn main() -> Result<()> {
             NextResponse::RollForward(bytes, _) => {
                 // Decode the block
                 let block = MultiEraBlock::decode(&bytes)?;
+                let slot = block.slot();
+                let height = block.number();
+                let hash = block.hash();
+
+                if height % 100000 == 0 {
+                    println!("Processed block height {}: {}/{}", height, slot, hash);
+                }
                 // And check each transaction for the predicate, and save if needed
                 for tx in block.txs() {
                     if tx_matches(&tx).await {
+                        println!("Found matching tx in block {}/{}", slot, hash);
                         save_file(args.tx_path(&tx), tx.encode().as_slice())?;
                     }
                 }
                 // Then, we can check the block as a whole
                 if block_matches(&block).await {
+                    println!("Found matching block {}/{}", slot, hash);
                     let path = args.block_path(&block);
                     // We drop the block, because the block is
                     // holding a reference to bytes, which we need to save it
