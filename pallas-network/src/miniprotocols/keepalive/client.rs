@@ -27,19 +27,11 @@ pub enum ClientError {
     Plexer(multiplexer::Error),
 }
 
-pub struct KeepAliveSharedState {
-    saved_cookie: u16,
-}
-
-pub struct Client(State, multiplexer::ChannelBuffer, KeepAliveSharedState);
+pub struct Client(State, multiplexer::ChannelBuffer);
 
 impl Client {
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(
-            State::Client,
-            multiplexer::ChannelBuffer::new(channel),
-            KeepAliveSharedState { saved_cookie: 0 },
-        )
+        Self(State::Client, multiplexer::ChannelBuffer::new(channel))
     }
 
     pub fn state(&self) -> &State {
@@ -53,7 +45,7 @@ impl Client {
     fn has_agency(&self) -> bool {
         match &self.0 {
             State::Client => true,
-            State::Server => false,
+            State::Server(..) => false,
             State::Done => false,
         }
     }
@@ -84,7 +76,7 @@ impl Client {
 
     fn assert_inbound_state(&self, msg: &Message) -> Result<(), ClientError> {
         match (&self.0, msg) {
-            (State::Server, Message::ResponseKeepAlive(..)) => Ok(()),
+            (State::Server(..), Message::ResponseKeepAlive(..)) => Ok(()),
             _ => Err(ClientError::InvalidInbound),
         }
     }
@@ -108,32 +100,38 @@ impl Client {
         Ok(msg)
     }
 
-    pub async fn send_keepalive(&mut self) -> Result<(), ClientError> {
+    pub async fn send_keepalive_request(&mut self) -> Result<(), ClientError> {
         // generate random cookie value
-        let cookie = rand::thread_rng().gen::<KeepAliveCookie>();
+        let cookie = rand::thread_rng().gen::<Cookie>();
         let msg = Message::KeepAlive(cookie);
         self.send_message(&msg).await?;
-        self.2.saved_cookie = cookie;
-        self.0 = State::Server;
+        self.0 = State::Server(cookie);
         debug!("sent keepalive message with cookie {}", cookie);
-
-        self.recv_while_sending_keepalive().await?;
 
         Ok(())
     }
 
-    async fn recv_while_sending_keepalive(&mut self) -> Result<(), ClientError> {
+    pub async fn recv_keepalive_response(&mut self) -> Result<(), ClientError> {
         match self.recv_message().await? {
             Message::ResponseKeepAlive(cookie) => {
                 debug!("received keepalive response with cookie {}", cookie);
-                if cookie == self.2.saved_cookie {
-                    self.0 = State::Client;
-                    Ok(())
-                } else {
-                    Err(ClientError::KeepAliveCookieMismatch)
+                match self.state() {
+                    State::Server(expected) if *expected == cookie => {
+                        self.0 = State::Client;
+                        Ok(())
+                    }
+                    State::Server(..) => Err(ClientError::KeepAliveCookieMismatch),
+                    _ => unreachable!(),
                 }
             }
             _ => Err(ClientError::InvalidInbound),
         }
+    }
+
+    pub async fn keepalive_roundtrip(&mut self) -> Result<(), ClientError> {
+        self.send_keepalive_request().await?;
+        self.recv_keepalive_response().await?;
+
+        Ok(())
     }
 }

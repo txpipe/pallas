@@ -1,7 +1,7 @@
 [package]
 name = "pallas-utxorpc"
 description = "Pallas interoperability with the UTxORPC spec"
-version = "0.24.0"
+version = "0.25.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -11,7 +11,9 @@ readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-utxorpc-spec = { version = "0.3.0" }
-pallas-traverse = { version = "=0.24.0", path = "../pallas-traverse" }
-pallas-primitives = { version = "=0.24.0", path = "../pallas-primitives" }
-pallas-codec = { version = "=0.24.0", path = "../pallas-codec" }
+pallas-traverse = { version = "=0.25.0", path = "../pallas-traverse" }
+pallas-primitives = { version = "=0.25.0", path = "../pallas-primitives" }
+pallas-codec = { version = "=0.25.0", path = "../pallas-codec" }
+
+utxorpc-spec = { version = "0.5.0" }
+# utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }

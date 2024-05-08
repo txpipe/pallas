@@ -217,7 +217,7 @@ pub struct AddressPayload {
     pub addrtype: AddrType,
 }
 
-use sha3::{Digest, Sha3_256};
+use cryptoxide::hashing::sha3_256;
 impl AddressPayload {
     pub fn hash_address_id(
         addrtype: &AddrType,
@@ -227,11 +227,7 @@ impl AddressPayload {
         let parts = (addrtype, spending_data, attributes);
         let buf = minicbor::to_vec(parts).unwrap();
 
-        let mut sha = Sha3_256::new();
-        sha.update(buf);
-        let sha = sha.finalize();
-
-        pallas_crypto::hash::Hasher::<224>::hash(&sha)
+        pallas_crypto::hash::Hasher::<224>::hash(&sha3_256(&buf))
     }
 
     pub fn new(addrtype: AddrType, spending_data: SpendingData, attributes: AddrAttrs) -> Self {

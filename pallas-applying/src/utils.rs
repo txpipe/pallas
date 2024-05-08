@@ -24,18 +24,18 @@ pub use validation::*;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u64> {
+pub fn get_alonzo_comp_tx_size(tx_body: &TransactionBody) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx_body, &mut buff) {
-        Ok(()) => Some(buff.len() as u64),
+        Ok(()) => Some(buff.len() as u32),
         Err(_) => None,
     }
 }
 
-pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u64> {
+pub fn get_babbage_tx_size(tx_body: &MintedTransactionBody) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(tx_body, &mut buff) {
-        Ok(()) => Some(buff.len() as u64),
+        Ok(()) => Some(buff.len() as u32),
         Err(_) => None,
     }
 }
@@ -257,8 +257,8 @@ pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
 
 pub fn get_network_id_value(network_id: NetworkId) -> u8 {
     match network_id {
-        NetworkId::One => 1,
-        NetworkId::Two => 2,
+        NetworkId::One => 0,
+        NetworkId::Two => 1,
     }
 }
 
@@ -333,6 +333,6 @@ pub fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
 
 pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
     let mut payload: Vec<u8> = Vec::from(script.as_ref());
-    payload.insert(0, 1);
+    payload.insert(0, 2);
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }

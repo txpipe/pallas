@@ -6,7 +6,7 @@ use crate::utils::{
     get_network_id_value, get_payment_part, get_shelley_address, get_val_size_in_words,
     mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
-    AlonzoProtParams, FeePolicy, UTxOs,
+    AlonzoProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -36,7 +36,7 @@ pub fn validate_alonzo_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let size: &u64 = &get_alonzo_comp_tx_size(tx_body).ok_or(Alonzo(UnknownTxSize))?;
+    let size: &u32 = &get_alonzo_comp_tx_size(tx_body).ok_or(Alonzo(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_ins_and_collateral_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, mtx, block_slot)?;
@@ -131,7 +131,7 @@ fn check_upper_bound(
 
 fn check_fee(
     tx_body: &TransactionBody,
-    size: &u64,
+    size: &u32,
     mtx: &MintedTx,
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
@@ -147,11 +147,10 @@ fn check_fee(
 // minimum fee.
 fn check_min_fee(
     tx_body: &TransactionBody,
-    size: &u64,
+    size: &u32,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
-    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+    if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
         return Err(Alonzo(FeeBelowMin));
     }
     Ok(())
@@ -185,7 +184,7 @@ fn check_collaterals_number(
     collaterals: &[TransactionInput],
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let number_collateral: u64 = collaterals.len() as u64;
+    let number_collateral: u32 = collaterals.len() as u32;
     if number_collateral == 0 {
         Err(Alonzo(CollateralMissing))
     } else if number_collateral > prot_pps.max_collateral_inputs {
@@ -222,7 +221,7 @@ fn check_collaterals_assets(
     utxos: &UTxOs,
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
-    let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percent;
+    let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
     match &tx_body.collateral {
         Some(collaterals) => {
             for collateral in collaterals {
@@ -317,7 +316,7 @@ fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &AlonzoProtParams)
             Some(_) => 37, // utxoEntrySizeWithoutVal (27) + dataHashSize (10)
             None => 27,    // utxoEntrySizeWithoutVal
         };
-    prot_pps.coins_per_utxo_word * output_entry_size
+    prot_pps.ada_per_utxo_byte * output_entry_size
 }
 
 // The size of the value in each of the outputs should not be greater than the
@@ -327,7 +326,7 @@ fn check_output_val_size(
     prot_pps: &AlonzoProtParams,
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
-        if get_val_size_in_words(&output.amount) > prot_pps.max_val_size {
+        if get_val_size_in_words(&output.amount) > prot_pps.max_value_size as u64 {
             return Err(Alonzo(MaxValSizeExceeded));
         }
     }
@@ -364,8 +363,8 @@ fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> Validation
 }
 
 // The transaction size does not exceed the protocol limit.
-fn check_tx_size(size: &u64, prot_pps: &AlonzoProtParams) -> ValidationResult {
-    if *size > prot_pps.max_tx_size {
+fn check_tx_size(size: &u32, prot_pps: &AlonzoProtParams) -> ValidationResult {
+    if *size > prot_pps.max_transaction_size {
         return Err(Alonzo(MaxTxSizeExceeded));
     }
     Ok(())
@@ -384,7 +383,7 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &AlonzoProtParams) -> ValidationR
                     mem += ex_units.mem;
                     steps += ex_units.steps;
                 }
-                if mem > prot_pps.max_tx_ex_mem || steps > prot_pps.max_tx_ex_steps {
+                if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
                     return Err(Alonzo(TxExUnitsExceeded));
                 }
             }
@@ -528,7 +527,7 @@ fn check_redeemers(
         Some(redeemers) => redeemers
             .iter()
             .map(|x| RedeemerPointer {
-                tag: x.tag.clone(),
+                tag: x.tag,
                 index: x.index,
             })
             .collect(),
@@ -897,6 +896,8 @@ fn compute_script_integrity_hash(plutus_data: &[PlutusData], redeemer: &[Redeeme
 }
 
 fn cost_model_cbor() -> Vec<u8> {
+    // Mainnet, preprod and preview all have the same cost model during the Alonzo
+    // era.
     hex::decode(
         "a141005901d59f1a000302590001011a00060bc719026d00011a000249f01903e800011a000249f018201a0025cea81971f70419744d186419744d186419744d186419744d186419744d186419744d18641864186419744d18641a000249f018201a000249f018201a000249f018201a000249f01903e800011a000249f018201a000249f01903e800081a000242201a00067e2318760001011a000249f01903e800081a000249f01a0001b79818f7011a000249f0192710011a0002155e19052e011903e81a000249f01903e8011a000249f018201a000249f018201a000249f0182001011a000249f0011a000249f0041a000194af18f8011a000194af18f8011a0002377c190556011a0002bdea1901f1011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000242201a00067e23187600010119f04c192bd200011a000249f018201a000242201a00067e2318760001011a000242201a00067e2318760001011a0025cea81971f704001a000141bb041a000249f019138800011a000249f018201a000302590001011a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a000249f018201a00330da70101ff"
     ).unwrap()

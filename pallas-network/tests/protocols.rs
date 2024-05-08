@@ -10,7 +10,8 @@ use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    Addr, Addrs, Fraction, Genesis, Snapshots, Stakes, SystemStart, UnitInterval, Value,
+    Addr, Addrs, ChainBlockNumber, Fraction, Genesis, Snapshots, Stakes, SystemStart, UnitInterval,
+    Value,
 };
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
@@ -509,6 +510,25 @@ pub async fn local_state_query_server_and_client_happy_path() {
             assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
             // server receives query from client
+            let query: localstate::queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+            assert_eq!(query, localstate::queries_v16::Request::GetChainBlockNo);
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let result = AnyCbor::from_encode(ChainBlockNumber {
+                slot_timeline: 1,
+                block_number: 2143789,
+            });
+
+            server.statequery().send_result(result).await.unwrap();
+
+            assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+            // server receives query from client
 
             let query: localstate::queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
@@ -813,6 +833,25 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 year: 2020,
                 day_of_year: 1,
                 picoseconds_of_day: 999999999,
+            }
+        );
+
+        let request = AnyCbor::from_encode(localstate::queries_v16::Request::GetChainBlockNo);
+        client.statequery().send_query(request).await.unwrap();
+
+        let result: ChainBlockNumber = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+
+        assert_eq!(
+            result,
+            localstate::queries_v16::ChainBlockNumber {
+                slot_timeline: 1, // current
+                block_number: 2143789,
             }
         );
 

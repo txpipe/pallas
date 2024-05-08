@@ -97,7 +97,7 @@ fn check_fees(tx: &Tx, size: &u64, utxos: &UTxOs, prot_pps: &ByronProtParams) ->
             outputs_balance += output.amount
         }
         let total_balance: u64 = inputs_balance - outputs_balance;
-        let min_fees: u64 = prot_pps.fee_policy.summand + prot_pps.fee_policy.multiplier * size;
+        let min_fees: u64 = prot_pps.summand + prot_pps.multiplier * size;
         if total_balance < min_fees {
             Err(Byron(FeesBelowMin))
         } else {

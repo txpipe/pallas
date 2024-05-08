@@ -116,7 +116,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
-                .map(MultiEraOutput::from_alonzo_compatible)
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era()))
                 .collect(),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
@@ -134,7 +134,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
-                .map(MultiEraOutput::from_babbage)
+                .map(MultiEraOutput::from_conway)
                 .collect(),
         }
     }
@@ -145,7 +145,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
-                .map(MultiEraOutput::from_alonzo_compatible),
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era())),
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .outputs
@@ -160,7 +160,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
-                .map(MultiEraOutput::from_babbage),
+                .map(MultiEraOutput::from_conway),
         }
     }
 
@@ -281,13 +281,12 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
                 .collect(),
-            // TODO: Is this still AlonzoCompatible? Zero vals not allowed or something
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .mint
                 .iter()
                 .flat_map(|x| x.iter())
-                .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
+                .map(|(k, v)| MultiEraPolicyAssets::ConwayMint(k, v))
                 .collect(),
         }
     }
@@ -334,7 +333,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .collateral_return
                 .as_ref()
-                .map(MultiEraOutput::from_babbage),
+                .map(MultiEraOutput::from_conway),
             _ => None,
         }
     }
@@ -523,12 +522,11 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraSigners::AlonzoCompatible)
                 .unwrap_or_default(),
             MultiEraTx::Byron(_) => MultiEraSigners::NotApplicable,
-            // TODO: still compat?
             MultiEraTx::Conway(x) => x
                 .transaction_body
                 .required_signers
                 .as_ref()
-                .map(MultiEraSigners::AlonzoCompatible)
+                .map(|x| MultiEraSigners::AlonzoCompatible(x.deref()))
                 .unwrap_or_default(),
         }
     }

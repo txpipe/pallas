@@ -4,7 +4,6 @@ use crate::utils::{
     add_minted_value, add_values, aux_data_from_alonzo_minted_tx, empty_value,
     get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
     get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
-    FeePolicy,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -32,7 +31,7 @@ pub fn validate_shelley_ma_tx(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let size: &u64 = &get_alonzo_comp_tx_size(tx_body).ok_or(ShelleyMA(UnknownTxSize))?;
+    let size: &u32 = &get_alonzo_comp_tx_size(tx_body).ok_or(ShelleyMA(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
     check_ttl(tx_body, block_slot)?;
@@ -75,8 +74,8 @@ fn check_ttl(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     }
 }
 
-fn check_tx_size(size: &u64, prot_pps: &ShelleyProtParams) -> ValidationResult {
-    if *size > prot_pps.max_tx_size {
+fn check_tx_size(size: &u32, prot_pps: &ShelleyProtParams) -> ValidationResult {
+    if *size > prot_pps.max_transaction_size {
         return Err(ShelleyMA(MaxTxSizeExceeded));
     }
     Ok(())
@@ -104,10 +103,10 @@ fn check_min_lovelace(
 
 fn compute_min_lovelace(output: &TransactionOutput, prot_pps: &ShelleyProtParams) -> u64 {
     match &output.amount {
-        Value::Coin(_) => prot_pps.min_lovelace,
+        Value::Coin(_) => prot_pps.min_utxo_value,
         Value::Multiasset(lovelace, _) => {
             let utxo_entry_size: u64 = 27 + get_val_size_in_words(&output.amount);
-            let coins_per_utxo_word: u64 = prot_pps.min_lovelace / 27;
+            let coins_per_utxo_word: u64 = prot_pps.min_utxo_value / 27;
             max(*lovelace, utxo_entry_size * coins_per_utxo_word)
         }
     }
@@ -174,11 +173,10 @@ fn get_produced(tx_body: &TransactionBody, era: &Era) -> Result<Value, Validatio
 
 fn check_fees(
     tx_body: &TransactionBody,
-    size: &u64,
+    size: &u32,
     prot_pps: &ShelleyProtParams,
 ) -> ValidationResult {
-    let fee_policy: &FeePolicy = &prot_pps.fee_policy;
-    if tx_body.fee < fee_policy.summand + fee_policy.multiplier * size {
+    if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
         return Err(ShelleyMA(FeesBelowMin));
     }
     Ok(())

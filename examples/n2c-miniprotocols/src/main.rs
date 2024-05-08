@@ -25,6 +25,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_system_start(client).await.unwrap();
     info!("result: {:?}", result);
 
+    let result = queries_v16::get_chain_block_no(client).await.unwrap();
+    info!("result: {:?}", result);
+
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
@@ -93,7 +96,7 @@ async fn do_chainsync(client: &mut NodeClient) {
     info!("intersected point is {:?}", point);
 
     loop {
-        let next = client.chainsync().request_next().await.unwrap();
+        let next = client.chainsync().request_or_await_next().await.unwrap();
         match next {
             chainsync::NextResponse::RollForward(h, _) => {
                 let block_number = MultiEraBlock::decode(&h).unwrap().number();
