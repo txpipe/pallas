@@ -318,12 +318,14 @@ pub fn get_tip(dir: &Path) -> Result<Option<Point>, Error> {
                 .map_while(Result::ok)
                 .flatten()
                 .last()
-                .transpose().map_err(Error::ChunkReadError)?
+                .transpose()
+                .map_err(Error::ChunkReadError)?
                 .map(|tip_data| {
                     MultiEraBlock::decode(&tip_data)
                         .map(|block| Point::Specific(block.slot(), block.hash().to_vec()))
                 })
-                .transpose().map_err(Error::CannotDecodeBlock)?;
+                .transpose()
+                .map_err(Error::CannotDecodeBlock)?;
             Ok(tip_point)
         }
         None => Ok(None),
