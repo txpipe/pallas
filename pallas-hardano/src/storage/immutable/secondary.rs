@@ -1,11 +1,12 @@
 use std::{
-    fs::File, io::{BufReader, Read, Seek}, path::Path
+    fs::File,
+    io::{BufReader, Read, Seek},
+    path::Path,
 };
 
 pub type PrimaryIndex = super::primary::Reader;
 
 use binary_layout::prelude::*;
-use tracing::warn;
 
 use crate::storage::immutable::{primary, secondary};
 
@@ -18,6 +19,18 @@ define_layout!(layout, BigEndian, {
     header_hash: [u8; 32],
     block_or_ebb: [u8; 8],
 });
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Cannot open file, error: {0}")]
+    CannotOpenFile(std::io::Error),
+    #[error("Cannot read secondary index, error: {0}")]
+    CannotReadSecondaryIndex(std::io::Error),
+    #[error("Inconsistent state between primary and secondary index")]
+    InconsistentState,
+    #[error(transparent)]
+    PrimaryIndexError(primary::Error),
+}
 
 #[derive(Debug)]
 pub struct Entry {
@@ -50,32 +63,32 @@ pub type SecondaryOffset = u32;
 pub struct Reader {
     inner: BufReader<File>,
     index: PrimaryIndex,
-    current: Option<Result<primary::Entry, std::io::Error>>,
+    current: Option<Result<primary::Entry, primary::Error>>,
 }
 
 impl Reader {
-    pub fn open(mut index: PrimaryIndex, file: File) -> Result<Self, std::io::Error> {
+    pub fn open(mut index: PrimaryIndex, file: File) -> Self {
         let inner = BufReader::new(file);
 
         let current = index.next_occupied();
 
-        Ok(Self {
+        Self {
             inner,
             index,
             current,
-        })
+        }
     }
 }
 
 impl Iterator for Reader {
-    type Item = Result<Entry, std::io::Error>;
+    type Item = Result<Entry, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = match self.current.take()? {
             Ok(x) => x.offset()?,
             Err(err) => {
                 self.current = None;
-                return Some(Err(err));
+                return Some(Err(Error::PrimaryIndexError(err)));
             }
         };
 
@@ -83,7 +96,7 @@ impl Iterator for Reader {
             Ok(x) => x,
             Err(err) => {
                 self.current = None;
-                return Some(Err(err));
+                return Some(Err(Error::CannotReadSecondaryIndex(err)));
             }
         };
 
@@ -93,7 +106,7 @@ impl Iterator for Reader {
             Ok(_) => (),
             Err(err) => {
                 self.current = None;
-                return Some(Err(err));
+                return Some(Err(Error::CannotReadSecondaryIndex(err)));
             }
         }
 
@@ -109,29 +122,26 @@ impl Iterator for Reader {
                 Some(Ok(entry))
             }
             Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
-                if self.current.is_some() {
-                    warn!("inconsistent state between primary and secondary index");
-                }
                 self.current = None;
-                None
+                Some(Err(Error::InconsistentState))
             }
             Err(err) => {
                 self.current = None;
-                Some(Err(err))
+                Some(Err(Error::CannotReadSecondaryIndex(err)))
             }
         }
     }
 }
 
-pub fn read_entries(dir: &Path, name: &str) -> Result<Reader, std::io::Error> {
+pub fn read_entries(dir: &Path, name: &str) -> Result<Reader, Error> {
     let primary = dir.join(name).with_extension("primary");
-    let primary = std::fs::File::open(primary)?;
-    let primary = primary::Reader::open(primary)?;
+    let primary = std::fs::File::open(primary).map_err(Error::CannotOpenFile)?;
+    let primary = primary::Reader::open(primary).map_err(Error::PrimaryIndexError)?;
 
     let secondary = dir.join(name).with_extension("secondary");
-    let secondary = std::fs::File::open(secondary)?;
+    let secondary = std::fs::File::open(secondary).map_err(Error::CannotOpenFile)?;
 
-    secondary::Reader::open(primary, secondary)
+    Ok(secondary::Reader::open(primary, secondary))
 }
 
 #[cfg(test)]
@@ -146,10 +156,11 @@ mod tests {
             entry.unwrap();
         }
     }
-    
+
     #[test]
     fn can_parse_inconsistent_entries() {
-        let reader = super::read_entries(Path::new("../test_data/inconsistent_indexes"), "10366").unwrap();
+        let reader =
+            super::read_entries(Path::new("../test_data/inconsistent_indexes"), "10366").unwrap();
 
         for entry in reader {
             entry.unwrap();
