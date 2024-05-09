@@ -518,6 +518,41 @@ create_struct_and_impls!(PlutusDatas, PlutusData, false);
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Redeemers(Vec<Redeemer>);
 
+impl Redeemers {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn as_ref(&self) -> &[Redeemer] {
+        &self.0
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Redeemer> {
+        self.0.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Redeemer> {
+        self.0.iter_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a Redeemers {
+    type Item = &'a Redeemer;
+    type IntoIter = std::slice::Iter<'a, Redeemer>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl From<Redeemers> for Vec<Redeemer> {
+    fn from(c: Redeemers) -> Self {
+        c.0
+    }
+}
+
+
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 struct RedeemerMapKey {
     #[n(0)]
