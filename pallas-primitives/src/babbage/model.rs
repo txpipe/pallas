@@ -467,7 +467,7 @@ pub struct WitnessSet {
     pub plutus_data: Option<PlutusDatas>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<Redeemers>,
 
     #[n(6)]
     pub plutus_v2_script: Option<PlutusV2Scripts>,
@@ -497,7 +497,7 @@ pub struct MintedWitnessSet<'b> {
     pub plutus_data: Option<KeepRawPlutusDatas<'b>>,
 
     #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
+    pub redeemer: Option<Redeemers>,
 
     #[n(6)]
     pub plutus_v2_script: Option<PlutusV2Scripts>,
@@ -513,6 +513,52 @@ create_struct_and_impls!(PlutusV1Scripts, PlutusV1Script, false);
 create_struct_and_impls!(PlutusV2Scripts, PlutusV2Script, false);
 create_struct_and_impls!(PlutusV3Scripts, PlutusV3Script, false);
 create_struct_and_impls!(PlutusDatas, PlutusData, false);
+
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct Redeemers(Vec<Redeemer>);
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+struct RedeemerMapKey {
+    #[n(0)]
+    pub tag: RedeemerTag,
+
+    #[n(1)]
+    pub index: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+struct RedeemerMapValue {
+    #[n(0)]
+    pub data: PlutusData,
+
+    #[n(1)]
+    pub ex_units: ExUnits,
+}
+
+impl <'b, C> minicbor::decode::Decode<'b, C> for Redeemers  {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        if d.probe().map().is_ok() {
+            let redeemers_map : KeyValuePairs<RedeemerMapKey, RedeemerMapValue> = d.decode_with(ctx)?;
+            let array = redeemers_map.iter().map(|(k, v)| Redeemer {
+                tag: k.tag.clone(),
+                index: k.index.clone(),
+                data: v.data.clone(),
+                ex_units: v.ex_units.clone(),
+            }).collect();
+            Ok(Redeemers(array))
+        } else {
+            Ok(Redeemers(d.decode_with(ctx)?))
+        }
+    }
+}
+
+impl <'b, C> minicbor::encode::Encode<C> for Redeemers {
+    fn encode<W: minicbor::encode::Write>(&self, e: &mut minicbor::Encoder<W>, ctx: &mut C) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode_with(&self.0, ctx)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct KeepRawPlutusDatas<'b>(Vec<KeepRaw<'b, PlutusData>>);
@@ -873,6 +919,7 @@ mod tests {
             include_str!("../../../test_data/conway1.block"),
             include_str!("../../../test_data/conway2.block"),
             include_str!("../../../test_data/conway3.block"),
+            include_str!("../../../test_data/conway4.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
