@@ -955,6 +955,7 @@ mod tests {
             include_str!("../../../test_data/conway2.block"),
             include_str!("../../../test_data/conway3.block"),
             include_str!("../../../test_data/conway4.block"),
+            include_str!("../../../test_data/conway5.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
