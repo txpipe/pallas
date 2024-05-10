@@ -77,6 +77,13 @@ impl Point {
             Point::Specific(slot, _) => *slot,
         }
     }
+
+    pub fn hash_or_default(&self) -> String {
+        match self {
+            Point::Origin => String::new(),
+            Point::Specific(_, hash) => hex::encode(hash),
+        }
+    }
 }
 
 impl Debug for Point {
