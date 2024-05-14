@@ -45,7 +45,7 @@ impl<C: Context> Mapper<C> {
 
         let as_output = match &self.context {
             Some(_) => {
-                let tx_output = C::get_spent_tx_output(i.hash().clone(), i.index() as u32);
+                let tx_output = C::get_spent_tx_output(*i.hash(), i.index() as u32);
                 match tx_output {
                     Some(output) => Some(self.map_tx_output(&output)),
                     None => panic!(
@@ -89,7 +89,7 @@ impl<C: Context> Mapper<C> {
             },
             script: match x.script_ref() {
                 Some(conway::PseudoScript::NativeScript(x)) => u5c::Script {
-                    script: u5c::script::Script::Native(self.map_native_script(&x)).into(), /*  */
+                    script: u5c::script::Script::Native(Self::map_native_script(&x)).into(), /*  */
                 }
                 .into(),
                 Some(conway::PseudoScript::PlutusV1Script(x)) => u5c::Script {
@@ -265,25 +265,25 @@ impl<C: Context> Mapper<C> {
         }
     }
 
-    pub fn map_native_script(&self, x: &alonzo::NativeScript) -> u5c::NativeScript {
+    pub fn map_native_script(x: &alonzo::NativeScript) -> u5c::NativeScript {
         let inner = match x {
             babbage::NativeScript::ScriptPubkey(x) => {
                 u5c::native_script::NativeScript::ScriptPubkey(x.to_vec().into())
             }
             babbage::NativeScript::ScriptAll(x) => {
                 u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(|x| self.map_native_script(x)).collect(),
+                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
                 })
             }
             babbage::NativeScript::ScriptAny(x) => {
                 u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(|x| self.map_native_script(x)).collect(),
+                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
                 })
             }
             babbage::NativeScript::ScriptNOfK(n, k) => {
                 u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
                     k: *n,
-                    scripts: k.iter().map(|x| self.map_native_script(x)).collect(),
+                    scripts: k.iter().map(|x| Self::map_native_script(x)).collect(),
                 })
             }
             babbage::NativeScript::InvalidBefore(s) => {
@@ -303,7 +303,7 @@ impl<C: Context> Mapper<C> {
         let ns = tx
             .native_scripts()
             .iter()
-            .map(|x| self.map_native_script(x.deref()))
+            .map(|x| Self::map_native_script(x.deref()))
             .map(|x| u5c::Script {
                 script: u5c::script::Script::Native(x).into(),
             });
@@ -396,7 +396,7 @@ impl<C: Context> Mapper<C> {
         }
     }
 
-    pub fn map_metadatum(&self, x: &alonzo::Metadatum) -> u5c::Metadatum {
+    pub fn map_metadatum(x: &alonzo::Metadatum) -> u5c::Metadatum {
         let inner = match x {
             babbage::Metadatum::Int(x) => u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64),
             babbage::Metadatum::Bytes(x) => {
@@ -404,14 +404,14 @@ impl<C: Context> Mapper<C> {
             }
             babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
             babbage::Metadatum::Array(x) => u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
-                items: x.iter().map(|x| self.map_metadatum(x)).collect(),
+                items: x.iter().map(|x| Self::map_metadatum(x)).collect(),
             }),
             babbage::Metadatum::Map(x) => u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
                 pairs: x
                     .iter()
                     .map(|(k, v)| u5c::MetadatumPair {
-                        key: self.map_metadatum(k).into(),
-                        value: self.map_metadatum(v).into(),
+                        key: Self::map_metadatum(k).into(),
+                        value: Self::map_metadatum(v).into(),
                     })
                     .collect(),
             }),
@@ -425,7 +425,7 @@ impl<C: Context> Mapper<C> {
     pub fn map_metadata(&self, label: u64, datum: &alonzo::Metadatum) -> u5c::Metadata {
         u5c::Metadata {
             label,
-            value: self.map_metadatum(datum).into(),
+            value: Self::map_metadatum(datum).into(),
         }
     }
 
@@ -433,7 +433,7 @@ impl<C: Context> Mapper<C> {
         let ns = tx
             .aux_native_scripts()
             .iter()
-            .map(|x| self.map_native_script(x))
+            .map(|x| Self::map_native_script(x))
             .map(|x| u5c::Script {
                 script: u5c::script::Script::Native(x).into(),
             });
