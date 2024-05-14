@@ -118,6 +118,10 @@ fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, std::io::Erro
         .collect::<Vec<_>>();
 
     chunks.sort();
+    // According to this docs https://mithril.network/doc/glossary/#immutable-file-number,
+    // the last chunk files are not really immutable.
+    // So to preserve only immutable data the last chunk files are omitted.
+    chunks.pop();
     chunks.reverse();
 
     Ok(chunks)
