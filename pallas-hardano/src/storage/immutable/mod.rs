@@ -87,7 +87,7 @@ fn iterate_till_point(
 
                 match iter.peek() {
                     Some(Ok(data)) => {
-                        block_data = data.clone();
+                        block_data.clone_from(data);
                         block = MultiEraBlock::decode(&block_data)?;
                     }
                     Some(Err(_)) | None => return Ok(iter),
@@ -400,11 +400,11 @@ mod tests {
             count += 1;
         }
 
-        assert_eq!(count, 1778);
+        assert_eq!(count, 1777);
     }
 
     #[test]
-    fn can_read_multiple_chunks_from_folder_2() {
+    fn can_read_multiple_chunks_from_folder_at_specific_point() {
         let reader = super::read_blocks_from_point(
             Path::new("../test_data"),
             Point::Specific(
@@ -430,7 +430,7 @@ mod tests {
             count += 1;
         }
 
-        assert_eq!(count, 1778);
+        assert_eq!(count, 1777);
     }
 
     #[test]
@@ -441,8 +441,8 @@ mod tests {
         assert_eq!(
             tip,
             Some(Point::Specific(
-                43610414,
-                hex::decode("80d02d3c9a576af65e4f36b95a57ae528b62c14836282fbd8d6a93aa1fef557f")
+                39679163,
+                hex::decode("53af88680ff3380814fdddc148caa1c6dbb89e5a30a5f6a439ee313424a14c55")
                     .unwrap()
             ))
         );
@@ -501,8 +501,8 @@ mod tests {
 
         // tip
         let point = Point::Specific(
-            43610414,
-            hex::decode("80d02d3c9a576af65e4f36b95a57ae528b62c14836282fbd8d6a93aa1fef557f")
+            39679163,
+            hex::decode("53af88680ff3380814fdddc148caa1c6dbb89e5a30a5f6a439ee313424a14c55")
                 .unwrap(),
         );
         let mut reader = read_blocks_from_point(Path::new("../test_data"), point.clone()).unwrap();
