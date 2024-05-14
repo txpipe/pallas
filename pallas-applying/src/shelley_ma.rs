@@ -31,14 +31,14 @@ pub fn validate_shelley_ma_tx(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let size: &u32 = &get_alonzo_comp_tx_size(tx_body).ok_or(ShelleyMA(UnknownTxSize))?;
+    let size: u32 = get_alonzo_comp_tx_size(mtx);
     check_ins_not_empty(tx_body)?;
     check_ins_in_utxos(tx_body, utxos)?;
     check_ttl(tx_body, block_slot)?;
-    check_tx_size(size, prot_pps)?;
+    check_tx_size(&size, prot_pps)?;
     check_min_lovelace(tx_body, prot_pps, era)?;
     check_preservation_of_value(tx_body, utxos, era)?;
-    check_fees(tx_body, size, prot_pps)?;
+    check_fees(tx_body, &size, prot_pps)?;
     check_network_id(tx_body, network_id)?;
     check_metadata(tx_body, mtx)?;
     check_witnesses(tx_body, tx_wits, utxos)?;
