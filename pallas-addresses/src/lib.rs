@@ -10,7 +10,7 @@
 pub mod byron;
 pub mod varuint;
 
-use std::{io::Cursor, str::FromStr};
+use std::{fmt::Display, io::Cursor, str::FromStr};
 
 use pallas_crypto::hash::Hash;
 use thiserror::Error;
@@ -690,12 +690,12 @@ impl Address {
     }
 }
 
-impl ToString for Address {
-    fn to_string(&self) -> String {
+impl Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Address::Byron(x) => x.to_base58(),
-            Address::Shelley(x) => x.to_bech32().unwrap_or_else(|_| x.to_hex()),
-            Address::Stake(x) => x.to_bech32().unwrap_or_else(|_| x.to_hex()),
+            Address::Byron(x) => f.write_str(&x.to_base58()),
+            Address::Shelley(x) => f.write_str(&x.to_bech32().unwrap_or_else(|_| x.to_hex())),
+            Address::Stake(x) => f.write_str(&x.to_bech32().unwrap_or_else(|_| x.to_hex())),
         }
     }
 }
