@@ -11,10 +11,11 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
-pub trait Context {
-    fn get_spent_tx_output<'a>(tx_hash: Hash<32>, index: u32) -> Option<trv::MultiEraOutput<'a>>;
+pub trait Context: Clone {
+    fn get_txo<'a>(&self, tx_hash: Hash<32>, txo_index: u32) -> Option<trv::MultiEraOutput<'a>>;
 }
 
+#[derive(Default, Clone)]
 pub struct Mapper<C: Context> {
     context: Option<C>,
 }
@@ -43,20 +44,11 @@ impl<C: Context> Mapper<C> {
 
         let redeemer = redeemers.iter().find(|r| (r.index() as u64) == i.index());
 
-        let as_output = match &self.context {
-            Some(_) => {
-                let tx_output = C::get_spent_tx_output(*i.hash(), i.index() as u32);
-                match tx_output {
-                    Some(output) => Some(self.map_tx_output(&output)),
-                    None => panic!(
-                        "Failed to fetch transaction output for hash: {:?}, index: {}",
-                        i.hash(),
-                        i.index()
-                    ),
-                }
-            }
-            None => None,
-        };
+        let as_output = self
+            .context
+            .as_ref()
+            .and_then(|ctx| ctx.get_txo(*i.hash(), i.index() as u32))
+            .map(|txo| self.map_tx_output(&txo));
 
         u5c::TxInput {
             tx_hash: i.hash().to_vec().into(),
