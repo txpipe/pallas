@@ -20,6 +20,8 @@ pallas-primitives = { version = "=0.25.0", path = "../pallas-primitives" }
 pallas-traverse = { version = "=0.25.0", path = "../pallas-traverse" }
 rand = "0.8"
 hex = "0.4"
+serde = { version = "1.0.136", optional = true, features = ["derive"] }
+serde_json = { version = "1.0.79", optional = true }
 
 [dev-dependencies]
 hex = "0.4"
