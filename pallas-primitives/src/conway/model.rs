@@ -1,6 +1,6 @@
 //! Ledger primitives and cbor codec for the Conway era
 //!
-//! Handcrafted, idiomatic rust artifacts based on based on the [Conway CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/conway/test-suite/cddl-files/conway.cddl) file in IOHK repo.
+//! Handcrafted, idiomatic rust artifacts based on based on the [Conway CDDL](https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/conway/impl/cddl-files/conway.cddl) file in IntersectMBO repo.
 
 use std::ops::Deref;
 
@@ -541,15 +541,15 @@ pub struct CostMdls {
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
-    pub minfee_a: Option<u32>,
+    pub minfee_a: Option<u64>,
     #[n(1)]
-    pub minfee_b: Option<u32>,
+    pub minfee_b: Option<u64>,
     #[n(2)]
-    pub max_block_body_size: Option<u32>,
+    pub max_block_body_size: Option<u64>,
     #[n(3)]
-    pub max_transaction_size: Option<u32>,
+    pub max_transaction_size: Option<u64>,
     #[n(4)]
-    pub max_block_header_size: Option<u32>,
+    pub max_block_header_size: Option<u64>,
     #[n(5)]
     pub key_deposit: Option<Coin>,
     #[n(6)]
@@ -557,7 +557,7 @@ pub struct ProtocolParamUpdate {
     #[n(7)]
     pub maximum_epoch: Option<Epoch>,
     #[n(8)]
-    pub desired_number_of_stake_pools: Option<u32>,
+    pub desired_number_of_stake_pools: Option<u64>,
     #[n(9)]
     pub pool_pledge_influence: Option<RationalNumber>,
     #[n(10)]
@@ -589,7 +589,7 @@ pub struct ProtocolParamUpdate {
     #[n(26)]
     pub drep_voting_thresholds: Option<DRepVotingThresholds>,
     #[n(27)]
-    pub min_committee_size: Option<u32>,
+    pub min_committee_size: Option<u64>,
     #[n(28)]
     pub committee_term_limit: Option<Epoch>,
     #[n(29)]
@@ -1710,6 +1710,8 @@ mod tests {
         let test_blocks = [
             include_str!("../../../test_data/conway1.block"),
             include_str!("../../../test_data/conway2.block"),
+            // interesting block with extreme values
+            include_str!("../../../test_data/conway3.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
