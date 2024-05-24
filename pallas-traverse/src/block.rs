@@ -90,10 +90,10 @@ impl<'b> MultiEraBlock<'b> {
             }
             MultiEraBlock::Byron(x) => MultiEraHeader::Byron(Cow::Borrowed(&x.header)),
             MultiEraBlock::AlonzoCompatible(x, _) => {
-                MultiEraHeader::AlonzoCompatible(Cow::Borrowed(&x.header))
+                MultiEraHeader::ShelleyCompatible(Cow::Borrowed(&x.header))
             }
-            MultiEraBlock::Babbage(x) => MultiEraHeader::Babbage(Cow::Borrowed(&x.header)),
-            MultiEraBlock::Conway(x) => MultiEraHeader::Babbage(Cow::Borrowed(&x.header)),
+            MultiEraBlock::Babbage(x) => MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header)),
+            MultiEraBlock::Conway(x) => MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header)),
         }
     }
 
