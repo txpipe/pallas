@@ -67,7 +67,7 @@ impl KeepAliveLoop {
 
         loop {
             interval.tick().await;
-            warn!("sending keepalive request");
+            debug!("sending keepalive request");
 
             client
                 .keepalive_roundtrip()
