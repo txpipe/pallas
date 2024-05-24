@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
 use thiserror::Error;
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 use tokio::net::{TcpListener, ToSocketAddrs};
 
@@ -67,7 +67,7 @@ impl KeepAliveLoop {
 
         loop {
             interval.tick().await;
-            warn!("sending keepalive request");
+            debug!("sending keepalive request");
 
             client
                 .keepalive_roundtrip()
