@@ -190,7 +190,7 @@ pub struct PeerServer {
     pub txsubmission: txsubmission::Server,
     pub keepalive: keepalive::Server,
     accepted_address: Option<SocketAddr>,
-    accepted_version: Option<u64>,
+    accepted_version: Option<(u64, n2n::VersionData)>,
 }
 
 impl PeerServer {
@@ -236,9 +236,9 @@ impl PeerServer {
             .await
             .map_err(Error::HandshakeProtocol)?;
 
-        if let Some((version, _)) = accepted_version {
+        if let Some((version, data)) = accepted_version {
             client.accepted_address = Some(address);
-            client.accepted_version = Some(version);
+            client.accepted_version = Some((version, data));
             Ok(client)
         } else {
             client.abort().await;
@@ -264,6 +264,14 @@ impl PeerServer {
 
     pub fn keepalive(&mut self) -> &mut keepalive::Server {
         &mut self.keepalive
+    }
+
+    pub fn accepted_address(&self) -> Option<&SocketAddr> {
+        self.accepted_address.as_ref()
+    }
+
+    pub fn accepted_version(&self) -> Option<&(u64, n2n::VersionData)> {
+        self.accepted_version.as_ref()
     }
 
     pub async fn abort(self) {
@@ -406,10 +414,10 @@ impl NodeClient {
 /// Server of N2C Ouroboros.
 #[cfg(unix)]
 pub struct NodeServer {
-    plexer: RunningPlexer,
-    handshake: handshake::N2CServer,
-    chainsync: chainsync::N2CServer,
-    statequery: localstate::Server,
+    pub plexer: RunningPlexer,
+    pub handshake: handshake::N2CServer,
+    pub chainsync: chainsync::N2CServer,
+    pub statequery: localstate::Server,
     accepted_address: Option<UnixSocketAddr>,
     accpeted_version: Option<(VersionNumber, n2c::VersionData)>,
 }
@@ -472,6 +480,14 @@ impl NodeServer {
 
     pub fn statequery(&mut self) -> &mut localstate::Server {
         &mut self.statequery
+    }
+
+    pub fn accepted_address(&self) -> Option<&UnixSocketAddr> {
+        self.accepted_address.as_ref()
+    }
+
+    pub fn accepted_version(&self) -> Option<&(u64, n2c::VersionData)> {
+        self.accpeted_version.as_ref()
     }
 
     pub async fn abort(self) {
