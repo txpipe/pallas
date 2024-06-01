@@ -78,7 +78,8 @@ async fn do_chainsync(
                                 tracing::info!("epoch boundary");
                                 None
                             }
-                            MultiEraHeader::ShelleyCompatible(_) | MultiEraHeader::BabbageCompatible(_) => {
+                            MultiEraHeader::ShelleyCompatible(_)
+                            | MultiEraHeader::BabbageCompatible(_) => {
                                 if next_log.elapsed().as_secs() > 1 {
                                     tracing::info!("chainsync block header: {}", number);
                                     next_log = Instant::now();
