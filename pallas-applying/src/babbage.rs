@@ -38,16 +38,16 @@ pub fn validate_babbage_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body.clone();
-    let size: &u32 = &get_babbage_tx_size(tx_body).ok_or(Babbage(UnknownTxSize))?;
+    let size: u32 = get_babbage_tx_size(mtx).ok_or(Babbage(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
-    check_fee(tx_body, size, mtx, utxos, prot_pps)?;
+    check_fee(tx_body, &size, mtx, utxos, prot_pps)?;
     check_preservation_of_value(tx_body, utxos)?;
     check_min_lovelace(tx_body, prot_pps)?;
     check_output_val_size(tx_body, prot_pps)?;
     check_network_id(tx_body, network_id)?;
-    check_tx_size(size, prot_pps)?;
+    check_tx_size(&size, prot_pps)?;
     check_tx_ex_units(mtx, prot_pps)?;
     check_minting(tx_body, mtx)?;
     check_well_formedness(tx_body, mtx)?;

@@ -44,21 +44,21 @@ pub mod interop {
 pub mod storage {
     //! Storage engines for chain-related persistence
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "rolldb"))]
     #[doc(inline)]
     pub use pallas_rolldb as rolldb;
 
-    #[cfg(feature = "unstable")]
+    #[cfg(feature = "hardano")]
     #[doc(inline)]
     pub use pallas_hardano::storage as hardano;
 }
 
 #[doc(inline)]
-#[cfg(feature = "unstable")]
+#[cfg(feature = "applying")]
 pub use pallas_applying as applying;
 
 #[doc(inline)]
-#[cfg(feature = "unstable")]
+#[cfg(feature = "wallet")]
 pub use pallas_wallet as wallet;
 
 #[doc(inline)]

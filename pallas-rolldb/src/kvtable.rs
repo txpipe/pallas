@@ -316,6 +316,7 @@ where
         KeyIterator::new(inner)
     }
 
+    #[allow(dead_code)]
     fn iter_keys_start(db: &rocksdb::DB) -> KeyIterator<'_, K> {
         Self::iter_keys(db, rocksdb::IteratorMode::Start)
     }
@@ -333,10 +334,12 @@ where
         ValueIterator::new(inner)
     }
 
+    #[allow(dead_code)]
     fn iter_values_start(db: &rocksdb::DB) -> ValueIterator<'_, V> {
         Self::iter_values(db, rocksdb::IteratorMode::Start)
     }
 
+    #[allow(dead_code)]
     fn iter_values_from(db: &rocksdb::DB, from: K) -> ValueIterator<'_, V> {
         let from_raw = Box::<[u8]>::from(from);
         let mode = rocksdb::IteratorMode::From(&from_raw, rocksdb::Direction::Forward);
@@ -353,6 +356,7 @@ where
         EntryIterator::new(inner)
     }
 
+    #[allow(dead_code)]
     fn iter_entries_start(db: &rocksdb::DB) -> EntryIterator<'_, K, V> {
         Self::iter_entries(db, rocksdb::IteratorMode::Start)
     }
@@ -373,6 +377,7 @@ where
         }
     }
 
+    #[allow(dead_code)]
     fn last_value(db: &rocksdb::DB) -> Result<Option<V>, Error> {
         let mut iter = Self::iter_values(db, rocksdb::IteratorMode::End);
 
@@ -382,6 +387,7 @@ where
         }
     }
 
+    #[allow(dead_code)]
     fn last_entry(db: &rocksdb::DB) -> Result<Option<(K, V)>, Error> {
         let mut iter = Self::iter_entries(db, rocksdb::IteratorMode::End);
 

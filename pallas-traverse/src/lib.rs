@@ -2,6 +2,7 @@
 
 use std::{borrow::Cow, fmt::Display, hash::Hash as StdHash};
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use pallas_codec::utils::{KeepRaw, KeyValuePairs, NonEmptyKeyValuePairs, NonZeroInt};
@@ -34,7 +35,7 @@ pub mod witnesses;
 // TODO: move to genesis crate
 pub mod wellknown;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Era {
     Byron,
@@ -62,8 +63,8 @@ pub enum Feature {
 #[derive(Debug)]
 pub enum MultiEraHeader<'b> {
     EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
-    AlonzoCompatible(Cow<'b, KeepRaw<'b, alonzo::Header>>),
-    Babbage(Cow<'b, KeepRaw<'b, babbage::Header>>),
+    ShelleyCompatible(Cow<'b, KeepRaw<'b, alonzo::Header>>),
+    BabbageCompatible(Cow<'b, KeepRaw<'b, babbage::Header>>),
     Byron(Cow<'b, KeepRaw<'b, byron::BlockHead>>),
 }
 

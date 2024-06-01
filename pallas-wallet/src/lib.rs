@@ -1,4 +1,6 @@
-use pallas_crypto::key::ed25519::{PublicKey, SecretKey, SecretKeyExtended, Signature};
+use pallas_crypto::key::ed25519::{
+    PublicKey, SecretKey, SecretKeyExtended, Signature, TryFromSecretKeyExtendedError,
+};
 use thiserror::Error;
 
 pub mod hd;
@@ -30,6 +32,10 @@ pub enum Error {
     /// Error when attempting to derive ed25519-bip32 key
     #[error("Error when attempting to derive ed25519-bip32 key: {0}")]
     DerivationError(ed25519_bip32::DerivationError),
+    /// Error that may occurs when trying to decrypt a private key
+    /// which is not valid.
+    #[error("Invalid Ed25519 Extended Secret Key: {0}")]
+    InvalidSecretKeyExtended(#[from] TryFromSecretKeyExtendedError),
 }
 
 /// A standard or extended Ed25519 secret key
@@ -64,14 +70,15 @@ impl PrivateKey {
         }
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub(crate) fn as_bytes(&self) -> Vec<u8> {
         match self {
             Self::Normal(x) => {
-                let bytes: [u8; SecretKey::SIZE] = x.clone().into();
+                let bytes: [u8; SecretKey::SIZE] = unsafe { SecretKey::leak_into_bytes(x.clone()) };
                 bytes.to_vec()
             }
             Self::Extended(x) => {
-                let bytes: [u8; SecretKeyExtended::SIZE] = x.clone().into();
+                let bytes: [u8; SecretKeyExtended::SIZE] =
+                    unsafe { SecretKeyExtended::leak_into_bytes(x.clone()) };
                 bytes.to_vec()
             }
         }

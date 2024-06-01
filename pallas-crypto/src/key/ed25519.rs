@@ -53,6 +53,15 @@ pub enum TryFromSignatureError {
     InvalidSize,
 }
 
+/// Error type used when retrieving a [`SecretKeyExtended`] via
+/// [`SecretKeyExtended::from_bytes`] or [`TryFrom`].
+///
+#[derive(Debug, Error)]
+pub enum TryFromSecretKeyExtendedError {
+    #[error("Invalid Ed25519 Extended Secret Key format")]
+    InvalidBitTweaks,
+}
+
 macro_rules! impl_size_zero {
     ($Type:ty, $Size:expr) => {
         impl $Type {
@@ -120,6 +129,41 @@ impl SecretKey {
 
         Signature(signature)
     }
+
+    /// convert the [`SecretKey`] into its compressed byte composition
+    ///
+    /// This function is marked unsafe because we wished to highlight the
+    /// importance of keeping the content of the secret key private.
+    /// However there are reasons that may be valid to _leak_ the private
+    /// key: to encrypt it and store securely (as used in `pallas-wallet`'s
+    /// wrapping method for safely storing the private keys).
+    ///
+    /// This function is on purpose an associated function in order to
+    /// force the explicite use of the type name (`SecretKey`) and the
+    /// associated function when calling it: `SecretKey::leak_into_bytes(key)`.
+    ///
+    /// # Safety
+    ///
+    /// This function is not safe because:
+    ///
+    /// * using it removes all the security measure we put in place
+    ///   to protect your private key: opaque [`Debug`] impl, zeroisation on [`Drop`], ...
+    /// * you will need to be careful not to leak the bytes
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use pallas_crypto::key::ed25519::SecretKey;
+    /// #
+    /// let key: SecretKey = // ...
+    /// # [0; SecretKey::SIZE].into() ;
+    /// let _: [u8; SecretKey::SIZE] = unsafe { SecretKey::leak_into_bytes(key) };
+    /// ```
+    ///
+    #[inline]
+    pub unsafe fn leak_into_bytes(Self(bytes): Self) -> [u8; Self::SIZE] {
+        bytes
+    }
 }
 
 impl SecretKeyExtended {
@@ -152,6 +196,66 @@ impl SecretKeyExtended {
             && (self.0[31] & 0b1000_0000) == 0
     }
 
+    /// Retrieve a [`SecretKeyExtended`] from the given `bytes`` array.
+    ///
+    /// # error
+    ///
+    /// This function will check that the given bytes are valid for
+    /// an Ed25519 Extended Secret key. I.e. it will check that the
+    /// proper bits have been zeroed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use pallas_crypto::key::ed25519::{SecretKeyExtended, TryFromSecretKeyExtendedError};
+    /// #
+    /// # fn test() -> Result<(), TryFromSecretKeyExtendedError> {
+    /// let bytes = // ...
+    /// # [0; 64] ;
+    /// let key = SecretKeyExtended::from_bytes(bytes)?;
+    /// # let _ = key; Ok(()) }
+    /// # assert!(matches!(test(), Err(TryFromSecretKeyExtendedError::InvalidBitTweaks)));
+    /// ```
+    ///
+    pub fn from_bytes(bytes: [u8; Self::SIZE]) -> Result<Self, TryFromSecretKeyExtendedError> {
+        let candidate = Self(bytes);
+        if candidate.check_structure() {
+            Ok(candidate)
+        } else {
+            Err(TryFromSecretKeyExtendedError::InvalidBitTweaks)
+        }
+    }
+
+    /// Retrieve a [`SecretKeyExtended`] from the given bytes
+    ///
+    /// **You should prefer [`SecretKeyExtended::from_bytes`] instead
+    /// as this function does not check that the bytes are correct
+    /// for Ed25519 Extended**
+    ///
+    /// # Safety
+    ///
+    /// This function creates a [`SecretKeyExtended`] without checking
+    /// the validity of the bytes (the bits tweaked or not).
+    ///
+    /// It will not panic but using the created key may result to undefined
+    /// behavior or may generate [`Signature`] that are not cryptographically
+    /// secure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use pallas_crypto::key::ed25519::SecretKeyExtended;
+    /// #
+    /// let bytes = // ...
+    /// # [0; 64] ;
+    /// let key = unsafe { SecretKeyExtended::from_bytes_unchecked(bytes) };
+    /// # let _ = key;
+    /// ```
+    ///
+    pub unsafe fn from_bytes_unchecked(bytes: [u8; Self::SIZE]) -> Self {
+        Self(bytes)
+    }
+
     /// get the [`PublicKey`] associated to this key
     ///
     /// Unlike the [`SecretKeyExtended`], the [`PublicKey`] can be safely
@@ -172,6 +276,41 @@ impl SecretKeyExtended {
         let signature = ed25519::signature_extended(msg.as_ref(), &self.0);
 
         Signature::from(signature)
+    }
+
+    /// convert the [`SecretKeyExtended`] into its compressed byte composition
+    ///
+    /// This function is marked unsafe because we wished to highlight the
+    /// importance of keeping the content of the secret key private.
+    /// However there are reasons that may be valid to _leak_ the private
+    /// key: to encrypt it and store securely (as used in `pallas-wallet`'s
+    /// wrapping method for safely storing the private keys).
+    ///
+    /// This function is on purpose an associated function in order to
+    /// force the explicite use of the type name (`SecretKeyExtended`) and the
+    /// associated function when calling it: `SecretKeyExtended::leak_into_bytes(key)`.
+    ///
+    /// # Safety
+    ///
+    /// This function is not safe because:
+    ///
+    /// * using it removes all the security measure we put in place
+    ///   to protect your private key: opaque [`Debug`] impl, zeroisation on [`Drop`], ...
+    /// * you will need to be careful not to leak the bytes
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use pallas_crypto::key::ed25519::SecretKeyExtended;
+    /// #
+    /// let key: SecretKeyExtended = // ...
+    /// # unsafe { SecretKeyExtended::from_bytes_unchecked([0; SecretKeyExtended::SIZE]) };
+    /// let _: [u8; SecretKeyExtended::SIZE] = unsafe { SecretKeyExtended::leak_into_bytes(key) };
+    /// ```
+    ///
+    #[inline]
+    pub unsafe fn leak_into_bytes(Self(bytes): Self) -> [u8; Self::SIZE] {
+        bytes
     }
 }
 
@@ -317,21 +456,10 @@ impl From<[u8; Self::SIZE]> for SecretKey {
     }
 }
 
-impl From<SecretKey> for [u8; SecretKey::SIZE] {
-    fn from(sk: SecretKey) -> Self {
-        sk.0
-    }
-}
-
-impl From<[u8; Self::SIZE]> for SecretKeyExtended {
-    fn from(bytes: [u8; Self::SIZE]) -> Self {
-        Self(bytes)
-    }
-}
-
-impl From<SecretKeyExtended> for [u8; SecretKeyExtended::SIZE] {
-    fn from(ske: SecretKeyExtended) -> Self {
-        ske.0
+impl TryFrom<[u8; Self::SIZE]> for SecretKeyExtended {
+    type Error = TryFromSecretKeyExtendedError;
+    fn try_from(bytes: [u8; Self::SIZE]) -> Result<Self, Self::Error> {
+        Self::from_bytes(bytes)
     }
 }
 
