@@ -3,7 +3,7 @@ use bip39::rand_core::{CryptoRng, RngCore};
 use bip39::{Language, Mnemonic};
 use cryptoxide::{hmac::Hmac, pbkdf2::pbkdf2, sha2::Sha512};
 use ed25519_bip32::{self, XPrv, XPub, XPRV_SIZE};
-use pallas_crypto::key::ed25519;
+use pallas_crypto::key::ed25519::{self, SecretKeyExtended};
 
 use crate::{Error, PrivateKey};
 
@@ -72,7 +72,11 @@ impl Bip32PrivateKey {
     }
 
     pub fn to_ed25519_private_key(&self) -> PrivateKey {
-        PrivateKey::Extended(self.0.extended_secret_key().into())
+        PrivateKey::Extended(unsafe {
+            // The use of unsafe is allowed here. The key is an Extended Secret Key
+            // already because it passed through the ed25519_bip32 crates checks
+            SecretKeyExtended::from_bytes_unchecked(self.0.extended_secret_key())
+        })
     }
 
     pub fn to_public(&self) -> Bip32PublicKey {

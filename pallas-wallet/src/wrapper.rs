@@ -113,7 +113,7 @@ pub fn decrypt_private_key(password: &String, data: Vec<u8>) -> Result<PrivateKe
             let mut plaintext = [0u8; SecretKeyExtended::SIZE];
 
             if chacha20.decrypt(ciphertext, &mut plaintext, tag) {
-                let secret_key: SecretKeyExtended = plaintext.into();
+                let secret_key = SecretKeyExtended::from_bytes(plaintext)?;
 
                 Ok(secret_key.into())
             } else {
