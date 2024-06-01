@@ -44,7 +44,7 @@ pub mod interop {
 pub mod storage {
     //! Storage engines for chain-related persistence
 
-    #[cfg(all(feature = "rolldb"))]
+    #[cfg(feature = "rolldb")]
     #[doc(inline)]
     pub use pallas_rolldb as rolldb;
 
