@@ -21,6 +21,12 @@ pub struct Mapper<C: Context> {
 }
 
 impl<C: Context> Mapper<C> {
+    pub fn new(context: C) -> Self {
+        Self {
+            context: Some(context),
+        }
+    }
+    
     pub fn map_purpose(&self, x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
         match x {
             conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
