@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{collections::HashMap, ops::Deref};
 
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
@@ -11,16 +11,31 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
-pub trait Context: Clone {
-    fn get_txo<'a>(&self, tx_hash: Hash<32>, txo_index: u32) -> Option<trv::MultiEraOutput<'a>>;
+pub type TxHash = Hash<32>;
+pub type TxoIndex = u32;
+pub type TxoRef = (TxHash, TxoIndex);
+pub type Cbor = Vec<u8>;
+pub type EraCbor = (trv::Era, Cbor);
+pub type UtxoMap = HashMap<TxoRef, EraCbor>;
+
+pub trait LedgerContext: Clone {
+    fn get_utxos<'a>(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
 }
 
 #[derive(Default, Clone)]
-pub struct Mapper<C: Context> {
-    context: Option<C>,
+pub struct Mapper<C: LedgerContext> {
+    ledger: Option<C>,
 }
 
-impl<C: Context> Mapper<C> {
+impl<C: LedgerContext> Mapper<C> {
+    pub fn new(ledger: C) -> Self {
+        Self {
+            ledger: Some(ledger),
+        }
+    }
+}
+
+impl<C: LedgerContext> Mapper<C> {
     pub fn map_purpose(&self, x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
         match x {
             conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
@@ -39,16 +54,25 @@ impl<C: Context> Mapper<C> {
         }
     }
 
-    pub fn map_tx_input(&self, i: &trv::MultiEraInput, tx: &trv::MultiEraTx) -> u5c::TxInput {
+    pub fn map_tx_input(
+        &self,
+        i: &trv::MultiEraInput,
+        tx: &trv::MultiEraTx,
+        resolved: &Option<UtxoMap>,
+    ) -> u5c::TxInput {
         let redeemers = tx.redeemers();
 
         let redeemer = redeemers.iter().find(|r| (r.index() as u64) == i.index());
 
-        let as_output = self
-            .context
+        let as_txref = (*i.hash(), i.index() as u32);
+
+        let as_output = resolved
             .as_ref()
-            .and_then(|ctx| ctx.get_txo(*i.hash(), i.index() as u32))
-            .map(|txo| self.map_tx_output(&txo));
+            .and_then(|x| x.get(&as_txref))
+            .and_then(|(era, cbor)| {
+                let o = trv::MultiEraOutput::decode(*era, cbor.as_slice()).ok()?;
+                Some(self.map_tx_output(&o))
+            });
 
         u5c::TxInput {
             tx_hash: i.hash().to_vec().into(),
@@ -443,13 +467,37 @@ impl<C: Context> Mapper<C> {
         ns.chain(p1).collect()
     }
 
+    fn find_related_inputs(&self, tx: &trv::MultiEraTx) -> Vec<TxoRef> {
+        let inputs = tx
+            .inputs()
+            .into_iter()
+            .map(|x| (*x.hash(), x.index() as u32));
+
+        let collateral = tx
+            .collateral()
+            .into_iter()
+            .map(|x| (*x.hash(), x.index() as u32));
+
+        let reference_inputs = tx
+            .reference_inputs()
+            .into_iter()
+            .map(|x| (*x.hash(), x.index() as u32));
+
+        inputs.chain(collateral).chain(reference_inputs).collect()
+    }
+
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
+        let resolved = self.ledger.as_ref().and_then(|ctx| {
+            let to_resolve = self.find_related_inputs(tx);
+            ctx.get_utxos(to_resolve.as_slice())
+        });
+
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
             inputs: tx
                 .inputs()
                 .iter()
-                .map(|i| self.map_tx_input(i, tx))
+                .map(|i| self.map_tx_input(i, tx, &resolved))
                 .collect(),
             outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
             certificates: tx.certs().iter().map(|x| self.map_cert(x)).collect(),
@@ -467,7 +515,7 @@ impl<C: Context> Mapper<C> {
             reference_inputs: tx
                 .reference_inputs()
                 .iter()
-                .map(|x| self.map_tx_input(x, tx))
+                .map(|x| self.map_tx_input(x, tx, &resolved))
                 .collect(),
             witnesses: u5c::WitnessSet {
                 vkeywitness: tx
@@ -487,7 +535,7 @@ impl<C: Context> Mapper<C> {
                 collateral: tx
                     .collateral()
                     .iter()
-                    .map(|x| self.map_tx_input(x, tx))
+                    .map(|x| self.map_tx_input(x, tx, &resolved))
                     .collect(),
                 collateral_return: tx.collateral_return().map(|x| self.map_tx_output(&x)),
                 total_collateral: tx.total_collateral().unwrap_or_default(),
