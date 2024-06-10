@@ -19,7 +19,7 @@ pub type EraCbor = (trv::Era, Cbor);
 pub type UtxoMap = HashMap<TxoRef, EraCbor>;
 
 pub trait LedgerContext: Clone {
-    fn get_utxos<'a>(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
+    fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
 }
 
 #[derive(Default, Clone)]
