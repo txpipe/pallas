@@ -554,7 +554,7 @@ pub enum RedeemerPurpose {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct ExUnits {
-    pub mem: u32,
+    pub mem: u64,
     pub steps: u64,
 }
 
