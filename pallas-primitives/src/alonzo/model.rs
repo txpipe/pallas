@@ -1200,7 +1200,7 @@ where
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ExUnits {
     #[n(0)]
-    pub mem: u32,
+    pub mem: u64,
     #[n(1)]
     pub steps: u64,
 }

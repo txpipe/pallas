@@ -578,11 +578,11 @@ pub struct ProtocolParamUpdate {
     #[n(21)]
     pub max_block_ex_units: Option<ExUnits>,
     #[n(22)]
-    pub max_value_size: Option<u32>,
+    pub max_value_size: Option<u64>,
     #[n(23)]
-    pub collateral_percentage: Option<u32>,
+    pub collateral_percentage: Option<u64>,
     #[n(24)]
-    pub max_collateral_inputs: Option<u32>,
+    pub max_collateral_inputs: Option<u64>,
 
     #[n(25)]
     pub pool_voting_thresholds: Option<PoolVotingThresholds>,
@@ -601,7 +601,7 @@ pub struct ProtocolParamUpdate {
     #[n(32)]
     pub drep_inactivity_period: Option<Epoch>,
     #[n(33)]
-    pub minfee_refscript_cost_per_byte: Option<Epoch>,
+    pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -1712,6 +1712,8 @@ mod tests {
             include_str!("../../../test_data/conway2.block"),
             // interesting block with extreme values
             include_str!("../../../test_data/conway3.block"),
+            // interesting block with extreme values
+            include_str!("../../../test_data/conway4.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {
