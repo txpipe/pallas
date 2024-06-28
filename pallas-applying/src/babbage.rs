@@ -421,7 +421,7 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> Validation
         match &tx_wits.redeemer {
             Some(redeemers_vec) => {
                 let mut steps: u64 = 0;
-                let mut mem: u32 = 0;
+                let mut mem: u64 = 0;
                 for Redeemer { ex_units, .. } in redeemers_vec {
                     mem += ex_units.mem;
                     steps += ex_units.steps;

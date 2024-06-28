@@ -2,6 +2,57 @@
 ## [Unreleased]
 
 
+<a name="v0.27.0"></a>
+## [v0.27.0] - 2024-06-01
+### Chore
+- fix lint warnings ([#470](https://github.com/txpipe/pallas/issues/470))
+- split unstable features into independent flags ([#469](https://github.com/txpipe/pallas/issues/469))
+- **traverse:** make era enum serializable ([#467](https://github.com/txpipe/pallas/issues/467))
+
+### Docs
+- define security policy ([#464](https://github.com/txpipe/pallas/issues/464))
+
+### Feat
+- **traverse:** Decode Conway block headers properly ([#466](https://github.com/txpipe/pallas/issues/466))
+
+### Fix
+- **network:** expose missing members in facades ([#468](https://github.com/txpipe/pallas/issues/468))
+- **crypto:** Disable potential use of invalid SecretKeyExtended
+
+
+<a name="v0.26.0"></a>
+## [v0.26.0] - 2024-05-21
+### Chore
+- apply lint recommendations ([#458](https://github.com/txpipe/pallas/issues/458))
+- move txbuilder to stable feature ([#451](https://github.com/txpipe/pallas/issues/451))
+- **applying:** prepare pparams for folding logic ([#438](https://github.com/txpipe/pallas/issues/438))
+- **deps:** use cryptoxide sha3 instead of depending on sha3 crate ([#452](https://github.com/txpipe/pallas/issues/452))
+
+### Feat
+- add a simple Crawler example ([#453](https://github.com/txpipe/pallas/issues/453))
+- **configs:** add serde for Alonzo genesis file ([#436](https://github.com/txpipe/pallas/issues/436))
+- **interop:** add ledger context for utxorpc mapping logic ([#450](https://github.com/txpipe/pallas/issues/450))
+- **interop:** re-export utxorpc spec to unify downstream versions ([#448](https://github.com/txpipe/pallas/issues/448))
+- **network:** add an extra ergonomic method for n2c chainsync ([#439](https://github.com/txpipe/pallas/issues/439))
+- **network:** implement `GetChainBlockNo` local state query ([#441](https://github.com/txpipe/pallas/issues/441))
+- **network:** implement background keep-alive loop ([#427](https://github.com/txpipe/pallas/issues/427))
+- **primitives:** derive Eq on relevant structs ([#446](https://github.com/txpipe/pallas/issues/446))
+- **traverse:** track original era for tx outputs ([#447](https://github.com/txpipe/pallas/issues/447))
+
+### Fix
+- **applying:** fix tx size calculation ([#443](https://github.com/txpipe/pallas/issues/443))
+- **configs:** parse directly into rational numbers ([#437](https://github.com/txpipe/pallas/issues/437))
+- **hardano:** exclude last chunk file during immutable db read ([#454](https://github.com/txpipe/pallas/issues/454))
+- **primitives:** handle conway extreme param updates ([#462](https://github.com/txpipe/pallas/issues/462))
+
+### Refactor
+- **applying:** unify approach for protocol params access ([#432](https://github.com/txpipe/pallas/issues/432))
+- **interop:** use stateful mapper for u5 ([#460](https://github.com/txpipe/pallas/issues/460))
+
+### Test
+- **hardano:** contemplate skip of last chunk in immutable read ([#457](https://github.com/txpipe/pallas/issues/457))
+
+
 <a name="v0.25.0"></a>
 ## [v0.25.0] - 2024-04-02
 ### Build
@@ -1132,7 +1183,9 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.27.0...HEAD
+[v0.27.0]: https://github.com/txpipe/pallas/compare/v0.26.0...v0.27.0
+[v0.26.0]: https://github.com/txpipe/pallas/compare/v0.25.0...v0.26.0
 [v0.25.0]: https://github.com/txpipe/pallas/compare/v0.24.0...v0.25.0
 [v0.24.0]: https://github.com/txpipe/pallas/compare/v0.23.0...v0.24.0
 [v0.23.0]: https://github.com/txpipe/pallas/compare/v0.22.0...v0.23.0

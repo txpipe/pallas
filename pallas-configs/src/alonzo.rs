@@ -20,7 +20,7 @@ impl From<ExecutionPrices> for pallas_primitives::alonzo::ExUnitPrices {
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExUnits {
-    pub ex_units_mem: u32,
+    pub ex_units_mem: u64,
     pub ex_units_steps: u64,
 }
 

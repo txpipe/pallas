@@ -92,7 +92,9 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(x, _) => {
                 MultiEraHeader::ShelleyCompatible(Cow::Borrowed(&x.header))
             }
-            MultiEraBlock::Babbage(x) => MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header)),
+            MultiEraBlock::Babbage(x) => {
+                MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header))
+            }
             MultiEraBlock::Conway(x) => MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header)),
         }
     }
