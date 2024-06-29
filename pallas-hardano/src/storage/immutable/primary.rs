@@ -45,9 +45,7 @@ pub struct Reader {
 impl Reader {
     fn read_version(inner: &mut BufReader<File>) -> Result<u8, Error> {
         let mut buf = [0u8; 1];
-        inner
-            .read_exact(&mut buf)
-            .map_err(|e| Error::VersionMissing(e))?;
+        inner.read_exact(&mut buf).map_err(Error::VersionMissing)?;
         let version = buf[0];
 
         Ok(version)
