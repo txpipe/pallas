@@ -11,21 +11,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macOS-latest]
-        rust: [stable]
+        include:
+          - os: ubuntu-latest
+            rust: stable
+          - os: macOS-latest
+            rust: stable
+          - os: windows-latest
+            rust: stable-x86_64-pc-windows-gnu
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - name: Install MSYS2 (Windows)
-        if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          install: >-
-            diffutils make mingw-w64-x86_64-gcc
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -35,15 +33,9 @@ jobs:
           override: true
 
       - name: Run cargo check
-        if: runner.os != 'Windows'
         uses: actions-rs/cargo@v1
         with:
           command: check
-
-      - name: Run cargo check (Windows)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: cargo check
 
   test:
     name: Test Suite
