@@ -20,6 +20,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Windows Pre-requirements
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
