@@ -25,6 +25,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          install: diffutils m4 make mingw-w64-x86_64-gcc
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
