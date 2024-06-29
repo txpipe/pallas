@@ -35,9 +35,15 @@ jobs:
           override: true
 
       - name: Run cargo check
+        if: runner.os != 'Windows'
         uses: actions-rs/cargo@v1
         with:
           command: check
+
+      - name: Run cargo check (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cargo check
 
   test:
     name: Test Suite
