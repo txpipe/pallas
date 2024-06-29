@@ -13,7 +13,7 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>", "Pi Lanningham <pi.lannin
 [dependencies]
 byteorder = "1.4.3"
 hex = "0.4.3"
-itertools = "0.12.1"
+itertools = "0.13.0"
 pallas-codec = { version = "=0.27.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.27.0", path = "../pallas-crypto" }
 rand = "0.8.5"
