@@ -6,7 +6,6 @@ use std::{
 
 use pallas_traverse::MultiEraBlock;
 use tap::Tap;
-use thiserror::Error;
 use tracing::debug;
 
 pub mod chunk;
@@ -17,13 +16,18 @@ pub mod secondary;
 // `network`.
 pub type Point = pallas_network::miniprotocols::Point;
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Cannot find block by the provided point: {0:?}")]
     CannotFindBlock(Point),
-
     #[error("Origin block is missing, provided truncated chain data")]
     OriginMissing,
+    #[error("Cannot read directory, error: {0}")]
+    CannotReadDir(std::io::Error),
+    #[error("Cannot decode block, error: {0}")]
+    CannotDecodeBlock(pallas_traverse::Error),
+    #[error(transparent)]
+    ChunkReadError(chunk::Error),
 }
 
 /// Performs a binary search of the given sorted chunks in descending order
@@ -39,8 +43,8 @@ pub enum Error {
 fn chunk_binary_search<ChunkT, PointT>(
     chunks: &[ChunkT],
     point: &PointT,
-    cmp: impl Fn(&ChunkT, &PointT) -> Result<Ordering, Box<dyn std::error::Error>>,
-) -> Result<Option<usize>, Box<dyn std::error::Error>> {
+    cmp: impl Fn(&ChunkT, &PointT) -> Result<Ordering, Error>,
+) -> Result<Option<usize>, Error> {
     let mut size = chunks.len();
     let mut left = 0;
     let mut right: usize = size;
@@ -75,12 +79,12 @@ fn iterate_till_point(
     iter: impl Iterator<Item = FallibleBlock>,
     slot: u64,
     block_hash: &[u8],
-) -> Result<impl Iterator<Item = FallibleBlock>, Box<dyn std::error::Error>> {
+) -> Result<impl Iterator<Item = FallibleBlock>, Error> {
     let mut iter = iter.peekable();
     match iter.peek() {
         Some(Ok(block_data)) => {
             let mut block_data = block_data.clone();
-            let mut block = MultiEraBlock::decode(&block_data)?;
+            let mut block = MultiEraBlock::decode(&block_data).map_err(Error::CannotDecodeBlock)?;
 
             while block.slot() < slot {
                 iter.next();
@@ -88,7 +92,8 @@ fn iterate_till_point(
                 match iter.peek() {
                     Some(Ok(data)) => {
                         block_data.clone_from(data);
-                        block = MultiEraBlock::decode(&block_data)?;
+                        block =
+                            MultiEraBlock::decode(&block_data).map_err(Error::CannotDecodeBlock)?;
                     }
                     Some(Err(_)) | None => return Ok(iter),
                 }
@@ -104,8 +109,9 @@ fn iterate_till_point(
     }
 }
 
-fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, std::io::Error> {
-    let mut chunks = std::fs::read_dir(dir)?
+fn build_stack_of_chunk_names(dir: &Path) -> Result<ChunkNameSack, Error> {
+    let mut chunks = std::fs::read_dir(dir)
+        .map_err(Error::CannotReadDir)?
         .map_while(|e| e.ok())
         .filter(|e| {
             e.path()
@@ -135,7 +141,7 @@ pub type ChunkNameSack = Vec<ChunkName>;
 pub struct ChunkReaders(PathBuf, ChunkNameSack);
 
 impl Iterator for ChunkReaders {
-    type Item = Result<chunk::Reader, std::io::Error>;
+    type Item = Result<chunk::Reader, chunk::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.1
@@ -145,9 +151,9 @@ impl Iterator for ChunkReaders {
     }
 }
 
-pub type FallibleBlock = Result<Block, std::io::Error>;
+pub type FallibleBlock = Result<Block, chunk::Error>;
 
-pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, std::io::Error> {
+pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, Error> {
     let names = build_stack_of_chunk_names(dir)?;
 
     let iter = ChunkReaders(dir.to_owned(), names)
@@ -166,8 +172,9 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 ///   genesis block.
 /// * `Error::CannotFindBlock` - If the specific block indicated by the `Point`
 ///   value is not found.
-/// * `std::io::Error` - If an I/O error occurs.
-/// * `pallas_traverse::Error` - If the block cannot be decoded.
+/// * `Error::CannotReadDir` - If the directory cannot be read.
+/// * `Error::ChunkReadError` - Chunk read error.
+/// * `Error::CannotDecodeBlock` - If the block cannot be decoded.
 ///
 /// # Example
 ///
@@ -204,7 +211,7 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, st
 pub fn read_blocks_from_point(
     dir: &Path,
     point: Point,
-) -> Result<Box<dyn Iterator<Item = FallibleBlock> + Send + Sync>, Box<dyn std::error::Error>> {
+) -> Result<Box<dyn Iterator<Item = FallibleBlock> + Send + Sync>, Error> {
     let names = build_stack_of_chunk_names(dir)?;
 
     match point {
@@ -218,7 +225,8 @@ pub fn read_blocks_from_point(
             // check the first block
             match iter.peek() {
                 Some(Ok(block_data)) => {
-                    let block = MultiEraBlock::decode(block_data)?;
+                    let block =
+                        MultiEraBlock::decode(block_data).map_err(Error::CannotDecodeBlock)?;
                     // check that the first block is genesis
                     if block.slot() == 0 && block.number() == 0 {
                         Ok(Box::new(iter))
@@ -236,13 +244,15 @@ pub fn read_blocks_from_point(
             // and compares block's slot with provided slot number
             let cmp = {
                 |chunk_name: &String, point: &u64| {
-                    let mut blocks = chunk::read_blocks(dir, chunk_name)?;
+                    let mut blocks =
+                        chunk::read_blocks(dir, chunk_name).map_err(Error::ChunkReadError)?;
 
                     // Try to read the first block from the chunk
                     if let Some(block_data) = blocks.next() {
-                        let block_data = block_data?;
+                        let block_data = block_data.map_err(Error::ChunkReadError)?;
 
-                        let block = MultiEraBlock::decode(&block_data)?;
+                        let block =
+                            MultiEraBlock::decode(&block_data).map_err(Error::CannotDecodeBlock)?;
                         Ok(block.slot().cmp(point))
                     } else {
                         Ok(Ordering::Greater)
@@ -254,9 +264,10 @@ pub fn read_blocks_from_point(
             // index.
             let names = chunk_binary_search(&names, &slot, cmp)?
                 .map(|chunk_index| names[..chunk_index + 1].to_vec())
-                .ok_or::<Box<dyn std::error::Error>>(
-                    Error::CannotFindBlock(Point::Specific(slot, block_hash.clone())).into(),
-                )?;
+                .ok_or(Error::CannotFindBlock(Point::Specific(
+                    slot,
+                    block_hash.clone(),
+                )))?;
 
             let iter = ChunkReaders(dir.to_owned(), names.clone())
                 .map_while(Result::ok)
@@ -277,8 +288,9 @@ pub fn read_blocks_from_point(
 ///
 /// # Errors
 ///
-/// * `std::io::Error` - If an I/O error occurs.
-/// * `pallas_traverse::Error` - If the block cannot be decoded.
+/// * `Error::CannotReadDir` - If the directory cannot be read.
+/// * `Error::ChunkReadError` - Chunk read error.
+/// * `Error::CannotDecodeBlock` - If the block cannot be decoded.
 ///
 /// # Example
 ///
@@ -303,19 +315,21 @@ pub fn read_blocks_from_point(
 ///     Ok(())
 /// }
 /// ```
-pub fn get_tip(dir: &Path) -> Result<Option<Point>, Box<dyn std::error::Error>> {
+pub fn get_tip(dir: &Path) -> Result<Option<Point>, Error> {
     match build_stack_of_chunk_names(dir)?.into_iter().next() {
         Some(name) => {
             let tip_point = ChunkReaders(dir.to_owned(), vec![name])
                 .map_while(Result::ok)
                 .flatten()
                 .last()
-                .transpose()?
+                .transpose()
+                .map_err(Error::ChunkReadError)?
                 .map(|tip_data| {
                     MultiEraBlock::decode(&tip_data)
                         .map(|block| Point::Specific(block.slot(), block.hash().to_vec()))
                 })
-                .transpose()?;
+                .transpose()
+                .map_err(Error::CannotDecodeBlock)?;
             Ok(tip_point)
         }
         None => Ok(None),
@@ -511,25 +525,21 @@ mod tests {
         assert_eq!(Point::Specific(block.slot(), block.hash().to_vec()), point);
 
         // Try to read an origin block
-        assert_eq!(
+        assert!(matches!(
             read_blocks_from_point(Path::new("../test_data"), Point::Origin)
                 .err()
-                .unwrap()
-                .downcast::<super::Error>()
                 .unwrap(),
-            Box::new(super::Error::OriginMissing)
-        );
+            super::Error::OriginMissing
+        ));
 
         // Try to read from a non existing point
         let point = Point::Specific(0, vec![]);
-        assert_eq!(
+        assert!(matches!(
             read_blocks_from_point(Path::new("../test_data"), point.clone())
                 .err()
-                .unwrap()
-                .downcast::<super::Error>()
                 .unwrap(),
-            Box::new(super::Error::CannotFindBlock(point))
-        );
+            super::Error::CannotFindBlock(_)
+        ));
     }
 
     fn read_full_snapshot(path: &Path) {

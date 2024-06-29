@@ -11,6 +11,14 @@ binary_layout::define_layout!(layout, BigEndian, {
 pub type RelativeSlot = u32;
 pub type SecondaryOffset = u32;
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Version missing, cannot read version from primary index file, error: {0}")]
+    VersionMissing(std::io::Error),
+    #[error("Cannot read offset from primary index file, error: {0}")]
+    CannotReadPrimaryIndex(std::io::Error),
+}
+
 #[derive(Debug)]
 pub enum Entry {
     Empty(RelativeSlot),
@@ -30,20 +38,22 @@ pub struct Reader {
     inner: BufReader<File>,
     version: u8,
     last_slot: Option<RelativeSlot>,
-    last_offset: Option<Result<SecondaryOffset, std::io::Error>>,
-    next_offset: Option<Result<SecondaryOffset, std::io::Error>>,
+    last_offset: Option<Result<SecondaryOffset, Error>>,
+    next_offset: Option<Result<SecondaryOffset, Error>>,
 }
 
 impl Reader {
-    fn read_version(inner: &mut BufReader<File>) -> Result<u8, std::io::Error> {
-        let mut buf = vec![0u8; 1];
-        inner.read_exact(&mut buf)?;
-        let version = buf.first().unwrap();
+    fn read_version(inner: &mut BufReader<File>) -> Result<u8, Error> {
+        let mut buf = [0u8; 1];
+        inner
+            .read_exact(&mut buf)
+            .map_err(|e| Error::VersionMissing(e))?;
+        let version = buf[0];
 
-        Ok(*version)
+        Ok(version)
     }
 
-    pub fn open(file: File) -> Result<Self, std::io::Error> {
+    pub fn open(file: File) -> Result<Self, Error> {
         let mut inner = BufReader::new(file);
         let version = Reader::read_version(&mut inner)?;
 
@@ -63,7 +73,7 @@ impl Reader {
         self.version
     }
 
-    pub fn next_occupied(&mut self) -> Option<Result<Entry, std::io::Error>> {
+    pub fn next_occupied(&mut self) -> Option<Result<Entry, Error>> {
         loop {
             let next = self.next();
 
@@ -78,12 +88,12 @@ impl Reader {
         }
     }
 
-    fn read_offset(file: &mut BufReader<File>) -> Option<Result<SecondaryOffset, std::io::Error>> {
+    fn read_offset(file: &mut BufReader<File>) -> Option<Result<SecondaryOffset, Error>> {
         let mut buf = vec![0u8; layout::SIZE.unwrap()];
 
         match file.read_exact(&mut buf) {
             Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => None,
-            Err(err) => Some(Err(err)),
+            Err(err) => Some(Err(Error::CannotReadPrimaryIndex(err))),
             Ok(_) => {
                 let view = layout::View::new(&buf);
                 let offset = view.secondary_offset().read();
@@ -94,7 +104,7 @@ impl Reader {
 }
 
 impl Iterator for Reader {
-    type Item = Result<Entry, std::io::Error>;
+    type Item = Result<Entry, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match (self.last_offset.take(), self.next_offset.take()) {
