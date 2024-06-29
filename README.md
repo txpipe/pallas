@@ -53,6 +53,7 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 | ------------------------------- | -------------------------------------------------- |
 | [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                    |
 | [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib |
+| [pallas-math](/pallas-math)     | Shared mathematics functions                       |
 
 ## Etymology
 
