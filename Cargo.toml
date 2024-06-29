@@ -14,6 +14,7 @@ members = [
   "pallas-utxorpc",
   "pallas-hardano",
   "pallas-wallet",
+  "pallas-math",
   "pallas",
   "examples/block-download",
   "examples/block-decode",
