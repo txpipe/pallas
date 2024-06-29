@@ -23,12 +23,9 @@ jobs:
       - name: Install MSYS2 (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
-
-      - name: Pre-requirements (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          pacman -S pacman-mirrors
-          pacman -S diffutils make mingw-w64-x86_64-gcc
+        with:
+          install: >-
+            diffutils make mingw-w64-x86_64-gcc
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
