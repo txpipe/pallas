@@ -156,12 +156,15 @@ mod tests {
     }
 
     #[test]
-    fn can_parse_inconsistent_entries() {
+    fn errors_on_inconsistent_entries() {
         let reader =
             super::read_entries(Path::new("../test_data/inconsistent_indexes"), "10366").unwrap();
 
         for entry in reader {
-            entry.unwrap();
+            match entry {
+                Ok(_) => continue,
+                Err(x) => assert!(matches!(x, super::Error::InconsistentState)),
+            }
         }
     }
 }

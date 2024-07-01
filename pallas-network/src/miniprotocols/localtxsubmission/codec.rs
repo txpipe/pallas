@@ -38,15 +38,20 @@ where
 
 impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<Tx, Reject> {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        if let Err(_) = d.array() {
+        if d.array().is_err() {
             // if the first element isn't an array, it's a plutus error
             // the node sends string data
             let rejection = d.decode()?;
-            // skip this data via setting the decoder position, because it doesn't recognize it with rejection decode
-            let _ = d.set_position(d.input().len());
+
+            // skip this data via setting the decoder position, because it doesn't recognize
+            // it with rejection decode
+            d.set_position(d.input().len());
+
             return Ok(Message::RejectTx(rejection));
         }
+
         let label = d.u16()?;
+
         match label {
             0 => {
                 let tx = d.decode()?;
@@ -55,8 +60,11 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             1 => Ok(Message::AcceptTx),
             2 => {
                 let rejection = d.decode()?;
-                // skip this data via setting the decoder position, because it doesn't recognize it with rejection decode
-                let _ = d.set_position(d.input().len());
+
+                // skip this data via setting the decoder position, because it doesn't recognize
+                // it with rejection decode
+                d.set_position(d.input().len());
+
                 Ok(Message::RejectTx(rejection))
             }
             3 => Ok(Message::Done),
