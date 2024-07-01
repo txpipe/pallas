@@ -1,7 +1,7 @@
 [package]
 name = "pallas-rolldb"
 description = "An opinionated Cardano storage engine built on top of RocksDB"
-version = "0.27.0"
+version = "0.28.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -15,7 +15,7 @@ rocksdb = { version = "0.22.0", default-features = false, features = ["multi-thr
 bincode = "1.3.3"
 serde = "1.0.188"
 thiserror = "1.0.49"
-pallas-crypto = { version = "=0.27.0", path = "../pallas-crypto" }
+pallas-crypto = { version = "=0.28.0", path = "../pallas-crypto" }
 tracing = "0.1.37"
 tokio = { version = "1.32.0", features = ["sync", "rt", "time", "macros"] }
 async-stream = "0.3.5"
