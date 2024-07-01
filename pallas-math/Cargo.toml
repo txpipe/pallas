@@ -10,8 +10,9 @@ license = "Apache-2.0"
 readme = "README.md"
 authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
 
+
 [dependencies]
-rug = "1.24.1"
+# rug = "1.24.1"
 
 [dev-dependencies]
 quickcheck = "1.0"
