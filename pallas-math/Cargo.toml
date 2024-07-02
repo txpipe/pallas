@@ -12,7 +12,8 @@ authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
 
 
 [dependencies]
-rug = "1.24.1"
+gmp-mpfr-sys = { version = "1.6.4", features = ["mpc"], default-features = false }
+once_cell = "1.19.0"
 
 [dev-dependencies]
 quickcheck = "1.0"
