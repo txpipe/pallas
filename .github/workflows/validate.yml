@@ -1,7 +1,7 @@
 # Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
 
 on:
-  push: {}
+  push: { }
 
 name: Validate
 
@@ -14,12 +14,19 @@ jobs:
         include:
           - os: ubuntu-latest
             rust: stable
+            shell: bash
           - os: macOS-latest
             rust: stable
+            shell: bash
           - os: windows-latest
             rust: stable-x86_64-pc-windows-gnu
+            shell: msys2 {0}
 
     runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
 
     steps:
       - name: Checkout sources
