@@ -106,7 +106,7 @@ fn iterate_till_point(
                 }
             }
 
-            if (block_hash.len() == 0 && block.slot() >= slot)
+            if (block_hash.is_empty() && block.slot() >= slot)
                 || (block.hash().as_ref().eq(block_hash) && block.slot() == slot)
             {
                 Ok(iter)
