@@ -46,7 +46,7 @@ where
     /// # Errors
     /// Returns an error if the agency is not ours or if the outbound state is
     /// invalid.
-    pub async fn submit_tx(&mut self, tx: Tx) -> Result<(), Error<Reject>> {
+    pub async fn submit_tx(&mut self, tx: Tx) -> Result<Response<Reject>, Error> {
         self.send_submit_tx(tx).await?;
         self.recv_submit_tx_response().await
     }
@@ -56,7 +56,7 @@ where
     /// # Errors
     /// Returns an error if the agency is not ours or if the outbound state is
     /// invalid.
-    pub async fn terminate_gracefully(&mut self) -> Result<(), Error<Reject>> {
+    pub async fn terminate_gracefully(&mut self) -> Result<(), Error> {
         let msg = Message::Done;
         self.send_message(&msg).await?;
         self.state = State::Done;
@@ -77,7 +77,7 @@ where
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), Error<Reject>> {
+    fn assert_agency_is_ours(&self) -> Result<(), Error> {
         if !self.has_agency() {
             Err(Error::AgencyIsTheirs)
         } else {
@@ -85,7 +85,7 @@ where
         }
     }
 
-    fn assert_agency_is_theirs(&self) -> Result<(), Error<Reject>> {
+    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
         if self.has_agency() {
             Err(Error::AgencyIsOurs)
         } else {
@@ -93,14 +93,14 @@ where
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message<Tx, Reject>) -> Result<(), Error<Reject>> {
+    fn assert_outbound_state(&self, msg: &Message<Tx, Reject>) -> Result<(), Error> {
         match (&self.state, msg) {
             (State::Idle, Message::SubmitTx(_) | Message::Done) => Ok(()),
             _ => Err(Error::InvalidOutbound),
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message<Tx, Reject>) -> Result<(), Error<Reject>> {
+    fn assert_inbound_state(&self, msg: &Message<Tx, Reject>) -> Result<(), Error> {
         match (&self.state, msg) {
             (State::Busy, Message::AcceptTx | Message::RejectTx(_)) => Ok(()),
             _ => Err(Error::InvalidInbound),
@@ -116,7 +116,7 @@ where
     /// # Errors
     /// Returns an error if the agency is not ours or if the outbound state is
     /// invalid.
-    async fn send_message(&mut self, msg: &Message<Tx, Reject>) -> Result<(), Error<Reject>> {
+    async fn send_message(&mut self, msg: &Message<Tx, Reject>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
 
@@ -133,7 +133,7 @@ where
     /// # Errors
     /// Returns an error if the agency is not theirs or if the inbound state is
     /// invalid.
-    async fn recv_message(&mut self) -> Result<Message<Tx, Reject>, Error<Reject>> {
+    async fn recv_message(&mut self) -> Result<Message<Tx, Reject>, Error> {
         self.assert_agency_is_theirs()?;
 
         let msg = self
@@ -155,7 +155,7 @@ where
     /// # Errors
     /// Returns an error if the agency is not ours or if the outbound state is
     /// invalid.
-    async fn send_submit_tx(&mut self, tx: Tx) -> Result<(), Error<Reject>> {
+    async fn send_submit_tx(&mut self, tx: Tx) -> Result<(), Error> {
         let msg = Message::SubmitTx(tx);
         self.send_message(&msg).await?;
         self.state = State::Busy;
@@ -169,17 +169,17 @@ where
     ///
     /// # Errors
     /// Returns an error if the inbound message is invalid.
-    async fn recv_submit_tx_response(&mut self) -> Result<(), Error<Reject>> {
+    async fn recv_submit_tx_response(&mut self) -> Result<Response<Reject>, Error> {
         debug!("waiting for SubmitTx response");
 
         match self.recv_message().await? {
             Message::AcceptTx => {
                 self.state = State::Idle;
-                Ok(())
+                Ok(Response::Accepted)
             }
             Message::RejectTx(rejection) => {
                 self.state = State::Idle;
-                Err(Error::TxRejected(rejection))
+                Ok(Response::Rejected(rejection))
             }
             _ => Err(Error::InvalidInbound),
         }
@@ -187,7 +187,7 @@ where
 }
 
 #[derive(Error, Debug)]
-pub enum Error<Reject> {
+pub enum Error {
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
@@ -202,7 +202,10 @@ pub enum Error<Reject> {
 
     #[error("error while sending or receiving data through the channel")]
     ChannelError(multiplexer::Error),
+}
 
-    #[error("tx was rejected by the server")]
-    TxRejected(Reject),
+#[derive(Debug)]
+pub enum Response<Reject> {
+    Accepted,
+    Rejected(Reject),
 }

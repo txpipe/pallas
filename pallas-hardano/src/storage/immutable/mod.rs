@@ -111,7 +111,10 @@ fn iterate_till_point(
             {
                 Ok(iter)
             } else {
-                Err(Error::CannotFindBlock(Point::Specific(slot, block_hash.to_vec())).into())
+                Err(Error::CannotFindBlock(Point::Specific(
+                    slot,
+                    block_hash.to_vec(),
+                )))
             }
         }
         Some(Err(_)) | None => Ok(iter),
@@ -250,7 +253,7 @@ pub fn read_blocks_from_point(
                     if block.slot() == 0 && block.number() == 0 {
                         Ok(Box::new(iter))
                     } else {
-                        Err(Error::OriginMissing.into())
+                        Err(Error::OriginMissing)
                     }
                 }
                 Some(Err(_)) | None => Ok(Box::new(iter)),

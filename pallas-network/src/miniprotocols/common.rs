@@ -63,6 +63,9 @@ pub const PROTOCOL_N2C_TX_SUBMISSION: u16 = 6;
 // Protocol channel number for node-to-client state queries
 pub const PROTOCOL_N2C_STATE_QUERY: u16 = 7;
 
+// Protocol channel number for node-to-client mempool monitor
+pub const PROTOCOL_N2C_TX_MONITOR: u16 = 9;
+
 /// A point within a chain
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Point {

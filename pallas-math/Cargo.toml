@@ -1,0 +1,20 @@
+[package]
+name = "pallas-math"
+description = "Mathematics functions for Cardano"
+version = "0.28.0"
+edition = "2021"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas-math"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
+
+
+[dependencies]
+# rug = "1.24.1"
+
+[dev-dependencies]
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+rand = "0.8"

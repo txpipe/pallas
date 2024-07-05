@@ -2,6 +2,31 @@
 ## [Unreleased]
 
 
+<a name="v0.28.0"></a>
+## [v0.28.0] - 2024-07-01
+### Build
+- **deps:** update itertools requirement from 0.12.1 to 0.13.0 ([#459](https://github.com/txpipe/pallas/issues/459))
+
+### Chore
+- fix lint warnings and outdated tests ([#475](https://github.com/txpipe/pallas/issues/475))
+- improve ImmutableDB error handling ([#426](https://github.com/txpipe/pallas/issues/426))
+- **math:** initialize pallas-math crate ([#474](https://github.com/txpipe/pallas/issues/474))
+
+### Ci
+- skip gmp dep until we can build on windows ([#476](https://github.com/txpipe/pallas/issues/476))
+
+### Feat
+- **network:** add tx submission and tx monitor clients to network facades ([#442](https://github.com/txpipe/pallas/issues/442))
+
+### Fix
+- relax CBOR decoding of Conway protocol params update ([#473](https://github.com/txpipe/pallas/issues/473))
+- **network:** handle end of list in tx monitor response ([#305](https://github.com/txpipe/pallas/issues/305))
+
+### Refactor
+- **interop:** use batching for utxorpc ledger interface ([#472](https://github.com/txpipe/pallas/issues/472))
+- **network:** don't treat rejected txs as submit protocol errors ([#306](https://github.com/txpipe/pallas/issues/306))
+
+
 <a name="v0.27.0"></a>
 ## [v0.27.0] - 2024-06-01
 ### Chore
@@ -17,7 +42,6 @@
 
 ### Fix
 - **network:** expose missing members in facades ([#468](https://github.com/txpipe/pallas/issues/468))
-- **crypto:** Disable potential use of invalid SecretKeyExtended
 
 
 <a name="v0.26.0"></a>
@@ -1183,7 +1207,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.28.0...HEAD
+[v0.28.0]: https://github.com/txpipe/pallas/compare/v0.27.0...v0.28.0
 [v0.27.0]: https://github.com/txpipe/pallas/compare/v0.26.0...v0.27.0
 [v0.26.0]: https://github.com/txpipe/pallas/compare/v0.25.0...v0.26.0
 [v0.25.0]: https://github.com/txpipe/pallas/compare/v0.24.0...v0.25.0
