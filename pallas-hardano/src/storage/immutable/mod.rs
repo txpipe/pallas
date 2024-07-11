@@ -185,7 +185,7 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, Er
 /// Only the Slot# of the point will be used and the first block to be returned
 /// will be the block whose slot is >= the given slot# in the point.
 ///
-/// This allows iteration to commence from a calculates slot# where the precise
+/// This allows iteration to commence from a calculated slot# where the precise
 /// block is unknown, and then continue iterating blocks after that point.
 ///
 /// # Errors
