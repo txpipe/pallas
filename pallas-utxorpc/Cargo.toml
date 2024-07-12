@@ -16,5 +16,5 @@ pallas-primitives = { version = "=0.28.0", path = "../pallas-primitives" }
 pallas-codec = { version = "=0.28.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.28.0", path = "../pallas-crypto" }
 
-utxorpc-spec = { version = "0.5.0" }
+utxorpc-spec = { version = "0.6.0" }
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }
