@@ -2,7 +2,10 @@ use std::{collections::HashMap, ops::Deref};
 
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, conway};
+use pallas_primitives::{
+    alonzo, babbage,
+    conway::{self, RedeemerTag},
+};
 use pallas_traverse as trv;
 
 use trv::OriginalHash;
@@ -62,7 +65,9 @@ impl<C: LedgerContext> Mapper<C> {
     ) -> u5c::TxInput {
         let redeemers = tx.redeemers();
 
-        let redeemer = redeemers.iter().find(|r| (r.index() as u64) == i.index());
+        let redeemer = redeemers
+            .iter()
+            .find(|r| r.tag() == RedeemerTag::Spend && (r.index() as u64) == i.index());
 
         let as_txref = (*i.hash(), i.index() as u32);
 
