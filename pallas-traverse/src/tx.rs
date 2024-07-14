@@ -196,6 +196,19 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Return inputs as expected for processing
+    ///
+    /// To process inputs we need a set (no duplicated) and lexicographical
+    /// order (hash#idx). This function will take the raw inputs and apply the
+    /// aforementioned cleanup changes.
+    pub fn inputs_sorted_set(&self) -> Vec<MultiEraInput> {
+        let mut raw = self.inputs();
+        raw.sort_by_key(|x| x.lexicographical_key());
+        raw.dedup_by_key(|x| x.lexicographical_key());
+
+        raw
+    }
+
     /// Return the transaction reference inputs
     ///
     /// NOTE: It is possible for this to return duplicates. See

@@ -17,8 +17,8 @@ async fn main() {
         .unwrap();
 
     let point = Point::Specific(
-        49159253,
-        hex::decode("d034a2d0e4c3076f57368ed59319010c265718f0923057f8ff914a3b6bfd1314").unwrap(),
+        101516417,
+        hex::decode("3d681e503fd9318d0f68c74a699895ce61f0a07010b516b80ce968a6b000e231").unwrap(),
     );
 
     let block = peer.blockfetch().fetch_single(point).await.unwrap();

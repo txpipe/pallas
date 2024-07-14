@@ -62,6 +62,11 @@ impl<'b> MultiEraInput<'b> {
         }
     }
 
+    /// Returns the key used for lexicographical ordering of the input
+    pub fn lexicographical_key(&self) -> String {
+        format!("{}#{}", self.hash(), self.index())
+    }
+
     pub fn hash(&self) -> &Hash<32> {
         match self {
             MultiEraInput::Byron(x) => match x.deref().deref() {
