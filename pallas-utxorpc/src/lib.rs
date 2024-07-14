@@ -22,15 +22,6 @@ pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
 }
 
-#[derive(Clone)]
-struct NoLedger;
-
-impl LedgerContext for NoLedger {
-    fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap> {
-        None
-    }
-}
-
 #[derive(Default, Clone)]
 pub struct Mapper<C: LedgerContext> {
     ledger: Option<C>,
@@ -43,8 +34,6 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 }
-
-type IsolatedMapper = Mapper<NoLedger>;
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn map_purpose(&self, x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
@@ -626,12 +615,23 @@ impl<C: LedgerContext> Mapper<C> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[derive(Clone)]
+    struct NoLedger;
+
+    impl LedgerContext for NoLedger {
+        fn get_utxos(&self, _refs: &[TxoRef]) -> Option<UtxoMap> {
+            None
+        }
+    }
+
     #[test]
     fn snapshot() {
         let test_blocks = [include_str!("../../test_data/u5c1.block")];
         let test_snapshots = [include_str!("../../test_data/u5c1.json")];
 
-        let mapper = super::IsolatedMapper::new(crate::NoLedger);
+        let mapper = Mapper::new(NoLedger);
 
         for (block_str, json_str) in test_blocks.iter().zip(test_snapshots) {
             let cbor = hex::decode(block_str).unwrap();
