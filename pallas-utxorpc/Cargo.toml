@@ -17,4 +17,8 @@ pallas-codec = { version = "=0.28.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.28.0", path = "../pallas-crypto" }
 
 utxorpc-spec = { version = "0.6.0" }
+
+[dev-dependencies]
+hex = "0.4.3"
+serde_json = "1.0.120"
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }

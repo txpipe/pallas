@@ -2,10 +2,7 @@ use std::{collections::HashMap, ops::Deref};
 
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{
-    alonzo, babbage,
-    conway::{self, RedeemerTag},
-};
+use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse as trv;
 
 use trv::OriginalHash;
@@ -25,6 +22,15 @@ pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
 }
 
+#[derive(Clone)]
+struct NoLedger;
+
+impl LedgerContext for NoLedger {
+    fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap> {
+        None
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct Mapper<C: LedgerContext> {
     ledger: Option<C>,
@@ -37,6 +43,8 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 }
+
+type IsolatedMapper = Mapper<NoLedger>;
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn map_purpose(&self, x: &conway::RedeemerTag) -> u5c::RedeemerPurpose {
@@ -57,33 +65,61 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_tx_input(
+    fn decode_resolved_utxo(
         &self,
-        i: &trv::MultiEraInput,
-        tx: &trv::MultiEraTx,
         resolved: &Option<UtxoMap>,
-    ) -> u5c::TxInput {
-        let redeemers = tx.redeemers();
+        input: &trv::MultiEraInput,
+    ) -> Option<u5c::TxOutput> {
+        let as_txref = (*input.hash(), input.index() as u32);
 
-        let redeemer = redeemers
-            .iter()
-            .find(|r| r.tag() == RedeemerTag::Spend && (r.index() as u64) == i.index());
-
-        let as_txref = (*i.hash(), i.index() as u32);
-
-        let as_output = resolved
+        resolved
             .as_ref()
             .and_then(|x| x.get(&as_txref))
             .and_then(|(era, cbor)| {
                 let o = trv::MultiEraOutput::decode(*era, cbor.as_slice()).ok()?;
                 Some(self.map_tx_output(&o))
-            });
+            })
+    }
 
+    pub fn map_tx_input(
+        &self,
+        input: &trv::MultiEraInput,
+        tx: &trv::MultiEraTx,
+        // lexicographical order of the input we're mapping
+        order: u32,
+        resolved: &Option<UtxoMap>,
+    ) -> u5c::TxInput {
         u5c::TxInput {
-            tx_hash: i.hash().to_vec().into(),
-            output_index: i.index() as u32,
-            redeemer: redeemer.map(|x| self.map_redeemer(x)),
-            as_output,
+            tx_hash: input.hash().to_vec().into(),
+            output_index: input.index() as u32,
+            as_output: self.decode_resolved_utxo(resolved, input),
+            redeemer: tx.find_spend_redeemer(order).map(|x| self.map_redeemer(&x)),
+        }
+    }
+
+    pub fn map_tx_reference_input(
+        &self,
+        input: &trv::MultiEraInput,
+        resolved: &Option<UtxoMap>,
+    ) -> u5c::TxInput {
+        u5c::TxInput {
+            tx_hash: input.hash().to_vec().into(),
+            output_index: input.index() as u32,
+            as_output: self.decode_resolved_utxo(resolved, input),
+            redeemer: None,
+        }
+    }
+
+    pub fn map_tx_collateral(
+        &self,
+        input: &trv::MultiEraInput,
+        resolved: &Option<UtxoMap>,
+    ) -> u5c::TxInput {
+        u5c::TxInput {
+            tx_hash: input.hash().to_vec().into(),
+            output_index: input.index() as u32,
+            as_output: self.decode_resolved_utxo(resolved, input),
+            redeemer: None,
         }
     }
 
@@ -500,9 +536,10 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
             inputs: tx
-                .inputs()
+                .inputs_sorted_set()
                 .iter()
-                .map(|i| self.map_tx_input(i, tx, &resolved))
+                .enumerate()
+                .map(|(order, i)| self.map_tx_input(i, tx, order as u32, &resolved))
                 .collect(),
             outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
             certificates: tx.certs().iter().map(|x| self.map_cert(x)).collect(),
@@ -520,7 +557,7 @@ impl<C: LedgerContext> Mapper<C> {
             reference_inputs: tx
                 .reference_inputs()
                 .iter()
-                .map(|x| self.map_tx_input(x, tx, &resolved))
+                .map(|x| self.map_tx_reference_input(x, &resolved))
                 .collect(),
             witnesses: u5c::WitnessSet {
                 vkeywitness: tx
@@ -540,7 +577,7 @@ impl<C: LedgerContext> Mapper<C> {
                 collateral: tx
                     .collateral()
                     .iter()
-                    .map(|x| self.map_tx_input(x, tx, &resolved))
+                    .map(|x| self.map_tx_collateral(x, &resolved))
                     .collect(),
                 collateral_return: tx.collateral_return().map(|x| self.map_tx_output(&x)),
                 total_collateral: tx.total_collateral().unwrap_or_default(),
@@ -584,5 +621,25 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn map_block_cbor(&self, raw: &[u8]) -> u5c::Block {
         let block = trv::MultiEraBlock::decode(raw).unwrap();
         self.map_block(&block)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn snapshot() {
+        let test_blocks = [include_str!("../../test_data/u5c1.block")];
+        let test_snapshots = [include_str!("../../test_data/u5c1.json")];
+
+        let mapper = super::IsolatedMapper::new(crate::NoLedger);
+
+        for (block_str, json_str) in test_blocks.iter().zip(test_snapshots) {
+            let cbor = hex::decode(block_str).unwrap();
+            let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
+            let current = serde_json::json!(mapper.map_block(&block));
+            let expected: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+            assert_eq!(current, expected)
+        }
     }
 }

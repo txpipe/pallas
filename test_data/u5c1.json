@@ -1,0 +1,1804 @@
+{
+  "body": {
+    "tx": [
+      {
+        "auxiliary": {},
+        "collateral": {
+          "collateral": [
+            {
+              "outputIndex": 27,
+              "txHash": "q+Lc1TUGnCFxsfWOQ+Ijb1ffxQRfq4kknPnXCBpTdmg="
+            }
+          ],
+          "collateralReturn": {
+            "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
+            "coin": "59270328"
+          },
+          "totalCollateral": "3000000"
+        },
+        "fee": "563497",
+        "hash": "f2+5xs5tbcDzXGQlY2aofkCQCgG+2jHBMZJGak8Mlnw=",
+        "inputs": [
+          {
+            "redeemer": {
+              "datum": { "bigInt": { "int": "3000000" } },
+              "purpose": "REDEEMER_PURPOSE_SPEND"
+            },
+            "txHash": "QQmD7yOuYThy7NDA+sqUHhqlC0CTmWt30wnYb0jNWC8="
+          },
+          {
+            "redeemer": {
+              "datum": { "constr": { "tag": 121 } },
+              "purpose": "REDEEMER_PURPOSE_SPEND"
+            },
+            "txHash": "1XYVbY8BJ3QNmgoBYg0KcjWLc6WM10rYK/DOsM87hYs="
+          },
+          {
+            "outputIndex": 2,
+            "redeemer": {
+              "datum": { "constr": { "tag": 121 } },
+              "purpose": "REDEEMER_PURPOSE_SPEND"
+            },
+            "txHash": "1XYVbY8BJ3QNmgoBYg0KcjWLc6WM10rYK/DOsM87hYs="
+          },
+          {
+            "outputIndex": 1,
+            "txHash": "57znMEjOUK3aDLF8CxiIByqNZ6vUYhdePItNDLGjQI4="
+          },
+          {
+            "outputIndex": 20,
+            "txHash": "7X9wmZ1OsyJN8QEMxobUwLMeZkYnoOeLkEUDPoDU5+s="
+          }
+        ],
+        "outputs": [
+          {
+            "address": "Mfrm3x8oY2wZ8gAzRA4tqtjakpZ5yjpenNprbb5khSAImz2J9aqUrcCtC5Efl2d8hwCSXEvmKQ9b",
+            "coin": "637339775",
+            "datum": { "boundedBytes": "2HmA" },
+            "datumHash": "WCYIFet5wOgWhQLb5cbnOsD6N7V/4rBYL3ZXeMnGNVA="
+          },
+          {
+            "address": "caPlbqnS2wCAOM5vsy5QD67xUj3LBC5aY31jP8g=",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "FXBpFUMr+S6jWFqkaLUHuQ5CfcTv/q4x7lz0Dg=="
+              }
+            ],
+            "coin": "3000000",
+            "datum": {
+              "array": {
+                "items": [
+                  { "bigInt": { "int": "0" } },
+                  { "bigInt": { "int": "0" } },
+                  { "bigInt": { "int": "0" } },
+                  { "bigInt": { "int": "0" } },
+                  { "bigInt": { "int": "0" } }
+                ]
+              }
+            },
+            "datumHash": "mpd/XF6AGFKV77fOzChROXlmYkLJ3at4Iv83nHx027s="
+          },
+          {
+            "address": "cY0li50I3Ktz8xZaEXUdRktGBWJkCRwXidpYhyY=",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "Wjy09S+zoAq1q+YggGGGI4Ecyvq5x2DQtobkTA=="
+              }
+            ],
+            "coin": "3000000",
+            "datum": {
+              "array": {
+                "items": [
+                  { "bigInt": { "int": "50351359138093" } },
+                  { "bigInt": { "int": "35669080141" } },
+                  { "bigInt": { "int": "2572304952512051" } },
+                  { "bigInt": { "int": "2111324386111" } },
+                  { "bigInt": { "int": "10781869063" } },
+                  { "bigInt": { "int": "17374212016742584" } },
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "bigUInt": "B5+8MS9d97t1hQ==" } },
+                        { "bigInt": { "bigUInt": "P6HoWmtEAAAAAAAA" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "1693082300000" } },
+                  { "bigInt": { "int": "1693082984000" } },
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "52471309019454" } },
+                        { "bigInt": { "int": "2572304952512051" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "3000000" } }
+                ]
+              }
+            },
+            "datumHash": "Q9T1UnbDXv4tYbEbTytDtf1LdXoOP4e/nG1FXd2+uzc="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxkhSAImz2J9aqUrcCtC5Efl2d8hwCSXEvmKQ9b",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxECBXodQAy6ycuntthlMRc1SaKi2I3eqrqBfTN",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQww67X3bn+2hP7m4s9LNyWNZ2aCsqohPrPEmziA",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQw/E7jFesW2SSD1EVB2Yu06iufvJyELN+a+FJtn",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQx8DC+UdimhNvSPPJheGuh4uFd2QIskSnTd+4Ed",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzP+p1rgeEflSg0bFWmdkQgmNbwEsEBUuGp034F",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzzhi++ea7Kd3s1/j+jTmAKJcryfsIw8zEXBD8b",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxdeb33wxBr3MTuP5cQ0MOVthbkyJxuqGTm66cI",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzHlYBE5zwVN6glivIKzrDuPH8Ogy6QDTDMMmld",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzua5SDw6t9xqC1asLV6cYie7TRQSTR68WqqJJg",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxQO/JluSnYqk6hjTMHrAWnnuIJ5ep/oll5+rxk",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQz4x0a/vTWt2YqwB5xfVWQgYAB8Nqgoph/SzckD",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQwJDa+AwXcwQjTUv2JIqV0dpsiApxKoOkCkVt3n",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzvglHfoIxGW/ndP/cU+hW2JcNaRvs+vF8PdAX7",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQyxAUTDZpm6SLITJdxaCNps4JSWz6b373lurGSQ",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263639",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317508" } }
+                ]
+              }
+            },
+            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+          },
+          {
+            "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxREpR7imt4xKzMyRXXZSvPRn8H3WXjEldshoFK",
+            "assets": [
+              {
+                "assets": [{ "outputCoin": "1" }],
+                "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
+              }
+            ],
+            "coin": "3149189263649",
+            "datum": {
+              "array": {
+                "items": [
+                  {
+                    "array": {
+                      "items": [
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } },
+                        { "bigInt": { "int": "0" } }
+                      ]
+                    }
+                  },
+                  { "bigInt": { "int": "2229317521" } }
+                ]
+              }
+            },
+            "datumHash": "yhvdF5d1SstwoyxjWtq0n3r//7TfDSe0k+14I3B/fCE="
+          },
+          {
+            "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
+            "coin": "975057"
+          },
+          {
+            "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
+            "coin": "975058"
+          }
+        ],
+        "referenceInputs": [
+          { "txHash": "CXAIjh+NaRm5deO6cPFV7ipuoMyWh4c6LjRB/eB8hZk=" },
+          { "txHash": "PUIo5q6POuQMrCibWvaJL4BWJ32JQWVxdE1dkPeAyqk=" },
+          {
+            "outputIndex": 3,
+            "txHash": "pBBQUhEDKv/+ls5naPXJiVegRusKsDu76LILmkGGVqU="
+          },
+          { "txHash": "rdutDKonnKMAJFZF06YzbvPZYTSD8ahEvMN8OJaQx7s=" }
+        ],
+        "successful": true,
+        "validity": { "start": "101516393", "ttl": "101516693" },
+        "witnesses": {
+          "vkeywitness": [
+            {
+              "signature": "V5U6UnyIG6a5OwsTIzsQYjkSf25duSAC1SqJVZpzDKOzff4N2XVnNst09pOm2SxFkzTLmb476FTWrlLQPus4Aw==",
+              "vkey": "6l6YIimXyDnKKvaa2lnoB0L2ia+x3zGOdJ/j0jOCqOA="
+            }
+          ]
+        }
+      },
+      {
+        "auxiliary": {},
+        "collateral": {},
+        "fee": "193832",
+        "hash": "Q4pYaWXOmKtokrUTtgdM3ef6a6qLA6OuCbw2LYz/Q0A=",
+        "inputs": [
+          {
+            "outputIndex": 1,
+            "txHash": "ZoCb0tRh35uzOsvzuJ6wMa3LBhDRsTmvYmMbnNQKw6s="
+          },
+          { "txHash": "pnbIsxO4+/dSFFXBpPURCd5UIoBuirfOHh+AOs2T7ok=" },
+          { "txHash": "9ddunJfvVTU+d19XUtfVObXjgUhO52rC/nef+4hcY3E=" },
+          { "txHash": "+zDuOcCsvhG80elgNvXUMJiY/7o3ki1j9Mj6OM+9Wsc=" }
+        ],
+        "outputs": [
+          {
+            "address": "AfC+N/7dRmjEE4c346Pofrf6lfbE5ZvUljEP1MVSvdq7nuw2BtTmL+i3wOqpbodFkqHDuk9GTmhf",
+            "assets": [
+              {
+                "assets": [
+                  { "name": "U1BBQ0U=", "outputCoin": "3" },
+                  { "name": "R1JBVklUWQ==", "outputCoin": "2" },
+                  { "name": "U0FURUxMSVRF", "outputCoin": "5" }
+                ],
+                "policyId": "J+7hlYjJl8pU0xN/ZK/lWhjfz5Bi+oOnJL8jVw=="
+              }
+            ],
+            "coin": "19070000"
+          }
+        ],
+        "successful": true,
+        "validity": { "ttl": "101537927" },
+        "witnesses": {
+          "vkeywitness": [
+            {
+              "signature": "RpEpR7bHnQX7AiW45+B7l7lDUVHLDlSl1uOGeE5gHm/Mm7+lK4bdKscLcsmYoUv8OOG5D2TPgfB+YIyDCywxAw==",
+              "vkey": "rwnFghtnN9oTUtc6Rb6oE0D+Nm/ULWxOYFgc+9UsJLM="
+            }
+          ]
+        }
+      },
+      {
+        "auxiliary": {
+          "metadata": [
+            { "label": "30", "value": { "text": "5" } },
+            {
+              "label": "50",
+              "value": {
+                "text": "d8799f581cdbc83b56510fb0851a817fb883aca15e806ef47d3e62ec97573e4c"
+              }
+            },
+            {
+              "label": "51",
+              "value": {
+                "text": "ed9fd8799fd8799fd8799f581c93829d3f624733a0fb50f6644a9311e0d078c8"
+              }
+            },
+            {
+              "label": "52",
+              "value": {
+                "text": "9be5b090e2d6e76041ffd8799fd8799fd8799f581c7304c70f6fc3380e8fd6c0"
+              }
+            },
+            {
+              "label": "53",
+              "value": {
+                "text": "5946c8816f29610fd46633e0888769af24ffffffffa140d8799f00a1401a0035"
+              }
+            },
+            {
+              "label": "54",
+              "value": {
+                "text": "67e0ffffd8799fd8799fd8799f581c70e60f3b5ea7153e0acc7a803e4401d44b"
+              }
+            },
+            {
+              "label": "55",
+              "value": {
+                "text": "8ed1bae1c7baaad1a62a72ffd8799fd8799fd8799f581c1e78aae7c90cc36d62"
+              }
+            },
+            {
+              "label": "56",
+              "value": {
+                "text": "4f7b3bb6d86b52696dc84e490f343eba89005fffffffffa140d8799f00a1401a"
+              }
+            },
+            {
+              "label": "57",
+              "value": {
+                "text": "000f4240ffffd8799fd8799fd8799f581cdbc83b56510fb0851a817fb883aca1"
+              }
+            },
+            {
+              "label": "58",
+              "value": {
+                "text": "5e806ef47d3e62ec97573e4cedffd8799fd8799fd8799f581c56ec3005488021"
+              }
+            },
+            {
+              "label": "59",
+              "value": {
+                "text": "c5c461e97dac6fc4f6efb591b81c56456066006afdffffffffa140d8799f00a1"
+              }
+            },
+            { "label": "60", "value": { "text": "401a02b64660ffffffff," } }
+          ]
+        },
+        "collateral": {
+          "collateral": [
+            {
+              "outputIndex": 2,
+              "txHash": "TsGiNtoRS3G+8EiDtLpm3hIBcLvo/xHl4p9ET2QgSgw="
+            }
+          ],
+          "collateralReturn": {
+            "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
+            "coin": "4526384"
+          },
+          "totalCollateral": "473616"
+        },
+        "fee": "315744",
+        "hash": "DyjVTKHeL/3r5CW3/4HSAHgiXmcqkof5YjW+5ELSdRI=",
+        "inputs": [
+          {
+            "outputIndex": 1,
+            "txHash": "tQT0Q0Nnwlx4g5PHfgLXCt1SIe1t/9sGUyr17eUynPA="
+          },
+          {
+            "redeemer": {
+              "datum": { "constr": { "tag": 121 } },
+              "purpose": "REDEEMER_PURPOSE_SPEND"
+            },
+            "txHash": "wZ1zwWi5bh9vbylu6CiOAtMHKkTnaYVc9rgZamUAnaU="
+          }
+        ],
+        "outputs": [
+          {
+            "address": "EZBop6PwCIA+2sh68WGYYPLNzeQMJphzJazhOK2Bco5+1M8yThMjE15+bZMfAeMHktnN8XEpy4Bt",
+            "assets": [
+              {
+                "assets": [
+                  { "name": "UE9SS1lJU0xBTkQyNjEz", "outputCoin": "1" }
+                ],
+                "policyId": "zkpJRmutVC7wxmKNYax7vBZX6zJneMt0wRbVnw=="
+              }
+            ],
+            "coin": "1331790",
+            "datumHash": "wLd4Sun9luNq5ergDxq1VytUAhPx2OPXJ97CUcV47Dk="
+          },
+          {
+            "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
+            "coin": "56301735"
+          }
+        ],
+        "referenceInputs": [
+          { "txHash": "mjJFm9Tva7r964zzuQnQ4+LsgG5MxiaFKSgLD8HQb1s=" }
+        ],
+        "successful": true,
+        "validity": { "ttl": "101517287" },
+        "witnesses": {
+          "plutusDatums": [
+            {
+              "constr": {
+                "fields": [
+                  {
+                    "boundedBytes": "28g7VlEPsIUagX+4g6yhXoBu9H0+YuyXVz5M7Q=="
+                  },
+                  {
+                    "array": {
+                      "items": [
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "k4KdP2JHM6D7UPZkSpMR4NB4yJvlsJDi1udgQQ=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    },
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "constr": {
+                                              "fields": [
+                                                {
+                                                  "constr": {
+                                                    "fields": [
+                                                      {
+                                                        "boundedBytes": "cwTHD2/DOA6P1sBZRsiBbylhD9RmM+CIh2mvJA=="
+                                                      }
+                                                    ],
+                                                    "tag": 121
+                                                  }
+                                                }
+                                              ],
+                                              "tag": 121
+                                            }
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              },
+                              {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "boundedBytes": "" },
+                                      "value": {
+                                        "constr": {
+                                          "fields": [
+                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "boundedBytes": ""
+                                                    },
+                                                    "value": {
+                                                      "bigInt": {
+                                                        "int": "4900000"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ],
+                                          "tag": 121
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "cOYPO16nFT4KzHqAPkQB1EuO0brhx7qq0aYqcg=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    },
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "constr": {
+                                              "fields": [
+                                                {
+                                                  "constr": {
+                                                    "fields": [
+                                                      {
+                                                        "boundedBytes": "Hniq58kMw21iT3s7tthrUmltyE5JDzQ+uokAXw=="
+                                                      }
+                                                    ],
+                                                    "tag": 121
+                                                  }
+                                                }
+                                              ],
+                                              "tag": 121
+                                            }
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              },
+                              {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "boundedBytes": "" },
+                                      "value": {
+                                        "constr": {
+                                          "fields": [
+                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "boundedBytes": ""
+                                                    },
+                                                    "value": {
+                                                      "bigInt": {
+                                                        "int": "1400000"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ],
+                                          "tag": 121
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "28g7VlEPsIUagX+4g6yhXoBu9H0+YuyXVz5M7Q=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    },
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "constr": {
+                                              "fields": [
+                                                {
+                                                  "constr": {
+                                                    "fields": [
+                                                      {
+                                                        "boundedBytes": "VuwwBUiAIcXEYel9rG/E9u+1kbgcVkVgZgBq/Q=="
+                                                      }
+                                                    ],
+                                                    "tag": 121
+                                                  }
+                                                }
+                                              ],
+                                              "tag": 121
+                                            }
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              },
+                              {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "boundedBytes": "" },
+                                      "value": {
+                                        "constr": {
+                                          "fields": [
+                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "boundedBytes": ""
+                                                    },
+                                                    "value": {
+                                                      "bigInt": {
+                                                        "int": "63700000"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ],
+                                          "tag": 121
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "tag": 121
+              }
+            },
+            {
+              "constr": {
+                "fields": [
+                  {
+                    "boundedBytes": "28g7VlEPsIUagX+4g6yhXoBu9H0+YuyXVz5M7Q=="
+                  },
+                  {
+                    "array": {
+                      "items": [
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "k4KdP2JHM6D7UPZkSpMR4NB4yJvlsJDi1udgQQ=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    },
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "constr": {
+                                              "fields": [
+                                                {
+                                                  "constr": {
+                                                    "fields": [
+                                                      {
+                                                        "boundedBytes": "cwTHD2/DOA6P1sBZRsiBbylhD9RmM+CIh2mvJA=="
+                                                      }
+                                                    ],
+                                                    "tag": 121
+                                                  }
+                                                }
+                                              ],
+                                              "tag": 121
+                                            }
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              },
+                              {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "boundedBytes": "" },
+                                      "value": {
+                                        "constr": {
+                                          "fields": [
+                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "boundedBytes": ""
+                                                    },
+                                                    "value": {
+                                                      "bigInt": {
+                                                        "int": "3500000"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ],
+                                          "tag": 121
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "cOYPO16nFT4KzHqAPkQB1EuO0brhx7qq0aYqcg=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    },
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "constr": {
+                                              "fields": [
+                                                {
+                                                  "constr": {
+                                                    "fields": [
+                                                      {
+                                                        "boundedBytes": "Hniq58kMw21iT3s7tthrUmltyE5JDzQ+uokAXw=="
+                                                      }
+                                                    ],
+                                                    "tag": 121
+                                                  }
+                                                }
+                                              ],
+                                              "tag": 121
+                                            }
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              },
+                              {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "boundedBytes": "" },
+                                      "value": {
+                                        "constr": {
+                                          "fields": [
+                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "boundedBytes": ""
+                                                    },
+                                                    "value": {
+                                                      "bigInt": {
+                                                        "int": "1000000"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ],
+                                          "tag": 121
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "28g7VlEPsIUagX+4g6yhXoBu9H0+YuyXVz5M7Q=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    },
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "constr": {
+                                              "fields": [
+                                                {
+                                                  "constr": {
+                                                    "fields": [
+                                                      {
+                                                        "boundedBytes": "VuwwBUiAIcXEYel9rG/E9u+1kbgcVkVgZgBq/Q=="
+                                                      }
+                                                    ],
+                                                    "tag": 121
+                                                  }
+                                                }
+                                              ],
+                                              "tag": 121
+                                            }
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              },
+                              {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "boundedBytes": "" },
+                                      "value": {
+                                        "constr": {
+                                          "fields": [
+                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "boundedBytes": ""
+                                                    },
+                                                    "value": {
+                                                      "bigInt": {
+                                                        "int": "45500000"
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ],
+                                          "tag": 121
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "tag": 121
+              }
+            }
+          ],
+          "vkeywitness": [
+            {
+              "signature": "2wAgNFFVnyCKrpLAMn+vqCHbpmQhRdlvMoKu9ZwCBYga2lYZgknKNXVnPQpqbFF9jKwob9KV+chcT7oEy4WEDg==",
+              "vkey": "NeamDPsR+j1mqlCMrXKtMWOS82jAAo9yxhhbIbkeJ74="
+            }
+          ]
+        }
+      },
+      {
+        "auxiliary": {},
+        "collateral": {
+          "collateral": [
+            {
+              "outputIndex": 2,
+              "txHash": "ia5/jQ3BIAtorY7qI+yXWTAxq2CuNAxLsfTyeQ1CwYw="
+            }
+          ],
+          "collateralReturn": {
+            "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
+            "coin": "46874014"
+          },
+          "totalCollateral": "604283"
+        },
+        "fee": "402855",
+        "hash": "zHhIocwnjYSvvwVQ6CIAK/n+kDKlPY4StZ7VBY2dDLs=",
+        "inputs": [
+          {
+            "outputIndex": 2,
+            "txHash": "ia5/jQ3BIAtorY7qI+yXWTAxq2CuNAxLsfTyeQ1CwYw="
+          },
+          {
+            "redeemer": {
+              "datum": {
+                "constr": {
+                  "fields": [{ "boundedBytes": "KAvunwh+LXLVjSfd8c9oBg==" }],
+                  "tag": 122
+                }
+              },
+              "purpose": "REDEEMER_PURPOSE_SPEND"
+            },
+            "txHash": "1MDGEeP/ifN0GuUFgnjCa5ghy16q3PUJvDlyiAZArY8="
+          }
+        ],
+        "mint": [
+          {
+            "assets": [{ "mintCoin": "5000000000", "name": "VFVOQQ==" }],
+            "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
+          }
+        ],
+        "outputs": [
+          {
+            "address": "cSefhCwz7tkFS548cM1qOzIpglnCS3i4lctB2Ro=",
+            "assets": [
+              {
+                "assets": [{ "name": "bG9yZCB0dW5h", "outputCoin": "1" }],
+                "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
+              }
+            ],
+            "coin": "1775720",
+            "datum": {
+              "constr": {
+                "fields": [
+                  { "bigInt": { "int": "11" } },
+                  {
+                    "boundedBytes": "AAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734="
+                  },
+                  { "bigInt": { "int": "5" } },
+                  { "bigInt": { "int": "65535" } },
+                  { "bigInt": { "int": "4688000" } },
+                  { "bigInt": { "int": "1693082727000" } },
+                  { "bigInt": { "int": "0" } },
+                  {
+                    "array": {
+                      "items": [
+                        {
+                          "boundedBytes": "AAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734="
+                        },
+                        {
+                          "boundedBytes": "AAABUciZLPSegFhKbTV2ry1rnbueniP70H/k+Ly/bKo="
+                        },
+                        {
+                          "boundedBytes": "AAABUciZLPSegFhKbTV2ry1rnbueniP70H/k+Ly/bKo="
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "tag": 121
+              }
+            },
+            "datumHash": "agvcqDxPMbtXviNmblIum0FcAsnXty5rSPJm6BVHEzg="
+          },
+          {
+            "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
+            "assets": [
+              {
+                "assets": [{ "name": "VFVOQQ==", "outputCoin": "5000000000" }],
+                "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
+              }
+            ],
+            "coin": "1172320"
+          },
+          {
+            "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
+            "coin": "45903122"
+          }
+        ],
+        "successful": true,
+        "validity": { "start": "101516346", "ttl": "101516526" },
+        "witnesses": {
+          "script": [
+            {
+              "plutusV2": "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"
+            }
+          ],
+          "vkeywitness": [
+            {
+              "signature": "sv9OAEy3sj1jBYZaQJhvsGR7i+O+OsFgCV2f4JRH/dLXU/Yv6j6J7UhoXBkASngWbfzNVuOG4kwbBAC1zJV1Aw==",
+              "vkey": "2D3q3AxQHs37kGw5yHi076dWszfgld1VupkLfWbDYCw="
+            }
+          ]
+        }
+      },
+      {
+        "auxiliary": {
+          "metadata": [
+            {
+              "label": "721",
+              "value": {
+                "map": {
+                  "pairs": [
+                    {
+                      "key": {
+                        "text": "bdd1d375c058986c9bc374cf8ec7fbdf8042e0e3946f2fa3ebc5099f"
+                      },
+                      "value": {
+                        "map": {
+                          "pairs": [
+                            {
+                              "key": { "text": "ThePrince585" },
+                              "value": {
+                                "map": {
+                                  "pairs": [
+                                    {
+                                      "key": { "text": "attributes" },
+                                      "value": {
+                                        "map": {
+                                          "pairs": [
+                                            {
+                                              "key": { "text": "Cover Theme" },
+                                              "value": {
+                                                "text": "The Popular Goodwill"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "authors" },
+                                      "value": {
+                                        "array": {
+                                          "items": [
+                                            { "text": "Niccolo Machiavelli" }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "data" },
+                                      "value": {
+                                        "text": "ipfs://QmafZjR6gAGVUqUQJxxBpSUsn3URHgXeucZm6DYLCDcpzE"
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "description" },
+                                      "value": {
+                                        "array": {
+                                          "items": [
+                                            {
+                                              "text": "Every one sees what you appear to be, few really know what you a"
+                                            },
+                                            { "text": "re." }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "extraAttributes" },
+                                      "value": {
+                                        "map": {
+                                          "pairs": [
+                                            {
+                                              "key": { "text": "Book Title" },
+                                              "value": { "text": "The Prince" }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "files" },
+                                      "value": {
+                                        "array": {
+                                          "items": [
+                                            {
+                                              "map": {
+                                                "pairs": [
+                                                  {
+                                                    "key": {
+                                                      "text": "mediaType"
+                                                    },
+                                                    "value": {
+                                                      "text": "image/png"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": { "text": "name" },
+                                                    "value": {
+                                                      "text": "High-Res Cover Image"
+                                                    }
+                                                  },
+                                                  {
+                                                    "key": { "text": "src" },
+                                                    "value": {
+                                                      "text": "ipfs://QmdNxYsC6V9qje5Hy5MdXaiLQiAejCKh5saoG2sAALDqov"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "id" },
+                                      "value": { "text": "585" }
+                                    },
+                                    {
+                                      "key": { "text": "image" },
+                                      "value": {
+                                        "text": "ipfs://QmRV5THwAwoazAjSUQhHPXpfY2fCKE9xZwKquqDJsURuAq"
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "name" },
+                                      "value": { "text": "The Prince #585" }
+                                    },
+                                    {
+                                      "key": { "text": "sha256" },
+                                      "value": {
+                                        "text": "f8a7e659f6f79b9081bea8d10a3301ebebc49a8a55cd0b41c14f13ab9a85c25c"
+                                      }
+                                    },
+                                    {
+                                      "key": { "text": "website" },
+                                      "value": { "text": "https://book.io" }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "collateral": {},
+        "fee": "706993",
+        "hash": "buQc+A5oZkqeGggrvJ3EFzcPdz0qnBXOQR0T4GWLPOc=",
+        "inputs": [
+          {
+            "outputIndex": 48,
+            "txHash": "ZZLhPbVHn7xJc9NgtkIokxNI2uA3rAHg0Ox54TO7X4k="
+          }
+        ],
+        "mint": [
+          {
+            "assets": [{ "mintCoin": "1", "name": "VGhlUHJpbmNlNTg1" }],
+            "policyId": "vdHTdcBYmGybw3TPjsf734BC4OOUby+j68UJnw=="
+          }
+        ],
+        "outputs": [
+          {
+            "address": "AQj/ikhph7DqDKF/KW83jhGuHCU57schFUqtwLhk8vtzWMLjrv4zWaV3m47AakLm1z6th5/iISSd",
+            "assets": [
+              {
+                "assets": [{ "name": "VGhlUHJpbmNlNTg1", "outputCoin": "1" }],
+                "policyId": "vdHTdcBYmGybw3TPjsf734BC4OOUby+j68UJnw=="
+              }
+            ],
+            "coin": "1172320"
+          },
+          {
+            "address": "YdZAfjoj7nXOnSrW4gXMuXOt/kL/Ji6YOn15hPE=",
+            "coin": "8120687"
+          }
+        ],
+        "successful": true,
+        "validity": { "ttl": "132977648" },
+        "witnesses": {
+          "script": [
+            {
+              "native": {
+                "scriptAll": {
+                  "items": [
+                    {
+                      "scriptPubkey": "LNmnvZZOPsfE7RGROjuq91829+KWxNxI6R/99Q=="
+                    },
+                    { "invalidHereafter": "132977648" }
+                  ]
+                }
+              }
+            }
+          ],
+          "vkeywitness": [
+            {
+              "signature": "uyLgwCTvEqiYgvW8oCq3M+x9GcnMEp6RiQN/vbrpUxzyniN009S1JjdVMHakzvOXalHp7M5g6XVsNKNEmpMnDg==",
+              "vkey": "6hmVdokfVW218r6vZgDeF0peBAu7y+cpOAKFZI0OZrE="
+            },
+            {
+              "signature": "l7HxQiX69yt/eto+6Rr807JHhqc7tIHXt7eK8NLAuxC1s/HJQH07NSTJie+aQE9PEVpdtM0jV3xP3cL1+hnhCA==",
+              "vkey": "GPigWVCt7P9C0RO4BBs4HaZz84amdVajsIx8T3uADgo="
+            }
+          ]
+        }
+      },
+      {
+        "auxiliary": {
+          "metadata": [
+            {
+              "label": "674",
+              "value": {
+                "map": {
+                  "pairs": [
+                    {
+                      "key": { "text": "msg" },
+                      "value": {
+                        "array": {
+                          "items": [{ "text": "Minswap: Swap Exact In Order" }]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "collateral": {},
+        "fee": "184729",
+        "hash": "bnQjjPhKjNHzCe+wZ3R/jeoJ3RhArr7uLM5xFFTRDTA=",
+        "inputs": [
+          {
+            "outputIndex": 1,
+            "txHash": "JpqUCOEb4t/7FtGEhbrmeA3y6z1NN0XieW8E7r/N3lE="
+          }
+        ],
+        "outputs": [
+          {
+            "address": "EaZcpYpOnHVfqDAXPSpcrtRYrAxz+X23+q4ufjtSVjxUEL/2oNQ8zrt8N+H2n16yYFUlIa3/M7nC",
+            "coin": "24000000",
+            "datumHash": "RWHeROwzpN7HciNvE3fbGOxm3n9Fv6SXz3Cml/2TQmc="
+          },
+          {
+            "address": "AetFDxwWdAZLqHxlpey+eo6C1tAsjc6/nVQdtj20fykvFlUEcyFK44MqfWEIDI1LO8HDIpsm+2mw",
+            "coin": "166261084"
+          }
+        ],
+        "successful": true,
+        "validity": { "ttl": "101527204" },
+        "witnesses": {
+          "plutusDatums": [
+            {
+              "constr": {
+                "fields": [
+                  {
+                    "constr": {
+                      "fields": [
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "boundedBytes": "60UPHBZ0BkuofGWl7L56joLW0CyNzr+dVB22PQ=="
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "tH8pLxZVBHMhSuODKn1hCAyNSzvBwyKbJvtpsA=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        }
+                      ],
+                      "tag": 121
+                    }
+                  },
+                  {
+                    "constr": {
+                      "fields": [
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "boundedBytes": "60UPHBZ0BkuofGWl7L56joLW0CyNzr+dVB22PQ=="
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "constr": {
+                                  "fields": [
+                                    {
+                                      "constr": {
+                                        "fields": [
+                                          {
+                                            "boundedBytes": "tH8pLxZVBHMhSuODKn1hCAyNSzvBwyKbJvtpsA=="
+                                          }
+                                        ],
+                                        "tag": 121
+                                      }
+                                    }
+                                  ],
+                                  "tag": 121
+                                }
+                              }
+                            ],
+                            "tag": 121
+                          }
+                        }
+                      ],
+                      "tag": 121
+                    }
+                  },
+                  { "constr": { "tag": 122 } },
+                  {
+                    "constr": {
+                      "fields": [
+                        {
+                          "constr": {
+                            "fields": [
+                              {
+                                "boundedBytes": "DAArUd8aVBlIGcCZD1LRRoK7s+k6WAUufIH3HA=="
+                              },
+                              { "boundedBytes": "QlVLRUxF" }
+                            ],
+                            "tag": 121
+                          }
+                        },
+                        { "bigInt": { "int": "8726271" } }
+                      ],
+                      "tag": 121
+                    }
+                  },
+                  { "bigInt": { "int": "2000000" } },
+                  { "bigInt": { "int": "2000000" } }
+                ],
+                "tag": 121
+              }
+            }
+          ],
+          "vkeywitness": [
+            {
+              "signature": "HQswrk6vRwOiak0cWv0amYldcL5He65RDGiunbKPKzuUpiGebn7LTZ7BocS/NBk9TLlyLCJnyOVeZ49yrT72Cg==",
+              "vkey": "/tr5+P/B+KiuI6KQXS/9nDmIe+NtnK3wvtDmC645oXA="
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "header": {
+    "hash": "PWgeUD/ZMY0PaMdKaZiVzmHwoHAQtRa4DOloprAA4jE=",
+    "height": "9210326",
+    "slot": "101516417"
+  }
+}

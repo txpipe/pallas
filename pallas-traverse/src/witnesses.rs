@@ -155,6 +155,12 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    pub fn find_spend_redeemer(&self, input_order: u32) -> Option<MultiEraRedeemer> {
+        self.redeemers().into_iter().find(|r| {
+            r.tag() == pallas_primitives::conway::RedeemerTag::Spend && r.index() == input_order
+        })
+    }
+
     pub fn plutus_v2_scripts(&self) -> &[PlutusV2Script] {
         match self {
             Self::Byron(_) => &[],
