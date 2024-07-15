@@ -283,11 +283,19 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_withdrawals(&self, x: &(&[u8], u64)) -> u5c::Withdrawal {
+    pub fn map_withdrawals(
+        &self,
+        x: &(&[u8], u64),
+        tx: &trv::MultiEraTx,
+        // lexicographical order of the input we're mapping
+        order: u32,
+    ) -> u5c::Withdrawal {
         u5c::Withdrawal {
             reward_account: Vec::from(x.0).into(),
             coin: x.1,
-            redeemer: None, // TODO
+            redeemer: tx
+                .find_withdrawal_redeemer(order)
+                .map(|x| self.map_redeemer(&x)),
         }
     }
 
@@ -536,10 +544,10 @@ impl<C: LedgerContext> Mapper<C> {
             outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
             certificates: tx.certs().iter().map(|x| self.map_cert(x)).collect(),
             withdrawals: tx
-                .withdrawals()
-                .collect::<Vec<_>>()
+                .withdrawals_sorted_set()
                 .iter()
-                .map(|x| self.map_withdrawals(x))
+                .enumerate()
+                .map(|(order, x)| self.map_withdrawals(x, tx, order as u32))
                 .collect(),
             mint: tx
                 .mints_sorted_set()
