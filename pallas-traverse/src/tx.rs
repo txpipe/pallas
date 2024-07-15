@@ -209,6 +209,10 @@ impl<'b> MultiEraTx<'b> {
         raw
     }
 
+    pub fn mints_sorted_set(&self) -> Vec<MultiEraPolicyAssets> {
+        todo!()
+    }
+
     /// Return the transaction reference inputs
     ///
     /// NOTE: It is possible for this to return duplicates. See

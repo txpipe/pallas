@@ -303,7 +303,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Multiasset {
             policy_id: x.policy().to_vec().into(),
             assets: x.assets().iter().map(|x| self.map_asset(x)).collect(),
-            redeemer: None, // TODO
+            redeemer: None,
         }
     }
 
@@ -542,9 +542,18 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_withdrawals(x))
                 .collect(),
             mint: tx
-                .mints()
+                .mints_sorted_set()
                 .iter()
-                .map(|x| self.map_policy_assets(x))
+                .enumerate()
+                .map(|(order, x)| {
+                    let mut ma = self.map_policy_assets(x);
+
+                    ma.redeemer = tx
+                        .find_mint_redeemer(order as u32)
+                        .map(|r| self.map_redeemer(&r));
+
+                    ma
+                })
                 .collect(),
             reference_inputs: tx
                 .reference_inputs()
