@@ -636,6 +636,7 @@ impl<C: LedgerContext> Mapper<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[derive(Clone)]
     struct NoLedger;
@@ -659,7 +660,7 @@ mod tests {
             let current = serde_json::json!(mapper.map_block(&block));
             let expected: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
-            assert_eq!(current, expected)
+            assert_eq!(expected, current)
         }
     }
 }
