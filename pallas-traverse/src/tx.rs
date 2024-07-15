@@ -210,7 +210,11 @@ impl<'b> MultiEraTx<'b> {
     }
 
     pub fn mints_sorted_set(&self) -> Vec<MultiEraPolicyAssets> {
-        todo!()
+        let mut raw = self.mints();
+
+        raw.sort_by_key(|m| *m.policy());
+
+        raw
     }
 
     /// Return the transaction reference inputs
