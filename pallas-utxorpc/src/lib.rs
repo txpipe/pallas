@@ -191,7 +191,12 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_cert(&self, x: &trv::MultiEraCert) -> u5c::Certificate {
+    pub fn map_cert(
+        &self,
+        x: &trv::MultiEraCert,
+        tx: &trv::MultiEraTx,
+        order: u32,
+    ) -> u5c::Certificate {
         let inner = match x.as_alonzo().unwrap() {
             babbage::Certificate::StakeRegistration(a) => {
                 u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
@@ -279,7 +284,9 @@ impl<C: LedgerContext> Mapper<C> {
 
         u5c::Certificate {
             certificate: inner.into(),
-            redeemer: None, // TODO
+            redeemer: tx
+                .find_certificate_redeemer(order)
+                .map(|r| self.map_redeemer(&r)),
         }
     }
 
@@ -287,7 +294,6 @@ impl<C: LedgerContext> Mapper<C> {
         &self,
         x: &(&[u8], u64),
         tx: &trv::MultiEraTx,
-        // lexicographical order of the input we're mapping
         order: u32,
     ) -> u5c::Withdrawal {
         u5c::Withdrawal {
@@ -542,7 +548,12 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|(order, i)| self.map_tx_input(i, tx, order as u32, &resolved))
                 .collect(),
             outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
-            certificates: tx.certs().iter().map(|x| self.map_cert(x)).collect(),
+            certificates: tx
+                .certs()
+                .iter()
+                .enumerate()
+                .map(|(order, x)| self.map_cert(x, tx, order as u32))
+                .collect(),
             withdrawals: tx
                 .withdrawals_sorted_set()
                 .iter()
