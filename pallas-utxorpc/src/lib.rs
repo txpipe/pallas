@@ -279,6 +279,7 @@ impl<C: LedgerContext> Mapper<C> {
 
         u5c::Certificate {
             certificate: inner.into(),
+            redeemer: None, // TODO
         }
     }
 
@@ -286,6 +287,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Withdrawal {
             reward_account: Vec::from(x.0).into(),
             coin: x.1,
+            redeemer: None, // TODO
         }
     }
 
@@ -301,6 +303,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Multiasset {
             policy_id: x.policy().to_vec().into(),
             assets: x.assets().iter().map(|x| self.map_asset(x)).collect(),
+            redeemer: None, // TODO
         }
     }
 
