@@ -75,6 +75,13 @@ fn chunk_binary_search<ChunkT, PointT>(
 /// Iterates through the blocks until the given slot and block hash are reached.
 /// Returns an iterator over the blocks if the specific block is found,
 /// otherwise returns an error.
+///
+/// IFF the `block_hash` is zero length, then the search is "fuzzy",
+/// meaning that it will return the first block whose slot is greater than or
+/// equal to `slot`.  
+///
+/// Fuzzy Search allows a block to be found by an "expected slot#" without
+/// knowing precisely which block is being retrieved.
 fn iterate_till_point(
     iter: impl Iterator<Item = FallibleBlock>,
     slot: u64,
@@ -99,7 +106,9 @@ fn iterate_till_point(
                 }
             }
 
-            if block.hash().as_ref().eq(block_hash) && block.slot() == slot {
+            if (block_hash.is_empty() && block.slot() >= slot)
+                || (block.hash().as_ref().eq(block_hash) && block.slot() == slot)
+            {
                 Ok(iter)
             } else {
                 Err(Error::CannotFindBlock(Point::Specific(
@@ -168,6 +177,16 @@ pub fn read_blocks(dir: &Path) -> Result<impl Iterator<Item = FallibleBlock>, Er
 
 /// Returns an iterator over the chain from the given point if the specific
 /// block is found, otherwise returns an error.
+///
+/// # Note:
+///
+/// If the given `point` is not the Origin, AND the BlockHash of the point is
+/// zero length. then the search for the first block is "Fuzzy".
+/// Only the Slot# of the point will be used and the first block to be returned
+/// will be the block whose slot is >= the given slot# in the point.
+///
+/// This allows iteration to commence from a calculated slot# where the precise
+/// block is unknown, and then continue iterating blocks after that point.
 ///
 /// # Errors
 ///
