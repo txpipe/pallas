@@ -2,6 +2,21 @@
 ## [Unreleased]
 
 
+<a name="v0.29.0"></a>
+## [v0.29.0] - 2024-07-15
+### Chore
+- **interop:** update u5c spec to v0.7.0 ([#489](https://github.com/txpipe/pallas/issues/489))
+- **interop:** update u5c specs to v0.6 ([#485](https://github.com/txpipe/pallas/issues/485))
+
+### Feat
+- **hardano:** add fuzzy block search by slot in Immutable db ([#484](https://github.com/txpipe/pallas/issues/484))
+
+### Fix
+- **interop:** map missing u5c redeemers ([#490](https://github.com/txpipe/pallas/issues/490))
+- **interop:** use correct input order to match redeemers ([#487](https://github.com/txpipe/pallas/issues/487))
+- **interop:** check for spend purpose when matching redeemers ([#486](https://github.com/txpipe/pallas/issues/486))
+
+
 <a name="v0.28.0"></a>
 ## [v0.28.0] - 2024-07-01
 ### Build
@@ -1207,7 +1222,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.29.0...HEAD
+[v0.29.0]: https://github.com/txpipe/pallas/compare/v0.28.0...v0.29.0
 [v0.28.0]: https://github.com/txpipe/pallas/compare/v0.27.0...v0.28.0
 [v0.27.0]: https://github.com/txpipe/pallas/compare/v0.26.0...v0.27.0
 [v0.26.0]: https://github.com/txpipe/pallas/compare/v0.25.0...v0.26.0
