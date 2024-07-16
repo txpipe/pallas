@@ -1341,7 +1341,15 @@
         "mint": [
           {
             "assets": [{ "mintCoin": "5000000000", "name": "VFVOQQ==" }],
-            "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
+            "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg==",
+            "redeemer": {
+              "datum": {
+                "constr": {
+                  "tag": 121
+                }
+              },
+              "purpose": "REDEEMER_PURPOSE_MINT"
+            }
           }
         ],
         "outputs": [

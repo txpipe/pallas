@@ -21,4 +21,5 @@ utxorpc-spec = { version = "0.7.0" }
 [dev-dependencies]
 hex = "0.4.3"
 serde_json = "1.0.120"
+pretty_assertions = "1.4.0"
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }

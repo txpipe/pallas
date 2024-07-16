@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::HashSet, ops::Deref};
 
+use itertools::Itertools;
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
@@ -207,6 +208,27 @@ impl<'b> MultiEraTx<'b> {
         raw.dedup_by_key(|x| x.lexicographical_key());
 
         raw
+    }
+
+    pub fn mints_sorted_set(&self) -> Vec<MultiEraPolicyAssets> {
+        let mut raw = self.mints();
+
+        raw.sort_by_key(|m| *m.policy());
+
+        raw
+    }
+
+    pub fn withdrawals_sorted_set(&self) -> Vec<(&[u8], u64)> {
+        match self.withdrawals() {
+            MultiEraWithdrawals::NotApplicable | MultiEraWithdrawals::Empty => {
+                std::iter::empty().collect()
+            }
+            MultiEraWithdrawals::AlonzoCompatible(x) => x
+                .iter()
+                .map(|(k, v)| (k.as_slice(), *v))
+                .sorted_by_key(|(k, _)| *k)
+                .collect(),
+        }
     }
 
     /// Return the transaction reference inputs

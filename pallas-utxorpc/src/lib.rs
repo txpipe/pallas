@@ -191,7 +191,12 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_cert(&self, x: &trv::MultiEraCert) -> u5c::Certificate {
+    pub fn map_cert(
+        &self,
+        x: &trv::MultiEraCert,
+        tx: &trv::MultiEraTx,
+        order: u32,
+    ) -> u5c::Certificate {
         let inner = match x.as_alonzo().unwrap() {
             babbage::Certificate::StakeRegistration(a) => {
                 u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
@@ -279,15 +284,24 @@ impl<C: LedgerContext> Mapper<C> {
 
         u5c::Certificate {
             certificate: inner.into(),
-            redeemer: None, // TODO
+            redeemer: tx
+                .find_certificate_redeemer(order)
+                .map(|r| self.map_redeemer(&r)),
         }
     }
 
-    pub fn map_withdrawals(&self, x: &(&[u8], u64)) -> u5c::Withdrawal {
+    pub fn map_withdrawals(
+        &self,
+        x: &(&[u8], u64),
+        tx: &trv::MultiEraTx,
+        order: u32,
+    ) -> u5c::Withdrawal {
         u5c::Withdrawal {
             reward_account: Vec::from(x.0).into(),
             coin: x.1,
-            redeemer: None, // TODO
+            redeemer: tx
+                .find_withdrawal_redeemer(order)
+                .map(|x| self.map_redeemer(&x)),
         }
     }
 
@@ -303,7 +317,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Multiasset {
             policy_id: x.policy().to_vec().into(),
             assets: x.assets().iter().map(|x| self.map_asset(x)).collect(),
-            redeemer: None, // TODO
+            redeemer: None,
         }
     }
 
@@ -534,17 +548,31 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|(order, i)| self.map_tx_input(i, tx, order as u32, &resolved))
                 .collect(),
             outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
-            certificates: tx.certs().iter().map(|x| self.map_cert(x)).collect(),
-            withdrawals: tx
-                .withdrawals()
-                .collect::<Vec<_>>()
+            certificates: tx
+                .certs()
                 .iter()
-                .map(|x| self.map_withdrawals(x))
+                .enumerate()
+                .map(|(order, x)| self.map_cert(x, tx, order as u32))
+                .collect(),
+            withdrawals: tx
+                .withdrawals_sorted_set()
+                .iter()
+                .enumerate()
+                .map(|(order, x)| self.map_withdrawals(x, tx, order as u32))
                 .collect(),
             mint: tx
-                .mints()
+                .mints_sorted_set()
                 .iter()
-                .map(|x| self.map_policy_assets(x))
+                .enumerate()
+                .map(|(order, x)| {
+                    let mut ma = self.map_policy_assets(x);
+
+                    ma.redeemer = tx
+                        .find_mint_redeemer(order as u32)
+                        .map(|r| self.map_redeemer(&r));
+
+                    ma
+                })
                 .collect(),
             reference_inputs: tx
                 .reference_inputs()
@@ -619,6 +647,7 @@ impl<C: LedgerContext> Mapper<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[derive(Clone)]
     struct NoLedger;
@@ -642,7 +671,7 @@ mod tests {
             let current = serde_json::json!(mapper.map_block(&block));
             let expected: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
-            assert_eq!(current, expected)
+            assert_eq!(expected, current)
         }
     }
 }

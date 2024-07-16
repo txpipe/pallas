@@ -161,6 +161,26 @@ impl<'b> MultiEraTx<'b> {
         })
     }
 
+    pub fn find_mint_redeemer(&self, mint_order: u32) -> Option<MultiEraRedeemer> {
+        self.redeemers().into_iter().find(|r| {
+            r.tag() == pallas_primitives::conway::RedeemerTag::Mint && r.index() == mint_order
+        })
+    }
+
+    pub fn find_withdrawal_redeemer(&self, withdrawal_order: u32) -> Option<MultiEraRedeemer> {
+        self.redeemers().into_iter().find(|r| {
+            r.tag() == pallas_primitives::conway::RedeemerTag::Reward
+                && r.index() == withdrawal_order
+        })
+    }
+
+    pub fn find_certificate_redeemer(&self, certificate_order: u32) -> Option<MultiEraRedeemer> {
+        self.redeemers().into_iter().find(|r| {
+            r.tag() == pallas_primitives::conway::RedeemerTag::Cert
+                && r.index() == certificate_order
+        })
+    }
+
     pub fn plutus_v2_scripts(&self) -> &[PlutusV2Script] {
         match self {
             Self::Byron(_) => &[],
