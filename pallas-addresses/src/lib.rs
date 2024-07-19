@@ -353,7 +353,7 @@ macro_rules! parse_shelley_fn {
     };
     ($name:tt, $payment:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
-            if payload.len() != 28 {
+            if payload.len() < 28 {
                 return Err(Error::InvalidAddressLength(payload.len()));
             }
 
@@ -370,7 +370,7 @@ macro_rules! parse_shelley_fn {
 macro_rules! parse_stake_fn {
     ($name:tt, $type:tt) => {
         fn $name(header: u8, payload: &[u8]) -> Result<Address, Error> {
-            if payload.len() != 28 {
+            if payload.len() < 28 {
                 return Err(Error::InvalidAddressLength(payload.len()));
             }
 
