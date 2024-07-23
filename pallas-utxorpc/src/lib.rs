@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Deref};
 
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, conway};
+use pallas_primitives::{alonzo, babbage, conway, Fragment};
 use pallas_traverse as trv;
 
 use trv::OriginalHash;
@@ -455,6 +455,7 @@ impl<C: LedgerContext> Mapper<C> {
         };
 
         u5c::PlutusData {
+            native_bytes: x.encode_fragment().expect("must have raw bytes").into(),
             plutus_data: inner.into(),
         }
     }
