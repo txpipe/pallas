@@ -6,7 +6,10 @@ use pallas::{
     ledger::traverse::{MultiEraBlock, MultiEraTx},
     network::{
         facades::NodeClient,
-        miniprotocols::{chainsync::NextResponse, Point},
+        miniprotocols::{
+            chainsync::NextResponse, localtxsubmission::cardano_node_errors::NodeErrorDecoder,
+            Point,
+        },
     },
 };
 
@@ -28,9 +31,13 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Connect to the local node over the file socket
-    let mut client = NodeClient::connect(args.socket_path.clone(), args.network_magic)
-        .await
-        .unwrap();
+    let mut client = NodeClient::connect(
+        args.socket_path.clone(),
+        args.network_magic,
+        NodeErrorDecoder::default(),
+    )
+    .await
+    .unwrap();
 
     // Find an intersection point using the points on the command line
     // The response would tell us what point we found, and what the current tip is

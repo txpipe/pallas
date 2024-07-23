@@ -14,6 +14,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     Value,
 };
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
+use pallas_network::miniprotocols::localtxsubmission::cardano_node_errors::NodeErrorDecoder;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
 use pallas_network::miniprotocols::{
     blockfetch,
@@ -799,7 +800,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
         // client setup
         let socket_path = "node1.socket";
 
-        let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
+        let mut client = NodeClient::connect(socket_path, 0, NodeErrorDecoder::default())
+            .await
+            .unwrap();
 
         // client sends acquire
 
