@@ -2,7 +2,7 @@ use pallas_codec::minicbor::{
     self,
     data::{Int, Type},
     decode::{self, Error, Token},
-    Decode, Decoder,
+    Decode, Decoder, Encode,
 };
 use pallas_primitives::conway::ScriptHash;
 use pallas_utxorpc::TxHash;
@@ -144,6 +144,16 @@ impl DecodeCBORSplitPayload for NodeErrorDecoder {
 #[derive(Debug)]
 pub struct TxApplyErrors {
     pub non_script_errors: Vec<ShelleyLedgerPredFailure>,
+}
+
+impl Encode<()> for TxApplyErrors {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut (),
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        todo!()
+    }
 }
 
 impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {

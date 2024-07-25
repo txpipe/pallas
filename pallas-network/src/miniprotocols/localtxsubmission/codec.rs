@@ -44,6 +44,16 @@ pub enum DecodingResult<Reject> {
     Incomplete(Reject),
 }
 
+impl<Reject> Encode<()> for DecodingResult<Reject> {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        todo!()
+    }
+}
+
 /// An implementor of this trait is able to decode an entity from CBOR with bytes that are split
 /// over multiple payloads.
 pub trait DecodeCBORSplitPayload {
