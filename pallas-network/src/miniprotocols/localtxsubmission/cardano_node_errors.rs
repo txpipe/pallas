@@ -141,7 +141,7 @@ impl DecodeCBORSplitPayload for NodeErrorDecoder {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TxApplyErrors {
     pub non_script_errors: Vec<ShelleyLedgerPredFailure>,
 }
@@ -225,7 +225,7 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Top level type for ledger errors
 pub enum ShelleyLedgerPredFailure {
     UtxowFailure(BabbageUtxowPredFailure),
@@ -278,7 +278,7 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyLedgerPredFailure {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BabbageUtxowPredFailure {
     AlonzoInBabbageUtxowPredFailure(AlonzoUtxowPredFailure),
     UtxoFailure(BabbageUtxoPredFailure),
@@ -319,7 +319,7 @@ impl Decode<'_, NodeErrorDecoder> for BabbageUtxowPredFailure {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BabbageUtxoPredFailure {
     AlonzoInBabbageUtxoPredFailure(AlonzoUtxoPredFailure),
     IncorrectTotalCollateralField,
@@ -354,7 +354,7 @@ impl Decode<'_, NodeErrorDecoder> for BabbageUtxoPredFailure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AlonzoUtxoPredFailure {
     BadInputsUtxo(Vec<TxInput>),
     OutsideValidityIntervalUTxO,
@@ -434,7 +434,7 @@ impl Decode<'_, NodeErrorDecoder> for AlonzoUtxoPredFailure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AlonzoUtxosPredFailure {
     ValidationTagMismatch {
         is_valid: bool,
@@ -482,7 +482,7 @@ impl Decode<'_, NodeErrorDecoder> for AlonzoUtxosPredFailure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TagMismatchDescription {
     PassUnexpectedly,
     FailUnexpectedly(Vec<FailureDescription>),
@@ -521,7 +521,7 @@ impl Decode<'_, NodeErrorDecoder> for TagMismatchDescription {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FailureDescription {
     pub description: String,
     /// Hex-encoded base64 representation of the Plutus context
@@ -570,7 +570,7 @@ impl Decode<'_, NodeErrorDecoder> for FailureDescription {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AlonzoUtxowPredFailure {
     ShelleyInAlonzoUtxowPredfailure(ShelleyUtxowPredFailure),
     MissingRedeemers,
@@ -628,7 +628,7 @@ impl Decode<'_, NodeErrorDecoder> for AlonzoUtxowPredFailure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ShelleyUtxowPredFailure {
     InvalidWitnessesUTXOW,
     /// Witnesses which failed in verifiedWits function
@@ -692,7 +692,7 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyUtxowPredFailure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TxInput {
     pub tx_hash: TxHash,
     pub index: u64,
