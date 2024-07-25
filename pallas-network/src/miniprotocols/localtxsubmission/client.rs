@@ -190,9 +190,9 @@ where
     /// Returns an error if the agency is not ours or if the outbound state is
     /// invalid.
     async fn send_submit_tx(&mut self, tx: Tx) -> Result<(), Error> {
-        self.state = State::Busy;
         let msg = DecodingResult::Complete(Message::SubmitTx(tx));
         self.send_message(&msg).await?;
+        self.state = State::Busy;
 
         debug!("sent SubmitTx");
 
