@@ -39,18 +39,22 @@ where
 }
 
 #[derive(Debug)]
-pub enum DecodingResult<Reject> {
-    Complete(Reject),
-    Incomplete(Reject),
+pub enum DecodingResult<Entity> {
+    Complete(Entity),
+    Incomplete(Entity),
 }
 
-impl<Reject> Encode<()> for DecodingResult<Reject> {
+impl<Entity: Encode<()>> Encode<()> for DecodingResult<Entity> {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
-        ctx: &mut (),
+        _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        todo!()
+        match self {
+            DecodingResult::Complete(errors) | DecodingResult::Incomplete(errors) => {
+                errors.encode(e, _ctx)
+            }
+        }
     }
 }
 
