@@ -16,7 +16,7 @@ pallas-primitives = { version = "=0.29.0", path = "../pallas-primitives" }
 pallas-codec = { version = "=0.29.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.29.0", path = "../pallas-crypto" }
 
-utxorpc-spec = { version = "0.7.0" }
+utxorpc-spec = { version = "0.8.0" }
 
 [dev-dependencies]
 hex = "0.4.3"

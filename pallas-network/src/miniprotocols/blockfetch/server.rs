@@ -176,7 +176,7 @@ impl Server {
     /// # Arguments
     ///
     /// * `blocks` - Ordered list of block bodies corresponding to the client's
-    /// requested range.
+    ///   requested range.
     pub async fn send_block_range(&mut self, blocks: Vec<Body>) -> Result<(), ServerError> {
         if blocks.is_empty() {
             self.send_no_blocks().await

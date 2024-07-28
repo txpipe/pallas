@@ -50,7 +50,7 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn map_redeemer(&self, x: &trv::MultiEraRedeemer) -> u5c::Redeemer {
         u5c::Redeemer {
             purpose: self.map_purpose(&x.tag()).into(),
-            datum: self.map_plutus_datum(x.data()).into(),
+            payload: self.map_plutus_datum(x.data()).into(),
         }
     }
 
@@ -112,6 +112,24 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
+    pub fn map_tx_datum(&self, x: &trv::MultiEraOutput) -> u5c::Datum {
+        u5c::Datum {
+            hash: match x.datum() {
+                Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
+                Some(babbage::PseudoDatumOption::Hash(x)) => x.to_vec().into(),
+                _ => vec![].into(),
+            },
+            payload: match x.datum() {
+                Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
+                _ => None,
+            },
+            original_cbor: match x.datum() {
+                Some(babbage::PseudoDatumOption::Data(x)) => x.raw_cbor().to_vec().into(),
+                _ => vec![].into(),
+            },
+        }
+    }
+
     pub fn map_tx_output(&self, x: &trv::MultiEraOutput) -> u5c::TxOutput {
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
@@ -124,15 +142,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
-            datum: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
-                _ => None,
-            },
-            datum_hash: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::PseudoDatumOption::Hash(x)) => x.to_vec().into(),
-                _ => vec![].into(),
-            },
+            datum: self.map_tx_datum(x).into(),
             script: match x.script_ref() {
                 Some(conway::PseudoScript::NativeScript(x)) => u5c::Script {
                     script: u5c::script::Script::Native(Self::map_native_script(&x)).into(), /*  */
@@ -669,6 +679,15 @@ mod tests {
             let cbor = hex::decode(block_str).unwrap();
             let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
             let current = serde_json::json!(mapper.map_block(&block));
+
+            // un-comment the following to generate a new snapshot
+
+            // std::fs::write(
+            //     "new_snapshot.json",
+            //     serde_json::to_string_pretty(&current).unwrap(),
+            // )
+            // .unwrap();
+
             let expected: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
             assert_eq!(expected, current)
