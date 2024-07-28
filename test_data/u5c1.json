@@ -12,7 +12,8 @@
           ],
           "collateralReturn": {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
-            "coin": "59270328"
+            "coin": "59270328",
+            "datum": {}
           },
           "totalCollateral": "3000000"
         },
@@ -21,14 +22,22 @@
         "inputs": [
           {
             "redeemer": {
-              "datum": { "bigInt": { "int": "3000000" } },
+              "payload": {
+                "bigInt": {
+                  "int": "3000000"
+                }
+              },
               "purpose": "REDEEMER_PURPOSE_SPEND"
             },
             "txHash": "QQmD7yOuYThy7NDA+sqUHhqlC0CTmWt30wnYb0jNWC8="
           },
           {
             "redeemer": {
-              "datum": { "constr": { "tag": 121 } },
+              "payload": {
+                "constr": {
+                  "tag": 121
+                }
+              },
               "purpose": "REDEEMER_PURPOSE_SPEND"
             },
             "txHash": "1XYVbY8BJ3QNmgoBYg0KcjWLc6WM10rYK/DOsM87hYs="
@@ -36,7 +45,11 @@
           {
             "outputIndex": 2,
             "redeemer": {
-              "datum": { "constr": { "tag": 121 } },
+              "payload": {
+                "constr": {
+                  "tag": 121
+                }
+              },
               "purpose": "REDEEMER_PURPOSE_SPEND"
             },
             "txHash": "1XYVbY8BJ3QNmgoBYg0KcjWLc6WM10rYK/DOsM87hYs="
@@ -54,557 +67,1155 @@
           {
             "address": "Mfrm3x8oY2wZ8gAzRA4tqtjakpZ5yjpenNprbb5khSAImz2J9aqUrcCtC5Efl2d8hwCSXEvmKQ9b",
             "coin": "637339775",
-            "datum": { "boundedBytes": "2HmA" },
-            "datumHash": "WCYIFet5wOgWhQLb5cbnOsD6N7V/4rBYL3ZXeMnGNVA="
+            "datum": {
+              "hash": "WCYIFet5wOgWhQLb5cbnOsD6N7V/4rBYL3ZXeMnGNVA=",
+              "originalCbor": "Q9h5gA==",
+              "payload": {
+                "boundedBytes": "2HmA"
+              }
+            }
           },
           {
             "address": "caPlbqnS2wCAOM5vsy5QD67xUj3LBC5aY31jP8g=",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "FXBpFUMr+S6jWFqkaLUHuQ5CfcTv/q4x7lz0Dg=="
               }
             ],
             "coin": "3000000",
             "datum": {
-              "array": {
-                "items": [
-                  { "bigInt": { "int": "0" } },
-                  { "bigInt": { "int": "0" } },
-                  { "bigInt": { "int": "0" } },
-                  { "bigInt": { "int": "0" } },
-                  { "bigInt": { "int": "0" } }
-                ]
+              "hash": "mpd/XF6AGFKV77fOzChROXlmYkLJ3at4Iv83nHx027s=",
+              "originalCbor": "nwAAAAAA/w==",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "bigInt": {
+                        "int": "0"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "0"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "0"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "0"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "0"
+                      }
+                    }
+                  ]
+                }
               }
-            },
-            "datumHash": "mpd/XF6AGFKV77fOzChROXlmYkLJ3at4Iv83nHx027s="
+            }
           },
           {
             "address": "cY0li50I3Ktz8xZaEXUdRktGBWJkCRwXidpYhyY=",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "Wjy09S+zoAq1q+YggGGGI4Ecyvq5x2DQtobkTA=="
               }
             ],
             "coin": "3000000",
             "datum": {
-              "array": {
-                "items": [
-                  { "bigInt": { "int": "50351359138093" } },
-                  { "bigInt": { "int": "35669080141" } },
-                  { "bigInt": { "int": "2572304952512051" } },
-                  { "bigInt": { "int": "2111324386111" } },
-                  { "bigInt": { "int": "10781869063" } },
-                  { "bigInt": { "int": "17374212016742584" } },
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "bigUInt": "B5+8MS9d97t1hQ==" } },
-                        { "bigInt": { "bigUInt": "P6HoWmtEAAAAAAAA" } }
-                      ]
+              "hash": "Q9T1UnbDXv4tYbEbTytDtf1LdXoOP4e/nG1FXd2+uzc=",
+              "originalCbor": "nxsAAC3LVuAZLRsAAAAITgr4TRsACSN/avLOMxsAAAHrlL1zPxsAAAACgqZEBxsAPbnA94KguJ/CSgefvDEvXfe7dYXCTD+h6FprRAAAAAAAAP8bAAABijORrmAbAAABijOcHkCfGwAAL7jtvCk+GwAJI39q8s4z/xoALcbA/w==",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "bigInt": {
+                        "int": "50351359138093"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "35669080141"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2572304952512051"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2111324386111"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "10781869063"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "17374212016742584"
+                      }
+                    },
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "bigUInt": "B5+8MS9d97t1hQ=="
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "bigUInt": "P6HoWmtEAAAAAAAA"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "1693082300000"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "1693082984000"
+                      }
+                    },
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "52471309019454"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "2572304952512051"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "3000000"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "1693082300000" } },
-                  { "bigInt": { "int": "1693082984000" } },
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "52471309019454" } },
-                        { "bigInt": { "int": "2572304952512051" } }
-                      ]
-                    }
-                  },
-                  { "bigInt": { "int": "3000000" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "Q9T1UnbDXv4tYbEbTytDtf1LdXoOP4e/nG1FXd2+uzc="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxkhSAImz2J9aqUrcCtC5Efl2d8hwCSXEvmKQ9b",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxECBXodQAy6ycuntthlMRc1SaKi2I3eqrqBfTN",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQww67X3bn+2hP7m4s9LNyWNZ2aCsqohPrPEmziA",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQw/E7jFesW2SSD1EVB2Yu06iufvJyELN+a+FJtn",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQx8DC+UdimhNvSPPJheGuh4uFd2QIskSnTd+4Ed",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzP+p1rgeEflSg0bFWmdkQgmNbwEsEBUuGp034F",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzzhi++ea7Kd3s1/j+jTmAKJcryfsIw8zEXBD8b",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxdeb33wxBr3MTuP5cQ0MOVthbkyJxuqGTm66cI",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzHlYBE5zwVN6glivIKzrDuPH8Ogy6QDTDMMmld",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzua5SDw6t9xqC1asLV6cYie7TRQSTR68WqqJJg",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxQO/JluSnYqk6hjTMHrAWnnuIJ5ep/oll5+rxk",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQz4x0a/vTWt2YqwB5xfVWQgYAB8Nqgoph/SzckD",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQwJDa+AwXcwQjTUv2JIqV0dpsiApxKoOkCkVt3n",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQzvglHfoIxGW/ndP/cU+hW2JcNaRvs+vF8PdAX7",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQyxAUTDZpm6SLITJdxaCNps4JSWz6b373lurGSQ",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263639",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
+              "originalCbor": "n58AAAAAAP8ahOCvhP8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317508"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317508" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g="
+            }
           },
           {
             "address": "MT/+7vxjSJpyjTsSbFnVN9jdy1ahEWcEqqO4qQxREpR7imt4xKzMyRXXZSvPRn8H3WXjEldshoFK",
             "assets": [
               {
-                "assets": [{ "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
             "coin": "3149189263649",
             "datum": {
-              "array": {
-                "items": [
-                  {
-                    "array": {
-                      "items": [
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } },
-                        { "bigInt": { "int": "0" } }
-                      ]
+              "hash": "yhvdF5d1SstwoyxjWtq0n3r//7TfDSe0k+14I3B/fCE=",
+              "originalCbor": "n58AAAAAAP8ahOCvkf8=",
+              "payload": {
+                "array": {
+                  "items": [
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          },
+                          {
+                            "bigInt": {
+                              "int": "0"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "2229317521"
+                      }
                     }
-                  },
-                  { "bigInt": { "int": "2229317521" } }
-                ]
+                  ]
+                }
               }
-            },
-            "datumHash": "yhvdF5d1SstwoyxjWtq0n3r//7TfDSe0k+14I3B/fCE="
+            }
           },
           {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
-            "coin": "975057"
+            "coin": "975057",
+            "datum": {}
           },
           {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
-            "coin": "975058"
+            "coin": "975058",
+            "datum": {}
           }
         ],
         "referenceInputs": [
-          { "txHash": "CXAIjh+NaRm5deO6cPFV7ipuoMyWh4c6LjRB/eB8hZk=" },
-          { "txHash": "PUIo5q6POuQMrCibWvaJL4BWJ32JQWVxdE1dkPeAyqk=" },
+          {
+            "txHash": "CXAIjh+NaRm5deO6cPFV7ipuoMyWh4c6LjRB/eB8hZk="
+          },
+          {
+            "txHash": "PUIo5q6POuQMrCibWvaJL4BWJ32JQWVxdE1dkPeAyqk="
+          },
           {
             "outputIndex": 3,
             "txHash": "pBBQUhEDKv/+ls5naPXJiVegRusKsDu76LILmkGGVqU="
           },
-          { "txHash": "rdutDKonnKMAJFZF06YzbvPZYTSD8ahEvMN8OJaQx7s=" }
+          {
+            "txHash": "rdutDKonnKMAJFZF06YzbvPZYTSD8ahEvMN8OJaQx7s="
+          }
         ],
         "successful": true,
-        "validity": { "start": "101516393", "ttl": "101516693" },
+        "validity": {
+          "start": "101516393",
+          "ttl": "101516693"
+        },
         "witnesses": {
           "vkeywitness": [
             {
@@ -624,9 +1235,15 @@
             "outputIndex": 1,
             "txHash": "ZoCb0tRh35uzOsvzuJ6wMa3LBhDRsTmvYmMbnNQKw6s="
           },
-          { "txHash": "pnbIsxO4+/dSFFXBpPURCd5UIoBuirfOHh+AOs2T7ok=" },
-          { "txHash": "9ddunJfvVTU+d19XUtfVObXjgUhO52rC/nef+4hcY3E=" },
-          { "txHash": "+zDuOcCsvhG80elgNvXUMJiY/7o3ki1j9Mj6OM+9Wsc=" }
+          {
+            "txHash": "pnbIsxO4+/dSFFXBpPURCd5UIoBuirfOHh+AOs2T7ok="
+          },
+          {
+            "txHash": "9ddunJfvVTU+d19XUtfVObXjgUhO52rC/nef+4hcY3E="
+          },
+          {
+            "txHash": "+zDuOcCsvhG80elgNvXUMJiY/7o3ki1j9Mj6OM+9Wsc="
+          }
         ],
         "outputs": [
           {
@@ -634,18 +1251,30 @@
             "assets": [
               {
                 "assets": [
-                  { "name": "U1BBQ0U=", "outputCoin": "3" },
-                  { "name": "R1JBVklUWQ==", "outputCoin": "2" },
-                  { "name": "U0FURUxMSVRF", "outputCoin": "5" }
+                  {
+                    "name": "U1BBQ0U=",
+                    "outputCoin": "3"
+                  },
+                  {
+                    "name": "R1JBVklUWQ==",
+                    "outputCoin": "2"
+                  },
+                  {
+                    "name": "U0FURUxMSVRF",
+                    "outputCoin": "5"
+                  }
                 ],
                 "policyId": "J+7hlYjJl8pU0xN/ZK/lWhjfz5Bi+oOnJL8jVw=="
               }
             ],
-            "coin": "19070000"
+            "coin": "19070000",
+            "datum": {}
           }
         ],
         "successful": true,
-        "validity": { "ttl": "101537927" },
+        "validity": {
+          "ttl": "101537927"
+        },
         "witnesses": {
           "vkeywitness": [
             {
@@ -658,7 +1287,12 @@
       {
         "auxiliary": {
           "metadata": [
-            { "label": "30", "value": { "text": "5" } },
+            {
+              "label": "30",
+              "value": {
+                "text": "5"
+              }
+            },
             {
               "label": "50",
               "value": {
@@ -719,7 +1353,12 @@
                 "text": "c5c461e97dac6fc4f6efb591b81c56456066006afdffffffffa140d8799f00a1"
               }
             },
-            { "label": "60", "value": { "text": "401a02b64660ffffffff," } }
+            {
+              "label": "60",
+              "value": {
+                "text": "401a02b64660ffffffff,"
+              }
+            }
           ]
         },
         "collateral": {
@@ -731,7 +1370,8 @@
           ],
           "collateralReturn": {
             "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
-            "coin": "4526384"
+            "coin": "4526384",
+            "datum": {}
           },
           "totalCollateral": "473616"
         },
@@ -744,7 +1384,11 @@
           },
           {
             "redeemer": {
-              "datum": { "constr": { "tag": 121 } },
+              "payload": {
+                "constr": {
+                  "tag": 121
+                }
+              },
               "purpose": "REDEEMER_PURPOSE_SPEND"
             },
             "txHash": "wZ1zwWi5bh9vbylu6CiOAtMHKkTnaYVc9rgZamUAnaU="
@@ -756,24 +1400,34 @@
             "assets": [
               {
                 "assets": [
-                  { "name": "UE9SS1lJU0xBTkQyNjEz", "outputCoin": "1" }
+                  {
+                    "name": "UE9SS1lJU0xBTkQyNjEz",
+                    "outputCoin": "1"
+                  }
                 ],
                 "policyId": "zkpJRmutVC7wxmKNYax7vBZX6zJneMt0wRbVnw=="
               }
             ],
             "coin": "1331790",
-            "datumHash": "wLd4Sun9luNq5ergDxq1VytUAhPx2OPXJ97CUcV47Dk="
+            "datum": {
+              "hash": "wLd4Sun9luNq5ergDxq1VytUAhPx2OPXJ97CUcV47Dk="
+            }
           },
           {
             "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
-            "coin": "56301735"
+            "coin": "56301735",
+            "datum": {}
           }
         ],
         "referenceInputs": [
-          { "txHash": "mjJFm9Tva7r964zzuQnQ4+LsgG5MxiaFKSgLD8HQb1s=" }
+          {
+            "txHash": "mjJFm9Tva7r964zzuQnQ4+LsgG5MxiaFKSgLD8HQb1s="
+          }
         ],
         "successful": true,
-        "validity": { "ttl": "101517287" },
+        "validity": {
+          "ttl": "101517287"
+        },
         "witnesses": {
           "plutusDatums": [
             {
@@ -833,11 +1487,17 @@
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "boundedBytes": "" },
+                                      "key": {
+                                        "boundedBytes": ""
+                                      },
                                       "value": {
                                         "constr": {
                                           "fields": [
-                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "bigInt": {
+                                                "int": "0"
+                                              }
+                                            },
                                             {
                                               "map": {
                                                 "pairs": [
@@ -914,11 +1574,17 @@
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "boundedBytes": "" },
+                                      "key": {
+                                        "boundedBytes": ""
+                                      },
                                       "value": {
                                         "constr": {
                                           "fields": [
-                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "bigInt": {
+                                                "int": "0"
+                                              }
+                                            },
                                             {
                                               "map": {
                                                 "pairs": [
@@ -995,11 +1661,17 @@
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "boundedBytes": "" },
+                                      "key": {
+                                        "boundedBytes": ""
+                                      },
                                       "value": {
                                         "constr": {
                                           "fields": [
-                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "bigInt": {
+                                                "int": "0"
+                                              }
+                                            },
                                             {
                                               "map": {
                                                 "pairs": [
@@ -1092,11 +1764,17 @@
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "boundedBytes": "" },
+                                      "key": {
+                                        "boundedBytes": ""
+                                      },
                                       "value": {
                                         "constr": {
                                           "fields": [
-                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "bigInt": {
+                                                "int": "0"
+                                              }
+                                            },
                                             {
                                               "map": {
                                                 "pairs": [
@@ -1173,11 +1851,17 @@
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "boundedBytes": "" },
+                                      "key": {
+                                        "boundedBytes": ""
+                                      },
                                       "value": {
                                         "constr": {
                                           "fields": [
-                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "bigInt": {
+                                                "int": "0"
+                                              }
+                                            },
                                             {
                                               "map": {
                                                 "pairs": [
@@ -1254,11 +1938,17 @@
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "boundedBytes": "" },
+                                      "key": {
+                                        "boundedBytes": ""
+                                      },
                                       "value": {
                                         "constr": {
                                           "fields": [
-                                            { "bigInt": { "int": "0" } },
+                                            {
+                                              "bigInt": {
+                                                "int": "0"
+                                              }
+                                            },
                                             {
                                               "map": {
                                                 "pairs": [
@@ -1314,7 +2004,8 @@
           ],
           "collateralReturn": {
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
-            "coin": "46874014"
+            "coin": "46874014",
+            "datum": {}
           },
           "totalCollateral": "604283"
         },
@@ -1327,9 +2018,13 @@
           },
           {
             "redeemer": {
-              "datum": {
+              "payload": {
                 "constr": {
-                  "fields": [{ "boundedBytes": "KAvunwh+LXLVjSfd8c9oBg==" }],
+                  "fields": [
+                    {
+                      "boundedBytes": "KAvunwh+LXLVjSfd8c9oBg=="
+                    }
+                  ],
                   "tag": 122
                 }
               },
@@ -1340,10 +2035,15 @@
         ],
         "mint": [
           {
-            "assets": [{ "mintCoin": "5000000000", "name": "VFVOQQ==" }],
+            "assets": [
+              {
+                "mintCoin": "5000000000",
+                "name": "VFVOQQ=="
+              }
+            ],
             "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg==",
             "redeemer": {
-              "datum": {
+              "payload": {
                 "constr": {
                   "tag": 121
                 }
@@ -1357,61 +2057,103 @@
             "address": "cSefhCwz7tkFS548cM1qOzIpglnCS3i4lctB2Ro=",
             "assets": [
               {
-                "assets": [{ "name": "bG9yZCB0dW5h", "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "name": "bG9yZCB0dW5h",
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
               }
             ],
             "coin": "1775720",
             "datum": {
-              "constr": {
-                "fields": [
-                  { "bigInt": { "int": "11" } },
-                  {
-                    "boundedBytes": "AAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734="
-                  },
-                  { "bigInt": { "int": "5" } },
-                  { "bigInt": { "int": "65535" } },
-                  { "bigInt": { "int": "4688000" } },
-                  { "bigInt": { "int": "1693082727000" } },
-                  { "bigInt": { "int": "0" } },
-                  {
-                    "array": {
-                      "items": [
-                        {
-                          "boundedBytes": "AAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734="
-                        },
-                        {
-                          "boundedBytes": "AAABUciZLPSegFhKbTV2ry1rnbueniP70H/k+Ly/bKo="
-                        },
-                        {
-                          "boundedBytes": "AAABUciZLPSegFhKbTV2ry1rnbueniP70H/k+Ly/bKo="
-                        }
-                      ]
+              "hash": "agvcqDxPMbtXviNmblIum0FcAsnXty5rSPJm6BVHEzg=",
+              "originalCbor": "2HmfC1ggAAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734FGf//GgBHiIAbAAABijOYMlgAn1ggAAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu735YIAAAAVHImSz0noBYSm01dq8ta527np4j+9B/5Pi8v2yqWCAAAAFRyJks9J6AWEptNXavLWudu56eI/vQf+T4vL9sqv//",
+              "payload": {
+                "constr": {
+                  "fields": [
+                    {
+                      "bigInt": {
+                        "int": "11"
+                      }
+                    },
+                    {
+                      "boundedBytes": "AAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734="
+                    },
+                    {
+                      "bigInt": {
+                        "int": "5"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "65535"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "4688000"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "1693082727000"
+                      }
+                    },
+                    {
+                      "bigInt": {
+                        "int": "0"
+                      }
+                    },
+                    {
+                      "array": {
+                        "items": [
+                          {
+                            "boundedBytes": "AAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734="
+                          },
+                          {
+                            "boundedBytes": "AAABUciZLPSegFhKbTV2ry1rnbueniP70H/k+Ly/bKo="
+                          },
+                          {
+                            "boundedBytes": "AAABUciZLPSegFhKbTV2ry1rnbueniP70H/k+Ly/bKo="
+                          }
+                        ]
+                      }
                     }
-                  }
-                ],
-                "tag": 121
+                  ],
+                  "tag": 121
+                }
               }
-            },
-            "datumHash": "agvcqDxPMbtXviNmblIum0FcAsnXty5rSPJm6BVHEzg="
+            }
           },
           {
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
             "assets": [
               {
-                "assets": [{ "name": "VFVOQQ==", "outputCoin": "5000000000" }],
+                "assets": [
+                  {
+                    "name": "VFVOQQ==",
+                    "outputCoin": "5000000000"
+                  }
+                ],
                 "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
               }
             ],
-            "coin": "1172320"
+            "coin": "1172320",
+            "datum": {}
           },
           {
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
-            "coin": "45903122"
+            "coin": "45903122",
+            "datum": {}
           }
         ],
         "successful": true,
-        "validity": { "start": "101516346", "ttl": "101516526" },
+        "validity": {
+          "start": "101516346",
+          "ttl": "101516526"
+        },
         "witnesses": {
           "script": [
             {
@@ -1442,17 +2184,23 @@
                         "map": {
                           "pairs": [
                             {
-                              "key": { "text": "ThePrince585" },
+                              "key": {
+                                "text": "ThePrince585"
+                              },
                               "value": {
                                 "map": {
                                   "pairs": [
                                     {
-                                      "key": { "text": "attributes" },
+                                      "key": {
+                                        "text": "attributes"
+                                      },
                                       "value": {
                                         "map": {
                                           "pairs": [
                                             {
-                                              "key": { "text": "Cover Theme" },
+                                              "key": {
+                                                "text": "Cover Theme"
+                                              },
                                               "value": {
                                                 "text": "The Popular Goodwill"
                                               }
@@ -1462,49 +2210,67 @@
                                       }
                                     },
                                     {
-                                      "key": { "text": "authors" },
-                                      "value": {
-                                        "array": {
-                                          "items": [
-                                            { "text": "Niccolo Machiavelli" }
-                                          ]
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "key": { "text": "data" },
-                                      "value": {
-                                        "text": "ipfs://QmafZjR6gAGVUqUQJxxBpSUsn3URHgXeucZm6DYLCDcpzE"
-                                      }
-                                    },
-                                    {
-                                      "key": { "text": "description" },
+                                      "key": {
+                                        "text": "authors"
+                                      },
                                       "value": {
                                         "array": {
                                           "items": [
                                             {
-                                              "text": "Every one sees what you appear to be, few really know what you a"
-                                            },
-                                            { "text": "re." }
-                                          ]
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "key": { "text": "extraAttributes" },
-                                      "value": {
-                                        "map": {
-                                          "pairs": [
-                                            {
-                                              "key": { "text": "Book Title" },
-                                              "value": { "text": "The Prince" }
+                                              "text": "Niccolo Machiavelli"
                                             }
                                           ]
                                         }
                                       }
                                     },
                                     {
-                                      "key": { "text": "files" },
+                                      "key": {
+                                        "text": "data"
+                                      },
+                                      "value": {
+                                        "text": "ipfs://QmafZjR6gAGVUqUQJxxBpSUsn3URHgXeucZm6DYLCDcpzE"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "text": "description"
+                                      },
+                                      "value": {
+                                        "array": {
+                                          "items": [
+                                            {
+                                              "text": "Every one sees what you appear to be, few really know what you a"
+                                            },
+                                            {
+                                              "text": "re."
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "text": "extraAttributes"
+                                      },
+                                      "value": {
+                                        "map": {
+                                          "pairs": [
+                                            {
+                                              "key": {
+                                                "text": "Book Title"
+                                              },
+                                              "value": {
+                                                "text": "The Prince"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "text": "files"
+                                      },
                                       "value": {
                                         "array": {
                                           "items": [
@@ -1520,13 +2286,17 @@
                                                     }
                                                   },
                                                   {
-                                                    "key": { "text": "name" },
+                                                    "key": {
+                                                      "text": "name"
+                                                    },
                                                     "value": {
                                                       "text": "High-Res Cover Image"
                                                     }
                                                   },
                                                   {
-                                                    "key": { "text": "src" },
+                                                    "key": {
+                                                      "text": "src"
+                                                    },
                                                     "value": {
                                                       "text": "ipfs://QmdNxYsC6V9qje5Hy5MdXaiLQiAejCKh5saoG2sAALDqov"
                                                     }
@@ -1539,28 +2309,44 @@
                                       }
                                     },
                                     {
-                                      "key": { "text": "id" },
-                                      "value": { "text": "585" }
+                                      "key": {
+                                        "text": "id"
+                                      },
+                                      "value": {
+                                        "text": "585"
+                                      }
                                     },
                                     {
-                                      "key": { "text": "image" },
+                                      "key": {
+                                        "text": "image"
+                                      },
                                       "value": {
                                         "text": "ipfs://QmRV5THwAwoazAjSUQhHPXpfY2fCKE9xZwKquqDJsURuAq"
                                       }
                                     },
                                     {
-                                      "key": { "text": "name" },
-                                      "value": { "text": "The Prince #585" }
+                                      "key": {
+                                        "text": "name"
+                                      },
+                                      "value": {
+                                        "text": "The Prince #585"
+                                      }
                                     },
                                     {
-                                      "key": { "text": "sha256" },
+                                      "key": {
+                                        "text": "sha256"
+                                      },
                                       "value": {
                                         "text": "f8a7e659f6f79b9081bea8d10a3301ebebc49a8a55cd0b41c14f13ab9a85c25c"
                                       }
                                     },
                                     {
-                                      "key": { "text": "website" },
-                                      "value": { "text": "https://book.io" }
+                                      "key": {
+                                        "text": "website"
+                                      },
+                                      "value": {
+                                        "text": "https://book.io"
+                                      }
                                     }
                                   ]
                                 }
@@ -1587,7 +2373,12 @@
         ],
         "mint": [
           {
-            "assets": [{ "mintCoin": "1", "name": "VGhlUHJpbmNlNTg1" }],
+            "assets": [
+              {
+                "mintCoin": "1",
+                "name": "VGhlUHJpbmNlNTg1"
+              }
+            ],
             "policyId": "vdHTdcBYmGybw3TPjsf734BC4OOUby+j68UJnw=="
           }
         ],
@@ -1596,19 +2387,28 @@
             "address": "AQj/ikhph7DqDKF/KW83jhGuHCU57schFUqtwLhk8vtzWMLjrv4zWaV3m47AakLm1z6th5/iISSd",
             "assets": [
               {
-                "assets": [{ "name": "VGhlUHJpbmNlNTg1", "outputCoin": "1" }],
+                "assets": [
+                  {
+                    "name": "VGhlUHJpbmNlNTg1",
+                    "outputCoin": "1"
+                  }
+                ],
                 "policyId": "vdHTdcBYmGybw3TPjsf734BC4OOUby+j68UJnw=="
               }
             ],
-            "coin": "1172320"
+            "coin": "1172320",
+            "datum": {}
           },
           {
             "address": "YdZAfjoj7nXOnSrW4gXMuXOt/kL/Ji6YOn15hPE=",
-            "coin": "8120687"
+            "coin": "8120687",
+            "datum": {}
           }
         ],
         "successful": true,
-        "validity": { "ttl": "132977648" },
+        "validity": {
+          "ttl": "132977648"
+        },
         "witnesses": {
           "script": [
             {
@@ -1618,7 +2418,9 @@
                     {
                       "scriptPubkey": "LNmnvZZOPsfE7RGROjuq91829+KWxNxI6R/99Q=="
                     },
-                    { "invalidHereafter": "132977648" }
+                    {
+                      "invalidHereafter": "132977648"
+                    }
                   ]
                 }
               }
@@ -1645,10 +2447,16 @@
                 "map": {
                   "pairs": [
                     {
-                      "key": { "text": "msg" },
+                      "key": {
+                        "text": "msg"
+                      },
                       "value": {
                         "array": {
-                          "items": [{ "text": "Minswap: Swap Exact In Order" }]
+                          "items": [
+                            {
+                              "text": "Minswap: Swap Exact In Order"
+                            }
+                          ]
                         }
                       }
                     }
@@ -1671,15 +2479,20 @@
           {
             "address": "EaZcpYpOnHVfqDAXPSpcrtRYrAxz+X23+q4ufjtSVjxUEL/2oNQ8zrt8N+H2n16yYFUlIa3/M7nC",
             "coin": "24000000",
-            "datumHash": "RWHeROwzpN7HciNvE3fbGOxm3n9Fv6SXz3Cml/2TQmc="
+            "datum": {
+              "hash": "RWHeROwzpN7HciNvE3fbGOxm3n9Fv6SXz3Cml/2TQmc="
+            }
           },
           {
             "address": "AetFDxwWdAZLqHxlpey+eo6C1tAsjc6/nVQdtj20fykvFlUEcyFK44MqfWEIDI1LO8HDIpsm+2mw",
-            "coin": "166261084"
+            "coin": "166261084",
+            "datum": {}
           }
         ],
         "successful": true,
-        "validity": { "ttl": "101527204" },
+        "validity": {
+          "ttl": "101527204"
+        },
         "witnesses": {
           "plutusDatums": [
             {
@@ -1767,7 +2580,11 @@
                       "tag": 121
                     }
                   },
-                  { "constr": { "tag": 122 } },
+                  {
+                    "constr": {
+                      "tag": 122
+                    }
+                  },
                   {
                     "constr": {
                       "fields": [
@@ -1777,18 +2594,32 @@
                               {
                                 "boundedBytes": "DAArUd8aVBlIGcCZD1LRRoK7s+k6WAUufIH3HA=="
                               },
-                              { "boundedBytes": "QlVLRUxF" }
+                              {
+                                "boundedBytes": "QlVLRUxF"
+                              }
                             ],
                             "tag": 121
                           }
                         },
-                        { "bigInt": { "int": "8726271" } }
+                        {
+                          "bigInt": {
+                            "int": "8726271"
+                          }
+                        }
                       ],
                       "tag": 121
                     }
                   },
-                  { "bigInt": { "int": "2000000" } },
-                  { "bigInt": { "int": "2000000" } }
+                  {
+                    "bigInt": {
+                      "int": "2000000"
+                    }
+                  },
+                  {
+                    "bigInt": {
+                      "int": "2000000"
+                    }
+                  }
                 ],
                 "tag": 121
               }
