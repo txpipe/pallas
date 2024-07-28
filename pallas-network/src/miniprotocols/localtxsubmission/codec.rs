@@ -3,7 +3,7 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::miniprotocols::localtxsubmission::{EraTx, Message};
 
-use super::cardano_node_errors::TxApplyErrors;
+use super::cardano_node_errors::ApplyTxError;
 
 impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
 where
@@ -72,9 +72,9 @@ pub trait DecodeCBORSplitPayload {
     fn has_undecoded_bytes(&self) -> bool;
 }
 
-impl<'b, C> Decode<'b, C> for DecodingResult<Message<EraTx, Vec<TxApplyErrors>>>
+impl<'b, C> Decode<'b, C> for DecodingResult<Message<EraTx, Vec<ApplyTxError>>>
 where
-    C: DecodeCBORSplitPayload<Entity = Message<EraTx, Vec<TxApplyErrors>>>,
+    C: DecodeCBORSplitPayload<Entity = Message<EraTx, Vec<ApplyTxError>>>,
 {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
         ctx.try_decode_with_new_bytes(d.input())

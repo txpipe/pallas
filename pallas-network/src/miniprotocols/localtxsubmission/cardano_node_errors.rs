@@ -52,7 +52,7 @@ impl Default for NodeErrorDecoder {
 }
 
 impl DecodeCBORSplitPayload for NodeErrorDecoder {
-    type Entity = Message<EraTx, Vec<TxApplyErrors>>;
+    type Entity = Message<EraTx, Vec<ApplyTxError>>;
 
     fn try_decode_with_new_bytes(
         &mut self,
@@ -65,7 +65,7 @@ impl DecodeCBORSplitPayload for NodeErrorDecoder {
             let mut errors = vec![];
 
             loop {
-                match TxApplyErrors::decode(&mut decoder, self) {
+                match ApplyTxError::decode(&mut decoder, self) {
                     Ok(tx_err) => {
                         errors.push(tx_err);
                     }
@@ -110,7 +110,7 @@ impl DecodeCBORSplitPayload for NodeErrorDecoder {
                     let mut errors = vec![];
 
                     loop {
-                        match TxApplyErrors::decode(&mut decoder, self) {
+                        match ApplyTxError::decode(&mut decoder, self) {
                             Ok(tx_err) => {
                                 errors.push(tx_err);
                             }
@@ -141,12 +141,13 @@ impl DecodeCBORSplitPayload for NodeErrorDecoder {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/shelley/impl/src/Cardano/Ledger/Shelley/API/Mempool.hs#L221
 #[derive(Debug, Clone)]
-pub struct TxApplyErrors {
-    pub non_script_errors: Vec<ShelleyLedgerPredFailure>,
+pub struct ApplyTxError {
+    pub node_errors: Vec<ShelleyLedgerPredFailure>,
 }
 
-impl Encode<()> for TxApplyErrors {
+impl Encode<()> for ApplyTxError {
     fn encode<W: minicbor::encode::Write>(
         &self,
         _e: &mut minicbor::Encoder<W>,
@@ -157,7 +158,7 @@ impl Encode<()> for TxApplyErrors {
     }
 }
 
-impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
+impl Decode<'_, NodeErrorDecoder> for ApplyTxError {
     fn decode(d: &mut Decoder, ctx: &mut NodeErrorDecoder) -> Result<Self, Error> {
         let mut non_script_errors = vec![];
 
@@ -185,7 +186,9 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
                 d.skip()?;
                 ctx.ix_start_unprocessed_bytes = d.position();
                 ctx.cbor_break_token_seen = false;
-                return Ok(Self { non_script_errors });
+                return Ok(Self {
+                    node_errors: non_script_errors,
+                });
             }
 
             match ShelleyLedgerPredFailure::decode(d, ctx) {
@@ -203,7 +206,9 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
                         // decoded.
                         ctx.ix_start_unprocessed_bytes = d.position();
                         ctx.cbor_break_token_seen = false;
-                        return Ok(Self { non_script_errors });
+                        return Ok(Self {
+                            node_errors: non_script_errors,
+                        });
                     } else if e.is_end_of_input() {
                         return Err(e);
                     }
@@ -219,7 +224,7 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
 }
 
 #[derive(Debug, Clone)]
-/// Top level type for ledger errors
+/// Top level type for ledger errors. See https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/shelley/impl/src/Cardano/Ledger/Shelley/Rules/Ledger.hs#L100
 pub enum ShelleyLedgerPredFailure {
     UtxowFailure(BabbageUtxowPredFailure),
     DelegsFailure,
@@ -266,6 +271,7 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyLedgerPredFailure {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxow.hs#L97
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum BabbageUtxowPredFailure {
@@ -307,6 +313,7 @@ impl Decode<'_, NodeErrorDecoder> for BabbageUtxowPredFailure {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxo.hs#L109
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum BabbageUtxoPredFailure {
@@ -343,6 +350,7 @@ impl Decode<'_, NodeErrorDecoder> for BabbageUtxoPredFailure {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxo.hs#L116
 #[derive(Debug, Clone)]
 pub enum AlonzoUtxoPredFailure {
     BadInputsUtxo(Vec<TxInput>),
@@ -357,6 +365,7 @@ pub enum AlonzoUtxoPredFailure {
     WrongNetwork,
     WrongNetworkWithdrawal,
     OutputTooSmallUTxO,
+    /// Script-failure
     UtxosFailure(AlonzoUtxosPredFailure),
     OutputBootAddrAttrsTooBig,
     TriesToForgeADA,
@@ -423,6 +432,7 @@ impl Decode<'_, NodeErrorDecoder> for AlonzoUtxoPredFailure {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxos.hs#L398
 #[derive(Debug, Clone)]
 pub enum AlonzoUtxosPredFailure {
     ValidationTagMismatch {
@@ -471,6 +481,7 @@ impl Decode<'_, NodeErrorDecoder> for AlonzoUtxosPredFailure {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxos.hs#L367
 #[derive(Debug, Clone)]
 pub enum TagMismatchDescription {
     PassUnexpectedly,
@@ -510,6 +521,8 @@ impl Decode<'_, NodeErrorDecoder> for TagMismatchDescription {
         }
     }
 }
+
+// Describes script-error from the node. See: https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxos.hs#L334
 #[derive(Debug, Clone)]
 pub struct FailureDescription {
     pub description: String,
@@ -559,6 +572,7 @@ impl Decode<'_, NodeErrorDecoder> for FailureDescription {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxow.hs#L97
 #[derive(Debug, Clone)]
 pub enum AlonzoUtxowPredFailure {
     ShelleyInAlonzoUtxowPredfailure(ShelleyUtxowPredFailure),
@@ -617,6 +631,7 @@ impl Decode<'_, NodeErrorDecoder> for AlonzoUtxowPredFailure {
     }
 }
 
+/// https://github.com/IntersectMBO/cardano-ledger/blob/8fd7ab6ca9bcf9cdb1fa6f4059f84585a084efa5/eras/shelley/impl/src/Cardano/Ledger/Shelley/Rules/Utxow.hs#L127
 #[derive(Debug, Clone)]
 pub enum ShelleyUtxowPredFailure {
     InvalidWitnessesUTXOW,
@@ -1110,7 +1125,7 @@ mod tests {
         let result = cc.try_decode_with_new_bytes(&buffer);
         if let Ok(DecodingResult::Complete(Message::RejectTx(errors))) = result {
             assert_eq!(errors.len(), 1);
-            assert_eq!(errors[0].non_script_errors.len(), 0);
+            assert_eq!(errors[0].node_errors.len(), 0);
         } else {
             panic!("")
         }

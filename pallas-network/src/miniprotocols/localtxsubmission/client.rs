@@ -12,12 +12,12 @@ use crate::multiplexer;
 use crate::multiplexer::AgentChannel;
 use crate::multiplexer::MAX_SEGMENT_PAYLOAD_LENGTH;
 
-use super::cardano_node_errors::TxApplyErrors;
+use super::cardano_node_errors::ApplyTxError;
 use super::codec::DecodeCBORSplitPayload;
 use super::codec::DecodingResult;
 
 /// Cardano specific instantiation of LocalTxSubmission client.
-pub type Client<'a, ErrDecoder> = GenericClient<'a, EraTx, Vec<TxApplyErrors>, ErrDecoder>;
+pub type Client<'a, ErrDecoder> = GenericClient<'a, EraTx, Vec<ApplyTxError>, ErrDecoder>;
 
 /// A generic Ouroboros client for submitting a generic transaction
 /// to a server, which possibly results in a generic rejection.
