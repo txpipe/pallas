@@ -15,39 +15,29 @@ use pallas::{
 };
 use tracing::info;
 
-async fn do_localstate_query<'a>(
-    mut client: NodeClient<'a, NodeErrorDecoder>,
-) -> NodeClient<'a, NodeErrorDecoder> {
-    let localstate_client = client.statequery();
+async fn do_localstate_query(client: &mut NodeClient<'_, NodeErrorDecoder>) {
+    let client = client.statequery();
 
-    localstate_client.acquire(None).await.unwrap();
+    client.acquire(None).await.unwrap();
 
-    let result = queries_v16::get_chain_point(localstate_client)
-        .await
-        .unwrap();
+    let result = queries_v16::get_chain_point(client).await.unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_system_start(localstate_client)
-        .await
-        .unwrap();
+    let result = queries_v16::get_system_start(client).await.unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_chain_block_no(localstate_client)
-        .await
-        .unwrap();
+    let result = queries_v16::get_chain_block_no(client).await.unwrap();
     info!("result: {:?}", result);
 
-    let era = queries_v16::get_current_era(localstate_client)
-        .await
-        .unwrap();
+    let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
-    let result = queries_v16::get_block_epoch_number(localstate_client, era)
+    let result = queries_v16::get_block_epoch_number(client, era)
         .await
         .unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_stake_distribution(localstate_client, era)
+    let result = queries_v16::get_stake_distribution(client, era)
         .await
         .unwrap();
     info!("result: {:?}", result);
@@ -63,40 +53,33 @@ async fn do_localstate_query<'a>(
     let addry: Addr = addry.to_vec().into();
 
     let addrs: Addrs = vec![addrx, addry];
-    let result = queries_v16::get_utxo_by_address(localstate_client, era, addrs)
+    let result = queries_v16::get_utxo_by_address(client, era, addrs)
         .await
         .unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_current_pparams(localstate_client, era)
-        .await
-        .unwrap();
+    let result = queries_v16::get_current_pparams(client, era).await.unwrap();
     println!("result: {:?}", result);
 
     // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
     // Empty Set means all pools.
     let pools: BTreeSet<Bytes> = BTreeSet::new();
-    let result = queries_v16::get_stake_snapshots(localstate_client, era, pools)
+    let result = queries_v16::get_stake_snapshots(client, era, pools)
         .await
         .unwrap();
     println!("result: {:?}", result);
 
-    let result = queries_v16::get_genesis_config(localstate_client, era)
-        .await
-        .unwrap();
+    let result = queries_v16::get_genesis_config(client, era).await.unwrap();
     println!("result: {:?}", result);
 
     // Ensure decoding across version disparities by always receiving a valid
     // response using the wrap function for the query result with CBOR-in-CBOR
     // concept.
     let query = queries_v16::BlockQuery::GetCurrentPParams;
-    let result = queries_v16::get_cbor(localstate_client, era, query)
-        .await
-        .unwrap();
+    let result = queries_v16::get_cbor(client, era, query).await.unwrap();
     println!("result: {:?}", result);
 
-    localstate_client.send_release().await.unwrap();
-    client
+    client.send_release().await.unwrap();
 }
 
 async fn do_chainsync<'a>(client: &'a mut NodeClient<'a, NodeErrorDecoder>) {
@@ -143,7 +126,7 @@ async fn main() {
 
     // we connect to the unix socket of the local node. Make sure you have the right
     // path for your environment
-    let client = NodeClient::connect(
+    let mut client = NodeClient::connect(
         SOCKET_PATH,
         PRE_PRODUCTION_MAGIC,
         NodeErrorDecoder::default(),
@@ -153,7 +136,7 @@ async fn main() {
 
     // execute an arbitrary "Local State" query against the node
 
-    let mut client = do_localstate_query(client).await;
+    do_localstate_query(&mut client).await;
 
     // execute the chainsync flow from an arbitrary point in the chain
     do_chainsync(&mut client).await;

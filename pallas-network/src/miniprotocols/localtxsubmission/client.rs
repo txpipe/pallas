@@ -164,12 +164,11 @@ where
     async fn recv_message(&mut self) -> Result<DecodingResult<Message<Tx, Reject>>, Error> {
         self.assert_agency_is_theirs()?;
 
-        let msg = {
-            self.muxer
-                .recv_full_msg()
-                .await
-                .map(DecodingResult::Complete)?
-        };
+        let msg = self
+            .muxer
+            .recv_full_msg()
+            .await
+            .map(DecodingResult::Complete)?;
         self.assert_inbound_state(&msg)?;
         match (&self.state, &msg) {
             (
@@ -206,24 +205,17 @@ where
     async fn recv_submit_tx_response(&mut self) -> Result<Response<Reject>, Error> {
         debug!("waiting for SubmitTx response");
 
-        let mut set_idle = false;
-        let response = match self.recv_message().await? {
+        match self.recv_message().await? {
             DecodingResult::Complete(Message::AcceptTx) => {
-                set_idle = true;
+                self.state = State::Idle;
                 Ok(Response::Accepted)
             }
             DecodingResult::Complete(Message::RejectTx(rejection)) => {
-                set_idle = true;
+                self.state = State::Idle;
                 Ok(Response::Rejected(rejection))
             }
             _ => Err(Error::InvalidInbound),
-        };
-
-        if set_idle {
-            self.state = State::Idle;
         }
-
-        response
     }
 }
 
