@@ -7,7 +7,7 @@ use pallas_codec::minicbor;
 use tracing::error;
 use tracing::trace;
 
-use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, State};
+use crate::miniprotocols::localtxsubmission::{EraTx, Message, State};
 use crate::multiplexer;
 use crate::multiplexer::AgentChannel;
 use crate::multiplexer::MAX_SEGMENT_PAYLOAD_LENGTH;

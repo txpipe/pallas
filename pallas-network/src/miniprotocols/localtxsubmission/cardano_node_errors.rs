@@ -1,6 +1,6 @@
 use pallas_codec::minicbor::{
     self,
-    data::{Int, Type},
+    data::Type,
     decode::{self, Error, Token},
     Decode, Decoder, Encode,
 };
@@ -149,10 +149,11 @@ pub struct TxApplyErrors {
 impl Encode<()> for TxApplyErrors {
     fn encode<W: minicbor::encode::Write>(
         &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut (),
+        _e: &mut minicbor::Encoder<W>,
+        _ctx: &mut (),
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
+        // We only ever decode node errors.
+        unreachable!()
     }
 }
 
@@ -167,13 +168,7 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
             }
         }
 
-        println!(
-            "1111111, buf_len: {}, position: {}",
-            d.input().len(),
-            d.position()
-        );
         expect_definite_array(vec![2], d, ctx)?;
-        println!("2222222");
         let tag = expect_u8(d, ctx)?;
         assert_eq!(tag, 2);
         expect_definite_array(vec![1], d, ctx)?;
@@ -185,7 +180,6 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
         // Here we expect an indefinite array
         expect_indefinite_array(d, ctx)?;
         while let Ok(t) = d.datatype() {
-            println!("type: {:?}", t);
             if let Type::Break = t {
                 // Here we have a clean decoding of TXApplyErrors
                 d.skip()?;
@@ -211,7 +205,6 @@ impl Decode<'_, NodeErrorDecoder> for TxApplyErrors {
                         ctx.cbor_break_token_seen = false;
                         return Ok(Self { non_script_errors });
                     } else if e.is_end_of_input() {
-                        //return Err(Error::message("TxApplyErrors::decode: Not enough bytes"));
                         return Err(e);
                     }
 
@@ -240,10 +233,6 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyLedgerPredFailure {
             }
             clear_unknown_entity(d, &mut ctx.context_stack)?;
         }
-        println!(
-            "ShelleyLedgerPredFailure::decode inside: CTX {:?}",
-            ctx.context_stack
-        );
         match expect_u8(d, ctx) {
             Ok(tag) => match tag {
                 0 => match BabbageUtxowPredFailure::decode(d, ctx) {
@@ -817,28 +806,6 @@ fn expect_bytes(d: &mut Decoder, ctx: &mut NodeErrorDecoder) -> Result<Vec<u8>, 
     }
 }
 
-fn expect_int(d: &mut Decoder, ctx: &mut NodeErrorDecoder) -> Result<Int, Error> {
-    match d.probe().int() {
-        Ok(i) => {
-            if let Some(OuterScope::Definite(n)) = ctx.context_stack.pop() {
-                if n > 1 {
-                    ctx.context_stack.push(OuterScope::Definite(n - 1));
-                }
-            }
-            let _ = d.int()?;
-            Ok(i)
-        }
-        Err(e) => {
-            if e.is_end_of_input() {
-                Err(e)
-            } else {
-                add_collection_token_to_context(d, ctx)?;
-                Err(Error::message("expected int"))
-            }
-        }
-    }
-}
-
 fn expect_definite_array(
     possible_lengths: Vec<u64>,
     d: &mut Decoder,
@@ -1014,10 +981,8 @@ pub enum OuterScope {
 }
 
 fn clear_unknown_entity(decoder: &mut Decoder, stack: &mut Vec<OuterScope>) -> Result<(), Error> {
-    println!("Clear stack: {:?}", stack);
     while let Some(e) = stack.pop() {
         let t = next_token(decoder)?;
-        println!("Next token: {:?}", t);
 
         match e {
             OuterScope::Definite(num_left) => {
@@ -1151,8 +1116,23 @@ mod tests {
         }
     }
 
-    const SPLASH_DAO_EXAMPLE: &str = "82028182059f820082018200820281581cfdaaeb99e53be5f626fb210239ece94127401d7f395a097d0a5d18ef82008201820783000001000300820082018200820181581c28c58c07ecd2012c6c683b44ce9691ea9b0fdb9b868125a2ac29382382008201820581581c0bbd6545f014f95a65b9df462088c6600d9b2bb6cee3fe20b53241ea820082028201820782018182038201825820e54d54359cd0da7b5ee800c3c83b3f108894d4ef76bde10df66f87c429600e88018200820282018305821a002dc6c0a2581cadf2425c138138efce80fd0b2ed8f227caf052f9ec44b8a92e942dfaa14653504c4153481b00001d1a94a20000581cfdaaeb99e53be5f626fb210239ece94127401d7f395a097d0a5d18efa15820378d0caaaa3855f1b38693c1d6ef004fd118691c95c959d4efa950d6d6fcf7c101821a00765cada1581cadf2425c138138efce80fd0b2ed8f227caf052f9ec44b8a92e942dfaa14653504c4153481b00001d1a94a20000820082028201820081825820e54d54359cd0da7b5ee800c3c83b3f108894d4ef76bde10df66f87c429600e880182018201a1581de028c58c07ecd2012c6c683b44ce9691ea9b0fdb9b868125a2ac29382300ff";
-    const SPLASH_BOT_EXAMPLE: &str = "82028182059f820082018207830000000100028200820282018207820181820382018258200faddf00919ef15d38ac07684199e69be95a003a15f757bf77701072b050c1f500820082028201830500821a06760d80a1581cfd10da3e6a578708c877e14b6aaeda8dc3a36f666a346eec52a30b3aa14974657374746f6b656e1a0001fbd08200820282018200838258200faddf00919ef15d38ac07684199e69be95a003a15f757bf77701072b050c1f5008258205f85cf7db4713466bc8d9d32a84b5b6bfd2f34a76b5f8cf5a5cb04b4d6d6f0380082582096eb39b8d909373c8275c611fae63792f5e3d0a67c1eee5b3afb91fdcddc859100ff";
+    const NON_SCRIPT_ERROR_0: &str = "82028182059f820082018200820281581cfdaaeb99e53be5f626fb210239ece94127401d7f395a097d0a5d18ef82008201820783000001000300820082018200820181581c28c58c07ecd2012c6c683b44ce9691ea9b0fdb9b868125a2ac29382382008201820581581c0bbd6545f014f95a65b9df462088c6600d9b2bb6cee3fe20b53241ea820082028201820782018182038201825820e54d54359cd0da7b5ee800c3c83b3f108894d4ef76bde10df66f87c429600e88018200820282018305821a002dc6c0a2581cadf2425c138138efce80fd0b2ed8f227caf052f9ec44b8a92e942dfaa14653504c4153481b00001d1a94a20000581cfdaaeb99e53be5f626fb210239ece94127401d7f395a097d0a5d18efa15820378d0caaaa3855f1b38693c1d6ef004fd118691c95c959d4efa950d6d6fcf7c101821a00765cada1581cadf2425c138138efce80fd0b2ed8f227caf052f9ec44b8a92e942dfaa14653504c4153481b00001d1a94a20000820082028201820081825820e54d54359cd0da7b5ee800c3c83b3f108894d4ef76bde10df66f87c429600e880182018201a1581de028c58c07ecd2012c6c683b44ce9691ea9b0fdb9b868125a2ac29382300ff";
+    const NON_SCRIPT_ERROR_1: &str = "82028182059f820082018207830000000100028200820282018207820181820382018258200faddf00919ef15d38ac07684199e69be95a003a15f757bf77701072b050c1f500820082028201830500821a06760d80a1581cfd10da3e6a578708c877e14b6aaeda8dc3a36f666a346eec52a30b3aa14974657374746f6b656e1a0001fbd08200820282018200838258200faddf00919ef15d38ac07684199e69be95a003a15f757bf77701072b050c1f5008258205f85cf7db4713466bc8d9d32a84b5b6bfd2f34a76b5f8cf5a5cb04b4d6d6f0380082582096eb39b8d909373c8275c611fae63792f5e3d0a67c1eee5b3afb91fdcddc859100ff";
+    const NON_SCRIPT_ERROR_2: &str =
+        "82028182059f820082018200820a81581c3b890fb5449baedf5342a48ee9c9ec6acbc995641be92ad21f08c686\
+        8200820183038158202628ce6ff8cc7ff0922072d930e4a693c17f991748dedece0be64819a2f9ef7782582031d\
+        54ce8d7e8cb262fc891282f44e9d24c3902dc38fac63fd469e8bf3006376b5820750852fdaf0f2dd724291ce007\
+        b8e76d74bcf28076ed0c494cd90c0cfe1c9ca582008201820782000000018200820183048158201a547638b4cf4\
+        a3cec386e2f898ac6bc987fadd04277e1d3c8dab5c505a5674e8158201457e4107607f83a80c3c4ffeb70910c2b\
+        a3a35cf1699a2a7375f50fcc54a931820082028201830500821a00636185a2581c6f1a1f0c7ccf632cc9ff4b796\
+        87ed13ffe5b624cce288b364ebdce50a144414749581b000000032a9f8800581c795ecedb09821cb922c13060c8\
+        f6377c3344fa7692551e865d86ac5da158205399c766fb7c494cddb2f7ae53cc01285474388757bc05bd575c14a\
+        713a432a901820082028201820085825820497fe6401e25733c073c01164c7f2a1a05de8c95e36580f9d1b05123\
+        70040def028258207911ba2b7d91ac56b05ea351282589fe30f4717a707a1b9defaf282afe5ba44200825820791\
+        1ba2b7d91ac56b05ea351282589fe30f4717a707a1b9defaf282afe5ba44201825820869bcb6f35e6b7912c25e5\
+        cb33fb9906b097980a83f2b8ef40b51c4ef52eccd402825820efc267ad2c15c34a117535eecc877241ed836eb3e\
+        643ec90de21ca1b12fd79c20282008202820181148200820283023a000f0f6d1a004944ce820082028201830d3a\
+        000f0f6d1a00106253820082028201830182811a02409e10811a024138c01a0255e528ff";
 
     fn encode_trace() -> Result<Vec<u8>, Error<EndOfSlice>> {
         let mut buffer = repeat(0).take(24).collect_vec();
@@ -1187,8 +1167,8 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_splash_bot_example() {
-        let bytes = hex::decode(SPLASH_BOT_EXAMPLE).unwrap();
+    fn test_decode_non_script_error_0() {
+        let bytes = hex::decode(NON_SCRIPT_ERROR_0).unwrap();
 
         let mut cc = NodeErrorDecoder::new();
         let result = cc.try_decode_with_new_bytes(&bytes);
@@ -1201,8 +1181,8 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_splash_dao_example() {
-        let bytes = hex::decode(SPLASH_DAO_EXAMPLE).unwrap();
+    fn test_decode_non_script_error_1() {
+        let bytes = hex::decode(NON_SCRIPT_ERROR_1).unwrap();
 
         let mut cc = NodeErrorDecoder::new();
         let result = cc.try_decode_with_new_bytes(&bytes);
@@ -1212,6 +1192,17 @@ mod tests {
         } else {
             panic!("");
         }
+    }
+
+    #[test]
+    fn test_decode_non_script_error_2() {
+        let bytes = hex::decode(NON_SCRIPT_ERROR_2).unwrap();
+        let mut cc = NodeErrorDecoder::new();
+        let result = cc.try_decode_with_new_bytes(&bytes);
+        matches!(
+            result,
+            Ok(DecodingResult::Complete(Message::RejectTx(_errors))),
+        );
     }
 
     #[derive(Debug, PartialEq, Eq)]
@@ -1268,8 +1259,8 @@ mod tests {
 
     #[test]
     fn combined_splash_errors() {
-        let mut bytes = hex::decode(SPLASH_BOT_EXAMPLE).unwrap();
-        bytes.extend_from_slice(&hex::decode(SPLASH_DAO_EXAMPLE).unwrap());
+        let mut bytes = hex::decode(NON_SCRIPT_ERROR_1).unwrap();
+        bytes.extend_from_slice(&hex::decode(NON_SCRIPT_ERROR_0).unwrap());
 
         let mut cc = NodeErrorDecoder::new();
         let result = cc.try_decode_with_new_bytes(&bytes);
@@ -1286,9 +1277,9 @@ mod tests {
     fn neat_split_combined_splash_errors() {
         // We have 2 node errors side-by-side, where each error's bytes are cut in half
         // for partial processing.
-        let mut bot_bytes_0 = hex::decode(SPLASH_BOT_EXAMPLE).unwrap();
+        let mut bot_bytes_0 = hex::decode(NON_SCRIPT_ERROR_1).unwrap();
         let bot_bytes_1 = bot_bytes_0.split_off(bot_bytes_0.len() / 2);
-        let mut dao_bytes_0 = hex::decode(SPLASH_DAO_EXAMPLE).unwrap();
+        let mut dao_bytes_0 = hex::decode(NON_SCRIPT_ERROR_0).unwrap();
         let dao_bytes_1 = dao_bytes_0.split_off(dao_bytes_0.len() / 2);
 
         let mut cc = NodeErrorDecoder::new();
@@ -1331,10 +1322,10 @@ mod tests {
         // We have 2 node errors side-by-side, where each error's bytes are cut in half
         // but this is followed by cutting off a part of the end of the first error and
         // prepending it to the 2nd error.
-        let mut bot_bytes_0 = hex::decode(SPLASH_BOT_EXAMPLE).unwrap();
+        let mut bot_bytes_0 = hex::decode(NON_SCRIPT_ERROR_1).unwrap();
         let mut bot_bytes_1 = bot_bytes_0.split_off(bot_bytes_0.len() / 2);
         let mut bot_bytes_2 = bot_bytes_1.split_off(bot_bytes_1.len() / 4);
-        let mut dao_bytes_0 = hex::decode(SPLASH_DAO_EXAMPLE).unwrap();
+        let mut dao_bytes_0 = hex::decode(NON_SCRIPT_ERROR_0).unwrap();
         let dao_bytes_1 = dao_bytes_0.split_off(dao_bytes_0.len() / 2);
         bot_bytes_2.extend(dao_bytes_0);
 
