@@ -6,10 +6,7 @@ use pallas::{
     ledger::traverse::{MultiEraBlock, MultiEraTx},
     network::{
         facades::NodeClient,
-        miniprotocols::{
-            chainsync::NextResponse, localtxsubmission::cardano_node_errors::NodeErrorDecoder,
-            Point,
-        },
+        miniprotocols::{chainsync::NextResponse, localtxsubmission::NodeErrorDecoder, Point},
     },
 };
 

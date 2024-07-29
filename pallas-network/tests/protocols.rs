@@ -14,7 +14,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     Value,
 };
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
-use pallas_network::miniprotocols::localtxsubmission::cardano_node_errors::NodeErrorDecoder;
+use pallas_network::miniprotocols::localtxsubmission::NodeErrorDecoder;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
 use pallas_network::miniprotocols::{
     blockfetch,

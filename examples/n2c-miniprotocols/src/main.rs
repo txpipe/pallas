@@ -8,7 +8,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{self, Addr, Addrs},
-            localtxsubmission::cardano_node_errors::NodeErrorDecoder,
+            localtxsubmission::NodeErrorDecoder,
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
