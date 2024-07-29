@@ -50,7 +50,7 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn map_redeemer(&self, x: &trv::MultiEraRedeemer) -> u5c::Redeemer {
         u5c::Redeemer {
             purpose: self.map_purpose(&x.tag()).into(),
-            datum: self.map_plutus_datum(x.data()).into(),
+            payload: self.map_plutus_datum(x.data()).into(),
         }
     }
 
@@ -125,13 +125,8 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
             datum: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
+                Some(x) => self.map_datum(x).into(),
                 _ => None,
-            },
-            datum_hash: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::PseudoDatumOption::Hash(x)) => x.to_vec().into(),
-                _ => vec![].into(),
             },
             script: match x.script_ref() {
                 Some(conway::PseudoScript::NativeScript(x)) => u5c::Script {
@@ -432,6 +427,21 @@ impl<C: LedgerContext> Mapper<C> {
 
         u5c::BigInt {
             big_int: inner.into(),
+        }
+    }
+
+    pub fn map_datum(&self, minted_datum: babbage::MintedDatumOption) -> u5c::Datum {
+        match minted_datum {
+            babbage::MintedDatumOption::Data(x) => u5c::Datum {
+                hash: x.original_hash().to_vec().into(),
+                payload: self.map_plutus_datum(&x.0).into(),
+                original_cbor: x.raw_cbor().to_vec().into(),
+            },
+            babbage::MintedDatumOption::Hash(x) => u5c::Datum {
+                hash: x.to_vec().into(),
+                payload: None,
+                original_cbor: vec![].into(),
+            },
         }
     }
 
