@@ -19,7 +19,7 @@ default = []
 
 [dependencies]
 hex = "0.4.3"
-minicbor = { version = "0.20", features = ["std", "half", "derive"] }
+minicbor = { version = "0.24", features = ["std", "half", "derive"] }
 num-bigint = { version = "0.4.4", optional = true }
 serde = { version = "1.0.143", features = ["derive"] }
 thiserror = "1.0.39"
