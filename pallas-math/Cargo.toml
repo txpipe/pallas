@@ -10,9 +10,19 @@ license = "Apache-2.0"
 readme = "README.md"
 authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
 
+[features]
+default = ["gmp"]
+gmp = ["dep:gmp-mpfr-sys"]
+num = ["dep:num-bigint", "dep:num-integer", "dep:num-traits"]
 
 [dependencies]
-# rug = "1.24.1"
+gmp-mpfr-sys = { version = "1.6.4", features = ["mpc"], default-features = false, optional = true }
+once_cell = "1.19.0"
+num-bigint = { version = "0.4.6", optional = true }
+num-integer = { version = "0.1.46", optional = true }
+num-traits = { version = "0.2.19", optional = true }
+regex = "1.10.5"
+thiserror = "1.0.61"
 
 [dev-dependencies]
 quickcheck = "1.0"

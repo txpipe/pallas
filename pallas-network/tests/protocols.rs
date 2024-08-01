@@ -460,6 +460,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
     _ = tokio::join!(client, server);
 }
 
+#[cfg(unix)]
 #[tokio::test]
 pub async fn local_state_query_server_and_client_happy_path() {
     let server = tokio::spawn({
