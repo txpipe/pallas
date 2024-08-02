@@ -106,7 +106,7 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyLedgerPredFailure {
             if e.is_end_of_input() {
                 return Err(e);
             }
-            clear_unknown_entity(d, &mut ctx.context_stack)?;
+            clear_unknown_entity(d, ctx)?;
         }
         match expect_u8(d, ctx) {
             Ok(tag) => match tag {
@@ -116,13 +116,13 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyLedgerPredFailure {
                         if e.is_end_of_input() {
                             Err(e)
                         } else {
-                            clear_unknown_entity(d, &mut ctx.context_stack)?;
+                            clear_unknown_entity(d, ctx)?;
                             Err(e)
                         }
                     }
                 },
                 _ => {
-                    clear_unknown_entity(d, &mut ctx.context_stack)?;
+                    clear_unknown_entity(d, ctx)?;
                     Err(Error::message("not ShelleyLedgerPredFailure"))
                 }
             },
@@ -131,7 +131,7 @@ impl Decode<'_, NodeErrorDecoder> for ShelleyLedgerPredFailure {
                     Err(e)
                 } else {
                     add_collection_token_to_context(d, ctx)?;
-                    clear_unknown_entity(d, &mut ctx.context_stack)?;
+                    clear_unknown_entity(d, ctx)?;
                     Err(Error::message(
                         "ShelleyLedgerPredFailure::decode: expected tag",
                     ))
@@ -865,30 +865,31 @@ pub enum OuterScope {
     Indefinite,
 }
 
-fn clear_unknown_entity(decoder: &mut Decoder, stack: &mut Vec<OuterScope>) -> Result<(), Error> {
-    while let Some(e) = stack.pop() {
+fn clear_unknown_entity(decoder: &mut Decoder, ctx: &mut NodeErrorDecoder) -> Result<(), Error> {
+    while let Some(e) = ctx.context_stack.pop() {
         let t = next_token(decoder)?;
 
         match e {
             OuterScope::Definite(num_left) => {
                 if num_left > 1 {
-                    stack.push(OuterScope::Definite(num_left - 1));
+                    ctx.context_stack.push(OuterScope::Definite(num_left - 1));
                 }
             }
-            OuterScope::Indefinite => stack.push(OuterScope::Indefinite),
+            OuterScope::Indefinite => ctx.context_stack.push(OuterScope::Indefinite),
         }
 
         match t {
             Token::BeginArray | Token::BeginBytes | Token::BeginMap => {
-                stack.push(OuterScope::Indefinite);
+                ctx.context_stack.push(OuterScope::Indefinite);
             }
             Token::Array(n) | Token::Map(n) => {
-                stack.push(OuterScope::Definite(n));
+                ctx.context_stack.push(OuterScope::Definite(n));
             }
 
             Token::Break => {
                 assert_eq!(e, OuterScope::Indefinite);
-                assert_eq!(stack.pop(), Some(OuterScope::Indefinite));
+                assert_eq!(ctx.context_stack.pop(), Some(OuterScope::Indefinite));
+                ctx.cbor_break_token_seen = true;
             }
 
             // Throw away the token
