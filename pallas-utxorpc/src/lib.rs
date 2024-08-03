@@ -206,8 +206,26 @@ impl<C: LedgerContext> Mapper<C> {
         x: &trv::MultiEraCert,
         tx: &trv::MultiEraTx,
         order: u32,
+    ) -> Option<u5c::Certificate> {
+        match x {
+            pallas_traverse::MultiEraCert::AlonzoCompatible(x) => {
+                self.map_alonzo_cert(x, tx, order).into()
+            }
+            pallas_traverse::MultiEraCert::Conway(_) => {
+                // TODO: add conway certificates in spec
+                None
+            }
+            _ => None,
+        }
+    }
+
+    pub fn map_alonzo_cert(
+        &self,
+        x: &pallas_primitives::alonzo::Certificate,
+        tx: &trv::MultiEraTx,
+        order: u32,
     ) -> u5c::Certificate {
-        let inner = match x.as_alonzo().unwrap() {
+        let inner = match x {
             babbage::Certificate::StakeRegistration(a) => {
                 u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
             }
@@ -562,7 +580,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .certs()
                 .iter()
                 .enumerate()
-                .map(|(order, x)| self.map_cert(x, tx, order as u32))
+                .filter_map(|(order, x)| self.map_cert(x, tx, order as u32))
                 .collect(),
             withdrawals: tx
                 .withdrawals_sorted_set()
