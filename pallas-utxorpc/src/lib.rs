@@ -580,8 +580,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .certs()
                 .iter()
                 .enumerate()
-                .map(|(order, x)| self.map_cert(x, tx, order as u32))
-                .flatten()
+                .filter_map(|(order, x)| self.map_cert(x, tx, order as u32))
                 .collect(),
             withdrawals: tx
                 .withdrawals_sorted_set()
