@@ -27,6 +27,7 @@ impl<'b> MultiEraWithdrawals<'b> {
             MultiEraWithdrawals::AlonzoCompatible(x) => {
                 x.iter().map(|(k, v)| (k.as_slice(), *v)).collect()
             }
+            MultiEraWithdrawals::Conway(x) => x.iter().map(|(k, v)| (k.as_slice(), *v)).collect(),
         }
     }
 }

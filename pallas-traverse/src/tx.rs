@@ -228,6 +228,11 @@ impl<'b> MultiEraTx<'b> {
                 .map(|(k, v)| (k.as_slice(), *v))
                 .sorted_by_key(|(k, _)| *k)
                 .collect(),
+            MultiEraWithdrawals::Conway(x) => x
+                .iter()
+                .map(|(k, v)| (k.as_slice(), *v))
+                .sorted_by_key(|(k, _)| *k)
+                .collect(),
         }
     }
 
@@ -463,9 +468,8 @@ impl<'b> MultiEraTx<'b> {
                 None => MultiEraWithdrawals::Empty,
             },
             MultiEraTx::Byron(_) => MultiEraWithdrawals::NotApplicable,
-            // TODO: non empty still compatible?
             MultiEraTx::Conway(x) => match &x.transaction_body.withdrawals {
-                Some(x) => MultiEraWithdrawals::AlonzoCompatible(x),
+                Some(x) => MultiEraWithdrawals::Conway(x),
                 None => MultiEraWithdrawals::Empty,
             },
         }

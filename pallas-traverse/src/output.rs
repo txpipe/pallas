@@ -188,8 +188,8 @@ impl<'b> MultiEraOutput<'b> {
                     babbage::Value::Multiasset(c, _) => c,
                 },
                 conway::MintedTransactionOutput::PostAlonzo(x) => match x.value {
-                    babbage::Value::Coin(c) => c,
-                    babbage::Value::Multiasset(c, _) => c,
+                    conway::Value::Coin(c) => c,
+                    conway::Value::Multiasset(c, _) => c,
                 },
             },
         }
@@ -235,10 +235,10 @@ impl<'b> MultiEraOutput<'b> {
                         .collect(),
                 },
                 conway::MintedTransactionOutput::PostAlonzo(x) => match &x.value {
-                    babbage::Value::Coin(_) => vec![],
-                    babbage::Value::Multiasset(_, x) => x
+                    conway::Value::Coin(_) => vec![],
+                    conway::Value::Multiasset(_, x) => x
                         .iter()
-                        .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                        .map(|(k, v)| MultiEraPolicyAssets::ConwayOutput(k, v))
                         .collect(),
                 },
             },

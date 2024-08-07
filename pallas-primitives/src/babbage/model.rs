@@ -370,24 +370,25 @@ impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
-pub struct PseudoPostAlonzoTransactionOutput<T1, T2> {
+pub struct PseudoPostAlonzoTransactionOutput<T1, T2, T3> {
     #[n(0)]
     pub address: Bytes,
 
     #[n(1)]
-    pub value: Value,
+    pub value: T1,
 
     #[n(2)]
-    pub datum_option: Option<T1>,
+    pub datum_option: Option<T2>,
 
     #[n(3)]
-    pub script_ref: Option<CborWrap<T2>>,
+    pub script_ref: Option<CborWrap<T3>>,
 }
 
-pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption, ScriptRef>;
+pub type PostAlonzoTransactionOutput =
+    PseudoPostAlonzoTransactionOutput<Value, DatumOption, ScriptRef>;
 
 pub type MintedPostAlonzoTransactionOutput<'b> =
-    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>, MintedScriptRef<'b>>;
+    PseudoPostAlonzoTransactionOutput<Value, MintedDatumOption<'b>, MintedScriptRef<'b>>;
 
 impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
     fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {

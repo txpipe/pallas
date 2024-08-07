@@ -1,11 +1,13 @@
 //! Utilities to traverse over multi-era block data
 
+use pallas_codec::utils::NonZeroInt;
+use pallas_codec::utils::PositiveCoin;
 use std::{borrow::Cow, fmt::Display, hash::Hash as StdHash};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use pallas_codec::utils::{KeepRaw, KeyValuePairs, NonEmptyKeyValuePairs, NonZeroInt};
+use pallas_codec::utils::{KeepRaw, KeyValuePairs, NonEmptyKeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
@@ -145,6 +147,10 @@ pub enum MultiEraPolicyAssets<'b> {
         &'b alonzo::PolicyId,
         &'b NonEmptyKeyValuePairs<alonzo::AssetName, NonZeroInt>,
     ),
+    ConwayOutput(
+        &'b alonzo::PolicyId,
+        &'b NonEmptyKeyValuePairs<alonzo::AssetName, PositiveCoin>,
+    ),
 }
 
 #[derive(Debug, Clone)]
@@ -152,6 +158,7 @@ pub enum MultiEraPolicyAssets<'b> {
 pub enum MultiEraAsset<'b> {
     AlonzoCompatibleOutput(&'b alonzo::PolicyId, &'b alonzo::AssetName, u64),
     AlonzoCompatibleMint(&'b alonzo::PolicyId, &'b alonzo::AssetName, i64),
+    ConwayOutput(&'b alonzo::PolicyId, &'b alonzo::AssetName, PositiveCoin),
     ConwayMint(&'b alonzo::PolicyId, &'b alonzo::AssetName, NonZeroInt),
 }
 
@@ -161,6 +168,7 @@ pub enum MultiEraWithdrawals<'b> {
     NotApplicable,
     Empty,
     AlonzoCompatible(&'b alonzo::Withdrawals),
+    Conway(&'b conway::Withdrawals),
 }
 
 #[derive(Debug, Clone)]

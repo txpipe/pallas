@@ -175,6 +175,22 @@ where
     Indef(Vec<(K, V)>),
 }
 
+impl<K, V> IntoIterator for NonEmptyKeyValuePairs<K, V>
+where
+    K: Clone,
+    V: Clone,
+{
+    type Item = (K, V);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            NonEmptyKeyValuePairs::Def(pairs) => pairs.into_iter(),
+            NonEmptyKeyValuePairs::Indef(pairs) => pairs.into_iter(),
+        }
+    }
+}
+
 impl<K, V> NonEmptyKeyValuePairs<K, V>
 where
     K: Clone,
@@ -908,6 +924,12 @@ impl TryFrom<u64> for PositiveCoin {
 impl From<PositiveCoin> for u64 {
     fn from(value: PositiveCoin) -> Self {
         value.0
+    }
+}
+
+impl From<&PositiveCoin> for u64 {
+    fn from(x: &PositiveCoin) -> Self {
+        u64::from(*x)
     }
 }
 
