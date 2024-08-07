@@ -8,7 +8,10 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-crypto"
 license = "Apache-2.0"
 readme = "README.md"
-authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>"]
+authors = [
+    "Nicolas Di Prima <nicolas@primetype.co.uk>",
+    "Andrew Westberg <andrewwestberg@gmail.com>",
+]
 
 [dependencies]
 hex = "0.4"
@@ -18,7 +21,13 @@ rand_core = "0.6"
 pallas-codec = { version = "=0.30.2", path = "../pallas-codec" }
 serde = "1.0.143"
 
+# FIXME: This needs to be a properly deployed crate from the input-output-hk/vrf repository after my PR is merged
+# The vrf crate has not been fully tested in production environments and still has several upstream issues that
+# are open PRs but not merged yet.
+vrf_dalek = { git = "https://github.com/AndrewWestberg/vrf", rev = "6fc1440b197098feb6d75e2b71517019b8e2e9c2" }
+
 [dev-dependencies]
+itertools = "0.13"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rand = "0.8"
