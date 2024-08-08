@@ -11,4 +11,4 @@ Crate with all the cryptographic material to support Cardano protocol:
 - [ ] VRF
 - [ ] KES
 - [ ] SECP256k1
-
+- [ ] Nonce calculations
