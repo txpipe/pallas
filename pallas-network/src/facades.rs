@@ -281,17 +281,17 @@ impl PeerServer {
 }
 
 /// Client of N2C Ouroboros
-pub struct NodeClient {
+pub struct NodeClient<'a, ErrDecoder> {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
     chainsync: chainsync::N2CClient,
     statequery: localstate::Client,
-    submission: localtxsubmission::Client,
+    submission: localtxsubmission::Client<'a, ErrDecoder>,
     monitor: txmonitor::Client,
 }
 
-impl NodeClient {
-    pub fn new(bearer: Bearer) -> Self {
+impl<'a, ErrDecoder> NodeClient<'a, ErrDecoder> {
+    pub fn new(bearer: Bearer, local_tx_error_decoder: ErrDecoder) -> Self {
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
@@ -307,18 +307,22 @@ impl NodeClient {
             handshake: handshake::Client::new(hs_channel),
             chainsync: chainsync::Client::new(cs_channel),
             statequery: localstate::Client::new(sq_channel),
-            submission: localtxsubmission::Client::new(tx_channel),
+            submission: localtxsubmission::Client::new(tx_channel, local_tx_error_decoder),
             monitor: txmonitor::Client::new(mo_channel),
         }
     }
 
     #[cfg(unix)]
-    pub async fn connect(path: impl AsRef<Path>, magic: u64) -> Result<Self, Error> {
+    pub async fn connect(
+        path: impl AsRef<Path>,
+        magic: u64,
+        err_decoder: ErrDecoder,
+    ) -> Result<Self, Error> {
         let bearer = Bearer::connect_unix(path)
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
+        let mut client = Self::new(bearer, err_decoder);
 
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
@@ -413,7 +417,7 @@ impl NodeClient {
         &mut self.statequery
     }
 
-    pub fn submission(&mut self) -> &mut localtxsubmission::Client {
+    pub fn submission(&'a mut self) -> &mut localtxsubmission::Client<'a, ErrDecoder> {
         &mut self.submission
     }
 

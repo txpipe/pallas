@@ -16,6 +16,7 @@ authors = [
 
 [features]
 default = []
+half = ["minicbor/half"]
 
 [dependencies]
 hex = "0.4.3"
