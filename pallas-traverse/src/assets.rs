@@ -8,6 +8,7 @@ impl<'b> MultiEraPolicyAssets<'b> {
             MultiEraPolicyAssets::AlonzoCompatibleMint(x, _) => x,
             MultiEraPolicyAssets::AlonzoCompatibleOutput(x, _) => x,
             MultiEraPolicyAssets::ConwayMint(x, _) => x,
+            MultiEraPolicyAssets::ConwayOutput(x, _) => x,
         }
     }
 
@@ -16,6 +17,7 @@ impl<'b> MultiEraPolicyAssets<'b> {
             MultiEraPolicyAssets::AlonzoCompatibleMint(_, _) => false,
             MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => true,
             MultiEraPolicyAssets::ConwayMint(_, _) => false,
+            MultiEraPolicyAssets::ConwayOutput(_, _) => true,
         }
     }
 
@@ -24,6 +26,7 @@ impl<'b> MultiEraPolicyAssets<'b> {
             MultiEraPolicyAssets::AlonzoCompatibleMint(_, _) => true,
             MultiEraPolicyAssets::AlonzoCompatibleOutput(_, _) => false,
             MultiEraPolicyAssets::ConwayMint(_, _) => true,
+            MultiEraPolicyAssets::ConwayOutput(_, _) => false,
         }
     }
 
@@ -41,6 +44,10 @@ impl<'b> MultiEraPolicyAssets<'b> {
                 .iter()
                 .map(|(k, v)| MultiEraAsset::ConwayMint(p, k, *v))
                 .collect(),
+            MultiEraPolicyAssets::ConwayOutput(p, x) => x
+                .iter()
+                .map(|(k, v)| MultiEraAsset::ConwayOutput(p, k, *v))
+                .collect(),
         }
     }
 
@@ -57,7 +64,11 @@ impl<'b> MultiEraPolicyAssets<'b> {
             }
             MultiEraPolicyAssets::ConwayMint(_, x) => x
                 .iter()
-                .map(|(k, v)| (k.as_slice(), i64::from(v) as i128))
+                .map(|(k, v)| (k.as_slice(), i64::from(*v) as i128))
+                .collect(),
+            MultiEraPolicyAssets::ConwayOutput(_, x) => x
+                .iter()
+                .map(|(k, v)| (k.as_slice(), u64::from(*v) as i128))
                 .collect(),
         }
     }
@@ -69,6 +80,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(x, ..) => x,
             MultiEraAsset::AlonzoCompatibleOutput(x, ..) => x,
             MultiEraAsset::ConwayMint(x, ..) => x,
+            MultiEraAsset::ConwayOutput(x, ..) => x,
         }
     }
 
@@ -77,6 +89,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(_, x, _) => x,
             MultiEraAsset::AlonzoCompatibleOutput(_, x, _) => x,
             MultiEraAsset::ConwayMint(_, x, _) => x,
+            MultiEraAsset::ConwayOutput(_, x, _) => x,
         }
     }
 
@@ -85,6 +98,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(..) => false,
             MultiEraAsset::AlonzoCompatibleOutput(..) => true,
             MultiEraAsset::ConwayMint(..) => false,
+            MultiEraAsset::ConwayOutput(..) => true,
         }
     }
 
@@ -93,6 +107,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(..) => true,
             MultiEraAsset::AlonzoCompatibleOutput(..) => false,
             MultiEraAsset::ConwayMint(..) => true,
+            MultiEraAsset::ConwayOutput(..) => false,
         }
     }
 
@@ -101,6 +116,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(_, _, x) => Some(*x),
             MultiEraAsset::AlonzoCompatibleOutput(_, _, _) => None,
             MultiEraAsset::ConwayMint(_, _, x) => Some(x.into()),
+            MultiEraAsset::ConwayOutput(_, _, _) => None,
         }
     }
 
@@ -109,6 +125,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(_, _, _) => None,
             MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => Some(*x),
             MultiEraAsset::ConwayMint(_, _, _) => None,
+            MultiEraAsset::ConwayOutput(_, _, x) => Some(u64::from(x)),
         }
     }
 
@@ -117,6 +134,7 @@ impl<'b> MultiEraAsset<'b> {
             MultiEraAsset::AlonzoCompatibleMint(_, _, x) => *x as i128,
             MultiEraAsset::AlonzoCompatibleOutput(_, _, x) => *x as i128,
             MultiEraAsset::ConwayMint(_, _, x) => i64::from(x) as i128,
+            MultiEraAsset::ConwayOutput(_, _, x) => u64::from(x) as i128,
         }
     }
 

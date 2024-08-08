@@ -45,7 +45,7 @@ pub use crate::alonzo::AssetName;
 
 pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
 
-pub use crate::alonzo::Mint;
+pub type Mint = Multiasset<NonZeroInt>;
 
 pub use crate::alonzo::Coin;
 
@@ -720,7 +720,7 @@ pub struct PseudoTransactionBody<T1> {
     pub certificates: Option<NonEmptySet<Certificate>>,
 
     #[n(5)]
-    pub withdrawals: Option<KeyValuePairs<RewardAccount, Coin>>, // TODO: NON EMPTY
+    pub withdrawals: Option<NonEmptyKeyValuePairs<RewardAccount, Coin>>,
 
     #[n(7)]
     pub auxiliary_data_hash: Option<Bytes>,
@@ -1220,7 +1220,8 @@ where
     }
 }
 
-pub use crate::babbage::PseudoPostAlonzoTransactionOutput;
+pub type PostAlonzoTransactionOutput =
+    crate::babbage::PseudoPostAlonzoTransactionOutput<Value, DatumOption, ScriptRef>;
 
 pub type TransactionOutput = PseudoTransactionOutput<PostAlonzoTransactionOutput>;
 
@@ -1236,10 +1237,11 @@ impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
     }
 }
 
-pub type PostAlonzoTransactionOutput = PseudoPostAlonzoTransactionOutput<DatumOption, ScriptRef>;
-
-pub type MintedPostAlonzoTransactionOutput<'b> =
-    PseudoPostAlonzoTransactionOutput<MintedDatumOption<'b>, MintedScriptRef<'b>>;
+pub type MintedPostAlonzoTransactionOutput<'b> = crate::babbage::PseudoPostAlonzoTransactionOutput<
+    Value,
+    MintedDatumOption<'b>,
+    MintedScriptRef<'b>,
+>;
 
 impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
     fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
