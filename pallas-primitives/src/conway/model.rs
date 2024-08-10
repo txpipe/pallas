@@ -1032,13 +1032,19 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct Constitution(Anchor, Nullable<ScriptHash>);
+pub struct Constitution {
+    pub anchor: Anchor,
+    pub guardrail_script: Nullable<ScriptHash>,
+}
 
 impl<'b, C> minicbor::Decode<'b, C> for Constitution {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
-        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
+        Ok(Self {
+            anchor: d.decode_with(ctx)?,
+            guardrail_script: d.decode_with(ctx)?,
+        })
     }
 }
 
@@ -1050,8 +1056,8 @@ impl<C> minicbor::Encode<C> for Constitution {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.array(2)?;
 
-        e.encode_with(&self.0, ctx)?;
-        e.encode_with(&self.1, ctx)?;
+        e.encode_with(&self.anchor, ctx)?;
+        e.encode_with(&self.guardrail_script, ctx)?;
 
         Ok(())
     }
@@ -1128,13 +1134,19 @@ impl<C> minicbor::encode::Encode<C> for Voter {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub struct Anchor(String, Hash<32>);
+pub struct Anchor {
+    pub url: String,
+    pub content_hash: Hash<32>,
+}
 
 impl<'b, C> minicbor::Decode<'b, C> for Anchor {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
-        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
+        Ok(Self {
+            url: d.decode_with(ctx)?,
+            content_hash: d.decode_with(ctx)?,
+        })
     }
 }
 
@@ -1146,21 +1158,27 @@ impl<C> minicbor::Encode<C> for Anchor {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.array(2)?;
 
-        e.encode_with(&self.0, ctx)?;
-        e.encode_with(self.1, ctx)?;
+        e.encode_with(&self.url, ctx)?;
+        e.encode_with(self.content_hash, ctx)?;
 
         Ok(())
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct GovActionId(Hash<32>, u32);
+pub struct GovActionId {
+    pub transaction_id: Hash<32>,
+    pub action_index: u32,
+}
 
 impl<'b, C> minicbor::Decode<'b, C> for GovActionId {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
 
-        Ok(Self(d.decode_with(ctx)?, d.decode_with(ctx)?))
+        Ok(Self {
+            transaction_id: d.decode_with(ctx)?,
+            action_index: d.decode_with(ctx)?,
+        })
     }
 }
 
@@ -1172,8 +1190,8 @@ impl<C> minicbor::Encode<C> for GovActionId {
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.array(2)?;
 
-        e.encode_with(self.0, ctx)?;
-        e.encode_with(self.1, ctx)?;
+        e.encode_with(self.transaction_id, ctx)?;
+        e.encode_with(self.action_index, ctx)?;
 
         Ok(())
     }
