@@ -1301,10 +1301,10 @@ pub use crate::alonzo::ExUnits;
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ExUnitPrices {
     #[n(0)]
-    mem_price: RationalNumber,
+    pub mem_price: RationalNumber,
 
     #[n(1)]
-    step_price: RationalNumber,
+    pub step_price: RationalNumber,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
