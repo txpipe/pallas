@@ -15,9 +15,11 @@ pallas-traverse = { version = "=0.29.0", path = "../pallas-traverse" }
 pallas-primitives = { version = "=0.29.0", path = "../pallas-primitives" }
 pallas-codec = { version = "=0.29.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.29.0", path = "../pallas-crypto" }
-
 utxorpc-spec = { version = "0.9.0" }
 prost-types = "0.13.1"
+
+# TODO: remove this dep once we have multiera params in traverse
+pallas-applying = { version = "=0.29.0", path = "../pallas-applying" }
 
 [dev-dependencies]
 hex = "0.4.3"

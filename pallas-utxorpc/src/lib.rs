@@ -12,6 +12,8 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
+mod params;
+
 pub type TxHash = Hash<32>;
 pub type TxoIndex = u32;
 pub type TxoRef = (TxHash, TxoIndex);
