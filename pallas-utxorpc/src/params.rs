@@ -129,14 +129,11 @@ impl<C: LedgerContext> Mapper<C> {
                     plutus_v1: params
                         .cost_models_for_script_languages
                         .plutus_v1
-                        .map(|values| u5c::CostModel { values })
-                        .into(),
+                        .map(|values| u5c::CostModel { values }),
                     plutus_v2: params
                         .cost_models_for_script_languages
                         .plutus_v2
-                        .map(|values| u5c::CostModel { values })
-                        .into(),
-                    ..Default::default()
+                        .map(|values| u5c::CostModel { values }),
                 }
                 .into(),
                 ..Default::default()

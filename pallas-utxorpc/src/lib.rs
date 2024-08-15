@@ -28,14 +28,14 @@ pub trait LedgerContext: Clone {
 #[derive(Default, Clone)]
 pub struct Mapper<C: LedgerContext> {
     ledger: Option<C>,
-    mask: FieldMask,
+    _mask: FieldMask,
 }
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn new(ledger: C) -> Self {
         Self {
             ledger: Some(ledger),
-            mask: FieldMask { paths: vec![] },
+            _mask: FieldMask { paths: vec![] },
         }
     }
 
@@ -43,7 +43,7 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn masked(&self, mask: FieldMask) -> Self {
         Self {
             ledger: self.ledger.clone(),
-            mask,
+            _mask: mask,
         }
     }
 }
