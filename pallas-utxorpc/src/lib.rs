@@ -12,6 +12,8 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
+mod params;
+
 pub type TxHash = Hash<32>;
 pub type TxoIndex = u32;
 pub type TxoRef = (TxHash, TxoIndex);
@@ -26,14 +28,14 @@ pub trait LedgerContext: Clone {
 #[derive(Default, Clone)]
 pub struct Mapper<C: LedgerContext> {
     ledger: Option<C>,
-    mask: FieldMask,
+    _mask: FieldMask,
 }
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn new(ledger: C) -> Self {
         Self {
             ledger: Some(ledger),
-            mask: FieldMask { paths: vec![] },
+            _mask: FieldMask { paths: vec![] },
         }
     }
 
@@ -41,7 +43,7 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn masked(&self, mask: FieldMask) -> Self {
         Self {
             ledger: self.ledger.clone(),
-            mask,
+            _mask: mask,
         }
     }
 }
