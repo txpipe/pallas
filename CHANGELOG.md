@@ -2,6 +2,25 @@
 ## [Unreleased]
 
 
+<a name="v0.30.0"></a>
+## [v0.30.0] - 2024-08-20
+### Chore
+- **interop:** bump u5c spec to v0.9 ([#503](https://github.com/txpipe/pallas/issues/503))
+- **interop:** update u5c spec to v0.8.0 ([#493](https://github.com/txpipe/pallas/issues/493))
+- **txbuilder:** export ExUnits to make them accessible from outside ([#497](https://github.com/txpipe/pallas/issues/497))
+
+### Feat
+- **interop:** implement u5c pparams mapping ([#504](https://github.com/txpipe/pallas/issues/504))
+- **interop:** introduce field-mask context for u5c ([#502](https://github.com/txpipe/pallas/issues/502))
+- **math:** add support for some math functions ([#483](https://github.com/txpipe/pallas/issues/483))
+
+### Fix
+- **addresses:** relax length check during parsing ([#491](https://github.com/txpipe/pallas/issues/491))
+- **interop:** skip conway certs in u5c ([#498](https://github.com/txpipe/pallas/issues/498))
+- **primitives:** expose hidden struct fields in Conway ([#501](https://github.com/txpipe/pallas/issues/501))
+- **traverse:** use Conway types in places they are meant to ([#499](https://github.com/txpipe/pallas/issues/499))
+
+
 <a name="v0.29.0"></a>
 ## [v0.29.0] - 2024-07-15
 ### Chore
@@ -933,11 +952,11 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - **miniprotocols:** Use pure functions for state machines ([#84](https://github.com/txpipe/pallas/issues/84))
 
 
-<a name="pallas-codec@0.7.1"></a>
-## [pallas-codec@0.7.1] - 2022-03-16
-
 <a name="pallas-miniprotocols@0.7.1"></a>
 ## [pallas-miniprotocols@0.7.1] - 2022-03-16
+
+<a name="pallas-codec@0.7.1"></a>
+## [pallas-codec@0.7.1] - 2022-03-16
 ### Fix
 - **miniprotocols:** Handle regression related to multi-msg payloads ([#76](https://github.com/txpipe/pallas/issues/76))
 
@@ -1222,7 +1241,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.30.0...HEAD
+[v0.30.0]: https://github.com/txpipe/pallas/compare/v0.29.0...v0.30.0
 [v0.29.0]: https://github.com/txpipe/pallas/compare/v0.28.0...v0.29.0
 [v0.28.0]: https://github.com/txpipe/pallas/compare/v0.27.0...v0.28.0
 [v0.27.0]: https://github.com/txpipe/pallas/compare/v0.26.0...v0.27.0
@@ -1275,9 +1295,9 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 [v0.9.0-alpha.0]: https://github.com/txpipe/pallas/compare/v0.8.0...v0.9.0-alpha.0
 [v0.8.0]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.1...v0.8.0
 [v0.8.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.8.0-alpha.0...v0.8.0-alpha.1
-[v0.8.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-codec@0.7.1...v0.8.0-alpha.0
-[pallas-codec@0.7.1]: https://github.com/txpipe/pallas/compare/pallas-miniprotocols@0.7.1...pallas-codec@0.7.1
-[pallas-miniprotocols@0.7.1]: https://github.com/txpipe/pallas/compare/v0.7.0...pallas-miniprotocols@0.7.1
+[v0.8.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-miniprotocols@0.7.1...v0.8.0-alpha.0
+[pallas-miniprotocols@0.7.1]: https://github.com/txpipe/pallas/compare/pallas-codec@0.7.1...pallas-miniprotocols@0.7.1
+[pallas-codec@0.7.1]: https://github.com/txpipe/pallas/compare/v0.7.0...pallas-codec@0.7.1
 [v0.7.0]: https://github.com/txpipe/pallas/compare/v0.7.0-alpha.1...v0.7.0
 [v0.7.0-alpha.1]: https://github.com/txpipe/pallas/compare/v0.7.0-alpha.0...v0.7.0-alpha.1
 [v0.7.0-alpha.0]: https://github.com/txpipe/pallas/compare/pallas-primitives@0.6.4...v0.7.0-alpha.0
