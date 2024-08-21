@@ -9,6 +9,7 @@ documentation = "https://docs.rs/pallas-math"
 license = "Apache-2.0"
 readme = "README.md"
 authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
+exclude = ["tests/data/*"]
 
 [features]
 default = ["gmp"]
