@@ -49,7 +49,6 @@ pub fn validate_shelley_ma_tx(
     let stk_refund_count: &mut u64 = &mut 0; // count of key deregs (for refunds)
     let pool_count: &mut u64 = &mut 0; // count of pool regs (for deposits)
 
-    // FIXME: This section is entirely made up
     let stab_win = 129600; // FIXME: Found as "1.5 days" in unreliable sources.
 
     check_ins_not_empty(tx_body)?;
@@ -230,7 +229,8 @@ fn get_produced(
     // Adding fees
     res = add_values(&res, &Value::Coin(tx_body.fee), &neg_val_err)?;
     // Pool reg deposits and staking key registrations
-    let total_deposits = prot_pps.pool_deposit * (*pool_count + *stk_dep_count);
+    let total_deposits = prot_pps.pool_deposit * *pool_count +
+        prot_pps.key_deposit * *stk_dep_count;
     res = add_values(&res, &Value::Coin(total_deposits), &neg_val_err)?;
     Ok(res)
 }

@@ -349,10 +349,6 @@ pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }
 
-// Move to an appropriate place (primitives?)
-// pub type RewardAccounts = HashMap<StakeCredential, Coin>;
-// pub type Delegations = HashMap<StakeCredential, PoolKeyhash>;
-
 pub type CertificateIndex = u32;
 
 #[derive(PartialEq, Eq, Hash, Clone)]

@@ -19,10 +19,11 @@ use pallas_codec::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
     MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, StakeCredential,
-    TransactionBody, TransactionOutput, VKeyWitness, Value,
+    TransactionBody, TransactionOutput, VKeyWitness, Value, PoolMetadata, Relay,
 };
 use pallas_traverse::{Era, MultiEraTx};
 use std::str::FromStr;
+use pallas_applying::utils::PoolParam;
 
 #[cfg(test)]
 mod shelley_ma_tests {
@@ -392,70 +393,98 @@ mod shelley_ma_tests {
         }
     }
 
-    // #[test]
-    // // Transaction hash:
-    // // 1dd22b2976374f9b8e6aa045ded141742fa5adc5184a505410fb9f343d14e407
-    // fn successful_mainnet_mary_tx_with_stk_reg() {
-    //     let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
-    //     let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-    //     let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
-    //     let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
-    //         &mtx.transaction_body,
-    //         &[(
-    //             String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
-    //             Value::Coin(1_501_000_000),
-    //             None,
-    //         ),
-    // 	    (
-    //             String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
-    //             Value::Coin(9_000_000),
-    //             None,
-    //         )],
-    //     );
-    //     let env: Environment = Environment {
-    //         prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-    //             minfee_b: 155381,
-    //             minfee_a: 44,
-    //             max_block_body_size: 65536,
-    //             max_transaction_size: 16384,
-    //             max_block_header_size: 1100,
-    //             key_deposit: 2_000_000,
-    //             pool_deposit: 500_000_000,
-    //             maximum_epoch: 18,
-    //             desired_number_of_stake_pools: 500,
-    //             pool_pledge_influence: RationalNumber {
-    //                 numerator: 3,
-    //                 denominator: 10,
-    //             },
-    //             expansion_rate: RationalNumber {
-    //                 numerator: 3,
-    //                 denominator: 1000,
-    //             },
-    //             treasury_growth_rate: RationalNumber {
-    //                 numerator: 2,
-    //                 denominator: 10,
-    //             },
-    //             decentralization_constant: RationalNumber {
-    //                 numerator: 0,
-    //                 denominator: 1,
-    //             },
-    //             extra_entropy: Nonce {
-    //                 variant: NonceVariant::NeutralNonce,
-    //                 hash: None,
-    //             },
-    //             protocol_version: (4, 0),
-    //             min_utxo_value: 1_000_000,
-    //             min_pool_cost: 340_000_000,
-    //         }),
-    //         prot_magic: 764824073,
-    //         block_slot: 26342233,
-    //         network_id: 1,
-    //     };
-    //     match validate(&metx, &utxos, &env) {
-    //         Ok(()) => (),
-    //         Err(err) => panic!("Unexpected error ({:?})", err),
-    //     }
-    // }
+    #[test]
+    // Transaction hash:
+    // 1dd22b2976374f9b8e6aa045ded141742fa5adc5184a505410fb9f343d14e407
+    fn successful_mainnet_mary_tx_with_stk_reg() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+                Value::Coin(1_501_000_000),
+                None,
+            ),
+	    (
+                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+                Value::Coin(9_000_000),
+                None,
+            )],
+        );
+
+        let acnt = AccountState {
+            treasury: 374_930_989_230_000,
+            reserves: 12_618_536_190_580_000,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 0,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (4, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 26342233,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        // Params for the pool registered in `successful_mainnet_mary_tx_with_pool_reg`
+        let pool_param = PoolParam {
+            vrf_keyhash: Hash::from_str("1EFB798F239B9B02DEB4636A3AB1962AF43512595FCB82276E11971E684E49B7").unwrap(),
+            pledge: 1000000000,
+            cost: 340000000,
+            margin: RationalNumber { numerator: 3, denominator: 100 },
+            reward_account: hex::decode("E1FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap().into(),
+            pool_owners: Vec::from([Hash::from_str("FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap()]),
+            relays: [
+                Relay::SingleHostAddr(Nullable::Some(3001),
+                                      Nullable::Some(hex::decode("C22614BB").unwrap().into()),
+                                      Nullable::Null,)
+            ].to_vec(),
+            pool_metadata: Nullable::Some(PoolMetadata {
+                url: "https://cardapool.com/a.json".to_string(),
+                hash: Hash::from_str("01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E").unwrap(),
+            }),
+        };
+        cert_state.pstate.pool_params
+            .insert(Hash::from_str("59EBE72AE96462018FBE04633100F90B3066688D85F00F3BD254707F").unwrap(), pool_param);
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
 
     #[test]
     // Transaction hash:
