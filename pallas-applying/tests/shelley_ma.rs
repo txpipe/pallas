@@ -153,6 +153,80 @@ mod shelley_ma_tests {
     }
 
     #[test]
+    // Same as successful_mainnet_shelley_tx_with_script, but changing "All" to "any" and
+    // deleting one key-witness pair
+    fn successful_mainnet_shelley_tx_with_changed_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley4.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Delete one VKey witness.
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let wit: VKeyWitness = tx_wits.vkeywitness.unwrap().remove(1);
+        tx_wits.vkeywitness = Some(Vec::from([wit]));
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("711245ed0e86bc58578e4b06958d5b0ef856ed42e5ee8fa811e0745aba"),
+                Value::Coin(2000000),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
+                min_pool_cost: 340000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 17584925,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
     // Transaction hash:
     // c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a
     fn successful_mainnet_shelley_tx_with_metadata() {
@@ -270,6 +344,192 @@ mod shelley_ma_tests {
             }),
             prot_magic: 764824073,
             block_slot: 24381863,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
+
+    // #[test]
+    // // Transaction hash:
+    // // 1dd22b2976374f9b8e6aa045ded141742fa5adc5184a505410fb9f343d14e407
+    // fn successful_mainnet_mary_tx_with_stk_reg() {
+    //     let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
+    //     let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+    //     let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+    //     let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+    //         &mtx.transaction_body,
+    //         &[(
+    //             String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+    //             Value::Coin(1_501_000_000),
+    //             None,
+    //         ),
+    // 	    (
+    //             String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+    //             Value::Coin(9_000_000),
+    //             None,
+    //         )],
+    //     );
+    //     let env: Environment = Environment {
+    //         prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+    //             minfee_b: 155381,
+    //             minfee_a: 44,
+    //             max_block_body_size: 65536,
+    //             max_transaction_size: 16384,
+    //             max_block_header_size: 1100,
+    //             key_deposit: 2_000_000,
+    //             pool_deposit: 500_000_000,
+    //             maximum_epoch: 18,
+    //             desired_number_of_stake_pools: 500,
+    //             pool_pledge_influence: RationalNumber {
+    //                 numerator: 3,
+    //                 denominator: 10,
+    //             },
+    //             expansion_rate: RationalNumber {
+    //                 numerator: 3,
+    //                 denominator: 1000,
+    //             },
+    //             treasury_growth_rate: RationalNumber {
+    //                 numerator: 2,
+    //                 denominator: 10,
+    //             },
+    //             decentralization_constant: RationalNumber {
+    //                 numerator: 0,
+    //                 denominator: 1,
+    //             },
+    //             extra_entropy: Nonce {
+    //                 variant: NonceVariant::NeutralNonce,
+    //                 hash: None,
+    //             },
+    //             protocol_version: (4, 0),
+    //             min_utxo_value: 1_000_000,
+    //             min_pool_cost: 340_000_000,
+    //         }),
+    //         prot_magic: 764824073,
+    //         block_slot: 26342233,
+    //         network_id: 1,
+    //     };
+    //     match validate(&metx, &utxos, &env) {
+    //         Ok(()) => (),
+    //         Err(err) => panic!("Unexpected error ({:?})", err),
+    //     }
+    // }
+
+    #[test]
+    // Transaction hash:
+    // ce8ba608357e31695ce7be1a4a9875f43b3fd264f106e455e870714f149af925
+    fn successful_mainnet_mary_tx_with_pool_reg() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary2.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+                Value::Coin(1_507_817_955),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 0,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (4, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 26342415,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
+    // 99f621beaacefc14ad8912b777422600e707f75bf619b2af20e918b0fe53f882
+    // A total of 10_797_095_002 lovelace is drawn from the Treasury.
+    fn successful_mainnet_allegra_tx_with_mir() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("61b651c2062463499961b9cd594da399a5ec910fceb5c63f9eb55a224a"),
+                Value::Coin(96_400_000),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (3, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 19282133,
             network_id: 1,
         };
         match validate(&metx, &utxos, &env) {
@@ -1216,6 +1476,147 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Missing native script witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingScriptWitness) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like successful_mainnet_shelley_tx (hash:
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but one
+    // verification-key witness is removed
+    // (the same one of successful_mainnet_shelley_tx_with_changed_script).
+    fn missing_signature_native_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Delete one VKey witness.
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let wit: VKeyWitness = tx_wits.vkeywitness.unwrap().remove(1);
+        tx_wits.vkeywitness = Some(Vec::from([wit]));
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
+                min_pool_cost: 340000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+        };
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("7165c197d565e88a20885e535f93755682444d3c02fd44dd70883fe89e"),
+                Value::Coin(2000000),
+                None,
+            )],
+        );
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => panic!("The script is not satisfied"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::ScriptDenial) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+    #[test]
+    // Same as successful_mainnet_allegra_tx_with_mir(),
+    // but the the slot is advanced to a later moment.
+    fn too_late_for_mir() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("61b651c2062463499961b9cd594da399a5ec910fceb5c63f9eb55a224a"),
+                Value::Coin(96_400_000),
+                None,
+            )],
+        );
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (3, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 19483200,
+            network_id: 1,
+        };
+        match validate(&metx, &utxos, &env) {
+            Ok(()) => panic!("MIR after the stability window"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::MIRCertificateTooLateinEpoch) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
         }

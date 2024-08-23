@@ -13,11 +13,13 @@ use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
         AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
-        NetworkId, PlutusScript, PolicyId, VKeyWitness, Value,
+        NetworkId, PlutusScript, PolicyId, VKeyWitness, Value, StakeCredential, PoolKeyhash,
+	Epoch, VrfKeyhash, Relay, UnitInterval, RewardAccount, PoolMetadata, AddrKeyhash,
+	TransactionIndex, Genesishash, GenesisDelegateHash,
     },
     babbage::{MintedTx as BabbageMintedTx, PlutusV2Script},
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput};
+use pallas_traverse::{MultiEraInput, MultiEraOutput, time::Slot};
 use std::collections::HashMap;
 use std::ops::Deref;
 pub use validation::*;
@@ -101,6 +103,10 @@ pub fn lovelace_diff_or_fail(
 }
 
 pub fn multi_assets_are_equal(fma: &Multiasset<Coin>, sma: &Multiasset<Coin>) -> bool {
+    multi_asset_included(fma, sma) && multi_asset_included(sma, fma)
+}
+
+pub fn multi_asset_included(fma: &Multiasset<Coin>, sma: &Multiasset<Coin>) -> bool {
     for (fpolicy, fassets) in fma.iter() {
         match find_policy(sma, fpolicy) {
             Some(sassets) => {
@@ -158,7 +164,7 @@ fn coerce_to_coin(
     err: &ValidationError,
 ) -> Result<Multiasset<Coin>, ValidationError> {
     let mut res: Vec<(PolicyId, KeyValuePairs<AssetName, Coin>)> = Vec::new();
-    for (policy, assets) in value.clone().to_vec().iter() {
+    for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, Coin)> = Vec::new();
         for (asset_name, amount) in assets.clone().to_vec().iter() {
             if *amount < 0 {
@@ -341,4 +347,66 @@ pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
     let mut payload: Vec<u8> = Vec::from(script.as_ref());
     payload.insert(0, 2);
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
+}
+
+// Move to an appropriate place (primitives?)
+// pub type RewardAccounts = HashMap<StakeCredential, Coin>;
+// pub type Delegations = HashMap<StakeCredential, PoolKeyhash>;
+
+pub type CertificateIndex = u32;
+
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct CertPointer {
+    pub slot: Slot,
+    pub tx_ix: TransactionIndex,
+    pub cert_ix: CertificateIndex,
+}
+
+pub type GenesisDelegation = HashMap<Genesishash, (GenesisDelegateHash, VrfKeyhash)>;
+pub type FutGenesisDelegation = HashMap<(Slot, Genesishash), (GenesisDelegateHash, VrfKeyhash)>;
+pub type InstantaneousRewards = (HashMap<StakeCredential, Coin>, HashMap<StakeCredential, Coin>);
+
+#[derive(Default)] // for testing
+pub struct DState {
+    pub rewards: HashMap<StakeCredential, Coin>,
+    pub delegations: HashMap<StakeCredential, PoolKeyhash>,
+    pub ptrs: HashMap<CertPointer, StakeCredential>,
+    pub fut_gen_delegs: FutGenesisDelegation,
+    pub gen_delegs: GenesisDelegation,
+    pub inst_rewards: InstantaneousRewards,
+}
+
+// Essentially part of the `PoolRegistration` component of `Certificate` at alonzo/src/model.rs
+#[derive(Clone)]
+pub struct PoolParam {
+    pub vrf_keyhash: VrfKeyhash,
+    pub pledge: Coin,
+    pub cost: Coin,
+    pub margin: UnitInterval,
+    pub reward_account: RewardAccount, // FIXME: Should be a `StakeCredential`, or `Hash<_>`???
+    pub pool_owners: Vec<AddrKeyhash>,
+    pub relays: Vec<Relay>,
+    pub pool_metadata: Nullable<PoolMetadata>,
+}
+
+#[derive(Default)] // for testing
+pub struct PState {
+    pub pool_params: HashMap<PoolKeyhash, PoolParam>,
+    pub fut_pool_params: HashMap<PoolKeyhash, PoolParam>,
+    pub retiring: HashMap<PoolKeyhash, Epoch>,
+}
+
+// Originally `DPState` in ShelleyMA specs, then updated to
+// `CertState` in Haskell sources at Intersect (#3369).
+#[non_exhaustive]
+#[derive(Default)] // for testing
+pub struct CertState {
+    pub pstate: PState,
+    pub dstate: DState,
+}
+
+#[derive(Default)] // for testing
+pub struct AccountState {
+    pub treasury: Coin,
+    pub reserves: Coin,
 }
