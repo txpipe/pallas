@@ -4,6 +4,8 @@
 #[non_exhaustive]
 pub enum ValidationError {
     TxAndProtParamsDiffer,
+    PParamsByronDoesntNeedAccountState,
+    EnvMissingAccountState,
     UnknownProtParams,
     Byron(ByronError),
     ShelleyMA(ShelleyMAError),

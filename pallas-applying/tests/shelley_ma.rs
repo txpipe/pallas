@@ -4,10 +4,10 @@ use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
     utils::{
-        Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
+        AccountState, Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
         ValidationError::*,
     },
-    validate, UTxOs,
+    validate_txs, CertState, UTxOs,
 };
 use pallas_codec::{
     minicbor::{
@@ -16,11 +16,13 @@ use pallas_codec::{
     },
     utils::{Bytes, Nullable},
 };
+use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, TransactionBody,
-    TransactionOutput, VKeyWitness, Value,
+    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, StakeCredential,
+    TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraTx};
+use std::str::FromStr;
 
 #[cfg(test)]
 mod shelley_ma_tests {
@@ -41,6 +43,11 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -82,8 +89,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -104,6 +113,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -145,8 +160,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 17584925,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -178,6 +195,11 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -219,8 +241,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 17584925,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -241,6 +265,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -282,8 +312,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5860488,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -304,6 +336,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -345,8 +383,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 24381863,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -432,6 +472,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -470,8 +516,17 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 26342415,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        let hash =
+            Hash::from_str("FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap();
+        cert_state
+            .dstate
+            .rewards
+            .insert(StakeCredential::AddrKeyhash(hash), 0);
+
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -493,6 +548,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -531,8 +592,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 19282133,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -562,6 +625,12 @@ mod shelley_ma_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -603,8 +672,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TxInsEmpty) => (),
@@ -620,6 +691,12 @@ mod shelley_ma_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = UTxOs::new();
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -661,8 +738,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::InputNotInUTxO) => (),
@@ -694,6 +773,12 @@ mod shelley_ma_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -735,8 +820,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("TTL must always be present in Shelley transactions"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::AlonzoCompNotShelley) => (),
@@ -759,6 +846,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -800,8 +893,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 9999999,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("TTL cannot be exceeded"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TTLExceeded) => (),
@@ -824,6 +919,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -865,8 +966,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Tx size exceeds max limit"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MaxTxSizeExceeded) => (),
@@ -890,6 +993,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -931,8 +1040,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output amount must be above min lovelace value"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MinLovelaceUnreached) => (),
@@ -965,6 +1076,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1006,8 +1123,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Preservation of value property doesn't hold"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PreservationOfValue) => (),
@@ -1030,6 +1149,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1071,8 +1196,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::FeesBelowMin) => (),
@@ -1118,6 +1245,12 @@ mod shelley_ma_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1159,6 +1292,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1168,7 +1302,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongNetworkID) => (),
@@ -1194,6 +1329,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1235,8 +1376,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5860488,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MetadataHash) => (),
@@ -1263,6 +1406,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1304,6 +1453,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1313,7 +1463,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingVKWitness) => (),
@@ -1345,6 +1496,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1386,6 +1543,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1395,7 +1553,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongSignature) => (),
@@ -1422,6 +1581,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1463,6 +1628,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1472,7 +1638,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing native script witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingScriptWitness) => (),
@@ -1501,6 +1668,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1542,6 +1715,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1551,7 +1725,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("The script is not satisfied"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::ScriptDenial) => (),
@@ -1574,6 +1749,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1612,8 +1793,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 19483200,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("MIR after the stability window"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MIRCertificateTooLateinEpoch) => (),

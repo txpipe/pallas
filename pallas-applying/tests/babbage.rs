@@ -5,10 +5,10 @@ use hex;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
-        BabbageError, BabbageProtParams, Environment, MultiEraProtocolParameters,
+        AccountState, BabbageError, BabbageProtParams, Environment, MultiEraProtocolParameters,
         ValidationError::*,
     },
-    validate, UTxOs,
+    validate_txs, CertState, UTxOs,
 };
 use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
 use pallas_codec::{
@@ -50,13 +50,20 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -120,13 +127,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -199,13 +213,20 @@ mod babbage_tests {
             Some(CborWrap(PseudoScript::PlutusV2Script(PlutusV2Script(Bytes::from(hex::decode("5909fe010000323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232222323232533535533357346064606a0062646464642466002008004a666ae68c0d8c0e00044c848c004008c078d5d0981b8008191baa357426ae88c0d80154ccd5cd1819981b0008991919191919191919191919191919191919191919190919999999999980080b80a8098088078068058048038028018011aba135744004666068eb88004d5d08009aba2002357420026ae88008cc0c9d71aba1001357440046ae84004d5d10011aba1001357440046ae84004d5d10011aba1001357440046ae84004d5d10011981300f1aba1001357440046ae84004d5d1181b001198111192999ab9a30353038001132321233001003002301d357426ae88c0e0008c078d5d0981b8008191baa00135742606a0020606ea8d5d0981a001817911a8011111111111111a80691919299aa99a998149aa99a80109815a481035054380022100203d00303903a03a1533501213302549101350033302330340362350012232333027303803a235001223500122533533302b0440040062153353333026303e040223500222533500321533533303104a0030062153353302b0010031303f3305722533500104c221350022253353305100200a100313304d33047002001300600300215335330370010031303f333302d04b0043370200200600409209008e60720020044266060920102313000333573466e20ccd54c0fc104c0a8cc0f1c024000400266aa608008246a00209600200809208e266ae712410231310004813357389201023132000470023335530360393501b0403501b04233355303603922533535002222253353302200800413038003042213303d001002100103f010333301c303403622350022253353303c00b002100313333020303803a235001222533533302a0210030012133330260220043355303e03f235001223303d002333500120012235002223500322330433370000800466aa608e09046a002446608c004666a0024002e008004ccc0c013400c0048004ccc09c11000c0040084cccc09408400c00800400c0040f140044cc0952410134003330233034036235001223303b00a0025001153353355303403523500122350012222302c533350021303104821001213304e2253350011303404a221350022253353304800200710011300600300c0011302a49010136002213355303603723500122350012222302e533350021303304a2100121330502253350011303604c221350022253353304a00200710011300600300e0033335530310342253353353530283500203f03d203f253353303c001330482253350011302e044221350022253353303000200a135302f001223350022303504b20011300600301003b1302c4901013300133037002001100103a00d1120011533573892010350543500165333573460640020502a666ae68c0c400409c0b8c0ccdd50019baa00133019223355301f020235001223301e002335530220232350012233021002333500137009000380233700002900000099aa980f81011a800911980f001199a800919aa981181211a8009119811001180880080091199806815001000919aa981181211a80091198110011809000800999804012801000812111919807198021a8018139a801013a99a9a80181490a99a8011099a801119a80111980400100091101711119a80210171112999ab9a3370e00c0062a666ae68cdc38028010998068020008158158120a99a80090120121a8008141119a801119a8011198128010009014119a801101411981280100091199ab9a3370e00400204604a44446666aa00866032444600660040024002006002004444466aa603803a46a0024466036004666a0024002052400266600a0080026603c66030006004046444666aa603003603866aa603403646a00244660320046010002666aa6030036446a00444a66a666aa603a03e60106603444a66a00404a200204e46a002446601400400a00c200626604000800604200266aa603403646a00244660320046605e44a66a002260160064426a00444a66a6601800401022444660040140082600c00600800446602644666a0060420040026a00204242444600600842444600200844604e44a66a0020364426a00444a66a6601000400e2602a0022600c0064466aa0046602000603600244a66a004200202e44a66a00202e266ae7000806c8c94ccd5cd180f9811000899190919800801801198079192999ab9a3022302500113232123300100300233301075c464a666ae68c094c0a00044c8cc0514cd4cc028005200110011300e4901022d330033301375c464a66a660180029000080089808249022d3200375a0026ae84d5d118140011bad35742604e0020446ea8004d5d09aba23025002300c35742604800203e6ea8004d5d09aba23022002375c6ae84c084004070dd500091199ab9a3371200400203202e46a002444400844a666ae68cdc79a80100b1a80080b0999ab9a3370e6a0040306a00203002a02e024464a666ae68c06cc0780044c8c8c8c8c8c8c8c848cccc00402401c00c008d5d09aba20045333573466e1d2004001132122230020043574260460042a666ae68c0880044c84888c004010dd71aba1302300215333573460420022244400603c60460026ea8d5d08009aba200233300a75c66014eb9d69aba100135744603c004600a6ae84c074004060dd50009299ab9c001162325333573460326038002264646424660020060046eb4d5d09aba2301d003533357346034603a00226eb8d5d0980e00080b9baa35742603600202c6ea80048c94ccd5cd180c180d80089919191909198008028012999ab9a301b00113232300953335734603c00226464646424466600200c0080066eb4d5d09aba2002375a6ae84004d5d118100019bad35742603e0042a666ae68c0740044c8488c00800cc020d5d0980f80100d180f8009baa35742603a0042a666ae68c070004044060c074004dd51aba135744603600460066ae84c068004054dd5000919192999ab9a30190011321223001003375c6ae84c06800854ccd5cd180c00089909118010019bae35742603400402a60340026ea80048488c00800c888cc06888cccd55cf800900911919807198041803980e8009803180e00098021aba2003357420040166eac0048848cc00400c00888cc05c88cccd55cf800900791980518029aba10023003357440040106eb0004c05088448894cd40044008884cc014008ccd54c01c028014010004c04c88448894cd40044d400c040884ccd4014040c010008ccd54c01c024014010004c0488844894cd4004024884cc020c010008cd54c01801c0100044800488488cc00401000cc03c8894cd40080108854cd4cc02000800c01c4cc01400400c4014400888ccd5cd19b8f0020010030051001220021001220011533573892010350543100164901022d31004901013700370e90001b874800955cf2ab9d2323001001223300330020020011").unwrap()))))),
         )];
         add_ref_input_babbage(&mtx.transaction_body, &mut utxos, ref_input_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_380()),
             prot_magic: 764824073,
             block_slot: 78797255,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -271,13 +292,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_preview_params_epoch_30()),
             prot_magic: 2,
             block_slot: 2592005,
             network_id: 0,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -348,13 +376,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_preprod_params_epoch_100()),
             prot_magic: 1,
             block_slot: 41558438,
             network_id: 0,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -446,13 +481,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -513,13 +555,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         }
@@ -549,13 +598,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
                 Babbage(BabbageError::TxInsEmpty) => (),
@@ -572,13 +628,20 @@ mod babbage_tests {
         let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let utxos: UTxOs = UTxOs::new();
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
             Err(err) => match err {
                 Babbage(BabbageError::InputNotInUTxO) => (),
@@ -612,13 +675,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Validity interval lower bound should have been reached"
@@ -655,13 +725,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Validity interval upper bound should not have been surpassed"
@@ -694,13 +771,20 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.minfee_a = 76; // This value was 44 during Babbage on mainnet.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Fee should not be below minimum"),
             Err(err) => match err {
                 Babbage(BabbageError::FeeBelowMin) => (),
@@ -773,13 +857,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "No collateral inputs"),
             Err(err) => match err {
                 Babbage(BabbageError::CollateralMissing) => (),
@@ -849,13 +940,20 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.max_collateral_inputs = 0; // This value was 3 during Babbage on mainnet
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 Babbage(BabbageError::TooManyCollaterals) => (),
@@ -941,13 +1039,20 @@ mod babbage_tests {
         )));
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 Babbage(BabbageError::CollateralNotVKeyLocked) => (),
@@ -1026,13 +1131,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
             Err(err) => match err {
                 Babbage(BabbageError::NonLovelaceCollateral) => (),
@@ -1102,13 +1214,20 @@ mod babbage_tests {
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.collateral_percentage = 728; // This value was 150 during Babbage on
                                                          // mainnet.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Collateral balance should contained the minimum lovelace"
@@ -1184,13 +1303,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Collateral annotation"),
             Err(err) => match err {
                 Babbage(BabbageError::CollateralAnnotation) => (),
@@ -1224,13 +1350,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Preservation of value does not hold"),
             Err(err) => match err {
                 Babbage(BabbageError::PreservationOfValue) => (),
@@ -1260,13 +1393,20 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.ada_per_utxo_byte = 10000000; // This was 4310 during Alonzo on mainnet.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Output minimum lovelace is unreached"),
             Err(err) => match err {
                 Babbage(BabbageError::MinLovelaceUnreached) => (),
@@ -1296,13 +1436,20 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.max_value_size = 0; // This value was 5000 during Babbage on mainnet.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Max value size exceeded"),
             Err(err) => match err {
                 Babbage(BabbageError::MaxValSizeExceeded) => (),
@@ -1364,13 +1511,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Output network ID should match environment network ID"
@@ -1409,13 +1563,20 @@ mod babbage_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Transaction network ID should match environment network ID"
@@ -1489,13 +1650,20 @@ mod babbage_tests {
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.max_tx_ex_units.mem = 3678343; // 1 lower than that of the transaction
         babbage_prot_params.max_tx_ex_units.steps = 1304942838; // 1 lower than that of the transaction
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Transaction ex units should be below maximum"),
             Err(err) => match err {
                 Babbage(BabbageError::TxExUnitsExceeded) => (),
@@ -1526,13 +1694,20 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.max_transaction_size = 154; // 1 less than the size of the transaction.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(babbage_prot_params),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Transaction size should not exceed the maximum allowed"
@@ -1636,13 +1811,20 @@ mod babbage_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Minting policy is not supported by the corresponding native script"
@@ -1710,13 +1892,20 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72316896,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Transaction auxiliary data removed"),
             Err(err) => match err {
                 Babbage(BabbageError::MetadataHash) => (),
@@ -1790,13 +1979,20 @@ mod babbage_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Script hash in input is not matched to a script in the witness set"
@@ -1872,13 +2068,20 @@ mod babbage_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(
                 false,
                 "Datum matching the script input datum hash is missing"
@@ -1960,13 +2163,20 @@ mod babbage_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Unneeded datum"),
             Err(err) => match err {
                 Babbage(BabbageError::UnneededDatum) => (),
@@ -2046,13 +2256,20 @@ mod babbage_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Unneeded datum"),
             Err(err) => match err {
                 Babbage(BabbageError::UnneededRedeemer) => (),
@@ -2129,13 +2346,20 @@ mod babbage_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(&tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Babbage(mk_mainnet_params_epoch_365()),
             prot_magic: 764824073,
             block_slot: 72317003,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Wrong script integrity hash"),
             Err(err) => match err {
                 Babbage(BabbageError::ScriptIntegrityHash) => (),

@@ -5,9 +5,10 @@ use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
-        AlonzoError, AlonzoProtParams, Environment, MultiEraProtocolParameters, ValidationError::*,
+        AccountState, AlonzoError, AlonzoProtParams, Environment, MultiEraProtocolParameters,
+        ValidationError::*,
     },
-    validate, UTxOs,
+    validate_txs, CertState, UTxOs,
 };
 use pallas_codec::{
     minicbor::{
@@ -43,13 +44,21 @@ mod alonzo_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -143,13 +152,21 @@ mod alonzo_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -170,13 +187,21 @@ mod alonzo_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447035,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -197,13 +222,21 @@ mod alonzo_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447038,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -229,13 +262,21 @@ mod alonzo_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxInsEmpty) => (),
@@ -252,13 +293,21 @@ mod alonzo_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = UTxOs::new();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs should be within the UTxO set"),
             Err(err) => match err {
                 Alonzo(AlonzoError::InputNotInUTxO) => (),
@@ -288,13 +337,21 @@ mod alonzo_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Validity interval lower bound should have been reached"),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockPrecedesValInt) => (),
@@ -324,13 +381,21 @@ mod alonzo_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Validity interval upper bound should not have been surpassed"),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockExceedsValInt) => (),
@@ -356,13 +421,21 @@ mod alonzo_tests {
         );
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
         alonzo_prot_params.minfee_a = 79; // This value was 44 during Alonzo on mainnet
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::FeeBelowMin) => (),
@@ -465,13 +538,21 @@ mod alonzo_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("No collateral inputs"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralMissing) => (),
@@ -571,13 +652,20 @@ mod alonzo_tests {
         );
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_300();
         alonzo_prot_params.max_collateral_inputs = 0; // This value was 3 during Alonzo on mainnet
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TooManyCollaterals) => (),
@@ -696,13 +784,20 @@ mod alonzo_tests {
         );
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralNotVKeyLocked) => (),
@@ -810,13 +905,20 @@ mod alonzo_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Collateral inputs should contain only lovelace"),
             Err(err) => match err {
                 Alonzo(AlonzoError::NonLovelaceCollateral) => (),
@@ -915,13 +1017,20 @@ mod alonzo_tests {
         );
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_300();
         alonzo_prot_params.collateral_percentage = 700; // This was 150 during Alonzo on mainnet.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Collateral inputs should contain the minimum lovelace"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralMinLovelace) => (),
@@ -951,13 +1060,20 @@ mod alonzo_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Preservation of value does not hold"),
             Err(err) => match err {
                 Alonzo(AlonzoError::PreservationOfValue) => (),
@@ -1007,13 +1123,20 @@ mod alonzo_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::OutputWrongNetworkID) => (),
@@ -1045,13 +1168,20 @@ mod alonzo_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Transaction network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxWrongNetworkID) => (),
@@ -1151,13 +1281,20 @@ mod alonzo_tests {
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_300();
         alonzo_prot_params.max_tx_ex_units.mem = 4649575; // This is 1 lower than that of the transaction
         alonzo_prot_params.max_tx_ex_units.steps = 1765246503; // This is 1 lower than that of the transaction
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Transaction ex units should be below maximum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxExUnitsExceeded) => (),
@@ -1184,13 +1321,20 @@ mod alonzo_tests {
         );
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
         alonzo_prot_params.max_transaction_size = 158; // 1 byte less than the size of the tx
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!(
                 "Transaction size should not exceed the maximum allowed by the protocol parameter"
             ),
@@ -1301,13 +1445,20 @@ mod alonzo_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All required signers should have signed the transaction"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ReqSignerMissing) => (),
@@ -1337,13 +1488,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWitnessMissing) => (),
@@ -1380,13 +1538,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_334()),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Witness signature should verify the transaction"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWrongSignature) => (),
@@ -1489,13 +1654,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing Plutus script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ScriptWitnessMissing) => (),
@@ -1606,13 +1778,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Unneeded Plutus script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededNativeScript) => (),
@@ -1642,13 +1821,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447035,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Minting policy is not supported by a matching native script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MintingLacksPolicy) => (),
@@ -1751,13 +1937,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing datum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::DatumMissing) => (),
@@ -1866,13 +2059,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Unneeded datum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededDatum) => (),
@@ -1982,13 +2182,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededRedeemer) => (),
@@ -2091,13 +2298,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Redeemer missing"),
             Err(err) => match err {
                 Alonzo(AlonzoError::RedeemerMissing) => (),
@@ -2122,13 +2336,20 @@ mod alonzo_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 6447038,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Transaction auxiliary data removed"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MetadataHash) => (),
@@ -2154,13 +2375,20 @@ mod alonzo_tests {
         );
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
         alonzo_prot_params.ada_per_utxo_byte = 10000000; // This was 34482 during Alonzo on mainnet.
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output minimum lovelace is unreached"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MinLovelaceUnreached) => (),
@@ -2186,13 +2414,20 @@ mod alonzo_tests {
         );
         let mut alonzo_prot_params: AlonzoProtParams = mk_params_epoch_334();
         alonzo_prot_params.max_value_size = 0; // This was 5000 during Alonzo on mainnet
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(alonzo_prot_params),
             prot_magic: 764824073,
             block_slot: 44237276,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Max value size exceeded"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxValSizeExceeded) => (),
@@ -2299,13 +2534,20 @@ mod alonzo_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Alonzo(mk_params_epoch_300()),
             prot_magic: 764824073,
             block_slot: 58924928,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Wrong script integrity hash"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ScriptIntegrityHash) => (),

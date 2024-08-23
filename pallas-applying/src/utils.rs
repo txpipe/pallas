@@ -12,14 +12,14 @@ use pallas_codec::{
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
-        AssetName, AuxiliaryData, Coin, MintedTx as AlonzoMintedTx, Multiasset, NativeScript,
-        NetworkId, PlutusScript, PolicyId, VKeyWitness, Value, StakeCredential, PoolKeyhash,
-	Epoch, VrfKeyhash, Relay, UnitInterval, RewardAccount, PoolMetadata, AddrKeyhash,
-	TransactionIndex, Genesishash, GenesisDelegateHash,
+        AddrKeyhash, AssetName, AuxiliaryData, Coin, Epoch, GenesisDelegateHash, Genesishash,
+        MintedTx as AlonzoMintedTx, Multiasset, NativeScript, NetworkId, PlutusScript, PolicyId,
+        PoolKeyhash, PoolMetadata, Relay, RewardAccount, StakeCredential, TransactionIndex,
+        UnitInterval, VKeyWitness, Value, VrfKeyhash,
     },
     babbage::{MintedTx as BabbageMintedTx, PlutusV2Script},
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput, time::Slot};
+use pallas_traverse::{time::Slot, MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
 use std::ops::Deref;
 pub use validation::*;
@@ -364,9 +364,12 @@ pub struct CertPointer {
 
 pub type GenesisDelegation = HashMap<Genesishash, (GenesisDelegateHash, VrfKeyhash)>;
 pub type FutGenesisDelegation = HashMap<(Slot, Genesishash), (GenesisDelegateHash, VrfKeyhash)>;
-pub type InstantaneousRewards = (HashMap<StakeCredential, Coin>, HashMap<StakeCredential, Coin>);
+pub type InstantaneousRewards = (
+    HashMap<StakeCredential, Coin>,
+    HashMap<StakeCredential, Coin>,
+);
 
-#[derive(Default)] // for testing
+#[derive(Default, Clone)] // for testing
 pub struct DState {
     pub rewards: HashMap<StakeCredential, Coin>,
     pub delegations: HashMap<StakeCredential, PoolKeyhash>,
@@ -389,7 +392,7 @@ pub struct PoolParam {
     pub pool_metadata: Nullable<PoolMetadata>,
 }
 
-#[derive(Default)] // for testing
+#[derive(Default, Clone)] // for testing
 pub struct PState {
     pub pool_params: HashMap<PoolKeyhash, PoolParam>,
     pub fut_pool_params: HashMap<PoolKeyhash, PoolParam>,
@@ -399,14 +402,8 @@ pub struct PState {
 // Originally `DPState` in ShelleyMA specs, then updated to
 // `CertState` in Haskell sources at Intersect (#3369).
 #[non_exhaustive]
-#[derive(Default)] // for testing
+#[derive(Default, Clone)] // for testing
 pub struct CertState {
     pub pstate: PState,
     pub dstate: DState,
-}
-
-#[derive(Default)] // for testing
-pub struct AccountState {
-    pub treasury: Coin,
-    pub reserves: Coin,
 }
