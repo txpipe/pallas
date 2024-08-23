@@ -177,7 +177,7 @@ pub enum Certificate {
     ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
     RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
     UnRegDRepCert(DRepCredential, Coin),
-    UpdateDRepCert(StakeCredential, Nullable<Anchor>),
+    UpdateDRepCert(DRepCredential, Nullable<Anchor>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
