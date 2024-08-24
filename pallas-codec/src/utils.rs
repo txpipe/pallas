@@ -256,11 +256,11 @@ where
         let items: Result<Vec<_>, _> = d.map_iter_with::<C, K, V>(ctx)?.collect();
         let items = items?;
 
-        if items.is_empty() {
-            return Err(Error::message(
-                "decoding empty map as NonEmptyKeyValuePairs",
-            ));
-        }
+        // if items.is_empty() {
+        //     return Err(Error::message(
+        //         "decoding empty map as NonEmptyKeyValuePairs",
+        //     ));
+        // }
 
         match datatype {
             minicbor::data::Type::Map => Ok(NonEmptyKeyValuePairs::Def(items)),
@@ -771,9 +771,9 @@ where
 
         let inner: Vec<T> = d.decode_with(ctx)?;
 
-        if inner.is_empty() {
-            return Err(Error::message("decoding empty set as NonEmptySet"));
-        }
+        // if inner.is_empty() {
+        //     return Err(Error::message("decoding empty set as NonEmptySet"));
+        // }
 
         Ok(Self(inner))
     }
