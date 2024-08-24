@@ -376,7 +376,7 @@ pub struct DState {
 }
 
 // Essentially part of the `PoolRegistration` component of `Certificate` at alonzo/src/model.rs
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PoolParam {
     pub vrf_keyhash: VrfKeyhash,
     pub pledge: Coin,
