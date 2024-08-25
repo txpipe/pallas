@@ -7,6 +7,7 @@ use pallas_primitives::{
     babbage::CostMdls as BabbageCostMdls,
 };
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraProtocolParameters {
