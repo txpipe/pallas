@@ -640,7 +640,7 @@ mod shelley_ma_tests {
                 min_pool_cost: 340_000_000,
             }),
             prot_magic: 764824073,
-            block_slot: 26342233,
+            block_slot: 29_035_358,
             network_id: 1,
             acnt: Some(acnt),
         }
