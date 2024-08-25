@@ -54,5 +54,8 @@ pub fn validate(metx: &MultiEraTx, utxos: &UTxOs, env: &Environment) -> Validati
             ),
             _ => Err(TxAndProtParamsDiffer),
         },
+        MultiEraProtocolParameters::Conway(_) => {
+            todo!("conway phase-1 validation not yet implemented");
+        }
     }
 }
