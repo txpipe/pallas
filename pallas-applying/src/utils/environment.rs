@@ -5,6 +5,7 @@ use pallas_primitives::{
         Coin, CostMdls, ExUnitPrices, ExUnits, Nonce, ProtocolVersion, RationalNumber, UnitInterval,
     },
     babbage::CostMdls as BabbageCostMdls,
+    conway::CostMdls as ConwayCostMdls,
 };
 
 #[allow(clippy::large_enum_variant)]
@@ -155,7 +156,7 @@ pub struct ConwayProtParams {
     pub protocol_version: ProtocolVersion,
     pub min_pool_cost: Coin,
     pub ada_per_utxo_byte: Coin,
-    pub cost_models_for_script_languages: BabbageCostMdls,
+    pub cost_models_for_script_languages: ConwayCostMdls,
     pub execution_costs: ExUnitPrices,
     pub max_tx_ex_units: ExUnits,
     pub max_block_ex_units: ExUnits,
