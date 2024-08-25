@@ -36,6 +36,10 @@ List of positive unit tests:
 - **successful_mainnet_mary_tx_with_pool_reg**
   ([here](https://cexplorer.io/tx/ce8ba608357e31695ce7be1a4a9875f43b3fd264f106e455e870714f149af925)
   to see on Cardano explorer) is a Mary transaction with a pool registration.
+- **successful_mainnet_mary_tx_with_stk_deleg**
+  ([here](https://cexplorer.io/tx/cc6a92cc0f4ea326439bac6b18bc7b424470c508a99b9aebc8fafc027d906465)
+  to see on Cardano explorer) is a Mary transaction with a staking key
+  registration and delegation to the pool above.
 - **successful_mainnet_allegra_tx_with_mir**
   ([here](https://cexplorer.io/tx/99f621beaacefc14ad8912b777422600e707f75bf619b2af20e918b0fe53f882)
   to see on Cardano explorer) is a Mary transaction moving instantaneous
@@ -58,6 +62,8 @@ List of negative unit tests:
 - **missing_signature_native_script** takes successful_mainnet_shelley_tx but
   one verification-key witness is removed (the same one of
   successful_mainnet_shelley_tx_with_changed_script).
+- **unregistered_pool** takes successful_mainnet_mary_tx_with_stk_deleg,
+  but the pool to which the delagation occurs is not registered.
 - **too_late_for_mir** takes successful_mainnet_allegra_tx_with_mir but the slot
   is advanced to a later moment.
 

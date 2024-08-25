@@ -473,92 +473,19 @@ mod shelley_ma_tests {
         }
     }
 
+    const MARY3_UTXO: &str = "014faace6b1de3b825da7c7f4308917822049cdedb5868f7623f892d4e39cf0461807b986a6477205e376dac280d7f150eb497025f67c49757";
+
     #[test]
     // Transaction hash:
-    // 1dd22b2976374f9b8e6aa045ded141742fa5adc5184a505410fb9f343d14e407
-    fn successful_mainnet_mary_tx_with_stk_reg() {
+    // cc6a92cc0f4ea326439bac6b18bc7b424470c508a99b9aebc8fafc027d906465
+    fn successful_mainnet_mary_tx_with_stk_deleg() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
-                Value::Coin(1_501_000_000),
-                None,
-            ),
-	    (
-                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
-                Value::Coin(9_000_000),
-                None,
-            )],
-        );
-
-        let acnt = AccountState {
-            treasury: 374_930_989_230_000,
-            reserves: 12_618_536_190_580_000,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 16384,
-                max_block_header_size: 1100,
-                key_deposit: 2_000_000,
-                pool_deposit: 500_000_000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 500,
-                pool_pledge_influence: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                expansion_rate: RationalNumber {
-                    numerator: 3,
-                    denominator: 1000,
-                },
-                treasury_growth_rate: RationalNumber {
-                    numerator: 2,
-                    denominator: 10,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 0,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (4, 0),
-                min_utxo_value: 1_000_000,
-                min_pool_cost: 340_000_000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 26342233,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
-        let mut cert_state: CertState = CertState::default();
-        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
-        }
-    }
-
-    const MARY4_UTXO: &str = "014faace6b1de3b825da7c7f4308917822049cdedb5868f7623f892d4e39cf0461807b986a6477205e376dac280d7f150eb497025f67c49757";
-
-    #[test]
-    // Transaction hash:
-    // cc6a92cc0f4ea326439bac6b18bc7b424470c508a99b9aebc8fafc027d906465
-    fn successful_mainnet_mary_tx_with_stk_deleg() {
-        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary4.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
-        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
-            &mtx.transaction_body,
-            &[(
-                String::from(MARY4_UTXO),
+                String::from(MARY3_UTXO),
                 Value::Coin(627_760_000),
                 None,
             )],
@@ -567,7 +494,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         cert_state.pstate.pool_params
             .insert(mary2_pool_operator(), mary2_pool_param());
-        match validate_txs(&[metx], &mary4_env(), &utxos, &mut cert_state) {
+        match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -598,7 +525,7 @@ mod shelley_ma_tests {
         }
     }
 
-    fn mary4_env() -> Environment {
+    fn mary3_env() -> Environment {
         let acnt = AccountState {
             treasury: 374_930_989_230_000,
             reserves: 12_618_536_190_580_000,
@@ -1853,20 +1780,20 @@ mod shelley_ma_tests {
     // Like `successful_mainnet_mary_tx_with_stk_deleg`,
     // but the pool to which the delagation occurs is not registered.
     fn unregistered_pool() {
-        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary4.tx"));
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from(MARY4_UTXO),
+                String::from(MARY3_UTXO),
                 Value::Coin(627_760_000),
                 None,
             )],
         );
 
         let mut cert_state: CertState = CertState::default();
-        match validate_txs(&[metx], &mary4_env(), &utxos, &mut cert_state) {
+        match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
             Ok(()) => panic!("Pool is not registered"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PoolNotRegistered) => (),
