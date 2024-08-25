@@ -2,8 +2,18 @@
 ## [Unreleased]
 
 
+<a name="v0.30.1"></a>
+## [v0.30.1] - 2024-08-25
+### Fix
+- **applying:** use correct cost model for Conway ([#508](https://github.com/txpipe/pallas/issues/508))
+- **applying:** add missing Conway pparams variant ([#507](https://github.com/txpipe/pallas/issues/507))
+- **interop:** support Conway pparams mapping to u5c ([#509](https://github.com/txpipe/pallas/issues/509))
+- **primitives:** patch remaining Conway issues ([#505](https://github.com/txpipe/pallas/issues/505))
+- **primitives:** skip nonempty invariant check ([#506](https://github.com/txpipe/pallas/issues/506))
+
+
 <a name="v0.30.0"></a>
-## [v0.30.0] - 2024-08-20
+## [v0.30.0] - 2024-08-21
 ### Chore
 - **interop:** bump u5c spec to v0.9 ([#503](https://github.com/txpipe/pallas/issues/503))
 - **interop:** update u5c spec to v0.8.0 ([#493](https://github.com/txpipe/pallas/issues/493))
@@ -15,6 +25,7 @@
 - **math:** add support for some math functions ([#483](https://github.com/txpipe/pallas/issues/483))
 
 ### Fix
+- exclude large data files blocking crate publish
 - **addresses:** relax length check during parsing ([#491](https://github.com/txpipe/pallas/issues/491))
 - **interop:** skip conway certs in u5c ([#498](https://github.com/txpipe/pallas/issues/498))
 - **primitives:** expose hidden struct fields in Conway ([#501](https://github.com/txpipe/pallas/issues/501))
@@ -1241,7 +1252,8 @@ handshake, chainsync, localstate and blockfetch mini-protocols changed the API s
 - apply fmt to entire workspace
 
 
-[Unreleased]: https://github.com/txpipe/pallas/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/txpipe/pallas/compare/v0.30.1...HEAD
+[v0.30.1]: https://github.com/txpipe/pallas/compare/v0.30.0...v0.30.1
 [v0.30.0]: https://github.com/txpipe/pallas/compare/v0.29.0...v0.30.0
 [v0.29.0]: https://github.com/txpipe/pallas/compare/v0.28.0...v0.29.0
 [v0.28.0]: https://github.com/txpipe/pallas/compare/v0.27.0...v0.28.0
