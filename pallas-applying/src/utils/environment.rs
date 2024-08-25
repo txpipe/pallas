@@ -7,6 +7,7 @@ use pallas_primitives::{
     babbage::CostMdls as BabbageCostMdls,
 };
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraProtocolParameters {
@@ -14,6 +15,7 @@ pub enum MultiEraProtocolParameters {
     Shelley(ShelleyProtParams),
     Alonzo(AlonzoProtParams),
     Babbage(BabbageProtParams),
+    Conway(ConwayProtParams),
 }
 
 impl MultiEraProtocolParameters {
@@ -32,6 +34,10 @@ impl MultiEraProtocolParameters {
                 ..
             }) => *x as usize,
             MultiEraProtocolParameters::Babbage(BabbageProtParams {
+                protocol_version: (x, ..),
+                ..
+            }) => *x as usize,
+            MultiEraProtocolParameters::Conway(ConwayProtParams {
                 protocol_version: (x, ..),
                 ..
             }) => *x as usize,
@@ -134,6 +140,41 @@ pub struct BabbageProtParams {
     pub pool_pledge_influence: RationalNumber,
     pub decentralization_constant: UnitInterval,
     pub extra_entropy: Nonce,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConwayProtParams {
+    pub minfee_a: u32,
+    pub minfee_b: u32,
+    pub max_block_body_size: u32,
+    pub max_transaction_size: u32,
+    pub max_block_header_size: u32,
+    pub key_deposit: Coin,
+    pub pool_deposit: Coin,
+    pub desired_number_of_stake_pools: u32,
+    pub protocol_version: ProtocolVersion,
+    pub min_pool_cost: Coin,
+    pub ada_per_utxo_byte: Coin,
+    pub cost_models_for_script_languages: BabbageCostMdls,
+    pub execution_costs: ExUnitPrices,
+    pub max_tx_ex_units: ExUnits,
+    pub max_block_ex_units: ExUnits,
+    pub max_value_size: u32,
+    pub collateral_percentage: u32,
+    pub max_collateral_inputs: u32,
+    pub expansion_rate: UnitInterval,
+    pub treasury_growth_rate: UnitInterval,
+    pub maximum_epoch: u32,
+    pub pool_pledge_influence: RationalNumber,
+    pub pool_voting_thresholds: pallas_primitives::conway::PoolVotingThresholds,
+    pub drep_voting_thresholds: pallas_primitives::conway::DRepVotingThresholds,
+    pub min_committee_size: u64,
+    pub committee_term_limit: u32,
+    pub governance_action_validity_period: u32,
+    pub governance_action_deposit: Coin,
+    pub drep_deposit: Coin,
+    pub drep_inactivity_period: u32,
+    pub minfee_refscript_cost_per_byte: UnitInterval,
 }
 
 #[derive(Debug)]
