@@ -57,6 +57,7 @@ pub fn validate_tx(
             MultiEraTx::Byron(mtxp) => validate_byron_tx(mtxp, utxos, bpp, env.prot_magic()),
             _ => Err(TxAndProtParamsDiffer),
         },
+        (MultiEraProtocolParameters::Byron(_), Some(_)) => Err(PParamsByronDoesntNeedAccountState),
         (MultiEraProtocolParameters::Shelley(spp), Some(acnt)) => match metx {
             MultiEraTx::AlonzoCompatible(mtx, Era::Shelley)
             | MultiEraTx::AlonzoCompatible(mtx, Era::Allegra)
@@ -90,8 +91,9 @@ pub fn validate_tx(
             ),
             _ => Err(TxAndProtParamsDiffer),
         },
-        MultiEraProtocolParameters::Conway(_) => {
+        (MultiEraProtocolParameters::Conway(_), _) => {
             todo!("conway phase-1 validation not yet implemented");
         }
+        (_, None) => Err(EnvMissingAccountState),
     }
 }
