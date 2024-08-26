@@ -20,7 +20,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
     MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, StakeCredential,
     TransactionBody, TransactionOutput, VKeyWitness, Value, PoolMetadata, Relay,
-    PoolKeyhash,
+    PoolKeyhash, Certificate,
 };
 use pallas_traverse::{Era, MultiEraTx};
 use std::str::FromStr;
@@ -1778,7 +1778,7 @@ mod shelley_ma_tests {
 
     #[test]
     // Like `successful_mainnet_mary_tx_with_stk_deleg`,
-    // but the pool to which the delagation occurs is not registered.
+    // but the pool to which the delegation occurs is not registered.
     fn unregistered_pool() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -1797,6 +1797,50 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Pool is not registered"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PoolNotRegistered) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like `successful_mainnet_mary_tx_with_stk_deleg`,
+    // but the order of the certificates (stake registration and delegation)
+    // is flipped.
+    fn delegation_before_registration() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Permute certificates
+        let old_certs: Vec<Certificate> =
+            mtx.transaction_body.certificates.as_ref().unwrap().clone();
+        let new_certs: Option<Vec<Certificate>> =
+            Some(Vec::from([old_certs[1].clone(), old_certs[0].clone()]));
+        let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
+        tx_body.certificates = new_certs;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_body, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(MARY3_UTXO),
+                Value::Coin(627_760_000),
+                None,
+            )],
+        );
+
+        let mut cert_state: CertState = CertState::default();
+        cert_state.pstate.pool_params
+            .insert(mary2_pool_operator(), mary2_pool_param());
+        match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
+            Ok(()) => panic!("Staking key is not registered"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::KeyNotRegistered) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
         }

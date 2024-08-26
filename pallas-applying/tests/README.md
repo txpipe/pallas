@@ -63,7 +63,10 @@ List of negative unit tests:
   one verification-key witness is removed (the same one of
   successful_mainnet_shelley_tx_with_changed_script).
 - **unregistered_pool** takes successful_mainnet_mary_tx_with_stk_deleg,
-  but the pool to which the delagation occurs is not registered.
+  but the pool to which the delegation occurs is not registered.
+- **delegation_before_registration** takes
+  successful_mainnet_mary_tx_with_stk_deleg and flips the order of the
+  certificates (stake registration and delegation).
 - **too_late_for_mir** takes successful_mainnet_allegra_tx_with_mir but the slot
   is advanced to a later moment.
 
