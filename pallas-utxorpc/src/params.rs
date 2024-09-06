@@ -1,5 +1,5 @@
 use pallas_applying::MultiEraProtocolParameters;
-use utxorpc_spec::utxorpc::v1alpha::cardano::{self as u5c, CostModel};
+use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 use crate::{LedgerContext, Mapper};
 
@@ -49,7 +49,7 @@ impl<C: LedgerContext> Mapper<C> {
                     plutus_v1: params
                         .cost_models_for_script_languages
                         .first()
-                        .map(|(_, data)| CostModel {
+                        .map(|(_, data)| u5c::CostModel {
                             values: data.to_vec(),
                         }),
                     ..Default::default()
@@ -134,6 +134,7 @@ impl<C: LedgerContext> Mapper<C> {
                         .cost_models_for_script_languages
                         .plutus_v2
                         .map(|values| u5c::CostModel { values }),
+                    ..Default::default()
                 }
                 .into(),
                 ..Default::default()
@@ -192,6 +193,10 @@ impl<C: LedgerContext> Mapper<C> {
                     plutus_v2: params
                         .cost_models_for_script_languages
                         .plutus_v2
+                        .map(|values| u5c::CostModel { values }),
+                    plutus_v3: params
+                        .cost_models_for_script_languages
+                        .plutus_v3
                         .map(|values| u5c::CostModel { values }),
                 }
                 .into(),

@@ -12,6 +12,7 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
+mod certs;
 mod params;
 
 pub type TxHash = Hash<32>;
@@ -55,8 +56,8 @@ impl<C: LedgerContext> Mapper<C> {
             conway::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
             conway::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
             conway::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
-            conway::RedeemerTag::Vote => todo!(),
-            conway::RedeemerTag::Propose => todo!(),
+            conway::RedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
+            conway::RedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
         }
     }
 
@@ -169,7 +170,10 @@ impl<C: LedgerContext> Mapper<C> {
                     script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
                 }
                 .into(),
-                Some(conway::PseudoScript::PlutusV3Script(_)) => todo!(),
+                Some(conway::PseudoScript::PlutusV3Script(x)) => u5c::Script {
+                    script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
+                }
+                .into(),
                 None => None,
             },
         }
@@ -211,123 +215,6 @@ impl<C: LedgerContext> Mapper<C> {
                 dns_name: name.clone(),
                 port: Default::default(),
             },
-        }
-    }
-
-    pub fn map_cert(
-        &self,
-        x: &trv::MultiEraCert,
-        tx: &trv::MultiEraTx,
-        order: u32,
-    ) -> Option<u5c::Certificate> {
-        match x {
-            pallas_traverse::MultiEraCert::AlonzoCompatible(x) => {
-                self.map_alonzo_cert(x, tx, order).into()
-            }
-            pallas_traverse::MultiEraCert::Conway(_) => {
-                // TODO: add conway certificates in spec
-                None
-            }
-            _ => None,
-        }
-    }
-
-    pub fn map_alonzo_cert(
-        &self,
-        x: &pallas_primitives::alonzo::Certificate,
-        tx: &trv::MultiEraTx,
-        order: u32,
-    ) -> u5c::Certificate {
-        let inner = match x {
-            babbage::Certificate::StakeRegistration(a) => {
-                u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
-            }
-            babbage::Certificate::StakeDeregistration(a) => {
-                u5c::certificate::Certificate::StakeDeregistration(self.map_stake_credential(a))
-            }
-            babbage::Certificate::StakeDelegation(a, b) => {
-                u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
-                    stake_credential: self.map_stake_credential(a).into(),
-                    pool_keyhash: b.to_vec().into(),
-                })
-            }
-            babbage::Certificate::PoolRegistration {
-                operator,
-                vrf_keyhash,
-                pledge,
-                cost,
-                margin,
-                reward_account,
-                pool_owners,
-                relays,
-                pool_metadata,
-            } => u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
-                operator: operator.to_vec().into(),
-                vrf_keyhash: vrf_keyhash.to_vec().into(),
-                pledge: *pledge,
-                cost: *cost,
-                margin: u5c::RationalNumber {
-                    numerator: margin.numerator as i32,
-                    denominator: margin.denominator as u32,
-                }
-                .into(),
-                reward_account: reward_account.to_vec().into(),
-                pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
-                relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                pool_metadata: pool_metadata
-                    .clone()
-                    .map(|x| u5c::PoolMetadata {
-                        url: x.url.clone(),
-                        hash: x.hash.to_vec().into(),
-                    })
-                    .into(),
-            }),
-            babbage::Certificate::PoolRetirement(a, b) => {
-                u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
-                    pool_keyhash: a.to_vec().into(),
-                    epoch: *b,
-                })
-            }
-            babbage::Certificate::GenesisKeyDelegation(a, b, c) => {
-                u5c::certificate::Certificate::GenesisKeyDelegation(u5c::GenesisKeyDelegationCert {
-                    genesis_hash: a.to_vec().into(),
-                    genesis_delegate_hash: b.to_vec().into(),
-                    vrf_keyhash: c.to_vec().into(),
-                })
-            }
-            babbage::Certificate::MoveInstantaneousRewardsCert(a) => {
-                u5c::certificate::Certificate::MirCert(u5c::MirCert {
-                    from: match &a.source {
-                        babbage::InstantaneousRewardSource::Reserves => {
-                            u5c::MirSource::Reserves.into()
-                        }
-                        babbage::InstantaneousRewardSource::Treasury => {
-                            u5c::MirSource::Treasury.into()
-                        }
-                    },
-                    to: match &a.target {
-                        babbage::InstantaneousRewardTarget::StakeCredentials(x) => x
-                            .iter()
-                            .map(|(k, v)| u5c::MirTarget {
-                                stake_credential: self.map_stake_credential(k).into(),
-                                delta_coin: *v,
-                            })
-                            .collect(),
-                        _ => Default::default(),
-                    },
-                    other_pot: match &a.target {
-                        babbage::InstantaneousRewardTarget::OtherAccountingPot(x) => *x,
-                        _ => Default::default(),
-                    },
-                })
-            }
-        };
-
-        u5c::Certificate {
-            certificate: inner.into(),
-            redeemer: tx
-                .find_certificate_redeemer(order)
-                .map(|r| self.map_redeemer(&r)),
         }
     }
 
