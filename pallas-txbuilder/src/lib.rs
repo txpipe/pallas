@@ -3,7 +3,7 @@ mod transaction;
 
 pub use babbage::BuildBabbage;
 pub use transaction::model::{
-    BuiltTransaction, ExUnits, Input, Output, ScriptKind, StagingTransaction,
+    BuiltTransaction, ExUnits, Input, Output, ScriptKind, StagingTransaction, PlutusVersion,
 };
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
