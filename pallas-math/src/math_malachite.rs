@@ -2,24 +2,25 @@
 # Cardano Math functions using the num-bigint crate
  */
 
-use std::cmp::Ordering;
-use std::fmt::{Display, Formatter};
-use std::ops::{Div, Mul, Neg, Sub};
-use std::str::FromStr;
-
-use num_bigint::BigInt;
-use num_integer::Integer;
-use num_traits::{Signed, ToPrimitive};
+use crate::math::{Error, ExpCmpOrdering, ExpOrdering, FixedPrecision, DEFAULT_PRECISION};
+use malachite::num::arithmetic::traits::{Abs, DivRem, DivRound, Pow, PowAssign};
+use malachite::num::basic::traits::One;
+use malachite::platform_64::Limb;
+use malachite::rounding_modes::RoundingMode;
+use malachite::{Integer, Natural};
+use malachite_base::num::arithmetic::traits::Sign;
 use once_cell::sync::Lazy;
 use regex::Regex;
-
-use crate::math::{Error, ExpCmpOrdering, ExpOrdering, FixedPrecision, DEFAULT_PRECISION};
+use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct Decimal {
     precision: u64,
-    precision_multiplier: BigInt,
-    data: BigInt,
+    precision_multiplier: Integer,
+    data: Integer,
 }
 
 impl PartialEq for Decimal {
@@ -58,7 +59,7 @@ impl Display for Decimal {
 impl From<u64> for Decimal {
     fn from(n: u64) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = BigInt::from(n) * &result.precision_multiplier;
+        result.data = Integer::from(n) * &result.precision_multiplier;
         result
     }
 }
@@ -66,16 +67,50 @@ impl From<u64> for Decimal {
 impl From<i64> for Decimal {
     fn from(n: i64) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = BigInt::from(n) * &result.precision_multiplier;
+        result.data = Integer::from(n) * &result.precision_multiplier;
         result
     }
 }
 
-impl From<&BigInt> for Decimal {
-    fn from(n: &BigInt) -> Self {
+impl From<Integer> for Decimal {
+    fn from(n: Integer) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data.clone_from(n);
+        result.data = n * &result.precision_multiplier;
         result
+    }
+}
+
+impl From<&Integer> for Decimal {
+    fn from(n: &Integer) -> Self {
+        let mut result = Decimal::new(DEFAULT_PRECISION);
+        result.data = n * &result.precision_multiplier;
+        result
+    }
+}
+
+impl From<Natural> for Decimal {
+    fn from(n: Natural) -> Self {
+        let mut result = Decimal::new(DEFAULT_PRECISION);
+        result.data = Integer::from(n) * &result.precision_multiplier;
+        result
+    }
+}
+
+impl From<&Natural> for Decimal {
+    fn from(n: &Natural) -> Self {
+        let mut result = Decimal::new(DEFAULT_PRECISION);
+        result.data = Integer::from(n) * &result.precision_multiplier;
+        result
+    }
+}
+
+impl From<&[u8]> for Decimal {
+    fn from(n: &[u8]) -> Self {
+        let limbs = n
+            .chunks(size_of::<u64>())
+            .map(|chunk| Limb::from_be_bytes(chunk.try_into().expect("Infallible")))
+            .collect();
+        Decimal::from(Natural::from_owned_limbs_desc(limbs))
     }
 }
 
@@ -85,6 +120,17 @@ impl Neg for Decimal {
     fn neg(self) -> Self::Output {
         let mut result = Decimal::new(self.precision);
         result.data = -self.data;
+        result
+    }
+}
+
+// Implement Neg for a reference to Decimal
+impl<'a> Neg for &'a Decimal {
+    type Output = Decimal;
+
+    fn neg(self) -> Self::Output {
+        let mut result = Decimal::new(self.precision);
+        result.data = -&self.data;
         result
     }
 }
@@ -100,6 +146,13 @@ impl Mul for Decimal {
     }
 }
 
+impl MulAssign for Decimal {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.data *= &rhs.data;
+        scale(&mut self.data);
+    }
+}
+
 // Implement Mul for a reference to Decimal
 impl<'a, 'b> Mul<&'b Decimal> for &'a Decimal {
     type Output = Decimal;
@@ -112,6 +165,13 @@ impl<'a, 'b> Mul<&'b Decimal> for &'a Decimal {
     }
 }
 
+impl<'a, 'b> MulAssign<&'b Decimal> for &'a mut Decimal {
+    fn mul_assign(&mut self, rhs: &'b Decimal) {
+        self.data *= &rhs.data;
+        scale(&mut self.data);
+    }
+}
+
 impl Div for Decimal {
     type Output = Self;
 
@@ -119,6 +179,13 @@ impl Div for Decimal {
         let mut result = Decimal::new(self.precision);
         div(&mut result.data, &self.data, &rhs.data);
         result
+    }
+}
+
+impl DivAssign for Decimal {
+    fn div_assign(&mut self, rhs: Self) {
+        let temp = self.data.clone();
+        div(&mut self.data, &temp, &rhs.data);
     }
 }
 
@@ -133,6 +200,13 @@ impl<'a, 'b> Div<&'b Decimal> for &'a Decimal {
     }
 }
 
+impl<'a, 'b> DivAssign<&'b Decimal> for &'a mut Decimal {
+    fn div_assign(&mut self, rhs: &'b Decimal) {
+        let temp = self.data.clone();
+        div(&mut self.data, &temp, &rhs.data);
+    }
+}
+
 impl Sub for Decimal {
     type Output = Self;
 
@@ -140,6 +214,12 @@ impl Sub for Decimal {
         let mut result = Decimal::new(self.precision);
         result.data = &self.data - &rhs.data;
         result
+    }
+}
+
+impl SubAssign for Decimal {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.data -= &rhs.data;
     }
 }
 
@@ -154,11 +234,50 @@ impl<'a, 'b> Sub<&'b Decimal> for &'a Decimal {
     }
 }
 
+impl<'a, 'b> SubAssign<&'b Decimal> for &'a mut Decimal {
+    fn sub_assign(&mut self, rhs: &'b Decimal) {
+        self.data -= &rhs.data;
+    }
+}
+
+impl Add for Decimal {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut result = Decimal::new(self.precision);
+        result.data = &self.data + &rhs.data;
+        result
+    }
+}
+
+impl AddAssign for Decimal {
+    fn add_assign(&mut self, rhs: Self) {
+        self.data += &rhs.data;
+    }
+}
+
+// Implement Add for a reference to Decimal
+impl<'a, 'b> Add<&'b Decimal> for &'a Decimal {
+    type Output = Decimal;
+
+    fn add(self, rhs: &'b Decimal) -> Self::Output {
+        let mut result = Decimal::new(self.precision);
+        result.data = &self.data + &rhs.data;
+        result
+    }
+}
+
+impl<'a, 'b> AddAssign<&'b Decimal> for &'a mut Decimal {
+    fn add_assign(&mut self, rhs: &'b Decimal) {
+        self.data += &rhs.data;
+    }
+}
+
 impl FixedPrecision for Decimal {
     fn new(precision: u64) -> Self {
-        let ten = BigInt::from(10);
-        let precision_multiplier = ten.pow(precision as u32);
-        let data = BigInt::from(0);
+        let mut precision_multiplier = Integer::from(10);
+        precision_multiplier.pow_assign(precision);
+        let data = Integer::from(0);
         Decimal {
             precision,
             precision_multiplier,
@@ -175,7 +294,7 @@ impl FixedPrecision for Decimal {
         }
 
         let mut decimal = Decimal::new(precision);
-        decimal.data = BigInt::from_str(s).unwrap();
+        decimal.data = Integer::from_str(s).unwrap();
         Ok(decimal)
     }
 
@@ -211,9 +330,51 @@ impl FixedPrecision for Decimal {
             &compare.data,
         )
     }
+
+    fn round(&self) -> Self {
+        let mut result = self.clone();
+        let half = &self.precision_multiplier / Integer::from(2);
+        let remainder = &self.data % &self.precision_multiplier;
+        if (&remainder).abs() >= half {
+            if self.data.sign() == Ordering::Less {
+                result.data -= &self.precision_multiplier + remainder;
+            } else {
+                result.data += &self.precision_multiplier - remainder;
+            }
+        } else {
+            result.data -= remainder;
+        }
+        result
+    }
+
+    fn floor(&self) -> Self {
+        let mut result = self.clone();
+        let remainder = &self.data % &self.precision_multiplier;
+        if self.data.sign() == Ordering::Less && remainder != 0 {
+            result.data -= &self.precision_multiplier;
+        }
+        result.data -= remainder;
+        result
+    }
+
+    fn ceil(&self) -> Self {
+        let mut result = self.clone();
+        let remainder = &self.data % &self.precision_multiplier;
+        if self.data.sign() == Ordering::Greater && remainder != 0 {
+            result.data += &self.precision_multiplier;
+        }
+        result.data -= remainder;
+        result
+    }
+
+    fn trunc(&self) -> Self {
+        let mut result = self.clone();
+        result.data -= &self.data % &self.precision_multiplier;
+        result
+    }
 }
 
-fn print_fixedp(n: &BigInt, precision: &BigInt, width: usize) -> String {
+fn print_fixedp(n: &Integer, precision: &Integer, width: usize) -> String {
     let (mut temp_q, mut temp_r) = n.div_rem(precision);
 
     let is_negative_q = temp_q < ZERO.value;
@@ -243,11 +404,11 @@ fn print_fixedp(n: &BigInt, precision: &BigInt, width: usize) -> String {
 }
 
 struct Constant {
-    value: BigInt,
+    value: Integer,
 }
 
 impl Constant {
-    pub fn new(init: fn() -> BigInt) -> Constant {
+    pub fn new(init: fn() -> Integer) -> Constant {
         Constant { value: init() }
     }
 }
@@ -256,14 +417,14 @@ unsafe impl Sync for Constant {}
 unsafe impl Send for Constant {}
 
 static DIGITS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?\d+$").unwrap());
-static TEN: Lazy<Constant> = Lazy::new(|| Constant::new(|| BigInt::from(10)));
-static PRECISION: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.pow(34)));
-static EPS: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.pow(34 - 24)));
-static ONE: Lazy<Constant> = Lazy::new(|| Constant::new(|| BigInt::from(1) * &PRECISION.value));
-static ZERO: Lazy<Constant> = Lazy::new(|| Constant::new(|| BigInt::from(0)));
+static TEN: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(10)));
+static PRECISION: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.clone().pow(34)));
+static EPS: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
+static ONE: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(1) * &PRECISION.value));
+static ZERO: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(0)));
 static E: Lazy<Constant> = Lazy::new(|| {
     Constant::new(|| {
-        let mut e = BigInt::from(0);
+        let mut e = Integer::from(0);
         ref_exp(&mut e, &ONE.value);
         e
     })
@@ -271,29 +432,28 @@ static E: Lazy<Constant> = Lazy::new(|| {
 
 /// Entry point for 'exp' approximation. First does the scaling of 'x' to [0,1]
 /// and then calls the continued fraction approximation function.
-fn ref_exp(rop: &mut BigInt, x: &BigInt) -> i32 {
+fn ref_exp(rop: &mut Integer, x: &Integer) -> i32 {
     let mut iterations = 0;
     match x.cmp(&ZERO.value) {
-        std::cmp::Ordering::Equal => {
+        Ordering::Equal => {
             // rop = 1
             rop.clone_from(&ONE.value);
         }
-        std::cmp::Ordering::Less => {
+        Ordering::Less => {
             let x_ = -x;
-            let mut temp = BigInt::from(0);
+            let mut temp = Integer::from(0);
             iterations = ref_exp(&mut temp, &x_);
             // rop = 1 / temp
             div(rop, &ONE.value, &temp);
         }
-        std::cmp::Ordering::Greater => {
-            let mut n_exponent = x.div_ceil(&PRECISION.value);
-            let n = n_exponent.to_u32().expect("n_exponent to_u32 failed");
-            n_exponent *= &PRECISION.value; /* ceil(x) */
-            let x_ = x / n;
+        Ordering::Greater => {
+            let (n_exponent, _) = x.div_round(&PRECISION.value, RoundingMode::Ceiling);
+            let x_ = x / &n_exponent;
             iterations = mp_exp_taylor(rop, 1000, &x_, &EPS.value);
 
             // rop = rop.pow(n)
-            ipow(rop, &rop.clone(), n as i64);
+            let n_exponent_i64: i64 = i64::try_from(&n_exponent).expect("n_exponent to_i64 failed");
+            ipow(rop, &rop.clone(), n_exponent_i64);
         }
     }
 
@@ -302,15 +462,15 @@ fn ref_exp(rop: &mut BigInt, x: &BigInt) -> i32 {
 
 /// Division with quotent and remainder
 #[inline]
-fn div_qr(q: &mut BigInt, r: &mut BigInt, x: &BigInt, y: &BigInt) {
+fn div_qr(q: &mut Integer, r: &mut Integer, x: &Integer, y: &Integer) {
     (*q, *r) = x.div_rem(y);
 }
 
 /// Division
-pub fn div(rop: &mut BigInt, x: &BigInt, y: &BigInt) {
-    let mut temp_q = BigInt::from(0);
-    let mut temp_r = BigInt::from(0);
-    let mut temp: BigInt;
+pub fn div(rop: &mut Integer, x: &Integer, y: &Integer) {
+    let mut temp_q = Integer::from(0);
+    let mut temp_r = Integer::from(0);
+    let mut temp: Integer;
     div_qr(&mut temp_q, &mut temp_r, x, y);
 
     temp = &temp_q * &PRECISION.value;
@@ -322,7 +482,7 @@ pub fn div(rop: &mut BigInt, x: &BigInt, y: &BigInt) {
     *rop = temp;
 }
 /// Taylor / MacLaurin series approximation
-fn mp_exp_taylor(rop: &mut BigInt, max_n: i32, x: &BigInt, epsilon: &BigInt) -> i32 {
+fn mp_exp_taylor(rop: &mut Integer, max_n: i32, x: &Integer, epsilon: &Integer) -> i32 {
     let mut divisor = ONE.value.clone();
     let mut last_x = ONE.value.clone();
     rop.clone_from(&ONE.value);
@@ -333,12 +493,12 @@ fn mp_exp_taylor(rop: &mut BigInt, max_n: i32, x: &BigInt, epsilon: &BigInt) -> 
         let next_x2 = next_x.clone();
         div(&mut next_x, &next_x2, &divisor);
 
-        if next_x.abs() < epsilon.abs() {
+        if (&next_x).abs() < epsilon.abs() {
             break;
         }
 
         divisor += &ONE.value;
-        *rop += &next_x;
+        *rop = &*rop + &next_x;
         last_x.clone_from(&next_x);
         n += 1;
     }
@@ -346,27 +506,27 @@ fn mp_exp_taylor(rop: &mut BigInt, max_n: i32, x: &BigInt, epsilon: &BigInt) -> 
     n
 }
 
-fn scale(rop: &mut BigInt) {
-    let mut temp = BigInt::from(0);
-    let mut a = BigInt::from(0);
+pub(crate) fn scale(rop: &mut Integer) {
+    let mut temp = Integer::from(0);
+    let mut a = Integer::from(0);
     div_qr(&mut a, &mut temp, rop, &PRECISION.value);
     if *rop < ZERO.value && temp != ZERO.value {
-        a -= 1;
+        a -= Integer::ONE;
     }
     *rop = a;
 }
 
 /// Integer power internal function
-fn ipow_(rop: &mut BigInt, x: &BigInt, n: i64) {
+fn ipow_(rop: &mut Integer, x: &Integer, n: i64) {
     if n == 0 {
         rop.clone_from(&ONE.value);
     } else if n % 2 == 0 {
-        let mut res = BigInt::from(0);
+        let mut res = Integer::from(0);
         ipow_(&mut res, x, n / 2);
         *rop = &res * &res;
         scale(rop);
     } else {
-        let mut res = BigInt::from(0);
+        let mut res = Integer::from(0);
         ipow_(&mut res, x, n - 1);
         *rop = res * x;
         scale(rop);
@@ -374,9 +534,9 @@ fn ipow_(rop: &mut BigInt, x: &BigInt, n: i64) {
 }
 
 /// Integer power
-fn ipow(rop: &mut BigInt, x: &BigInt, n: i64) {
+fn ipow(rop: &mut Integer, x: &Integer, n: i64) {
     if n < 0 {
-        let mut temp = BigInt::from(0);
+        let mut temp = Integer::from(0);
         ipow_(&mut temp, x, -n);
         div(rop, &ONE.value, &temp);
     } else {
@@ -388,32 +548,32 @@ fn ipow(rop: &mut BigInt, x: &BigInt, n: i64) {
 ///    maximum of 'maxN' iterations or until the absolute difference between two
 ///    succeeding convergents is smaller than 'eps'. Assumes 'x' to be within
 ///    [1,e).
-fn mp_ln_n(rop: &mut BigInt, max_n: i32, x: &BigInt, epsilon: &BigInt) {
-    let mut ba: BigInt;
-    let mut aa: BigInt;
-    let mut ab: BigInt;
-    let mut bb: BigInt;
-    let mut a_: BigInt;
-    let mut b_: BigInt;
-    let mut diff: BigInt;
-    let mut convergent: BigInt = BigInt::from(0);
-    let mut last: BigInt = BigInt::from(0);
+fn mp_ln_n(rop: &mut Integer, max_n: i32, x: &Integer, epsilon: &Integer) {
+    let mut ba: Integer;
+    let mut aa: Integer;
+    let mut ab: Integer;
+    let mut bb: Integer;
+    let mut a_: Integer;
+    let mut b_: Integer;
+    let mut diff: Integer;
+    let mut convergent: Integer = Integer::from(0);
+    let mut last: Integer = Integer::from(0);
     let mut first = true;
     let mut n = 1;
 
-    let mut a: BigInt;
+    let mut a: Integer;
     let mut b = ONE.value.clone();
 
     let mut an_m2 = ONE.value.clone();
-    let mut bn_m2 = BigInt::from(0);
-    let mut an_m1 = BigInt::from(0);
+    let mut bn_m2 = Integer::from(0);
+    let mut an_m1 = Integer::from(0);
     let mut bn_m1 = ONE.value.clone();
 
     let mut curr_a = 1;
 
     while n <= max_n + 2 {
         let curr_a_2 = curr_a * curr_a;
-        a = x * curr_a_2;
+        a = x * Integer::from(curr_a_2);
         if n > 1 && n % 2 == 1 {
             curr_a += 1;
         }
@@ -455,12 +615,11 @@ fn mp_ln_n(rop: &mut BigInt, max_n: i32, x: &BigInt, epsilon: &BigInt) {
     *rop = convergent;
 }
 
-fn find_e(x: &BigInt) -> i64 {
-    let mut x_: BigInt = BigInt::from(0);
-    let mut x__: BigInt;
+fn find_e(x: &Integer) -> i64 {
+    let mut x_: Integer = Integer::from(0);
+    let mut x__: Integer = E.value.clone();
 
     div(&mut x_, &ONE.value, &E.value);
-    x__ = E.value.clone();
 
     let mut l = -1;
     let mut u = 1;
@@ -491,17 +650,17 @@ fn find_e(x: &BigInt) -> i64 {
 /// Entry point for 'ln' approximation. First does the necessary scaling, and
 /// then calls the continued fraction calculation. For any value outside the
 /// domain, i.e., 'x in (-inf,0]', the function returns '-INFINITY'.
-fn ref_ln(rop: &mut BigInt, x: &BigInt) -> bool {
-    let mut factor = BigInt::from(0);
-    let mut x_ = BigInt::from(0);
+fn ref_ln(rop: &mut Integer, x: &Integer) -> bool {
+    let mut factor = Integer::from(0);
+    let mut x_ = Integer::from(0);
     if x <= &ZERO.value {
         return false;
     }
 
     let n = find_e(x);
 
-    *rop = BigInt::from(n);
-    *rop = rop.clone() * &PRECISION.value;
+    *rop = Integer::from(n);
+    *rop = &*rop * &PRECISION.value;
     ref_exp(&mut factor, rop);
 
     div(&mut x_, x, &factor);
@@ -510,14 +669,14 @@ fn ref_ln(rop: &mut BigInt, x: &BigInt) -> bool {
 
     let x_2 = x_.clone();
     mp_ln_n(&mut x_, 1000, &x_2, &EPS.value);
-    *rop = rop.clone() + &x_;
+    *rop = &*rop + &x_;
 
     true
 }
 
-fn ref_pow(rop: &mut BigInt, base: &BigInt, exponent: &BigInt) {
+fn ref_pow(rop: &mut Integer, base: &Integer, exponent: &Integer) {
     /* x^y = exp(y * ln x) */
-    let mut tmp: BigInt = BigInt::from(0);
+    let mut tmp: Integer = Integer::from(0);
     ref_ln(&mut tmp, base);
     tmp *= exponent;
     scale(&mut tmp);
@@ -535,20 +694,20 @@ fn ref_pow(rop: &mut BigInt, base: &BigInt, exponent: &BigInt) {
 /// Lagrange remainder require knowledge of the maximum value to compute the
 /// maximal error of the remainder.
 fn ref_exp_cmp(
-    rop: &mut BigInt,
+    rop: &mut Integer,
     max_n: u64,
-    x: &BigInt,
+    x: &Integer,
     bound_x: i64,
-    compare: &BigInt,
+    compare: &Integer,
 ) -> ExpCmpOrdering {
     rop.clone_from(&ONE.value);
     let mut n = 0u64;
-    let mut divisor: BigInt;
-    let mut next_x: BigInt;
-    let mut error: BigInt;
-    let mut upper: BigInt;
-    let mut lower: BigInt;
-    let mut error_term: BigInt;
+    let mut divisor: Integer;
+    let mut next_x: Integer;
+    let mut error: Integer;
+    let mut upper: Integer;
+    let mut lower: Integer;
+    let mut error_term: Integer;
 
     divisor = ONE.value.clone();
     error = x.clone();
@@ -556,7 +715,7 @@ fn ref_exp_cmp(
     let mut estimate = ExpOrdering::UNKNOWN;
     while n < max_n {
         next_x = error.clone();
-        if next_x.abs() < EPS.value.abs() {
+        if (&next_x).abs() < (&EPS.value).abs() {
             break;
         }
         divisor += &ONE.value;
@@ -568,8 +727,8 @@ fn ref_exp_cmp(
         scale(&mut error);
         let e2 = error.clone();
         div(&mut error, &e2, &divisor);
-        error_term = &error * bound_x;
-        *rop += &next_x;
+        error_term = &error * Integer::from(bound_x);
+        *rop = &*rop + &next_x;
 
         /* compare is guaranteed to be above overall result */
         upper = &*rop + &error_term;
@@ -589,9 +748,12 @@ fn ref_exp_cmp(
         n += 1;
     }
 
+    let mut approx = Decimal::new(DEFAULT_PRECISION);
+    approx.data = rop.clone();
+
     ExpCmpOrdering {
         iterations: n,
         estimation: estimate,
-        approx: Decimal::from(&*rop),
+        approx,
     }
 }
