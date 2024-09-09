@@ -1,36 +1,107 @@
+use crate::hash::Hash;
 use thiserror::Error;
 use vrf_dalek::vrf03::{PublicKey03, SecretKey03, VrfProof03};
 
+/// error that can be returned if the verification of a [`VrfProof`] fails
+/// see [`VrfProof::verify`]
+///
 #[derive(Error, Debug)]
-pub enum Error {
-    #[error("TryFromSlice {0}")]
-    TryFromSlice(#[from] std::array::TryFromSliceError),
+#[error("VRF Proof Verification failed.")]
+pub struct VerificationError(
+    #[from]
+    #[source]
+    vrf_dalek::errors::VrfError,
+);
 
-    #[error("VrfError {0}")]
-    VrfError(#[from] vrf_dalek::errors::VrfError),
+pub const VRF_SEED_SIZE: usize = 32;
+pub const VRF_PROOF_SIZE: usize = 80;
+pub const VRF_PUBLIC_KEY_SIZE: usize = 32;
+pub const VRF_SECRET_KEY_SIZE: usize = 32;
+pub const VRF_PROOF_HASH_SIZE: usize = 64;
+
+// Wrapper for VRF secret key
+pub struct VrfSecretKey {
+    secret_key_03: SecretKey03,
 }
 
-/// Sign a seed value with a vrf secret key and produce a proof signature
-pub fn vrf_prove(secret_key: &[u8], seed: &[u8]) -> Result<Vec<u8>, Error> {
-    let sk = SecretKey03::from_bytes(secret_key[..32].try_into()?);
-    let pk = PublicKey03::from(&sk);
-    let proof = VrfProof03::generate(&pk, &sk, seed);
-    Ok(proof.to_bytes().to_vec())
+// Wrapper for VRF public key
+pub struct VrfPublicKey {
+    public_key_03: PublicKey03,
 }
 
-/// Convert a proof signature to a hash
-pub fn vrf_proof_to_hash(proof: &[u8]) -> Result<Vec<u8>, Error> {
-    let proof = VrfProof03::from_bytes(proof[..80].try_into()?)?;
-    Ok(proof.proof_to_hash().to_vec())
+// Wrapper for VRF proof
+pub struct VrfProof {
+    proof_03: VrfProof03,
 }
 
-/// Verify a proof signature with a vrf public key. This will return a hash to compare with the original
-/// signature hash, but any non-error result is considered a successful verification without needing
-/// to do the extra comparison check.
-pub fn vrf_verify(public_key: &[u8], signature: &[u8], seed: &[u8]) -> Result<Vec<u8>, Error> {
-    let pk = PublicKey03::from_bytes(public_key.try_into()?);
-    let proof = VrfProof03::from_bytes(signature.try_into()?)?;
-    Ok(proof.verify(&pk, seed)?.to_vec())
+// Create a VrfSecretKey from a slice
+impl From<&[u8; VRF_SECRET_KEY_SIZE]> for VrfSecretKey {
+    fn from(slice: &[u8; VRF_SECRET_KEY_SIZE]) -> Self {
+        VrfSecretKey {
+            secret_key_03: SecretKey03::from_bytes(slice),
+        }
+    }
+}
+
+// Create a VrfPublicKey from a slice
+impl From<&[u8; VRF_PUBLIC_KEY_SIZE]> for VrfPublicKey {
+    fn from(slice: &[u8; VRF_PUBLIC_KEY_SIZE]) -> Self {
+        VrfPublicKey {
+            public_key_03: PublicKey03::from_bytes(slice),
+        }
+    }
+}
+
+// Create a VrfProof from a slice
+impl From<&[u8; VRF_PROOF_SIZE]> for VrfProof {
+    fn from(slice: &[u8; VRF_PROOF_SIZE]) -> Self {
+        VrfProof {
+            proof_03: VrfProof03::from_bytes(slice).unwrap(),
+        }
+    }
+}
+
+// Create a VrfPublicKey from a VrfSecretKey
+impl From<&VrfSecretKey> for VrfPublicKey {
+    fn from(secret_key: &VrfSecretKey) -> Self {
+        VrfPublicKey {
+            public_key_03: PublicKey03::from(&secret_key.secret_key_03),
+        }
+    }
+}
+
+impl VrfSecretKey {
+    /// Sign a challenge message value with a vrf secret key and produce a proof signature
+    pub fn prove(&self, challenge: &[u8]) -> VrfProof {
+        let pk = PublicKey03::from(&self.secret_key_03);
+        let proof = VrfProof03::generate(&pk, &self.secret_key_03, challenge);
+        VrfProof { proof_03: proof }
+    }
+}
+
+impl VrfProof {
+    /// Return the created proof signature
+    pub fn signature(&self) -> [u8; VRF_PROOF_SIZE] {
+        self.proof_03.to_bytes()
+    }
+
+    /// Convert a proof signature to a hash
+    pub fn to_hash(&self) -> Hash<VRF_PROOF_HASH_SIZE> {
+        Hash::from(self.proof_03.proof_to_hash())
+    }
+
+    /// Verify a proof signature with a vrf public key. This will return a hash to compare with the original
+    /// signature hash, but any non-error result is considered a successful verification without needing
+    /// to do the extra comparison check.
+    pub fn verify(
+        &self,
+        public_key: &VrfPublicKey,
+        seed: &[u8],
+    ) -> Result<Hash<VRF_PROOF_HASH_SIZE>, VerificationError> {
+        Ok(Hash::from(
+            self.proof_03.verify(&public_key.public_key_03, seed)?,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -53,22 +124,32 @@ mod tests {
         //    "description": "VRF Signing Key",
         //    "cborHex": "5840adb9c97bec60189aa90d01d113e3ef405f03477d82a94f81da926c90cd46a374e0ff2371508ac339431b50af7d69cde0f120d952bb876806d3136f9a7fda4381"
         // }
-
-        let vrf_skey = hex::decode("adb9c97bec60189aa90d01d113e3ef405f03477d82a94f81da926c90cd46a374e0ff2371508ac339431b50af7d69cde0f120d952bb876806d3136f9a7fda4381").unwrap();
-        let vrf_vkey =
+        let raw_vrf_skey: Vec<u8> = hex::decode("adb9c97bec60189aa90d01d113e3ef405f03477d82a94f81da926c90cd46a374e0ff2371508ac339431b50af7d69cde0f120d952bb876806d3136f9a7fda4381").unwrap();
+        let raw_vrf_vkey: Vec<u8> =
             hex::decode("e0ff2371508ac339431b50af7d69cde0f120d952bb876806d3136f9a7fda4381")
                 .unwrap();
 
-        // random seed to sign with vrf_skey
-        let mut seed = [0u8; 64];
-        thread_rng().fill(&mut seed);
+        let vrf_skey = VrfSecretKey::from(&raw_vrf_skey[..VRF_SECRET_KEY_SIZE].try_into().unwrap());
+        let vrf_vkey =
+            VrfPublicKey::from(&raw_vrf_vkey[..VRF_PUBLIC_KEY_SIZE].try_into().unwrap()
+                as &[u8; VRF_PUBLIC_KEY_SIZE]);
+
+        let calculated_vrf_vkey = VrfPublicKey::from(&vrf_skey);
+        assert_eq!(
+            vrf_vkey.public_key_03.as_bytes(),
+            calculated_vrf_vkey.public_key_03.as_bytes()
+        );
+
+        // random challenge to sign with vrf_skey
+        let mut challenge = [0u8; 64];
+        thread_rng().fill(&mut challenge);
 
         // create a proof signature and hash of the seed
-        let proof_signature = vrf_prove(&vrf_skey, &seed).unwrap();
-        let proof_hash = vrf_proof_to_hash(&proof_signature).unwrap();
+        let proof = vrf_skey.prove(&challenge);
+        let proof_hash = proof.to_hash();
 
         // verify the proof signature with the public vrf public key
-        let verified_hash = vrf_verify(&vrf_vkey, &proof_signature, &seed).unwrap();
+        let verified_hash = proof.verify(&vrf_vkey, &challenge).unwrap();
         assert_eq!(proof_hash, verified_hash);
     }
 }

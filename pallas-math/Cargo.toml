@@ -11,17 +11,10 @@ readme = "README.md"
 authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
 exclude = ["tests/data/*"]
 
-[features]
-default = ["gmp"]
-gmp = ["dep:gmp-mpfr-sys"]
-num = ["dep:num-bigint", "dep:num-integer", "dep:num-traits"]
-
 [dependencies]
-gmp-mpfr-sys = { version = "1.6.4", features = ["mpc"], default-features = false, optional = true }
 once_cell = "1.19.0"
-num-bigint = { version = "0.4.6", optional = true }
-num-integer = { version = "0.1.46", optional = true }
-num-traits = { version = "0.2.19", optional = true }
+malachite = "0.4.16"
+malachite-base = "0.4.16"
 regex = "1.10.5"
 thiserror = "1.0.61"
 
