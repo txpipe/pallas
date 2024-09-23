@@ -4,10 +4,10 @@ use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress};
 use pallas_applying::{
     utils::{
-        Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
+        AccountState, Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
         ValidationError::*,
     },
-    validate, UTxOs,
+    validate_txs, CertState, UTxOs,
 };
 use pallas_codec::{
     minicbor::{
@@ -16,16 +16,20 @@ use pallas_codec::{
     },
     utils::{Bytes, Nullable},
 };
+use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, TransactionBody,
-    TransactionOutput, VKeyWitness, Value,
+    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, StakeCredential,
+    TransactionBody, TransactionOutput, VKeyWitness, Value, PoolMetadata, Relay,
+    PoolKeyhash, Certificate,
 };
 use pallas_traverse::{Era, MultiEraTx};
+use std::str::FromStr;
+use pallas_applying::utils::PoolParam;
 
 #[cfg(test)]
 mod shelley_ma_tests {
     use super::*;
-
+    
     #[test]
     // Transaction hash:
     // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
@@ -41,6 +45,11 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -82,8 +91,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -104,6 +115,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -145,8 +162,91 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 17584925,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_shelley_tx_with_script, but changing "All" to "any" and
+    // deleting one key-witness pair
+    fn successful_mainnet_shelley_tx_with_changed_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley4.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Delete one VKey witness.
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let wit: VKeyWitness = tx_wits.vkeywitness.unwrap().remove(1);
+        tx_wits.vkeywitness = Some(Vec::from([wit]));
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("711245ed0e86bc58578e4b06958d5b0ef856ed42e5ee8fa811e0745aba"),
+                Value::Coin(2000000),
+                None,
+            )],
+        );
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
+                min_pool_cost: 340000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 17584925,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -167,6 +267,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -208,8 +314,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5860488,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -230,6 +338,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -271,8 +385,258 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 24381863,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
+    // ce8ba608357e31695ce7be1a4a9875f43b3fd264f106e455e870714f149af925
+    fn successful_mainnet_mary_tx_with_pool_reg() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary2.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+                Value::Coin(1_507_817_955),
+                None,
+            )],
+        );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 0,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (4, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 26342415,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        let hash =
+            Hash::from_str("FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap();
+        cert_state
+            .dstate
+            .rewards
+            .insert(StakeCredential::AddrKeyhash(hash), 0);
+
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        };
+
+        if !cert_state.pstate.pool_params.contains_key(&mary2_pool_operator()) {
+            panic!("Pool not registered or keyhash mismatch");
+        }
+    }
+
+    const MARY3_UTXO: &str = "014faace6b1de3b825da7c7f4308917822049cdedb5868f7623f892d4e39cf0461807b986a6477205e376dac280d7f150eb497025f67c49757";
+
+    #[test]
+    // Transaction hash:
+    // cc6a92cc0f4ea326439bac6b18bc7b424470c508a99b9aebc8fafc027d906465
+    fn successful_mainnet_mary_tx_with_stk_deleg() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(MARY3_UTXO),
+                Value::Coin(627_760_000),
+                None,
+            )],
+        );
+
+        let mut cert_state: CertState = CertState::default();
+        cert_state.pstate.pool_params
+            .insert(mary2_pool_operator(), mary2_pool_param());
+        match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
+            Ok(()) => (),
+            Err(err) => panic!("Unexpected error ({:?})", err),
+        }
+    }
+
+    fn mary2_pool_operator() -> PoolKeyhash {
+        Hash::from_str("59EBE72AE96462018FBE04633100F90B3066688D85F00F3BD254707F").unwrap()
+    }
+    
+    // Params for the pool registered in `successful_mainnet_mary_tx_with_pool_reg`
+    fn mary2_pool_param() -> PoolParam {
+        PoolParam {
+            vrf_keyhash: Hash::from_str("1EFB798F239B9B02DEB4636A3AB1962AF43512595FCB82276E11971E684E49B7").unwrap(),
+            pledge: 1000000000,
+            cost: 340000000,
+            margin: RationalNumber { numerator: 3, denominator: 100 },
+            reward_account: hex::decode("E1FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap().into(),
+            pool_owners: Vec::from([Hash::from_str("FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap()]),
+            relays: [
+                Relay::SingleHostAddr(Nullable::Some(3001),
+                                      Nullable::Some(hex::decode("C22614BB").unwrap().into()),
+                                      Nullable::Null,)
+            ].to_vec(),
+            pool_metadata: Nullable::Some(PoolMetadata {
+                url: "https://cardapool.com/a.json".to_string(),
+                hash: Hash::from_str("01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E").unwrap(),
+            }),
+        }
+    }
+
+    fn mary3_env() -> Environment {
+        let acnt = AccountState {
+            treasury: 374_930_989_230_000,
+            reserves: 12_618_536_190_580_000,
+        };
+
+        Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 0,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (4, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 29_035_358,
+            network_id: 1,
+            acnt: Some(acnt),
+        }
+    }
+
+    #[test]
+    // Transaction hash:
+    // 99f621beaacefc14ad8912b777422600e707f75bf619b2af20e918b0fe53f882
+    // A total of 10_797_095_002 lovelace is drawn from the Treasury.
+    fn successful_mainnet_allegra_tx_with_mir() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("61b651c2062463499961b9cd594da399a5ec910fceb5c63f9eb55a224a"),
+                Value::Coin(96_400_000),
+                None,
+            )],
+        );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (3, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 19282133,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -302,6 +666,12 @@ mod shelley_ma_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -343,8 +713,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TxInsEmpty) => (),
@@ -360,6 +732,12 @@ mod shelley_ma_tests {
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = UTxOs::new();
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -401,8 +779,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::InputNotInUTxO) => (),
@@ -434,6 +814,12 @@ mod shelley_ma_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -475,8 +861,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("TTL must always be present in Shelley transactions"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::AlonzoCompNotShelley) => (),
@@ -499,6 +887,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -540,8 +934,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 9999999,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("TTL cannot be exceeded"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TTLExceeded) => (),
@@ -564,6 +960,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -605,8 +1007,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Tx size exceeds max limit"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MaxTxSizeExceeded) => (),
@@ -630,6 +1034,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -671,8 +1081,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output amount must be above min lovelace value"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MinLovelaceUnreached) => (),
@@ -705,6 +1117,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -746,8 +1164,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Preservation of value property doesn't hold"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PreservationOfValue) => (),
@@ -770,6 +1190,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -811,8 +1237,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::FeesBelowMin) => (),
@@ -858,6 +1286,12 @@ mod shelley_ma_tests {
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -899,6 +1333,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -908,7 +1343,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongNetworkID) => (),
@@ -934,6 +1370,12 @@ mod shelley_ma_tests {
                 None,
             )],
         );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -975,8 +1417,10 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5860488,
             network_id: 1,
+            acnt: Some(acnt),
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MetadataHash) => (),
@@ -1003,6 +1447,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1044,6 +1494,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1053,7 +1504,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingVKWitness) => (),
@@ -1085,6 +1537,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1126,6 +1584,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1135,7 +1594,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongSignature) => (),
@@ -1162,6 +1622,12 @@ mod shelley_ma_tests {
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
         let env: Environment = Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 minfee_b: 155381,
@@ -1203,6 +1669,7 @@ mod shelley_ma_tests {
             prot_magic: 764824073,
             block_slot: 5281340,
             network_id: 1,
+            acnt: Some(acnt),
         };
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1212,10 +1679,239 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Missing native script witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingScriptWitness) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like successful_mainnet_shelley_tx (hash:
+    // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2), but one
+    // verification-key witness is removed
+    // (the same one of successful_mainnet_shelley_tx_with_changed_script).
+    fn missing_signature_native_script() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Delete one VKey witness.
+        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let wit: VKeyWitness = tx_wits.vkeywitness.unwrap().remove(1);
+        tx_wits.vkeywitness = Some(Vec::from([wit]));
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_wits, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_witness_set =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 4096,
+                max_block_header_size: 1100,
+                key_deposit: 2000000,
+                pool_deposit: 500000000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 150,
+                pool_pledge_influence: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                expansion_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                treasury_growth_rate: RationalNumber {
+                    // FIX: this is a made-up value.
+                    numerator: 1,
+                    denominator: 1,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 1,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (0, 2),
+                min_utxo_value: 1000000,
+                min_pool_cost: 340000000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 5281340,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("7165c197d565e88a20885e535f93755682444d3c02fd44dd70883fe89e"),
+                Value::Coin(2000000),
+                None,
+            )],
+        );
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => panic!("The script is not satisfied"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::ScriptDenial) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like `successful_mainnet_mary_tx_with_stk_deleg`,
+    // but the pool to which the delegation occurs is not registered.
+    fn unregistered_pool() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(MARY3_UTXO),
+                Value::Coin(627_760_000),
+                None,
+            )],
+        );
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
+            Ok(()) => panic!("Pool is not registered"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::PoolNotRegistered) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Like `successful_mainnet_mary_tx_with_stk_deleg`,
+    // but the order of the certificates (stake registration and delegation)
+    // is flipped.
+    fn delegation_before_registration() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
+        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        // Permute certificates
+        let old_certs: Vec<Certificate> =
+            mtx.transaction_body.certificates.as_ref().unwrap().clone();
+        let new_certs: Option<Vec<Certificate>> =
+            Some(Vec::from([old_certs[1].clone(), old_certs[0].clone()]));
+        let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
+        tx_body.certificates = new_certs;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        match encode(tx_body, &mut tx_buf) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+        };
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from(MARY3_UTXO),
+                Value::Coin(627_760_000),
+                None,
+            )],
+        );
+
+        let mut cert_state: CertState = CertState::default();
+        cert_state.pstate.pool_params
+            .insert(mary2_pool_operator(), mary2_pool_param());
+        match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
+            Ok(()) => panic!("Staking key is not registered"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::KeyNotRegistered) => (),
+                _ => panic!("Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_allegra_tx_with_mir(),
+    // but the the slot is advanced to a later moment.
+    fn too_late_for_mir() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
+        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
+        let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
+            &mtx.transaction_body,
+            &[(
+                String::from("61b651c2062463499961b9cd594da399a5ec910fceb5c63f9eb55a224a"),
+                Value::Coin(96_400_000),
+                None,
+            )],
+        );
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (3, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            }),
+            prot_magic: 764824073,
+            block_slot: 19483200,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => panic!("MIR after the stability window"),
+            Err(err) => match err {
+                ShelleyMA(ShelleyMAError::MIRCertificateTooLateinEpoch) => (),
                 _ => panic!("Unexpected error ({:?})", err),
             },
         }

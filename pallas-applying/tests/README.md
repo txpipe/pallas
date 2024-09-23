@@ -28,9 +28,23 @@ Note that, since phase-1 validations do not include the execution of native scri
 List of positive unit tests:
 - **successful_mainnet_shelley_tx** ([here](https://cexplorer.io/tx/50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2) to see on Cardano explorer) is a simple Shelley transaction, with no native scripts or metadata.
 - **successful_mainnet_shelley_tx_with_script** ([here](https://cexplorer.io/tx/4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0) to see on Cardano explorer) is a Shelley transaction with a native script and no metadata.
+- **successful_mainnet_shelley_tx_with_changed_script** is the same as the
+  previous transaction but the script is modified from requiring all signatures
+  to requiring only one of them, and with one key-witness pair removed.
 - **successful_mainnet_shelley_tx_with_metadata** ([here](https://cexplorer.io/tx/c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a) to see on Cardano Explorer) is a Shelley transaction with metadata and no native scripts.
 - **successful_mainnet_mary_tx_with_minting** ([here](https://cexplorer.io/tx/b7b1046d1787ac6917f5bb5841e73b3f4bef8f0a6bf692d05ef18e1db9c3f519) to see on Cardano Explorer) is a Mary transaction that mints assets and has, therefore, a native script. It has no metadata.
-
+- **successful_mainnet_mary_tx_with_pool_reg**
+  ([here](https://cexplorer.io/tx/ce8ba608357e31695ce7be1a4a9875f43b3fd264f106e455e870714f149af925)
+  to see on Cardano explorer) is a Mary transaction with a pool registration.
+- **successful_mainnet_mary_tx_with_stk_deleg**
+  ([here](https://cexplorer.io/tx/cc6a92cc0f4ea326439bac6b18bc7b424470c508a99b9aebc8fafc027d906465)
+  to see on Cardano explorer) is a Mary transaction with a staking key
+  registration and delegation to the pool above.
+- **successful_mainnet_allegra_tx_with_mir**
+  ([here](https://cexplorer.io/tx/99f621beaacefc14ad8912b777422600e707f75bf619b2af20e918b0fe53f882)
+  to see on Cardano explorer) is a Mary transaction moving instantaneous
+  rewards, drawn from the Treasury.
+  
 List of negative unit tests:
 - **empty_ins** takes successful_mainnet_shelley_tx and removes its input.
 - **unfound_utxo** takes successful_mainnet_shelley_tx and calls validation on it without a proper UTxO set containing the transaction input information.
@@ -45,6 +59,16 @@ List of negative unit tests:
 - **missing_vk_witness** takes successful_mainnet_shelley_tx and removes the verification-key witness associated to one of its inputs.
 - **vk_witness_changed** takes successful_mainnet_shelley_tx and modifies the verification-key witness associated to one of its inputs.
 - **missing_native_script_witness** takes successful_mainnet_shelley_tx_with_script and removes the native script associated to one of its inputs.
+- **missing_signature_native_script** takes successful_mainnet_shelley_tx but
+  one verification-key witness is removed (the same one of
+  successful_mainnet_shelley_tx_with_changed_script).
+- **unregistered_pool** takes successful_mainnet_mary_tx_with_stk_deleg,
+  but the pool to which the delegation occurs is not registered.
+- **delegation_before_registration** takes
+  successful_mainnet_mary_tx_with_stk_deleg and flips the order of the
+  certificates (stake registration and delegation).
+- **too_late_for_mir** takes successful_mainnet_allegra_tx_with_mir but the slot
+  is advanced to a later moment.
 
 ### Alonzo
 *pallas-applying/tests/alonzo.rs* contains multiple unit tests for validation in the Alonzo era.

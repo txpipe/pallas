@@ -178,12 +178,19 @@ pub struct ConwayProtParams {
     pub minfee_refscript_cost_per_byte: UnitInterval,
 }
 
+#[derive(Default, Debug)]
+pub struct AccountState {
+    pub treasury: Coin,
+    pub reserves: Coin,
+}
+
 #[derive(Debug)]
 pub struct Environment {
     pub prot_params: MultiEraProtocolParameters,
     pub prot_magic: u32,
     pub block_slot: u64,
     pub network_id: u8,
+    pub acnt: Option<AccountState>,
 }
 
 impl Environment {
@@ -201,5 +208,9 @@ impl Environment {
 
     pub fn network_id(&self) -> &u8 {
         &self.network_id
+    }
+
+    pub fn acnt(&self) -> &Option<AccountState> {
+        &self.acnt
     }
 }

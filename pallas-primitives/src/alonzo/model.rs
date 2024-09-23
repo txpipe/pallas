@@ -413,7 +413,7 @@ pub type UnitInterval = RationalNumber;
 
 pub type PositiveInterval = RationalNumber;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash)]
 pub enum StakeCredential {
     AddrKeyhash(AddrKeyhash),
     Scripthash(Scripthash),

@@ -3,9 +3,10 @@ pub mod common;
 use common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
 use pallas_applying::{
     utils::{
-        ByronError, ByronProtParams, Environment, MultiEraProtocolParameters, ValidationError::*,
+        ByronError, ByronProtParams, CertState, Environment, MultiEraProtocolParameters,
+        ValidationError::*,
     },
-    validate, UTxOs,
+    validate_txs, UTxOs,
 };
 
 use pallas_codec::{
@@ -59,8 +60,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 6341,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -102,8 +105,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({:?})", err),
         }
@@ -153,8 +158,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 Byron(ByronError::TxInsEmpty) => (),
@@ -207,8 +214,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Outputs set should not be empty"),
             Err(err) => match err {
                 Byron(ByronError::TxOutsEmpty) => (),
@@ -246,8 +255,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 Byron(ByronError::InputNotInUTxO) => (),
@@ -306,8 +317,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All outputs must contain lovelace"),
             Err(err) => match err {
                 Byron(ByronError::OutputWithoutLovelace) => (),
@@ -351,8 +364,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Fees should not be below minimum"),
             Err(err) => match err {
                 Byron(ByronError::FeesBelowMin) => (),
@@ -396,8 +411,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Transaction size cannot exceed protocol limit"),
             Err(err) => match err {
                 Byron(ByronError::MaxTxSizeExceeded) => (),
@@ -449,8 +466,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must have a witness signature"),
             Err(err) => match err {
                 Byron(ByronError::MissingWitness) => (),
@@ -511,8 +530,10 @@ mod byron_tests {
             prot_magic: 764824073,
             block_slot: 3241381,
             network_id: 1,
+            acnt: None,
         };
-        match validate(&metx, &utxos, &env) {
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Witness signature should verify the transaction"),
             Err(err) => match err {
                 Byron(ByronError::WrongSignature) => (),
