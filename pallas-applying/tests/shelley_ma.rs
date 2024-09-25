@@ -2,6 +2,7 @@ pub mod common;
 
 use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress};
+use pallas_applying::utils::PoolParam;
 use pallas_applying::{
     utils::{
         AccountState, Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
@@ -18,18 +19,16 @@ use pallas_codec::{
 };
 use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo::{
-    MintedTx, MintedWitnessSet, Nonce, NonceVariant, RationalNumber, StakeCredential,
-    TransactionBody, TransactionOutput, VKeyWitness, Value, PoolMetadata, Relay,
-    PoolKeyhash, Certificate,
+    Certificate, MintedTx, MintedWitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
+    RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraTx};
 use std::str::FromStr;
-use pallas_applying::utils::PoolParam;
 
 #[cfg(test)]
 mod shelley_ma_tests {
     use super::*;
-    
+
     #[test]
     // Transaction hash:
     // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
@@ -468,7 +467,11 @@ mod shelley_ma_tests {
             Err(err) => panic!("Unexpected error ({:?})", err),
         };
 
-        if !cert_state.pstate.pool_params.contains_key(&mary2_pool_operator()) {
+        if !cert_state
+            .pstate
+            .pool_params
+            .contains_key(&mary2_pool_operator())
+        {
             panic!("Pool not registered or keyhash mismatch");
         }
     }
@@ -484,15 +487,13 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
-            &[(
-                String::from(MARY3_UTXO),
-                Value::Coin(627_760_000),
-                None,
-            )],
+            &[(String::from(MARY3_UTXO), Value::Coin(627_760_000), None)],
         );
 
         let mut cert_state: CertState = CertState::default();
-        cert_state.pstate.pool_params
+        cert_state
+            .pstate
+            .pool_params
             .insert(mary2_pool_operator(), mary2_pool_param());
         match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -503,24 +504,41 @@ mod shelley_ma_tests {
     fn mary2_pool_operator() -> PoolKeyhash {
         Hash::from_str("59EBE72AE96462018FBE04633100F90B3066688D85F00F3BD254707F").unwrap()
     }
-    
+
     // Params for the pool registered in `successful_mainnet_mary_tx_with_pool_reg`
     fn mary2_pool_param() -> PoolParam {
         PoolParam {
-            vrf_keyhash: Hash::from_str("1EFB798F239B9B02DEB4636A3AB1962AF43512595FCB82276E11971E684E49B7").unwrap(),
+            vrf_keyhash: Hash::from_str(
+                "1EFB798F239B9B02DEB4636A3AB1962AF43512595FCB82276E11971E684E49B7",
+            )
+            .unwrap(),
             pledge: 1000000000,
             cost: 340000000,
-            margin: RationalNumber { numerator: 3, denominator: 100 },
-            reward_account: hex::decode("E1FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap().into(),
-            pool_owners: Vec::from([Hash::from_str("FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap()]),
-            relays: [
-                Relay::SingleHostAddr(Nullable::Some(3001),
-                                      Nullable::Some(hex::decode("C22614BB").unwrap().into()),
-                                      Nullable::Null,)
-            ].to_vec(),
+            margin: RationalNumber {
+                numerator: 3,
+                denominator: 100,
+            },
+            reward_account: hex::decode(
+                "E1FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83",
+            )
+            .unwrap()
+            .into(),
+            pool_owners: Vec::from([Hash::from_str(
+                "FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83",
+            )
+            .unwrap()]),
+            relays: [Relay::SingleHostAddr(
+                Nullable::Some(3001),
+                Nullable::Some(hex::decode("C22614BB").unwrap().into()),
+                Nullable::Null,
+            )]
+            .to_vec(),
             pool_metadata: Nullable::Some(PoolMetadata {
                 url: "https://cardapool.com/a.json".to_string(),
-                hash: Hash::from_str("01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E").unwrap(),
+                hash: Hash::from_str(
+                    "01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E",
+                )
+                .unwrap(),
             }),
         }
     }
@@ -1785,11 +1803,7 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
-            &[(
-                String::from(MARY3_UTXO),
-                Value::Coin(627_760_000),
-                None,
-            )],
+            &[(String::from(MARY3_UTXO), Value::Coin(627_760_000), None)],
         );
 
         let mut cert_state: CertState = CertState::default();
@@ -1827,15 +1841,13 @@ mod shelley_ma_tests {
 
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
-            &[(
-                String::from(MARY3_UTXO),
-                Value::Coin(627_760_000),
-                None,
-            )],
+            &[(String::from(MARY3_UTXO), Value::Coin(627_760_000), None)],
         );
 
         let mut cert_state: CertState = CertState::default();
-        cert_state.pstate.pool_params
+        cert_state
+            .pstate
+            .pool_params
             .insert(mary2_pool_operator(), mary2_pool_param());
         match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
             Ok(()) => panic!("Staking key is not registered"),
