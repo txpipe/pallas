@@ -31,13 +31,7 @@ pub fn validate_txs(
 ) -> ValidationResult {
     let mut delta_state: CertState = cert_state.clone();
     for (txix, metx) in metxs.iter().enumerate() {
-        validate_tx(
-            &metx,
-            txix.try_into().unwrap(),
-            env,
-            utxos,
-            &mut delta_state,
-        )?;
+        validate_tx(metx, txix.try_into().unwrap(), env, utxos, &mut delta_state)?;
     }
     *cert_state = delta_state;
     Ok(())
@@ -67,7 +61,7 @@ pub fn validate_tx(
                 utxos,
                 cert_state,
                 spp,
-                &acnt,
+                acnt,
                 env.block_slot(),
                 env.network_id(),
                 &metx.era(),

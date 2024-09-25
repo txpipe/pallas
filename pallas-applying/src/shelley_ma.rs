@@ -29,8 +29,10 @@ use pallas_traverse::{
     time::Slot, wellknown::GenesisValues, ComputeHash, Era, MultiEraInput, MultiEraOutput,
 };
 
-use std::{cmp::max, collections::HashMap, ops::Deref}; // TODO: remove when fixed missing args
+use std::{cmp::max, collections::HashMap, ops::Deref};
+// TODO: remove when fixed missing args
 
+#[allow(clippy::too_many_arguments)]
 pub fn validate_shelley_ma_tx(
     mtx: &MintedTx,
     txix: TransactionIndex,
@@ -63,7 +65,7 @@ pub fn validate_shelley_ma_tx(
         stk_dep_count,
         stk_refund_count,
         pool_count,
-        &acnt,
+        acnt,
         block_slot,
         &stab_win,
         prot_pps,
@@ -229,8 +231,8 @@ fn get_produced(
     // Adding fees
     res = add_values(&res, &Value::Coin(tx_body.fee), &neg_val_err)?;
     // Pool reg deposits and staking key registrations
-    let total_deposits = prot_pps.pool_deposit * *pool_count +
-        prot_pps.key_deposit * *stk_dep_count;
+    let total_deposits =
+        prot_pps.pool_deposit * *pool_count + prot_pps.key_deposit * *stk_dep_count;
     res = add_values(&res, &Value::Coin(total_deposits), &neg_val_err)?;
     Ok(res)
 }
@@ -407,6 +409,7 @@ fn compute_script_hash(script: &NativeScript) -> PolicyId {
 }
 
 // Checks all certificates in order, and counts the relevant ones for computing deposits.
+#[allow(clippy::too_many_arguments)]
 fn check_certificates(
     cert_opt: &Option<Vec<Certificate>>,
     tx_ix: TransactionIndex,
@@ -452,7 +455,7 @@ fn check_certificates(
                     relays,
                     pool_metadata,
                 } => {
-                    if !cert_state.pstate.pool_params.contains_key(&operator) {
+                    if !cert_state.pstate.pool_params.contains_key(operator) {
                         *pool_count += 1;
                     }
                     let pool_param = PoolParam {
@@ -551,7 +554,7 @@ where
     V: Clone,
 {
     if map.contains_key(key) {
-        return Err(error);
+        Err(error)
     } else {
         map.insert(key.clone(), value.clone());
         Ok(())
@@ -568,14 +571,12 @@ fn check_pool_reg_or_update(
         Err(ShelleyMA(PoolCostBelowMin))
     } else if ps.pool_params.contains_key(pool_hash) {
         // Updating
-        ps.fut_pool_params
-            .insert(pool_hash.clone(), (*pool_param).clone());
-        ps.retiring.remove(&pool_hash);
+        ps.fut_pool_params.insert(*pool_hash, (*pool_param).clone());
+        ps.retiring.remove(pool_hash);
         Ok(())
     } else {
         // Registering
-        ps.pool_params
-            .insert(pool_hash.clone(), (*pool_param).clone());
+        ps.pool_params.insert(*pool_hash, (*pool_param).clone());
         Ok(())
     }
 }
@@ -587,11 +588,11 @@ fn check_pool_retirement(
     emax: &u32,
     ps: &mut PState,
 ) -> ValidationResult {
-    if !ps.pool_params.contains_key(&pool_hash) {
+    if !ps.pool_params.contains_key(pool_hash) {
         return Err(ShelleyMA(PoolNotRegistered));
     }
     if (*cepoch < *repoch) & (*repoch <= *cepoch + *emax as u64) {
-        ps.retiring.insert(pool_hash.clone(), *repoch);
+        ps.retiring.insert(*pool_hash, *repoch);
         Ok(())
     } else {
         Err(ShelleyMA(PoolNotRegistered))
@@ -633,7 +634,7 @@ fn check_genesis_key_delegation(
     } else {
         let gen_slot: Slot = *slot + *stab_win;
         ds.fut_gen_delegs
-            .insert((gen_slot, gkh.clone()), (dkh.clone(), vrf.clone()));
+            .insert((gen_slot, gkh.clone()), (dkh.clone(), *vrf));
         Ok(())
     }
 }
@@ -646,7 +647,7 @@ fn check_mir(
     acnt: &AccountState,
 ) -> ValidationResult {
     let genesis = &GenesisValues::mainnet();
-    if !(*slot < first_slot(genesis, &(to_epoch(genesis, slot) + 1)) - *stab_win) {
+    if *slot >= first_slot(genesis, &(to_epoch(genesis, slot) + 1)) - *stab_win {
         Err(ShelleyMA(MIRCertificateTooLateinEpoch))
     } else {
         let (ir_reserves, ir_treasury) = ds.inst_rewards.clone();
@@ -655,16 +656,13 @@ fn check_mir(
             Treasury => (acnt.treasury, ir_treasury.clone()),
         };
         let mut combined: HashMap<StakeCredential, Coin> = HashMap::new();
-        match &mir.target {
-            StakeCredentials(kvp) => {
-                let mut kvv: Vec<(StakeCredential, u64)> = // TODO: Err if the value is negative
-		    kvp.iter().map(|kv| (kv.clone().0, kv.clone().1 as u64)).collect();
-                kvv.extend(ir_pot);
-                for (key, value) in kvv {
-                    combined.insert(key, value);
-                }
+        if let StakeCredentials(kvp) = &mir.target {
+            let mut kvv: Vec<(StakeCredential, u64)> = // TODO: Err if the value is negative
+                kvp.iter().map(|kv| (kv.clone().0, kv.clone().1 as u64)).collect();
+            kvv.extend(ir_pot);
+            for (key, value) in kvv {
+                combined.insert(key, value);
             }
-            _ => (),
         }
         if combined.iter().map(|kv| kv.1).sum::<u64>() > pot {
             return Err(ShelleyMA(InsufficientForInstantaneousRewards));
