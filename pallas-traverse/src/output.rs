@@ -4,7 +4,7 @@ use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
-use crate::{Era, MultiEraOutput, MultiEraPolicyAssets};
+use crate::{Era, MultiEraOutput, MultiEraPolicyAssets, MultiEraValue};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -23,7 +23,7 @@ impl<'b> MultiEraOutput<'b> {
         Self::Conway(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn datum(&self) -> Option<babbage::MintedDatumOption> {
+    pub fn datum(&self) -> Option<conway::MintedDatumOption> {
         match self {
             MultiEraOutput::AlonzoCompatible(x, _) => {
                 x.datum_hash.map(babbage::MintedDatumOption::Hash)
@@ -160,46 +160,37 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    /// The amount of ADA asset expressed in Lovelace unit
-    ///
-    /// The value returned provides the amount of the ADA in a particular
-    /// output. The value is expressed in 'lovelace' (1 ADA = 1,000,000
-    /// lovelace).
-    pub fn lovelace_amount(&self) -> u64 {
+    pub fn value(&self) -> MultiEraValue<'_> {
         match self {
-            MultiEraOutput::AlonzoCompatible(x, _) => match x.amount {
-                alonzo::Value::Coin(c) => c,
-                alonzo::Value::Multiasset(c, _) => c,
-            },
+            MultiEraOutput::Byron(x) => MultiEraValue::Byron(x.amount),
+            MultiEraOutput::AlonzoCompatible(x, _) => {
+                MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.amount))
+            }
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
-                babbage::MintedTransactionOutput::Legacy(x) => match x.amount {
-                    babbage::Value::Coin(c) => c,
-                    babbage::Value::Multiasset(c, _) => c,
-                },
-                babbage::MintedTransactionOutput::PostAlonzo(x) => match x.value {
-                    babbage::Value::Coin(c) => c,
-                    babbage::Value::Multiasset(c, _) => c,
-                },
+                babbage::MintedTransactionOutput::Legacy(x) => {
+                    MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.amount))
+                }
+                babbage::MintedTransactionOutput::PostAlonzo(x) => {
+                    MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.value))
+                }
             },
-            MultiEraOutput::Byron(x) => x.amount,
             MultiEraOutput::Conway(x) => match x.deref().deref() {
-                conway::MintedTransactionOutput::Legacy(x) => match x.amount {
-                    babbage::Value::Coin(c) => c,
-                    babbage::Value::Multiasset(c, _) => c,
-                },
-                conway::MintedTransactionOutput::PostAlonzo(x) => match x.value {
-                    conway::Value::Coin(c) => c,
-                    conway::Value::Multiasset(c, _) => c,
-                },
+                conway::MintedTransactionOutput::Legacy(x) => {
+                    MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.amount))
+                }
+                conway::MintedTransactionOutput::PostAlonzo(x) => {
+                    MultiEraValue::Conway(Cow::Borrowed(&x.value))
+                }
             },
         }
     }
 
-    /// List of native assets in the output
-    ///
-    /// Returns a list of Asset structs where each one represent a native asset
-    /// present in the output of the tx. ADA assets are not included in this
-    /// list.
+    #[deprecated(note = "Use `value().coin()` instead")]
+    pub fn lovelace_amount(&self) -> u64 {
+        self.value().coin()
+    }
+
+    #[deprecated(note = "Use `value().assets()` instead")]
     pub fn non_ada_assets(&self) -> Vec<MultiEraPolicyAssets> {
         match self {
             MultiEraOutput::AlonzoCompatible(x, _) => match &x.amount {
