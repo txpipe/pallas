@@ -147,12 +147,13 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn map_tx_output(&self, x: &trv::MultiEraOutput) -> u5c::TxOutput {
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
-            coin: x.lovelace_amount(),
+            coin: x.value().coin(),
             // TODO: this is wrong, we're crating a new item for each asset even if they share
             // the same policy id. We need to adjust Pallas' interface to make this mapping more
             // ergonomic.
             assets: x
-                .non_ada_assets()
+                .value()
+                .assets()
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
