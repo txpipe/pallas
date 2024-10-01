@@ -31,6 +31,7 @@ pub mod size;
 pub mod time;
 pub mod tx;
 pub mod update;
+pub mod value;
 pub mod withdrawals;
 pub mod witnesses;
 
@@ -87,6 +88,14 @@ pub enum MultiEraTx<'b> {
     Babbage(Box<Cow<'b, babbage::MintedTx<'b>>>),
     Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
     Conway(Box<Cow<'b, conway::MintedTx<'b>>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraValue<'b> {
+    Byron(u64),
+    AlonzoCompatible(Cow<'b, alonzo::Value>),
+    Conway(Cow<'b, conway::Value>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
