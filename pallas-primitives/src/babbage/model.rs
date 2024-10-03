@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{Decode, Encode};
-use pallas_crypto::hash::Hash;
+use pallas_crypto::hash::{Hash, Hasher};
 
 use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
 
@@ -310,6 +310,34 @@ impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
             total_collateral: value.total_collateral,
             reference_inputs: value.reference_inputs,
         }
+    }
+}
+
+pub enum VrfDerivation {
+    Leader,
+    Nonce,
+}
+
+pub fn derive_tagged_vrf_output(
+    block_vrf_output_bytes: &[u8],
+    derivation: VrfDerivation,
+) -> Vec<u8> {
+    let mut tagged_vrf: Vec<u8> = match derivation {
+        VrfDerivation::Leader => vec![0x4C_u8], /* "L" */
+        VrfDerivation::Nonce => vec![0x4E_u8],  /* "N" */
+    };
+
+    tagged_vrf.extend(block_vrf_output_bytes);
+    Hasher::<256>::hash(&tagged_vrf).to_vec()
+}
+
+impl HeaderBody {
+    pub fn leader_vrf_output(&self) -> Vec<u8> {
+        derive_tagged_vrf_output(&self.vrf_result.0, VrfDerivation::Leader)
+    }
+
+    pub fn nonce_vrf_output(&self) -> Vec<u8> {
+        derive_tagged_vrf_output(&self.vrf_result.0, VrfDerivation::Nonce)
     }
 }
 

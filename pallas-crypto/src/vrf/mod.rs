@@ -19,6 +19,12 @@ pub const VRF_PUBLIC_KEY_SIZE: usize = 32;
 pub const VRF_SECRET_KEY_SIZE: usize = 32;
 pub const VRF_PROOF_HASH_SIZE: usize = 64;
 
+pub type VrfSeedBytes = [u8; VRF_SEED_SIZE];
+pub type VrfProofBytes = [u8; VRF_PROOF_SIZE];
+pub type VrfPublicKeyBytes = [u8; VRF_PUBLIC_KEY_SIZE];
+pub type VrfSecretKeyBytes = [u8; VRF_SECRET_KEY_SIZE];
+pub type VrfProofHashBytes = [u8; VRF_PROOF_HASH_SIZE];
+
 // Wrapper for VRF secret key
 pub struct VrfSecretKey {
     secret_key_03: SecretKey03,
@@ -35,8 +41,8 @@ pub struct VrfProof {
 }
 
 // Create a VrfSecretKey from a slice
-impl From<&[u8; VRF_SECRET_KEY_SIZE]> for VrfSecretKey {
-    fn from(slice: &[u8; VRF_SECRET_KEY_SIZE]) -> Self {
+impl From<&VrfSecretKeyBytes> for VrfSecretKey {
+    fn from(slice: &VrfSecretKeyBytes) -> Self {
         VrfSecretKey {
             secret_key_03: SecretKey03::from_bytes(slice),
         }
@@ -44,8 +50,8 @@ impl From<&[u8; VRF_SECRET_KEY_SIZE]> for VrfSecretKey {
 }
 
 // Create a VrfPublicKey from a slice
-impl From<&[u8; VRF_PUBLIC_KEY_SIZE]> for VrfPublicKey {
-    fn from(slice: &[u8; VRF_PUBLIC_KEY_SIZE]) -> Self {
+impl From<&VrfPublicKeyBytes> for VrfPublicKey {
+    fn from(slice: &VrfPublicKeyBytes) -> Self {
         VrfPublicKey {
             public_key_03: PublicKey03::from_bytes(slice),
         }
@@ -53,10 +59,10 @@ impl From<&[u8; VRF_PUBLIC_KEY_SIZE]> for VrfPublicKey {
 }
 
 // Create a VrfProof from a slice
-impl From<&[u8; VRF_PROOF_SIZE]> for VrfProof {
-    fn from(slice: &[u8; VRF_PROOF_SIZE]) -> Self {
+impl From<&VrfProofBytes> for VrfProof {
+    fn from(slice: &VrfProofBytes) -> Self {
         VrfProof {
-            proof_03: VrfProof03::from_bytes(slice).unwrap(),
+            proof_03: VrfProof03::from_bytes(slice).expect("Infallible"),
         }
     }
 }
