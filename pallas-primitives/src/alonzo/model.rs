@@ -69,13 +69,35 @@ pub type ProtocolVersion = (u64, u64);
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct KesSignature {}
 
+pub type MintedHeaderBody<'a> = KeepRaw<'a, HeaderBody>;
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
-pub struct Header {
+pub struct PseudoHeader<T1> {
     #[n(0)]
-    pub header_body: HeaderBody,
+    pub header_body: T1,
 
     #[n(1)]
     pub body_signature: Bytes,
+}
+
+pub type Header = PseudoHeader<HeaderBody>;
+
+pub type MintedHeader<'a> = KeepRaw<'a, PseudoHeader<MintedHeaderBody<'a>>>;
+
+impl<'a> From<MintedHeader<'a>> for Header {
+    fn from(x: MintedHeader<'a>) -> Self {
+        let x = x.unwrap();
+        Self {
+            header_body: x.header_body.into(),
+            body_signature: x.body_signature,
+        }
+    }
+}
+
+impl<'a> From<MintedHeaderBody<'a>> for HeaderBody {
+    fn from(x: MintedHeaderBody<'a>) -> Self {
+        x.unwrap()
+    }
 }
 
 #[derive(
@@ -1504,7 +1526,7 @@ pub struct Block {
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct MintedBlock<'b> {
     #[n(0)]
-    pub header: KeepRaw<'b, Header>,
+    pub header: KeepRaw<'b, MintedHeader<'b>>,
 
     #[b(1)]
     pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
@@ -1522,7 +1544,7 @@ pub struct MintedBlock<'b> {
 impl<'b> From<MintedBlock<'b>> for Block {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
-            header: x.header.unwrap(),
+            header: x.header.unwrap().into(),
             transaction_bodies: x
                 .transaction_bodies
                 .to_vec()
