@@ -4,6 +4,7 @@ use minicbor::{
     Decode, Encode,
 };
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::{collections::HashMap, fmt, hash::Hash as StdHash, ops::Deref};
 
 static TAG_SET: u64 = 258;
@@ -1348,11 +1349,28 @@ impl Deref for Bytes {
     }
 }
 
+impl<const N: usize> TryFrom<&Bytes> for [u8; N] {
+    type Error = core::array::TryFromSliceError;
+
+    fn try_from(value: &Bytes) -> Result<Self, Self::Error> {
+        value.0.as_slice().try_into()
+    }
+}
+
 impl TryFrom<String> for Bytes {
     type Error = hex::FromHexError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let v = hex::decode(value)?;
+        Ok(Bytes(minicbor::bytes::ByteVec::from(v)))
+    }
+}
+
+impl FromStr for Bytes {
+    type Err = hex::FromHexError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let v = hex::decode(s)?;
         Ok(Bytes(minicbor::bytes::ByteVec::from(v)))
     }
 }
