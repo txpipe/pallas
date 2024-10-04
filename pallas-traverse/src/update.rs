@@ -2,12 +2,12 @@ use pallas_codec::minicbor;
 use paste::paste;
 use std::{borrow::Cow, ops::Deref};
 
-use pallas_primitives::{alonzo, babbage, byron};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 macro_rules! param_boilerplate {
     ($name:ident: $type_:ty, [$($variant:tt)*]) => {
         paste! {
-            pub fn [<"first_proposed_" $name>](&self) -> Option<$type_> {
+            pub fn [<"first_proposed_" $name _ $($variant:lower)_*>](&self) -> Option<$type_> {
                 #[allow(unreachable_patterns)]
                 match self {
                     $(
@@ -23,7 +23,7 @@ macro_rules! param_boilerplate {
         }
 
         paste! {
-            pub fn [<"all_proposed_" $name>](&self) -> Vec<$type_> {
+            pub fn [<"all_proposed_" $name _ $($variant:lower)_*>](&self) -> Vec<$type_> {
                 #[allow(unreachable_patterns)]
                 match self {
                     $(
@@ -47,7 +47,9 @@ pub type UnitInterval = alonzo::UnitInterval;
 pub type Nonce = alonzo::Nonce;
 pub type ExUnitPrices = alonzo::ExUnitPrices;
 pub type ExUnits = alonzo::ExUnits;
-pub type CostMdls = alonzo::CostMdls;
+pub type AlonzoCostMdls = alonzo::CostMdls;
+pub type BabbageCostMdls = babbage::CostMdls;
+pub type ConwayCostMdls = conway::CostMdls;
 pub type ProtocolVersion = alonzo::ProtocolVersion;
 
 use crate::{Era, MultiEraUpdate};
@@ -70,13 +72,18 @@ impl<'b> MultiEraUpdate<'b> {
                 let up = Box::new(Cow::Owned(up));
                 Ok(MultiEraUpdate::Babbage(up))
             }
-            _ => unimplemented!("unimplemented era"),
+            Era::Conway => {
+                let up = minicbor::decode(cbor)?;
+                let up = Box::new(Cow::Owned(up));
+                Ok(MultiEraUpdate::Conway(up))
+            }
         }
     }
 
     pub fn encode(&self) -> Vec<u8> {
         // to_vec is infallible
         match self {
+            MultiEraUpdate::Conway(x) => minicbor::to_vec(x).unwrap(),
             MultiEraUpdate::AlonzoCompatible(x) => minicbor::to_vec(x).unwrap(),
             MultiEraUpdate::Babbage(x) => minicbor::to_vec(x).unwrap(),
             MultiEraUpdate::Byron(a, b) => minicbor::to_vec((a, b)).unwrap(),
@@ -121,6 +128,7 @@ impl<'b> MultiEraUpdate<'b> {
             MultiEraUpdate::Byron(x, _) => *x,
             MultiEraUpdate::AlonzoCompatible(x) => x.epoch,
             MultiEraUpdate::Babbage(x) => x.epoch,
+            MultiEraUpdate::Conway(x) => x.epoch,
         }
     }
 
@@ -181,8 +189,11 @@ impl<'b> MultiEraUpdate<'b> {
 
     param_boilerplate!(ada_per_utxo_byte: u64, [AlonzoCompatible Babbage]);
 
-    //param_boilerplate!(cost_models_for_script_languages: CostMdls,
-    // [AlonzoCompatible Babbage]);
+    param_boilerplate!(cost_models_for_script_languages: AlonzoCostMdls, [AlonzoCompatible]);
+
+    param_boilerplate!(cost_models_for_script_languages: BabbageCostMdls, [Babbage]);
+
+    param_boilerplate!(cost_models_for_script_languages: ConwayCostMdls, [Conway]);
 
     param_boilerplate!(execution_costs: ExUnitPrices, [AlonzoCompatible Babbage]);
 
