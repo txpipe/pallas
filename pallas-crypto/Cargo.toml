@@ -20,6 +20,8 @@ thiserror = "1.0"
 rand_core = "0.6"
 pallas-codec = { version = "=0.30.2", path = "../pallas-codec" }
 serde = "1.0.143"
+kes-summed-ed25519 = { git = "https://github.com/txpipe/kes", rev = "ca974ff4fce145aab02a62cac4069189d93fc152" }
+zeroize = "1.8.1"
 
 # The vrf crate has not been fully tested in production environments and still has several upstream issues that
 # are open PRs but not merged yet.
@@ -31,3 +33,7 @@ quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rand = "0.8"
 serde_test = "1.0.143"
+pallas-traverse = { version = "=0.30.2", path = "../pallas-traverse" }
+#pallas-traverse = "0.30.2"
+pallas-primitives = { version = "=0.30.2", path = "../pallas-primitives" }
+#pallas-primitives = "0.30.2"

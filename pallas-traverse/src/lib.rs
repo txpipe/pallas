@@ -67,7 +67,7 @@ pub enum Feature {
 pub enum MultiEraHeader<'b> {
     EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
     ShelleyCompatible(Cow<'b, KeepRaw<'b, alonzo::Header>>),
-    BabbageCompatible(Cow<'b, KeepRaw<'b, babbage::Header>>),
+    BabbageCompatible(Cow<'b, KeepRaw<'b, babbage::MintedHeader<'b>>>),
     Byron(Cow<'b, KeepRaw<'b, byron::BlockHead>>),
 }
 

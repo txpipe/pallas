@@ -66,13 +66,35 @@ pub use crate::alonzo::ProtocolVersion;
 
 pub use crate::alonzo::KesSignature;
 
+pub type MintedHeaderBody<'a> = KeepRaw<'a, HeaderBody>;
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
-pub struct Header {
+pub struct PseudoHeader<T1> {
     #[n(0)]
-    pub header_body: HeaderBody,
+    pub header_body: T1,
 
     #[n(1)]
     pub body_signature: Bytes,
+}
+
+pub type Header = PseudoHeader<HeaderBody>;
+
+pub type MintedHeader<'a> = KeepRaw<'a, PseudoHeader<MintedHeaderBody<'a>>>;
+
+impl<'a> From<MintedHeader<'a>> for Header {
+    fn from(x: MintedHeader<'a>) -> Self {
+        let x = x.unwrap();
+        Self {
+            header_body: x.header_body.into(),
+            body_signature: x.body_signature,
+        }
+    }
+}
+
+impl<'a> From<MintedHeaderBody<'a>> for HeaderBody {
+    fn from(x: MintedHeaderBody<'a>) -> Self {
+        x.unwrap()
+    }
 }
 
 pub use crate::alonzo::TransactionInput;
@@ -706,7 +728,7 @@ pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
 pub type MintedBlock<'b> = PseudoBlock<
-    KeepRaw<'b, Header>,
+    KeepRaw<'b, MintedHeader<'b>>,
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
     KeepRaw<'b, AuxiliaryData>,
@@ -715,7 +737,7 @@ pub type MintedBlock<'b> = PseudoBlock<
 impl<'b> From<MintedBlock<'b>> for Block {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
-            header: x.header.unwrap(),
+            header: x.header.unwrap().into(),
             transaction_bodies: MaybeIndefArray::Def(
                 x.transaction_bodies
                     .iter()
