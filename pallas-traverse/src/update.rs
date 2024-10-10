@@ -2,7 +2,7 @@ use pallas_codec::minicbor;
 use paste::paste;
 use std::{borrow::Cow, ops::Deref};
 
-use pallas_primitives::{alonzo, babbage, byron, conway};
+use pallas_primitives::{alonzo, babbage, byron, conway::{self, DRepVotingThresholds, PoolVotingThresholds}};
 
 macro_rules! param_boilerplate {
     ($name:ident: $type_:ty, [$($variant:tt)*]) => {
@@ -206,4 +206,24 @@ impl<'b> MultiEraUpdate<'b> {
     param_boilerplate!(collateral_percentage: u32, [AlonzoCompatible Babbage]);
 
     param_boilerplate!(max_collateral_inputs: u32, [AlonzoCompatible Babbage]);
+
+    param_boilerplate!(pool_voting_thresholds: PoolVotingThresholds, [Conway]);
+
+    param_boilerplate!(drep_voting_thresholds: DRepVotingThresholds, [Conway]);
+
+    param_boilerplate!(min_committee_size: u64, [Conway]);
+
+    param_boilerplate!(committee_term_limit: u64, [Conway]);
+
+    param_boilerplate!(governance_action_validity_period: u64, [Conway]);
+
+    param_boilerplate!(governance_action_deposit: u64, [Conway]);
+
+    param_boilerplate!(drep_deposit: u64, [Conway]);
+
+    param_boilerplate!(drep_inactivity_period: u64, [Conway]);
+
+    param_boilerplate!(minfee_refscript_cost_per_byte: UnitInterval, [Conway]);
+
+
 }

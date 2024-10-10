@@ -585,7 +585,7 @@ fn check_pool_retirement(
     pool_hash: &PoolKeyhash,
     repoch: &Epoch,
     cepoch: &Epoch,
-    emax: &u32,
+    emax: &Epoch,
     ps: &mut PState,
 ) -> ValidationResult {
     if !ps.pool_params.contains_key(pool_hash) {
