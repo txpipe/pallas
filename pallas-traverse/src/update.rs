@@ -2,12 +2,15 @@ use pallas_codec::minicbor;
 use paste::paste;
 use std::{borrow::Cow, ops::Deref};
 
-use pallas_primitives::{alonzo, babbage, byron, conway::{self, DRepVotingThresholds, PoolVotingThresholds}};
+use pallas_primitives::{
+    alonzo, babbage, byron,
+    conway::{self, DRepVotingThresholds, PoolVotingThresholds},
+};
 
 macro_rules! param_boilerplate {
     ($name:ident: $type_:ty, [$($variant:tt)*]) => {
         paste! {
-            pub fn [<"first_proposed_" $name _ $($variant:lower)_*>](&self) -> Option<$type_> {
+            pub fn [<"first_proposed_" $name>](&self) -> Option<$type_> {
                 #[allow(unreachable_patterns)]
                 match self {
                     $(
@@ -23,7 +26,7 @@ macro_rules! param_boilerplate {
         }
 
         paste! {
-            pub fn [<"all_proposed_" $name _ $($variant:lower)_*>](&self) -> Vec<$type_> {
+            pub fn [<"all_proposed_" $name>](&self) -> Vec<$type_> {
                 #[allow(unreachable_patterns)]
                 match self {
                     $(
@@ -155,6 +158,40 @@ impl<'b> MultiEraUpdate<'b> {
         }
     }
 
+    pub fn alonzo_first_proposed_cost_models_for_script_languages(&self) -> Option<AlonzoCostMdls> {
+        match self {
+            MultiEraUpdate::AlonzoCompatible(x) => x
+                .proposed_protocol_parameter_updates
+                .first()
+                .and_then(|x| x.1.cost_models_for_script_languages.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn babbage_first_proposed_cost_models_for_script_languages(
+        &self,
+    ) -> Option<BabbageCostMdls> {
+        match self {
+            MultiEraUpdate::Babbage(x) => x
+                .proposed_protocol_parameter_updates
+                .first()
+                .and_then(|x| x.1.cost_models_for_script_languages.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn conway_first_proposed_cost_models_for_script_languages(&self) -> Option<ConwayCostMdls> {
+        match self {
+            MultiEraUpdate::Conway(x) => x
+                .proposed_protocol_parameter_updates
+                .first()
+                .and_then(|x| x.1.cost_models_for_script_languages.clone()),
+            _ => None,
+        }
+    }
+
+    // remaining params are mostly boilerplate code, so we can just generate them
+
     param_boilerplate!(minfee_a: u32, [AlonzoCompatible Babbage]);
 
     param_boilerplate!(minfee_b: u32, [AlonzoCompatible Babbage]);
@@ -189,12 +226,6 @@ impl<'b> MultiEraUpdate<'b> {
 
     param_boilerplate!(ada_per_utxo_byte: u64, [AlonzoCompatible Babbage]);
 
-    param_boilerplate!(cost_models_for_script_languages: AlonzoCostMdls, [AlonzoCompatible]);
-
-    param_boilerplate!(cost_models_for_script_languages: BabbageCostMdls, [Babbage]);
-
-    param_boilerplate!(cost_models_for_script_languages: ConwayCostMdls, [Conway]);
-
     param_boilerplate!(execution_costs: ExUnitPrices, [AlonzoCompatible Babbage]);
 
     param_boilerplate!(max_tx_ex_units: ExUnits, [AlonzoCompatible Babbage]);
@@ -224,6 +255,4 @@ impl<'b> MultiEraUpdate<'b> {
     param_boilerplate!(drep_inactivity_period: u64, [Conway]);
 
     param_boilerplate!(minfee_refscript_cost_per_byte: UnitInterval, [Conway]);
-
-
 }
