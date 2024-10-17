@@ -79,7 +79,6 @@ impl<'b> MultiEraUpdate<'b> {
                 let up = Box::new(Cow::Owned(up));
                 Ok(MultiEraUpdate::Conway(up))
             }
-            _ => unimplemented!("unimplemented era"),
         }
     }
 
