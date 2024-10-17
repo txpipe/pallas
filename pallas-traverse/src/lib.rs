@@ -186,6 +186,7 @@ pub enum MultiEraUpdate<'b> {
     Byron(u64, Box<Cow<'b, byron::UpProp>>),
     AlonzoCompatible(Box<Cow<'b, alonzo::Update>>),
     Babbage(Box<Cow<'b, babbage::Update>>),
+    Conway(Box<Cow<'b, conway::Update>>),
 }
 
 #[derive(Debug, Clone)]

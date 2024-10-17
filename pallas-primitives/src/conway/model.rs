@@ -604,6 +604,15 @@ pub struct ProtocolParamUpdate {
     pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct Update {
+    #[n(0)]
+    pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
+
+    #[n(1)]
+    pub epoch: Epoch,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PoolVotingThresholds {
     pub motion_no_confidence: UnitInterval,

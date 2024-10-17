@@ -408,7 +408,8 @@ fn compute_script_hash(script: &NativeScript) -> PolicyId {
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }
 
-// Checks all certificates in order, and counts the relevant ones for computing deposits.
+// Checks all certificates in order, and counts the relevant ones for computing
+// deposits.
 #[allow(clippy::too_many_arguments)]
 fn check_certificates(
     cert_opt: &Option<Vec<Certificate>>,
@@ -585,13 +586,13 @@ fn check_pool_retirement(
     pool_hash: &PoolKeyhash,
     repoch: &Epoch,
     cepoch: &Epoch,
-    emax: &u32,
+    emax: &Epoch,
     ps: &mut PState,
 ) -> ValidationResult {
     if !ps.pool_params.contains_key(pool_hash) {
         return Err(ShelleyMA(PoolNotRegistered));
     }
-    if (*cepoch < *repoch) & (*repoch <= *cepoch + *emax as u64) {
+    if (*cepoch < *repoch) & (*repoch <= *cepoch + *emax) {
         ps.retiring.insert(*pool_hash, *repoch);
         Ok(())
     } else {

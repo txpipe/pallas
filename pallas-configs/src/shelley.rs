@@ -1,6 +1,6 @@
 use num_rational::BigRational;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::conway::RationalNumber;
+use pallas_primitives::conway::{Epoch, RationalNumber};
 use serde::{Deserialize, Deserializer};
 use std::{collections::HashMap, str::FromStr};
 
@@ -90,7 +90,7 @@ pub struct ProtocolParams {
     pub pool_deposit: u64,
     pub n_opt: u32,
     pub min_pool_cost: u64,
-    pub e_max: u32,
+    pub e_max: Epoch,
     pub extra_entropy: ExtraEntropy,
 
     #[serde(deserialize_with = "deserialize_rational")]
