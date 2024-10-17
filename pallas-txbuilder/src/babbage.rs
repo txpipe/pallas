@@ -49,7 +49,7 @@ impl BuildBabbage for StagingTransaction {
             .outputs
             .unwrap_or_default()
             .iter()
-            .map(babbage_output)
+            .map(Output::build_babbage_raw)
             .collect::<Result<Vec<_>, _>>()?;
 
         let mint: Option<KeyValuePairs<Hash<28>, KeyValuePairs<_, _>>> = self.mint.map(|massets| {
@@ -100,7 +100,7 @@ impl BuildBabbage for StagingTransaction {
         let collateral_return = self
             .collateral_output
             .as_ref()
-            .map(babbage_output)
+            .map(Output::build_babbage_raw)
             .transpose()?;
 
         let reference_inputs = self
@@ -261,76 +261,78 @@ impl BuildBabbage for StagingTransaction {
     // }
 }
 
-fn babbage_output(
-    output: &Output,
-) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
-    let value = if let Some(ref assets) = output.assets {
-        let txb_assets = assets
-            .deref()
-            .iter()
-            .map(|(pid, assets)| {
-                (
-                    pid.0.into(),
-                    assets
-                        .iter()
-                        .map(|(n, x)| (n.clone().into(), *x))
-                        .collect::<Vec<_>>()
-                        .into(),
-                )
-            })
-            .collect::<Vec<_>>()
-            .into();
+impl Output {
+    pub fn build_babbage_raw(
+        &self,
+    ) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
+        let value = if let Some(ref assets) = self.assets {
+            let txb_assets = assets
+                .deref()
+                .iter()
+                .map(|(pid, assets)| {
+                    (
+                        pid.0.into(),
+                        assets
+                            .iter()
+                            .map(|(n, x)| (n.clone().into(), *x))
+                            .collect::<Vec<_>>()
+                            .into(),
+                    )
+                })
+                .collect::<Vec<_>>()
+                .into();
 
-        Value::Multiasset(output.lovelace, txb_assets)
-    } else {
-        Value::Coin(output.lovelace)
-    };
-
-    let datum_option = if let Some(ref d) = output.datum {
-        match d.kind {
-            DatumKind::Hash => {
-                let dh: [u8; 32] = d
-                    .bytes
-                    .as_ref()
-                    .try_into()
-                    .map_err(|_| TxBuilderError::MalformedDatumHash)?;
-                Some(DatumOption::Hash(dh.into()))
-            }
-            DatumKind::Inline => {
-                let pd = PlutusData::decode_fragment(d.bytes.as_ref())
-                    .map_err(|_| TxBuilderError::MalformedDatum)?;
-                Some(DatumOption::Data(CborWrap(pd)))
-            }
-        }
-    } else {
-        None
-    };
-
-    let script_ref = if let Some(ref s) = output.script {
-        let script = match s.kind {
-            ScriptKind::Native => PallasScript::NativeScript(
-                NativeScript::decode_fragment(s.bytes.as_ref())
-                    .map_err(|_| TxBuilderError::MalformedScript)?,
-            ),
-            ScriptKind::PlutusV1 => {
-                PallasScript::PlutusV1Script(PlutusV1Script(s.bytes.as_ref().to_vec().into()))
-            }
-            ScriptKind::PlutusV2 => {
-                PallasScript::PlutusV2Script(PlutusV2Script(s.bytes.as_ref().to_vec().into()))
-            }
+            Value::Multiasset(self.lovelace, txb_assets)
+        } else {
+            Value::Coin(self.lovelace)
         };
 
-        Some(CborWrap(script))
-    } else {
-        None
-    };
+        let datum_option = if let Some(ref d) = self.datum {
+            match d.kind {
+                DatumKind::Hash => {
+                    let dh: [u8; 32] = d
+                        .bytes
+                        .as_ref()
+                        .try_into()
+                        .map_err(|_| TxBuilderError::MalformedDatumHash)?;
+                    Some(DatumOption::Hash(dh.into()))
+                }
+                DatumKind::Inline => {
+                    let pd = PlutusData::decode_fragment(d.bytes.as_ref())
+                        .map_err(|_| TxBuilderError::MalformedDatum)?;
+                    Some(DatumOption::Data(CborWrap(pd)))
+                }
+            }
+        } else {
+            None
+        };
 
-    Ok(PseudoTransactionOutput::PostAlonzo(
-        PostAlonzoTransactionOutput {
-            address: output.address.to_vec().into(),
-            value,
-            datum_option,
-            script_ref,
-        },
-    ))
+        let script_ref = if let Some(ref s) = self.script {
+            let script = match s.kind {
+                ScriptKind::Native => PallasScript::NativeScript(
+                    NativeScript::decode_fragment(s.bytes.as_ref())
+                        .map_err(|_| TxBuilderError::MalformedScript)?,
+                ),
+                ScriptKind::PlutusV1 => {
+                    PallasScript::PlutusV1Script(PlutusV1Script(s.bytes.as_ref().to_vec().into()))
+                }
+                ScriptKind::PlutusV2 => {
+                    PallasScript::PlutusV2Script(PlutusV2Script(s.bytes.as_ref().to_vec().into()))
+                }
+            };
+
+            Some(CborWrap(script))
+        } else {
+            None
+        };
+
+        Ok(PseudoTransactionOutput::PostAlonzo(
+            PostAlonzoTransactionOutput {
+                address: self.address.to_vec().into(),
+                value,
+                datum_option,
+                script_ref,
+            },
+        ))
+    }
 }
