@@ -2,10 +2,7 @@ use pallas_codec::minicbor;
 use paste::paste;
 use std::{borrow::Cow, ops::Deref};
 
-use pallas_primitives::{
-    alonzo, babbage, byron,
-    conway::{self, DRepVotingThresholds, PoolVotingThresholds},
-};
+use pallas_primitives::{alonzo, babbage, byron, conway};
 
 macro_rules! param_boilerplate {
     ($name:ident: $type_:ty, [$($variant:tt)*]) => {
@@ -54,6 +51,8 @@ pub type AlonzoCostMdls = alonzo::CostMdls;
 pub type BabbageCostMdls = babbage::CostMdls;
 pub type ConwayCostMdls = conway::CostMdls;
 pub type ProtocolVersion = alonzo::ProtocolVersion;
+pub type PoolVotingThresholds = conway::PoolVotingThresholds;
+pub type DRepVotingThresholds = conway::DRepVotingThresholds;
 
 use crate::{Era, MultiEraUpdate};
 
@@ -80,6 +79,7 @@ impl<'b> MultiEraUpdate<'b> {
                 let up = Box::new(Cow::Owned(up));
                 Ok(MultiEraUpdate::Conway(up))
             }
+            _ => unimplemented!("unimplemented era"),
         }
     }
 
