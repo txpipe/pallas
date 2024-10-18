@@ -316,9 +316,19 @@ pub type RewardAccount = Bytes;
 pub type ScriptHash = Hash<28>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash)]
+// !! NOTE / IMPORTANT !!
+// It is tempting to swap the order of the two constructors so that AddrKeyHash
+// comes first. This indeed nicely maps the binary representation which
+// associates 0 to AddrKeyHash and 1 to ScriptHash.
+//
+// However, for historical reasons, the ScriptHash variant comes first in the
+// Haskell reference codebase. From this ordering is derived the `PartialOrd`
+// and `Ord` instances; which impacts how Maps/Dictionnaries indexed by
+// StakeCredential will be ordered. So, it is crucial to preserve this quirks to
+// avoid hard to troubleshoot issues down the line.
 pub enum StakeCredential {
-    AddrKeyhash(AddrKeyhash),
     ScriptHash(ScriptHash),
+    AddrKeyhash(AddrKeyhash),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for StakeCredential {
