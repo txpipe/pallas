@@ -47,9 +47,9 @@ pub type UnitInterval = alonzo::UnitInterval;
 pub type Nonce = alonzo::Nonce;
 pub type ExUnitPrices = alonzo::ExUnitPrices;
 pub type ExUnits = alonzo::ExUnits;
-pub type AlonzoCostMdls = alonzo::CostMdls;
-pub type BabbageCostMdls = babbage::CostMdls;
-pub type ConwayCostMdls = conway::CostMdls;
+pub type AlonzoCostModels = alonzo::CostModels;
+pub type BabbageCostModels = babbage::CostModels;
+pub type ConwayCostModels = conway::CostModels;
 pub type ProtocolVersion = alonzo::ProtocolVersion;
 pub type PoolVotingThresholds = conway::PoolVotingThresholds;
 pub type DRepVotingThresholds = conway::DRepVotingThresholds;
@@ -157,7 +157,9 @@ impl<'b> MultiEraUpdate<'b> {
         }
     }
 
-    pub fn alonzo_first_proposed_cost_models_for_script_languages(&self) -> Option<AlonzoCostMdls> {
+    pub fn alonzo_first_proposed_cost_models_for_script_languages(
+        &self,
+    ) -> Option<AlonzoCostModels> {
         match self {
             MultiEraUpdate::AlonzoCompatible(x) => x
                 .proposed_protocol_parameter_updates
@@ -169,7 +171,7 @@ impl<'b> MultiEraUpdate<'b> {
 
     pub fn babbage_first_proposed_cost_models_for_script_languages(
         &self,
-    ) -> Option<BabbageCostMdls> {
+    ) -> Option<BabbageCostModels> {
         match self {
             MultiEraUpdate::Babbage(x) => x
                 .proposed_protocol_parameter_updates
@@ -179,7 +181,9 @@ impl<'b> MultiEraUpdate<'b> {
         }
     }
 
-    pub fn conway_first_proposed_cost_models_for_script_languages(&self) -> Option<ConwayCostMdls> {
+    pub fn conway_first_proposed_cost_models_for_script_languages(
+        &self,
+    ) -> Option<ConwayCostModels> {
         match self {
             MultiEraUpdate::Conway(x) => x
                 .proposed_protocol_parameter_updates

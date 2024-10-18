@@ -185,7 +185,7 @@ impl<C: LedgerContext> Mapper<C> {
             babbage::StakeCredential::AddrKeyhash(x) => {
                 u5c::stake_credential::StakeCredential::AddrKeyHash(x.to_vec().into())
             }
-            babbage::StakeCredential::Scripthash(x) => {
+            babbage::StakeCredential::ScriptHash(x) => {
                 u5c::stake_credential::StakeCredential::ScriptHash(x.to_vec().into())
             }
         };
