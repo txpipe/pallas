@@ -131,6 +131,9 @@ pub enum Language {
     PlutusV2,
 }
 
+#[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
+pub type CostMdls = CostModels;
+
 pub use crate::alonzo::CostModel;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -549,6 +552,12 @@ impl<'b> From<MintedDatumOption<'b>> for DatumOption {
         }
     }
 }
+
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<1>` instead")]
+pub type PlutusV1Script = PlutusScript<1>;
+
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<2>` instead")]
+pub type PlutusV2Script = PlutusScript<2>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
 #[derive(Debug, PartialEq, Eq, Clone)]

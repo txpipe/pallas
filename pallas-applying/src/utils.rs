@@ -15,8 +15,8 @@ use pallas_primitives::{
         AuxiliaryData, MintedTx as AlonzoMintedTx, Multiasset, NativeScript, VKeyWitness, Value,
     },
     babbage::MintedTx as BabbageMintedTx,
-    AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, PlutusScript, PolicyId,
-    PoolKeyhash, PoolMetadata, Relay, RewardAccount, StakeCredential, TransactionIndex,
+    AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, NetworkId, PlutusScript,
+    PolicyId, PoolKeyhash, PoolMetadata, Relay, RewardAccount, StakeCredential, TransactionIndex,
     UnitInterval, VrfKeyhash,
 };
 use pallas_traverse::{time::Slot, MultiEraInput, MultiEraOutput};
@@ -267,6 +267,11 @@ pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
     }
 }
 
+#[deprecated(since = "0.31.0", note = "use `u8::from(...)` instead")]
+pub fn get_network_id_value(network_id: NetworkId) -> u8 {
+    u8::from(network_id)
+}
+
 pub fn mk_alonzo_vk_wits_check_list(
     wits: &Option<Vec<VKeyWitness>>,
     err: ValidationError,
@@ -328,6 +333,11 @@ pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
     let _ = encode(script, &mut payload);
     payload.insert(0, 0);
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
+}
+
+#[deprecated(since = "0.31.0", note = "use `compute_plutus_v1_script_hash` instead")]
+pub fn compute_plutus_script_hash(script: &PlutusScript<1>) -> PolicyId {
+    compute_plutus_v1_script_hash(script)
 }
 
 pub fn compute_plutus_v1_script_hash(script: &PlutusScript<1>) -> PolicyId {

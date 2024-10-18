@@ -434,6 +434,9 @@ pub enum Language {
     PlutusV1,
 }
 
+#[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
+pub type CostMdls = CostModels;
+
 pub type CostModels = KeyValuePairs<Language, CostModel>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -701,6 +704,10 @@ pub struct WitnessSet {
     #[n(3)]
     pub plutus_v1_script: Option<Vec<PlutusScript<1>>>,
 
+    #[cbor(skip)]
+    #[deprecated(since = "0.31.0", note = "use `plutus_v1_script` instead")]
+    pub plutus_script: Option<Vec<PlutusScript<1>>>,
+
     #[n(4)]
     pub plutus_data: Option<Vec<PlutusData>>,
 
@@ -723,6 +730,10 @@ pub struct MintedWitnessSet<'b> {
     #[n(3)]
     pub plutus_v1_script: Option<Vec<PlutusScript<1>>>,
 
+    #[cbor(skip)]
+    #[deprecated(since = "0.31.0", note = "use `plutus_v1_script` instead")]
+    pub plutus_script: Option<Vec<PlutusScript<1>>>,
+
     #[b(4)]
     pub plutus_data: Option<Vec<KeepRaw<'b, PlutusData>>>,
 
@@ -731,6 +742,7 @@ pub struct MintedWitnessSet<'b> {
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
+    #[allow(deprecated)]
     fn from(x: MintedWitnessSet<'b>) -> Self {
         WitnessSet {
             vkeywitness: x.vkeywitness,
@@ -739,6 +751,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             bootstrap_witness: x.bootstrap_witness,
             plutus_v1_script: x.plutus_v1_script,
+            plutus_script: None,
             plutus_data: x
                 .plutus_data
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
