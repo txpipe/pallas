@@ -1,5 +1,9 @@
 use crate::KeyValuePairs;
-use pallas_codec::minicbor::{self, data::Tag, Encode};
+use pallas_codec::minicbor::{
+    self,
+    data::{IanaTag, Tag},
+    Encode,
+};
 use pallas_codec::utils::Int;
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref};
@@ -22,14 +26,15 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
                 let mut probe = d.probe();
                 let tag = probe.tag()?;
 
-                match tag {
-                    Tag::Unassigned(121..=127 | 1280..=1400 | 102) => {
-                        Ok(Self::Constr(d.decode_with(ctx)?))
+                if tag == IanaTag::PosBignum.tag() || tag == IanaTag::NegBignum.tag() {
+                    Ok(Self::BigInt(d.decode_with(ctx)?))
+                } else {
+                    match tag.as_u64() {
+                        (121..=127) | (1280..=1400) | 102 => Ok(Self::Constr(d.decode_with(ctx)?)),
+                        _ => Err(minicbor::decode::Error::message(
+                            "unknown tag for plutus data tag",
+                        )),
                     }
-                    Tag::PosBignum | Tag::NegBignum => Ok(Self::BigInt(d.decode_with(ctx)?)),
-                    _ => Err(minicbor::decode::Error::message(
-                        "unknown tag for plutus data tag",
-                    )),
                 }
             }
             minicbor::data::Type::U8
@@ -132,13 +137,14 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for BigInt {
             | minicbor::data::Type::Int => Ok(Self::Int(d.decode_with(ctx)?)),
             minicbor::data::Type::Tag => {
                 let tag = d.tag()?;
-
-                match tag {
-                    minicbor::data::Tag::PosBignum => Ok(Self::BigUInt(d.decode_with(ctx)?)),
-                    minicbor::data::Tag::NegBignum => Ok(Self::BigNInt(d.decode_with(ctx)?)),
-                    _ => Err(minicbor::decode::Error::message(
+                if tag == IanaTag::PosBignum.tag() {
+                    Ok(Self::BigUInt(d.decode_with(ctx)?))
+                } else if tag == IanaTag::NegBignum.tag() {
+                    Ok(Self::BigNInt(d.decode_with(ctx)?))
+                } else {
+                    Err(minicbor::decode::Error::message(
                         "invalid cbor tag for big int",
-                    )),
+                    ))
                 }
             }
             _ => Err(minicbor::decode::Error::message(
@@ -159,11 +165,11 @@ impl<C> minicbor::encode::Encode<C> for BigInt {
                 e.encode_with(x, ctx)?;
             }
             BigInt::BigUInt(x) => {
-                e.tag(Tag::PosBignum)?;
+                e.tag(IanaTag::PosBignum)?;
                 e.encode_with(x, ctx)?;
             }
             BigInt::BigNInt(x) => {
-                e.tag(Tag::NegBignum)?;
+                e.tag(IanaTag::NegBignum)?;
                 e.encode_with(x, ctx)?;
             }
         };
@@ -185,27 +191,22 @@ where
 {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let tag = d.tag()?;
+        let x = tag.as_u64();
+        match x {
+            121..=127 | 1280..=1400 => Ok(Constr {
+                tag: x,
+                fields: d.decode_with(ctx)?,
+                any_constructor: None,
+            }),
+            102 => {
+                d.array()?;
 
-        match tag {
-            Tag::Unassigned(x) => match x {
-                121..=127 | 1280..=1400 => Ok(Constr {
+                Ok(Constr {
                     tag: x,
+                    any_constructor: Some(d.decode_with(ctx)?),
                     fields: d.decode_with(ctx)?,
-                    any_constructor: None,
-                }),
-                102 => {
-                    d.array()?;
-
-                    Ok(Constr {
-                        tag: x,
-                        any_constructor: Some(d.decode_with(ctx)?),
-                        fields: d.decode_with(ctx)?,
-                    })
-                }
-                _ => Err(minicbor::decode::Error::message(
-                    "bad tag code for plutus data",
-                )),
-            },
+                })
+            }
             _ => Err(minicbor::decode::Error::message(
                 "bad tag code for plutus data",
             )),
@@ -222,7 +223,7 @@ where
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::Unassigned(self.tag))?;
+        e.tag(Tag::new(self.tag))?;
 
         match self.tag {
             102 => {

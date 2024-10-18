@@ -238,7 +238,7 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::Unassigned(30))?;
+        e.tag(Tag::new(30))?;
         e.array(2)?;
         e.encode_with(self.numerator, ctx)?;
         e.encode_with(self.denominator, ctx)?;

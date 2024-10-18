@@ -186,10 +186,10 @@ impl Encode<()> for HeaderContent {
                 return Err(Error::message("header variant 0 but no byron prefix"));
             }
 
-            e.tag(minicbor::data::Tag::Cbor)?;
+            e.tag(minicbor::data::IanaTag::Cbor)?;
             e.bytes(&self.cbor)?;
         } else {
-            e.tag(minicbor::data::Tag::Cbor)?;
+            e.tag(minicbor::data::IanaTag::Cbor)?;
             e.bytes(&self.cbor)?;
         }
 
@@ -211,7 +211,7 @@ impl Encode<()> for BlockContent {
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        e.tag(minicbor::data::Tag::Cbor)?;
+        e.tag(minicbor::data::IanaTag::Cbor)?;
         e.bytes(&self.0)?;
 
         Ok(())

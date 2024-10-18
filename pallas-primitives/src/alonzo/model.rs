@@ -246,7 +246,7 @@ impl<C> minicbor::encode::Encode<C> for InstantaneousRewardTarget {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-#[cbor]
+#[cbor()]
 pub struct MoveInstantaneousReward {
     #[n(0)]
     pub source: InstantaneousRewardSource,
@@ -809,7 +809,7 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
             }
             AuxiliaryData::PostAlonzo(v) => {
                 // TODO: check if this is the correct tag
-                e.tag(Tag::Unassigned(259))?;
+                e.tag(Tag::new(259))?;
                 e.encode_with(v, ctx)?;
             }
         };
