@@ -2,10 +2,10 @@
 
 use crate::utils::{
     add_minted_value, add_values, aux_data_from_babbage_minted_tx, compute_native_script_hash,
-    compute_plutus_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
-    get_lovelace_from_alonzo_val, get_network_id_value, get_payment_part, get_shelley_address,
-    get_val_size_in_words, is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list,
-    values_are_equal, verify_signature,
+    compute_plutus_v1_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
+    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
+    is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list, values_are_equal,
+    verify_signature,
     BabbageError::*,
     BabbageProtParams, UTxOs,
     ValidationError::{self, *},
@@ -16,15 +16,14 @@ use pallas_codec::{
     minicbor::{encode, Encoder},
     utils::{Bytes, KeepRaw},
 };
-use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
-        AddrKeyhash, Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx,
-        MintedWitnessSet, NativeScript, PlutusData, PlutusV1Script, PlutusV2Script, PolicyId,
-        PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, RequiredSigners,
-        TransactionInput, VKeyWitness, Value,
+        Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
+        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer,
+        RequiredSigners, VKeyWitness, Value,
     },
+    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
@@ -166,11 +165,11 @@ fn check_min_fee(
 
 fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
     let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let plutus_v1_scripts: &[PlutusV1Script] = &minted_witness_set
+    let plutus_v1_scripts: &[PlutusScript<1>] = &minted_witness_set
         .plutus_v1_script
         .clone()
         .unwrap_or_default();
-    let plutus_v2_scripts: &[PlutusV2Script] = &minted_witness_set
+    let plutus_v2_scripts: &[PlutusScript<2>] = &minted_witness_set
         .plutus_v2_script
         .clone()
         .unwrap_or_default();
@@ -401,7 +400,7 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
 // global network ID.
 fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
     if let Some(tx_network_id) = tx_body.network_id {
-        if get_network_id_value(tx_network_id) != *network_id {
+        if u8::from(tx_network_id) != *network_id {
             return Err(Babbage(TxWrongNetworkID));
         }
     }
@@ -449,12 +448,12 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
                         .map(|x| x.clone().unwrap())
                         .collect(),
                 };
-            let v1_script_wits: Vec<PlutusV1Script> =
+            let v1_script_wits: Vec<PlutusScript<1>> =
                 match &mtx.transaction_witness_set.plutus_v1_script {
                     None => Vec::new(),
                     Some(v1_script_wits) => v1_script_wits.clone(),
                 };
-            let v2_script_wits: Vec<PlutusV2Script> =
+            let v2_script_wits: Vec<PlutusScript<2>> =
                 match &mtx.transaction_witness_set.plutus_v2_script {
                     None => Vec::new(),
                     Some(v2_script_wits) => v2_script_wits.clone(),
@@ -465,7 +464,7 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
                     .all(|script| compute_native_script_hash(script) != *policy)
                     && v1_script_wits
                         .iter()
-                        .all(|script| compute_plutus_script_hash(script) != *policy)
+                        .all(|script| compute_plutus_v1_script_hash(script) != *policy)
                     && v2_script_wits
                         .iter()
                         .all(|script| compute_plutus_v2_script_hash(script) != *policy)
@@ -500,7 +499,7 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
         Some(scripts) => scripts
             .clone()
             .iter()
-            .map(compute_plutus_script_hash)
+            .map(compute_plutus_v1_script_hash)
             .collect(),
         None => Vec::new(),
     };

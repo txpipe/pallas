@@ -12,12 +12,12 @@ use pallas_codec::{
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{
-        AddrKeyhash, AssetName, AuxiliaryData, Coin, Epoch, GenesisDelegateHash, Genesishash,
-        MintedTx as AlonzoMintedTx, Multiasset, NativeScript, NetworkId, PlutusScript, PolicyId,
-        PoolKeyhash, PoolMetadata, Relay, RewardAccount, StakeCredential, TransactionIndex,
-        UnitInterval, VKeyWitness, Value, VrfKeyhash,
+        AuxiliaryData, MintedTx as AlonzoMintedTx, Multiasset, NativeScript, VKeyWitness, Value,
     },
-    babbage::{MintedTx as BabbageMintedTx, PlutusV2Script},
+    babbage::MintedTx as BabbageMintedTx,
+    AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, NetworkId, PlutusScript,
+    PolicyId, PoolKeyhash, PoolMetadata, Relay, RewardAccount, StakeCredential, TransactionIndex,
+    UnitInterval, VrfKeyhash,
 };
 use pallas_traverse::{time::Slot, MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
@@ -267,11 +267,9 @@ pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
     }
 }
 
+#[deprecated(since = "0.31.0", note = "use `u8::from(...)` instead")]
 pub fn get_network_id_value(network_id: NetworkId) -> u8 {
-    match network_id {
-        NetworkId::One => 0,
-        NetworkId::Two => 1,
-    }
+    u8::from(network_id)
 }
 
 pub fn mk_alonzo_vk_wits_check_list(
@@ -337,13 +335,18 @@ pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }
 
-pub fn compute_plutus_script_hash(script: &PlutusScript) -> PolicyId {
+#[deprecated(since = "0.31.0", note = "use `compute_plutus_v1_script_hash` instead")]
+pub fn compute_plutus_script_hash(script: &PlutusScript<1>) -> PolicyId {
+    compute_plutus_v1_script_hash(script)
+}
+
+pub fn compute_plutus_v1_script_hash(script: &PlutusScript<1>) -> PolicyId {
     let mut payload: Vec<u8> = Vec::from(script.as_ref());
     payload.insert(0, 1);
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
 }
 
-pub fn compute_plutus_v2_script_hash(script: &PlutusV2Script) -> PolicyId {
+pub fn compute_plutus_v2_script_hash(script: &PlutusScript<2>) -> PolicyId {
     let mut payload: Vec<u8> = Vec::from(script.as_ref());
     payload.insert(0, 2);
     pallas_crypto::hash::Hasher::<224>::hash(&payload)
@@ -375,7 +378,8 @@ pub struct DState {
     pub inst_rewards: InstantaneousRewards,
 }
 
-// Essentially part of the `PoolRegistration` component of `Certificate` at alonzo/src/model.rs
+// Essentially part of the `PoolRegistration` component of `Certificate` at
+// alonzo/src/model.rs
 #[derive(Clone, Debug)]
 pub struct PoolParam {
     pub vrf_keyhash: VrfKeyhash,

@@ -1,8 +1,7 @@
 use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
-    alonzo::{self, BootstrapWitness, NativeScript, PlutusData, VKeyWitness},
-    babbage::PlutusV2Script,
-    conway::PlutusV3Script,
+    alonzo::{self, BootstrapWitness, NativeScript, VKeyWitness},
+    PlutusData, PlutusScript,
 };
 
 use crate::{MultiEraRedeemer, MultiEraTx};
@@ -80,12 +79,12 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn plutus_v1_scripts(&self) -> &[alonzo::PlutusScript] {
+    pub fn plutus_v1_scripts(&self) -> &[alonzo::PlutusScript<1>] {
         match self {
             Self::Byron(_) => &[],
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
-                .plutus_script
+                .plutus_v1_script
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
@@ -181,7 +180,7 @@ impl<'b> MultiEraTx<'b> {
         })
     }
 
-    pub fn plutus_v2_scripts(&self) -> &[PlutusV2Script] {
+    pub fn plutus_v2_scripts(&self) -> &[PlutusScript<2>] {
         match self {
             Self::Byron(_) => &[],
             Self::AlonzoCompatible(_, _) => &[],
@@ -200,7 +199,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn plutus_v3_scripts(&self) -> &[PlutusV3Script] {
+    pub fn plutus_v3_scripts(&self) -> &[PlutusScript<3>] {
         match self {
             Self::Byron(_) => &[],
             Self::AlonzoCompatible(_, _) => &[],

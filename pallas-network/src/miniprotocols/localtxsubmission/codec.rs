@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::data::Tag;
+use pallas_codec::minicbor::data::IanaTag;
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
@@ -78,7 +78,7 @@ impl<'b> Decode<'b, ()> for EraTx {
         d.array()?;
         let era = d.u16()?;
         let tag = d.tag()?;
-        if tag != Tag::Cbor {
+        if tag != IanaTag::Cbor.tag() {
             return Err(decode::Error::message("Expected encoded CBOR data item"));
         }
         Ok(EraTx(era, d.bytes()?.to_vec()))
@@ -93,7 +93,7 @@ impl Encode<()> for EraTx {
     ) -> Result<(), encode::Error<W::Error>> {
         e.array(2)?;
         e.u16(self.0)?;
-        e.tag(Tag::Cbor)?;
+        e.tag(IanaTag::Cbor)?;
         e.bytes(&self.1)?;
         Ok(())
     }

@@ -73,7 +73,7 @@ impl From<CostModel> for pallas_primitives::alonzo::CostModel {
 #[derive(Deserialize, Clone)]
 pub struct CostModelPerLanguage(HashMap<Language, CostModel>);
 
-impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostMdls {
+impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostModels {
     fn from(value: CostModelPerLanguage) -> Self {
         let inner = value
             .0
