@@ -65,4 +65,17 @@ impl<'b> MultiEraRedeemer<'b> {
             Box::new(Cow::Borrowed(redeemers_val)),
         )
     }
+
+    pub fn from_conway_deprecated(redeemer: &'b conway::Redeemer) -> Self {
+        Self::Conway(
+            Box::new(Cow::Owned(conway::RedeemersKey {
+                tag: redeemer.tag,
+                index: redeemer.index,
+            })),
+            Box::new(Cow::Owned(conway::RedeemersValue {
+                data: redeemer.data.clone(),
+                ex_units: redeemer.ex_units,
+            })),
+        )
+    }
 }

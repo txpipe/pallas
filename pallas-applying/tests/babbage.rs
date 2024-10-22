@@ -29,6 +29,8 @@ use std::borrow::Cow;
 
 #[cfg(test)]
 mod babbage_tests {
+    use pallas_primitives::MaybeIndefArray;
+
     use super::*;
 
     #[test]
@@ -2150,7 +2152,7 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let old_datum: KeepRaw<PlutusData> = tx_wits.plutus_data.unwrap().pop().unwrap();
-        let new_datum: PlutusData = PlutusData::Array(Vec::new());
+        let new_datum: PlutusData = PlutusData::Array(MaybeIndefArray::Def(Vec::new()));
         let mut new_datum_buf: Vec<u8> = Vec::new();
         let _ = encode(new_datum, &mut new_datum_buf);
         let keep_raw_new_datum: KeepRaw<PlutusData> =
@@ -2245,7 +2247,7 @@ mod babbage_tests {
         let new_redeemer: Redeemer = Redeemer {
             tag: RedeemerTag::Spend,
             index: 15,
-            data: PlutusData::Array(Vec::new()),
+            data: PlutusData::Array(MaybeIndefArray::Def(Vec::new())),
             ex_units: ExUnits { mem: 0, steps: 0 },
         };
         tx_wits.redeemer = Some(vec![old_redeemer, new_redeemer]);
