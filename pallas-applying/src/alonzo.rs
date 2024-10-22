@@ -566,24 +566,22 @@ fn mk_plutus_script_redeemer_pointers(
                     }
                 }
             }
-            match mint {
-                Some(minted_value) => {
-                    let sorted_policies: Vec<PolicyId> = sort_policies(minted_value);
-                    for (index, policy) in sorted_policies.iter().enumerate() {
-                        for plutus_script in plutus_scripts.iter() {
-                            let hashed_script: PolicyId =
-                                compute_plutus_v1_script_hash(plutus_script);
-                            if *policy == hashed_script {
-                                res.push(RedeemerPointer {
-                                    tag: RedeemerTag::Mint,
-                                    index: index as u32,
-                                })
-                            }
+
+            if let Some(minted_value) = mint {
+                let sorted_policies: Vec<PolicyId> = sort_policies(minted_value);
+                for (index, policy) in sorted_policies.iter().enumerate() {
+                    for plutus_script in plutus_scripts.iter() {
+                        let hashed_script: PolicyId = compute_plutus_v1_script_hash(plutus_script);
+                        if *policy == hashed_script {
+                            res.push(RedeemerPointer {
+                                tag: RedeemerTag::Mint,
+                                index: index as u32,
+                            })
                         }
                     }
                 }
-                None => (),
             }
+
             res
         }
         None => Vec::new(),
@@ -727,10 +725,11 @@ fn check_vkey_input_wits(
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
     inputs_and_collaterals.extend(tx_body.inputs.clone());
-    match &tx_body.collateral {
-        Some(collaterals) => inputs_and_collaterals.extend(collaterals.clone()),
-        None => (),
+
+    if let Some(collaterals) = &tx_body.collateral {
+        inputs_and_collaterals.extend(collaterals.clone());
     }
+
     for input in inputs_and_collaterals.iter() {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
