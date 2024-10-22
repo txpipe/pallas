@@ -4,10 +4,10 @@ use pallas_codec::utils::{CborWrap, KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     babbage::{
-        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, PlutusData, PlutusV1Script,
-        PlutusV2Script, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
-        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput,
-        Tx as BabbageTx, Value, WitnessSet,
+        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, PlutusData, PlutusScript,
+        PostAlonzoTransactionOutput, PseudoScript as PallasScript, PseudoTransactionOutput,
+        Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx as BabbageTx, Value,
+        WitnessSet,
     },
     Fragment,
 };
@@ -88,10 +88,9 @@ impl BuildBabbage for StagingTransaction {
             .collect();
 
         let network_id = if let Some(nid) = self.network_id {
-            match nid {
-                0 => Some(NetworkId::One),
-                1 => Some(NetworkId::Two),
-                _ => return Err(TxBuilderError::InvalidNetworkId),
+            match NetworkId::try_from(nid) {
+                Err(()) => return Err(TxBuilderError::InvalidNetworkId),
+                Ok(network_id) => Some(network_id),
             }
         } else {
             None
@@ -125,12 +124,12 @@ impl BuildBabbage for StagingTransaction {
                     native_script.push(script)
                 }
                 ScriptKind::PlutusV1 => {
-                    let script = PlutusV1Script(script.bytes.into());
+                    let script = PlutusScript::<1>(script.bytes.into());
 
                     plutus_v1_script.push(script)
                 }
                 ScriptKind::PlutusV2 => {
-                    let script = PlutusV2Script(script.bytes.into());
+                    let script = PlutusScript::<2>(script.bytes.into());
 
                     plutus_v2_script.push(script)
                 }
@@ -313,12 +312,12 @@ impl Output {
                     NativeScript::decode_fragment(s.bytes.as_ref())
                         .map_err(|_| TxBuilderError::MalformedScript)?,
                 ),
-                ScriptKind::PlutusV1 => {
-                    PallasScript::PlutusV1Script(PlutusV1Script(s.bytes.as_ref().to_vec().into()))
-                }
-                ScriptKind::PlutusV2 => {
-                    PallasScript::PlutusV2Script(PlutusV2Script(s.bytes.as_ref().to_vec().into()))
-                }
+                ScriptKind::PlutusV1 => PallasScript::PlutusV1Script(PlutusScript::<1>(
+                    s.bytes.as_ref().to_vec().into(),
+                )),
+                ScriptKind::PlutusV2 => PallasScript::PlutusV2Script(PlutusScript::<2>(
+                    s.bytes.as_ref().to_vec().into(),
+                )),
             };
 
             Some(CborWrap(script))

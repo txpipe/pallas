@@ -5,7 +5,7 @@ use pallas_primitives::alonzo;
 use crate::MultiEraTx;
 
 impl<'b> MultiEraTx<'b> {
-    pub fn aux_plutus_v1_scripts(&self) -> &[alonzo::PlutusScript] {
+    pub fn aux_plutus_v1_scripts(&self) -> &[alonzo::PlutusScript<1>] {
         if let Some(aux_data) = self.aux_data() {
             if let alonzo::AuxiliaryData::PostAlonzo(x) = aux_data.deref() {
                 if let Some(plutus) = &x.plutus_scripts {

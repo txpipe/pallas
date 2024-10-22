@@ -4,15 +4,19 @@
 
 use serde::{Deserialize, Serialize};
 
-use pallas_codec::minicbor::{Decode, Encode};
+use pallas_codec::{
+    minicbor::{self, Decode, Encode},
+    utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable},
+};
 use pallas_crypto::hash::{Hash, Hasher};
 
-use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, Nullable};
-
-// required for derive attrs to work
-use pallas_codec::minicbor;
-
-use crate::alonzo::VrfCert;
+pub use crate::{
+    plutus_data::*, AddrKeyhash, AssetName, DatumHash, DnsName, Epoch, ExUnitPrices, ExUnits,
+    GenesisDelegateHash, Genesishash, IPv4, IPv6, Metadata, Metadatum, MetadatumLabel, NetworkId,
+    Nonce, NonceVariant, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port,
+    PositiveInterval, ProtocolVersion, RationalNumber, Relay, ScriptHash, StakeCredential,
+    TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+};
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
@@ -62,10 +66,6 @@ pub struct OperationalCert {
     pub operational_cert_sigma: Bytes,
 }
 
-pub use crate::alonzo::ProtocolVersion;
-
-pub use crate::alonzo::KesSignature;
-
 pub type MintedHeaderBody<'a> = KeepRaw<'a, HeaderBody>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -97,18 +97,6 @@ impl<'a> From<MintedHeaderBody<'a>> for HeaderBody {
     }
 }
 
-pub use crate::alonzo::TransactionInput;
-
-pub use crate::alonzo::NonceVariant;
-
-pub use crate::alonzo::Nonce;
-
-pub use crate::alonzo::ScriptHash;
-
-pub use crate::alonzo::PolicyId;
-
-pub use crate::alonzo::AssetName;
-
 pub use crate::alonzo::Multiasset;
 
 pub use crate::alonzo::Mint;
@@ -119,16 +107,6 @@ pub use crate::alonzo::Value;
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
-pub use crate::alonzo::PoolKeyhash;
-
-pub use crate::alonzo::Epoch;
-
-pub use crate::alonzo::Genesishash;
-
-pub use crate::alonzo::GenesisDelegateHash;
-
-pub use crate::alonzo::VrfKeyhash;
-
 pub use crate::alonzo::InstantaneousRewardSource;
 
 pub use crate::alonzo::InstantaneousRewardTarget;
@@ -137,39 +115,11 @@ pub use crate::alonzo::MoveInstantaneousReward;
 
 pub use crate::alonzo::RewardAccount;
 
-pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
+pub use crate::alonzo::Withdrawals;
 
-pub type RequiredSigners = Vec<AddrKeyhash>;
-
-pub use crate::alonzo::Port;
-
-pub use crate::alonzo::IPv4;
-
-pub use crate::alonzo::IPv6;
-
-pub use crate::alonzo::DnsName;
-
-pub use crate::alonzo::Relay;
-
-pub use crate::alonzo::PoolMetadataHash;
-
-pub use crate::alonzo::PoolMetadata;
-
-pub use crate::alonzo::AddrKeyhash;
-
-pub use crate::alonzo::Scripthash;
-
-pub use crate::alonzo::RationalNumber;
-
-pub use crate::alonzo::UnitInterval;
-
-pub use crate::alonzo::PositiveInterval;
-
-pub use crate::alonzo::StakeCredential;
+pub use crate::alonzo::RequiredSigners;
 
 pub use crate::alonzo::Certificate;
-
-pub use crate::alonzo::NetworkId;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
@@ -181,11 +131,14 @@ pub enum Language {
     PlutusV2,
 }
 
+#[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
+pub type CostMdls = CostModels;
+
 pub use crate::alonzo::CostModel;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
-pub struct CostMdls {
+pub struct CostModels {
     #[n(0)]
     pub plutus_v1: Option<CostModel>,
 
@@ -228,7 +181,7 @@ pub struct ProtocolParamUpdate {
     #[n(17)]
     pub ada_per_utxo_byte: Option<Coin>,
     #[n(18)]
-    pub cost_models_for_script_languages: Option<CostMdls>,
+    pub cost_models_for_script_languages: Option<CostModels>,
     #[n(19)]
     pub execution_costs: Option<ExUnitPrices>,
     #[n(20)]
@@ -455,28 +408,6 @@ pub use crate::alonzo::VKeyWitness;
 
 pub use crate::alonzo::NativeScript;
 
-pub use crate::alonzo::PlutusScript as PlutusV1Script;
-
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
-#[cbor(transparent)]
-pub struct PlutusV2Script(#[n(0)] pub Bytes);
-
-impl AsRef<[u8]> for PlutusV2Script {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-pub use crate::alonzo::BigInt;
-
-pub use crate::alonzo::PlutusData;
-
-pub use crate::alonzo::Constr;
-
-pub use crate::alonzo::ExUnits;
-
-pub use crate::alonzo::ExUnitPrices;
-
 pub use crate::alonzo::RedeemerTag;
 
 pub use crate::alonzo::Redeemer;
@@ -496,7 +427,7 @@ pub struct WitnessSet {
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_script: Option<Vec<PlutusScript<1>>>,
 
     #[n(4)]
     pub plutus_data: Option<Vec<PlutusData>>,
@@ -505,7 +436,7 @@ pub struct WitnessSet {
     pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_script: Option<Vec<PlutusScript<2>>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -521,7 +452,7 @@ pub struct MintedWitnessSet<'b> {
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_script: Option<Vec<PlutusScript<1>>>,
 
     #[b(4)]
     pub plutus_data: Option<Vec<KeepRaw<'b, PlutusData>>>,
@@ -530,7 +461,7 @@ pub struct MintedWitnessSet<'b> {
     pub redeemer: Option<Vec<Redeemer>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_script: Option<Vec<PlutusScript<2>>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -561,20 +492,16 @@ pub struct PostAlonzoAuxiliaryData {
     pub native_scripts: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub plutus_v1_scripts: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_scripts: Option<Vec<PlutusScript<1>>>,
 
     #[n(3)]
-    pub plutus_v2_scripts: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_scripts: Option<Vec<PlutusScript<2>>>,
 }
-
-pub type DatumHash = Hash<32>;
-
-//pub type Data = CborWrap<PlutusData>;
 
 // datum_option = [ 0, $hash32 // 1, data ]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PseudoDatumOption<T1> {
-    Hash(Hash<32>),
+    Hash(DatumHash),
     Data(CborWrap<T1>),
 }
 
@@ -626,12 +553,18 @@ impl<'b> From<MintedDatumOption<'b>> for DatumOption {
     }
 }
 
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<1>` instead")]
+pub type PlutusV1Script = PlutusScript<1>;
+
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<2>` instead")]
+pub type PlutusV2Script = PlutusScript<2>;
+
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PseudoScript<T1> {
     NativeScript(T1),
-    PlutusV1Script(PlutusV1Script),
-    PlutusV2Script(PlutusV2Script),
+    PlutusV1Script(PlutusScript<1>),
+    PlutusV2Script(PlutusScript<2>),
 }
 
 // script_ref = #6.24(bytes .cbor script)
@@ -689,15 +622,7 @@ where
     }
 }
 
-pub use crate::alonzo::Metadatum;
-
-pub use crate::alonzo::MetadatumLabel;
-
-pub use crate::alonzo::Metadata;
-
 pub use crate::alonzo::AuxiliaryData;
-
-pub use crate::alonzo::TransactionIndex;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct PseudoBlock<T1, T2, T3, T4>
