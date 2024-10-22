@@ -182,7 +182,7 @@ mod tests {
     use crate::{Era, MultiEraTx};
 
     use super::{ComputeHash, OriginalHash};
-    use pallas_codec::utils::Int;
+    use pallas_codec::utils::{Int, MaybeIndefArray};
     use pallas_codec::{minicbor, utils::Bytes};
     use pallas_crypto::hash::Hash;
     use pallas_crypto::key::ed25519::PublicKey;
@@ -283,26 +283,26 @@ mod tests {
         let pd = alonzo::PlutusData::Constr(alonzo::Constr::<alonzo::PlutusData> {
             tag: 1280,
             any_constructor: None,
-            fields: vec![
+            fields: MaybeIndefArray::Indef(vec![
                 alonzo::PlutusData::BigInt(alonzo::BigInt::Int(Int::from(4))),
                 alonzo::PlutusData::Constr(alonzo::Constr::<alonzo::PlutusData> {
                     tag: 124,
                     any_constructor: None,
-                    fields: vec![
+                    fields: MaybeIndefArray::Indef(vec![
                         alonzo::PlutusData::BigInt(alonzo::BigInt::Int(Int::from(-4))),
                         alonzo::PlutusData::Constr(alonzo::Constr::<alonzo::PlutusData> {
                             tag: 102,
                             any_constructor: Some(453),
-                            fields: vec![
+                            fields: MaybeIndefArray::Indef(vec![
                                 alonzo::PlutusData::BigInt(alonzo::BigInt::Int(Int::from(2))),
                                 alonzo::PlutusData::BigInt(alonzo::BigInt::Int(Int::from(3434))),
-                            ],
+                            ]),
                         }),
                         alonzo::PlutusData::BigInt(alonzo::BigInt::Int(Int::from(-11828293))),
-                    ],
+                    ]),
                 }),
                 alonzo::PlutusData::BigInt(alonzo::BigInt::Int(Int::from(11828293))),
-            ],
+            ]),
         });
 
         // if you need to try this out in the cardano-cli, uncomment this line to see

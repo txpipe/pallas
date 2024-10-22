@@ -1,10 +1,13 @@
 use crate::KeyValuePairs;
-use pallas_codec::minicbor::{
-    self,
-    data::{IanaTag, Tag},
-    Encode,
-};
 use pallas_codec::utils::Int;
+use pallas_codec::{
+    minicbor::{
+        self,
+        data::{IanaTag, Tag},
+        Encode,
+    },
+    utils::MaybeIndefArray,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref};
 
@@ -14,7 +17,7 @@ pub enum PlutusData {
     Map(KeyValuePairs<PlutusData, PlutusData>),
     BigInt(BigInt),
     BoundedBytes(BoundedBytes),
-    Array(Vec<PlutusData>),
+    Array(MaybeIndefArray<PlutusData>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
@@ -96,11 +99,7 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Array(a) => {
-                // we use definite array for empty array or indef array otherwise to match
-                // haskell implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L153
-                // default encoder for a list:
-                // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
-                encode_list(a, e, ctx)?;
+                e.encode_with(a, ctx)?;
             }
         };
 
@@ -182,7 +181,7 @@ impl<C> minicbor::encode::Encode<C> for BigInt {
 pub struct Constr<A> {
     pub tag: u64,
     pub any_constructor: Option<u64>,
-    pub fields: Vec<A>,
+    pub fields: MaybeIndefArray<A>,
 }
 
 impl<'b, C, A> minicbor::decode::Decode<'b, C> for Constr<A>
@@ -227,22 +226,12 @@ where
 
         match self.tag {
             102 => {
-                // definite length array here
-                // https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
-                e.array(2)?;
-                e.encode_with(self.any_constructor.unwrap_or_default(), ctx)?;
-
-                // we use definite array for empty array or indef array otherwise to match
-                // haskell implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L144
-                // default encoder for a list:
-                // https://github.com/well-typed/cborg/blob/4bdc818a1f0b35f38bc118a87944630043b58384/serialise/src/Codec/Serialise/Class.hs#L181
-                encode_list(&self.fields, e, ctx)?;
+                let x = (self.any_constructor.unwrap_or_default(), &self.fields);
+                e.encode_with(x, ctx)?;
                 Ok(())
             }
             _ => {
-                // we use definite array for empty array or indef array otherwise to match
-                // haskell implementation. See above reference.
-                encode_list(&self.fields, e, ctx)?;
+                e.encode_with(&self.fields, ctx)?;
                 Ok(())
             }
         }
@@ -331,23 +320,4 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for BoundedBytes {
         }
         Ok(BoundedBytes::from(res))
     }
-}
-
-fn encode_list<C, W: minicbor::encode::Write, A: minicbor::encode::Encode<C>>(
-    a: &Vec<A>,
-    e: &mut minicbor::Encoder<W>,
-    ctx: &mut C,
-) -> Result<(), minicbor::encode::Error<W::Error>> {
-    // Mimics default haskell list encoding from cborg:
-    // We use indef array for non-empty arrays but definite 0-length array for empty
-    if a.is_empty() {
-        e.array(0)?;
-    } else {
-        e.begin_array()?;
-        for v in a {
-            e.encode_with(v, ctx)?;
-        }
-        e.end()?;
-    }
-    Ok(())
 }
