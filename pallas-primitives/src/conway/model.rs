@@ -1364,22 +1364,15 @@ pub struct RedeemersValue {
     pub ex_units: ExUnits,
 }
 
-// TODO: Redeemers needs to be KeepRaw because of script data hash
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Redeemers(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>);
-
-impl Deref for Redeemers {
-    type Target = NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub enum Redeemers {
+    List(MaybeIndefArray<Redeemer>),
+    Map(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>),
 }
 
 impl From<NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
     fn from(value: NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>) -> Self {
-        Redeemers(value)
+        Redeemers::Map(value)
     }
 }
 
@@ -1387,30 +1380,10 @@ impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                let redeemers: Vec<Redeemer> = d.decode_with(ctx)?;
-
-                let kvs = redeemers
-                    .into_iter()
-                    .map(|x| {
-                        (
-                            RedeemersKey {
-                                tag: x.tag,
-                                index: x.index,
-                            },
-                            RedeemersValue {
-                                data: x.data,
-                                ex_units: x.ex_units,
-                            },
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .map_err(|_| Error::message("decoding empty redeemers"))?;
-
-                Ok(Self(kvs))
+                Ok(Self::List(d.decode_with(ctx)?))
             }
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Self(d.decode_with(ctx)?))
+                Ok(Self::Map(d.decode_with(ctx)?))
             }
             _ => Err(minicbor::decode::Error::message(
                 "invalid type for redeemers struct",
@@ -1425,7 +1398,10 @@ impl<C> minicbor::Encode<C> for Redeemers {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.encode_with(&self.0, ctx)?;
+        match self {
+            Self::List(x) => e.encode_with(x, ctx)?,
+            Self::Map(x) => e.encode_with(x, ctx)?,
+        };
 
         Ok(())
     }

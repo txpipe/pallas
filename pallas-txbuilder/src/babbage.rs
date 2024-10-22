@@ -14,6 +14,7 @@ use pallas_primitives::{
 use pallas_traverse::ComputeHash;
 
 use crate::{
+    scriptdata,
     transaction::{
         model::{
             BuilderEra, BuiltTransaction, DatumKind, ExUnits, Output, RedeemerPurpose, ScriptKind,
@@ -153,6 +154,7 @@ impl BuildBabbage for StagingTransaction {
             .iter()
             .map(|(p, _)| **p)
             .collect::<Vec<_>>();
+
         mint_policies.sort_unstable_by_key(|x| *x);
 
         let mut redeemers = vec![];
@@ -206,6 +208,15 @@ impl BuildBabbage for StagingTransaction {
             }
         };
 
+        let script_data_hash = scriptdata::ScriptData {
+            redeemers: pallas_primitives::conway::Redeemers::List(
+                pallas_codec::utils::MaybeIndefArray::Def(redeemers.clone()),
+            ),
+            datums: Some(plutus_data),
+            language_view: self.language_view,
+        }
+        .hash();
+
         let mut pallas_tx = BabbageTx {
             transaction_body: TransactionBody {
                 inputs,
@@ -218,7 +229,7 @@ impl BuildBabbage for StagingTransaction {
                 update: None,              // TODO
                 auxiliary_data_hash: None, // TODO (accept user input)
                 mint,
-                script_data_hash: self.script_data_hash.map(|x| x.0.into()),
+                script_data_hash: Some(script_data_hash),
                 collateral: opt_if_empty(collateral),
                 required_signers: opt_if_empty(required_signers),
                 network_id,

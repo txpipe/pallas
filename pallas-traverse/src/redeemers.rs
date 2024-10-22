@@ -56,13 +56,26 @@ impl<'b> MultiEraRedeemer<'b> {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(redeemer)))
     }
 
-    pub fn from_conway(
+    pub fn from_conway_map(
         redeemers_key: &'b conway::RedeemersKey,
         redeemers_val: &'b conway::RedeemersValue,
     ) -> Self {
         Self::Conway(
             Box::new(Cow::Borrowed(redeemers_key)),
             Box::new(Cow::Borrowed(redeemers_val)),
+        )
+    }
+
+    pub fn from_conway_list(redeemer: &'b conway::Redeemer) -> Self {
+        Self::Conway(
+            Box::new(Cow::Owned(conway::RedeemersKey {
+                tag: redeemer.tag,
+                index: redeemer.index,
+            })),
+            Box::new(Cow::Owned(conway::RedeemersValue {
+                data: redeemer.data.clone(),
+                ex_units: redeemer.ex_units,
+            })),
         )
     }
 }

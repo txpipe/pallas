@@ -2,7 +2,7 @@ use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
     alonzo::{self, BootstrapWitness, NativeScript, PlutusData, VKeyWitness},
     babbage::PlutusV2Script,
-    conway::PlutusV3Script,
+    conway::{self, PlutusV3Script},
 };
 
 use crate::{MultiEraRedeemer, MultiEraTx};
@@ -145,13 +145,16 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(MultiEraRedeemer::from_alonzo_compatible)
                 .collect(),
-            Self::Conway(x) => x
-                .transaction_witness_set
-                .redeemer
-                .iter()
-                .flat_map(|x| x.iter())
-                .map(|(k, v)| MultiEraRedeemer::from_conway(k, v))
-                .collect(),
+            Self::Conway(x) => match x.transaction_witness_set.redeemer.as_deref() {
+                Some(conway::Redeemers::Map(x)) => x
+                    .iter()
+                    .map(|(k, v)| MultiEraRedeemer::from_conway_map(k, v))
+                    .collect(),
+                Some(conway::Redeemers::List(x)) => {
+                    x.iter().map(MultiEraRedeemer::from_conway_list).collect()
+                }
+                _ => vec![],
+            },
         }
     }
 

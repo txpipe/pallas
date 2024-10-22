@@ -4,7 +4,12 @@ use pallas_crypto::{
     hash::{Hash, Hasher},
     key::ed25519,
 };
-use pallas_primitives::{alonzo::{PlutusData, Redeemer}, babbage, conway::CostMdls, Fragment};
+use pallas_primitives::{
+    alonzo::{PlutusData, Redeemer},
+    babbage,
+    conway::CostMdls,
+    Fragment,
+};
 use pallas_wallet::PrivateKey;
 
 use std::{collections::HashMap, ops::Deref};
@@ -338,50 +343,6 @@ impl StagingTransaction {
 
         self.redeemers = Some(Redeemers(rdmrs));
 
-        self
-    }
-
-    pub fn script_data_hash(mut self, redeemers: Vec<Redeemer>,datums: Option<Vec<PlutusData>>, costmodel: CostMdls) -> Self{
-        
-        let mut buf = Vec::new();
-        if redeemers.len() == 0 && datums.is_some() {
-            buf.push(0xA0);
-            if let Some(d) = datums {
-                let datum_bytes: [Vec<u8>; 1] = [d.encode_fragment().unwrap()];
-                buf.extend(datum_bytes[0].clone());
-            }
-            buf.push(0xA0);
-        } else {
-            let redeemer_bytes: [Vec<u8>; 1] = [redeemers.encode_fragment().unwrap()];
-            buf.extend(&redeemer_bytes[0]);
-
-            if let Some(d) = datums {
-                let datum_bytes: [Vec<u8>; 1] = [d.encode_fragment().unwrap()];
-                buf.extend(datum_bytes[0].clone());
-            }
-
-            let mut language_view = vec![];
-            if let Some(plutus_v1_model) = &costmodel.plutus_v1 {
-                let plutusv1 = [(0, plutus_v1_model.to_vec())];
-                minicbor::encode(plutusv1, &mut language_view).unwrap();
-                buf.extend(language_view);
-            } else if let Some(plutus_v2_model) = &costmodel.plutus_v2 {
-                let plutusv2 = [(1, plutus_v2_model.to_vec())];
-                minicbor::encode(plutusv2, &mut language_view).unwrap();
-                buf.extend(language_view);
-            } else if let Some(plutus_v3_model) = &costmodel.plutus_v3 {
-                let plutusv3 = [(2, plutus_v3_model.to_vec())];
-                minicbor::encode(plutusv3, &mut language_view).unwrap();
-                buf.extend(language_view);
-            }
-        }
-        let hash = Hasher::<256>::hash(buf.as_ref());
-        self.script_data_hash = Some(Bytes32(*hash));
-        self
-    }
-
-    pub fn clear_script_data_hash(mut self) -> Self {
-        self.script_data_hash = None;
         self
     }
 
