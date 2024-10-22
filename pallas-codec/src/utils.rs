@@ -1,5 +1,5 @@
 use minicbor::{
-    data::{Tag, Type},
+    data::{IanaTag, Tag, Type},
     decode::Error,
     Decode, Encode,
 };
@@ -543,7 +543,7 @@ where
             minicbor::encode::Error::message("error encoding cbor-wrapped structure")
         })?;
 
-        e.tag(Tag::Cbor)?;
+        e.tag(IanaTag::Cbor)?;
         e.bytes(&buf)?;
 
         Ok(())
@@ -587,7 +587,7 @@ where
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::Unassigned(T))?;
+        e.tag(Tag::new(T))?;
         e.encode_with(&self.0, ctx)?;
 
         Ok(())
@@ -741,7 +741,7 @@ where
         if d.datatype()? == Type::Tag {
             let found_tag = d.tag()?;
 
-            if found_tag != Tag::Unassigned(TAG_SET) {
+            if found_tag != Tag::new(TAG_SET) {
                 return Err(Error::message(format!("Unrecognised tag: {found_tag:?}")));
             }
         }
@@ -759,7 +759,7 @@ where
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::Unassigned(TAG_SET))?;
+        e.tag(Tag::new(TAG_SET))?;
         e.encode_with(&self.0, ctx)?;
 
         Ok(())
@@ -824,7 +824,7 @@ where
         if d.datatype()? == Type::Tag {
             let found_tag = d.tag()?;
 
-            if found_tag != Tag::Unassigned(TAG_SET) {
+            if found_tag != Tag::new(TAG_SET) {
                 return Err(Error::message(format!("Unrecognised tag: {found_tag:?}")));
             }
         }
@@ -848,7 +848,7 @@ where
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::Unassigned(TAG_SET))?;
+        e.tag(Tag::new(TAG_SET))?;
         e.encode_with(&self.0, ctx)?;
 
         Ok(())

@@ -1,6 +1,6 @@
 //! Lightweight inspection of block data without full CBOR decoding
 
-use pallas_codec::minicbor::decode::{Token, Tokenizer};
+use pallas_codec::minicbor::{data::Token, decode::Tokenizer};
 
 use crate::Era;
 

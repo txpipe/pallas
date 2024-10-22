@@ -66,7 +66,7 @@ impl<'b> MultiEraRedeemer<'b> {
         )
     }
 
-    pub fn from_conway_list(redeemer: &'b conway::Redeemer) -> Self {
+    pub fn from_conway_deprecated(redeemer: &'b conway::Redeemer) -> Self {
         Self::Conway(
             Box::new(Cow::Owned(conway::RedeemersKey {
                 tag: redeemer.tag,

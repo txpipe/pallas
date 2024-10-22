@@ -395,8 +395,7 @@ mod tests {
     use std::str::FromStr;
 
     use pallas_addresses::Address as PallasAddress;
-    use pallas_codec::utils::MaybeIndefArray;
-    use pallas_primitives::{babbage::PlutusData, Fragment};
+    use pallas_primitives::{babbage::PlutusData, Fragment, MaybeIndefArray};
 
     use crate::transaction::{model::*, Bytes64, DatumBytes, DatumHash, Hash28, TransactionStatus};
 
