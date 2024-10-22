@@ -1646,7 +1646,7 @@ mod alonzo_tests {
             )],
         );
         let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
-        tx_wits.plutus_v1_script = Some(Vec::new());
+        tx_wits.plutus_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =

@@ -158,7 +158,7 @@ fn check_min_fee(
 
 fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
     let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
-    match &minted_witness_set.plutus_v1_script {
+    match &minted_witness_set.plutus_script {
         Some(plutus_v1_scripts) => !plutus_v1_scripts.is_empty(),
         None => false,
     }
@@ -402,7 +402,7 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
         Some(scripts) => scripts.clone().iter().map(|x| x.clone().unwrap()).collect(),
         None => Vec::new(),
     };
-    let plutus_v1_scripts: Vec<PlutusScript<1>> = match &tx_wits.plutus_v1_script {
+    let plutus_v1_scripts: Vec<PlutusScript<1>> = match &tx_wits.plutus_script {
         Some(scripts) => scripts.clone(),
         None => Vec::new(),
     };
@@ -550,7 +550,7 @@ fn mk_plutus_script_redeemer_pointers(
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
 ) -> Vec<RedeemerPointer> {
-    match &tx_wits.plutus_v1_script {
+    match &tx_wits.plutus_script {
         Some(plutus_scripts) => {
             let mut res: Vec<RedeemerPointer> = Vec::new();
             for (index, input) in sorted_inputs.iter().enumerate() {
@@ -927,7 +927,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult 
                         .collect(),
                 };
             let plutus_v1_script_wits: Vec<PlutusScript<1>> =
-                match &mtx.transaction_witness_set.plutus_v1_script {
+                match &mtx.transaction_witness_set.plutus_script {
                     None => Vec::new(),
                     Some(plutus_v1_script_wits) => plutus_v1_script_wits.clone(),
                 };

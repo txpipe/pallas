@@ -702,10 +702,6 @@ pub struct WitnessSet {
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusScript<1>>>,
-
-    #[cbor(skip)]
-    #[deprecated(since = "0.31.0", note = "use `plutus_v1_script` instead")]
     pub plutus_script: Option<Vec<PlutusScript<1>>>,
 
     #[n(4)]
@@ -728,10 +724,6 @@ pub struct MintedWitnessSet<'b> {
     pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<Vec<PlutusScript<1>>>,
-
-    #[cbor(skip)]
-    #[deprecated(since = "0.31.0", note = "use `plutus_v1_script` instead")]
     pub plutus_script: Option<Vec<PlutusScript<1>>>,
 
     #[b(4)]
@@ -750,8 +742,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
                 .native_script
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
             bootstrap_witness: x.bootstrap_witness,
-            plutus_v1_script: x.plutus_v1_script,
-            plutus_script: None,
+            plutus_script: x.plutus_script,
             plutus_data: x
                 .plutus_data
                 .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),

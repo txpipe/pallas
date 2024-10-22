@@ -84,7 +84,7 @@ impl<'b> MultiEraTx<'b> {
             Self::Byron(_) => &[],
             Self::AlonzoCompatible(x, _) => x
                 .transaction_witness_set
-                .plutus_v1_script
+                .plutus_script
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
