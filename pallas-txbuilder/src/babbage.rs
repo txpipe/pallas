@@ -219,18 +219,14 @@ impl BuildBabbage for StagingTransaction {
             pallas_codec::utils::MaybeIndefArray::Def(redeemers.clone()),
         );
 
-        let script_data_hash = if let Some(language_view) = self.language_view {
-            Some(
-                scriptdata::ScriptData {
-                    redeemers: witness_set_redeemers.clone(),
-                    datums: Some(plutus_data.clone()),
-                    language_view,
-                }
-                .hash(),
-            )
-        } else {
-            None
-        };
+        let script_data_hash = self.language_view.map(|language_view| {
+            scriptdata::ScriptData {
+                redeemers: witness_set_redeemers.clone(),
+                datums: Some(plutus_data.clone()),
+                language_view,
+            }
+            .hash()
+        });
 
         let mut pallas_tx = BabbageTx {
             transaction_body: TransactionBody {

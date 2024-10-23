@@ -52,7 +52,7 @@ impl ScriptData {
         minicbor::encode(&self.redeemers, &mut buf).unwrap(); // infallible
 
         if let Some(datums) = &self.datums {
-            minicbor::encode(&datums, &mut buf).unwrap(); // infallible
+            minicbor::encode(datums, &mut buf).unwrap(); // infallible
         }
 
         minicbor::encode(&self.language_view, &mut buf).unwrap(); // infallible
