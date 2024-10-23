@@ -22,7 +22,7 @@ where
     Ok(r)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GenDelegs {
     pub delegate: Option<String>,
@@ -75,7 +75,7 @@ impl From<ExtraEntropy> for pallas_primitives::alonzo::Nonce {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolParams {
     pub protocol_version: ProtocolVersion,
@@ -106,14 +106,14 @@ pub struct ProtocolParams {
     pub a0: pallas_primitives::alonzo::RationalNumber,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Staking {
     pub pools: Option<HashMap<String, String>>,
     pub stake: Option<HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisFile {
     pub active_slots_coeff: Option<f32>,
