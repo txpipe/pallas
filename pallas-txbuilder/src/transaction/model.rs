@@ -286,8 +286,14 @@ impl StagingTransaction {
         self
     }
 
-    pub fn language_view(mut self, plutus_version: u8, cost_model: Vec<i64>) -> Self {
-        self.language_view = Some(scriptdata::LanguageView(plutus_version, cost_model));
+    pub fn language_view(mut self, plutus_version: ScriptKind, cost_model: Vec<i64>) -> Self {
+        self.language_view = match plutus_version {
+            ScriptKind::PlutusV1 => Some(scriptdata::LanguageView(0, cost_model)),
+            ScriptKind::PlutusV2 => Some(scriptdata::LanguageView(1, cost_model)),
+            ScriptKind::PlutusV3 => Some(scriptdata::LanguageView(2, cost_model)),
+            ScriptKind::Native => None,
+        };
+
         self
     }
 
