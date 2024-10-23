@@ -232,6 +232,14 @@ where
     pub fn to_vec(self) -> Vec<(K, V)> {
         self.into()
     }
+
+    pub fn from_vec(x: Vec<(K, V)>) -> Option<Self> {
+        if x.is_empty() {
+            None
+        } else {
+            Some(NonEmptyKeyValuePairs::Def(x))
+        }
+    }
 }
 
 impl<K, V> From<NonEmptyKeyValuePairs<K, V>> for Vec<(K, V)>
@@ -776,6 +784,14 @@ pub struct NonEmptySet<T>(Vec<T>);
 impl<T> NonEmptySet<T> {
     pub fn to_vec(self) -> Vec<T> {
         self.0
+    }
+
+    pub fn from_vec(x: Vec<T>) -> Option<Self> {
+        if x.is_empty() {
+            None
+        } else {
+            Some(Self(x))
+        }
     }
 }
 

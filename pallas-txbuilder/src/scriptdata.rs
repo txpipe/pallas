@@ -1,14 +1,11 @@
-use pallas_codec::{
-    minicbor::{self, Encode},
-    utils::{KeyValuePairs, NonEmptySet},
-};
-
+use pallas_codec::minicbor::{self, Encode};
 use pallas_primitives::conway::{CostModel, PlutusData, Redeemers};
+use serde::{Deserialize, Serialize};
 
 pub type PlutusVersion = u8;
 
-#[derive(Debug, Clone)]
-pub struct LanguageView(PlutusVersion, CostModel);
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LanguageView(pub PlutusVersion, pub CostModel);
 
 impl<C> Encode<C> for LanguageView {
     fn encode<W: minicbor::encode::Write>(

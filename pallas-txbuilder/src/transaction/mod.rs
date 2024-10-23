@@ -20,7 +20,7 @@ pub struct Bytes64(pub [u8; 64]);
 type PublicKey = Bytes32;
 type Signature = Bytes64;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Hash28(pub [u8; 28]);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -52,12 +52,3 @@ pub type PolicyId = ScriptHash;
 pub type DatumHash = Bytes32;
 pub type DatumBytes = Bytes;
 pub type AssetName = Bytes;
-
-/// If a Vec is empty, returns None, or Some(Vec) if not empty
-pub fn opt_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
-    if v.is_empty() {
-        None
-    } else {
-        Some(v)
-    }
-}

@@ -56,7 +56,7 @@ impl<'b> MultiEraRedeemer<'b> {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(redeemer)))
     }
 
-    pub fn from_conway_map(
+    pub fn from_conway(
         redeemers_key: &'b conway::RedeemersKey,
         redeemers_val: &'b conway::RedeemersValue,
     ) -> Self {
