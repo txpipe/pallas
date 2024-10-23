@@ -10,7 +10,7 @@ use std::{collections::HashMap, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 
-use crate::TxBuilderError;
+use crate::{scriptdata, TxBuilderError};
 
 use super::{
     AssetName, Bytes, Bytes32, Bytes64, DatumBytes, DatumHash, Hash28, PolicyId, PubKeyHash,
@@ -39,6 +39,7 @@ pub struct StagingTransaction {
     pub script_data_hash: Option<Bytes32>,
     pub signature_amount_override: Option<u8>,
     pub change_address: Option<Address>,
+    pub language_view: Option<scriptdata::LanguageView>,
     // pub certificates: TODO
     // pub withdrawals: TODO
     // pub updates: TODO
@@ -233,6 +234,7 @@ impl StagingTransaction {
             ScriptKind::Native => Hasher::<224>::hash_tagged(bytes.as_ref(), 0),
             ScriptKind::PlutusV1 => Hasher::<224>::hash_tagged(bytes.as_ref(), 1),
             ScriptKind::PlutusV2 => Hasher::<224>::hash_tagged(bytes.as_ref(), 2),
+            ScriptKind::PlutusV3 => Hasher::<224>::hash_tagged(bytes.as_ref(), 3),
         };
 
         scripts.insert(
@@ -281,6 +283,17 @@ impl StagingTransaction {
 
         datums.remove(&Bytes32(*datum_hash));
         self.datums = Some(datums);
+        self
+    }
+
+    pub fn language_view(mut self, plutus_version: ScriptKind, cost_model: Vec<i64>) -> Self {
+        self.language_view = match plutus_version {
+            ScriptKind::PlutusV1 => Some(scriptdata::LanguageView(0, cost_model)),
+            ScriptKind::PlutusV2 => Some(scriptdata::LanguageView(1, cost_model)),
+            ScriptKind::PlutusV3 => Some(scriptdata::LanguageView(2, cost_model)),
+            ScriptKind::Native => None,
+        };
+
         self
     }
 
@@ -337,17 +350,6 @@ impl StagingTransaction {
 
         self.redeemers = Some(Redeemers(rdmrs));
 
-        self
-    }
-
-    // TODO: script_data_hash computation
-    pub fn script_data_hash(mut self, hash: Hash<32>) -> Self {
-        self.script_data_hash = Some(Bytes32(*hash));
-        self
-    }
-
-    pub fn clear_script_data_hash(mut self) -> Self {
-        self.script_data_hash = None;
         self
     }
 
@@ -514,6 +516,7 @@ pub enum ScriptKind {
     Native,
     PlutusV1,
     PlutusV2,
+    PlutusV3,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]

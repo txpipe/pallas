@@ -1,25 +1,26 @@
 use std::ops::Deref;
 
-use pallas_codec::utils::{CborWrap, KeyValuePairs};
+use pallas_codec::utils::CborWrap;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
-    babbage::{
-        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, PlutusData, PlutusScript,
-        PostAlonzoTransactionOutput, PseudoScript as PallasScript, PseudoTransactionOutput,
-        Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx as BabbageTx, Value,
-        WitnessSet,
+    conway::{
+        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
+        PlutusScript, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
+        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput,
+        Tx as BabbageTx, Value, WitnessSet,
     },
-    Fragment,
+    Fragment, NonEmptyKeyValuePairs, NonEmptySet, PositiveCoin,
 };
 use pallas_traverse::ComputeHash;
 
 use crate::{
+    scriptdata,
     transaction::{
         model::{
             BuilderEra, BuiltTransaction, DatumKind, ExUnits, Output, RedeemerPurpose, ScriptKind,
             StagingTransaction,
         },
-        opt_if_empty, Bytes, Bytes32, TransactionStatus,
+        Bytes, Bytes32, TransactionStatus,
     },
     TxBuilderError,
 };
@@ -52,40 +53,43 @@ impl BuildBabbage for StagingTransaction {
             .map(Output::build_babbage_raw)
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mint: Option<KeyValuePairs<Hash<28>, KeyValuePairs<_, _>>> = self.mint.map(|massets| {
-            massets
-                .deref()
+        let mint = NonEmptyKeyValuePairs::from_vec(
+            self.mint
                 .iter()
+                .flat_map(|x| x.deref().iter())
                 .map(|(pid, assets)| {
                     (
-                        pid.0.into(),
-                        assets
-                            .iter()
-                            .map(|(n, x)| (n.clone().into(), *x))
-                            .collect::<Vec<_>>()
-                            .into(),
+                        Hash::<28>::from(pid.0),
+                        NonEmptyKeyValuePairs::from_vec(
+                            assets
+                                .iter()
+                                .map(|(n, x)| (n.clone().into(), NonZeroInt::try_from(*x).unwrap()))
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
                     )
                 })
-                .collect::<Vec<_>>()
-                .into()
-        });
+                .collect::<Vec<_>>(),
+        );
 
-        let collateral = self
-            .collateral_inputs
-            .unwrap_or_default()
-            .iter()
-            .map(|x| TransactionInput {
-                transaction_id: x.tx_hash.0.into(),
-                index: x.txo_index,
-            })
-            .collect();
+        let collateral = NonEmptySet::from_vec(
+            self.collateral_inputs
+                .unwrap_or_default()
+                .iter()
+                .map(|x| TransactionInput {
+                    transaction_id: x.tx_hash.0.into(),
+                    index: x.txo_index,
+                })
+                .collect(),
+        );
 
-        let required_signers = self
-            .disclosed_signers
-            .unwrap_or_default()
-            .iter()
-            .map(|x| x.0.into())
-            .collect();
+        let required_signers = NonEmptySet::from_vec(
+            self.disclosed_signers
+                .unwrap_or_default()
+                .iter()
+                .map(|x| x.0.into())
+                .collect(),
+        );
 
         let network_id = if let Some(nid) = self.network_id {
             match NetworkId::try_from(nid) {
@@ -102,18 +106,19 @@ impl BuildBabbage for StagingTransaction {
             .map(Output::build_babbage_raw)
             .transpose()?;
 
-        let reference_inputs = self
-            .reference_inputs
-            .unwrap_or_default()
-            .iter()
-            .map(|x| TransactionInput {
-                transaction_id: x.tx_hash.0.into(),
-                index: x.txo_index,
-            })
-            .collect();
+        let reference_inputs = NonEmptySet::from_vec(
+            self.reference_inputs
+                .unwrap_or_default()
+                .iter()
+                .map(|x| TransactionInput {
+                    transaction_id: x.tx_hash.0.into(),
+                    index: x.txo_index,
+                })
+                .collect(),
+        );
 
-        let (mut native_script, mut plutus_v1_script, mut plutus_v2_script) =
-            (vec![], vec![], vec![]);
+        let (mut native_script, mut plutus_v1_script, mut plutus_v2_script, mut plutus_v3_script) =
+            (vec![], vec![], vec![], vec![]);
 
         for (_, script) in self.scripts.unwrap_or_default() {
             match script.kind {
@@ -133,6 +138,11 @@ impl BuildBabbage for StagingTransaction {
 
                     plutus_v2_script.push(script)
                 }
+                ScriptKind::PlutusV3 => {
+                    let script = PlutusScript::<3>(script.bytes.into());
+
+                    plutus_v3_script.push(script)
+                }
             }
         }
 
@@ -147,11 +157,11 @@ impl BuildBabbage for StagingTransaction {
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut mint_policies = mint
-            .clone()
-            .unwrap_or(vec![].into())
             .iter()
-            .map(|(p, _)| **p)
+            .flat_map(|x| x.deref().iter())
+            .map(|(p, _)| *p)
             .collect::<Vec<_>>();
+
         mint_policies.sort_unstable_by_key(|x| *x);
 
         let mut redeemers = vec![];
@@ -190,7 +200,7 @@ impl BuildBabbage for StagingTransaction {
                     RedeemerPurpose::Mint(pid) => {
                         let index = mint_policies
                             .iter()
-                            .position(|x| *x == pid.0)
+                            .position(|x| x.as_slice() == pid.0)
                             .ok_or(TxBuilderError::RedeemerTargetMissing)?
                             as u32;
 
@@ -205,34 +215,51 @@ impl BuildBabbage for StagingTransaction {
             }
         };
 
+        let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(
+            pallas_codec::utils::MaybeIndefArray::Def(redeemers.clone()),
+        );
+
+        let script_data_hash = self.language_view.map(|language_view| {
+            scriptdata::ScriptData {
+                redeemers: witness_set_redeemers.clone(),
+                datums: Some(plutus_data.clone()),
+                language_view,
+            }
+            .hash()
+        });
+
         let mut pallas_tx = BabbageTx {
             transaction_body: TransactionBody {
-                inputs,
+                inputs: pallas_primitives::Set::from(inputs),
                 outputs,
                 ttl: self.invalid_from_slot,
                 validity_interval_start: self.valid_from_slot,
                 fee: self.fee.unwrap_or_default(),
                 certificates: None,        // TODO
                 withdrawals: None,         // TODO
-                update: None,              // TODO
                 auxiliary_data_hash: None, // TODO (accept user input)
                 mint,
-                script_data_hash: self.script_data_hash.map(|x| x.0.into()),
-                collateral: opt_if_empty(collateral),
-                required_signers: opt_if_empty(required_signers),
+                script_data_hash,
+                collateral,
+                required_signers,
                 network_id,
                 collateral_return,
-                total_collateral: None, // TODO
-                reference_inputs: opt_if_empty(reference_inputs),
+                reference_inputs,
+                total_collateral: None,    // TODO
+                voting_procedures: None,   // TODO
+                proposal_procedures: None, // TODO
+                treasury_value: None,      // TODO
+                donation: None,            // TODO
             },
             transaction_witness_set: WitnessSet {
                 vkeywitness: None,
-                native_script: opt_if_empty(native_script),
+                native_script: NonEmptySet::from_vec(native_script),
                 bootstrap_witness: None,
-                plutus_v1_script: opt_if_empty(plutus_v1_script),
-                plutus_v2_script: opt_if_empty(plutus_v2_script),
-                plutus_data: opt_if_empty(plutus_data),
-                redeemer: opt_if_empty(redeemers),
+                plutus_v1_script: NonEmptySet::from_vec(plutus_v1_script),
+                plutus_v2_script: NonEmptySet::from_vec(plutus_v2_script),
+                plutus_v3_script: NonEmptySet::from_vec(plutus_v3_script),
+                plutus_data: NonEmptySet::from_vec(plutus_data),
+                redeemer: Some(witness_set_redeemers),
             },
             success: true,               // TODO
             auxiliary_data: None.into(), // TODO
@@ -264,26 +291,27 @@ impl Output {
     pub fn build_babbage_raw(
         &self,
     ) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
-        let value = if let Some(ref assets) = self.assets {
-            let txb_assets = assets
-                .deref()
+        let assets = NonEmptyKeyValuePairs::from_vec(
+            self.assets
                 .iter()
+                .flat_map(|x| x.deref().iter())
                 .map(|(pid, assets)| {
                     (
                         pid.0.into(),
                         assets
                             .iter()
-                            .map(|(n, x)| (n.clone().into(), *x))
+                            .map(|(n, x)| (n.clone().into(), PositiveCoin::try_from(*x).unwrap()))
                             .collect::<Vec<_>>()
-                            .into(),
+                            .try_into()
+                            .unwrap(),
                     )
                 })
-                .collect::<Vec<_>>()
-                .into();
+                .collect::<Vec<_>>(),
+        );
 
-            Value::Multiasset(self.lovelace, txb_assets)
-        } else {
-            Value::Coin(self.lovelace)
+        let value = match assets {
+            Some(assets) => Value::Multiasset(self.lovelace, assets),
+            None => Value::Coin(self.lovelace),
         };
 
         let datum_option = if let Some(ref d) = self.datum {
@@ -316,6 +344,9 @@ impl Output {
                     s.bytes.as_ref().to_vec().into(),
                 )),
                 ScriptKind::PlutusV2 => PallasScript::PlutusV2Script(PlutusScript::<2>(
+                    s.bytes.as_ref().to_vec().into(),
+                )),
+                ScriptKind::PlutusV3 => PallasScript::PlutusV3Script(PlutusScript::<3>(
                     s.bytes.as_ref().to_vec().into(),
                 )),
             };
