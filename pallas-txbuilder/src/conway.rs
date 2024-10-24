@@ -6,8 +6,8 @@ use pallas_primitives::{
     conway::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
         PlutusScript, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
-        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput,
-        Tx as BabbageTx, Value, WitnessSet,
+        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx,
+        Value, WitnessSet,
     },
     Fragment, NonEmptyKeyValuePairs, NonEmptySet, PositiveCoin,
 };
@@ -25,15 +25,15 @@ use crate::{
     TxBuilderError,
 };
 
-pub trait BuildBabbage {
-    fn build_babbage_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
+pub trait BuildConway {
+    fn build_conway_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
 
     // fn build_babbage(staging_tx: StagingTransaction, resolver: (), params: ()) ->
     // Result<BuiltTransaction, TxBuilderError>;
 }
 
-impl BuildBabbage for StagingTransaction {
-    fn build_babbage_raw(self) -> Result<BuiltTransaction, TxBuilderError> {
+impl BuildConway for StagingTransaction {
+    fn build_conway_raw(self) -> Result<BuiltTransaction, TxBuilderError> {
         let mut inputs = self
             .inputs
             .unwrap_or_default()
@@ -220,15 +220,21 @@ impl BuildBabbage for StagingTransaction {
         );
 
         let script_data_hash = self.language_view.map(|language_view| {
-            scriptdata::ScriptData {
+            let dta = scriptdata::ScriptData {
                 redeemers: witness_set_redeemers.clone(),
-                datums: Some(plutus_data.clone()),
+                datums: if !plutus_data.is_empty() {
+                    Some(plutus_data.clone())
+                } else {
+                    None
+                },
                 language_view,
-            }
-            .hash()
+            };
+
+            dbg!(&dta);
+            dta.hash()
         });
 
-        let mut pallas_tx = BabbageTx {
+        let mut pallas_tx = Tx {
             transaction_body: TransactionBody {
                 inputs: pallas_primitives::Set::from(inputs),
                 outputs,
@@ -274,7 +280,7 @@ impl BuildBabbage for StagingTransaction {
 
         Ok(BuiltTransaction {
             version: self.version,
-            era: BuilderEra::Babbage,
+            era: BuilderEra::Conway,
             status: TransactionStatus::Built,
             tx_hash: Bytes32(*pallas_tx.transaction_body.compute_hash()),
             tx_bytes: Bytes(pallas_tx.encode_fragment().unwrap()),

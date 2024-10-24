@@ -3,7 +3,7 @@ use pallas_crypto::{
     hash::{Hash, Hasher},
     key::ed25519,
 };
-use pallas_primitives::{babbage, Fragment};
+use pallas_primitives::{babbage, conway, Fragment, NonEmptySet};
 use pallas_wallet::PrivateKey;
 
 use std::{collections::HashMap, ops::Deref};
@@ -599,6 +599,7 @@ impl From<PallasAddress> for Address {
 #[serde(rename_all = "snake_case")]
 pub enum BuilderEra {
     Babbage,
+    Conway,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -626,7 +627,7 @@ impl BuiltTransaction {
             .unwrap();
 
         match self.era {
-            BuilderEra::Babbage => {
+            BuilderEra::Conway => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
                 new_sigs.insert(Bytes32(pubkey), Bytes64(signature));
@@ -634,20 +635,26 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
+                let mut tx = conway::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
-                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
+                let mut vkey_witnesses = tx
+                    .transaction_witness_set
+                    .vkeywitness
+                    .map(|x| x.to_vec())
+                    .unwrap_or_default();
 
                 vkey_witnesses.push(babbage::VKeyWitness {
                     vkey: Vec::from(pubkey.as_ref()).into(),
                     signature: Vec::from(signature.as_ref()).into(),
                 });
 
-                tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
+                tx.transaction_witness_set.vkeywitness =
+                    Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
+            _ => return Err(TxBuilderError::UnsupportedEra),
         }
 
         Ok(self)
@@ -659,7 +666,7 @@ impl BuiltTransaction {
         signature: [u8; 64],
     ) -> Result<Self, TxBuilderError> {
         match self.era {
-            BuilderEra::Babbage => {
+            BuilderEra::Conway => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
                 new_sigs.insert(
@@ -689,6 +696,7 @@ impl BuiltTransaction {
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
+            _ => return Err(TxBuilderError::UnsupportedEra),
         }
 
         Ok(self)
@@ -696,7 +704,7 @@ impl BuiltTransaction {
 
     pub fn remove_signature(mut self, pub_key: ed25519::PublicKey) -> Result<Self, TxBuilderError> {
         match self.era {
-            BuilderEra::Babbage => {
+            BuilderEra::Conway => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
                 let pk = Bytes32(
@@ -722,6 +730,7 @@ impl BuiltTransaction {
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
+            _ => return Err(TxBuilderError::UnsupportedEra),
         }
 
         Ok(self)
