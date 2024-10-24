@@ -85,7 +85,7 @@ impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostModels {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisFile {
     #[serde(rename = "lovelacePerUTxOWord")]
