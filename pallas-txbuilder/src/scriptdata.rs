@@ -39,6 +39,7 @@ impl<C> Encode<C> for LanguageView {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ScriptData {
     pub redeemers: Redeemers,
     pub datums: Option<Vec<PlutusData>>,
@@ -111,6 +112,10 @@ mod tests {
             (
                 hex::decode(include_str!("../../test_data/conway2.tx")).unwrap(),
                 LanguageView(0, COST_MODEL_PLUTUS_V1.clone()),
+            ),
+            (
+                hex::decode(include_str!("../../test_data/hydra-init.tx")).unwrap(),
+                LanguageView(1, COST_MODEL_PLUTUS_V2.clone()),
             ),
         ]
     });
