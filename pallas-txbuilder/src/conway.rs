@@ -265,7 +265,11 @@ impl BuildConway for StagingTransaction {
                 plutus_v2_script: NonEmptySet::from_vec(plutus_v2_script),
                 plutus_v3_script: NonEmptySet::from_vec(plutus_v3_script),
                 plutus_data: NonEmptySet::from_vec(plutus_data),
-                redeemer: Some(witness_set_redeemers),
+                redeemer: if redeemers.is_empty() {
+                    None
+                } else {
+                    Some(witness_set_redeemers)
+                },
             },
             success: true,               // TODO
             auxiliary_data: None.into(), // TODO
