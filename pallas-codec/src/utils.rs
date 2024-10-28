@@ -1141,6 +1141,72 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
     }
 }
 
+/// Decodes just a raw bytes with skipping actual decoding of the CBOR object.
+/// Stores the original CBOR bytes for further decoding.
+/// 
+/// # Examples
+///
+/// ```
+/// use pallas_codec::utils::OnlyRaw;
+///
+/// let a = (123u16, (456u16, 789u16), 123u16);
+/// let data = minicbor::to_vec(a).unwrap();
+///
+/// let (_, keeper, _): (u16, OnlyRaw<(u16, u16)>, u16) = minicbor::decode(&data).unwrap();
+/// let confirm: (u16, u16) = keeper.decode().unwrap();
+/// assert_eq!(confirm, (456u16, 789u16));
+/// ```
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct OnlyRaw<'b, T> {
+    raw: &'b [u8],
+    _p: std::marker::PhantomData<T>,
+}
+
+impl<'b, T> OnlyRaw<'b, T> {
+    pub fn raw_cbor(&self) -> &'b [u8] {
+        self.raw
+    }
+}
+
+impl<'b, T> OnlyRaw<'b, T>
+where
+    T: minicbor::Decode<'b, ()>,
+{
+    pub fn decode(&self) -> Result<T, minicbor::decode::Error> {
+        minicbor::decode(self.raw)
+    }
+}
+
+impl<'b, T, C> minicbor::Decode<'b, C> for OnlyRaw<'b, T>
+where
+    T: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let all = d.input();
+        let start = d.position();
+        d.skip()?;
+        let end = d.position();
+
+        Ok(Self {
+            raw: &all[start..end],
+            _p: std::marker::PhantomData,
+        })
+    }
+}
+
+impl<C, T> minicbor::Encode<C> for OnlyRaw<'_, T> {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.writer_mut()
+            .write_all(self.raw_cbor())
+            .map_err(minicbor::encode::Error::write)
+    }
+}
+
+
 /// Struct to hold arbitrary CBOR to be processed independently
 ///
 /// # Examples
