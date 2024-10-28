@@ -1143,7 +1143,7 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
 
 /// Decodes just a raw bytes with skipping actual decoding of the CBOR object.
 /// Stores the original CBOR bytes for further decoding.
-/// 
+///
 /// # Examples
 ///
 /// ```
@@ -1205,7 +1205,6 @@ impl<C, T> minicbor::Encode<C> for OnlyRaw<'_, T> {
             .map_err(minicbor::encode::Error::write)
     }
 }
-
 
 /// Struct to hold arbitrary CBOR to be processed independently
 ///
