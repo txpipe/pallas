@@ -10,9 +10,10 @@ pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch,
     ExUnitPrices, ExUnits, GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, Int, KeepRaw,
     KeyValuePairs, MaybeIndefArray, Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce,
-    NonceVariant, Nullable, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash,
-    Port, PositiveInterval, ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash,
-    StakeCredential, TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+    NonceVariant, Nullable, OnlyRaw, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
+    PoolMetadataHash, Port, PositiveInterval, ProtocolVersion, RationalNumber, Relay,
+    RewardAccount, ScriptHash, StakeCredential, TransactionIndex, TransactionInput, UnitInterval,
+    VrfCert, VrfKeyhash,
 };
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -823,63 +824,58 @@ impl<C> minicbor::Encode<C> for AuxiliaryData {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-pub struct Block {
+pub struct PseudoBlock<T1, T2, T3, T4>
+where
+    T1: std::clone::Clone,
+    T2: std::clone::Clone,
+    T3: std::clone::Clone,
+    T4: std::clone::Clone,
+{
     #[n(0)]
-    pub header: Header,
+    pub header: T1,
 
     #[b(1)]
-    pub transaction_bodies: Vec<TransactionBody>,
+    pub transaction_bodies: MaybeIndefArray<T2>,
 
     #[n(2)]
-    pub transaction_witness_sets: Vec<WitnessSet>,
+    pub transaction_witness_sets: MaybeIndefArray<T3>,
 
     #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, T4>,
 
     #[n(4)]
-    pub invalid_transactions: Option<Vec<TransactionIndex>>,
+    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
 }
+
+pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
 
 /// A memory representation of an already minted block
 ///
 /// This structure is analogous to [Block], but it allows to retrieve the
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct MintedBlock<'b> {
-    #[n(0)]
-    pub header: KeepRaw<'b, MintedHeader<'b>>,
+pub type MintedBlock<'b> = PseudoBlock<
+    KeepRaw<'b, MintedHeader<'b>>,
+    KeepRaw<'b, TransactionBody>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    KeepRaw<'b, AuxiliaryData>,
+>;
 
-    #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<KeepRaw<'b, TransactionBody>>,
-
-    #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<KeepRaw<'b, MintedWitnessSet<'b>>>,
-
-    #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
-
-    #[n(4)]
-    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
-}
+pub type MintedBlockWithRawAuxiliary<'b> = PseudoBlock<
+    KeepRaw<'b, MintedHeader<'b>>,
+    KeepRaw<'b, TransactionBody>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    OnlyRaw<'b, AuxiliaryData>,
+>;
 
 impl<'b> From<MintedBlock<'b>> for Block {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
             header: x.header.unwrap().into(),
-            transaction_bodies: x
-                .transaction_bodies
-                .to_vec()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .collect(),
+            transaction_bodies: x.transaction_bodies.map_into(|x| x.unwrap()),
             transaction_witness_sets: x
                 .transaction_witness_sets
-                .to_vec()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .map(WitnessSet::from)
-                .collect(),
+                .map_into(|x| WitnessSet::from(x.unwrap())),
             auxiliary_data_set: x
                 .auxiliary_data_set
                 .to_vec()
@@ -892,35 +888,39 @@ impl<'b> From<MintedBlock<'b>> for Block {
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
-pub struct Tx {
-    #[n(0)]
-    pub transaction_body: TransactionBody,
-
-    #[n(1)]
-    pub transaction_witness_set: WitnessSet,
-
-    #[n(2)]
-    pub success: bool,
-
-    #[n(3)]
-    pub auxiliary_data: Nullable<AuxiliaryData>,
-}
-
-#[derive(Encode, Decode, Debug, Clone)]
-pub struct MintedTx<'b> {
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, Clone)]
+pub struct PseudoTx<T1, T2, T3>
+where
+    T1: std::clone::Clone,
+    T2: std::clone::Clone,
+    T3: std::clone::Clone,
+{
     #[b(0)]
-    pub transaction_body: KeepRaw<'b, TransactionBody>,
+    pub transaction_body: T1,
 
     #[n(1)]
-    pub transaction_witness_set: KeepRaw<'b, MintedWitnessSet<'b>>,
+    pub transaction_witness_set: T2,
 
     #[n(2)]
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<T3>,
 }
+
+pub type Tx = PseudoTx<TransactionBody, WitnessSet, AuxiliaryData>;
+
+pub type MintedTx<'b> = PseudoTx<
+    KeepRaw<'b, TransactionBody>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    KeepRaw<'b, AuxiliaryData>,
+>;
+
+pub type MintedTxWithRawAuxiliary<'b> = PseudoTx<
+    KeepRaw<'b, TransactionBody>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    OnlyRaw<'b, AuxiliaryData>,
+>;
 
 #[cfg(test)]
 mod tests {
@@ -928,59 +928,75 @@ mod tests {
 
     use crate::{alonzo::PlutusData, Fragment};
 
-    use super::{Header, MintedBlock};
+    use super::{Header, MintedBlock, MintedBlockWithRawAuxiliary};
 
-    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    const TEST_BLOCKS: [&'static str; 25] = [
+        include_str!("../../../test_data/alonzo1.block"),
+        include_str!("../../../test_data/alonzo2.block"),
+        include_str!("../../../test_data/alonzo3.block"),
+        include_str!("../../../test_data/alonzo4.block"),
+        include_str!("../../../test_data/alonzo5.block"),
+        include_str!("../../../test_data/alonzo6.block"),
+        include_str!("../../../test_data/alonzo7.block"),
+        include_str!("../../../test_data/alonzo8.block"),
+        include_str!("../../../test_data/alonzo9.block"),
+        // old block without invalid_transactions fields
+        include_str!("../../../test_data/alonzo10.block"),
+        // peculiar block with protocol update params
+        include_str!("../../../test_data/alonzo11.block"),
+        // peculiar block with decoding issue
+        // https://github.com/txpipe/oura/issues/37
+        include_str!("../../../test_data/alonzo12.block"),
+        // peculiar block with protocol update params, including nonce
+        include_str!("../../../test_data/alonzo13.block"),
+        // peculiar block with overflow crash
+        // https://github.com/txpipe/oura/issues/113
+        include_str!("../../../test_data/alonzo14.block"),
+        // peculiar block with many move-instantaneous-rewards certs
+        include_str!("../../../test_data/alonzo15.block"),
+        // peculiar block with protocol update values
+        include_str!("../../../test_data/alonzo16.block"),
+        // peculiar block with missing nonce hash
+        include_str!("../../../test_data/alonzo17.block"),
+        // peculiar block with strange AuxiliaryData variant
+        include_str!("../../../test_data/alonzo18.block"),
+        // peculiar block with strange AuxiliaryData variant
+        include_str!("../../../test_data/alonzo18.block"),
+        // peculiar block with nevative i64 overflow
+        include_str!("../../../test_data/alonzo19.block"),
+        // peculiar block with very BigInt in plutus code
+        include_str!("../../../test_data/alonzo20.block"),
+        // peculiar block with bad tx hash
+        include_str!("../../../test_data/alonzo21.block"),
+        // peculiar block with bad tx hash
+        include_str!("../../../test_data/alonzo22.block"),
+        // peculiar block with indef byte array in plutus data
+        include_str!("../../../test_data/alonzo23.block"),
+        // peculiar block with invalid address (pointer overflow)
+        include_str!("../../../test_data/alonzo27.block"),
+    ];
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = vec![
-            include_str!("../../../test_data/alonzo1.block"),
-            include_str!("../../../test_data/alonzo2.block"),
-            include_str!("../../../test_data/alonzo3.block"),
-            include_str!("../../../test_data/alonzo4.block"),
-            include_str!("../../../test_data/alonzo5.block"),
-            include_str!("../../../test_data/alonzo6.block"),
-            include_str!("../../../test_data/alonzo7.block"),
-            include_str!("../../../test_data/alonzo8.block"),
-            include_str!("../../../test_data/alonzo9.block"),
-            // old block without invalid_transactions fields
-            include_str!("../../../test_data/alonzo10.block"),
-            // peculiar block with protocol update params
-            include_str!("../../../test_data/alonzo11.block"),
-            // peculiar block with decoding issue
-            // https://github.com/txpipe/oura/issues/37
-            include_str!("../../../test_data/alonzo12.block"),
-            // peculiar block with protocol update params, including nonce
-            include_str!("../../../test_data/alonzo13.block"),
-            // peculiar block with overflow crash
-            // https://github.com/txpipe/oura/issues/113
-            include_str!("../../../test_data/alonzo14.block"),
-            // peculiar block with many move-instantaneous-rewards certs
-            include_str!("../../../test_data/alonzo15.block"),
-            // peculiar block with protocol update values
-            include_str!("../../../test_data/alonzo16.block"),
-            // peculiar block with missing nonce hash
-            include_str!("../../../test_data/alonzo17.block"),
-            // peculiar block with strange AuxiliaryData variant
-            include_str!("../../../test_data/alonzo18.block"),
-            // peculiar block with strange AuxiliaryData variant
-            include_str!("../../../test_data/alonzo18.block"),
-            // peculiar block with nevative i64 overflow
-            include_str!("../../../test_data/alonzo19.block"),
-            // peculiar block with very BigInt in plutus code
-            include_str!("../../../test_data/alonzo20.block"),
-            // peculiar block with bad tx hash
-            include_str!("../../../test_data/alonzo21.block"),
-            // peculiar block with bad tx hash
-            include_str!("../../../test_data/alonzo22.block"),
-            // peculiar block with indef byte array in plutus data
-            include_str!("../../../test_data/alonzo23.block"),
-            // peculiar block with invalid address (pointer overflow)
-            include_str!("../../../test_data/alonzo27.block"),
-        ];
+        type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+        for (idx, block_str) in TEST_BLOCKS.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-        for (idx, block_str) in test_blocks.iter().enumerate() {
+            let block: BlockWrapper = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
+
+            let bytes2 = to_vec(block)
+                .unwrap_or_else(|_| panic!("error encoding block cbor for file {idx}"));
+
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
+
+    #[test]
+    fn block_with_raw_aux_isomorphic_decoding_encoding() {
+        type BlockWrapper<'b> = (u16, MintedBlockWithRawAuxiliary<'b>);
+        for (idx, block_str) in TEST_BLOCKS.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
