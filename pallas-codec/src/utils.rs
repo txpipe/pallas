@@ -386,6 +386,16 @@ impl<A> MaybeIndefArray<A> {
     pub fn to_vec(self) -> Vec<A> {
         self.into()
     }
+
+    pub fn map_into<B, F>(self, f: F) -> MaybeIndefArray<B>
+    where
+        F: FnMut(A) -> B,
+    {
+        match self {
+            MaybeIndefArray::Def(x) => MaybeIndefArray::Def(x.into_iter().map(f).collect()),
+            MaybeIndefArray::Indef(x) => MaybeIndefArray::Indef(x.into_iter().map(f).collect()),
+        }
+    }
 }
 
 impl<A> Deref for MaybeIndefArray<A> {
