@@ -2,52 +2,32 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Conway CDDL](https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/conway/impl/cddl-files/conway.cddl) file in IntersectMBO repo.
 
-use std::ops::Deref;
-
-use pallas_codec::minicbor::decode::Error;
 use serde::{Deserialize, Serialize};
 
-use pallas_codec::minicbor::{Decode, Encode};
-use pallas_crypto::hash::Hash;
+use pallas_codec::minicbor::{self, Decode, Encode};
+use pallas_codec::utils::CborWrap;
 
-use pallas_codec::utils::{
-    Bytes, CborWrap, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
-    NonZeroInt, Nullable, PositiveCoin, Set,
+pub use crate::{
+    plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
+    GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, KeyValuePairs, MaybeIndefArray,
+    Metadata, Metadatum, MetadatumLabel, NetworkId, NonEmptyKeyValuePairs, NonEmptySet, NonZeroInt,
+    Nonce, NonceVariant, Nullable, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
+    PoolMetadataHash, Port, PositiveCoin, PositiveInterval, ProtocolVersion, RationalNumber, Relay,
+    RewardAccount, ScriptHash, Set, StakeCredential, TransactionIndex, TransactionInput,
+    UnitInterval, VrfCert, VrfKeyhash,
 };
 
-// required for derive attrs to work
-use pallas_codec::minicbor;
-
-pub use crate::alonzo::VrfCert;
-
 use crate::babbage;
+
 pub use crate::babbage::HeaderBody;
 
 pub use crate::babbage::OperationalCert;
 
-pub use crate::alonzo::ProtocolVersion;
-
-pub use crate::alonzo::KesSignature;
-
 pub use crate::babbage::Header;
-
-pub use crate::alonzo::TransactionInput;
-
-pub use crate::alonzo::NonceVariant;
-
-pub use crate::alonzo::Nonce;
-
-pub use crate::alonzo::ScriptHash;
-
-pub use crate::alonzo::PolicyId;
-
-pub use crate::alonzo::AssetName;
 
 pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
 
 pub type Mint = Multiasset<NonZeroInt>;
-
-pub use crate::alonzo::Coin;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Value {
@@ -99,53 +79,9 @@ impl<C> minicbor::encode::Encode<C> for Value {
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
-pub use crate::alonzo::PoolKeyhash;
-
-pub use crate::alonzo::Epoch;
-
-pub use crate::alonzo::Genesishash;
-
-pub use crate::alonzo::GenesisDelegateHash;
-
-pub use crate::alonzo::VrfKeyhash;
-
-pub use crate::alonzo::InstantaneousRewardSource;
-
-pub use crate::alonzo::InstantaneousRewardTarget;
-
-pub use crate::alonzo::MoveInstantaneousReward;
-
-pub use crate::alonzo::RewardAccount;
-
 pub type Withdrawals = NonEmptyKeyValuePairs<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
-
-pub use crate::alonzo::Port;
-
-pub use crate::alonzo::IPv4;
-
-pub use crate::alonzo::IPv6;
-
-pub use crate::alonzo::DnsName;
-
-pub use crate::alonzo::Relay;
-
-pub use crate::alonzo::PoolMetadataHash;
-
-pub use crate::alonzo::PoolMetadata;
-
-pub use crate::alonzo::AddrKeyhash;
-
-pub use crate::alonzo::Scripthash;
-
-pub use crate::alonzo::RationalNumber;
-
-pub use crate::alonzo::UnitInterval;
-
-pub use crate::alonzo::PositiveInterval;
-
-pub use crate::alonzo::StakeCredential;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Certificate {
@@ -442,7 +378,7 @@ impl<C> minicbor::encode::Encode<C> for Certificate {
 #[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 pub enum DRep {
     Key(AddrKeyhash),
-    Script(Scripthash),
+    Script(ScriptHash),
     Abstain,
     NoConfidence,
 }
@@ -507,8 +443,6 @@ pub type CommitteeColdCredential = StakeCredential;
 
 pub type CommitteeHotCredential = StakeCredential;
 
-pub use crate::alonzo::NetworkId;
-
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum Language {
@@ -522,11 +456,12 @@ pub enum Language {
     PlutusV3,
 }
 
-pub use crate::alonzo::CostModel;
+#[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
+pub type CostMdls = CostModels;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
-pub struct CostMdls {
+pub struct CostModels {
     #[n(0)]
     pub plutus_v1: Option<CostModel>,
 
@@ -570,7 +505,7 @@ pub struct ProtocolParamUpdate {
     #[n(17)]
     pub ada_per_utxo_byte: Option<Coin>,
     #[n(18)]
-    pub cost_models_for_script_languages: Option<CostMdls>,
+    pub cost_models_for_script_languages: Option<CostModels>,
     #[n(19)]
     pub execution_costs: Option<ExUnitPrices>,
     #[n(20)]
@@ -1285,28 +1220,6 @@ pub use crate::alonzo::VKeyWitness;
 
 pub use crate::alonzo::NativeScript;
 
-pub use crate::alonzo::PlutusScript as PlutusV1Script;
-
-pub use crate::babbage::PlutusV2Script;
-
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
-#[cbor(transparent)]
-pub struct PlutusV3Script(#[n(0)] pub Bytes);
-
-impl AsRef<[u8]> for PlutusV3Script {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-pub use crate::alonzo::BigInt;
-
-pub use crate::alonzo::PlutusData;
-
-pub use crate::alonzo::Constr;
-
-pub use crate::alonzo::ExUnits;
-
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ExUnitPrices {
     #[n(0)]
@@ -1364,22 +1277,15 @@ pub struct RedeemersValue {
     pub ex_units: ExUnits,
 }
 
-// TODO: Redeemers needs to be KeepRaw because of script data hash
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Redeemers(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>);
-
-impl Deref for Redeemers {
-    type Target = NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub enum Redeemers {
+    List(MaybeIndefArray<Redeemer>),
+    Map(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>),
 }
 
 impl From<NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
     fn from(value: NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>) -> Self {
-        Redeemers(value)
+        Redeemers::Map(value)
     }
 }
 
@@ -1387,30 +1293,10 @@ impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                let redeemers: Vec<Redeemer> = d.decode_with(ctx)?;
-
-                let kvs = redeemers
-                    .into_iter()
-                    .map(|x| {
-                        (
-                            RedeemersKey {
-                                tag: x.tag,
-                                index: x.index,
-                            },
-                            RedeemersValue {
-                                data: x.data,
-                                ex_units: x.ex_units,
-                            },
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .map_err(|_| Error::message("decoding empty redeemers"))?;
-
-                Ok(Self(kvs))
+                Ok(Self::List(d.decode_with(ctx)?))
             }
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Self(d.decode_with(ctx)?))
+                Ok(Self::Map(d.decode_with(ctx)?))
             }
             _ => Err(minicbor::decode::Error::message(
                 "invalid type for redeemers struct",
@@ -1425,7 +1311,10 @@ impl<C> minicbor::Encode<C> for Redeemers {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.encode_with(&self.0, ctx)?;
+        match self {
+            Self::List(x) => e.encode_with(x, ctx)?,
+            Self::Map(x) => e.encode_with(x, ctx)?,
+        };
 
         Ok(())
     }
@@ -1446,7 +1335,7 @@ pub struct WitnessSet {
     pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<NonEmptySet<PlutusV1Script>>,
+    pub plutus_v1_script: Option<NonEmptySet<PlutusScript<1>>>,
 
     #[n(4)]
     pub plutus_data: Option<NonEmptySet<PlutusData>>,
@@ -1455,10 +1344,10 @@ pub struct WitnessSet {
     pub redeemer: Option<Redeemers>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
+    pub plutus_v2_script: Option<NonEmptySet<PlutusScript<2>>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<NonEmptySet<PlutusV3Script>>,
+    pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -1474,7 +1363,7 @@ pub struct MintedWitnessSet<'b> {
     pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
 
     #[n(3)]
-    pub plutus_v1_script: Option<NonEmptySet<PlutusV1Script>>,
+    pub plutus_v1_script: Option<NonEmptySet<PlutusScript<1>>>,
 
     #[b(4)]
     pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
@@ -1483,10 +1372,10 @@ pub struct MintedWitnessSet<'b> {
     pub redeemer: Option<KeepRaw<'b, Redeemers>>,
 
     #[n(6)]
-    pub plutus_v2_script: Option<NonEmptySet<PlutusV2Script>>,
+    pub plutus_v2_script: Option<NonEmptySet<PlutusScript<2>>>,
 
     #[n(7)]
-    pub plutus_v3_script: Option<NonEmptySet<PlutusV3Script>>,
+    pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
 }
 
 impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
@@ -1514,13 +1403,13 @@ pub struct PostAlonzoAuxiliaryData {
     pub native_scripts: Option<Vec<NativeScript>>,
 
     #[n(2)]
-    pub plutus_v1_scripts: Option<Vec<PlutusV1Script>>,
+    pub plutus_v1_scripts: Option<Vec<PlutusScript<1>>>,
 
     #[n(3)]
-    pub plutus_v2_scripts: Option<Vec<PlutusV2Script>>,
+    pub plutus_v2_scripts: Option<Vec<PlutusScript<2>>>,
 
     #[n(4)]
-    pub plutus_v3_scripts: Option<Vec<PlutusV3Script>>,
+    pub plutus_v3_scripts: Option<Vec<PlutusScript<3>>>,
 }
 
 pub use crate::babbage::DatumHash;
@@ -1531,13 +1420,22 @@ pub use crate::babbage::DatumOption;
 
 pub use crate::babbage::MintedDatumOption;
 
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<1>` instead")]
+pub type PlutusV1Script = PlutusScript<1>;
+
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<2>` instead")]
+pub type PlutusV2Script = PlutusScript<2>;
+
+#[deprecated(since = "0.31.0", note = "use `PlutusScript<3>` instead")]
+pub type PlutusV3Script = PlutusScript<3>;
+
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PseudoScript<T1> {
     NativeScript(T1),
-    PlutusV1Script(PlutusV1Script),
-    PlutusV2Script(PlutusV2Script),
-    PlutusV3Script(PlutusV3Script),
+    PlutusV1Script(PlutusScript<1>),
+    PlutusV2Script(PlutusScript<2>),
+    PlutusV3Script(PlutusScript<3>),
 }
 
 // script_ref = #6.24(bytes .cbor script)
@@ -1610,15 +1508,8 @@ where
     }
 }
 
-pub use crate::alonzo::Metadatum;
-
-pub use crate::alonzo::MetadatumLabel;
-
-pub use crate::alonzo::Metadata;
-
 pub use crate::alonzo::AuxiliaryData;
 
-pub use crate::alonzo::TransactionIndex;
 use crate::babbage::MintedHeader;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]

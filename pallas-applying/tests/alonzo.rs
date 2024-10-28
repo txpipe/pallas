@@ -27,6 +27,8 @@ use std::borrow::Cow;
 
 #[cfg(test)]
 mod alonzo_tests {
+    use pallas_primitives::MaybeIndefArray;
+
     use super::*;
 
     #[test]
@@ -480,7 +482,7 @@ mod alonzo_tests {
                 ),
                 (
                     // (tx hash, tx output index):
-                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)    
+                    // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
                     String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                     Value::Coin(20292207),
                     None,
@@ -1152,9 +1154,7 @@ mod alonzo_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
-        // Note that NetworkId::One maps to 0 through
-        // crate::utils::get_network_id_value, which is not correct in mainnet.
-        tx_body.network_id = Some(NetworkId::One);
+        tx_body.network_id = Some(NetworkId::Testnet);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
@@ -2048,7 +2048,7 @@ mod alonzo_tests {
         );
         let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let old_datum: KeepRaw<PlutusData> = tx_wits.plutus_data.unwrap().pop().unwrap();
-        let new_datum: PlutusData = PlutusData::Array(Vec::new());
+        let new_datum: PlutusData = PlutusData::Array(MaybeIndefArray::Def(Vec::new()));
         let mut new_datum_buf: Vec<u8> = Vec::new();
         let _ = encode(new_datum, &mut new_datum_buf);
         let keep_raw_new_datum: KeepRaw<PlutusData> =
@@ -2173,7 +2173,7 @@ mod alonzo_tests {
         let new_redeemer: Redeemer = Redeemer {
             tag: RedeemerTag::Spend,
             index: 15,
-            data: PlutusData::Array(Vec::new()),
+            data: PlutusData::Array(MaybeIndefArray::Def(Vec::new())),
             ex_units: ExUnits { mem: 0, steps: 0 },
         };
         tx_wits.redeemer = Some(vec![old_redeemer, new_redeemer]);

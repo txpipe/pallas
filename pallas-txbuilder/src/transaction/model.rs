@@ -3,14 +3,14 @@ use pallas_crypto::{
     hash::{Hash, Hasher},
     key::ed25519,
 };
-use pallas_primitives::{babbage, Fragment};
+use pallas_primitives::{babbage, conway, Fragment, NonEmptySet};
 use pallas_wallet::PrivateKey;
 
 use std::{collections::HashMap, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 
-use crate::TxBuilderError;
+use crate::{scriptdata, TxBuilderError};
 
 use super::{
     AssetName, Bytes, Bytes32, Bytes64, DatumBytes, DatumHash, Hash28, PolicyId, PubKeyHash,
@@ -39,6 +39,7 @@ pub struct StagingTransaction {
     pub script_data_hash: Option<Bytes32>,
     pub signature_amount_override: Option<u8>,
     pub change_address: Option<Address>,
+    pub language_view: Option<scriptdata::LanguageView>,
     // pub certificates: TODO
     // pub withdrawals: TODO
     // pub updates: TODO
@@ -233,6 +234,7 @@ impl StagingTransaction {
             ScriptKind::Native => Hasher::<224>::hash_tagged(bytes.as_ref(), 0),
             ScriptKind::PlutusV1 => Hasher::<224>::hash_tagged(bytes.as_ref(), 1),
             ScriptKind::PlutusV2 => Hasher::<224>::hash_tagged(bytes.as_ref(), 2),
+            ScriptKind::PlutusV3 => Hasher::<224>::hash_tagged(bytes.as_ref(), 3),
         };
 
         scripts.insert(
@@ -281,6 +283,17 @@ impl StagingTransaction {
 
         datums.remove(&Bytes32(*datum_hash));
         self.datums = Some(datums);
+        self
+    }
+
+    pub fn language_view(mut self, plutus_version: ScriptKind, cost_model: Vec<i64>) -> Self {
+        self.language_view = match plutus_version {
+            ScriptKind::PlutusV1 => Some(scriptdata::LanguageView(0, cost_model)),
+            ScriptKind::PlutusV2 => Some(scriptdata::LanguageView(1, cost_model)),
+            ScriptKind::PlutusV3 => Some(scriptdata::LanguageView(2, cost_model)),
+            ScriptKind::Native => None,
+        };
+
         self
     }
 
@@ -337,17 +350,6 @@ impl StagingTransaction {
 
         self.redeemers = Some(Redeemers(rdmrs));
 
-        self
-    }
-
-    // TODO: script_data_hash computation
-    pub fn script_data_hash(mut self, hash: Hash<32>) -> Self {
-        self.script_data_hash = Some(Bytes32(*hash));
-        self
-    }
-
-    pub fn clear_script_data_hash(mut self) -> Self {
-        self.script_data_hash = None;
         self
     }
 
@@ -514,6 +516,7 @@ pub enum ScriptKind {
     Native,
     PlutusV1,
     PlutusV2,
+    PlutusV3,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
@@ -596,6 +599,7 @@ impl From<PallasAddress> for Address {
 #[serde(rename_all = "snake_case")]
 pub enum BuilderEra {
     Babbage,
+    Conway,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -623,7 +627,7 @@ impl BuiltTransaction {
             .unwrap();
 
         match self.era {
-            BuilderEra::Babbage => {
+            BuilderEra::Conway => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
                 new_sigs.insert(Bytes32(pubkey), Bytes64(signature));
@@ -631,20 +635,26 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
+                let mut tx = conway::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
-                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
+                let mut vkey_witnesses = tx
+                    .transaction_witness_set
+                    .vkeywitness
+                    .map(|x| x.to_vec())
+                    .unwrap_or_default();
 
                 vkey_witnesses.push(babbage::VKeyWitness {
                     vkey: Vec::from(pubkey.as_ref()).into(),
                     signature: Vec::from(signature.as_ref()).into(),
                 });
 
-                tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
+                tx.transaction_witness_set.vkeywitness =
+                    Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
+            _ => return Err(TxBuilderError::UnsupportedEra),
         }
 
         Ok(self)
@@ -656,7 +666,7 @@ impl BuiltTransaction {
         signature: [u8; 64],
     ) -> Result<Self, TxBuilderError> {
         match self.era {
-            BuilderEra::Babbage => {
+            BuilderEra::Conway => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
                 new_sigs.insert(
@@ -686,6 +696,7 @@ impl BuiltTransaction {
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
+            _ => return Err(TxBuilderError::UnsupportedEra),
         }
 
         Ok(self)
@@ -693,7 +704,7 @@ impl BuiltTransaction {
 
     pub fn remove_signature(mut self, pub_key: ed25519::PublicKey) -> Result<Self, TxBuilderError> {
         match self.era {
-            BuilderEra::Babbage => {
+            BuilderEra::Conway => {
                 let mut new_sigs = self.signatures.unwrap_or_default();
 
                 let pk = Bytes32(
@@ -719,6 +730,7 @@ impl BuiltTransaction {
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
+            _ => return Err(TxBuilderError::UnsupportedEra),
         }
 
         Ok(self)
