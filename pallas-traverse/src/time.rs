@@ -155,12 +155,8 @@ impl<'a> MultiEraBlockWithRawAuxiliary<'a> {
             Self::AlonzoCompatible(x, _) => {
                 genesis.absolute_slot_to_relative(x.header.header_body.slot)
             }
-            Self::Babbage(x) => {
-                genesis.absolute_slot_to_relative(x.header.header_body.slot)
-            }
-            Self::Conway(x) => {
-                genesis.absolute_slot_to_relative(x.header.header_body.slot)
-            }
+            Self::Babbage(x) => genesis.absolute_slot_to_relative(x.header.header_body.slot),
+            Self::Conway(x) => genesis.absolute_slot_to_relative(x.header.header_body.slot),
         }
     }
 
