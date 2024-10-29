@@ -773,7 +773,6 @@ mod tests {
     #[test]
     fn block_isomorphic_decoding_encoding() {
         type BlockWrapper<'b> = (u16, MintedBlock<'b>);
-
         for (idx, block_str) in TEST_BLOCKS.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
@@ -791,7 +790,6 @@ mod tests {
     #[test]
     fn block_with_raw_aux_isomorphic_decoding_encoding() {
         type BlockWrapper<'b> = (u16, MintedBlockWithRawAuxiliary<'b>);
-
         for (idx, block_str) in TEST_BLOCKS.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
