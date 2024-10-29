@@ -11,7 +11,7 @@ pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
     GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, KeyValuePairs, MaybeIndefArray,
     Metadata, Metadatum, MetadatumLabel, NetworkId, NonEmptyKeyValuePairs, NonEmptySet, NonZeroInt,
-    Nonce, NonceVariant, Nullable, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
+    Nonce, NonceVariant, Nullable, OnlyRaw, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
     PoolMetadataHash, Port, PositiveCoin, PositiveInterval, ProtocolVersion, RationalNumber, Relay,
     RewardAccount, ScriptHash, Set, StakeCredential, TransactionIndex, TransactionInput,
     UnitInterval, VrfCert, VrfKeyhash,
@@ -1547,6 +1547,13 @@ pub type MintedBlock<'b> = PseudoBlock<
     KeepRaw<'b, AuxiliaryData>,
 >;
 
+pub type MintedBlockWithRawAuxiliary<'b> = PseudoBlock<
+    KeepRaw<'b, Header>,
+    KeepRaw<'b, MintedTransactionBody<'b>>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    OnlyRaw<'b, AuxiliaryData>,
+>;
+
 impl<'b> From<MintedBlock<'b>> for Block {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
@@ -1607,6 +1614,12 @@ pub type MintedTx<'b> = PseudoTx<
     KeepRaw<'b, AuxiliaryData>,
 >;
 
+pub type MintedTxWithRawAuxiliary<'b> = PseudoTx<
+    KeepRaw<'b, MintedTransactionBody<'b>>,
+    KeepRaw<'b, MintedWitnessSet<'b>>,
+    OnlyRaw<'b, AuxiliaryData>,
+>;
+
 impl<'b> From<MintedTx<'b>> for Tx {
     fn from(x: MintedTx<'b>) -> Self {
         Tx {
@@ -1622,22 +1635,38 @@ impl<'b> From<MintedTx<'b>> for Tx {
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::MintedBlock;
+    use super::{MintedBlock, MintedBlockWithRawAuxiliary};
 
-    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    const TEST_BLOCKS: [&'static str; 4] = [
+        include_str!("../../../test_data/conway1.block"),
+        include_str!("../../../test_data/conway2.block"),
+        // interesting block with extreme values
+        include_str!("../../../test_data/conway3.block"),
+        // interesting block with extreme values
+        include_str!("../../../test_data/conway4.block"),
+    ];
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
-        let test_blocks = [
-            include_str!("../../../test_data/conway1.block"),
-            include_str!("../../../test_data/conway2.block"),
-            // interesting block with extreme values
-            include_str!("../../../test_data/conway3.block"),
-            // interesting block with extreme values
-            include_str!("../../../test_data/conway4.block"),
-        ];
+        type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+        for (idx, block_str) in TEST_BLOCKS.iter().enumerate() {
+            println!("decoding test block {}", idx + 1);
+            let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
-        for (idx, block_str) in test_blocks.iter().enumerate() {
+            let block: BlockWrapper = minicbor::decode(&bytes)
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
+
+            let bytes2 = minicbor::to_vec(block)
+                .unwrap_or_else(|e| panic!("error encoding block cbor for file {idx}: {e:?}"));
+
+            assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
+        }
+    }
+
+    #[test]
+    fn block_with_raw_aux_isomorphic_decoding_encoding() {
+        type BlockWrapper<'b> = (u16, MintedBlockWithRawAuxiliary<'b>);
+        for (idx, block_str) in TEST_BLOCKS.iter().enumerate() {
             println!("decoding test block {}", idx + 1);
             let bytes = hex::decode(block_str).unwrap_or_else(|_| panic!("bad block file {idx}"));
 
