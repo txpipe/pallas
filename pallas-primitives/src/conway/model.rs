@@ -1548,7 +1548,7 @@ pub type MintedBlock<'b> = PseudoBlock<
 >;
 
 pub type MintedBlockWithRawAuxiliary<'b> = PseudoBlock<
-    KeepRaw<'b, Header>,
+    KeepRaw<'b, MintedHeader<'b>>,
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
     OnlyRaw<'b, AuxiliaryData>,

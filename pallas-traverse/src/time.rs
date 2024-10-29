@@ -1,4 +1,4 @@
-use crate::{wellknown::GenesisValues, MultiEraBlock};
+use crate::{wellknown::GenesisValues, MultiEraBlock, MultiEraBlockWithRawAuxiliary};
 
 pub type Epoch = u64;
 
@@ -144,6 +144,33 @@ impl<'a> MultiEraBlock<'a> {
     }
 }
 
+impl<'a> MultiEraBlockWithRawAuxiliary<'a> {
+    pub fn epoch(&self, genesis: &GenesisValues) -> (Epoch, SubSlot) {
+        match self {
+            Self::EpochBoundary(x) => (x.header.consensus_data.epoch_id, 0),
+            Self::Byron(x) => (
+                x.header.consensus_data.0.epoch,
+                x.header.consensus_data.0.slot,
+            ),
+            Self::AlonzoCompatible(x, _) => {
+                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+            }
+            Self::Babbage(x) => {
+                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+            }
+            Self::Conway(x) => {
+                genesis.absolute_slot_to_relative(x.header.header_body.slot)
+            }
+        }
+    }
+
+    /// Computes the unix timestamp for the slot of the tx
+    pub fn wallclock(&self, genesis: &GenesisValues) -> u64 {
+        let slot = self.slot();
+        genesis.slot_to_wallclock(slot)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,6 +286,19 @@ mod tests {
         let block_str = include_str!("../../test_data/byron1.block");
         let block_cbor = hex::decode(block_str).expect("invalid hex");
         let block = MultiEraBlock::decode(&block_cbor).expect("invalid cbor");
+
+        let byron = block.as_byron().unwrap();
+
+        let genesis = GenesisValues::default();
+
+        let computed_slot = genesis.relative_slot_to_absolute(
+            byron.header.consensus_data.0.epoch,
+            byron.header.consensus_data.0.slot,
+        );
+
+        assert_eq!(computed_slot, 4492794);
+
+        let block = MultiEraBlockWithRawAuxiliary::decode(&block_cbor).expect("invalid cbor");
 
         let byron = block.as_byron().unwrap();
 

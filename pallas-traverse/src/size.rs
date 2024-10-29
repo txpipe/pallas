@@ -1,6 +1,6 @@
 use pallas_codec::utils::Nullable;
 
-use crate::{MultiEraBlock, MultiEraTx};
+use crate::{MultiEraBlock, MultiEraBlockWithRawAuxiliary, MultiEraTx};
 
 impl<'b> MultiEraTx<'b> {
     fn aux_data_size(&self) -> usize {
@@ -54,6 +54,20 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::EpochBoundary(_) => None,
             MultiEraBlock::Byron(_) => None,
             MultiEraBlock::Conway(x) => Some(x.header.header_body.block_body_size as usize),
+        }
+    }
+}
+
+impl<'b> MultiEraBlockWithRawAuxiliary<'b> {
+    pub fn body_size(&self) -> Option<usize> {
+        match self {
+            Self::AlonzoCompatible(x, _) => {
+                Some(x.header.header_body.block_body_size as usize)
+            }
+            Self::Babbage(x) => Some(x.header.header_body.block_body_size as usize),
+            Self::EpochBoundary(_) => None,
+            Self::Byron(_) => None,
+            Self::Conway(x) => Some(x.header.header_body.block_body_size as usize),
         }
     }
 }
