@@ -2,16 +2,16 @@
 # Cardano Math functions
  */
 
-use once_cell::sync::Lazy;
 use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul, Neg, Sub};
+use std::sync::LazyLock;
 use thiserror::Error;
 
 pub type FixedDecimal = crate::math_malachite::Decimal;
 
-pub static ZERO: Lazy<FixedDecimal> = Lazy::new(|| FixedDecimal::from(0u64));
-pub static MINUS_ONE: Lazy<FixedDecimal> = Lazy::new(|| FixedDecimal::from(-1i64));
-pub static ONE: Lazy<FixedDecimal> = Lazy::new(|| FixedDecimal::from(1u64));
+pub static ZERO: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(0u64));
+pub static MINUS_ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(-1i64));
+pub static ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(1u64));
 
 #[derive(Debug, Error)]
 pub enum Error {
