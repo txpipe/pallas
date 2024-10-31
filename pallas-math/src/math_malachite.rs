@@ -9,12 +9,12 @@ use malachite::platform_64::Limb;
 use malachite::rounding_modes::RoundingMode;
 use malachite::{Integer, Natural};
 use malachite_base::num::arithmetic::traits::{Parity, Sign};
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 #[derive(Debug, Clone)]
 pub struct Decimal {
@@ -442,13 +442,15 @@ impl Constant {
 unsafe impl Sync for Constant {}
 unsafe impl Send for Constant {}
 
-static DIGITS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?\d+$").unwrap());
-static TEN: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(10)));
-static PRECISION: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.clone().pow(34)));
-static EPS: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
-static ONE: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(1) * &PRECISION.value));
-static ZERO: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(0)));
-static E: Lazy<Constant> = Lazy::new(|| {
+static DIGITS_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?\d+$").unwrap());
+static TEN: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| Integer::from(10)));
+static PRECISION: LazyLock<Constant> =
+    LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34)));
+static EPS: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
+static ONE: LazyLock<Constant> =
+    LazyLock::new(|| Constant::new(|| Integer::from(1) * &PRECISION.value));
+static ZERO: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| Integer::from(0)));
+static E: LazyLock<Constant> = LazyLock::new(|| {
     Constant::new(|| {
         let mut e = Integer::from(0);
         ref_exp(&mut e, &ONE.value);
