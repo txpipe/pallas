@@ -24,39 +24,41 @@ knows, maybe even a full node in a far away future).
 
 The repository is organized as a Cargo workspace. Each _Pallas_ "building block" lives in its own crate. The root `pallas` crate serves as an all-in-one dependency that re-exports all of the other modules in an hierarchically organized fashion, using Cargo `features` to tailor the setup for each use-case.
 
-As already explained, _Pallas_ aims at being an expanding set of components. The following tables describe the currently available crates, as well as the planned ones.
-
-### Ouroboros Network
-
-| Crates                            | Description                                                             |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| [pallas-network](/pallas-network) | Network stack providing a multiplexer and mini-protocol implementations |
-
-### Ouroboros Consensus
-
-| Crates            | Description                                               |
-| ----------------- | --------------------------------------------------------- |
-| pallas-leadership | Implementation of the slot leadership selection algorithm |
-| pallas-selection  | Implementation of the consensus chain-selection algorithm |
-
-### Cardano Ledger
-
-| Crates                                  | Description                                                             |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| [pallas-primitives](/pallas-primitives) | Ledger primitives and cbor codec for the different Cardano eras         |
-| [pallas-traverse](/pallas-traverse)     | Utilities to traverse over multi-era block data                         |
-| [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                           |
-| pallas-ticking                          | Time passage implementation for consensus algorithm                     |
-| pallas-applying                         | Logic for validating and applying new blocks and txs to the chain state |
-| pallas-forecasting                      | Ledger forecasting algorithm to be used by the consensus layer          |
-
-### Shared
+### Core
 
 | Crates                          | Description                                        |
 | ------------------------------- | -------------------------------------------------- |
-| [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                    |
 | [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib |
+| [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                    |
 | [pallas-math](/pallas-math)     | Shared mathematics functions                       |
+
+### Network
+
+| Crates                            | Description                                                           |
+| --------------------------------- | --------------------------------------------------------------------- |
+| [pallas-network](/pallas-network) | Network stack providing multiplexer and mini-protocol implementations |
+
+### Ledger
+
+| Crates                                  | Description                                                     |
+| --------------------------------------- | --------------------------------------------------------------- |
+| [pallas-primitives](/pallas-primitives) | Ledger primitives and cbor codec for the different Cardano eras |
+| [pallas-traverse](/pallas-traverse)     | Utilities to traverse over multi-era block data                 |
+| [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                   |
+
+### Wallet
+
+| Crates                                | Description                                |
+| ------------------------------------- | ------------------------------------------ |
+| [pallas-wallet](/pallas-wallet)       | Wallet utilities for secure key management |
+| [pallas-txbuilder](/pallas-txbuilder) | Ergonomic transaction builder              |
+
+## Interop
+
+| Crates                            | Description                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| [pallas-hardano](/pallas-hardano) | Interoperability with implementation-specific artifacts of the Haskell Cardano node |
+| [pallas-utxorpc](/pallas-utxorpc) | Interoperability with the [UTxO RPC](https://utxorpc.org) specification             |
 
 ## Etymology
 
