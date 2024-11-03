@@ -1,6 +1,9 @@
 <div align="center">
-    <img src="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-dark.svg?sanitize=true#gh-dark-mode-only" alt="Pallas Logo" width="500">
-    <img src="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-light.svg?sanitize=true#gh-light-mode-only" alt="Pallas Logo" width="500">
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-light.svg">
+        <img src="https://raw.githubusercontent.com/txpipe/pallas/master/assets/logo-light.svg" alt="Pallas Logo" width="500">
+    </picture>
     <hr />
         <h3 align="center" style="border-bottom: none">Rust-native building blocks for the Cardano blockchain ecosystem</h3>
         <img alt="GitHub" src="https://img.shields.io/github/license/txpipe/pallas" />
@@ -25,9 +28,9 @@ As already explained, _Pallas_ aims at being an expanding set of components. The
 
 ### Ouroboros Network
 
-| Crates                                        | Description                                                             |
-| --------------------------------------------- | ----------------------------------------------------------------------- |
-| [pallas-network](/pallas-network)             | Network stack providing a multiplexer and mini-protocol implementations |
+| Crates                            | Description                                                             |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| [pallas-network](/pallas-network) | Network stack providing a multiplexer and mini-protocol implementations |
 
 ### Ouroboros Consensus
 
