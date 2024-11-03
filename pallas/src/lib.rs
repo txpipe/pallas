@@ -25,7 +25,13 @@ pub mod ledger {
     pub use pallas_addresses as addresses;
 
     #[doc(inline)]
+    // WARNING: this is deprecated, use `pallas::interop::hardano::configs` instead.
+    // Since deprecation notices don't work for re-exports we don't have a way to notify users.
     pub use pallas_configs as configs;
+
+    #[doc(inline)]
+    #[cfg(feature = "pallas-applying")]
+    pub use pallas_applying as rules;
 }
 
 #[doc(inline)]
@@ -34,32 +40,56 @@ pub use pallas_crypto as crypto;
 #[doc(inline)]
 pub use pallas_codec as codec;
 
+#[doc(inline)]
+#[cfg(feature = "pallas-math")]
+pub use pallas_math as math;
+
 pub mod interop {
     //! Interoperability with other protocols, formats & systems
 
     #[doc(inline)]
     pub use pallas_utxorpc as utxorpc;
+
+    #[cfg(feature = "pallas-hardano")]
+    pub mod hardano {
+        //! Interoperability with the Haskell Cardano node
+
+        #[doc(inline)]
+        pub use pallas_hardano::storage;
+
+        #[doc(inline)]
+        pub use pallas_configs as configs;
+    }
 }
 
 pub mod storage {
     //! Storage engines for chain-related persistence
 
-    #[cfg(feature = "rolldb")]
+    #[cfg(feature = "pallas-hardano")]
     #[doc(inline)]
-    pub use pallas_rolldb as rolldb;
-
-    #[cfg(feature = "hardano")]
-    #[doc(inline)]
+    // WARNING: this is deprecated, use `pallas::interop::hardano::storage` instead.
+    // Since deprecation notices don't work for re-exports we don't have a way to notify users.
     pub use pallas_hardano::storage as hardano;
 }
 
 #[doc(inline)]
-#[cfg(feature = "applying")]
+#[cfg(feature = "pallas-applying")]
+// WARNING: this is deprecated but since deprecation notices don't work for re-exports
+// we don't have a way to notify users.
 pub use pallas_applying as applying;
 
-#[doc(inline)]
-#[cfg(feature = "wallet")]
-pub use pallas_wallet as wallet;
+pub mod wallet {
+    //! Utilities for wallet implementations
+
+    #[doc(inline)]
+    #[cfg(feature = "pallas-wallet")]
+    pub use pallas_wallet as keystore;
+
+    #[doc(inline)]
+    pub use pallas_txbuilder as txbuilder;
+}
 
 #[doc(inline)]
+// WARNING: this is deprecated, use `pallas::wallet::txbuilder` instead.
+// Since deprecation notices don't work for re-exports we don't have a way to notify users.
 pub use pallas_txbuilder as txbuilder;
