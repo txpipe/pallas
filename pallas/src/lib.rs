@@ -78,6 +78,7 @@ pub mod storage {
 // we don't have a way to notify users.
 pub use pallas_applying as applying;
 
+#[cfg(feature = "wallet")]
 pub mod wallet {
     //! Utilities for wallet implementations
 
