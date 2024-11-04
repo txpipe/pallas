@@ -8,10 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-crypto"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Nicolas Di Prima <nicolas@primetype.co.uk>",
-    "Andrew Westberg <andrewwestberg@gmail.com>",
-]
+authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>", "Andrew Westberg <andrewwestberg@gmail.com>"]
 
 [dependencies]
 hex = "0.4"
@@ -20,12 +17,7 @@ thiserror = "1.0"
 rand_core = "0.6"
 pallas-codec = { version = "=0.31.0", path = "../pallas-codec" }
 serde = "1.0.143"
-kes-summed-ed25519 = { git = "https://github.com/txpipe/kes", rev = "f69fb357d46f6a18925543d785850059569d7e78" }
 zeroize = "1.8.1"
-
-# The vrf crate has not been fully tested in production environments and still has several upstream issues that
-# are open PRs but not merged yet.
-vrf_dalek = { git = "https://github.com/txpipe/vrf", rev = "044b45a1a919ba9d9c2471fc5c4d441f13086676" }
 
 [dev-dependencies]
 itertools = "0.13"
