@@ -40,9 +40,12 @@ pub use pallas_crypto as crypto;
 #[doc(inline)]
 pub use pallas_codec as codec;
 
-#[doc(inline)]
-#[cfg(feature = "pallas-math")]
-pub use pallas_math as math;
+// TODO: re-incorporate math here once we commit to a final set of upstream
+// dependencies
+
+// #[doc(inline)]
+// #[cfg(feature = "pallas-math")]
+// pub use pallas_math as math;
 
 pub mod interop {
     //! Interoperability with other protocols, formats & systems
