@@ -20,7 +20,6 @@ pallas-codec = { version = "=0.31.0", path = "../pallas-codec/" }
 pallas-utxorpc = { version = "=0.31.0", path = "../pallas-utxorpc/" }
 pallas-configs = { version = "=0.31.0", path = "../pallas-configs/" }
 pallas-txbuilder = { version = "=0.31.0", path = "../pallas-txbuilder/" }
-pallas-math = { version = "=0.31.0", path = "../pallas-math/", optional = true }
 pallas-applying = { version = "=0.31.0", path = "../pallas-applying/", optional = true }
 pallas-wallet = { version = "=0.31.0", path = "../pallas-wallet/", optional = true }
 pallas-hardano = { version = "=0.31.0", path = "../pallas-hardano/", optional = true }
@@ -29,5 +28,4 @@ pallas-hardano = { version = "=0.31.0", path = "../pallas-hardano/", optional = 
 hardano = ["pallas-hardano"]
 wallet = ["pallas-wallet"]
 applying = ["pallas-applying"]
-math = ["pallas-math"]
 unstable = ["hardano", "wallet", "applying"]
