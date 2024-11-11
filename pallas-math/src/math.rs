@@ -4,10 +4,14 @@
 
 use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul, Neg, Sub};
-
+use std::sync::LazyLock;
 use thiserror::Error;
 
 pub type FixedDecimal = crate::math_malachite::Decimal;
+
+pub static ZERO: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(0u64));
+pub static MINUS_ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(-1i64));
+pub static ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(1u64));
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -38,7 +42,7 @@ pub trait FixedPrecision:
 
     /// Entry point for 'ln' approximation. First does the necessary scaling, and
     /// then calls the continued fraction calculation. For any value outside the
-    /// domain, i.e., 'x in (-inf,0]', the function returns '-INFINITY'.
+    /// domain, i.e., 'x in (-inf,0]', the function panics.
     fn ln(&self) -> Self;
 
     /// Entry point for 'pow' function. x^y = exp(y * ln x)
@@ -91,6 +95,9 @@ pub struct ExpCmpOrdering {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use malachite_base::num::arithmetic::traits::Abs;
+    use proptest::prelude::Strategy;
+    use proptest::proptest;
     use std::fs::File;
     use std::io::BufRead;
     use std::path::PathBuf;
@@ -478,5 +485,61 @@ mod tests {
             assert_eq!(res.estimation, expected_estimation);
             assert_eq!(res.iterations.to_string(), expected_iterations);
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "ln of a value in (-inf,0] is undefined")]
+    fn ln_of_0_should_be_undefined() {
+        ZERO.ln();
+    }
+
+    #[test]
+    #[should_panic(expected = "ln of a value in (-inf,0] is undefined")]
+    fn ln_of_negative_should_be_undefined() {
+        MINUS_ONE.ln();
+    }
+
+    #[test]
+    fn pow_of_zero_to_any_positive_power_should_be_zero() {
+        proptest!(|(y in 1u64..=u64::MAX)| {
+            assert_eq!(ZERO.pow(&FixedDecimal::from(y)), *ZERO);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "zero to a negative power is undefined")]
+    fn pow_of_zero_to_neg_power_should_be_undefined() {
+        let y = FixedDecimal::from(-1i64);
+        ZERO.pow(&y);
+    }
+
+    #[test]
+    fn pow_of_any_to_power_0_should_be_1() {
+        proptest!(|(x in i64::MIN..=i64::MAX)| {
+            assert_eq!(FixedDecimal::from(x).pow(&*ZERO), *ONE);
+        });
+    }
+
+    #[test]
+    fn pow_of_any_to_power_1_should_be_same() {
+        proptest!(|(x in i64::MIN..=i64::MAX)| {
+            assert_eq!(FixedDecimal::from(x).pow(&*ONE), FixedDecimal::from(x));
+        });
+    }
+
+    #[test]
+    fn pow_to_positive_times_pow_to_negative_should_be_1() {
+        let epsilon = FixedDecimal::from_str("1000000000000000000", 34).unwrap();
+        proptest!(|(x in (-5i64..=5i64).prop_filter("Exclude zero", |&x| x != 0), y in 1i64..=25i64)| {
+            let x = FixedDecimal::from(x);
+            let y = FixedDecimal::from(y);
+            let minus_y = -&y;
+            let x_to_y = x.pow(&y);
+            let x_to_minus_y = x.pow(&minus_y);
+            let result = &x_to_y * &x_to_minus_y;
+            let diff = (&result - &*ONE).abs();
+            // println!("x: {}, y: {}, x^y: {}, x^-y: {}, x^y * x^-y: {}, diff: {}", x, y, x_to_y, x_to_minus_y, result, diff);
+            assert!(diff <= epsilon);
+        });
     }
 }

@@ -8,13 +8,13 @@ use malachite::num::basic::traits::One;
 use malachite::platform_64::Limb;
 use malachite::rounding_modes::RoundingMode;
 use malachite::{Integer, Natural};
-use malachite_base::num::arithmetic::traits::Sign;
-use once_cell::sync::Lazy;
+use malachite_base::num::arithmetic::traits::{Parity, Sign};
 use regex::Regex;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 #[derive(Debug, Clone)]
 pub struct Decimal {
@@ -131,6 +131,27 @@ impl<'a> Neg for &'a Decimal {
     fn neg(self) -> Self::Output {
         let mut result = Decimal::new(self.precision);
         result.data = -&self.data;
+        result
+    }
+}
+
+impl Abs for Decimal {
+    type Output = Self;
+
+    fn abs(self) -> Self::Output {
+        let mut result = Decimal::new(self.precision);
+        result.data = self.data.abs();
+        result
+    }
+}
+
+// Implement Abs for a reference to Decimal
+impl<'a> Abs for &'a Decimal {
+    type Output = Decimal;
+
+    fn abs(self) -> Self::Output {
+        let mut result = Decimal::new(self.precision);
+        result.data = (&self.data).abs();
         result
     }
 }
@@ -310,10 +331,15 @@ impl FixedPrecision for Decimal {
 
     fn ln(&self) -> Self {
         let mut ln_x = Decimal::new(self.precision);
-        ref_ln(&mut ln_x.data, &self.data);
-        ln_x
+        if ref_ln(&mut ln_x.data, &self.data) {
+            ln_x
+        } else {
+            panic!("ln of a value in (-inf,0] is undefined")
+        }
     }
 
+    /// Compute the power of a Decimal approximation using x^y = exp(y * ln x) formula
+    /// While not exact, this is a more performant way to compute the power of a Decimal
     fn pow(&self, rhs: &Self) -> Self {
         let mut pow_x = Decimal::new(self.precision);
         ref_pow(&mut pow_x.data, &self.data, &rhs.data);
@@ -416,13 +442,15 @@ impl Constant {
 unsafe impl Sync for Constant {}
 unsafe impl Send for Constant {}
 
-static DIGITS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?\d+$").unwrap());
-static TEN: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(10)));
-static PRECISION: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.clone().pow(34)));
-static EPS: Lazy<Constant> = Lazy::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
-static ONE: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(1) * &PRECISION.value));
-static ZERO: Lazy<Constant> = Lazy::new(|| Constant::new(|| Integer::from(0)));
-static E: Lazy<Constant> = Lazy::new(|| {
+static DIGITS_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?\d+$").unwrap());
+static TEN: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| Integer::from(10)));
+static PRECISION: LazyLock<Constant> =
+    LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34)));
+static EPS: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
+static ONE: LazyLock<Constant> =
+    LazyLock::new(|| Constant::new(|| Integer::from(1) * &PRECISION.value));
+static ZERO: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| Integer::from(0)));
+static E: LazyLock<Constant> = LazyLock::new(|| {
     Constant::new(|| {
         let mut e = Integer::from(0);
         ref_exp(&mut e, &ONE.value);
@@ -677,10 +705,47 @@ fn ref_ln(rop: &mut Integer, x: &Integer) -> bool {
 fn ref_pow(rop: &mut Integer, base: &Integer, exponent: &Integer) {
     /* x^y = exp(y * ln x) */
     let mut tmp: Integer = Integer::from(0);
-    ref_ln(&mut tmp, base);
-    tmp *= exponent;
-    scale(&mut tmp);
-    ref_exp(rop, &tmp);
+
+    if exponent == &ZERO.value || base == &ONE.value {
+        // any base to the power of zero is one, or 1 to any power is 1
+        *rop = ONE.value.clone();
+        return;
+    }
+    if exponent == &ONE.value {
+        // any base to the power of one is the base
+        *rop = base.clone();
+        return;
+    }
+    if base == &ZERO.value && exponent > &ZERO.value {
+        // zero to any positive power is zero
+        *rop = &ZERO.value * &PRECISION.value;
+        return;
+    }
+    if base == &ZERO.value && exponent < &ZERO.value {
+        panic!("zero to a negative power is undefined");
+    }
+    if base < &ZERO.value {
+        // negate the base and calculate the power
+        let neg_base = base.neg();
+        let ref_ln = ref_ln(&mut tmp, &neg_base);
+        debug_assert!(ref_ln);
+        tmp *= exponent;
+        scale(&mut tmp);
+        let mut tmp_rop = Integer::from(0);
+        ref_exp(&mut tmp_rop, &tmp);
+        *rop = if (exponent / &PRECISION.value).even() {
+            tmp_rop
+        } else {
+            -tmp_rop
+        };
+    } else {
+        // base is positive, ref_ln result is valid
+        let ref_ln = ref_ln(&mut tmp, base);
+        debug_assert!(ref_ln);
+        tmp *= exponent;
+        scale(&mut tmp);
+        ref_exp(rop, &tmp);
+    }
 }
 
 /// `bound_x` is the bound for exp in the interval x is chosen from
