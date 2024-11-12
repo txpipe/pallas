@@ -27,6 +27,34 @@ impl MultiEraValue<'_> {
         }
     }
 
+    pub fn into_conway(&self) -> conway::Value {
+        match self {
+            Self::Byron(x) => conway::Value::Coin(*x),
+            Self::AlonzoCompatible(x) => match x.deref() {
+                alonzo::Value::Coin(x) => conway::Value::Coin(*x),
+                alonzo::Value::Multiasset(x, assets) => {
+                    let coin = *x;
+                    let assets = assets
+                        .iter()
+                        .filter_map(|(k, v)| {
+                            let v: Vec<(conway::Bytes, conway::PositiveCoin)> = v
+                                .iter()
+                                .filter_map(|(k, v)| Some((k.clone(), (*v).try_into().ok()?)))
+                                .collect();
+                            Some((*k, conway::NonEmptyKeyValuePairs::from_vec(v)?))
+                        })
+                        .collect();
+                    if let Some(assets) = conway::NonEmptyKeyValuePairs::from_vec(assets) {
+                        conway::Value::Multiasset(coin, assets)
+                    } else {
+                        conway::Value::Coin(coin)
+                    }
+                }
+            },
+            Self::Conway(x) => x.deref().clone(),
+        }
+    }
+
     /// The amount of ADA asset expressed in Lovelace unit
     ///
     /// The value returned provides the amount of the ADA in a particular
