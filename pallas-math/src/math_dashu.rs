@@ -3,12 +3,8 @@
  */
 
 use crate::math::{Error, ExpCmpOrdering, ExpOrdering, FixedPrecision, DEFAULT_PRECISION};
-use malachite::num::arithmetic::traits::{Abs, DivRem, DivRound, Pow, PowAssign};
-use malachite::num::basic::traits::One;
-use malachite::platform_64::Limb;
-use malachite::rounding_modes::RoundingMode;
-use malachite::{Integer, Natural};
-use malachite_base::num::arithmetic::traits::{Parity, Sign};
+use dashu_base::{Abs, DivRem, Sign};
+use dashu_int::{IBig, UBig};
 use regex::Regex;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -19,8 +15,8 @@ use std::sync::LazyLock;
 #[derive(Debug, Clone)]
 pub struct Decimal {
     precision: u64,
-    precision_multiplier: Integer,
-    data: Integer,
+    precision_multiplier: IBig,
+    data: IBig,
 }
 
 impl PartialEq for Decimal {
@@ -59,7 +55,7 @@ impl Display for Decimal {
 impl From<u64> for Decimal {
     fn from(n: u64) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = Integer::from(n) * &result.precision_multiplier;
+        result.data = IBig::from(n) * &result.precision_multiplier;
         result
     }
 }
@@ -67,50 +63,46 @@ impl From<u64> for Decimal {
 impl From<i64> for Decimal {
     fn from(n: i64) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = Integer::from(n) * &result.precision_multiplier;
+        result.data = IBig::from(n) * &result.precision_multiplier;
         result
     }
 }
 
-impl From<Integer> for Decimal {
-    fn from(n: Integer) -> Self {
+impl From<IBig> for Decimal {
+    fn from(n: IBig) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
         result.data = n * &result.precision_multiplier;
         result
     }
 }
 
-impl From<&Integer> for Decimal {
-    fn from(n: &Integer) -> Self {
+impl From<&IBig> for Decimal {
+    fn from(n: &IBig) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
         result.data = n * &result.precision_multiplier;
         result
     }
 }
 
-impl From<Natural> for Decimal {
-    fn from(n: Natural) -> Self {
+impl From<UBig> for Decimal {
+    fn from(n: UBig) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = Integer::from(n) * &result.precision_multiplier;
+        result.data = IBig::from(n) * &result.precision_multiplier;
         result
     }
 }
 
-impl From<&Natural> for Decimal {
-    fn from(n: &Natural) -> Self {
+impl From<&UBig> for Decimal {
+    fn from(n: &UBig) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = Integer::from(n) * &result.precision_multiplier;
+        result.data = IBig::from(n.clone()) * &result.precision_multiplier;
         result
     }
 }
 
 impl From<&[u8]> for Decimal {
     fn from(n: &[u8]) -> Self {
-        let limbs = n
-            .chunks(size_of::<u64>())
-            .map(|chunk| Limb::from_be_bytes(chunk.try_into().expect("Infallible")))
-            .collect();
-        Decimal::from(Natural::from_owned_limbs_desc(limbs))
+        Decimal::from(UBig::from_be_bytes(n))
     }
 }
 
@@ -296,9 +288,9 @@ impl<'a, 'b> AddAssign<&'b Decimal> for &'a mut Decimal {
 
 impl FixedPrecision for Decimal {
     fn new(precision: u64) -> Self {
-        let mut precision_multiplier = Integer::from(10);
-        precision_multiplier.pow_assign(precision);
-        let data = Integer::from(0);
+        let mut precision_multiplier = IBig::from(10);
+        precision_multiplier = precision_multiplier.pow(precision as usize);
+        let data = IBig::from(0);
         Decimal {
             precision,
             precision_multiplier,
@@ -315,7 +307,7 @@ impl FixedPrecision for Decimal {
         }
 
         let mut decimal = Decimal::new(precision);
-        decimal.data = Integer::from_str(s).unwrap();
+        decimal.data = IBig::from_str(s).unwrap();
         Ok(decimal)
     }
 
@@ -359,10 +351,10 @@ impl FixedPrecision for Decimal {
 
     fn round(&self) -> Self {
         let mut result = self.clone();
-        let half = &self.precision_multiplier / Integer::from(2);
+        let half = &self.precision_multiplier / IBig::from(2);
         let remainder = &self.data % &self.precision_multiplier;
         if (&remainder).abs() >= half {
-            if self.data.sign() == Ordering::Less {
+            if self.data.sign() == Sign::Negative {
                 result.data -= &self.precision_multiplier + remainder;
             } else {
                 result.data += &self.precision_multiplier - remainder;
@@ -376,7 +368,7 @@ impl FixedPrecision for Decimal {
     fn floor(&self) -> Self {
         let mut result = self.clone();
         let remainder = &self.data % &self.precision_multiplier;
-        if self.data.sign() == Ordering::Less && remainder != 0 {
+        if self.data.sign() == Sign::Negative && remainder != ZERO.value {
             result.data -= &self.precision_multiplier;
         }
         result.data -= remainder;
@@ -386,7 +378,7 @@ impl FixedPrecision for Decimal {
     fn ceil(&self) -> Self {
         let mut result = self.clone();
         let remainder = &self.data % &self.precision_multiplier;
-        if self.data.sign() == Ordering::Greater && remainder != 0 {
+        if self.data.sign() == Sign::Positive && remainder != ZERO.value {
             result.data += &self.precision_multiplier;
         }
         result.data -= remainder;
@@ -400,7 +392,7 @@ impl FixedPrecision for Decimal {
     }
 }
 
-fn print_fixedp(n: &Integer, precision: &Integer, width: usize) -> String {
+fn print_fixedp(n: &IBig, precision: &IBig, width: usize) -> String {
     let (mut temp_q, mut temp_r) = n.div_rem(precision);
 
     let is_negative_q = temp_q < ZERO.value;
@@ -430,11 +422,11 @@ fn print_fixedp(n: &Integer, precision: &Integer, width: usize) -> String {
 }
 
 struct Constant {
-    value: Integer,
+    value: IBig,
 }
 
 impl Constant {
-    pub fn new(init: fn() -> Integer) -> Constant {
+    pub fn new(init: fn() -> IBig) -> Constant {
         Constant { value: init() }
     }
 }
@@ -443,24 +435,33 @@ unsafe impl Sync for Constant {}
 unsafe impl Send for Constant {}
 
 static DIGITS_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?\d+$").unwrap());
-static TEN: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| Integer::from(10)));
+static TEN: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| IBig::from(10)));
 static PRECISION: LazyLock<Constant> =
     LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34)));
 static EPS: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
 static ONE: LazyLock<Constant> =
-    LazyLock::new(|| Constant::new(|| Integer::from(1) * &PRECISION.value));
-static ZERO: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| Integer::from(0)));
+    LazyLock::new(|| Constant::new(|| IBig::from(1) * &PRECISION.value));
+static ZERO: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| IBig::from(0)));
 static E: LazyLock<Constant> = LazyLock::new(|| {
     Constant::new(|| {
-        let mut e = Integer::from(0);
+        let mut e = IBig::from(0);
         ref_exp(&mut e, &ONE.value);
         e
     })
 });
 
+fn div_round_ceil(x: &IBig, y: &IBig) -> IBig {
+    let (q, r) = x.div_rem(y);
+    if q.sign() == Sign::Positive && r != IBig::ZERO {
+        q + IBig::ONE
+    } else {
+        q
+    }
+}
+
 /// Entry point for 'exp' approximation. First does the scaling of 'x' to [0,1]
 /// and then calls the continued fraction approximation function.
-fn ref_exp(rop: &mut Integer, x: &Integer) -> i32 {
+fn ref_exp(rop: &mut IBig, x: &IBig) -> i32 {
     let mut iterations = 0;
     match x.cmp(&ZERO.value) {
         Ordering::Equal => {
@@ -469,13 +470,13 @@ fn ref_exp(rop: &mut Integer, x: &Integer) -> i32 {
         }
         Ordering::Less => {
             let x_ = -x;
-            let mut temp = Integer::from(0);
+            let mut temp = IBig::from(0);
             iterations = ref_exp(&mut temp, &x_);
             // rop = 1 / temp
             div(rop, &ONE.value, &temp);
         }
         Ordering::Greater => {
-            let (n_exponent, _) = x.div_round(&PRECISION.value, RoundingMode::Ceiling);
+            let n_exponent = div_round_ceil(x, &PRECISION.value);
             let x_ = x / &n_exponent;
             iterations = mp_exp_taylor(rop, 1000, &x_, &EPS.value);
 
@@ -490,15 +491,15 @@ fn ref_exp(rop: &mut Integer, x: &Integer) -> i32 {
 
 /// Division with quotent and remainder
 #[inline]
-fn div_qr(q: &mut Integer, r: &mut Integer, x: &Integer, y: &Integer) {
+fn div_qr(q: &mut IBig, r: &mut IBig, x: &IBig, y: &IBig) {
     (*q, *r) = x.div_rem(y);
 }
 
 /// Division
-pub fn div(rop: &mut Integer, x: &Integer, y: &Integer) {
-    let mut temp_q = Integer::from(0);
-    let mut temp_r = Integer::from(0);
-    let mut temp: Integer;
+pub fn div(rop: &mut IBig, x: &IBig, y: &IBig) {
+    let mut temp_q = IBig::from(0);
+    let mut temp_r = IBig::from(0);
+    let mut temp: IBig;
     div_qr(&mut temp_q, &mut temp_r, x, y);
 
     temp = &temp_q * &PRECISION.value;
@@ -509,8 +510,9 @@ pub fn div(rop: &mut Integer, x: &Integer, y: &Integer) {
     temp += &temp_q;
     *rop = temp;
 }
+
 /// Taylor / MacLaurin series approximation
-fn mp_exp_taylor(rop: &mut Integer, max_n: i32, x: &Integer, epsilon: &Integer) -> i32 {
+fn mp_exp_taylor(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) -> i32 {
     let mut divisor = ONE.value.clone();
     let mut last_x = ONE.value.clone();
     rop.clone_from(&ONE.value);
@@ -534,27 +536,27 @@ fn mp_exp_taylor(rop: &mut Integer, max_n: i32, x: &Integer, epsilon: &Integer) 
     n
 }
 
-pub(crate) fn scale(rop: &mut Integer) {
-    let mut temp = Integer::from(0);
-    let mut a = Integer::from(0);
+pub(crate) fn scale(rop: &mut IBig) {
+    let mut temp = IBig::from(0);
+    let mut a = IBig::from(0);
     div_qr(&mut a, &mut temp, rop, &PRECISION.value);
     if *rop < ZERO.value && temp != ZERO.value {
-        a -= Integer::ONE;
+        a -= IBig::ONE;
     }
     *rop = a;
 }
 
 /// Integer power internal function
-fn ipow_(rop: &mut Integer, x: &Integer, n: i64) {
+fn ipow_(rop: &mut IBig, x: &IBig, n: i64) {
     if n == 0 {
         rop.clone_from(&ONE.value);
     } else if n % 2 == 0 {
-        let mut res = Integer::from(0);
+        let mut res = IBig::from(0);
         ipow_(&mut res, x, n / 2);
         *rop = &res * &res;
         scale(rop);
     } else {
-        let mut res = Integer::from(0);
+        let mut res = IBig::from(0);
         ipow_(&mut res, x, n - 1);
         *rop = res * x;
         scale(rop);
@@ -562,9 +564,9 @@ fn ipow_(rop: &mut Integer, x: &Integer, n: i64) {
 }
 
 /// Integer power
-fn ipow(rop: &mut Integer, x: &Integer, n: i64) {
+fn ipow(rop: &mut IBig, x: &IBig, n: i64) {
     if n < 0 {
-        let mut temp = Integer::from(0);
+        let mut temp = IBig::from(0);
         ipow_(&mut temp, x, -n);
         div(rop, &ONE.value, &temp);
     } else {
@@ -576,32 +578,32 @@ fn ipow(rop: &mut Integer, x: &Integer, n: i64) {
 ///    maximum of 'maxN' iterations or until the absolute difference between two
 ///    succeeding convergents is smaller than 'eps'. Assumes 'x' to be within
 ///    [1,e).
-fn mp_ln_n(rop: &mut Integer, max_n: i32, x: &Integer, epsilon: &Integer) {
-    let mut ba: Integer;
-    let mut aa: Integer;
-    let mut ab: Integer;
-    let mut bb: Integer;
-    let mut a_: Integer;
-    let mut b_: Integer;
-    let mut diff: Integer;
-    let mut convergent: Integer = Integer::from(0);
-    let mut last: Integer = Integer::from(0);
+fn mp_ln_n(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) {
+    let mut ba: IBig;
+    let mut aa: IBig;
+    let mut ab: IBig;
+    let mut bb: IBig;
+    let mut a_: IBig;
+    let mut b_: IBig;
+    let mut diff: IBig;
+    let mut convergent: IBig = IBig::from(0);
+    let mut last: IBig = IBig::from(0);
     let mut first = true;
     let mut n = 1;
 
-    let mut a: Integer;
+    let mut a: IBig;
     let mut b = ONE.value.clone();
 
     let mut an_m2 = ONE.value.clone();
-    let mut bn_m2 = Integer::from(0);
-    let mut an_m1 = Integer::from(0);
+    let mut bn_m2 = IBig::from(0);
+    let mut an_m1 = IBig::from(0);
     let mut bn_m1 = ONE.value.clone();
 
     let mut curr_a = 1;
 
     while n <= max_n + 2 {
         let curr_a_2 = curr_a * curr_a;
-        a = x * Integer::from(curr_a_2);
+        a = x * IBig::from(curr_a_2);
         if n > 1 && n % 2 == 1 {
             curr_a += 1;
         }
@@ -643,9 +645,9 @@ fn mp_ln_n(rop: &mut Integer, max_n: i32, x: &Integer, epsilon: &Integer) {
     *rop = convergent;
 }
 
-fn find_e(x: &Integer) -> i64 {
-    let mut x_: Integer = Integer::from(0);
-    let mut x__: Integer = E.value.clone();
+fn find_e(x: &IBig) -> i64 {
+    let mut x_: IBig = IBig::from(0);
+    let mut x__: IBig = E.value.clone();
 
     div(&mut x_, &ONE.value, &E.value);
 
@@ -678,16 +680,16 @@ fn find_e(x: &Integer) -> i64 {
 /// Entry point for 'ln' approximation. First does the necessary scaling, and
 /// then calls the continued fraction calculation. For any value outside the
 /// domain, i.e., 'x in (-inf,0]', the function returns '-INFINITY'.
-fn ref_ln(rop: &mut Integer, x: &Integer) -> bool {
-    let mut factor = Integer::from(0);
-    let mut x_ = Integer::from(0);
+fn ref_ln(rop: &mut IBig, x: &IBig) -> bool {
+    let mut factor = IBig::from(0);
+    let mut x_ = IBig::from(0);
     if x <= &ZERO.value {
         return false;
     }
 
     let n = find_e(x);
 
-    *rop = Integer::from(n);
+    *rop = IBig::from(n);
     *rop = &*rop * &PRECISION.value;
     ref_exp(&mut factor, rop);
 
@@ -702,9 +704,9 @@ fn ref_ln(rop: &mut Integer, x: &Integer) -> bool {
     true
 }
 
-fn ref_pow(rop: &mut Integer, base: &Integer, exponent: &Integer) {
+fn ref_pow(rop: &mut IBig, base: &IBig, exponent: &IBig) {
     /* x^y = exp(y * ln x) */
-    let mut tmp: Integer = Integer::from(0);
+    let mut tmp: IBig = IBig::from(0);
 
     if exponent == &ZERO.value || base == &ONE.value {
         // any base to the power of zero is one, or 1 to any power is 1
@@ -731,13 +733,11 @@ fn ref_pow(rop: &mut Integer, base: &Integer, exponent: &Integer) {
         debug_assert!(ref_ln);
         tmp *= exponent;
         scale(&mut tmp);
-        let mut tmp_rop = Integer::from(0);
+        let mut tmp_rop = IBig::from(0);
         ref_exp(&mut tmp_rop, &tmp);
-        *rop = if (exponent / &PRECISION.value).even() {
-            tmp_rop
-        } else {
-            -tmp_rop
-        };
+        let (_, rem) = (exponent / &PRECISION.value).div_rem(&IBig::from(2));
+        // check if rem is even
+        *rop = if rem == IBig::ZERO { tmp_rop } else { -tmp_rop };
     } else {
         // base is positive, ref_ln result is valid
         let ref_ln = ref_ln(&mut tmp, base);
@@ -759,20 +759,20 @@ fn ref_pow(rop: &mut Integer, base: &Integer, exponent: &Integer) {
 /// Lagrange remainder require knowledge of the maximum value to compute the
 /// maximal error of the remainder.
 fn ref_exp_cmp(
-    rop: &mut Integer,
+    rop: &mut IBig,
     max_n: u64,
-    x: &Integer,
+    x: &IBig,
     bound_x: i64,
-    compare: &Integer,
+    compare: &IBig,
 ) -> ExpCmpOrdering {
     rop.clone_from(&ONE.value);
     let mut n = 0u64;
-    let mut divisor: Integer;
-    let mut next_x: Integer;
-    let mut error: Integer;
-    let mut upper: Integer;
-    let mut lower: Integer;
-    let mut error_term: Integer;
+    let mut divisor: IBig;
+    let mut next_x: IBig;
+    let mut error: IBig;
+    let mut upper: IBig;
+    let mut lower: IBig;
+    let mut error_term: IBig;
 
     divisor = ONE.value.clone();
     error = x.clone();
@@ -792,7 +792,7 @@ fn ref_exp_cmp(
         scale(&mut error);
         let e2 = error.clone();
         div(&mut error, &e2, &divisor);
-        error_term = &error * Integer::from(bound_x);
+        error_term = &error * IBig::from(bound_x);
         *rop = &*rop + &next_x;
 
         /* compare is guaranteed to be above overall result */

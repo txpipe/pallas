@@ -12,8 +12,8 @@ authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
 exclude = ["tests/data/*"]
 
 [dependencies]
-malachite = "0.4.16"
-malachite-base = "0.4.16"
+dashu-int = "0.4.1"
+dashu-base = "0.4.1"
 regex = "1.10.5"
 thiserror = "1.0.61"
 
