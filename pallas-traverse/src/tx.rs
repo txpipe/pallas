@@ -6,12 +6,13 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo,
     babbage::{self, NetworkId},
-    byron, conway,
+    byron, conway, OnlyRaw,
 };
 
 use crate::{
     Era, Error, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
-    MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals, OriginalHash,
+    MultiEraSigners, MultiEraTx, MultiEraTxWithRawAuxiliary, MultiEraUpdate, MultiEraWithdrawals,
+    OriginalHash,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -621,6 +622,601 @@ impl<'b> MultiEraTx<'b> {
     pub fn as_conway(&self) -> Option<&conway::MintedTx> {
         match self {
             MultiEraTx::Conway(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+
+impl<'b> MultiEraTxWithRawAuxiliary<'b> {
+    pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
+        Self::Byron(Box::new(Cow::Borrowed(tx)))
+    }
+
+    pub fn from_alonzo_compatible(tx: &'b alonzo::MintedTxWithRawAuxiliary<'b>, era: Era) -> Self {
+        Self::AlonzoCompatible(Box::new(Cow::Borrowed(tx)), era)
+    }
+
+    pub fn from_babbage(tx: &'b babbage::MintedTxWithRawAuxiliary<'b>) -> Self {
+        Self::Babbage(Box::new(Cow::Borrowed(tx)))
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
+        // to_vec is infallible
+        match self {
+            Self::AlonzoCompatible(x, _) => minicbor::to_vec(x).unwrap(),
+            Self::Babbage(x) => minicbor::to_vec(x).unwrap(),
+            Self::Byron(x) => minicbor::to_vec(x).unwrap(),
+            Self::Conway(x) => minicbor::to_vec(x).unwrap(),
+        }
+    }
+
+    pub fn decode_for_era(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
+        match era {
+            Era::Byron => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Byron(tx))
+            }
+            Era::Shelley | Era::Allegra | Era::Mary | Era::Alonzo => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::AlonzoCompatible(tx, era))
+            }
+            Era::Babbage => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Babbage(tx))
+            }
+            Era::Conway => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Conway(tx))
+            }
+        }
+    }
+
+    /// Try decode a transaction via every era's encoding format, starting with
+    /// the most recent and returning on first success, or None if none are
+    /// successful
+    ///
+    /// NOTE: Until Conway is officially released, this method favors Babbage
+    /// decoding over Conway decoding. This means that we'll attempt to
+    /// decode using Babbage first even if Conway is newer.
+    pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
+        if let Ok(tx) = minicbor::decode(cbor) {
+            return Ok(Self::Conway(Box::new(Cow::Owned(tx))));
+        }
+
+        if let Ok(tx) = minicbor::decode(cbor) {
+            return Ok(Self::Babbage(Box::new(Cow::Owned(tx))));
+        }
+
+        if let Ok(tx) = minicbor::decode(cbor) {
+            // Shelley/Allegra/Mary/Alonzo will all decode to Alonzo
+            return Ok(Self::AlonzoCompatible(
+                Box::new(Cow::Owned(tx)),
+                Era::Alonzo,
+            ));
+        }
+
+        if let Ok(tx) = minicbor::decode(cbor) {
+            Ok(Self::Byron(Box::new(Cow::Owned(tx))))
+        } else {
+            Err(Error::unknown_cbor(cbor))
+        }
+    }
+
+    pub fn era(&self) -> Era {
+        match self {
+            Self::AlonzoCompatible(_, era) => *era,
+            Self::Babbage(_) => Era::Babbage,
+            Self::Byron(_) => Era::Byron,
+            Self::Conway(_) => Era::Conway,
+        }
+    }
+
+    pub fn hash(&self) -> Hash<32> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x.transaction_body.original_hash(),
+            Self::Babbage(x) => x.transaction_body.original_hash(),
+            Self::Byron(x) => x.transaction.original_hash(),
+            Self::Conway(x) => x.transaction_body.original_hash(),
+        }
+    }
+
+    pub fn outputs(&self) -> Vec<MultiEraOutput> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .outputs
+                .iter()
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era()))
+                .collect(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .outputs
+                .iter()
+                .map(MultiEraOutput::from_babbage)
+                .collect(),
+            Self::Byron(x) => x
+                .transaction
+                .outputs
+                .iter()
+                .map(MultiEraOutput::from_byron)
+                .collect(),
+            Self::Conway(x) => x
+                .transaction_body
+                .outputs
+                .iter()
+                .map(MultiEraOutput::from_conway)
+                .collect(),
+        }
+    }
+
+    pub fn output_at(&self, index: usize) -> Option<MultiEraOutput> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .outputs
+                .get(index)
+                .map(|x| MultiEraOutput::from_alonzo_compatible(x, self.era())),
+            Self::Babbage(x) => x
+                .transaction_body
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_babbage),
+            Self::Byron(x) => x
+                .transaction
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_byron),
+            Self::Conway(x) => x
+                .transaction_body
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_conway),
+        }
+    }
+
+    /// Return the transaction inputs
+    ///
+    /// NOTE: It is possible for this to return duplicates before some point in the chain history. See https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
+    pub fn inputs(&self) -> Vec<MultiEraInput> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            Self::Byron(x) => x
+                .transaction
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_byron)
+                .collect(),
+            Self::Conway(x) => x
+                .transaction_body
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+        }
+    }
+
+    /// Return inputs as expected for processing
+    ///
+    /// To process inputs we need a set (no duplicated) and lexicographical
+    /// order (hash#idx). This function will take the raw inputs and apply the
+    /// aforementioned cleanup changes.
+    pub fn inputs_sorted_set(&self) -> Vec<MultiEraInput> {
+        let mut raw = self.inputs();
+        raw.sort_by_key(|x| x.lexicographical_key());
+        raw.dedup_by_key(|x| x.lexicographical_key());
+
+        raw
+    }
+
+    pub fn mints_sorted_set(&self) -> Vec<MultiEraPolicyAssets> {
+        let mut raw = self.mints();
+
+        raw.sort_by_key(|m| *m.policy());
+
+        raw
+    }
+
+    pub fn withdrawals_sorted_set(&self) -> Vec<(&[u8], u64)> {
+        match self.withdrawals() {
+            MultiEraWithdrawals::NotApplicable | MultiEraWithdrawals::Empty => {
+                std::iter::empty().collect()
+            }
+            MultiEraWithdrawals::AlonzoCompatible(x) => x
+                .iter()
+                .map(|(k, v)| (k.as_slice(), *v))
+                .sorted_by_key(|(k, _)| *k)
+                .collect(),
+            MultiEraWithdrawals::Conway(x) => x
+                .iter()
+                .map(|(k, v)| (k.as_slice(), *v))
+                .sorted_by_key(|(k, _)| *k)
+                .collect(),
+        }
+    }
+
+    /// Return the transaction reference inputs
+    ///
+    /// NOTE: It is possible for this to return duplicates. See
+    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
+    pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
+        match self {
+            Self::Conway(x) => x
+                .transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            _ => vec![],
+        }
+    }
+
+    pub fn certs(&self) -> Vec<MultiEraCert> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .certificates
+                .iter()
+                .flat_map(|c| c.iter())
+                .map(|c| MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(c))))
+                .collect(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .certificates
+                .iter()
+                .flat_map(|c| c.iter())
+                .map(|c| MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(c))))
+                .collect(),
+            Self::Byron(_) => vec![],
+            Self::Conway(x) => x
+                .transaction_body
+                .certificates
+                .iter()
+                .flat_map(|c| c.iter())
+                .map(|c| MultiEraCert::Conway(Box::new(Cow::Borrowed(c))))
+                .collect(),
+        }
+    }
+
+    pub fn update(&self) -> Option<MultiEraUpdate> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .update
+                .as_ref()
+                .map(MultiEraUpdate::from_alonzo_compatible),
+            Self::Babbage(x) => x
+                .transaction_body
+                .update
+                .as_ref()
+                .map(MultiEraUpdate::from_babbage),
+            Self::Byron(_) => None,
+            Self::Conway(_) => None,
+        }
+    }
+
+    pub fn mints(&self) -> Vec<MultiEraPolicyAssets> {
+        match self {
+            Self::Byron(_) => vec![],
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .mint
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
+                .collect(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .mint
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleMint(k, v))
+                .collect(),
+            Self::Conway(x) => x
+                .transaction_body
+                .mint
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraPolicyAssets::ConwayMint(k, v))
+                .collect(),
+        }
+    }
+
+    /// Return the transaction collateral inputs
+    ///
+    /// NOTE: It is possible for this to return duplicates. See
+    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
+    pub fn collateral(&self) -> Vec<MultiEraInput> {
+        match self {
+            Self::Byron(_) => vec![],
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .collateral
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .collateral
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            Self::Conway(x) => x
+                .transaction_body
+                .collateral
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+        }
+    }
+
+    pub fn collateral_return(&self) -> Option<MultiEraOutput> {
+        match self {
+            Self::Babbage(x) => x
+                .transaction_body
+                .collateral_return
+                .as_ref()
+                .map(MultiEraOutput::from_babbage),
+            Self::Conway(x) => x
+                .transaction_body
+                .collateral_return
+                .as_ref()
+                .map(MultiEraOutput::from_conway),
+            _ => None,
+        }
+    }
+
+    pub fn total_collateral(&self) -> Option<u64> {
+        match self {
+            Self::Babbage(x) => x.transaction_body.total_collateral,
+            Self::Conway(x) => x.transaction_body.total_collateral,
+            _ => None,
+        }
+    }
+
+    /// Returns the list of inputs consumed by the Tx
+    ///
+    /// Helper method to abstract the logic of which inputs are consumed
+    /// depending on the validity of the Tx. If the Tx is valid, this method
+    /// will return the list of inputs. If the tx is invalid, it will return the
+    /// collateral.
+    pub fn consumes(&self) -> Vec<MultiEraInput> {
+        let consumed = match self.is_valid() {
+            true => self.inputs(),
+            false => self.collateral(),
+        };
+
+        let mut unique_consumed = HashSet::new();
+
+        consumed
+            .into_iter()
+            .filter(|i| unique_consumed.insert(i.output_ref()))
+            .collect()
+    }
+
+    /// Returns a list of tuples of the outputs produced by the Tx with their
+    /// indexes
+    ///
+    /// Helper method to abstract the logic of which outputs are produced
+    /// depending on the validity of the Tx. If the Tx is valid, this method
+    /// will return the list of outputs. If the Tx is invalid it will return the
+    /// collateral return if one is present or an empty list if not. Note that
+    /// the collateral return output index is defined as the next available
+    /// index after the txouts (Babbage spec, ch 4).
+    pub fn produces(&self) -> Vec<(usize, MultiEraOutput)> {
+        match self.is_valid() {
+            true => self.outputs().into_iter().enumerate().collect(),
+            false => self
+                .collateral_return()
+                .into_iter()
+                .map(|txo| (self.outputs().len(), txo))
+                .collect(),
+        }
+    }
+
+    /// Returns the *produced* output at the given index if one exists
+    ///
+    /// If the transaction is valid the outputs are produced, otherwise the
+    /// collateral return output is produced at index |outputs.len()| if one is
+    /// present. This function gets the *produced* output for an index if one
+    /// exists. It behaves exactly as `outputs_at` for valid transactions, but
+    /// for invalid transactions it returns None except for if the index points
+    /// to the collateral-return output and one is present in the transaction,
+    /// in which case it returns the collateral-return output.
+    pub fn produces_at(&self, index: usize) -> Option<MultiEraOutput> {
+        match self.is_valid() {
+            true => self.output_at(index),
+            false => {
+                if index == self.outputs().len() {
+                    self.collateral_return()
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Returns the list of UTxO required by the Tx
+    ///
+    /// Helper method to yield all of the UTxO that the Tx requires in order to
+    /// be fulfilled. This includes normal inputs, reference inputs and
+    /// collateral.
+    pub fn requires(&self) -> Vec<MultiEraInput> {
+        [self.inputs(), self.reference_inputs(), self.collateral()].concat()
+    }
+
+    pub fn withdrawals(&self) -> MultiEraWithdrawals {
+        match self {
+            Self::AlonzoCompatible(x, _) => match &x.transaction_body.withdrawals {
+                Some(x) => MultiEraWithdrawals::AlonzoCompatible(x),
+                None => MultiEraWithdrawals::Empty,
+            },
+            Self::Babbage(x) => match &x.transaction_body.withdrawals {
+                Some(x) => MultiEraWithdrawals::AlonzoCompatible(x),
+                None => MultiEraWithdrawals::Empty,
+            },
+            Self::Byron(_) => MultiEraWithdrawals::NotApplicable,
+            Self::Conway(x) => match &x.transaction_body.withdrawals {
+                Some(x) => MultiEraWithdrawals::Conway(x),
+                None => MultiEraWithdrawals::Empty,
+            },
+        }
+    }
+
+    pub fn fee(&self) -> Option<u64> {
+        match self {
+            Self::AlonzoCompatible(x, _) => Some(x.transaction_body.fee),
+            Self::Babbage(x) => Some(x.transaction_body.fee),
+            Self::Byron(_) => None,
+            Self::Conway(x) => Some(x.transaction_body.fee),
+        }
+    }
+
+    pub fn ttl(&self) -> Option<u64> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x.transaction_body.ttl,
+            Self::Babbage(x) => x.transaction_body.ttl,
+            Self::Byron(_) => None,
+            Self::Conway(x) => x.transaction_body.ttl,
+        }
+    }
+
+    /// Returns the fee or attempts to compute it
+    ///
+    /// If the fee is available as part of the tx data (post-byron), this
+    /// function will return the existing value. For byron txs, this method
+    /// attempts to compute the value by using the linear fee policy.
+    #[cfg(feature = "unstable")]
+    pub fn fee_or_compute(&self) -> u64 {
+        match self {
+            Self::AlonzoCompatible(x, _) => x.transaction_body.fee,
+            Self::Babbage(x) => x.transaction_body.fee,
+            Self::Byron(x) => crate::fees::compute_byron_fee(x, None),
+            Self::Conway(x) => x.transaction_body.fee,
+        }
+    }
+
+    pub fn aux_data(&self) -> Option<&OnlyRaw<'_, alonzo::AuxiliaryData>> {
+        match self {
+            Self::AlonzoCompatible(x, _) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
+            Self::Babbage(x) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
+            Self::Byron(_) => None,
+            Self::Conway(x) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
+        }
+    }
+
+    pub fn required_signers(&self) -> MultiEraSigners {
+        match self {
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .required_signers
+                .as_ref()
+                .map(MultiEraSigners::AlonzoCompatible)
+                .unwrap_or_default(),
+            Self::Babbage(x) => x
+                .transaction_body
+                .required_signers
+                .as_ref()
+                .map(MultiEraSigners::AlonzoCompatible)
+                .unwrap_or_default(),
+            Self::Byron(_) => MultiEraSigners::NotApplicable,
+            Self::Conway(x) => x
+                .transaction_body
+                .required_signers
+                .as_ref()
+                .map(|x| MultiEraSigners::AlonzoCompatible(x.deref()))
+                .unwrap_or_default(),
+        }
+    }
+
+    pub fn validity_start(&self) -> Option<u64> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x.transaction_body.validity_interval_start,
+            Self::Babbage(x) => x.transaction_body.validity_interval_start,
+            Self::Byron(_) => None,
+            Self::Conway(x) => x.transaction_body.validity_interval_start,
+        }
+    }
+
+    pub fn network_id(&self) -> Option<NetworkId> {
+        match self {
+            Self::AlonzoCompatible(x, _) => x.transaction_body.network_id,
+            Self::Babbage(x) => x.transaction_body.network_id,
+            Self::Byron(_) => None,
+            Self::Conway(x) => x.transaction_body.network_id,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Self::AlonzoCompatible(x, _) => x.success,
+            Self::Babbage(x) => x.success,
+            Self::Byron(_) => true,
+            Self::Conway(x) => x.success,
+        }
+    }
+
+    pub fn as_babbage(&self) -> Option<&babbage::MintedTxWithRawAuxiliary> {
+        match self {
+            Self::Babbage(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_alonzo(&self) -> Option<&alonzo::MintedTxWithRawAuxiliary> {
+        match self {
+            Self::AlonzoCompatible(x, _) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_byron(&self) -> Option<&byron::MintedTxPayload> {
+        match self {
+            Self::Byron(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_conway(&self) -> Option<&conway::MintedTxWithRawAuxiliary> {
+        match self {
+            Self::Conway(x) => Some(x),
             _ => None,
         }
     }

@@ -13,7 +13,7 @@ pub use framework::*;
 
 pub use pallas_codec::utils::{
     Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
-    NonZeroInt, Nullable, PositiveCoin, Set,
+    NonZeroInt, Nullable, OnlyRaw, PositiveCoin, Set,
 };
 pub use pallas_crypto::hash::Hash;
 

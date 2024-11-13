@@ -13,6 +13,10 @@ authors = [
     "Lucas Rosa <x@rvcas.dev>",
 ]
 
+[[bench]]
+name = "alonzo_decoding"
+harness = false
+
 [dependencies]
 hex = "0.4.3"
 log = "0.4.14"
@@ -22,6 +26,9 @@ base58 = "0.2.0"
 bech32 = "0.9.0"
 serde = { version = "1.0.136", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.79", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5.1" }
 
 [features]
 json = ["serde", "serde_json"]
