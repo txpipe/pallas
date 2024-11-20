@@ -21,7 +21,7 @@ pub type TxoRef = (TxHash, TxoIndex);
 pub type Cbor = Vec<u8>;
 pub type EraCbor = (trv::Era, Cbor);
 pub type UtxoMap = HashMap<TxoRef, EraCbor>;
-
+pub type DatumMap = HashMap<Hash<32>, alonzo::PlutusData>;
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
 }
@@ -72,6 +72,7 @@ impl<C: LedgerContext> Mapper<C> {
         &self,
         resolved: &Option<UtxoMap>,
         input: &trv::MultiEraInput,
+        datum_map: &Option<DatumMap>,
     ) -> Option<u5c::TxOutput> {
         let as_txref = (*input.hash(), input.index() as u32);
 
@@ -80,7 +81,7 @@ impl<C: LedgerContext> Mapper<C> {
             .and_then(|x| x.get(&as_txref))
             .and_then(|(era, cbor)| {
                 let o = trv::MultiEraOutput::decode(*era, cbor.as_slice()).ok()?;
-                Some(self.map_tx_output(&o))
+                Some(self.map_tx_output(&o, datum_map))
             })
     }
 
@@ -91,11 +92,12 @@ impl<C: LedgerContext> Mapper<C> {
         // lexicographical order of the input we're mapping
         order: u32,
         resolved: &Option<UtxoMap>,
+        datum_map: &Option<DatumMap>,
     ) -> u5c::TxInput {
         u5c::TxInput {
             tx_hash: input.hash().to_vec().into(),
             output_index: input.index() as u32,
-            as_output: self.decode_resolved_utxo(resolved, input),
+            as_output: self.decode_resolved_utxo(resolved, input, datum_map),
             redeemer: tx.find_spend_redeemer(order).map(|x| self.map_redeemer(&x)),
         }
     }
@@ -108,7 +110,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::TxInput {
             tx_hash: input.hash().to_vec().into(),
             output_index: input.index() as u32,
-            as_output: self.decode_resolved_utxo(resolved, input),
+            as_output: self.decode_resolved_utxo(resolved, input, &None),
             redeemer: None,
         }
     }
@@ -121,12 +123,16 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::TxInput {
             tx_hash: input.hash().to_vec().into(),
             output_index: input.index() as u32,
-            as_output: self.decode_resolved_utxo(resolved, input),
+            as_output: self.decode_resolved_utxo(resolved, input, &None),
             redeemer: None,
         }
     }
 
-    pub fn map_tx_datum(&self, x: &trv::MultiEraOutput) -> u5c::Datum {
+    pub fn map_tx_datum(
+        &self,
+        x: &trv::MultiEraOutput,
+        datum_map: &Option<DatumMap>,
+    ) -> u5c::Datum {
         u5c::Datum {
             hash: match x.datum() {
                 Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
@@ -135,6 +141,11 @@ impl<C: LedgerContext> Mapper<C> {
             },
             payload: match x.datum() {
                 Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
+                Some(babbage::PseudoDatumOption::Hash(x)) => datum_map
+                    .as_ref()
+                    .and_then(|m| m.get(&x))
+                    .map(|d| self.map_plutus_datum(d))
+                    .into(),
                 _ => None,
             },
             original_cbor: match x.datum() {
@@ -144,7 +155,11 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_tx_output(&self, x: &trv::MultiEraOutput) -> u5c::TxOutput {
+    pub fn map_tx_output(
+        &self,
+        x: &trv::MultiEraOutput,
+        datum_map: &Option<DatumMap>,
+    ) -> u5c::TxOutput {
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
             coin: x.value().coin(),
@@ -157,7 +172,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
-            datum: self.map_tx_datum(x).into(),
+            datum: self.map_tx_datum(x, datum_map).into(),
             script: match x.script_ref() {
                 Some(conway::PseudoScript::NativeScript(x)) => u5c::Script {
                     script: u5c::script::Script::Native(Self::map_native_script(&x)).into(), /*  */
@@ -468,15 +483,27 @@ impl<C: LedgerContext> Mapper<C> {
             ctx.get_utxos(to_resolve.as_slice())
         });
 
+        let mut datum_map: DatumMap = HashMap::new();
+        for datum in tx.plutus_data().iter() {
+            let hash = datum.original_hash();
+            datum_map.insert(hash, datum.clone().unwrap());
+        }
+
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
             inputs: tx
                 .inputs_sorted_set()
                 .iter()
                 .enumerate()
-                .map(|(order, i)| self.map_tx_input(i, tx, order as u32, &resolved))
+                .map(|(order, i)| {
+                    self.map_tx_input(i, tx, order as u32, &resolved, &Some(datum_map.clone()))
+                })
                 .collect(),
-            outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
+            outputs: tx
+                .outputs()
+                .iter()
+                .map(|x| self.map_tx_output(x, &Some(datum_map.clone())))
+                .collect(),
             certificates: tx
                 .certs()
                 .iter()
@@ -528,7 +555,9 @@ impl<C: LedgerContext> Mapper<C> {
                     .iter()
                     .map(|x| self.map_tx_collateral(x, &resolved))
                     .collect(),
-                collateral_return: tx.collateral_return().map(|x| self.map_tx_output(&x)),
+                collateral_return: tx
+                    .collateral_return()
+                    .map(|x| self.map_tx_output(&x, &None)),
                 total_collateral: tx.total_collateral().unwrap_or_default(),
             }
             .into(),
