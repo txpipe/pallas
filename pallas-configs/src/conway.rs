@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisFile {
     pub pool_voting_thresholds: PoolVotingThresholds,
@@ -43,20 +43,20 @@ pub struct DRepVotingThresholds {
     pub treasury_withdrawal: f32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Constitution {
     pub anchor: Anchor,
     pub script: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Anchor {
     pub data_hash: String,
     pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Committee {
     pub members: HashMap<String, u64>,
     pub threshold: Fraction,
