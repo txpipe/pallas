@@ -42,11 +42,6 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             // if the first element isn't an array, it's a plutus error
             // the node sends string data
             let rejection = d.decode()?;
-
-            // skip this data via setting the decoder position, because it doesn't recognize
-            // it with rejection decode
-            d.set_position(d.input().len());
-
             return Ok(Message::RejectTx(rejection));
         }
 
@@ -60,11 +55,6 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             1 => Ok(Message::AcceptTx),
             2 => {
                 let rejection = d.decode()?;
-
-                // skip this data via setting the decoder position, because it doesn't recognize
-                // it with rejection decode
-                d.set_position(d.input().len());
-
                 Ok(Message::RejectTx(rejection))
             }
             3 => Ok(Message::Done),
@@ -101,7 +91,12 @@ impl Encode<()> for EraTx {
 
 impl<'b> Decode<'b, ()> for RejectReason {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let remainder = d.input().to_vec();
+        // `d.input()` is the entire input; we just want it starting at where we stopped decoding:
+        let start_pos = d.position();
+        let remainder = d.input()[start_pos..].to_vec();
+        // skip this data via setting the decoder position, because it doesn't recognize
+        // it with rejection decode
+        d.set_position(d.input().len());
         Ok(RejectReason(remainder))
     }
 }
