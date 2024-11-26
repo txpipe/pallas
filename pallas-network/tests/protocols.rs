@@ -260,7 +260,7 @@ pub async fn blockfetch_server_and_client_happy_path() {
         client_bf.send_done().await.unwrap();
     });
 
-    _ = tokio::join!(client, server);
+    tokio::try_join!(client, server).unwrap();
 }
 
 #[tokio::test]
@@ -457,7 +457,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
         client_cs.send_done().await.unwrap();
     });
 
-    _ = tokio::join!(client, server);
+    tokio::try_join!(client, server).unwrap();
 }
 
 #[cfg(unix)]
@@ -1092,7 +1092,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         client.statequery().send_done().await.unwrap();
     });
 
-    _ = tokio::join!(client, server);
+    tokio::try_join!(client, server).unwrap();
 }
 
 #[tokio::test]
@@ -1250,7 +1250,7 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
         assert_eq!(*client_txsub.state(), txsubmission::State::Done);
     });
 
-    _ = tokio::join!(client, server);
+    tokio::try_join!(client, server).unwrap();
 }
 
 #[tokio::test]
