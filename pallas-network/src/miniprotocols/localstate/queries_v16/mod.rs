@@ -37,7 +37,7 @@ pub enum BlockQuery {
     DebugNewEpochState,
     DebugChainDepState,
     GetRewardProvenance,
-    GetUTxOByTxIn(AnyCbor),
+    GetUTxOByTxIn(TxIns),
     GetStakePools,
     GetStakePoolParams(AnyCbor),
     GetRewardInfoPools,
@@ -236,8 +236,24 @@ pub struct UTxOByAddress {
     pub utxo: KeyValuePairs<UTxO, TransactionOutput>,
 }
 
+pub type UTxOByTxin = UTxOByAddress;
+
 // Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
 pub type Datum = (Era, TagWrap<Bytes, 24>);
+
+// From `pallas-primitives`, with fewer `derive`s
+#[derive(
+    Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone,
+)]
+pub struct TransactionInput {
+    #[n(0)]
+    pub transaction_id: Hash<32>,
+
+    #[n(1)]
+    pub index: u64,
+}
+
+pub type TxIns = BTreeSet<TransactionInput>;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TransactionOutput {
@@ -471,6 +487,20 @@ pub async fn get_genesis_config(
     era: u16,
 ) -> Result<Vec<Genesis>, ClientError> {
     let query = BlockQuery::GetGenesisConfig;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get a subset of the UTxO, filtered by transaction input.
+pub async fn get_utxo_by_txin(
+    client: &mut Client,
+    era: u16,
+    txins: TxIns,
+) -> Result<UTxOByTxin, ClientError> {
+    let query = BlockQuery::GetUTxOByTxIn(txins);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
