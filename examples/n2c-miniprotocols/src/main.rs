@@ -7,17 +7,32 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs},
+            localstate::queries_v16::{
+                self, Addr, Addrs, TransactionInput,
+            },
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
+    crypto::hash::Hash,
 };
 use tracing::info;
+use hex::FromHex;
 
 async fn do_localstate_query(client: &mut NodeClient) {
     let client = client.statequery();
 
     client.acquire(None).await.unwrap();
+
+    // Get UTxO from a (singleton) set of tx inputs.
+    let transaction_id = Hash::<32>::from(<[u8; 32]>::from_hex(
+        "15244950ed56a3af61a00f62584779fb53a9f3910468013a2b00b94b8bbc10e0"
+    ).unwrap());
+    let tx_in = TransactionInput { transaction_id, index: 0 };
+    let mut txins = BTreeSet::new();
+    txins.insert(tx_in);
+    
+    let result = queries_v16::get_utxo_by_txin(client, 6, txins).await.unwrap();
+    info!("result: {:?}", result);
 
     let result = queries_v16::get_chain_point(client).await.unwrap();
     info!("result: {:?}", result);

@@ -71,10 +71,10 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(14)?;
             }
-            BlockQuery::GetUTxOByTxIn(_) => {
+            BlockQuery::GetUTxOByTxIn(txin) => {
                 e.array(2)?;
                 e.u16(15)?;
-                e.encode(2)?;
+                e.encode(txin)?;
             }
             BlockQuery::GetStakePools => {
                 e.array(1)?;
@@ -144,7 +144,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             // 12 => Ok(Self::DebugNewEpochState),
             13 => Ok(Self::DebugChainDepState),
             14 => Ok(Self::GetRewardProvenance),
-            // 15 => Ok(Self::GetUTxOByTxIn(())),
+            15 => Ok(Self::GetUTxOByTxIn(d.decode()?)),
             16 => Ok(Self::GetStakePools),
             // 17 => Ok(Self::GetStakePoolParams(())),
             18 => Ok(Self::GetRewardInfoPools),
