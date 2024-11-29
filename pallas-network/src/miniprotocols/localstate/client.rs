@@ -202,6 +202,7 @@ impl GenericClient {
     {
         let request = AnyCbor::from_encode(request);
         let response = self.query_any(request).await?;
+
         response.into_decode().map_err(ClientError::InvalidCbor)
     }
 }
