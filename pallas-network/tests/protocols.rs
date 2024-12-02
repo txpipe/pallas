@@ -10,8 +10,8 @@ use pallas_network::miniprotocols::blockfetch::BlockRequest;
 use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
 use pallas_network::miniprotocols::handshake::n2n::VersionData;
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    Addr, Addrs, ChainBlockNumber, Fraction, Genesis, Snapshots, Stakes, SystemStart, UnitInterval,
-    Value,
+    Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, Snapshots, Stakes,
+    SystemStart, UnitInterval, Value, RationalNumber,
 };
 use pallas_network::miniprotocols::localstate::ClientQueryRequest;
 use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
@@ -548,9 +548,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             );
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let fraction = Fraction { num: 10, dem: 20 };
+            let rational = RationalNumber { numerator: 10, denominator: 20 };
             let pool = localstate::queries_v16::Pool {
-                stakes: fraction.clone(),
+                stakes: rational.clone(),
                 hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
                     .to_vec()
                     .into(),
@@ -667,8 +667,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     numerator: 3,
                     denominator: 1000000,
                 }),
-                protocol_version_major: Some(5),
-                protocol_version_minor: Some(0),
+                protocol_version: Some((5,0)),
                 min_pool_cost: Some(AnyUInt::U32(340000000)),
                 ada_per_utxo_byte: Some(AnyUInt::U16(44)),
                 cost_models_for_script_languages: None,
@@ -745,7 +744,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let genesis = vec![Genesis {
+            let genesis = vec![GenesisConfig {
                 system_start: SystemStart {
                     year: 2021,
                     day_of_year: 150,
@@ -753,7 +752,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 },
                 network_magic: 42,
                 network_id: 42,
-                active_slots_coefficient: Fraction { num: 6, dem: 10 },
+                active_slots_coefficient: Fraction { num: 6, den: 10 },
                 security_param: 2160,
                 epoch_length: 432000,
                 slots_per_kes_period: 129600,
@@ -873,9 +872,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .into_decode()
             .unwrap();
 
-        let fraction = Fraction { num: 10, dem: 20 };
+        let rational = RationalNumber { numerator: 10, denominator: 20 };
         let pool = localstate::queries_v16::Pool {
-            stakes: fraction.clone(),
+            stakes: rational.clone(),
             hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
                 .to_vec()
                 .into(),
@@ -987,8 +986,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     numerator: 3,
                     denominator: 1000000,
                 }),
-                protocol_version_major: Some(5),
-                protocol_version_minor: Some(0),
+                protocol_version: Some((5,0)),
                 min_pool_cost: Some(AnyUInt::U32(340000000)),
                 ada_per_utxo_byte: Some(AnyUInt::U16(44)),
                 cost_models_for_script_languages: None,
@@ -1050,7 +1048,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: Vec<Genesis> = client
+        let result: Vec<GenesisConfig> = client
             .statequery()
             .recv_while_querying()
             .await
@@ -1058,7 +1056,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .into_decode()
             .unwrap();
 
-        let genesis = vec![Genesis {
+        let genesis = vec![GenesisConfig {
             system_start: SystemStart {
                 year: 2021,
                 day_of_year: 150,
@@ -1066,7 +1064,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             },
             network_magic: 42,
             network_id: 42,
-            active_slots_coefficient: Fraction { num: 6, dem: 10 },
+            active_slots_coefficient: Fraction { num: 6, den: 10 },
             security_param: 2160,
             epoch_length: 432000,
             slots_per_kes_period: 129600,
