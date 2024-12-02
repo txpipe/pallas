@@ -83,8 +83,8 @@ async fn do_localstate_query(client: &mut NodeClient) {
 
 async fn do_chainsync(client: &mut NodeClient) {
     let known_points = vec![Point::Specific(
-        43847831u64,
-        hex::decode("15b9eeee849dd6386d3770b0745e0450190f7560e5159b1b3ab13b14b2684a45").unwrap(),
+        77110778u64,
+        hex::decode("18e6eeaa592c42113280ba47a0829355e6bed1c9ce67cce4be502d6031d0679a").unwrap(),
     )];
 
     let (point, _) = client
