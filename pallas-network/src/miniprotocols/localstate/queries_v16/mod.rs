@@ -238,11 +238,10 @@ pub type StakeAddrs = BTreeSet<StakeAddr>;
 pub type Delegations = KeyValuePairs<StakeAddr, Bytes>;
 pub type RewardAccounts = KeyValuePairs<StakeAddr, u64>;
 
-// TODO: Destruct the tuple, define proper encoding.
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FilteredDelegsRewards {
-    #[n(0)]
-    pub delegs_rewards: (Delegations, RewardAccounts),
+    pub delegs: Delegations,
+    pub rewards: RewardAccounts,
 }
 
 pub type Pools = BTreeSet<Bytes>;

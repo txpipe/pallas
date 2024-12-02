@@ -369,3 +369,29 @@ impl<C> minicbor::encode::Encode<C> for TransactionOutput {
         Ok(())
     }
 }
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for FilteredDelegsRewards {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        d.array()?;
+        Ok(FilteredDelegsRewards {
+            delegs: d.decode_with(ctx)?,
+            rewards: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(1)?;
+        e.array(2)?;
+        e.encode_with(self.delegs.clone(), ctx)?;
+        e.encode_with(self.rewards.clone(), ctx)?;
+
+        Ok(())
+    }
+}
