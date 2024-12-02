@@ -1,28 +1,28 @@
-use std::collections::BTreeSet;
-use std::fs;
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::time::Duration;
-
+use std::{
+    fs, collections::BTreeSet, net::{Ipv4Addr, SocketAddrV4},
+    time::Duration, path::Path
+};
 use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, TagWrap};
 use pallas_crypto::hash::Hash;
-use pallas_network::facades::{NodeClient, PeerClient, PeerServer};
-use pallas_network::miniprotocols::blockfetch::BlockRequest;
-use pallas_network::miniprotocols::chainsync::{ClientRequest, HeaderContent, Tip};
-use pallas_network::miniprotocols::handshake::n2n::VersionData;
+use pallas_network::{
+    facades::{NodeClient, PeerClient, PeerServer},
+    multiplexer::{Bearer, Plexer},
+    miniprotocols::{
+        blockfetch::BlockRequest,
+        chainsync::{ClientRequest, HeaderContent, Tip},
+        handshake::n2n::VersionData,
+        chainsync::{self, NextResponse},
+        txsubmission::{EraTxBody, TxIdAndSize},
+        localstate::ClientQueryRequest,
+        handshake, localstate, txsubmission, MAINNET_MAGIC, blockfetch,
+        Point,
+    },
+};
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    Addr, Addrs, ChainBlockNumber, Fraction, Genesis, Snapshots, Stakes, SystemStart, UnitInterval,
-    Value,
+    self, Addr, Addrs, ChainBlockNumber, Fraction, Genesis, Snapshots, Stakes,
+    SystemStart, UnitInterval, Value, StakeAddr,
 };
-use pallas_network::miniprotocols::localstate::ClientQueryRequest;
-use pallas_network::miniprotocols::txsubmission::{EraTxBody, TxIdAndSize};
-use pallas_network::miniprotocols::{
-    blockfetch,
-    chainsync::{self, NextResponse},
-    Point,
-};
-use pallas_network::miniprotocols::{handshake, localstate, txsubmission, MAINNET_MAGIC};
-use pallas_network::multiplexer::{Bearer, Plexer};
-use std::path::Path;
+use hex::FromHex;
 
 use tokio::net::TcpListener;
 
@@ -491,13 +491,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             // server receives query from client
 
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetSystemStart`) \
+                                 Unexpected message from client: {x:?}"),
                 };
 
-            assert_eq!(query, localstate::queries_v16::Request::GetSystemStart);
+            assert_eq!(query, queries_v16::Request::GetSystemStart);
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
             let result = AnyCbor::from_encode(SystemStart {
@@ -511,13 +512,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
             assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
             // server receives query from client
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetChainBlockNo`) \
+                                 Unexpected message from client: {x:?}"),
                 };
 
-            assert_eq!(query, localstate::queries_v16::Request::GetChainBlockNo);
+            assert_eq!(query, queries_v16::Request::GetChainBlockNo);
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
             let result = AnyCbor::from_encode(ChainBlockNumber {
@@ -531,25 +533,26 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             // server receives query from client
 
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetStakeDistribution`) \
+                                 Unexpected message from client: {x:?}"),
                 };
 
             assert_eq!(
                 query,
-                localstate::queries_v16::Request::LedgerQuery(
-                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                queries_v16::Request::LedgerQuery(
+                    queries_v16::LedgerQuery::BlockQuery(
                         5,
-                        localstate::queries_v16::BlockQuery::GetStakeDistribution,
+                        queries_v16::BlockQuery::GetStakeDistribution,
                     ),
                 )
             );
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
             let fraction = Fraction { num: 10, dem: 20 };
-            let pool = localstate::queries_v16::Pool {
+            let pool = queries_v16::Pool {
                 stakes: fraction.clone(),
                 hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
                     .to_vec()
@@ -565,15 +568,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let pools = KeyValuePairs::from(pools);
 
-            let result = AnyCbor::from_encode(localstate::queries_v16::StakeDistribution { pools });
+            let result = AnyCbor::from_encode(queries_v16::StakeDistribution { pools });
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
 
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetUTxOByAddress`) \
+                                 Unexpected message from client: {x:?}"),
                 };
 
             let addr_hex =
@@ -585,10 +589,10 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             assert_eq!(
                 query,
-                localstate::queries_v16::Request::LedgerQuery(
-                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                queries_v16::Request::LedgerQuery(
+                    queries_v16::LedgerQuery::BlockQuery(
                         5,
-                        localstate::queries_v16::BlockQuery::GetUTxOByAddress(addrs),
+                        queries_v16::BlockQuery::GetUTxOByAddress(addrs),
                     ),
                 )
             );
@@ -604,8 +608,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let datum = hex::decode(hex_datum).unwrap().into();
             let tag = TagWrap::<_, 24>::new(datum);
             let inline_datum = Some((1_u16, tag));
-            let values = localstate::queries_v16::TransactionOutput::Current(
-                localstate::queries_v16::PostAlonsoTransactionOutput {
+            let values = queries_v16::TransactionOutput::Current(
+                queries_v16::PostAlonsoTransactionOutput {
                     address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
                         .to_vec()
                         .into(),
@@ -616,36 +620,36 @@ pub async fn local_state_query_server_and_client_happy_path() {
             );
 
             let utxo = KeyValuePairs::from(vec![(
-                localstate::queries_v16::UTxO {
+                queries_v16::UTxO {
                     transaction_id,
                     index,
                 },
                 values,
             )]);
 
-            let result = AnyCbor::from_encode(localstate::queries_v16::UTxOByAddress { utxo });
+            let result = AnyCbor::from_encode(queries_v16::UTxOByAddress { utxo });
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
 
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetCurrentPParams`) \
+                                 Unexpected message from client: {x:?}"),
                 };
-
             assert_eq!(
                 query,
-                localstate::queries_v16::Request::LedgerQuery(
-                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                queries_v16::Request::LedgerQuery(
+                    queries_v16::LedgerQuery::BlockQuery(
                         5,
-                        localstate::queries_v16::BlockQuery::GetCurrentPParams,
+                        queries_v16::BlockQuery::GetCurrentPParams,
                     ),
                 )
             );
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let result = AnyCbor::from_encode(vec![localstate::queries_v16::ProtocolParam {
+            let result = AnyCbor::from_encode(vec![queries_v16::ProtocolParam {
                 minfee_a: Some(44),
                 minfee_b: Some(155381),
                 max_block_body_size: Some(65536),
@@ -684,18 +688,19 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             // server receives query from client
 
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetStakeSnapshots`) \
+                                 Unexpected message from client: {x:?}"),
                 };
 
             assert_eq!(
                 query,
-                localstate::queries_v16::Request::LedgerQuery(
-                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                queries_v16::Request::LedgerQuery(
+                    queries_v16::LedgerQuery::BlockQuery(
                         5,
-                        localstate::queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
+                        queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
                     ),
                 )
             );
@@ -723,22 +728,23 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 snapshot_stake_go_total: 0,
             };
 
-            let result = AnyCbor::from_encode(localstate::queries_v16::StakeSnapshot { snapshots });
+            let result = AnyCbor::from_encode(queries_v16::StakeSnapshot { snapshots });
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
-            let query: localstate::queries_v16::Request =
+            let query: queries_v16::Request =
                 match server.statequery().recv_while_acquired().await.unwrap() {
                     ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                    x => panic!("unexpected message from client: {x:?}"),
+                    x => panic!("(While expecting `GetGenesisConfig`) \
+                                 Unexpected message from client: {x:?}"),
                 };
 
             assert_eq!(
                 query,
-                localstate::queries_v16::Request::LedgerQuery(
-                    localstate::queries_v16::LedgerQuery::BlockQuery(
+                queries_v16::Request::LedgerQuery(
+                    queries_v16::LedgerQuery::BlockQuery(
                         5,
-                        localstate::queries_v16::BlockQuery::GetGenesisConfig,
+                        queries_v16::BlockQuery::GetGenesisConfig,
                     ),
                 )
             );
@@ -772,13 +778,50 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let maybe_point = match server.statequery().recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::ReAcquire(p) => p,
-                x => panic!("unexpected message from client: {x:?}"),
+                x => panic!("(While expecting `ReAcquire`) \
+                             Unexpected message from client: {x:?}"),
             };
 
             assert_eq!(maybe_point, Some(Point::Specific(1337, vec![1, 2, 3])));
             assert_eq!(*server.statequery().state(), localstate::State::Acquiring);
 
             server.statequery().send_acquired().await.unwrap();
+
+            // server receives query from client
+            let query: queries_v16::Request =
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    x => panic!("(While expecting `GetFilteredDeleg...`) \
+                                 Unexpected message from client: {x:?}"),
+                };
+
+            let addr: Addr = <[u8; 28]>::from_hex(
+                "1218F563E4E10958FDABBDFB470B2F9D386215763CC89273D9BDFFFA"
+            ).unwrap().to_vec().into();
+            let mut addrs = BTreeSet::new();
+            addrs.insert(StakeAddr::from((0x00, addr.clone())));
+
+            assert_eq!(
+                query,
+                queries_v16::Request::LedgerQuery(
+                    queries_v16::LedgerQuery::BlockQuery(
+                        6,
+                        queries_v16::BlockQuery::GetFilteredDelegationsAndRewardAccounts(addrs),
+                    ),
+                )
+            );
+            assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+            let pool_addr: Addr = <[u8; 28]>::from_hex(
+                "1E3105F23F2AC91B3FB4C35FA4FE301421028E356E114944E902005B"
+            ).unwrap().to_vec().into();
+            
+            let delegs = KeyValuePairs::from(vec![(StakeAddr::from((0, addr.clone())), pool_addr)]);
+            let rewards = KeyValuePairs::from(vec![(StakeAddr::from((0, addr)), 250526523)]);
+            let delegs_rewards = queries_v16::FilteredDelegsRewards { delegs, rewards };
+
+            let result = AnyCbor::from_encode(delegs_rewards);
+            server.statequery().send_result(result).await.unwrap();
 
             // server receives release from the client
 
@@ -816,7 +859,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         // client sends a BlockQuery
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::GetSystemStart);
+        let request = AnyCbor::from_encode(queries_v16::Request::GetSystemStart);
 
         client.statequery().send_query(request).await.unwrap();
 
@@ -830,14 +873,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             result,
-            localstate::queries_v16::SystemStart {
+            queries_v16::SystemStart {
                 year: 2020,
                 day_of_year: 1,
                 picoseconds_of_day: 999999999,
             }
         );
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::GetChainBlockNo);
+        let request = AnyCbor::from_encode(queries_v16::Request::GetChainBlockNo);
         client.statequery().send_query(request).await.unwrap();
 
         let result: ChainBlockNumber = client
@@ -850,22 +893,22 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             result,
-            localstate::queries_v16::ChainBlockNumber {
+            queries_v16::ChainBlockNumber {
                 slot_timeline: 1, // current
                 block_number: 2143789,
             }
         );
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
-            localstate::queries_v16::LedgerQuery::BlockQuery(
+        let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
+            queries_v16::LedgerQuery::BlockQuery(
                 5,
-                localstate::queries_v16::BlockQuery::GetStakeDistribution,
+                queries_v16::BlockQuery::GetStakeDistribution,
             ),
         ));
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: localstate::queries_v16::StakeDistribution = client
+        let result: queries_v16::StakeDistribution = client
             .statequery()
             .recv_while_querying()
             .await
@@ -874,7 +917,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .unwrap();
 
         let fraction = Fraction { num: 10, dem: 20 };
-        let pool = localstate::queries_v16::Pool {
+        let pool = queries_v16::Pool {
             stakes: fraction.clone(),
             hashes: b"pool1qv4qgv62s3ha74p0643nexee9zvcdydcyahqqnavhj90zheuykz"
                 .to_vec()
@@ -890,7 +933,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         let pools = KeyValuePairs::from(pools);
 
-        assert_eq!(result, localstate::queries_v16::StakeDistribution { pools });
+        assert_eq!(result, queries_v16::StakeDistribution { pools });
 
         let addr_hex =
 "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
@@ -899,16 +942,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = Vec::from([addr]);
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
-            localstate::queries_v16::LedgerQuery::BlockQuery(
+        let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
+            queries_v16::LedgerQuery::BlockQuery(
                 5,
-                localstate::queries_v16::BlockQuery::GetUTxOByAddress(addrs),
+                queries_v16::BlockQuery::GetUTxOByAddress(addrs),
             ),
         ));
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: localstate::queries_v16::UTxOByAddress = client
+        let result: queries_v16::UTxOByAddress = client
             .statequery()
             .recv_while_querying()
             .await
@@ -925,8 +968,8 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let datum = hex::decode(hex_datum).unwrap().into();
         let tag = TagWrap::<_, 24>::new(datum);
         let inline_datum = Some((1_u16, tag));
-        let values = localstate::queries_v16::TransactionOutput::Current(
-            localstate::queries_v16::PostAlonsoTransactionOutput {
+        let values = queries_v16::TransactionOutput::Current(
+            queries_v16::PostAlonsoTransactionOutput {
                 address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
                     .to_vec()
                     .into(),
@@ -937,25 +980,25 @@ pub async fn local_state_query_server_and_client_happy_path() {
         );
 
         let utxo = KeyValuePairs::from(vec![(
-            localstate::queries_v16::UTxO {
+            queries_v16::UTxO {
                 transaction_id,
                 index,
             },
             values,
         )]);
 
-        assert_eq!(result, localstate::queries_v16::UTxOByAddress { utxo });
+        assert_eq!(result, queries_v16::UTxOByAddress { utxo });
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
-            localstate::queries_v16::LedgerQuery::BlockQuery(
+        let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
+            queries_v16::LedgerQuery::BlockQuery(
                 5,
-                localstate::queries_v16::BlockQuery::GetCurrentPParams,
+                queries_v16::BlockQuery::GetCurrentPParams,
             ),
         ));
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: Vec<localstate::queries_v16::ProtocolParam> = client
+        let result: Vec<queries_v16::ProtocolParam> = client
             .statequery()
             .recv_while_querying()
             .await
@@ -965,7 +1008,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(
             result,
-            vec![localstate::queries_v16::ProtocolParam {
+            vec![queries_v16::ProtocolParam {
                 minfee_a: Some(44),
                 minfee_b: Some(155381),
                 max_block_body_size: Some(65536),
@@ -1001,16 +1044,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
             }]
         );
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
-            localstate::queries_v16::LedgerQuery::BlockQuery(
+        let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
+            queries_v16::LedgerQuery::BlockQuery(
                 5,
-                localstate::queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
+                queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
             ),
         ));
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: localstate::queries_v16::StakeSnapshot = client
+        let result: queries_v16::StakeSnapshot = client
             .statequery()
             .recv_while_querying()
             .await
@@ -1039,12 +1082,12 @@ pub async fn local_state_query_server_and_client_happy_path() {
             snapshot_stake_go_total: 0,
         };
 
-        assert_eq!(result, localstate::queries_v16::StakeSnapshot { snapshots });
+        assert_eq!(result, queries_v16::StakeSnapshot { snapshots });
 
-        let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
-            localstate::queries_v16::LedgerQuery::BlockQuery(
+        let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
+            queries_v16::LedgerQuery::BlockQuery(
                 5,
-                localstate::queries_v16::BlockQuery::GetGenesisConfig,
+                queries_v16::BlockQuery::GetGenesisConfig,
             ),
         ));
 
@@ -1084,8 +1127,40 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .send_reacquire(Some(Point::Specific(1337, vec![1, 2, 3])))
             .await
             .unwrap();
-
+        
         client.statequery().recv_while_acquiring().await.unwrap();
+
+        let addr: Addr = <[u8; 28]>::from_hex(
+            "1218F563E4E10958FDABBDFB470B2F9D386215763CC89273D9BDFFFA"
+        ).unwrap().to_vec().into();
+        let mut addrs = BTreeSet::new();
+        addrs.insert(StakeAddr::from((0x00, addr.clone())));
+        
+        let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
+            queries_v16::LedgerQuery::BlockQuery(
+                6,
+                queries_v16::BlockQuery::GetFilteredDelegationsAndRewardAccounts(addrs),
+            ),
+        ));
+        client.statequery().send_query(request).await.unwrap();
+        
+        let result: queries_v16::FilteredDelegsRewards = client
+            .statequery()
+            .recv_while_querying()
+            .await
+            .unwrap()
+            .into_decode()
+            .unwrap();
+        
+        let pool_addr: Addr = <[u8; 28]>::from_hex(
+            "1E3105F23F2AC91B3FB4C35FA4FE301421028E356E114944E902005B"
+        ).unwrap().to_vec().into();
+        
+        let delegs = KeyValuePairs::from(vec![(StakeAddr::from((0, addr.clone())), pool_addr)]);
+        let rewards = KeyValuePairs::from(vec![(StakeAddr::from((0, addr)), 250526523)]);
+        let delegs_rewards = queries_v16::FilteredDelegsRewards { delegs, rewards };
+
+        assert_eq!(result, delegs_rewards);
 
         client.statequery().send_release().await.unwrap();
 
