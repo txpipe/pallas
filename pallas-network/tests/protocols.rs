@@ -788,9 +788,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             server.statequery().send_acquired().await.unwrap();
 
             // server receives query from client
-            let query: queries_v16::Request =
+            let query: Vec<u8> =
                 match server.statequery().recv_while_acquired().await.unwrap() {
-                    ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                    ClientQueryRequest::Query(q) => q.unwrap(),
                     x => panic!("(While expecting `GetFilteredDeleg...`) \
                                  Unexpected message from client: {x:?}"),
                 };
@@ -798,18 +798,12 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let addr: Addr = <[u8; 28]>::from_hex(
                 "1218F563E4E10958FDABBDFB470B2F9D386215763CC89273D9BDFFFA"
             ).unwrap().to_vec().into();
-            let mut addrs = BTreeSet::new();
-            addrs.insert(StakeAddr::from((0x00, addr.clone())));
-
-            assert_eq!(
-                query,
-                queries_v16::Request::LedgerQuery(
-                    queries_v16::LedgerQuery::BlockQuery(
-                        6,
-                        queries_v16::BlockQuery::GetFilteredDelegationsAndRewardAccounts(addrs),
-                    ),
-                )
-            );
+            // CBOR got from preprod node. Mind the stripped `8203`.
+            let cbor_query = Vec::<u8>::from_hex(
+                "820082008206820a818200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bdfffa"
+            ).unwrap();
+            
+            assert_eq!(query, cbor_query);
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
             let pool_addr: Addr = <[u8; 28]>::from_hex(
@@ -1144,23 +1138,21 @@ pub async fn local_state_query_server_and_client_happy_path() {
         ));
         client.statequery().send_query(request).await.unwrap();
         
-        let result: queries_v16::FilteredDelegsRewards = client
+        let result: Vec<u8> = client
             .statequery()
             .recv_while_querying()
             .await
             .unwrap()
-            .into_decode()
             .unwrap();
-        
-        let pool_addr: Addr = <[u8; 28]>::from_hex(
-            "1E3105F23F2AC91B3FB4C35FA4FE301421028E356E114944E902005B"
-        ).unwrap().to_vec().into();
-        
-        let delegs = KeyValuePairs::from(vec![(StakeAddr::from((0, addr.clone())), pool_addr)]);
-        let rewards = KeyValuePairs::from(vec![(StakeAddr::from((0, addr)), 250526523)]);
-        let delegs_rewards = queries_v16::FilteredDelegsRewards { delegs, rewards };
 
-        assert_eq!(result, delegs_rewards);
+        let delegs_rewards_cbor = Vec::<u8>::from_hex(
+            "8182a18200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bd\
+             fffa581c1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005ba1\
+             8200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bdfffa1a\
+             0eeebb3b"
+        ).unwrap();
+
+        assert_eq!(result, delegs_rewards_cbor);
 
         client.statequery().send_release().await.unwrap();
 
