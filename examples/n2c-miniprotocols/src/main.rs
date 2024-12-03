@@ -33,13 +33,19 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
-    // Getting delegation and rewards for preprod stake address
-    // `stake_test1uqfp3atrunssjk8a4w7lk3ct97wnscs4wc7v3ynnmx7ll7s2ea9p2`
+    // Getting delegation and rewards for preprod stake addresses:
+    let mut addrs = BTreeSet::new();
+    // 1. `stake_test1uqfp3atrunssjk8a4w7lk3ct97wnscs4wc7v3ynnmx7ll7s2ea9p2`
     let addr: Addr = <[u8; 28]>::from_hex(
         "1218F563E4E10958FDABBDFB470B2F9D386215763CC89273D9BDFFFA"
     ).unwrap().to_vec().into();
-    let mut addrs = BTreeSet::new();
     addrs.insert(StakeAddr::from((0x00, addr)));
+    // 2. `stake_test1uq2pnumhfrnnse0t3uwj4n0lhz58ehfhkdhr64ylptjhq9cyney6d`
+    let addr: Addr = <[u8; 28]>::from_hex(
+        "1419F37748E73865EB8F1D2ACDFFB8A87CDD37B36E3D549F0AE57017"
+    ).unwrap().to_vec().into();
+    addrs.insert(StakeAddr::from((0x00, addr)));
+
     let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
         .await
         .unwrap();
