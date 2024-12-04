@@ -39,7 +39,7 @@ pub enum BlockQuery {
     GetRewardProvenance,
     GetUTxOByTxIn(TxIns),
     GetStakePools,
-    GetStakePoolParams(AnyCbor),
+    GetStakePoolParams(PoolIds),
     GetRewardInfoPools,
     GetPoolState(AnyCbor),
     GetStakeSnapshots(Pools),
@@ -197,6 +197,17 @@ pub struct StakeDistribution {
     pub pools: KeyValuePairs<Bytes, Pool>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct PoolIds {
+    pub hashes: Vec<Bytes>,
+}
+
+impl From<Vec<Bytes>> for PoolIds {
+    fn from(hashes: Vec<Bytes>) -> Self {
+        Self { hashes }
+    }
+}
+
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Pool {
     #[n(0)]
@@ -205,6 +216,21 @@ pub struct Pool {
     #[n(1)]
     pub hashes: Bytes,
 }
+
+// // Essentially the `PoolRegistration` component of `Certificate` at
+// // `pallas-primitives/src/alonzo/model.rs`.
+// #[derive(Debug, Encode, Decode, PartialEq, Clone)]
+// pub struct PoolParams {
+//     pub operator: PoolKeyhash,
+//     pub vrf_keyhash: VrfKeyhash,
+//     pub pledge: Coin,
+//     pub cost: Coin,
+//     pub margin: UnitInterval,
+//     pub reward_account: RewardAccount,
+//     pub pool_owners: Vec<AddrKeyhash>,
+//     pub relays: Vec<Relay>,
+//     pub pool_metadata: Nullable<PoolMetadata>,
+// }
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
 /// as an untagged array.
@@ -497,6 +523,20 @@ pub async fn get_cbor(
     query: BlockQuery,
 ) -> Result<Vec<TagWrap<Bytes, 24>>, ClientError> {
     let query = BlockQuery::GetCBOR(Box::new(query));
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get parameters for the given pools. Their hashes must be sorted.
+pub async fn get_stake_pool_params(
+    client: &mut Client,
+    era: u16,
+    pool_ids: PoolIds,
+) -> Result<Vec<AnyCbor>, ClientError> {
+    let query = BlockQuery::GetStakePoolParams(pool_ids);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
