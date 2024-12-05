@@ -7,7 +7,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, PoolIds, StakeAddr},
+            localstate::queries_v16::{self, Addr, Addrs, PoolIds, StakeAddr, Pools},
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
@@ -33,6 +33,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
+
     // Getting delegation and rewards for preprod stake addresses:
     let mut addrs = BTreeSet::new();
     // 1. `stake_test1uqfp3atrunssjk8a4w7lk3ct97wnscs4wc7v3ynnmx7ll7s2ea9p2`
@@ -51,14 +52,15 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     info!("result: {:?}", result);
 
-    // Pool IDs must be in order.
-    let pool_id1 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
+    let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
     let pool_id1: Bytes = Vec::<u8>::from_hex(pool_id1).unwrap().into();
-    let pool_id2 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
+    let pool_id2 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
     let pool_id2: Bytes = Vec::<u8>::from_hex(pool_id2).unwrap().into();
-    let pool_ids: PoolIds = vec![pool_id1, pool_id2].into();
+    let mut pools: Pools = BTreeSet::new();
+    pools.insert(pool_id1);
+    pools.insert(pool_id2);
 
-    let result = queries_v16::get_stake_pool_params(client, era, pool_ids.into())
+    let result = queries_v16::get_stake_pool_params(client, era, pools.into())
         .await
         .unwrap();
     info!("result: {:?}", result);
