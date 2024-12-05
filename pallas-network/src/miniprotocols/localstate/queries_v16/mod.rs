@@ -197,13 +197,15 @@ pub struct StakeDistribution {
     pub pools: KeyValuePairs<Bytes, Pool>,
 }
 
+/// The use of `BTreeMap`s as per [Pools] definition ensures that the hashes are
+/// in order (otherwise, the node will reject some queries).
 #[derive(Debug, PartialEq, Clone)]
 pub struct PoolIds {
-    pub hashes: Vec<Bytes>,
+    pub hashes: Pools,
 }
 
-impl From<Vec<Bytes>> for PoolIds {
-    fn from(hashes: Vec<Bytes>) -> Self {
+impl From<Pools> for PoolIds {
+    fn from(hashes: Pools) -> Self {
         Self { hashes }
     }
 }
@@ -530,7 +532,7 @@ pub async fn get_cbor(
     Ok(result)
 }
 
-/// Get parameters for the given pools. Their hashes must be sorted.
+/// Get parameters for the given pools.
 pub async fn get_stake_pool_params(
     client: &mut Client,
     era: u16,
