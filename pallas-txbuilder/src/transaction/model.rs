@@ -726,7 +726,11 @@ impl BuiltTransaction {
                 let mut tx = conway::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
-                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap().to_vec();
+                    let mut vkey_witnesses = tx
+                    .transaction_witness_set
+                    .vkeywitness
+                    .map(|x| x.to_vec())
+                    .unwrap_or_default();
 
                 vkey_witnesses.retain(|x| *x.vkey != pk.0.to_vec());
 
