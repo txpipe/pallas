@@ -7,7 +7,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, PoolIds, StakeAddr, Pools},
+            localstate::queries_v16::{self, Addr, Addrs, StakeAddr, Pools},
             Point, PRE_PRODUCTION_MAGIC,
         },
     },

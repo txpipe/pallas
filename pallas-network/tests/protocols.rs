@@ -1,6 +1,6 @@
 use std::{
     fs, collections::{BTreeSet, BTreeMap}, net::{Ipv4Addr, SocketAddrV4},
-    time::Duration, path::Path
+    time::Duration, path::Path, str::FromStr,
 };
 use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, TagWrap, Nullable};
 use pallas_crypto::hash::Hash;
@@ -19,18 +19,12 @@ use pallas_network::{
     },
 };
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    self, Addr, Addrs, ChainBlockNumber, Fraction, Genesis, Snapshots, Stakes,
-    SystemStart, UnitInterval, Value, StakeAddr, PoolParams,
+    self, Addr, Addrs, ChainBlockNumber, Fraction, Genesis, Snapshots, Stakes, SystemStart, UnitInterval,
+    Value, PoolParams, StakeAddr, primitives::{PoolMetadata, Relay},
 };
 use hex::FromHex;
 
 use tokio::net::TcpListener;
-
-use pallas_primitives::{
-    PoolMetadata, Relay,
-};
-use hex::FromHex;
-use std::str::FromStr;
 
 #[cfg(unix)]
 use tokio::net::UnixListener;

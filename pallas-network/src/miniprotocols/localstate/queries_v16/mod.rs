@@ -12,7 +12,9 @@ use pallas_codec::{
     utils::AnyCbor,
 };
 
-use pallas_primitives::{Relay, PoolMetadata};
+pub mod primitives;
+
+use primitives::{Relay, PoolMetadata};
 
 use crate::miniprotocols::Point;
 
