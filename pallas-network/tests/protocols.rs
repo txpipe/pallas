@@ -4,6 +4,7 @@ use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, RationalNumber, Snapshots,
     StakeAddr, Stakes, SystemStart, UnitInterval, Value, PoolParams,
+    primitives::{PoolMetadata, Relay},
 };
 use pallas_network::{
     facades::{NodeClient, PeerClient, PeerServer},
@@ -27,15 +28,11 @@ use std::{
     fs,
     net::{Ipv4Addr, SocketAddrV4},
     path::Path,
+    str::FromStr,
     time::Duration,
 };
 
 use tokio::net::TcpListener;
-
-use pallas_primitives::{
-    PoolMetadata, Relay,
-};
-use std::str::FromStr;
 
 #[cfg(unix)]
 use tokio::net::UnixListener;
