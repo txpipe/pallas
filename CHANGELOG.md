@@ -1,8 +1,6 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
-- **txbuilder:** use conway types for decode fragments during `add_signature` ([#xxx](url here))
-
 <a name="v0.30.1"></a>
 ## [v0.30.1] - 2024-08-25
 ### Fix

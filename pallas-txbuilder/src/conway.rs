@@ -230,8 +230,6 @@ impl BuildConway for StagingTransaction {
                 language_view,
             };
 
-            // if we need to debug then uncomment
-            // dbg!(&dta);
             dta.hash()
         });
 
