@@ -263,6 +263,8 @@ pub struct UTxOByAddress {
 
 pub type UTxOByTxin = UTxOByAddress;
 
+pub type UTxOWhole = UTxOByAddress;
+
 // Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
 pub type Datum = (Era, TagWrap<Bytes, 24>);
 
@@ -538,6 +540,19 @@ pub async fn get_utxo_by_txin(
     txins: TxIns,
 ) -> Result<UTxOByTxin, ClientError> {
     let query = BlockQuery::GetUTxOByTxIn(txins);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the /entire/ UTxO.
+pub async fn get_utxo_whole(
+    client: &mut Client,
+    era: u16,
+) -> Result<UTxOWhole, ClientError> {
+    let query = BlockQuery::GetUTxOWhole;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
