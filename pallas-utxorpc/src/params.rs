@@ -36,6 +36,16 @@ impl<C: LedgerContext> Mapper<C> {
                 max_value_size: params.max_value_size.into(),
                 collateral_percentage: params.collateral_percentage.into(),
                 max_collateral_inputs: params.max_collateral_inputs.into(),
+                prices: Some(u5c::ExPrices {
+                    steps: Some(u5c::RationalNumber {
+                        numerator: params.execution_costs.step_price.numerator as i32,
+                        denominator: params.execution_costs.step_price.denominator as u32,
+                    }),
+                    memory: Some(u5c::RationalNumber {
+                        numerator: params.execution_costs.mem_price.numerator as i32,
+                        denominator: params.execution_costs.mem_price.denominator as u32,
+                    }),
+                }),
                 max_execution_units_per_transaction: Some(u5c::ExUnits {
                     memory: params.max_tx_ex_units.mem,
                     steps: params.max_tx_ex_units.steps,
@@ -117,6 +127,16 @@ impl<C: LedgerContext> Mapper<C> {
                 max_value_size: params.max_value_size.into(),
                 collateral_percentage: params.collateral_percentage.into(),
                 max_collateral_inputs: params.max_collateral_inputs.into(),
+                prices: Some(u5c::ExPrices {
+                    steps: Some(u5c::RationalNumber {
+                        numerator: params.execution_costs.step_price.numerator as i32,
+                        denominator: params.execution_costs.step_price.denominator as u32,
+                    }),
+                    memory: Some(u5c::RationalNumber {
+                        numerator: params.execution_costs.mem_price.numerator as i32,
+                        denominator: params.execution_costs.mem_price.denominator as u32,
+                    }),
+                }),
                 max_execution_units_per_transaction: Some(u5c::ExUnits {
                     memory: params.max_tx_ex_units.mem,
                     steps: params.max_tx_ex_units.steps,
@@ -177,6 +197,16 @@ impl<C: LedgerContext> Mapper<C> {
                 max_value_size: params.max_value_size.into(),
                 collateral_percentage: params.collateral_percentage.into(),
                 max_collateral_inputs: params.max_collateral_inputs.into(),
+                prices: Some(u5c::ExPrices {
+                    steps: Some(u5c::RationalNumber {
+                        numerator: params.execution_costs.step_price.numerator as i32,
+                        denominator: params.execution_costs.step_price.denominator as u32,
+                    }),
+                    memory: Some(u5c::RationalNumber {
+                        numerator: params.execution_costs.mem_price.numerator as i32,
+                        denominator: params.execution_costs.mem_price.denominator as u32,
+                    }),
+                }),
                 max_execution_units_per_transaction: Some(u5c::ExUnits {
                     memory: params.max_tx_ex_units.mem,
                     steps: params.max_tx_ex_units.steps,
