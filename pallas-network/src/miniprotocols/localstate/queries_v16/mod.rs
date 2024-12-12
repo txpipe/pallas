@@ -32,7 +32,7 @@ pub enum BlockQuery {
     GetUTxOWhole,
     DebugEpochState,
     GetCBOR(Box<BlockQuery>),
-    GetFilteredDelegationsAndRewardAccounts(AnyCbor),
+    GetFilteredDelegationsAndRewardAccounts(StakeAddrs),
     GetGenesisConfig,
     DebugNewEpochState,
     DebugChainDepState,
@@ -219,6 +219,30 @@ pub struct Fraction {
 pub type Addr = Bytes;
 
 pub type Addrs = Vec<Addr>;
+
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct StakeAddr {
+    #[n(0)]
+    addr_type: u8,
+    #[n(1)]
+    payload: Addr,
+}
+
+impl From<(u8, Bytes)> for StakeAddr {
+    fn from((addr_type, payload): (u8, Bytes)) -> Self {
+        Self { addr_type, payload }
+    }
+}
+
+pub type StakeAddrs = BTreeSet<StakeAddr>;
+pub type Delegations = KeyValuePairs<StakeAddr, Bytes>;
+pub type RewardAccounts = KeyValuePairs<StakeAddr, u64>;
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FilteredDelegsRewards {
+    pub delegs: Delegations,
+    pub rewards: RewardAccounts,
+}
 
 pub type Pools = BTreeSet<Bytes>;
 
@@ -487,6 +511,20 @@ pub async fn get_genesis_config(
     era: u16,
 ) -> Result<Vec<Genesis>, ClientError> {
     let query = BlockQuery::GetGenesisConfig;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the delegations and rewards for the given stake addresses.
+pub async fn get_filtered_delegations_rewards(
+    client: &mut Client,
+    era: u16,
+    addrs: StakeAddrs,
+) -> Result<FilteredDelegsRewards, ClientError> {
+    let query = BlockQuery::GetFilteredDelegationsAndRewardAccounts(addrs);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
