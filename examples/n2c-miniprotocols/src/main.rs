@@ -14,7 +14,6 @@ use pallas::{
     crypto::hash::Hash,
 };
 use tracing::info;
-use hex::FromHex;
 
 use hex::FromHex;
 
