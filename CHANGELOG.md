@@ -1,7 +1,6 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
-
 <a name="v0.30.1"></a>
 ## [v0.30.1] - 2024-08-25
 ### Fix
