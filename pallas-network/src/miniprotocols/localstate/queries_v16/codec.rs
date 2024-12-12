@@ -71,10 +71,10 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(14)?;
             }
-            BlockQuery::GetUTxOByTxIn(_) => {
+            BlockQuery::GetUTxOByTxIn(txin) => {
                 e.array(2)?;
                 e.u16(15)?;
-                e.encode(2)?;
+                e.encode(txin)?;
             }
             BlockQuery::GetStakePools => {
                 e.array(1)?;
@@ -139,12 +139,12 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             // 7 => Ok(Self::GetUTxOWhole),
             // 8 => Ok(Self::DebugEpochState),
             9 => Ok(Self::GetCBOR(d.decode()?)),
-            // 10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(())),
+            10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(d.decode()?)),
             11 => Ok(Self::GetGenesisConfig),
             // 12 => Ok(Self::DebugNewEpochState),
             13 => Ok(Self::DebugChainDepState),
             14 => Ok(Self::GetRewardProvenance),
-            // 15 => Ok(Self::GetUTxOByTxIn(())),
+            15 => Ok(Self::GetUTxOByTxIn(d.decode()?)),
             16 => Ok(Self::GetStakePools),
             // 17 => Ok(Self::GetStakePoolParams(())),
             18 => Ok(Self::GetRewardInfoPools),
@@ -365,6 +365,32 @@ impl<C> minicbor::encode::Encode<C> for TransactionOutput {
                 e.encode_with(array, ctx)?;
             }
         };
+
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for FilteredDelegsRewards {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        d.array()?;
+        Ok(FilteredDelegsRewards {
+            delegs: d.decode_with(ctx)?,
+            rewards: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(1)?;
+        e.array(2)?;
+        e.encode_with(self.delegs.clone(), ctx)?;
+        e.encode_with(self.rewards.clone(), ctx)?;
 
         Ok(())
     }

@@ -3,7 +3,7 @@ use pallas_crypto::{
     hash::{Hash, Hasher},
     key::ed25519,
 };
-use pallas_primitives::{babbage, conway, Fragment, NonEmptySet};
+use pallas_primitives::{conway, Fragment, NonEmptySet};
 use pallas_wallet::PrivateKey;
 
 use std::{collections::HashMap, ops::Deref};
@@ -644,7 +644,7 @@ impl BuiltTransaction {
                     .map(|x| x.to_vec())
                     .unwrap_or_default();
 
-                vkey_witnesses.push(babbage::VKeyWitness {
+                vkey_witnesses.push(conway::VKeyWitness {
                     vkey: Vec::from(pubkey.as_ref()).into(),
                     signature: Vec::from(signature.as_ref()).into(),
                 });
@@ -682,17 +682,21 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
+                let mut tx = conway::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
-                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
+                let mut vkey_witnesses = tx
+                    .transaction_witness_set
+                    .vkeywitness
+                    .map(|x| x.to_vec())
+                    .unwrap_or_default();
 
-                vkey_witnesses.push(babbage::VKeyWitness {
+                vkey_witnesses.push(conway::VKeyWitness {
                     vkey: Vec::from(pub_key.as_ref()).into(),
                     signature: Vec::from(signature.as_ref()).into(),
                 });
 
-                tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
+                tx.transaction_witness_set.vkeywitness = Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
@@ -719,14 +723,18 @@ impl BuiltTransaction {
                 self.signatures = Some(new_sigs);
 
                 // TODO: chance for serialisation round trip issues?
-                let mut tx = babbage::Tx::decode_fragment(&self.tx_bytes.0)
+                let mut tx = conway::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
-                let mut vkey_witnesses = tx.transaction_witness_set.vkeywitness.unwrap_or_default();
+                    let mut vkey_witnesses = tx
+                    .transaction_witness_set
+                    .vkeywitness
+                    .map(|x| x.to_vec())
+                    .unwrap_or_default();
 
                 vkey_witnesses.retain(|x| *x.vkey != pk.0.to_vec());
 
-                tx.transaction_witness_set.vkeywitness = Some(vkey_witnesses);
+                tx.transaction_witness_set.vkeywitness = Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }

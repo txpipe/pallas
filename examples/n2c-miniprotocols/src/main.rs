@@ -7,17 +7,32 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs},
+            localstate::queries_v16::{self, Addr, Addrs, StakeAddr, TransactionInput},
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
+    crypto::hash::Hash,
 };
 use tracing::info;
+use hex::FromHex;
+
+use hex::FromHex;
 
 async fn do_localstate_query(client: &mut NodeClient) {
     let client = client.statequery();
 
     client.acquire(None).await.unwrap();
+
+    // Get UTxO from a (singleton) set of tx inputs.
+    let transaction_id = Hash::<32>::from(<[u8; 32]>::from_hex(
+        "15244950ed56a3af61a00f62584779fb53a9f3910468013a2b00b94b8bbc10e0"
+    ).unwrap());
+    let tx_in = TransactionInput { transaction_id, index: 0 };
+    let mut txins = BTreeSet::new();
+    txins.insert(tx_in);
+    
+    let result = queries_v16::get_utxo_by_txin(client, 6, txins).await.unwrap();
+    info!("result: {:?}", result);
 
     let result = queries_v16::get_chain_point(client).await.unwrap();
     info!("result: {:?}", result);
@@ -30,6 +45,24 @@ async fn do_localstate_query(client: &mut NodeClient) {
 
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
+
+    // Getting delegation and rewards for preprod stake addresses:
+    let mut addrs = BTreeSet::new();
+    // 1. `stake_test1uqfp3atrunssjk8a4w7lk3ct97wnscs4wc7v3ynnmx7ll7s2ea9p2`
+    let addr: Addr = <[u8; 28]>::from_hex(
+        "1218F563E4E10958FDABBDFB470B2F9D386215763CC89273D9BDFFFA"
+    ).unwrap().to_vec().into();
+    addrs.insert(StakeAddr::from((0x00, addr)));
+    // 2. `stake_test1uq2pnumhfrnnse0t3uwj4n0lhz58ehfhkdhr64ylptjhq9cyney6d`
+    let addr: Addr = <[u8; 28]>::from_hex(
+        "1419F37748E73865EB8F1D2ACDFFB8A87CDD37B36E3D549F0AE57017"
+    ).unwrap().to_vec().into();
+    addrs.insert(StakeAddr::from((0x00, addr)));
+
+    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
 
     let result = queries_v16::get_block_epoch_number(client, era)
         .await
