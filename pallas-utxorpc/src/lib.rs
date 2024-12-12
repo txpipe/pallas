@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref};
 
-use pallas_codec::utils::KeyValuePairs;
+use pallas_codec::{minicbor, utils::KeyValuePairs};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse as trv;
@@ -62,9 +62,24 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_redeemer(&self, x: &trv::MultiEraRedeemer) -> u5c::Redeemer {
+        let cbor = match x {
+            trv::MultiEraRedeemer::AlonzoCompatible(_) => {
+                minicbor::to_vec(x.as_alonzo()).unwrap()
+            }
+            trv::MultiEraRedeemer::Conway(_,_) => {
+                minicbor::to_vec(x.as_conway()).unwrap()
+            }
+            _ => todo!(),
+        };
         u5c::Redeemer {
             purpose: self.map_purpose(&x.tag()).into(),
             payload: self.map_plutus_datum(x.data()).into(),
+            index: x.index().into(),
+            ex_units: Some(u5c::ExUnits{
+                steps: x.ex_units().steps as u64,
+                memory: x.ex_units().mem as u64
+            }),
+            original_cbor: cbor.into()
         }
     }
 
