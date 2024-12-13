@@ -18,7 +18,7 @@ use super::{
 };
 
 // TODO: Don't make wrapper types public
-#[derive(Default, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct StagingTransaction {
     pub version: String,
     pub status: TransactionStatus,
@@ -375,7 +375,7 @@ impl StagingTransaction {
 }
 
 // TODO: Don't want our wrapper types in fields public
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Hash, Clone)]
 pub struct Input {
     pub tx_hash: TxHash,
     pub txo_index: u64,
@@ -547,7 +547,7 @@ pub struct Datum {
     pub bytes: DatumBytes,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum RedeemerPurpose {
     Spend(Input),
     Mint(PolicyId),
@@ -555,13 +555,13 @@ pub enum RedeemerPurpose {
     // Cert TODO
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct ExUnits {
     pub mem: u64,
     pub steps: u64,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Default, Clone)]
 pub struct Redeemers(HashMap<RedeemerPurpose, (Bytes, Option<ExUnits>)>);
 
 impl Deref for Redeemers {
@@ -595,14 +595,14 @@ impl From<PallasAddress> for Address {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum BuilderEra {
     Babbage,
     Conway,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct BuiltTransaction {
     pub version: String,
     pub era: BuilderEra,
