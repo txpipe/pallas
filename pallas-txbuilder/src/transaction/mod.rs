@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 pub mod model;
 pub mod serialise;
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Default, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TransactionStatus {
     #[default]
@@ -11,10 +11,10 @@ pub enum TransactionStatus {
     Built,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct Bytes32(pub [u8; 32]);
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(Hash, PartialEq, Eq, Debug, Clone)]
 pub struct Bytes64(pub [u8; 64]);
 
 type PublicKey = Bytes32;

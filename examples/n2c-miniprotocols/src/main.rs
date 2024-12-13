@@ -16,8 +16,6 @@ use pallas::{
 use tracing::info;
 use hex::FromHex;
 
-use hex::FromHex;
-
 async fn do_localstate_query(client: &mut NodeClient) {
     let client = client.statequery();
 
