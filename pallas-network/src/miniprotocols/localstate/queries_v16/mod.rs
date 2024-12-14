@@ -111,6 +111,7 @@ pub type PositiveInterval = RationalNumber;
 
 pub type ProtocolVersionMajor = u64;
 pub type ProtocolVersionMinor = u64;
+pub type ProtocolVersion = (ProtocolVersionMajor, ProtocolVersionMinor);
 
 pub type CostModel = Vec<i64>;
 
@@ -169,26 +170,24 @@ pub struct ProtocolParam {
     #[n(11)]
     pub treasury_growth_rate: Option<UnitInterval>,
     #[n(12)]
-    pub protocol_version_major: Option<ProtocolVersionMajor>,
+    pub protocol_version: Option<ProtocolVersion>,
     #[n(13)]
-    pub protocol_version_minor: Option<ProtocolVersionMinor>,
-    #[n(14)]
     pub min_pool_cost: Option<Coin>,
-    #[n(15)]
+    #[n(14)]
     pub ada_per_utxo_byte: Option<Coin>,
-    #[n(16)]
+    #[n(15)]
     pub cost_models_for_script_languages: Option<CostMdls>,
-    #[n(17)]
+    #[n(16)]
     pub execution_costs: Option<ExUnitPrices>,
-    #[n(18)]
+    #[n(17)]
     pub max_tx_ex_units: Option<ExUnits>,
-    #[n(19)]
+    #[n(18)]
     pub max_block_ex_units: Option<ExUnits>,
-    #[n(20)]
+    #[n(19)]
     pub max_value_size: Option<u32>,
-    #[n(21)]
+    #[n(20)]
     pub collateral_percentage: Option<u32>,
-    #[n(22)]
+    #[n(21)]
     pub max_collateral_inputs: Option<u32>,
 }
 
@@ -201,19 +200,21 @@ pub struct StakeDistribution {
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Pool {
     #[n(0)]
-    pub stakes: Fraction,
+    pub stakes: RationalNumber,
 
     #[n(1)]
     pub hashes: Bytes,
 }
 
+/// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
+/// as an untagged array.
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Fraction {
     #[n(0)]
     pub num: u64,
 
     #[n(1)]
-    pub dem: u64,
+    pub den: u64,
 }
 
 pub type Addr = Bytes;
@@ -356,7 +357,7 @@ pub struct Stakes {
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
-pub struct Genesis {
+pub struct GenesisConfig {
     #[n(0)]
     pub system_start: SystemStart,
 
@@ -509,7 +510,7 @@ pub async fn get_cbor(
 pub async fn get_genesis_config(
     client: &mut Client,
     era: u16,
-) -> Result<Vec<Genesis>, ClientError> {
+) -> Result<Vec<GenesisConfig>, ClientError> {
     let query = BlockQuery::GetGenesisConfig;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
