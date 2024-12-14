@@ -7,7 +7,7 @@ use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisFile {
     pub avvm_distr: HashMap<String, String>,
@@ -64,7 +64,7 @@ pub struct BlockVersionData {
     pub update_vote_thd: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolConsts {
     pub k: usize,
@@ -77,7 +77,7 @@ pub struct ProtocolConsts {
 
 pub type BootStakeWeight = u16;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct HeavyDelegation {
     pub issuer_pk: String,
@@ -85,7 +85,7 @@ pub struct HeavyDelegation {
     pub cert: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VssCert {
     pub vss_key: String,
