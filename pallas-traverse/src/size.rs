@@ -2,7 +2,7 @@ use pallas_codec::utils::Nullable;
 
 use crate::{MultiEraBlock, MultiEraTx};
 
-impl<'b> MultiEraTx<'b> {
+impl MultiEraTx<'_> {
     fn aux_data_size(&self) -> usize {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
@@ -44,7 +44,7 @@ impl<'b> MultiEraTx<'b> {
     }
 }
 
-impl<'b> MultiEraBlock<'b> {
+impl MultiEraBlock<'_> {
     pub fn body_size(&self) -> Option<usize> {
         match self {
             MultiEraBlock::AlonzoCompatible(x, _) => {

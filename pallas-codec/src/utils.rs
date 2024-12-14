@@ -1120,7 +1120,7 @@ impl<'b, T> KeepRaw<'b, T> {
     }
 }
 
-impl<'b, T> Deref for KeepRaw<'b, T> {
+impl<T> Deref for KeepRaw<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

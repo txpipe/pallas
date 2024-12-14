@@ -9,7 +9,7 @@ impl Default for MultiEraSigners<'_> {
     }
 }
 
-impl<'b> MultiEraSigners<'b> {
+impl MultiEraSigners<'_> {
     pub fn as_alonzo(&self) -> Option<&alonzo::RequiredSigners> {
         match self {
             Self::AlonzoCompatible(x) => Some(x),

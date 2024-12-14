@@ -267,9 +267,7 @@ pub type UTxOByTxin = UTxOByAddress;
 pub type Datum = (Era, TagWrap<Bytes, 24>);
 
 // From `pallas-primitives`, with fewer `derive`s
-#[derive(
-    Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone,
-)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct TransactionInput {
     #[n(0)]
     pub transaction_id: Hash<32>,

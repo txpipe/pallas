@@ -48,13 +48,13 @@ mod tests {
 
     #[test]
     fn test_epoch_nonce() {
-        let nc_values = vec![
+        let nc_values = [
             hex::decode("e86e133bd48ff5e79bec43af1ac3e348b539172f33e502d2c96735e8c51bd04d")
                 .unwrap(),
             hex::decode("d1340a9c1491f0face38d41fd5c82953d0eb48320d65e952414a0c5ebaf87587")
                 .unwrap(),
         ];
-        let nh_values = vec![
+        let nh_values = [
             hex::decode("d7a1ff2a365abed59c9ae346cba842b6d3df06d055dba79a113e0704b44cc3e9")
                 .unwrap(),
             hex::decode("ee91d679b0a6ce3015b894c575c799e971efac35c7a8cbdc2b3f579005e69abd")
@@ -63,7 +63,7 @@ mod tests {
         let ee = hex::decode("d982e06fd33e7440b43cefad529b7ecafbaa255e38178ad4189a37e4ce9bf1fa")
             .unwrap();
         let extra_entropy_values: Vec<Option<&[u8]>> = vec![None, Some(&ee)];
-        let expected_epoch_nonces = vec![
+        let expected_epoch_nonces = [
             hex::decode("e536a0081ddd6d19786e9d708a85819a5c3492c0da7349f59c8ad3e17e4acd98")
                 .unwrap(),
             hex::decode("0022cfa563a5328c4fb5c8017121329e964c26ade5d167b1bd9b2ec967772b60")

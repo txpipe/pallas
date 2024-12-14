@@ -13,7 +13,7 @@ pub struct Decoder<'b> {
 }
 
 impl<'b> Decoder<'b> {
-    pub fn new(bytes: &'b [u8]) -> Decoder {
+    pub fn new(bytes: &'b [u8]) -> Decoder<'b> {
         Decoder {
             buffer: bytes,
             pos: 0,

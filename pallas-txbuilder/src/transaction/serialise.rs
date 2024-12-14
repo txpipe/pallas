@@ -33,7 +33,7 @@ impl<'de> Deserialize<'de> for Bytes32 {
 
 struct Bytes32Visitor;
 
-impl<'de> Visitor<'de> for Bytes32Visitor {
+impl Visitor<'_> for Bytes32Visitor {
     type Value = Bytes32;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -73,7 +73,7 @@ impl<'de> Deserialize<'de> for Hash28 {
 
 struct Hash28Visitor;
 
-impl<'de> Visitor<'de> for Hash28Visitor {
+impl Visitor<'_> for Hash28Visitor {
     type Value = Hash28;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -113,7 +113,7 @@ impl<'de> Deserialize<'de> for Bytes {
 
 struct BytesVisitor;
 
-impl<'de> Visitor<'de> for BytesVisitor {
+impl Visitor<'_> for BytesVisitor {
     type Value = Bytes;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -265,7 +265,7 @@ impl<'de> Deserialize<'de> for RedeemerPurpose {
 
 struct RedeemerPurposeVisitor;
 
-impl<'de> Visitor<'de> for RedeemerPurposeVisitor {
+impl Visitor<'_> for RedeemerPurposeVisitor {
     type Value = RedeemerPurpose;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -333,7 +333,7 @@ impl<'de> Deserialize<'de> for Address {
 
 struct AddressVisitor;
 
-impl<'de> Visitor<'de> for AddressVisitor {
+impl Visitor<'_> for AddressVisitor {
     type Value = Address;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -370,7 +370,7 @@ impl<'de> Deserialize<'de> for Bytes64 {
 
 struct Bytes64Visitor;
 
-impl<'de> Visitor<'de> for Bytes64Visitor {
+impl Visitor<'_> for Bytes64Visitor {
     type Value = Bytes64;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

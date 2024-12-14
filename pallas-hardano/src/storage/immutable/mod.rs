@@ -565,7 +565,7 @@ mod tests {
     }
 
     fn read_full_snapshot(path: &Path) {
-        let reader = super::read_blocks(&path).unwrap();
+        let reader = super::read_blocks(path).unwrap();
 
         let mut count = 0;
         let mut last_slot = None;

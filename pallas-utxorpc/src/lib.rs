@@ -65,7 +65,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Redeemer {
             purpose: self.map_purpose(&x.tag()).into(),
             payload: self.map_plutus_datum(x.data()).into(),
-            index: x.index().into(),
+            index: x.index(),
             ex_units: Some(u5c::ExUnits {
                 steps: x.ex_units().steps,
                 memory: x.ex_units().mem,
@@ -613,7 +613,7 @@ mod tests {
             // )
             // .unwrap();
 
-            let expected: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+            let expected: serde_json::Value = serde_json::from_str(json_str).unwrap();
 
             assert_eq!(expected, current)
         }
