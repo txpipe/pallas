@@ -1,2 +1,2 @@
 pub mod math;
-pub mod math_malachite;
+pub mod math_dashu;
