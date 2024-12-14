@@ -67,8 +67,8 @@ impl<C: LedgerContext> Mapper<C> {
             payload: self.map_plutus_datum(x.data()).into(),
             index: x.index().into(),
             ex_units: Some(u5c::ExUnits {
-                steps: x.ex_units().steps as u64,
-                memory: x.ex_units().mem as u64,
+                steps: x.ex_units().steps,
+                memory: x.ex_units().mem,
             }),
             original_cbor: x.encode().into(),
         }
