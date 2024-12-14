@@ -117,7 +117,7 @@ impl Neg for Decimal {
 }
 
 // Implement Neg for a reference to Decimal
-impl<'a> Neg for &'a Decimal {
+impl Neg for &Decimal {
     type Output = Decimal;
 
     fn neg(self) -> Self::Output {
@@ -138,7 +138,7 @@ impl Abs for Decimal {
 }
 
 // Implement Abs for a reference to Decimal
-impl<'a> Abs for &'a Decimal {
+impl Abs for &Decimal {
     type Output = Decimal;
 
     fn abs(self) -> Self::Output {
@@ -167,7 +167,7 @@ impl MulAssign for Decimal {
 }
 
 // Implement Mul for a reference to Decimal
-impl<'a, 'b> Mul<&'b Decimal> for &'a Decimal {
+impl<'b> Mul<&'b Decimal> for &Decimal {
     type Output = Decimal;
 
     fn mul(self, rhs: &'b Decimal) -> Self::Output {
@@ -178,7 +178,7 @@ impl<'a, 'b> Mul<&'b Decimal> for &'a Decimal {
     }
 }
 
-impl<'a, 'b> MulAssign<&'b Decimal> for &'a mut Decimal {
+impl<'b> MulAssign<&'b Decimal> for &mut Decimal {
     fn mul_assign(&mut self, rhs: &'b Decimal) {
         self.data *= &rhs.data;
         scale(&mut self.data);
@@ -203,7 +203,7 @@ impl DivAssign for Decimal {
 }
 
 // Implement Div for a reference to Decimal
-impl<'a, 'b> Div<&'b Decimal> for &'a Decimal {
+impl<'b> Div<&'b Decimal> for &Decimal {
     type Output = Decimal;
 
     fn div(self, rhs: &'b Decimal) -> Self::Output {
@@ -213,7 +213,7 @@ impl<'a, 'b> Div<&'b Decimal> for &'a Decimal {
     }
 }
 
-impl<'a, 'b> DivAssign<&'b Decimal> for &'a mut Decimal {
+impl<'b> DivAssign<&'b Decimal> for &mut Decimal {
     fn div_assign(&mut self, rhs: &'b Decimal) {
         let temp = self.data.clone();
         div(&mut self.data, &temp, &rhs.data);
@@ -237,7 +237,7 @@ impl SubAssign for Decimal {
 }
 
 // Implement Sub for a reference to Decimal
-impl<'a, 'b> Sub<&'b Decimal> for &'a Decimal {
+impl<'b> Sub<&'b Decimal> for &Decimal {
     type Output = Decimal;
 
     fn sub(self, rhs: &'b Decimal) -> Self::Output {
@@ -247,7 +247,7 @@ impl<'a, 'b> Sub<&'b Decimal> for &'a Decimal {
     }
 }
 
-impl<'a, 'b> SubAssign<&'b Decimal> for &'a mut Decimal {
+impl<'b> SubAssign<&'b Decimal> for &mut Decimal {
     fn sub_assign(&mut self, rhs: &'b Decimal) {
         self.data -= &rhs.data;
     }
@@ -270,7 +270,7 @@ impl AddAssign for Decimal {
 }
 
 // Implement Add for a reference to Decimal
-impl<'a, 'b> Add<&'b Decimal> for &'a Decimal {
+impl<'b> Add<&'b Decimal> for &Decimal {
     type Output = Decimal;
 
     fn add(self, rhs: &'b Decimal) -> Self::Output {
@@ -280,7 +280,7 @@ impl<'a, 'b> Add<&'b Decimal> for &'a Decimal {
     }
 }
 
-impl<'a, 'b> AddAssign<&'b Decimal> for &'a mut Decimal {
+impl<'b> AddAssign<&'b Decimal> for &mut Decimal {
     fn add_assign(&mut self, rhs: &'b Decimal) {
         self.data += &rhs.data;
     }

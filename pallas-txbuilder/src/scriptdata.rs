@@ -121,7 +121,7 @@ mod tests {
     });
 
     fn assert_script_data_hash_matches(bytes: &[u8], language_view: &LanguageView) {
-        let tx = MultiEraTx::decode(&bytes).unwrap();
+        let tx = MultiEraTx::decode(bytes).unwrap();
         let tx = tx.as_conway().unwrap();
 
         let witness = conway::WitnessSet::from(tx.transaction_witness_set.clone().unwrap());

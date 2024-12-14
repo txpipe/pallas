@@ -17,7 +17,7 @@ impl<const BYTES: usize> Serialize for Hash<BYTES> {
 
 struct HashVisitor<const BYTES: usize> {}
 
-impl<'de, const BYTES: usize> Visitor<'de> for HashVisitor<BYTES> {
+impl<const BYTES: usize> Visitor<'_> for HashVisitor<BYTES> {
     type Value = Hash<BYTES>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

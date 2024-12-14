@@ -1,7 +1,6 @@
 pub mod common;
 
 use common::*;
-use hex;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
@@ -598,7 +597,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -675,7 +674,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -725,7 +724,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -857,7 +856,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -1019,7 +1018,7 @@ mod babbage_tests {
         };
         let altered_address: ShelleyAddress = ShelleyAddress::new(
             old_shelley_address.network(),
-            ShelleyPaymentPart::Script(old_shelley_address.payment().as_hash().clone()),
+            ShelleyPaymentPart::Script(*old_shelley_address.payment().as_hash()),
             old_shelley_address.delegation().clone(),
         );
         let tx_in = mtx
@@ -1303,7 +1302,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -1346,11 +1345,11 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
-        tx_body.fee = tx_body.fee - 1;
+        tx_body.fee -= 1;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -1480,7 +1479,7 @@ mod babbage_tests {
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
         let (first_output, rest): (&MintedTransactionOutput, &[MintedTransactionOutput]) =
-            (&tx_body.outputs).split_first().unwrap();
+            tx_body.outputs.split_first().unwrap();
         let (address_bytes, val): (Bytes, Value) = match first_output {
             PseudoTransactionOutput::Legacy(output) => {
                 (output.address.clone(), output.amount.clone())
@@ -1511,7 +1510,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -1561,7 +1560,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
         mtx.transaction_body =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -1809,7 +1808,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -1977,7 +1976,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -2066,7 +2065,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -2156,12 +2155,12 @@ mod babbage_tests {
         let mut new_datum_buf: Vec<u8> = Vec::new();
         let _ = encode(new_datum, &mut new_datum_buf);
         let keep_raw_new_datum: KeepRaw<PlutusData> =
-            Decode::decode(&mut Decoder::new(&new_datum_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(new_datum_buf.as_slice()), &mut ()).unwrap();
         tx_wits.plutus_data = Some(vec![old_datum, keep_raw_new_datum]);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -2254,7 +2253,7 @@ mod babbage_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -2344,7 +2343,7 @@ mod babbage_tests {
         let mut tx_witness_set_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_witness_set, &mut tx_witness_set_buf);
         mtx.transaction_witness_set =
-            Decode::decode(&mut Decoder::new(&tx_witness_set_buf.as_slice()), &mut ()).unwrap();
+            Decode::decode(&mut Decoder::new(tx_witness_set_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,

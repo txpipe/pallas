@@ -2,7 +2,7 @@ use pallas_primitives::alonzo;
 
 use crate::MultiEraMeta;
 
-impl<'b> MultiEraMeta<'b> {
+impl MultiEraMeta<'_> {
     pub fn as_alonzo(&self) -> Option<&alonzo::Metadata> {
         match self {
             Self::AlonzoCompatible(x) => Some(x),

@@ -24,11 +24,11 @@ pub fn minted_tx_from_cbor(tx_cbor: &[u8]) -> MintedTx<'_> {
 }
 
 pub fn babbage_minted_tx_from_cbor(tx_cbor: &[u8]) -> BabbageMintedTx<'_> {
-    pallas_codec::minicbor::decode::<BabbageMintedTx>(&tx_cbor[..]).unwrap()
+    pallas_codec::minicbor::decode::<BabbageMintedTx>(tx_cbor).unwrap()
 }
 
-pub fn minted_tx_payload_from_cbor<'a>(tx_cbor: &'a Vec<u8>) -> MintedTxPayload<'a> {
-    pallas_codec::minicbor::decode::<MintedTxPayload>(&tx_cbor[..]).unwrap()
+pub fn minted_tx_payload_from_cbor(tx_cbor: &[u8]) -> MintedTxPayload<'_> {
+    pallas_codec::minicbor::decode::<MintedTxPayload>(tx_cbor).unwrap()
 }
 
 pub fn mk_utxo_for_byron_tx<'a>(tx: &Tx, tx_outs_info: &[(String, u64)]) -> UTxOs<'a> {

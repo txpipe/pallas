@@ -117,7 +117,7 @@ impl GenesisValues {
     }
 }
 
-impl<'a> MultiEraBlock<'a> {
+impl MultiEraBlock<'_> {
     pub fn epoch(&self, genesis: &GenesisValues) -> (Epoch, SubSlot) {
         match self {
             MultiEraBlock::EpochBoundary(x) => (x.header.consensus_data.epoch_id, 0),
