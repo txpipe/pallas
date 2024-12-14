@@ -696,7 +696,8 @@ impl BuiltTransaction {
                     signature: Vec::from(signature.as_ref()).into(),
                 });
 
-                tx.transaction_witness_set.vkeywitness = Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
+                tx.transaction_witness_set.vkeywitness =
+                    Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
@@ -726,7 +727,7 @@ impl BuiltTransaction {
                 let mut tx = conway::Tx::decode_fragment(&self.tx_bytes.0)
                     .map_err(|_| TxBuilderError::CorruptedTxBytes)?;
 
-                    let mut vkey_witnesses = tx
+                let mut vkey_witnesses = tx
                     .transaction_witness_set
                     .vkeywitness
                     .map(|x| x.to_vec())
@@ -734,7 +735,8 @@ impl BuiltTransaction {
 
                 vkey_witnesses.retain(|x| *x.vkey != pk.0.to_vec());
 
-                tx.transaction_witness_set.vkeywitness = Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
+                tx.transaction_witness_set.vkeywitness =
+                    Some(NonEmptySet::from_vec(vkey_witnesses).unwrap());
 
                 self.tx_bytes = tx.encode_fragment().unwrap().into();
             }
