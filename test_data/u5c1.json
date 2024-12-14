@@ -22,6 +22,11 @@
         "inputs": [
           {
             "redeemer": {
+              "exUnits": {
+                "memory": "2893153",
+                "steps": "1254988362"
+              },
+              "originalCbor": "hAAAGgAtxsCCGgAsJWEaSs2aSg==",
               "payload": {
                 "bigInt": {
                   "int": "3000000"
@@ -33,6 +38,12 @@
           },
           {
             "redeemer": {
+              "exUnits": {
+                "memory": "29039",
+                "steps": "9759373"
+              },
+              "index": 1,
+              "originalCbor": "hAAB2HmAghlxbxoAlOqN",
               "payload": {
                 "constr": {
                   "tag": 121
@@ -45,6 +56,12 @@
           {
             "outputIndex": 2,
             "redeemer": {
+              "exUnits": {
+                "memory": "23776",
+                "steps": "8949203"
+              },
+              "index": 2,
+              "originalCbor": "hAAC2HmAghlc4BoAiI3T",
               "payload": {
                 "constr": {
                   "tag": 121
@@ -1384,6 +1401,12 @@
           },
           {
             "redeemer": {
+              "exUnits": {
+                "memory": "862260",
+                "steps": "283080173"
+              },
+              "index": 1,
+              "originalCbor": "hAAB2HmAghoADSg0GhDfde0=",
               "payload": {
                 "constr": {
                   "tag": 121
@@ -2018,6 +2041,12 @@
           },
           {
             "redeemer": {
+              "exUnits": {
+                "memory": "312977",
+                "steps": "151500123"
+              },
+              "index": 1,
+              "originalCbor": "hAAB2HqfUCgL7p8Ifi1y1Y0n3fHPaAb/ghoABMaRGgkHtVs=",
               "payload": {
                 "constr": {
                   "fields": [
@@ -2043,6 +2072,11 @@
             ],
             "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg==",
             "redeemer": {
+              "exUnits": {
+                "memory": "56931",
+                "steps": "22622736"
+              },
+              "originalCbor": "hAEA2HmAghneYxoBWTIQ",
               "payload": {
                 "constr": {
                   "tag": 121

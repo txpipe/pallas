@@ -65,6 +65,12 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Redeemer {
             purpose: self.map_purpose(&x.tag()).into(),
             payload: self.map_plutus_datum(x.data()).into(),
+            index: x.index().into(),
+            ex_units: Some(u5c::ExUnits {
+                steps: x.ex_units().steps,
+                memory: x.ex_units().mem,
+            }),
+            original_cbor: x.encode().into(),
         }
     }
 

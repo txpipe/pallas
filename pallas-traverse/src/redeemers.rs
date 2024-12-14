@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, conway};
 
 use crate::MultiEraRedeemer;
@@ -77,5 +78,12 @@ impl<'b> MultiEraRedeemer<'b> {
                 ex_units: redeemer.ex_units,
             })),
         )
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
+        match self {
+            MultiEraRedeemer::AlonzoCompatible(x) => minicbor::to_vec(x).unwrap(),
+            MultiEraRedeemer::Conway(k, v) => minicbor::to_vec((k, v)).unwrap(),
+        }
     }
 }
