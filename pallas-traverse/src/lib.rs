@@ -83,11 +83,30 @@ pub enum MultiEraBlock<'b> {
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
+pub enum MultiEraBlockWithRawAuxiliary<'b> {
+    EpochBoundary(Box<byron::MintedEbBlock<'b>>),
+    AlonzoCompatible(Box<alonzo::MintedBlockWithRawAuxiliary<'b>>, Era),
+    Babbage(Box<babbage::MintedBlockWithRawAuxiliary<'b>>),
+    Byron(Box<byron::MintedBlock<'b>>),
+    Conway(Box<conway::MintedBlockWithRawAuxiliary<'b>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum MultiEraTx<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::MintedTx<'b>>>, Era),
     Babbage(Box<Cow<'b, babbage::MintedTx<'b>>>),
     Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
     Conway(Box<Cow<'b, conway::MintedTx<'b>>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraTxWithRawAuxiliary<'b> {
+    AlonzoCompatible(Box<Cow<'b, alonzo::MintedTxWithRawAuxiliary<'b>>>, Era),
+    Babbage(Box<Cow<'b, babbage::MintedTxWithRawAuxiliary<'b>>>),
+    Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
+    Conway(Box<Cow<'b, conway::MintedTxWithRawAuxiliary<'b>>>),
 }
 
 #[derive(Debug, Clone)]
