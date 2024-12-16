@@ -645,21 +645,20 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             // server receives query from client
 
-            let query: Vec<u8> =
-                match server.statequery().recv_while_acquired().await.unwrap() {
-                    ClientQueryRequest::Query(q) => q.unwrap(),
-                    x => panic!("(While expecting `GetUTxOWhole`) \
-                                 Unexpected message from client: {x:?}"),
-                };
-            
+            let query: Vec<u8> = match server.statequery().recv_while_acquired().await.unwrap() {
+                ClientQueryRequest::Query(q) => q.unwrap(),
+                x => panic!(
+                    "(While expecting `GetUTxOWhole`) \
+                                 Unexpected message from client: {x:?}"
+                ),
+            };
+
             // CBOR got from preprod node. Mind the stripped `8203`.
-            let cbor_query = Vec::<u8>::from_hex(
-                "8200820082068107"
-            ).unwrap();
+            let cbor_query = Vec::<u8>::from_hex("8200820082068107").unwrap();
 
             assert_eq!(query, cbor_query);
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
-            
+
             let tx_hex = "1610F289E36C9D83C464F85A0AADD59101DDDB0E89592A92809D95D68D79EED9";
             let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
             let transaction_id_1 = Hash::from(txbytes);
@@ -667,7 +666,10 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let lovelace = AnyUInt::U32(12_419_537);
             let values_1 = localstate::queries_v16::TransactionOutput::Legacy(
                 localstate::queries_v16::LegacyTransactionOutput {
-                    address: Bytes::from(hex::decode("60C0359EBB7D0688D79064BD118C99C8B87B5853E3AF59245BB97E84D2").unwrap()),
+                    address: Bytes::from(
+                        hex::decode("60C0359EBB7D0688D79064BD118C99C8B87B5853E3AF59245BB97E84D2")
+                            .unwrap(),
+                    ),
                     amount: Value::Coin(lovelace),
                     datum_hash: None,
                 },
@@ -684,13 +686,16 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let inline_datum = Some((1_u16, tag));
             let values_2 = localstate::queries_v16::TransactionOutput::Current(
                 localstate::queries_v16::PostAlonsoTransactionOutput {
-                    address: Bytes::from(hex::decode("603F2728EC78EF8B0F356E91A5662FF3124ADD324A7B7F5AEED69362F4").unwrap()),
+                    address: Bytes::from(
+                        hex::decode("603F2728EC78EF8B0F356E91A5662FF3124ADD324A7B7F5AEED69362F4")
+                            .unwrap(),
+                    ),
                     amount: Value::Coin(lovelace),
                     inline_datum,
                     script_ref: None,
                 },
             );
-  
+
             let utxos = KeyValuePairs::from(vec![
                 (
                     localstate::queries_v16::UTxO {
@@ -707,7 +712,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     values_2,
                 ),
             ]);
-            
+
             let result = AnyCbor::from_encode(localstate::queries_v16::UTxOWhole { utxo: utxos });
             server.statequery().send_result(result).await.unwrap();
 
@@ -1090,8 +1095,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
              B97E84D21A00BD81D1825820A7BED2F5FCD72BA4CEFDA7C2CC94D119279A17D71B\
              FFC4D90DD4272B93E8A88F00A300581D603F2728EC78EF8B0F356E91A5662FF312\
              4ADD324A7B7F5AEED69362F4011A001B5BC0028201D81856D8799FD8799F1AE067\
-             55BBFF1B00000193B36BC9F0FF"
-        ).unwrap();
+             55BBFF1B00000193B36BC9F0FF",
+        )
+        .unwrap();
 
         assert_eq!(result, utxo);
 
