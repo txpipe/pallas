@@ -548,10 +548,7 @@ pub async fn get_utxo_by_txin(
 }
 
 /// Get the /entire/ UTxO.
-pub async fn get_utxo_whole(
-    client: &mut Client,
-    era: u16,
-) -> Result<UTxOWhole, ClientError> {
+pub async fn get_utxo_whole(client: &mut Client, era: u16) -> Result<UTxOWhole, ClientError> {
     let query = BlockQuery::GetUTxOWhole;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
