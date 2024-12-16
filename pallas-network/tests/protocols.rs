@@ -1,10 +1,9 @@
 use hex::FromHex;
-use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, TagWrap, Nullable};
+use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, RationalNumber, Snapshots,
-    StakeAddr, Stakes, SystemStart, UnitInterval, Value, PoolParams,
-    primitives::{PoolMetadata, Relay},
+    StakeAddr, Stakes, SystemStart, UnitInterval, Value, PoolMetadata, PoolParams, Relay,
 };
 use pallas_network::{
     facades::{NodeClient, PeerClient, PeerServer},
@@ -1219,7 +1218,7 @@ pub async fn local_state_query_server_and_client_happy_path2() {
             let cbor_query = Vec::<u8>::from_hex(
                 "820082068211d9010281581cfdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b"
             ).unwrap();
-            
+
             assert_eq!(query, cbor_query);
 
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
@@ -1331,7 +1330,7 @@ pub async fn local_state_query_server_and_client_happy_path2() {
              7374616b65706f6f6c2e636f6d82781c68747470733a2f2f63736f757a612e6d652f\
              6a702d70702e6a736f6e5820c9623111188d0bf90e8305e40aa91a040d8036c7813a\
              4eca44e06fa0a1a893a6").unwrap();
-        
+
         assert_eq!(result, pool_params_cbor);
 
         client.statequery().send_release().await.unwrap();

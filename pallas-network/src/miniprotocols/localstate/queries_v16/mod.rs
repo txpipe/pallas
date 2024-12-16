@@ -14,7 +14,7 @@ use pallas_codec::{
 
 pub mod primitives;
 
-use primitives::{Relay, PoolMetadata};
+pub use primitives::{Relay, PoolMetadata};
 
 use crate::miniprotocols::Point;
 

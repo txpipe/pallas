@@ -9,14 +9,13 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{
-                self, Addr, Addrs, TransactionInput, StakeAddr, Pools
+                self, Addr, Addrs, Pools, StakeAddr, TransactionInput,
             },
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
 };
 use tracing::info;
-use hex::FromHex;
 
 async fn do_localstate_query(client: &mut NodeClient) {
     let client = client.statequery();
@@ -71,9 +70,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     info!("result: {:?}", result);
 
     let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
-    let pool_id1: Bytes = Vec::<u8>::from_hex(pool_id1).unwrap().into();
+    let pool_id1 = Bytes::from_str(pool_id1).unwrap();
     let pool_id2 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
-    let pool_id2: Bytes = Vec::<u8>::from_hex(pool_id2).unwrap().into();
+    let pool_id2 = Bytes::from_str(pool_id2).unwrap();
     let mut pools: Pools = BTreeSet::new();
     pools.insert(pool_id1);
     pools.insert(pool_id2);
