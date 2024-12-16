@@ -2,8 +2,8 @@ use hex::FromHex;
 use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, RationalNumber, Snapshots,
-    StakeAddr, Stakes, SystemStart, UnitInterval, Value, PoolMetadata, PoolParams, Relay,
+    self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
+    RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
 };
 use pallas_network::{
     facades::{NodeClient, PeerClient, PeerServer},
@@ -23,7 +23,7 @@ use pallas_network::{
     multiplexer::{Bearer, Plexer},
 };
 use std::{
-    collections::{BTreeSet, BTreeMap},
+    collections::{BTreeMap, BTreeSet},
     fs,
     net::{Ipv4Addr, SocketAddrV4},
     path::Path,
@@ -1207,48 +1207,61 @@ pub async fn local_state_query_server_and_client_happy_path2() {
 
             // server receives query from client
 
-            let query: Vec<u8> =
-                match server.statequery().recv_while_acquired().await.unwrap() {
-                    ClientQueryRequest::Query(q) => q.unwrap(),
-                    x => panic!("While expecting `GetStakePoolParams`) \
-                                 Unexpected message from client: {x:?}"),
-                };
+            let query: Vec<u8> = match server.statequery().recv_while_acquired().await.unwrap() {
+                ClientQueryRequest::Query(q) => q.unwrap(),
+                x => panic!(
+                    "While expecting `GetStakePoolParams`) \
+                                 Unexpected message from client: {x:?}"
+                ),
+            };
 
             // CBOR got from preprod node. Mind the stripped `82038200`.
             let cbor_query = Vec::<u8>::from_hex(
-                "820082068211d9010281581cfdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b"
-            ).unwrap();
+                "820082068211d9010281581cfdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b",
+            )
+            .unwrap();
 
             assert_eq!(query, cbor_query);
 
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-            let pool_id: Bytes = Vec::<u8>::from_hex(
-                "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b"
-            ).unwrap().into();
+            let pool_id: Bytes =
+                Vec::<u8>::from_hex("fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b")
+                    .unwrap()
+                    .into();
             let operator = pool_id.clone();
             let vrf_keyhash = Vec::<u8>::from_hex(
-                "2A6A3D82278A554E9C1777C427BF0397FAF5CD7734900752D698E57679CC523F"
-            ).unwrap().into();
-            let reward_account = Vec::<u8>::from_hex(
-                "E01AEF81CBAB75DB2DE0FE3885332EBE67C34EB1ADBF43BB2408BA3981"
-            ).unwrap().into();
+                "2A6A3D82278A554E9C1777C427BF0397FAF5CD7734900752D698E57679CC523F",
+            )
+            .unwrap()
+            .into();
+            let reward_account =
+                Vec::<u8>::from_hex("E01AEF81CBAB75DB2DE0FE3885332EBE67C34EB1ADBF43BB2408BA3981")
+                    .unwrap()
+                    .into();
             let pool_metadata: Nullable<PoolMetadata> = Some(PoolMetadata {
-                    url: "https://csouza.me/jp-pp.json".to_string(),
-                    hash: Hash::<32>::from_str(
-                        "C9623111188D0BF90E8305E40AA91A040D8036C7813A4ECA44E06FA0A1A893A6"
-                    ).unwrap(),
-            }).into();
+                url: "https://csouza.me/jp-pp.json".to_string(),
+                hash: Hash::<32>::from_str(
+                    "C9623111188D0BF90E8305E40AA91A040D8036C7813A4ECA44E06FA0A1A893A6",
+                )
+                .unwrap(),
+            })
+            .into();
             let pool_params = PoolParams {
                 operator,
                 vrf_keyhash,
                 pledge: AnyUInt::U64(5_000_000_000),
                 cost: AnyUInt::U32(340_000_000),
-                margin: localstate::queries_v16::RationalNumber{ numerator: 3, denominator: 40},
+                margin: localstate::queries_v16::RationalNumber {
+                    numerator: 3,
+                    denominator: 40,
+                },
                 reward_account,
-                pool_owners: BTreeSet::from([Bytes::from(Vec::<u8>::from_hex(
-                    "1AEF81CBAB75DB2DE0FE3885332EBE67C34EB1ADBF43BB2408BA3981"
-                ).unwrap())]).into(),
+                pool_owners: BTreeSet::from([Bytes::from(
+                    Vec::<u8>::from_hex("1AEF81CBAB75DB2DE0FE3885332EBE67C34EB1ADBF43BB2408BA3981")
+                        .unwrap(),
+                )])
+                .into(),
                 relays: vec![Relay::SingleHostName(
                     Some(3001).into(),
                     "preprod.junglestakepool.com".to_string(),
@@ -1256,10 +1269,7 @@ pub async fn local_state_query_server_and_client_happy_path2() {
                 pool_metadata,
             };
             // The map is inside a (singleton) array
-            let result = AnyCbor::from_encode([BTreeMap::from([(
-                pool_id,
-                pool_params,
-            )])]);
+            let result = AnyCbor::from_encode([BTreeMap::from([(pool_id, pool_params)])]);
 
             server.statequery().send_result(result).await.unwrap();
 
@@ -1304,12 +1314,10 @@ pub async fn local_state_query_server_and_client_happy_path2() {
         let mut pools = BTreeSet::<Bytes>::new();
         pools.insert(pool_id1);
 
-        let request = AnyCbor::from_encode(
-            localstate::queries_v16::LedgerQuery::BlockQuery(
-                6,
-                localstate::queries_v16::BlockQuery::GetStakePoolParams(pools.into())
-            )
-        );
+        let request = AnyCbor::from_encode(localstate::queries_v16::LedgerQuery::BlockQuery(
+            6,
+            localstate::queries_v16::BlockQuery::GetStakePoolParams(pools.into()),
+        ));
 
         client.statequery().send_query(request).await.unwrap();
 
@@ -1329,7 +1337,9 @@ pub async fn local_state_query_server_and_client_happy_path2() {
              c34eb1adbf43bb2408ba3981818301190bb9781b70726570726f642e6a756e676c65\
              7374616b65706f6f6c2e636f6d82781c68747470733a2f2f63736f757a612e6d652f\
              6a702d70702e6a736f6e5820c9623111188d0bf90e8305e40aa91a040d8036c7813a\
-             4eca44e06fa0a1a893a6").unwrap();
+             4eca44e06fa0a1a893a6",
+        )
+        .unwrap();
 
         assert_eq!(result, pool_params_cbor);
 

@@ -8,9 +8,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{
-                self, Addr, Addrs, Pools, StakeAddr, TransactionInput,
-            },
+            localstate::queries_v16::{self, Addr, Addrs, Pools, StakeAddr, TransactionInput},
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
@@ -49,7 +47,6 @@ async fn do_localstate_query(client: &mut NodeClient) {
 
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
-
 
     // Getting delegation and rewards for preprod stake addresses:
     let mut addrs = BTreeSet::new();

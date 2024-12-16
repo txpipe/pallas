@@ -1,12 +1,12 @@
 // TODO: this should move to pallas::ledger crate at some point
 
 use pallas_crypto::hash::Hash;
-use std::collections::{BTreeSet, BTreeMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, TagWrap, Nullable};
+use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
@@ -14,7 +14,7 @@ use pallas_codec::{
 
 pub mod primitives;
 
-pub use primitives::{Relay, PoolMetadata};
+pub use primitives::{PoolMetadata, Relay};
 
 use crate::miniprotocols::Point;
 

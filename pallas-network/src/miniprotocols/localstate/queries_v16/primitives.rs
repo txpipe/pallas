@@ -1,8 +1,6 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
-pub use pallas_codec::utils::{
-    Bytes, Nullable,
-};
+pub use pallas_codec::utils::{Bytes, Nullable};
 pub use pallas_crypto::hash::Hash;
 
 use pallas_codec::minicbor::{self, Decode, Encode};
