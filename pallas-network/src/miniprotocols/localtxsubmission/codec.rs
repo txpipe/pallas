@@ -1,7 +1,9 @@
-use pallas_codec::minicbor::data::IanaTag;
+use pallas_codec::minicbor::data::{IanaTag, Type as CborType};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::utils::Bytes;
 
-use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
+use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, TxError};
+use std::str::from_utf8;
 
 impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
 where
@@ -36,12 +38,17 @@ where
     }
 }
 
-impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<Tx, Reject> {
+impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()> + From<String>> Decode<'b, ()>
+    for Message<Tx, Reject>
+{
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         if d.array().is_err() {
             // if the first element isn't an array, it's a plutus error
             // the node sends string data
-            let rejection = d.decode()?;
+            let rejection = from_utf8(d.input())
+                .or(Err(decode::Error::message("Not valid as a string")))?
+                .to_string()
+                .into();
 
             // skip this data via setting the decoder position, because it doesn't recognize
             // it with rejection decode
@@ -60,10 +67,6 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<
             1 => Ok(Message::AcceptTx),
             2 => {
                 let rejection = d.decode()?;
-
-                // skip this data via setting the decoder position, because it doesn't recognize
-                // it with rejection decode
-                d.set_position(d.input().len());
 
                 Ok(Message::RejectTx(rejection))
             }
@@ -101,21 +104,74 @@ impl Encode<()> for EraTx {
 
 impl<'b> Decode<'b, ()> for RejectReason {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let remainder = d.input().to_vec();
-        Ok(RejectReason(remainder))
+        d.array()?;
+        d.array()?;
+        let era = d.u8()?;
+        let errors = d.decode()?;
+
+        Ok(RejectReason::EraErrors(era, errors))
     }
 }
 
+// FIXME: Just the scaffold for encoding
 impl Encode<()> for RejectReason {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        e.writer_mut()
-            .write_all(&self.0)
-            .map_err(encode::Error::write)?;
+        e.array(0)?;
         Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for TxError {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        match d.datatype()? {
+            CborType::U8 => return Ok(TxError::U8(d.u8()?)),
+            CborType::Array => d.array()?,
+            _ => {
+                return Err(decode::Error::message(
+                    "Error types are supposed to be `array` or `u8`",
+                ))
+            }
+        };
+        // This seems to be always 1 for Conway errors.
+        let fst_num = d.u8()?;
+        let data = d.input();
+        let size = d.array()?.ok_or(decode::Error::message(
+            "Errors are supposed to be definite-length arrays",
+        ))?;
+        let mut raw_elements = Vec::new();
+        let start_pos = d.position();
+
+        if fst_num != 1 {
+            for _ in 0..size {
+                d.skip()?
+            } // Skip decoding the elements of the array
+              // Store the slice of raw CBOR
+            raw_elements.append(&mut data[start_pos..d.position()].to_vec());
+
+            return Ok(TxError::Raw(raw_elements));
+        };
+
+        match d.u8()? {
+            9 => {
+                d.tag()?;
+                let vec_bytes: Vec<Bytes> = d.decode()?;
+
+                Ok(TxError::ExtraneousScriptWitnessesUTXOW(vec_bytes))
+            }
+            _ => {
+                for _ in 1..size {
+                    d.skip()?
+                } // Skip decoding the elements of the array
+                  // Store the slice of raw CBOR
+                raw_elements.append(&mut data[start_pos..d.position()].to_vec());
+
+                Ok(TxError::Raw(raw_elements))
+            }
+        }
     }
 }
 
@@ -130,6 +186,7 @@ mod tests {
     fn decode_reject_message() {
         let mut bytes = hex::decode(RAW_REJECT_RESPONSE).unwrap();
         let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes);
+        println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok())
     }
 
@@ -155,7 +212,15 @@ mod tests {
     fn decode_reject_string_message() {
         let mut bytes = hex::decode(RAW_REJECT_REPONSE_ERROR_STRING).unwrap();
         let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes);
-        println!("result {:?}", msg_res);
+        println!("Result: {:?}", msg_res);
+        assert!(msg_res.is_ok())
+    }
+
+    #[test]
+    fn decode_reject_reason() {
+        let mut bytes = hex::decode(RAW_REJECT_RESPONSE_CONWAY).unwrap();
+        let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes);
+        println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok())
     }
 
@@ -237,4 +302,21 @@ mod tests {
         845657a426d5249524448705765462b4d69394961367935426b564665434675786155714d522f77442f32486d66\
         32486d66324871665742776d474f6c4d32775a354c7757756d78374869774978394c66304956736254505575593\
         04c652f39683667502b68514b4641476774734d63445965352f59655a2f59";
+
+    const RAW_REJECT_RESPONSE_CONWAY: &str =
+        "82028182068a82018209d9010281581ca55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360882\
+         01830cd901028158203e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465d9010280\
+         8201820f818200008201830d815820b8f025288ba73aed0fe31fad243c58bef276caf20e70ade9d343bbed62b5\
+         fdc08158200f9a8c36fd5205f371efa8a251e0c27c6d944afa837ac2a7ae0776c51a6372cd82018200830700d9\
+         01028458390170e60f3b5ea7153e0acc7a803e4401d44b8ed1bae1c7baaad1a62a721e78aae7c90cc36d624f7b\
+         3bb6d86b52696dc84e490f343eba89005f583901b7469fffd8657fdc71bfcc2368abf070025f8ed3b2d07edf42\
+         11383c9e2efeca24440f4ef0d0718ed066b0d0928af76584eb87a3b7fe2549583901c7f913cb1a0d62a1dbd9eb\
+         0c5fb4d5b9ff1ed370fbb6b2dbe98c4b82d3e62702c687b1d0d010136220d0a389b590f2e98399502a2bfc4b2b\
+         583901f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc8\
+         5aa279ea70e8cdacee4c6cae40fd82018200830600821a0198de8ca1581c787f0c946b98153500edc0a753e654\
+         57250544da8486b17c85708135a15818506572666563744c6567656e64617279446572705365616c0182018200\
+         8201d9010283825820459763315cb9af2ecd9003a4236aacae4ec4777df7f4f757b5b0187a32eca90700825820\
+         df92937f762ae2f0afcb9829c3ef514635ac0d9975750225519cdb071e1cff9201825820ff4f36b81327cfb4b1\
+         7c958b790447c4734fe39c8741dd1f38ace0fd54fcf2fc0182018200811382018200830c001a000fbd72820182\
+         00830282811a044f777c811a044f858c1a04ace388";
 }
