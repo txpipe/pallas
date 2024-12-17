@@ -2,7 +2,7 @@ use pallas_codec::minicbor::data::{IanaTag, Type as CborType};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use pallas_codec::utils::Bytes;
 
-use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, TxError};
+use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, TxError, UtxoFailure};
 use std::str::from_utf8;
 
 use crate::miniprotocols::localtxsubmission::UtxowFailure;
@@ -166,6 +166,7 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
         d.array()?;
 
         match d.u8()? {
+            0 => Ok(TxError::UtxoFailure(d.decode()?)),
             9 => {
                 d.tag()?;
                 let vec_bytes: Vec<Bytes> = d.decode()?;
@@ -180,6 +181,28 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
                 Ok(UtxowFailure::Raw(raw_elements))
             }
         }
+    }
+}
+
+impl<'b> Decode<'b, ()> for UtxoFailure {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let start_pos = d.position();
+        let data = d.input();
+        d.array()?;
+
+        match d.u8()? {
+            1 => {
+                d.tag()?;
+                return Ok(UtxoFailure::BadInputsUTxO(d.decode()?));
+            }
+            _ => {
+                // Return decoder index to origin of array and return it as bytes.
+                d.set_position(start_pos);
+                d.skip()?;
+
+                return Ok(UtxoFailure::Raw(data[start_pos..d.position()].to_vec()));
+            }
+        };
     }
 }
 
