@@ -176,7 +176,7 @@ pub struct ConwayProtParams {
     pub governance_action_deposit: Coin,
     pub drep_deposit: Coin,
     pub drep_inactivity_period: Epoch,
-    pub minfee_refscript_cost_per_byte: UnitInterval,
+    pub minfee_refscript_cost_per_byte: Coin,
 }
 
 #[derive(Default, Debug)]
