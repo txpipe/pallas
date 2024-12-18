@@ -8,7 +8,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, StakeAddr, TransactionInput},
+            localstate::queries_v16::{self, Addr, Addrs, Pools, StakeAddr, TransactionInput},
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
@@ -62,6 +62,19 @@ async fn do_localstate_query(client: &mut NodeClient) {
     addrs.insert(StakeAddr::from((0x00, addr)));
 
     let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
+    let pool_id1 = Bytes::from_str(pool_id1).unwrap();
+    let pool_id2 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
+    let pool_id2 = Bytes::from_str(pool_id2).unwrap();
+    let mut pools: Pools = BTreeSet::new();
+    pools.insert(pool_id1);
+    pools.insert(pool_id2);
+
+    let result = queries_v16::get_stake_pool_params(client, era, pools.into())
         .await
         .unwrap();
     info!("result: {:?}", result);

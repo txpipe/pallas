@@ -1,16 +1,20 @@
 // TODO: this should move to pallas::ledger crate at some point
 
 use pallas_crypto::hash::Hash;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, TagWrap};
+use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 use pallas_codec::{
     minicbor::{Decode, Encode},
     utils::AnyCbor,
 };
+
+pub mod primitives;
+
+pub use primitives::{PoolMetadata, Relay};
 
 use crate::miniprotocols::Point;
 
@@ -39,7 +43,7 @@ pub enum BlockQuery {
     GetRewardProvenance,
     GetUTxOByTxIn(TxIns),
     GetStakePools,
-    GetStakePoolParams(AnyCbor),
+    GetStakePoolParams(PoolIds),
     GetRewardInfoPools,
     GetPoolState(AnyCbor),
     GetStakeSnapshots(Pools),
@@ -197,6 +201,19 @@ pub struct StakeDistribution {
     pub pools: KeyValuePairs<Bytes, Pool>,
 }
 
+/// The use of `BTreeMap`s as per [Pools] definition ensures that the hashes are
+/// in order (otherwise, the node will reject some queries).
+#[derive(Debug, PartialEq, Clone)]
+pub struct PoolIds {
+    pub hashes: Pools,
+}
+
+impl From<Pools> for PoolIds {
+    fn from(hashes: Pools) -> Self {
+        Self { hashes }
+    }
+}
+
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Pool {
     #[n(0)]
@@ -204,6 +221,39 @@ pub struct Pool {
 
     #[n(1)]
     pub hashes: Bytes,
+}
+
+// Essentially the `PoolRegistration` component of `Certificate` at
+// `pallas-primitives/src/alonzo/model.rs`, with types modified for the present
+// context
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct PoolParams {
+    #[n(0)]
+    pub operator: Bytes,
+
+    #[n(1)]
+    pub vrf_keyhash: Bytes,
+
+    #[n(2)]
+    pub pledge: Coin,
+
+    #[n(3)]
+    pub cost: Coin,
+
+    #[n(4)]
+    pub margin: UnitInterval,
+
+    #[n(5)]
+    pub reward_account: Addr,
+
+    #[n(6)]
+    pub pool_owners: PoolIds,
+
+    #[n(7)]
+    pub relays: Vec<Relay>,
+
+    #[n(8)]
+    pub pool_metadata: Nullable<PoolMetadata>,
 }
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
@@ -504,6 +554,20 @@ pub async fn get_cbor(
     let result = client.query(query).await?;
 
     Ok(result)
+}
+
+/// Get parameters for the given pools.
+pub async fn get_stake_pool_params(
+    client: &mut Client,
+    era: u16,
+    pool_ids: PoolIds,
+) -> Result<BTreeMap<Bytes, PoolParams>, ClientError> {
+    let query = BlockQuery::GetStakePoolParams(pool_ids);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result: (_,) = client.query(query).await?;
+
+    Ok(result.0)
 }
 
 /// Get the genesis configuration for the given era.

@@ -339,6 +339,29 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
     }
 }
 
+impl<'b, C> minicbor::decode::Decode<'b, C> for PoolIds {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.tag()?;
+
+        Ok(PoolIds {
+            hashes: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for PoolIds {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::new(258))?;
+        e.encode_with(self.hashes.clone(), ctx)?;
+
+        Ok(())
+    }
+}
+
 impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionOutput {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
