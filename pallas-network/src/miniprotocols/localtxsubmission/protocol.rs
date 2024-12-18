@@ -41,7 +41,6 @@ pub enum UtxoFailure {
 pub enum UtxowFailure {
     ExtraneousScriptWitnessesUTXOW(Vec<Bytes>),
     UtxoFailure(UtxoFailure),
-    U8(u8),
     Raw(Vec<u8>),
 }
 

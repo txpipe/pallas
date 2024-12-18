@@ -129,57 +129,36 @@ impl Encode<()> for RejectReason {
 
 impl<'b> Decode<'b, ()> for TxError {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let data = d.input();
         let start_pos = d.position();
-        let mut raw_elements = Vec::new();
 
         match d.datatype()? {
             CborType::Array => d.array()?,
             _ => {
-                d.skip()?;
-                // Skip decoding the elements of the array
-                // Store the slice of raw CBOR
-                raw_elements.append(&mut data[start_pos..d.position()].to_vec());
-
-                return Ok(TxError::Raw(raw_elements));
+                return Ok(TxError::Raw(cbor_last(d, start_pos)?));
             }
         };
 
         match d.u8()? {
             1 => Ok(TxError::ConwayUtxowFailure(d.decode()?)),
-            _ => {
-                d.set_position(start_pos);
-                d.skip()?;
-                raw_elements.append(&mut data[start_pos..d.position()].to_vec());
-
-                Ok(TxError::Raw(raw_elements))
-            }
+            _ => Ok(TxError::Raw(cbor_last(d, start_pos)?)),
         }
     }
 }
 
 impl<'b> Decode<'b, ()> for UtxowFailure {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let data = d.input();
         let start_pos = d.position();
-        let mut raw_elements = Vec::new();
         d.array()?;
 
         match d.u8()? {
-            0 => Ok(TxError::UtxoFailure(d.decode()?)),
+            0 => Ok(UtxowFailure::UtxoFailure(d.decode()?)),
             9 => {
                 d.tag()?;
                 let vec_bytes: Vec<Bytes> = d.decode()?;
-
+                
                 Ok(UtxowFailure::ExtraneousScriptWitnessesUTXOW(vec_bytes))
             }
-            _ => {
-                d.set_position(start_pos);
-                d.skip()?;
-                raw_elements.append(&mut data[start_pos..d.position()].to_vec());
-
-                Ok(UtxowFailure::Raw(raw_elements))
-            }
+            _ => Ok(UtxowFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
 }
@@ -187,7 +166,6 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
 impl<'b> Decode<'b, ()> for UtxoFailure {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let start_pos = d.position();
-        let data = d.input();
         d.array()?;
 
         match d.u8()? {
@@ -196,14 +174,19 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 return Ok(UtxoFailure::BadInputsUTxO(d.decode()?));
             }
             _ => {
-                // Return decoder index to origin of array and return it as bytes.
-                d.set_position(start_pos);
-                d.skip()?;
-
-                return Ok(UtxoFailure::Raw(data[start_pos..d.position()].to_vec()));
+                return Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?));
             }
         };
     }
+}
+
+/// Returns the CBOR data of the item at the provided position.
+pub fn cbor_last(d: &mut Decoder, start_pos: usize) -> Result<Vec<u8>, decode::Error> {
+    let data = d.input();
+    d.set_position(start_pos);
+    d.skip()?;
+
+    Ok(data[start_pos..d.position()].to_vec())
 }
 
 #[cfg(test)]
