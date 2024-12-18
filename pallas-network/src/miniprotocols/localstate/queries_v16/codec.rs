@@ -136,7 +136,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
             6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
-            // 7 => Ok(Self::GetUTxOWhole),
+            7 => Ok(Self::GetUTxOWhole),
             // 8 => Ok(Self::DebugEpochState),
             9 => Ok(Self::GetCBOR(d.decode()?)),
             10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(d.decode()?)),
