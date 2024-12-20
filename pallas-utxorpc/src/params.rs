@@ -215,7 +215,7 @@ impl<C: LedgerContext> Mapper<C> {
                     memory: params.max_block_ex_units.mem,
                     steps: params.max_block_ex_units.steps,
                 }),
-                min_fee_script_ref_cost_per_byte: params.minfee_refscript_cost_per_byte,
+                min_fee_script_ref_cost_per_byte: params.minfee_refscript_cost_per_byte.numerator / params.minfee_refscript_cost_per_byte.denominator,
                 cost_models: u5c::CostModels {
                     plutus_v1: params
                         .cost_models_for_script_languages

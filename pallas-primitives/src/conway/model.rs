@@ -536,7 +536,7 @@ pub struct ProtocolParamUpdate {
     #[n(32)]
     pub drep_inactivity_period: Option<Epoch>,
     #[n(33)]
-    pub minfee_refscript_cost_per_byte: Option<Coin>,
+    pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]

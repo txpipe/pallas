@@ -256,5 +256,5 @@ impl<'b> MultiEraUpdate<'b> {
 
     param_boilerplate!(drep_inactivity_period: u64, [Conway]);
 
-    param_boilerplate!(minfee_refscript_cost_per_byte: u64, [Conway]);
+    param_boilerplate!(minfee_refscript_cost_per_byte: UnitInterval, [Conway]);
 }
