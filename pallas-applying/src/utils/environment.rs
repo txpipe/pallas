@@ -21,6 +21,28 @@ pub enum MultiEraProtocolParameters {
 }
 
 impl MultiEraProtocolParameters {
+    pub fn system_start(&self) -> chrono::DateTime<chrono::FixedOffset> {
+        match self {
+            MultiEraProtocolParameters::Byron(ByronProtParams { start_time, .. }) => {
+                chrono::DateTime::from_timestamp(*start_time as i64, 0)
+                    .expect("valid timestamp")
+                    .fixed_offset()
+            }
+            MultiEraProtocolParameters::Shelley(ShelleyProtParams { system_start, .. }) => {
+                *system_start
+            }
+            MultiEraProtocolParameters::Alonzo(AlonzoProtParams { system_start, .. }) => {
+                *system_start
+            }
+            MultiEraProtocolParameters::Babbage(BabbageProtParams { system_start, .. }) => {
+                *system_start
+            }
+            MultiEraProtocolParameters::Conway(ConwayProtParams { system_start, .. }) => {
+                *system_start
+            }
+        }
+    }
+
     pub fn protocol_version(&self) -> usize {
         match self {
             MultiEraProtocolParameters::Byron(ByronProtParams {
@@ -45,11 +67,56 @@ impl MultiEraProtocolParameters {
             }) => *x as usize,
         }
     }
+
+    const FIVE_DAYS_IN_SECONDS: u64 = 5 * 24 * 60 * 60;
+
+    pub fn epoch_length(&self) -> u64 {
+        match self {
+            MultiEraProtocolParameters::Byron(ByronProtParams { slot_duration, .. }) => {
+                // TODO: research if Byron epoch length is actually hardcoded or if you can get
+                // it from genesis files somehow
+                Self::FIVE_DAYS_IN_SECONDS / (*slot_duration / 1000)
+            }
+            MultiEraProtocolParameters::Shelley(ShelleyProtParams { epoch_length, .. }) => {
+                *epoch_length
+            }
+            MultiEraProtocolParameters::Alonzo(AlonzoProtParams { epoch_length, .. }) => {
+                *epoch_length
+            }
+            MultiEraProtocolParameters::Babbage(BabbageProtParams { epoch_length, .. }) => {
+                *epoch_length
+            }
+            MultiEraProtocolParameters::Conway(ConwayProtParams { epoch_length, .. }) => {
+                *epoch_length
+            }
+        }
+    }
+
+    pub fn slot_length(&self) -> u64 {
+        match self {
+            MultiEraProtocolParameters::Byron(ByronProtParams { slot_duration, .. }) => {
+                *slot_duration / 1000
+            }
+            MultiEraProtocolParameters::Shelley(ShelleyProtParams { slot_length, .. }) => {
+                *slot_length
+            }
+            MultiEraProtocolParameters::Alonzo(AlonzoProtParams { slot_length, .. }) => {
+                *slot_length
+            }
+            MultiEraProtocolParameters::Babbage(BabbageProtParams { slot_length, .. }) => {
+                *slot_length
+            }
+            MultiEraProtocolParameters::Conway(ConwayProtParams { slot_length, .. }) => {
+                *slot_length
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct ByronProtParams {
     pub block_version: (u16, u16, u8),
+    pub start_time: u64,
     pub script_version: u16,
     pub slot_duration: u64,
     pub max_block_size: u64,
@@ -69,6 +136,9 @@ pub struct ByronProtParams {
 
 #[derive(Debug, Clone)]
 pub struct ShelleyProtParams {
+    pub system_start: chrono::DateTime<chrono::FixedOffset>,
+    pub epoch_length: u64,
+    pub slot_length: u64,
     pub minfee_a: u32,
     pub minfee_b: u32,
     pub max_block_body_size: u32,
@@ -90,6 +160,9 @@ pub struct ShelleyProtParams {
 
 #[derive(Debug, Clone)]
 pub struct AlonzoProtParams {
+    pub system_start: chrono::DateTime<chrono::FixedOffset>,
+    pub epoch_length: u64,
+    pub slot_length: u64,
     pub minfee_a: u32,
     pub minfee_b: u32,
     pub max_block_body_size: u32,
@@ -118,6 +191,9 @@ pub struct AlonzoProtParams {
 
 #[derive(Debug, Clone)]
 pub struct BabbageProtParams {
+    pub system_start: chrono::DateTime<chrono::FixedOffset>,
+    pub epoch_length: u64,
+    pub slot_length: u64,
     pub minfee_a: u32,
     pub minfee_b: u32,
     pub max_block_body_size: u32,
@@ -146,6 +222,9 @@ pub struct BabbageProtParams {
 
 #[derive(Debug, Clone)]
 pub struct ConwayProtParams {
+    pub system_start: chrono::DateTime<chrono::FixedOffset>,
+    pub epoch_length: u64,
+    pub slot_length: u64,
     pub minfee_a: u32,
     pub minfee_b: u32,
     pub max_block_body_size: u32,
