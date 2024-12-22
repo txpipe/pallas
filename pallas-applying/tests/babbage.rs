@@ -2369,6 +2369,9 @@ mod babbage_tests {
 
     fn mk_mainnet_params_epoch_365() -> BabbageProtParams {
         BabbageProtParams {
+            system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+            epoch_length: 432000,
+            slot_length: 1,
             minfee_a: 44,
             minfee_b: 155381,
             max_block_body_size: 90112,
@@ -2445,6 +2448,9 @@ mod babbage_tests {
 
     fn mk_mainnet_params_epoch_380() -> BabbageProtParams {
         BabbageProtParams {
+            system_start: chrono::DateTime::parse_from_rfc3339("2022-10-25T00:00:00Z").unwrap(),
+            epoch_length: 432000,
+            slot_length: 1,
             minfee_a: 44,
             minfee_b: 155381,
             max_block_body_size: 90112,
@@ -2697,6 +2703,9 @@ mod babbage_tests {
 
     fn mk_preview_params_epoch_30() -> BabbageProtParams {
         BabbageProtParams {
+            system_start: chrono::DateTime::parse_from_rfc3339("2022-10-25T00:00:00Z").unwrap(),
+            epoch_length: 432000,
+            slot_length: 1,
             minfee_a: 44,
             minfee_b: 155381,
             max_block_body_size: 90112,
@@ -2787,6 +2796,9 @@ mod babbage_tests {
 
     fn mk_preprod_params_epoch_100() -> BabbageProtParams {
         BabbageProtParams {
+            system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+            epoch_length: 432000,
+            slot_length: 1,
             minfee_a: 44,
             minfee_b: 155381,
             max_block_body_size: 90112,
