@@ -183,9 +183,7 @@ impl<'b> MultiEraBlock<'b> {
         match self {
             MultiEraBlock::Byron(x) => {
                 if let Some(up) = x.body.upd_payload.proposal.deref() {
-                    // TODO: this might be horribly wrong, I'm assuming that the activation epoch
-                    // for a Byron upgrade proposal is always current epoch + 1.
-                    let epoch = x.header.consensus_data.0.epoch + 1;
+                    let epoch = x.header.consensus_data.0.epoch;
                     Some(MultiEraUpdate::Byron(
                         epoch,
                         Box::new(Cow::Owned(up.clone())),
