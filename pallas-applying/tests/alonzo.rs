@@ -2558,6 +2558,9 @@ mod alonzo_tests {
 
     fn mk_params_epoch_334() -> AlonzoProtParams {
         AlonzoProtParams {
+            system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+            epoch_length: 432000,
+            slot_length: 1,
             minfee_a: 44,
             minfee_b: 155381,
             max_block_body_size: 65536,
@@ -2633,6 +2636,9 @@ mod alonzo_tests {
 
     fn mk_params_epoch_300() -> AlonzoProtParams {
         AlonzoProtParams {
+            system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+            epoch_length: 432000,
+            slot_length: 1,
             minfee_a: 44,
             minfee_b: 155381,
             max_block_body_size: 81920,
