@@ -1,7 +1,6 @@
 use pallas_codec::minicbor;
 use paste::paste;
 use std::{borrow::Cow, ops::Deref};
-
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
 macro_rules! param_boilerplate {
