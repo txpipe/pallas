@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::data::{IanaTag, Type as CborType};
+use pallas_codec::minicbor::data::{IanaTag, Tag, Type as CborType};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use pallas_codec::utils::Bytes;
 
@@ -115,14 +115,24 @@ impl<'b> Decode<'b, ()> for RejectReason {
     }
 }
 
-// FIXME: Just the scaffold for encoding
 impl Encode<()> for RejectReason {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        e.array(0)?;
+        match self {
+            RejectReason::Plutus(s) => e
+                .writer_mut()
+                .write_all(s.as_bytes())
+                .map_err(encode::Error::write)?,
+            RejectReason::EraErrors(era, errors) => {
+                e.array(1)?;
+                e.array(2)?;
+                e.u8(*era)?;
+                e.encode(errors)?;
+            }
+        }
         Ok(())
     }
 }
@@ -163,6 +173,36 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
     }
 }
 
+impl Encode<()> for TxError {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+        e.u8(1)?;
+        match self {
+            TxError::ExtraneousScriptWitnessesUTXOW(addrs) => {
+                e.array(2)?;
+                e.u8(9)?;
+                e.tag(Tag::new(258))?;
+                e.encode(addrs)?;
+            }
+            TxError::UtxoFailure(failure) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(failure)?;
+            }
+            TxError::U8(n) => {
+                e.u8(*n)?;
+            }
+            TxError::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+        }
+
+        Ok(())
+    }
+}
+
 impl<'b> Decode<'b, ()> for UtxoFailure {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let start_pos = d.position();
@@ -180,6 +220,26 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
     }
 }
 
+impl Encode<()> for UtxoFailure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            UtxoFailure::BadInputsUTxO(inputs) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.tag(Tag::new(258))?;
+                e.encode(inputs)?;
+            }
+            UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+        }
+
+        Ok(())
+    }
+}
+
 /// Returns the CBOR data of the item at the provided position.
 pub fn cbor_last(d: &mut Decoder, start_pos: usize) -> Result<Vec<u8>, decode::Error> {
     let data = d.input();
@@ -191,7 +251,10 @@ pub fn cbor_last(d: &mut Decoder, start_pos: usize) -> Result<Vec<u8>, decode::E
 
 #[cfg(test)]
 mod tests {
-    use pallas_codec::{minicbor, Fragment};
+    use pallas_codec::{
+        minicbor::{self, encode},
+        Fragment,
+    };
 
     use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
     use crate::multiplexer::Error;
@@ -232,10 +295,14 @@ mod tests {
 
     #[test]
     fn decode_reject_reason() {
-        let mut bytes = hex::decode(RAW_REJECT_RESPONSE_CONWAY).unwrap();
-        let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes);
+        let bytes = hex::decode(RAW_REJECT_RESPONSE_CONWAY).unwrap();
+        let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes.clone());
         println!("Result: {:02x?}", msg_res);
-        assert!(msg_res.is_ok())
+        assert!(msg_res.is_ok());
+        let mut datum: Vec<u8> = Vec::new();
+        encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
+        println!("Encoding back: {:02x?}", datum);
+        assert_eq!(bytes, datum);
     }
 
     const RAW_REJECT_RESPONSE: &str =
