@@ -241,6 +241,11 @@ impl Encode<()> for UtxoFailure {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
+            UtxoFailure::UtxosFailure(failure) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(failure)?;
+            }
             UtxoFailure::BadInputsUTxO(inputs) => {
                 e.array(2)?;
                 e.u8(1)?;
