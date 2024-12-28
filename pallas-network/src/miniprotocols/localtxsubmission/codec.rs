@@ -404,9 +404,8 @@ mod tests {
         assert!(msg_res.is_ok())
     }
 
-    #[test]
-    fn decode_reject_reason() {
-        let bytes = hex::decode(RAW_REJECT_RESPONSE_CONWAY).unwrap();
+    fn decode_reject_reason(reject: &str) {
+        let bytes = hex::decode(reject).unwrap();
         let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes.clone());
         println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok());
@@ -417,15 +416,9 @@ mod tests {
     }
 
     #[test]
-    fn decode_isvalid_reject() {
-        let bytes = hex::decode(ISVALID_REJECT).unwrap();
-        let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes.clone());
-        println!("Result: {:02x?}", msg_res);
-        assert!(msg_res.is_ok());
-        let mut datum: Vec<u8> = Vec::new();
-        encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
-        println!("Encoding back: {:02x?}", datum);
-        assert_eq!(bytes, datum);
+    fn round_trip_codec() {
+        decode_reject_reason(RAW_REJECT_RESPONSE_CONWAY);
+        decode_reject_reason(ISVALID_REJECT_PREVIEW);
     }
 
     const RAW_REJECT_RESPONSE: &str =
@@ -524,5 +517,5 @@ mod tests {
          7c958b790447c4734fe39c8741dd1f38ace0fd54fcf2fc0182018200811382018200830c001a000fbd72820182\
          00830282811a044f777c811a044f858c1a04ace388";
 
-    const ISVALID_REJECT: &str = "8202818206818201820082008300f48100";
+    const ISVALID_REJECT_PREVIEW: &str = "8202818206818201820082008300f48100";
 }
