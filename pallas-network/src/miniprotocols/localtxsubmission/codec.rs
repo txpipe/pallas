@@ -2,7 +2,9 @@ use pallas_codec::minicbor::data::{IanaTag, Tag, Type as CborType};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use pallas_codec::utils::Bytes;
 
-use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, TxError, UtxoFailure};
+use crate::miniprotocols::localtxsubmission::{
+    EraTx, Message, RejectReason, TagMismatchDescription, TxError, UtxoFailure, UtxosFailure,
+};
 use std::str::from_utf8;
 
 use crate::miniprotocols::localtxsubmission::UtxowFailure;
@@ -223,6 +225,9 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
         d.array()?;
 
         match d.u8()? {
+            0 => {
+                return Ok(UtxoFailure::UtxosFailure(d.decode()?));
+            }
             1 => {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
@@ -253,6 +258,93 @@ impl Encode<()> for UtxoFailure {
                 e.encode(inputs)?;
             }
             UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for UtxosFailure {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => {
+                return Ok(UtxosFailure::ValidationTagMismatch(
+                    d.decode()?,
+                    d.decode()?,
+                ));
+            }
+            1 => {
+                return Ok(UtxosFailure::CollectErrors(d.decode()?));
+            }
+            _ => {
+                return Err(decode::Error::message("Unknown `UtxosFailure` variant"));
+            }
+        };
+    }
+}
+
+impl Encode<()> for UtxosFailure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            UtxosFailure::ValidationTagMismatch(isv, tmd) => {
+                e.array(3)?;
+                e.u8(0)?;
+                e.encode(isv)?;
+                e.encode(tmd)?;
+            }
+            UtxosFailure::CollectErrors(c) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(c)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for TagMismatchDescription {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => {
+                return Ok(TagMismatchDescription::PassedUnexpectedly);
+            }
+            1 => {
+                return Ok(TagMismatchDescription::FailedUnexpectedly(d.decode()?));
+            }
+            _ => {
+                return Err(decode::Error::message(
+                    "Unknown `TagMismatchDescription` variant",
+                ));
+            }
+        };
+    }
+}
+
+impl Encode<()> for TagMismatchDescription {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            TagMismatchDescription::PassedUnexpectedly => {
+                e.array(1)?;
+                e.u8(0)?;
+            }
+            TagMismatchDescription::FailedUnexpectedly(c) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(c)?;
+            }
         }
 
         Ok(())
@@ -315,6 +407,18 @@ mod tests {
     #[test]
     fn decode_reject_reason() {
         let bytes = hex::decode(RAW_REJECT_RESPONSE_CONWAY).unwrap();
+        let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes.clone());
+        println!("Result: {:02x?}", msg_res);
+        assert!(msg_res.is_ok());
+        let mut datum: Vec<u8> = Vec::new();
+        encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
+        println!("Encoding back: {:02x?}", datum);
+        assert_eq!(bytes, datum);
+    }
+
+    #[test]
+    fn decode_isvalid_reject() {
+        let bytes = hex::decode(ISVALID_REJECT).unwrap();
         let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes.clone());
         println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok());
@@ -419,4 +523,6 @@ mod tests {
          df92937f762ae2f0afcb9829c3ef514635ac0d9975750225519cdb071e1cff9201825820ff4f36b81327cfb4b1\
          7c958b790447c4734fe39c8741dd1f38ace0fd54fcf2fc0182018200811382018200830c001a000fbd72820182\
          00830282811a044f777c811a044f858c1a04ace388";
+
+    const ISVALID_REJECT: &str = "8202818206818201820082008300f48100";
 }
