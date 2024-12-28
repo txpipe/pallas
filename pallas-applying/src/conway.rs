@@ -1,7 +1,15 @@
 //! Utilities required for Conway-era transaction validation.
 
 use crate::utils::{
-     aux_data_from_conway_minted_tx, compute_native_script_hash, compute_plutus_v1_script_hash, compute_plutus_v2_script_hash, compute_plutus_v3_script_hash, conway_add_minted_non_zero, conway_add_values, conway_empty_value, conway_get_val_size_in_words, conway_lovelace_diff_or_fail, conway_values_are_equal, get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part, get_shelley_address, is_byron_address, mk_alonzo_vk_wits_check_list, verify_signature, BabbageError::*, ConwayProtParams, UTxOs, ValidationError::{self, *}, ValidationResult
+    aux_data_from_conway_minted_tx, compute_native_script_hash, compute_plutus_v1_script_hash,
+    compute_plutus_v2_script_hash, compute_plutus_v3_script_hash, conway_add_minted_non_zero,
+    conway_add_values, conway_get_val_size_in_words, conway_lovelace_diff_or_fail,
+    conway_values_are_equal, get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part,
+    get_shelley_address, is_byron_address, mk_alonzo_vk_wits_check_list, verify_signature,
+    BabbageError::*,
+    ConwayProtParams, UTxOs,
+    ValidationError::{self, *},
+    ValidationResult,
 };
 use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
@@ -9,11 +17,11 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw},
 };
 use pallas_primitives::{
-    conway::{
-        Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value
-    }, AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput
+    babbage, conway::{
+        self, Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value
+    }, AddrKeyhash, Coin, Hash, NonEmptyKeyValuePairs, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput
 };
-use pallas_traverse::{ MultiEraInput, MultiEraOutput, OriginalHash};
+use pallas_traverse::{output, MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -27,7 +35,7 @@ pub fn validate_conway_tx(
     let tx_body: &MintedTransactionBody = &mtx.transaction_body.clone();
     let size: u32 = get_conway_tx_size(mtx).ok_or(Babbage(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
-    // check_all_ins_in_utxos(tx_body, utxos)?;
+    check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
     check_fee(tx_body, &size, mtx, utxos, prot_pps)?;
     check_preservation_of_value(tx_body, utxos)?;
@@ -40,8 +48,8 @@ pub fn validate_conway_tx(
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, utxos, network_magic, network_id, block_slot)?;
-    check_auxiliary_data(tx_body, mtx)?;
-    check_script_data_hash(tx_body, mtx, utxos, network_magic, network_id, block_slot)
+    check_auxiliary_data(tx_body, mtx)
+    // check_script_data_hash(tx_body, mtx, utxos, network_magic, network_id, block_slot)
 }
 
 // The set of transaction inputs is not empty.
@@ -155,13 +163,20 @@ fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
     let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
     let plutus_v1_scripts: &[PlutusScript<1>] = &minted_witness_set
         .plutus_v1_script
-        .clone()
-        .unwrap();
+        .as_ref()
+        .map(|x| x.as_slice())
+        .unwrap_or(&[]);
     let plutus_v2_scripts: &[PlutusScript<2>] = &minted_witness_set
         .plutus_v2_script
-        .clone()
-        .unwrap();
-    !plutus_v1_scripts.is_empty() || !plutus_v2_scripts.is_empty()
+        .as_ref()
+        .map(|x| x.as_slice())
+        .unwrap_or(&[]);
+    let plutus_v3_scripts: &[PlutusScript<3>] = &minted_witness_set
+        .plutus_v3_script
+        .as_ref()
+        .map(|x| x.as_slice())
+        .unwrap_or(&[]);
+    !plutus_v1_scripts.is_empty() || !plutus_v2_scripts.is_empty() || !plutus_v3_scripts.is_empty()
 }
 
 fn check_collaterals(
@@ -228,8 +243,13 @@ fn check_collaterals_assets(
 ) -> ValidationResult {
     match &tx_body.collateral {
         Some(collaterals) => {
-            let mut coll_input: Value = conway_empty_value();
-            for collateral in collaterals {
+            let first_collateral = collaterals.first().unwrap();
+            let mut coll_input =
+                match utxos.get(&MultiEraInput::from_alonzo_compatible(first_collateral)) {
+                    Some(multi_era_output) => val_from_multi_era_output(multi_era_output),
+                    None => return Err(Babbage(CollateralNotInUTxO)),
+                };
+            for collateral in collaterals.iter().skip(1) {
                 match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
                     Some(multi_era_output) => {
                         coll_input = conway_add_values(
@@ -249,8 +269,11 @@ fn check_collaterals_assets(
                 None => Value::Coin(0),
             };
             // The balance between collateral inputs and output contains only lovelace.
-            let paid_collateral: u64 =
-                conway_lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
+            let paid_collateral: u64 = conway_lovelace_diff_or_fail(
+                &coll_input,
+                &coll_return,
+                &Babbage(NonLovelaceCollateral),
+            )?;
             let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
             // The balance is not lower than the minimum allowed.
             if paid_collateral * 100 < fee_percentage {
@@ -269,11 +292,30 @@ fn check_collaterals_assets(
 }
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
-     match multi_era_output.as_conway() {
-        Some(PseudoTransactionOutput::Legacy(_)) => unimplemented!(),
+    match multi_era_output.as_conway() {
+        Some(PseudoTransactionOutput::Legacy(output)) => {
+            let amount = output.amount.clone();
+            match amount {
+                babbage::Value::Coin(coin) => Value::Coin(coin),
+                babbage::Value::Multiasset(coin, assets) => {
+                    let mut conway_assets = Vec::new();
+                    for (key, val) in assets.to_vec() {
+                        let mut conway_value = Vec::new();
+                        for (inner_key, inner_val) in val.to_vec() {
+                            conway_value
+                                .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                        }
+                        conway_assets
+                            .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                    }
+                    let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                    Value::Multiasset(coin, conway_assets)
+                }
+            }
+        }
         Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
         None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
-                                    * type MultiEraOutput was extended with another variant */
+                                   * type MultiEraOutput was extended with another variant */
     }
 }
 
@@ -296,8 +338,15 @@ fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
 }
 
 fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
-    let mut res: Value = conway_empty_value();
-    for input in tx_body.inputs.iter() {
+    let mut inputs_iter = tx_body.inputs.iter();
+    let Some(first_input) = inputs_iter.next() else {
+        return Err(Babbage(TxInsEmpty));
+    };
+    let multi_era_output: &MultiEraOutput = utxos
+        .get(&MultiEraInput::from_alonzo_compatible(first_input))
+        .ok_or(Babbage(InputNotInUTxO))?;
+    let mut res: Value = val_from_multi_era_output(multi_era_output);
+    for input in inputs_iter {
         let multi_era_output: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(Babbage(InputNotInUTxO))?;
@@ -308,10 +357,57 @@ fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value,
 }
 
 fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationError> {
-    let mut res: Value = conway_empty_value();
-    for output in tx_body.outputs.iter() {
+    let mut outputs_iter = tx_body.outputs.iter();
+    let Some(first_output) = outputs_iter.next() else {
+        return Err(Babbage(TxInsEmpty));
+    };
+    let mut res: Value = match first_output {
+        PseudoTransactionOutput::Legacy(output) => {
+            let amount = output.amount.clone();
+            match amount {
+                babbage::Value::Coin(coin) => Value::Coin(coin),
+                babbage::Value::Multiasset(coin, assets) => {
+                    let mut conway_assets = Vec::new();
+                    for (key, val) in assets.to_vec() {
+                        let mut conway_value = Vec::new();
+                        for (inner_key, inner_val) in val.to_vec() {
+                            conway_value
+                                .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                        }
+                        conway_assets
+                            .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                    }
+                    let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                    Value::Multiasset(coin, conway_assets)
+                }
+            }
+        }
+        PseudoTransactionOutput::PostAlonzo(output) => output.value.clone(),
+    };
+    for output in outputs_iter {
         match output {
-            PseudoTransactionOutput::Legacy(_) => unimplemented!(),
+            PseudoTransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => {
+                        res = conway_add_values(&res, &Value::Coin(coin), &Babbage(NegativeValue))?
+                    },
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.to_vec() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.to_vec() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets
+                                .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                        }
+                        let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                        res = conway_add_values(&res, &Value::Multiasset(coin, conway_assets), &Babbage(NegativeValue))?
+                    }
+                }
+            }
             PseudoTransactionOutput::PostAlonzo(output) => {
                 res = conway_add_values(&res, &output.value, &Babbage(NegativeValue))?
             }
@@ -326,7 +422,26 @@ fn check_min_lovelace(
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output {
-            PseudoTransactionOutput::Legacy(_) => unimplemented!(),
+            PseudoTransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => &Value::Coin(coin),
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.to_vec() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.to_vec() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets
+                                .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                        }
+                        let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                        &Value::Multiasset(coin, conway_assets)
+                    }
+                }
+            },
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if get_lovelace_from_conway_val(val) < compute_min_lovelace(val, prot_pps) {
@@ -348,7 +463,26 @@ fn check_output_val_size(
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output {
-            PseudoTransactionOutput::Legacy(_) => unimplemented!(),
+            PseudoTransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => &Value::Coin(coin),
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.to_vec() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.to_vec() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets
+                                .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                        }
+                        let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                        &Value::Multiasset(coin, conway_assets)
+                    }
+                }
+            },
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if conway_get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
@@ -402,26 +536,22 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &ConwayProtParams) -> ValidationR
         match &tx_wits.redeemer {
             Some(redeemers_vec) => {
                 let mut steps: u64 = 0;
-                let mut mem: u64 = 0;   
+                let mut mem: u64 = 0;
                 match redeemers_vec.clone().unwrap() {
                     Redeemers::List(r) => {
-                        let _ = r
-                        .iter()
-                        .map(|x| {
+                        let _ = r.iter().map(|x| {
                             mem += x.ex_units.mem;
                             steps += x.ex_units.steps;
                         });
-                    },
+                    }
                     Redeemers::Map(r) => {
-                        let _ = r
-                        .iter()
-                        .map(|x| {
+                        let _ = r.iter().map(|x| {
                             mem += x.1.ex_units.mem;
                             steps += x.1.ex_units.steps;
                         });
                     }
                 }
-        
+
                 if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
                     return Err(Babbage(TxExUnitsExceeded));
                 }
@@ -534,7 +664,14 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
         &plutus_v3_scripts,
         &reference_scripts,
     )?;
-    check_datums(tx_body, utxos, &Some(tx_wits.plutus_data.clone().unwrap().to_vec()))?;
+    let plutus_data = tx_wits.plutus_data
+        .clone()
+        .map(|data| data.to_vec());
+    check_datums(
+        tx_body,
+        utxos,
+        &plutus_data,
+    )?;
     check_redeemers(
         &plutus_v1_scripts,
         &plutus_v2_scripts,
@@ -545,7 +682,11 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
         utxos,
     )?;
     check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
-    check_vkey_input_wits(mtx, &Some(tx_wits.vkeywitness.clone().unwrap().to_vec()), utxos)
+    check_vkey_input_wits(
+        mtx,
+        &Some(tx_wits.vkeywitness.clone().unwrap().to_vec()),
+        utxos,
+    )
 }
 
 // Each minting policy or script hash in a script input address can be matched
@@ -768,7 +909,6 @@ fn get_script_hash_from_reference_input(
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(plutus_v3_script.as_ref());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
-
                     }
                 }
             }
@@ -999,8 +1139,8 @@ fn check_redeemers(
                     index: x.0.index,
                 })
                 .collect(),
-        }
-            
+        },
+
         None => Vec::new(),
     };
     let plutus_scripts: Vec<RedeemersKey> = mk_plutus_script_redeemer_pointers(
@@ -1282,7 +1422,13 @@ fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     if any_byron_addresses(&all_outputs) {
         vec![]
     } else if any_datums_or_script_refs(&all_outputs)
-        || any_reference_inputs(&Some(mtx.transaction_body.reference_inputs.clone().unwrap().to_vec()))
+        || any_reference_inputs(&Some(
+            mtx.transaction_body
+                .reference_inputs
+                .clone()
+                .unwrap()
+                .to_vec(),
+        ))
     {
         vec![Language::PlutusV2]
     } else {
@@ -1456,23 +1602,21 @@ fn check_script_data_hash(
                             network_id,
                             block_slot,
                         );
-                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
+                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
+                        {
                             Ok(())
                         } else {
                             Err(Babbage(ScriptIntegrityHash))
                         }
                     }
                     Redeemers::Map(redeemers) => {
-                        let redeemers: Vec<Redeemer> =
-                            redeemers
+                        let redeemers: Vec<Redeemer> = redeemers
                             .iter()
-                            .map(|x|{
-                                Redeemer {
-                                    tag: x.0.tag,
-                                    index: x.0.index,
-                                    data: x.1.data.clone(),
-                                    ex_units: x.1.ex_units,
-                                }
+                            .map(|x| Redeemer {
+                                tag: x.0.tag,
+                                index: x.0.index,
+                                data: x.1.data.clone(),
+                                ex_units: x.1.ex_units,
                             })
                             .collect();
 
@@ -1484,30 +1628,39 @@ fn check_script_data_hash(
                             network_id,
                             block_slot,
                         );
-                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
+                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
+                        {
                             Ok(())
                         } else {
                             Err(Babbage(ScriptIntegrityHash))
                         }
                     }
                 }
-               
             }
             (_, _) => Err(Babbage(ScriptIntegrityHash)),
         },
         None => {
-            if option_vec_is_empty(&Some(mtx.transaction_witness_set.plutus_data.clone().unwrap().to_vec()))
-            {
-                match &mtx.transaction_witness_set.redeemer.clone().unwrap().unwrap() {
-                   Redeemers::List(redeemers) => {
+            let plutus_data = mtx.transaction_witness_set
+            .plutus_data
+            .clone()
+            .map(|x| x.to_vec());
+            if option_vec_is_empty(&plutus_data) {
+                match &mtx
+                    .transaction_witness_set
+                    .redeemer
+                    .clone()
+                    .unwrap()
+                    .unwrap()
+                {
+                    Redeemers::List(redeemers) => {
                         if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
                             return Err(Babbage(ScriptIntegrityHash));
-                        } 
+                        }
                     }
                     Redeemers::Map(redeemers) => {
                         if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
                             return Err(Babbage(ScriptIntegrityHash));
-                        } 
+                        }
                     }
                 }
                 Ok(())
