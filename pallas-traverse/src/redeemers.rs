@@ -53,6 +53,18 @@ impl<'b> MultiEraRedeemer<'b> {
         }
     }
 
+    pub fn into_conway_deprecated(&self) -> Option<conway::Redeemer> {
+        match self {
+            Self::AlonzoCompatible(_) => None,
+            Self::Conway(x, y) => Some(conway::Redeemer {
+                tag: x.tag,
+                index: x.index,
+                data: y.data.clone(),
+                ex_units: y.ex_units,
+            }),
+        }
+    }
+
     pub fn from_alonzo_compatible(redeemer: &'b alonzo::Redeemer) -> Self {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(redeemer)))
     }
