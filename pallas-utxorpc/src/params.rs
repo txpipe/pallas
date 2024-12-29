@@ -222,25 +222,70 @@ impl<C: LedgerContext> Mapper<C> {
                 }),
                 pool_voting_thresholds: Some(u5c::VotingThresholds{
                     thresholds: vec![
-                        to_u5c_rational(&params.pool_voting_thresholds.motion_no_confidence),
-                        to_u5c_rational(&params.pool_voting_thresholds.committee_normal),
-                        to_u5c_rational(&params.pool_voting_thresholds.committee_no_confidence),
-                        to_u5c_rational(&params.pool_voting_thresholds.hard_fork_initiation),
-                        to_u5c_rational(&params.pool_voting_thresholds.security_voting_threshold),
+                        u5c::RationalNumber {
+                            numerator: params.pool_voting_thresholds.motion_no_confidence.numerator as i32,
+                            denominator: params.pool_voting_thresholds.motion_no_confidence.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.pool_voting_thresholds.committee_normal.numerator as i32,
+                            denominator: params.pool_voting_thresholds.committee_normal.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.pool_voting_thresholds.committee_no_confidence.numerator as i32,
+                            denominator: params.pool_voting_thresholds.committee_no_confidence.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.pool_voting_thresholds.hard_fork_initiation.numerator as i32,
+                            denominator: params.pool_voting_thresholds.hard_fork_initiation.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.pool_voting_thresholds.security_voting_threshold.numerator as i32,
+                            denominator: params.pool_voting_thresholds.security_voting_threshold.denominator as u32,
+                        },
                     ]
                 }),
                 drep_voting_thresholds: Some(u5c::VotingThresholds{
                     thresholds: vec![
-                        to_u5c_rational(&params.drep_voting_thresholds.motion_no_confidence),
-                        to_u5c_rational(&params.drep_voting_thresholds.committee_normal),
-                        to_u5c_rational(&params.drep_voting_thresholds.committee_no_confidence),
-                        to_u5c_rational(&params.drep_voting_thresholds.update_constitution),
-                        to_u5c_rational(&params.drep_voting_thresholds.hard_fork_initiation),
-                        to_u5c_rational(&params.drep_voting_thresholds.pp_network_group),
-                        to_u5c_rational(&params.drep_voting_thresholds.pp_economic_group),
-                        to_u5c_rational(&params.drep_voting_thresholds.pp_technical_group),
-                        to_u5c_rational(&params.drep_voting_thresholds.pp_governance_group),
-                        to_u5c_rational(&params.drep_voting_thresholds.treasury_withdrawal),
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.motion_no_confidence.numerator as i32,
+                            denominator: params.drep_voting_thresholds.motion_no_confidence.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.committee_normal.numerator as i32,
+                            denominator: params.drep_voting_thresholds.committee_normal.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.committee_no_confidence.numerator as i32,
+                            denominator: params.drep_voting_thresholds.committee_no_confidence.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.update_constitution.numerator as i32,
+                            denominator: params.drep_voting_thresholds.update_constitution.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.hard_fork_initiation.numerator as i32,
+                            denominator: params.drep_voting_thresholds.hard_fork_initiation.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.pp_network_group.numerator as i32,
+                            denominator: params.drep_voting_thresholds.pp_network_group.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.pp_economic_group.numerator as i32,
+                            denominator: params.drep_voting_thresholds.pp_economic_group.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.pp_technical_group.numerator as i32,
+                            denominator: params.drep_voting_thresholds.pp_technical_group.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.pp_governance_group.numerator as i32,
+                            denominator: params.drep_voting_thresholds.pp_governance_group.denominator as u32,
+                        },
+                        u5c::RationalNumber {
+                            numerator: params.drep_voting_thresholds.treasury_withdrawal.numerator as i32,
+                            denominator: params.drep_voting_thresholds.treasury_withdrawal.denominator as u32,
+                        },
                     ]
                 }),
                 min_committee_size: params.min_committee_size as u32,
@@ -268,12 +313,5 @@ impl<C: LedgerContext> Mapper<C> {
             },
             _ => unimplemented!(),
         }
-    }
-}
-
-fn to_u5c_rational(interval: &UnitInterval) -> u5c::RationalNumber {
-    u5c::RationalNumber {
-        numerator: interval.numerator as i32,
-        denominator: interval.denominator as u32,
     }
 }
