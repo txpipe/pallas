@@ -6,7 +6,7 @@ use crate::utils::{
     conway_add_values, conway_get_val_size_in_words, conway_lovelace_diff_or_fail,
     conway_values_are_equal, get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part,
     get_shelley_address, is_byron_address, mk_alonzo_vk_wits_check_list, verify_signature,
-    BabbageError::*,
+    PostAlonzoError::*,
     ConwayProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
@@ -17,11 +17,16 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw},
 };
 use pallas_primitives::{
-    babbage, conway::{
-        self, Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer, Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value
-    }, AddrKeyhash, Coin, Hash, NonEmptyKeyValuePairs, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput
+    babbage,
+    conway::{
+        Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx,
+        MintedWitnessSet, NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput,
+        Redeemer, Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value,
+    },
+    AddrKeyhash, Hash, NonEmptyKeyValuePairs, PlutusData, PlutusScript, PolicyId,
+    PositiveCoin, TransactionInput,
 };
-use pallas_traverse::{output, MultiEraInput, MultiEraOutput, OriginalHash};
+use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -33,7 +38,7 @@ pub fn validate_conway_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body.clone();
-    let size: u32 = get_conway_tx_size(mtx).ok_or(Babbage(UnknownTxSize))?;
+    let size: u32 = get_conway_tx_size(mtx).ok_or(PostAlonzo(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
@@ -48,14 +53,14 @@ pub fn validate_conway_tx(
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, utxos, network_magic, network_id, block_slot)?;
-    check_auxiliary_data(tx_body, mtx)
-    // check_script_data_hash(tx_body, mtx, utxos, network_magic, network_id, block_slot)
+    check_auxiliary_data(tx_body, mtx)?;
+    check_script_data_hash(tx_body, mtx, utxos, network_magic, network_id, block_slot)
 }
 
 // The set of transaction inputs is not empty.
 fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
     if tx_body.inputs.is_empty() {
-        return Err(Babbage(TxInsEmpty));
+        return Err(PostAlonzo(TxInsEmpty));
     }
     Ok(())
 }
@@ -65,7 +70,7 @@ fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
 fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
-            return Err(Babbage(InputNotInUTxO));
+            return Err(PostAlonzo(InputNotInUTxO));
         }
     }
     match &tx_body.collateral {
@@ -73,7 +78,7 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
         Some(collaterals) => {
             for collateral in collaterals {
                 if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(collateral))) {
-                    return Err(Babbage(CollateralNotInUTxO));
+                    return Err(PostAlonzo(CollateralNotInUTxO));
                 }
             }
         }
@@ -83,7 +88,7 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
         Some(reference_inputs) => {
             for reference_input in reference_inputs {
                 if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(reference_input))) {
-                    return Err(Babbage(ReferenceInputNotInUTxO));
+                    return Err(PostAlonzo(ReferenceInputNotInUTxO));
                 }
             }
         }
@@ -107,7 +112,7 @@ fn check_lower_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
     match tx_body.validity_interval_start {
         Some(lower_bound) => {
             if block_slot < lower_bound {
-                Err(Babbage(BlockPrecedesValInt))
+                Err(PostAlonzo(BlockPrecedesValInt))
             } else {
                 Ok(())
             }
@@ -122,7 +127,7 @@ fn check_upper_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
     match tx_body.ttl {
         Some(upper_bound) => {
             if upper_bound < block_slot {
-                Err(Babbage(BlockExceedsValInt))
+                Err(PostAlonzo(BlockExceedsValInt))
             } else {
                 // TODO: check that `upper_bound` is translatable to UTC time.
                 Ok(())
@@ -154,7 +159,7 @@ fn check_min_fee(
     prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
-        return Err(Babbage(FeeBelowMin));
+        return Err(PostAlonzo(FeeBelowMin));
     }
     Ok(())
 }
@@ -187,7 +192,7 @@ fn check_collaterals(
     let collaterals: &[TransactionInput] = &tx_body
         .collateral
         .clone()
-        .ok_or(Babbage(CollateralMissing))?;
+        .ok_or(PostAlonzo(CollateralMissing))?;
     check_collaterals_number(collaterals, prot_pps)?;
     check_collaterals_address(collaterals, utxos)?;
     check_collaterals_assets(tx_body, utxos, prot_pps)
@@ -200,9 +205,9 @@ fn check_collaterals_number(
     prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     if collaterals.is_empty() {
-        Err(Babbage(CollateralMissing))
+        Err(PostAlonzo(CollateralMissing))
     } else if collaterals.len() as u32 > prot_pps.max_collateral_inputs {
-        Err(Babbage(TooManyCollaterals))
+        Err(PostAlonzo(TooManyCollaterals))
     } else {
         Ok(())
     }
@@ -219,14 +224,14 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
                         PseudoTransactionOutput::PostAlonzo(inner) => &inner.address,
                     };
                     if let ShelleyPaymentPart::Script(_) =
-                        get_payment_part(address).ok_or(Babbage(InputDecoding))?
+                        get_payment_part(address).ok_or(PostAlonzo(InputDecoding))?
                     {
-                        return Err(Babbage(CollateralNotVKeyLocked));
+                        return Err(PostAlonzo(CollateralNotVKeyLocked));
                     }
                 }
             }
             None => {
-                return Err(Babbage(CollateralNotInUTxO));
+                return Err(PostAlonzo(CollateralNotInUTxO));
             }
         }
     }
@@ -247,7 +252,7 @@ fn check_collaterals_assets(
             let mut coll_input =
                 match utxos.get(&MultiEraInput::from_alonzo_compatible(first_collateral)) {
                     Some(multi_era_output) => val_from_multi_era_output(multi_era_output),
-                    None => return Err(Babbage(CollateralNotInUTxO)),
+                    None => return Err(PostAlonzo(CollateralNotInUTxO)),
                 };
             for collateral in collaterals.iter().skip(1) {
                 match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
@@ -255,11 +260,11 @@ fn check_collaterals_assets(
                         coll_input = conway_add_values(
                             &coll_input,
                             &val_from_multi_era_output(multi_era_output),
-                            &Babbage(NegativeValue),
+                            &PostAlonzo(NegativeValue),
                         )?
                     }
                     None => {
-                        return Err(Babbage(CollateralNotInUTxO));
+                        return Err(PostAlonzo(CollateralNotInUTxO));
                     }
                 }
             }
@@ -272,21 +277,21 @@ fn check_collaterals_assets(
             let paid_collateral: u64 = conway_lovelace_diff_or_fail(
                 &coll_input,
                 &coll_return,
-                &Babbage(NonLovelaceCollateral),
+                &PostAlonzo(NonLovelaceCollateral),
             )?;
             let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
             // The balance is not lower than the minimum allowed.
             if paid_collateral * 100 < fee_percentage {
-                return Err(Babbage(CollateralMinLovelace));
+                return Err(PostAlonzo(CollateralMinLovelace));
             }
             // The balance matches exactly the collateral annotated in the transaction body.
             if let Some(annotated_collateral) = &tx_body.total_collateral {
                 if paid_collateral != *annotated_collateral {
-                    return Err(Babbage(CollateralAnnotation));
+                    return Err(PostAlonzo(CollateralAnnotation));
                 }
             }
         }
-        None => return Err(Babbage(CollateralMissing)),
+        None => return Err(PostAlonzo(CollateralMissing)),
     }
     Ok(())
 }
@@ -326,13 +331,13 @@ fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
     let output: Value = conway_add_values(
         &produced,
         &Value::Coin(tx_body.fee),
-        &Babbage(NegativeValue),
+        &PostAlonzo(NegativeValue),
     )?;
     if let Some(m) = &tx_body.mint {
-        input = conway_add_minted_non_zero(&input, m, &Babbage(NegativeValue))?;
+        input = conway_add_minted_non_zero(&input, m, &PostAlonzo(NegativeValue))?;
     }
     if !conway_values_are_equal(&input, &output) {
-        return Err(Babbage(PreservationOfValue));
+        return Err(PostAlonzo(PreservationOfValue));
     }
     Ok(())
 }
@@ -340,18 +345,18 @@ fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
 fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
     let mut inputs_iter = tx_body.inputs.iter();
     let Some(first_input) = inputs_iter.next() else {
-        return Err(Babbage(TxInsEmpty));
+        return Err(PostAlonzo(TxInsEmpty));
     };
     let multi_era_output: &MultiEraOutput = utxos
         .get(&MultiEraInput::from_alonzo_compatible(first_input))
-        .ok_or(Babbage(InputNotInUTxO))?;
+        .ok_or(PostAlonzo(InputNotInUTxO))?;
     let mut res: Value = val_from_multi_era_output(multi_era_output);
     for input in inputs_iter {
         let multi_era_output: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
-            .ok_or(Babbage(InputNotInUTxO))?;
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
         let val: Value = val_from_multi_era_output(multi_era_output);
-        res = conway_add_values(&res, &val, &Babbage(NegativeValue))?;
+        res = conway_add_values(&res, &val, &PostAlonzo(NegativeValue))?;
     }
     Ok(res)
 }
@@ -359,7 +364,7 @@ fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value,
 fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationError> {
     let mut outputs_iter = tx_body.outputs.iter();
     let Some(first_output) = outputs_iter.next() else {
-        return Err(Babbage(TxInsEmpty));
+        return Err(PostAlonzo(TxInsEmpty));
     };
     let mut res: Value = match first_output {
         PseudoTransactionOutput::Legacy(output) => {
@@ -390,8 +395,8 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                 let amount = output.amount.clone();
                 match amount {
                     babbage::Value::Coin(coin) => {
-                        res = conway_add_values(&res, &Value::Coin(coin), &Babbage(NegativeValue))?
-                    },
+                        res = conway_add_values(&res, &Value::Coin(coin), &PostAlonzo(NegativeValue))?
+                    }
                     babbage::Value::Multiasset(coin, assets) => {
                         let mut conway_assets = Vec::new();
                         for (key, val) in assets.to_vec() {
@@ -400,16 +405,22 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
-                            conway_assets
-                                .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                            conway_assets.push((
+                                key,
+                                NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                            ));
                         }
                         let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
-                        res = conway_add_values(&res, &Value::Multiasset(coin, conway_assets), &Babbage(NegativeValue))?
+                        res = conway_add_values(
+                            &res,
+                            &Value::Multiasset(coin, conway_assets),
+                            &PostAlonzo(NegativeValue),
+                        )?
                     }
                 }
             }
             PseudoTransactionOutput::PostAlonzo(output) => {
-                res = conway_add_values(&res, &output.value, &Babbage(NegativeValue))?
+                res = conway_add_values(&res, &output.value, &PostAlonzo(NegativeValue))?
             }
         }
     }
@@ -434,18 +445,20 @@ fn check_min_lovelace(
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
-                            conway_assets
-                                .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                            conway_assets.push((
+                                key,
+                                NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                            ));
                         }
                         let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
                         &Value::Multiasset(coin, conway_assets)
                     }
                 }
-            },
+            }
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if get_lovelace_from_conway_val(val) < compute_min_lovelace(val, prot_pps) {
-            return Err(Babbage(MinLovelaceUnreached));
+            return Err(PostAlonzo(MinLovelaceUnreached));
         }
     }
     Ok(())
@@ -475,18 +488,20 @@ fn check_output_val_size(
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
-                            conway_assets
-                                .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                            conway_assets.push((
+                                key,
+                                NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                            ));
                         }
                         let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
                         &Value::Multiasset(coin, conway_assets)
                     }
                 }
-            },
+            }
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if conway_get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
-            return Err(Babbage(MaxValSizeExceeded));
+            return Err(PostAlonzo(MaxValSizeExceeded));
         }
     }
     Ok(())
@@ -504,9 +519,9 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
             PseudoTransactionOutput::PostAlonzo(output) => &output.address,
         };
         let addr: ShelleyAddress =
-            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(Babbage(AddressDecoding))?;
+            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(PostAlonzo(AddressDecoding))?;
         if addr.network().value() != *network_id {
-            return Err(Babbage(OutputWrongNetworkID));
+            return Err(PostAlonzo(OutputWrongNetworkID));
         }
     }
     Ok(())
@@ -517,7 +532,7 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
 fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
     if let Some(tx_network_id) = tx_body.network_id {
         if u8::from(tx_network_id) != *network_id {
-            return Err(Babbage(TxWrongNetworkID));
+            return Err(PostAlonzo(TxWrongNetworkID));
         }
     }
     Ok(())
@@ -525,7 +540,7 @@ fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Vali
 
 fn check_tx_size(size: &u32, prot_pps: &ConwayProtParams) -> ValidationResult {
     if *size > prot_pps.max_transaction_size {
-        return Err(Babbage(MaxTxSizeExceeded));
+        return Err(PostAlonzo(MaxTxSizeExceeded));
     }
     Ok(())
 }
@@ -553,10 +568,10 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &ConwayProtParams) -> ValidationR
                 }
 
                 if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
-                    return Err(Babbage(TxExUnitsExceeded));
+                    return Err(PostAlonzo(TxExUnitsExceeded));
                 }
             }
-            None => return Err(Babbage(RedeemerMissing)),
+            None => return Err(PostAlonzo(RedeemerMissing)),
         }
     }
     Ok(())
@@ -604,7 +619,7 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
                         .iter()
                         .all(|script| compute_plutus_v3_script_hash(script) != *policy)
                 {
-                    return Err(Babbage(MintingLacksPolicy));
+                    return Err(PostAlonzo(MintingLacksPolicy));
                 }
             }
             Ok(())
@@ -664,14 +679,8 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
         &plutus_v3_scripts,
         &reference_scripts,
     )?;
-    let plutus_data = tx_wits.plutus_data
-        .clone()
-        .map(|data| data.to_vec());
-    check_datums(
-        tx_body,
-        utxos,
-        &plutus_data,
-    )?;
+    let plutus_data = tx_wits.plutus_data.clone().map(|data| data.to_vec());
+    check_datums(tx_body, utxos, &plutus_data)?;
     check_redeemers(
         &plutus_v1_scripts,
         &plutus_v2_scripts,
@@ -756,22 +765,22 @@ fn check_needed_scripts(
     )?;
     for (covered, _) in filtered_native_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededNativeScript));
+            return Err(PostAlonzo(UnneededNativeScript));
         }
     }
     for (covered, _) in filtered_plutus_v1_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededPlutusV1Script));
+            return Err(PostAlonzo(UnneededPlutusV1Script));
         }
     }
     for (covered, _) in filtered_plutus_v2_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededPlutusV2Script));
+            return Err(PostAlonzo(UnneededPlutusV2Script));
         }
     }
     for (covered, _) in filtered_plutus_v3_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededPlutusV2Script));
+            return Err(PostAlonzo(UnneededPlutusV2Script));
         }
     }
     Ok(())
@@ -832,7 +841,7 @@ fn check_input_scripts(
                 .iter()
                 .any(|reference_script_hash| *reference_script_hash == hash)
         {
-            return Err(Babbage(ScriptWitnessMissing));
+            return Err(PostAlonzo(ScriptWitnessMissing));
         }
     }
     Ok(())
@@ -964,7 +973,7 @@ fn check_minting_policies(
             }
             for (policy_covered, _) in minting_policies {
                 if !policy_covered {
-                    return Err(Babbage(MintingLacksPolicy));
+                    return Err(PostAlonzo(MintingLacksPolicy));
                 }
             }
             Ok(())
@@ -1012,7 +1021,7 @@ fn check_input_datum_hash_in_witness_set(
                     find_plutus_datum_in_witness_set(&datum_hash, plutus_data_hash)?
                 }
             }
-            None => return Err(Babbage(InputNotInUTxO)),
+            None => return Err(PostAlonzo(InputNotInUTxO)),
         }
     }
     Ok(())
@@ -1039,7 +1048,7 @@ fn find_plutus_datum_in_witness_set(
             return Ok(());
         }
     }
-    Err(Babbage(DatumMissing))
+    Err(PostAlonzo(DatumMissing))
 }
 
 // Each datum in the transaction witness set can be related to the datum hash in
@@ -1111,7 +1120,7 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
             }
         }
     }
-    Err(Babbage(UnneededDatum))
+    Err(PostAlonzo(UnneededDatum))
 }
 
 fn check_redeemers(
@@ -1237,12 +1246,12 @@ fn redeemer_key_coincide(
 ) -> ValidationResult {
     for redeemer_pointer in redeemers {
         if !plutus_scripts.iter().any(|x| x == redeemer_pointer) {
-            return Err(Babbage(UnneededRedeemer));
+            return Err(PostAlonzo(UnneededRedeemer));
         }
     }
     for ps_redeemer_pointer in plutus_scripts {
         if !redeemers.iter().any(|x| x == ps_redeemer_pointer) {
-            return Err(Babbage(RedeemerMissing));
+            return Err(PostAlonzo(RedeemerMissing));
         }
     }
     Ok(())
@@ -1262,7 +1271,7 @@ fn check_required_signers(
                     find_and_check_req_signer(req_signer, vkey_wits, data_to_verify)?
                 }
             }
-            None => return Err(Babbage(ReqSignerMissing)),
+            None => return Err(PostAlonzo(ReqSignerMissing)),
         }
     }
     Ok(())
@@ -1277,13 +1286,13 @@ fn find_and_check_req_signer(
     for vkey_wit in vkey_wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *vkey_hash {
             if !verify_signature(vkey_wit, data_to_verify) {
-                return Err(Babbage(ReqSignerWrongSig));
+                return Err(PostAlonzo(ReqSignerWrongSig));
             } else {
                 return Ok(());
             }
         }
     }
-    Err(Babbage(ReqSignerMissing))
+    Err(PostAlonzo(ReqSignerMissing))
 }
 
 fn check_vkey_input_wits(
@@ -1293,7 +1302,7 @@ fn check_vkey_input_wits(
 ) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body;
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
-        &mut mk_alonzo_vk_wits_check_list(vkey_wits, Babbage(VKWitnessMissing))?;
+        &mut mk_alonzo_vk_wits_check_list(vkey_wits, PostAlonzo(VKWitnessMissing))?;
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
     inputs_and_collaterals.extend(tx_body.inputs.clone().to_vec());
@@ -1308,7 +1317,7 @@ fn check_vkey_input_wits(
                         PseudoTransactionOutput::Legacy(output) => &output.address,
                         PseudoTransactionOutput::PostAlonzo(output) => &output.address,
                     };
-                    match get_payment_part(address).ok_or(Babbage(InputDecoding))? {
+                    match get_payment_part(address).ok_or(PostAlonzo(InputDecoding))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
                         }
@@ -1316,7 +1325,7 @@ fn check_vkey_input_wits(
                     }
                 }
             }
-            None => return Err(Babbage(InputNotInUTxO)),
+            None => return Err(PostAlonzo(InputNotInUTxO)),
         }
     }
     check_remaining_vk_wits(vk_wits, tx_hash) // required for native scripts
@@ -1330,14 +1339,14 @@ fn check_vk_wit(
     for (vkey_wit_covered, vkey_wit) in wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
             if !verify_signature(vkey_wit, data_to_verify) {
-                return Err(Babbage(VKWrongSignature));
+                return Err(PostAlonzo(VKWrongSignature));
             } else {
                 *vkey_wit_covered = true;
                 return Ok(());
             }
         }
     }
-    Err(Babbage(VKWitnessMissing))
+    Err(PostAlonzo(VKWitnessMissing))
 }
 
 fn check_remaining_vk_wits(
@@ -1349,7 +1358,7 @@ fn check_remaining_vk_wits(
             if verify_signature(vkey_wit, data_to_verify) {
                 return Ok(());
             } else {
-                return Err(Babbage(VKWrongSignature));
+                return Err(PostAlonzo(VKWrongSignature));
             }
         }
     }
@@ -1370,7 +1379,7 @@ fn check_languages(
             .iter()
             .any(|available_lang| *available_lang == *tx_lang)
         {
-            return Err(Babbage(UnsupportedPlutusLanguage));
+            return Err(PostAlonzo(UnsupportedPlutusLanguage));
         }
     }
     Ok(())
@@ -1430,7 +1439,7 @@ fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
                 .to_vec(),
         ))
     {
-        vec![Language::PlutusV2]
+        vec![Language::PlutusV2, Language::PlutusV3]
     } else {
         vec![Language::PlutusV1, Language::PlutusV2]
     }
@@ -1509,6 +1518,7 @@ fn any_reference_inputs(reference_inputs: &Option<Vec<TransactionInput>>) -> boo
 fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     let mut v1_scripts: bool = false;
     let mut v2_scripts: bool = false;
+    let mut v3_scripts: bool = false;
     if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script {
         if !v1_scripts_vec.is_empty() {
             v1_scripts = true
@@ -1521,7 +1531,7 @@ fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     }
     if let Some(v3_scripts_vec) = &mtx.transaction_witness_set.plutus_v3_script {
         if !v3_scripts_vec.is_empty() {
-            v2_scripts = true;
+            v3_scripts = true;
         }
     }
     if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
@@ -1534,18 +1544,21 @@ fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
                     match script_ref_cborwrap.clone().unwrap() {
                         PseudoScript::PlutusV1Script(_) => v1_scripts = true,
                         PseudoScript::PlutusV2Script(_) => v2_scripts = true,
+                        PseudoScript::PlutusV3Script(_) => v3_scripts = true,
                         _ => (),
                     }
                 }
             }
         }
     }
-    if !v1_scripts && !v2_scripts {
+    if !v1_scripts && !v2_scripts && !v3_scripts {
         vec![]
-    } else if v1_scripts && !v2_scripts {
+    } else if v1_scripts && !v2_scripts && !v3_scripts {
         vec![Language::PlutusV1]
-    } else if !v1_scripts && v2_scripts {
+    } else if !v1_scripts && v2_scripts && !v3_scripts {
         vec![Language::PlutusV2]
+    } else if !v1_scripts && !v2_scripts && v3_scripts {
+        vec![Language::PlutusV3]
     } else {
         vec![Language::PlutusV1, Language::PlutusV2]
     }
@@ -1563,11 +1576,11 @@ fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> Vali
             {
                 Ok(())
             } else {
-                Err(Babbage(MetadataHash))
+                Err(PostAlonzo(MetadataHash))
             }
         }
         (None, None) => Ok(()),
-        _ => Err(Babbage(MetadataHash)),
+        _ => Err(PostAlonzo(MetadataHash)),
     }
 }
 
@@ -1606,7 +1619,7 @@ fn check_script_data_hash(
                         {
                             Ok(())
                         } else {
-                            Err(Babbage(ScriptIntegrityHash))
+                            Err(PostAlonzo(ScriptIntegrityHash))
                         }
                     }
                     Redeemers::Map(redeemers) => {
@@ -1632,40 +1645,100 @@ fn check_script_data_hash(
                         {
                             Ok(())
                         } else {
-                            Err(Babbage(ScriptIntegrityHash))
+                            Err(PostAlonzo(ScriptIntegrityHash))
                         }
                     }
                 }
             }
-            (_, _) => Err(Babbage(ScriptIntegrityHash)),
+            (None, Some(redeemer)) => {
+                let plutus_data: Vec<PlutusData> = vec![];
+                // The Plutus data part of the script integrity hash may either need to be
+                // serialized as a indefinite-length array, or a definite-length one.
+                // TODO: compute only the correct hash, not both of them.
+                match redeemer.clone().unwrap() {
+                    Redeemers::List(redeemers) => {
+                        let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
+                            &tx_languages(mtx, utxos),
+                            &plutus_data,
+                            &redeemers.to_vec(),
+                            network_magic,
+                            network_id,
+                            block_slot,
+                        );
+                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
+                        {
+                            Ok(())
+                        } else {
+                            Err(PostAlonzo(ScriptIntegrityHash))
+                        }
+                    }
+                    Redeemers::Map(redeemers) => {
+                        let redeemers: Vec<Redeemer> = redeemers
+                            .iter()
+                            .map(|x| Redeemer {
+                                tag: x.0.tag,
+                                index: x.0.index,
+                                data: x.1.data.clone(),
+                                ex_units: x.1.ex_units,
+                            })
+                            .collect();
+
+                        let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
+                            &tx_languages(mtx, utxos),
+                            &plutus_data,
+                            &redeemers,
+                            network_magic,
+                            network_id,
+                            block_slot,
+                        );
+                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
+                        {
+                            Ok(())
+                        } else {
+                            Err(PostAlonzo(ScriptIntegrityHash))
+                        }
+                    }
+                }
+            },
+            (None, None) => {
+                Err(PostAlonzo(ScriptIntegrityHash))
+            }
+            (Some(_), None) =>  Err(PostAlonzo(ScriptIntegrityHash)),
         },
         None => {
-            let plutus_data = mtx.transaction_witness_set
-            .plutus_data
-            .clone()
-            .map(|x| x.to_vec());
-            if option_vec_is_empty(&plutus_data) {
-                match &mtx
+            let plutus_data = mtx
+                .transaction_witness_set
+                .plutus_data
+                .clone()
+                .map(|x| x.to_vec());
+            let redeemer_is_empty = mtx.transaction_witness_set.redeemer.is_none();
+
+            if !redeemer_is_empty{
+                if option_vec_is_empty(&plutus_data) {
+                    match &mtx
                     .transaction_witness_set
                     .redeemer
                     .clone()
                     .unwrap()
                     .unwrap()
-                {
-                    Redeemers::List(redeemers) => {
-                        if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
-                            return Err(Babbage(ScriptIntegrityHash));
+                    {
+                        Redeemers::List(redeemers) => {
+                            if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
+                                return Err(PostAlonzo(ScriptIntegrityHash));
+                            }
+                        }
+                        Redeemers::Map(redeemers) => {
+                            if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
+                                return Err(PostAlonzo(ScriptIntegrityHash));
+                            }
                         }
                     }
-                    Redeemers::Map(redeemers) => {
-                        if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
-                            return Err(Babbage(ScriptIntegrityHash));
-                        }
-                    }
+                    Ok(())
+                } else {
+                    Err(PostAlonzo(ScriptIntegrityHash))
                 }
+            }else {
                 Ok(())
-            } else {
-                Err(Babbage(ScriptIntegrityHash))
             }
         }
     }
@@ -1752,17 +1825,28 @@ fn cost_model_cbor(
             // From start of epoch 51 onwards
             if tx_languages.contains(&Language::PlutusV1)
                 && !tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
                 ).unwrap()
             } else if !tx_languages.contains(&Language::PlutusV1)
                 && tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
                 ).unwrap()
-            } else {
+            }
+            else if !tx_languages.contains(&Language::PlutusV1)
+                && !tx_languages.contains(&Language::PlutusV2)
+                && tx_languages.contains(&Language::PlutusV3)
+            {
+                hex::decode(
+                    "a1029901291a000189b41901a401011903e818ad00011903e819ea350401192baf18201a000312591920a404193e801864193e801864193e801864193e801864193e801864193e80186418641864193e8018641a000170a718201a00020782182019f016041a0001194a18b2000119568718201a0001643519030104021a00014f581a0001e143191c893903831906b419022518391a00014f580001011903e819a7a90402195fe419733a1826011a000db464196a8f0119ca3f19022e011999101903e819ecb2011a00022a4718201a000144ce1820193bc318201a0001291101193371041956540a197147184a01197147184a0119a9151902280119aecd19021d0119843c18201a00010a9618201a00011aaa1820191c4b1820191cdf1820192d1a18201a00014f581a0001e143191c893903831906b419022518391a00014f5800011a0001614219020700011a000122c118201a00014f581a0001e143191c893903831906b419022518391a00014f580001011a00014f581a0001e143191c893903831906b419022518391a00014f5800011a000e94721a0003414000021a0004213c19583c041a00163cad19fc3604194ff30104001a00022aa818201a000189b41901a401011a00013eff182019e86a1820194eae182019600c1820195108182019654d182019602f18201a0290f1e70a1a032e93af1937fd0a1a0298e40b1966c40a193e801864193e8018641a000eaf1f121a002a6e06061a0006be98011a0321aac7190eac121a00041699121a048e466e1922a4121a0327ec9a121a001e743c18241a0031410f0c1a000dbf9e011a09f2f6d31910d318241a0004578218241a096e44021967b518241a0473cee818241a13e62472011a0f23d40118481a00212c5618481a0022814619fc3b041a00032b00192076041a0013be0419702c183f00011a000f59d919aa6718fb00011a000187551902d61902cf00011a000187551902d61902cf00011a000187551902d61902cf00011a0001a5661902a800011a00017468011a00044a391949a000011a0002bfe2189f01011a00026b371922ee00011a00026e9219226d00011a0001a3e2190ce2011a00019e4919028f011a001df8bb195fc803"
+                ).unwrap()
+            } 
+            else {
                 hex::decode(
                     "a241005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff0198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
                 ).unwrap()
@@ -1817,17 +1901,28 @@ fn cost_model_cbor(
             // From start of epoch 107 onwards
             if tx_languages.contains(&Language::PlutusV1)
                 && !tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
                 ).unwrap()
             } else if !tx_languages.contains(&Language::PlutusV1)
                 && tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
                 ).unwrap()
-            } else {
+            } 
+            else if !tx_languages.contains(&Language::PlutusV1)
+                && !tx_languages.contains(&Language::PlutusV2)
+                && tx_languages.contains(&Language::PlutusV3)
+            {
+                hex::decode(
+                    "a1029901291a000189b41901a401011903e818ad00011903e819ea350401192baf18201a000312591920a404193e801864193e801864193e801864193e801864193e801864193e80186418641864193e8018641a000170a718201a00020782182019f016041a0001194a18b2000119568718201a0001643519030104021a00014f581a0001e143191c893903831906b419022518391a00014f580001011903e819a7a90402195fe419733a1826011a000db464196a8f0119ca3f19022e011999101903e819ecb2011a00022a4718201a000144ce1820193bc318201a0001291101193371041956540a197147184a01197147184a0119a9151902280119aecd19021d0119843c18201a00010a9618201a00011aaa1820191c4b1820191cdf1820192d1a18201a00014f581a0001e143191c893903831906b419022518391a00014f5800011a0001614219020700011a000122c118201a00014f581a0001e143191c893903831906b419022518391a00014f580001011a00014f581a0001e143191c893903831906b419022518391a00014f5800011a000e94721a0003414000021a0004213c19583c041a00163cad19fc3604194ff30104001a00022aa818201a000189b41901a401011a00013eff182019e86a1820194eae182019600c1820195108182019654d182019602f18201a0290f1e70a1a032e93af1937fd0a1a0298e40b1966c40a193e801864193e8018641a000eaf1f121a002a6e06061a0006be98011a0321aac7190eac121a00041699121a048e466e1922a4121a0327ec9a121a001e743c18241a0031410f0c1a000dbf9e011a09f2f6d31910d318241a0004578218241a096e44021967b518241a0473cee818241a13e62472011a0f23d40118481a00212c5618481a0022814619fc3b041a00032b00192076041a0013be0419702c183f00011a000f59d919aa6718fb00011a000187551902d61902cf00011a000187551902d61902cf00011a000187551902d61902cf00011a0001a5661902a800011a00017468011a00044a391949a000011a0002bfe2189f01011a00026b371922ee00011a00026e9219226d00011a0001a3e2190ce2011a00019e4919028f011a001df8bb195fc803"
+                ).unwrap()
+            }
+            else {
                 hex::decode(
                     "a241005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff0198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
                 ).unwrap()
@@ -1864,15 +1959,24 @@ fn cost_model_cbor(
             // Starting from epoch 394
             if tx_languages.contains(&Language::PlutusV1)
                 && !tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
                 ).unwrap()
             } else if !tx_languages.contains(&Language::PlutusV1)
                 && tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
+                ).unwrap()
+            } else if !tx_languages.contains(&Language::PlutusV1)
+                && !tx_languages.contains(&Language::PlutusV2)
+                && tx_languages.contains(&Language::PlutusV3)
+            {
+                hex::decode(
+                    "a1029901291a000189b41901a401011903e818ad00011903e819ea350401192baf18201a000312591920a404193e801864193e801864193e801864193e801864193e801864193e80186418641864193e8018641a000170a718201a00020782182019f016041a0001194a18b2000119568718201a0001643519030104021a00014f581a0001e143191c893903831906b419022518391a00014f580001011903e819a7a90402195fe419733a1826011a000db464196a8f0119ca3f19022e011999101903e819ecb2011a00022a4718201a000144ce1820193bc318201a0001291101193371041956540a197147184a01197147184a0119a9151902280119aecd19021d0119843c18201a00010a9618201a00011aaa1820191c4b1820191cdf1820192d1a18201a00014f581a0001e143191c893903831906b419022518391a00014f5800011a0001614219020700011a000122c118201a00014f581a0001e143191c893903831906b419022518391a00014f580001011a00014f581a0001e143191c893903831906b419022518391a00014f5800011a000e94721a0003414000021a0004213c19583c041a00163cad19fc3604194ff30104001a00022aa818201a000189b41901a401011a00013eff182019e86a1820194eae182019600c1820195108182019654d182019602f18201a0290f1e70a1a032e93af1937fd0a1a0298e40b1966c40a193e801864193e8018641a000eaf1f121a002a6e06061a0006be98011a0321aac7190eac121a00041699121a048e466e1922a4121a0327ec9a121a001e743c18241a0031410f0c1a000dbf9e011a09f2f6d31910d318241a0004578218241a096e44021967b518241a0473cee818241a13e62472011a0f23d40118481a00212c5618481a0022814619fc3b041a00032b00192076041a0013be0419702c183f00011a000f59d919aa6718fb00011a000187551902d61902cf00011a000187551902d61902cf00011a000187551902d61902cf00011a0001a5661902a800011a00017468011a00044a391949a000011a0002bfe2189f01011a00026b371922ee00011a00026e9219226d00011a0001a3e2190ce2011a00019e4919028f011a001df8bb195fc803"
                 ).unwrap()
             } else {
                 hex::decode(

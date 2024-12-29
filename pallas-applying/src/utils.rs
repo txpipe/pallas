@@ -17,7 +17,7 @@ use pallas_primitives::{
 };
 
 
-use pallas_traverse::{time::Slot, MultiEraInput, MultiEraOutput, MultiEraValue};
+use pallas_traverse::{time::Slot, MultiEraInput, MultiEraOutput};
 use std::collections::HashMap;
 use std::ops::Deref;
 pub use validation::*;
@@ -56,9 +56,6 @@ pub fn get_conway_tx_size(mtx: &ConwayMintedTx) -> Option<u32> {
 
 pub fn empty_value() -> Value {
     Value::Multiasset(0, Multiasset::<Coin>::from(Vec::new()))
-}
-pub fn conway_empty_value() -> ConwayValue {
-    ConwayValue::Multiasset(0, ConwayMultiasset::<PositiveCoin>::try_from(Vec::new()).unwrap())
 }
 
 pub fn add_values(
@@ -294,15 +291,12 @@ fn coerce_to_u64(value: &ConwayMultiasset<PositiveCoin>) -> ConwayMultiasset<u64
 
 fn coerce_to_coin(
     value: &Multiasset<i64>,
-    err: &ValidationError,
+    _err: &ValidationError,
 ) -> Result<Multiasset<Coin>, ValidationError> {
     let mut res: Vec<(PolicyId, KeyValuePairs<AssetName, Coin>)> = Vec::new();
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, Coin)> = Vec::new();
         for (asset_name, amount) in assets.clone().to_vec().iter() {
-            if *amount < 0 {
-                return Err(err.clone());
-            }
             aa.push((asset_name.clone(), *amount as u64));
         }
         res.push((*policy, KeyValuePairs::<AssetName, Coin>::from(aa)));
@@ -312,15 +306,12 @@ fn coerce_to_coin(
 
 fn conway_coerce_to_coin(
     value: &ConwayMultiasset<u64>,
-    err: &ValidationError,
+    _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
     let mut res: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> = Vec::new();
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
         for (asset_name, amount) in assets.clone().to_vec().iter() {
-            if *amount < 0 {
-                return Err(err.clone());
-            }
             aa.push((asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()));
         }
         res.push((*policy, NonEmptyKeyValuePairs::<AssetName, PositiveCoin>::try_from(aa).unwrap()));
@@ -329,7 +320,7 @@ fn conway_coerce_to_coin(
 }
 fn conway_coerce_to_non_zero_coin(
     value: &ConwayMultiasset<NonZeroInt>,
-    err: &ValidationError,
+    _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
     let mut res: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> = Vec::new();
     for (policy, assets) in value.iter() {

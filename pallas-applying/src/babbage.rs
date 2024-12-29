@@ -6,7 +6,7 @@ use crate::utils::{
     get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
     is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list, values_are_equal,
     verify_signature,
-    BabbageError::*,
+    PostAlonzoError::*,
     BabbageProtParams, UTxOs,
     ValidationError::{self, *},
     ValidationResult,
@@ -37,7 +37,7 @@ pub fn validate_babbage_tx(
     network_id: &u8,
 ) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body.clone();
-    let size: u32 = get_babbage_tx_size(mtx).ok_or(Babbage(UnknownTxSize))?;
+    let size: u32 = get_babbage_tx_size(mtx).ok_or(PostAlonzo(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
@@ -59,7 +59,7 @@ pub fn validate_babbage_tx(
 // The set of transaction inputs is not empty.
 fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
     if tx_body.inputs.is_empty() {
-        return Err(Babbage(TxInsEmpty));
+        return Err(PostAlonzo(TxInsEmpty));
     }
     Ok(())
 }
@@ -69,7 +69,7 @@ fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
 fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
-            return Err(Babbage(InputNotInUTxO));
+            return Err(PostAlonzo(InputNotInUTxO));
         }
     }
     match &tx_body.collateral {
@@ -77,7 +77,7 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
         Some(collaterals) => {
             for collateral in collaterals {
                 if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(collateral))) {
-                    return Err(Babbage(CollateralNotInUTxO));
+                    return Err(PostAlonzo(CollateralNotInUTxO));
                 }
             }
         }
@@ -87,7 +87,7 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
         Some(reference_inputs) => {
             for reference_input in reference_inputs {
                 if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(reference_input))) {
-                    return Err(Babbage(ReferenceInputNotInUTxO));
+                    return Err(PostAlonzo(ReferenceInputNotInUTxO));
                 }
             }
         }
@@ -111,7 +111,7 @@ fn check_lower_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
     match tx_body.validity_interval_start {
         Some(lower_bound) => {
             if block_slot < lower_bound {
-                Err(Babbage(BlockPrecedesValInt))
+                Err(PostAlonzo(BlockPrecedesValInt))
             } else {
                 Ok(())
             }
@@ -126,7 +126,7 @@ fn check_upper_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
     match tx_body.ttl {
         Some(upper_bound) => {
             if upper_bound < block_slot {
-                Err(Babbage(BlockExceedsValInt))
+                Err(PostAlonzo(BlockExceedsValInt))
             } else {
                 // TODO: check that `upper_bound` is translatable to UTC time.
                 Ok(())
@@ -158,7 +158,7 @@ fn check_min_fee(
     prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
     if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
-        return Err(Babbage(FeeBelowMin));
+        return Err(PostAlonzo(FeeBelowMin));
     }
     Ok(())
 }
@@ -184,7 +184,7 @@ fn check_collaterals(
     let collaterals: &[TransactionInput] = &tx_body
         .collateral
         .clone()
-        .ok_or(Babbage(CollateralMissing))?;
+        .ok_or(PostAlonzo(CollateralMissing))?;
     check_collaterals_number(collaterals, prot_pps)?;
     check_collaterals_address(collaterals, utxos)?;
     check_collaterals_assets(tx_body, utxos, prot_pps)
@@ -197,9 +197,9 @@ fn check_collaterals_number(
     prot_pps: &BabbageProtParams,
 ) -> ValidationResult {
     if collaterals.is_empty() {
-        Err(Babbage(CollateralMissing))
+        Err(PostAlonzo(CollateralMissing))
     } else if collaterals.len() as u32 > prot_pps.max_collateral_inputs {
-        Err(Babbage(TooManyCollaterals))
+        Err(PostAlonzo(TooManyCollaterals))
     } else {
         Ok(())
     }
@@ -216,14 +216,14 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
                         PseudoTransactionOutput::PostAlonzo(inner) => &inner.address,
                     };
                     if let ShelleyPaymentPart::Script(_) =
-                        get_payment_part(address).ok_or(Babbage(InputDecoding))?
+                        get_payment_part(address).ok_or(PostAlonzo(InputDecoding))?
                     {
-                        return Err(Babbage(CollateralNotVKeyLocked));
+                        return Err(PostAlonzo(CollateralNotVKeyLocked));
                     }
                 }
             }
             None => {
-                return Err(Babbage(CollateralNotInUTxO));
+                return Err(PostAlonzo(CollateralNotInUTxO));
             }
         }
     }
@@ -247,11 +247,11 @@ fn check_collaterals_assets(
                         coll_input = add_values(
                             &coll_input,
                             &val_from_multi_era_output(multi_era_output),
-                            &Babbage(NegativeValue),
+                            &PostAlonzo(NegativeValue),
                         )?
                     }
                     None => {
-                        return Err(Babbage(CollateralNotInUTxO));
+                        return Err(PostAlonzo(CollateralNotInUTxO));
                     }
                 }
             }
@@ -262,20 +262,20 @@ fn check_collaterals_assets(
             };
             // The balance between collateral inputs and output contains only lovelace.
             let paid_collateral: u64 =
-                lovelace_diff_or_fail(&coll_input, &coll_return, &Babbage(NonLovelaceCollateral))?;
+                lovelace_diff_or_fail(&coll_input, &coll_return, &PostAlonzo(NonLovelaceCollateral))?;
             let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
             // The balance is not lower than the minimum allowed.
             if paid_collateral * 100 < fee_percentage {
-                return Err(Babbage(CollateralMinLovelace));
+                return Err(PostAlonzo(CollateralMinLovelace));
             }
             // The balance matches exactly the collateral annotated in the transaction body.
             if let Some(annotated_collateral) = &tx_body.total_collateral {
                 if paid_collateral != *annotated_collateral {
-                    return Err(Babbage(CollateralAnnotation));
+                    return Err(PostAlonzo(CollateralAnnotation));
                 }
             }
         }
-        None => return Err(Babbage(CollateralMissing)),
+        None => return Err(PostAlonzo(CollateralMissing)),
     }
     Ok(())
 }
@@ -300,13 +300,13 @@ fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
     let output: Value = add_values(
         &produced,
         &Value::Coin(tx_body.fee),
-        &Babbage(NegativeValue),
+        &PostAlonzo(NegativeValue),
     )?;
     if let Some(m) = &tx_body.mint {
-        input = add_minted_value(&input, m, &Babbage(NegativeValue))?;
+        input = add_minted_value(&input, m, &PostAlonzo(NegativeValue))?;
     }
     if !values_are_equal(&input, &output) {
-        return Err(Babbage(PreservationOfValue));
+        return Err(PostAlonzo(PreservationOfValue));
     }
     Ok(())
 }
@@ -316,9 +316,9 @@ fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value,
     for input in tx_body.inputs.iter() {
         let multi_era_output: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
-            .ok_or(Babbage(InputNotInUTxO))?;
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
         let val: Value = val_from_multi_era_output(multi_era_output);
-        res = add_values(&res, &val, &Babbage(NegativeValue))?;
+        res = add_values(&res, &val, &PostAlonzo(NegativeValue))?;
     }
     Ok(res)
 }
@@ -328,10 +328,10 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
     for output in tx_body.outputs.iter() {
         match output {
             PseudoTransactionOutput::Legacy(output) => {
-                res = add_values(&res, &output.amount, &Babbage(NegativeValue))?
+                res = add_values(&res, &output.amount, &PostAlonzo(NegativeValue))?
             }
             PseudoTransactionOutput::PostAlonzo(output) => {
-                res = add_values(&res, &output.value, &Babbage(NegativeValue))?
+                res = add_values(&res, &output.value, &PostAlonzo(NegativeValue))?
             }
         }
     }
@@ -348,7 +348,7 @@ fn check_min_lovelace(
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if get_lovelace_from_alonzo_val(val) < compute_min_lovelace(val, prot_pps) {
-            return Err(Babbage(MinLovelaceUnreached));
+            return Err(PostAlonzo(MinLovelaceUnreached));
         }
     }
     Ok(())
@@ -370,7 +370,7 @@ fn check_output_val_size(
             PseudoTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
-            return Err(Babbage(MaxValSizeExceeded));
+            return Err(PostAlonzo(MaxValSizeExceeded));
         }
     }
     Ok(())
@@ -388,9 +388,9 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
             PseudoTransactionOutput::PostAlonzo(output) => &output.address,
         };
         let addr: ShelleyAddress =
-            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(Babbage(AddressDecoding))?;
+            get_shelley_address(Bytes::deref(addr_bytes)).ok_or(PostAlonzo(AddressDecoding))?;
         if addr.network().value() != *network_id {
-            return Err(Babbage(OutputWrongNetworkID));
+            return Err(PostAlonzo(OutputWrongNetworkID));
         }
     }
     Ok(())
@@ -401,7 +401,7 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
 fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
     if let Some(tx_network_id) = tx_body.network_id {
         if u8::from(tx_network_id) != *network_id {
-            return Err(Babbage(TxWrongNetworkID));
+            return Err(PostAlonzo(TxWrongNetworkID));
         }
     }
     Ok(())
@@ -409,7 +409,7 @@ fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Vali
 
 fn check_tx_size(size: &u32, prot_pps: &BabbageProtParams) -> ValidationResult {
     if *size > prot_pps.max_transaction_size {
-        return Err(Babbage(MaxTxSizeExceeded));
+        return Err(PostAlonzo(MaxTxSizeExceeded));
     }
     Ok(())
 }
@@ -426,10 +426,10 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> Validation
                     steps += ex_units.steps;
                 }
                 if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
-                    return Err(Babbage(TxExUnitsExceeded));
+                    return Err(PostAlonzo(TxExUnitsExceeded));
                 }
             }
-            None => return Err(Babbage(RedeemerMissing)),
+            None => return Err(PostAlonzo(RedeemerMissing)),
         }
     }
     Ok(())
@@ -469,7 +469,7 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
                         .iter()
                         .all(|script| compute_plutus_v2_script_hash(script) != *policy)
                 {
-                    return Err(Babbage(MintingLacksPolicy));
+                    return Err(PostAlonzo(MintingLacksPolicy));
                 }
             }
             Ok(())
@@ -588,17 +588,17 @@ fn check_needed_scripts(
     )?;
     for (covered, _) in filtered_native_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededNativeScript));
+            return Err(PostAlonzo(UnneededNativeScript));
         }
     }
     for (covered, _) in filtered_plutus_v1_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededPlutusV1Script));
+            return Err(PostAlonzo(UnneededPlutusV1Script));
         }
     }
     for (covered, _) in filtered_plutus_v2_scripts.iter() {
         if !covered {
-            return Err(Babbage(UnneededPlutusV2Script));
+            return Err(PostAlonzo(UnneededPlutusV2Script));
         }
     }
     Ok(())
@@ -652,7 +652,7 @@ fn check_input_scripts(
                 .iter()
                 .any(|reference_script_hash| *reference_script_hash == hash)
         {
-            return Err(Babbage(ScriptWitnessMissing));
+            return Err(PostAlonzo(ScriptWitnessMissing));
         }
     }
     Ok(())
@@ -770,7 +770,7 @@ fn check_minting_policies(
             }
             for (policy_covered, _) in minting_policies {
                 if !policy_covered {
-                    return Err(Babbage(MintingLacksPolicy));
+                    return Err(PostAlonzo(MintingLacksPolicy));
                 }
             }
             Ok(())
@@ -818,7 +818,7 @@ fn check_input_datum_hash_in_witness_set(
                     find_plutus_datum_in_witness_set(&datum_hash, plutus_data_hash)?
                 }
             }
-            None => return Err(Babbage(InputNotInUTxO)),
+            None => return Err(PostAlonzo(InputNotInUTxO)),
         }
     }
     Ok(())
@@ -845,7 +845,7 @@ fn find_plutus_datum_in_witness_set(
             return Ok(());
         }
     }
-    Err(Babbage(DatumMissing))
+    Err(PostAlonzo(DatumMissing))
 }
 
 // Each datum in the transaction witness set can be related to the datum hash in
@@ -917,7 +917,7 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
             }
         }
     }
-    Err(Babbage(UnneededDatum))
+    Err(PostAlonzo(UnneededDatum))
 }
 
 fn check_redeemers(
@@ -1025,12 +1025,12 @@ fn redeemer_pointers_coincide(
 ) -> ValidationResult {
     for redeemer_pointer in redeemers {
         if !plutus_scripts.iter().any(|x| x == redeemer_pointer) {
-            return Err(Babbage(UnneededRedeemer));
+            return Err(PostAlonzo(UnneededRedeemer));
         }
     }
     for ps_redeemer_pointer in plutus_scripts {
         if !redeemers.iter().any(|x| x == ps_redeemer_pointer) {
-            return Err(Babbage(RedeemerMissing));
+            return Err(PostAlonzo(RedeemerMissing));
         }
     }
     Ok(())
@@ -1050,7 +1050,7 @@ fn check_required_signers(
                     find_and_check_req_signer(req_signer, vkey_wits, data_to_verify)?
                 }
             }
-            None => return Err(Babbage(ReqSignerMissing)),
+            None => return Err(PostAlonzo(ReqSignerMissing)),
         }
     }
     Ok(())
@@ -1065,13 +1065,13 @@ fn find_and_check_req_signer(
     for vkey_wit in vkey_wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *vkey_hash {
             if !verify_signature(vkey_wit, data_to_verify) {
-                return Err(Babbage(ReqSignerWrongSig));
+                return Err(PostAlonzo(ReqSignerWrongSig));
             } else {
                 return Ok(());
             }
         }
     }
-    Err(Babbage(ReqSignerMissing))
+    Err(PostAlonzo(ReqSignerMissing))
 }
 
 fn check_vkey_input_wits(
@@ -1081,7 +1081,7 @@ fn check_vkey_input_wits(
 ) -> ValidationResult {
     let tx_body: &MintedTransactionBody = &mtx.transaction_body;
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
-        &mut mk_alonzo_vk_wits_check_list(vkey_wits, Babbage(VKWitnessMissing))?;
+        &mut mk_alonzo_vk_wits_check_list(vkey_wits, PostAlonzo(VKWitnessMissing))?;
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
     inputs_and_collaterals.extend(tx_body.inputs.clone());
@@ -1096,7 +1096,7 @@ fn check_vkey_input_wits(
                         PseudoTransactionOutput::Legacy(output) => &output.address,
                         PseudoTransactionOutput::PostAlonzo(output) => &output.address,
                     };
-                    match get_payment_part(address).ok_or(Babbage(InputDecoding))? {
+                    match get_payment_part(address).ok_or(PostAlonzo(InputDecoding))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
                         }
@@ -1104,7 +1104,7 @@ fn check_vkey_input_wits(
                     }
                 }
             }
-            None => return Err(Babbage(InputNotInUTxO)),
+            None => return Err(PostAlonzo(InputNotInUTxO)),
         }
     }
     check_remaining_vk_wits(vk_wits, tx_hash) // required for native scripts
@@ -1118,14 +1118,14 @@ fn check_vk_wit(
     for (vkey_wit_covered, vkey_wit) in wits {
         if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
             if !verify_signature(vkey_wit, data_to_verify) {
-                return Err(Babbage(VKWrongSignature));
+                return Err(PostAlonzo(VKWrongSignature));
             } else {
                 *vkey_wit_covered = true;
                 return Ok(());
             }
         }
     }
-    Err(Babbage(VKWitnessMissing))
+    Err(PostAlonzo(VKWitnessMissing))
 }
 
 fn check_remaining_vk_wits(
@@ -1137,7 +1137,7 @@ fn check_remaining_vk_wits(
             if verify_signature(vkey_wit, data_to_verify) {
                 return Ok(());
             } else {
-                return Err(Babbage(VKWrongSignature));
+                return Err(PostAlonzo(VKWrongSignature));
             }
         }
     }
@@ -1158,7 +1158,7 @@ fn check_languages(
             .iter()
             .any(|available_lang| *available_lang == *tx_lang)
         {
-            return Err(Babbage(UnsupportedPlutusLanguage));
+            return Err(PostAlonzo(UnsupportedPlutusLanguage));
         }
     }
     Ok(())
@@ -1340,11 +1340,11 @@ fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> Vali
             {
                 Ok(())
             } else {
-                Err(Babbage(MetadataHash))
+                Err(PostAlonzo(MetadataHash))
             }
         }
         (None, None) => Ok(()),
-        _ => Err(Babbage(MetadataHash)),
+        _ => Err(PostAlonzo(MetadataHash)),
     }
 }
 
@@ -1380,10 +1380,10 @@ fn check_script_data_hash(
                 if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
                     Ok(())
                 } else {
-                    Err(Babbage(ScriptIntegrityHash))
+                    Err(PostAlonzo(ScriptIntegrityHash))
                 }
             }
-            (_, _) => Err(Babbage(ScriptIntegrityHash)),
+            (_, _) => Err(PostAlonzo(ScriptIntegrityHash)),
         },
         None => {
             if option_vec_is_empty(&mtx.transaction_witness_set.plutus_data)
@@ -1391,7 +1391,7 @@ fn check_script_data_hash(
             {
                 Ok(())
             } else {
-                Err(Babbage(ScriptIntegrityHash))
+                Err(PostAlonzo(ScriptIntegrityHash))
             }
         }
     }

@@ -10,7 +10,7 @@ pub enum ValidationError {
     Byron(ByronError),
     ShelleyMA(ShelleyMAError),
     Alonzo(AlonzoError),
-    Babbage(BabbageError),
+    PostAlonzo(PostAlonzoError),
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +110,7 @@ pub enum AlonzoError {
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub enum BabbageError {
+pub enum PostAlonzoError {
     UnknownTxSize,
     TxInsEmpty,
     InputNotInUTxO,
