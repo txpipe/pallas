@@ -88,6 +88,7 @@ pub enum UtxoFailure {
 pub enum UtxowFailure {
     ExtraneousScriptWitnessesUTXOW(Vec<Bytes>),
     UtxoFailure(UtxoFailure),
+    MissingTxBodyMetadataHash(Bytes),
     Raw(Vec<u8>),
 }
 
