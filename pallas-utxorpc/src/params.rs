@@ -198,11 +198,11 @@ impl<C: LedgerContext> Mapper<C> {
                     ],
                 }),
                 min_committee_size: params.min_committee_size as u32,
-                committee_term_limit: params.committee_term_limit.into(),
-                governance_action_validity_period: params.governance_action_validity_period.into(),
-                governance_action_deposit: params.governance_action_deposit.into(),
-                drep_deposit: params.drep_deposit.into(),
-                drep_inactivity_period: params.drep_inactivity_period.into(),
+                committee_term_limit: params.committee_term_limit,
+                governance_action_validity_period: params.governance_action_validity_period,
+                governance_action_deposit: params.governance_action_deposit,
+                drep_deposit: params.drep_deposit,
+                drep_inactivity_period: params.drep_inactivity_period,
                 cost_models: u5c::CostModels {
                     plutus_v1: params
                         .cost_models_for_script_languages
