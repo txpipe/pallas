@@ -3,6 +3,27 @@ use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 use crate::{LedgerContext, Mapper};
 
+fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
+    u5c::RationalNumber {
+        numerator: value.numerator as i32,
+        denominator: value.denominator as u32,
+    }
+}
+
+fn execution_prices_to_u5c(value: pallas_primitives::ExUnitPrices) -> u5c::ExPrices {
+    u5c::ExPrices {
+        steps: Some(rational_number_to_u5c(value.step_price)),
+        memory: Some(rational_number_to_u5c(value.mem_price)),
+    }
+}
+
+fn execution_units_to_u5c(value: pallas_primitives::ExUnits) -> u5c::ExUnits {
+    u5c::ExUnits {
+        memory: value.mem,
+        steps: value.steps,
+    }
+}
+
 impl<C: LedgerContext> Mapper<C> {
     pub fn map_pparams(&self, pparams: MultiEraProtocolParameters) -> u5c::PParams {
         match pparams {
@@ -16,18 +37,9 @@ impl<C: LedgerContext> Mapper<C> {
                 stake_key_deposit: params.key_deposit,
                 pool_deposit: params.pool_deposit,
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
-                pool_influence: Some(u5c::RationalNumber {
-                    numerator: params.pool_pledge_influence.numerator as i32,
-                    denominator: params.pool_pledge_influence.denominator as u32,
-                }),
-                monetary_expansion: Some(u5c::RationalNumber {
-                    numerator: params.expansion_rate.numerator as i32,
-                    denominator: params.expansion_rate.denominator as u32,
-                }),
-                treasury_expansion: Some(u5c::RationalNumber {
-                    numerator: params.treasury_growth_rate.numerator as i32,
-                    denominator: params.treasury_growth_rate.denominator as u32,
-                }),
+                pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
+                monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
+                treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
                 min_pool_cost: params.min_pool_cost,
                 protocol_version: Some(u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
@@ -36,24 +48,13 @@ impl<C: LedgerContext> Mapper<C> {
                 max_value_size: params.max_value_size.into(),
                 collateral_percentage: params.collateral_percentage.into(),
                 max_collateral_inputs: params.max_collateral_inputs.into(),
-                prices: Some(u5c::ExPrices {
-                    steps: Some(u5c::RationalNumber {
-                        numerator: params.execution_costs.step_price.numerator as i32,
-                        denominator: params.execution_costs.step_price.denominator as u32,
-                    }),
-                    memory: Some(u5c::RationalNumber {
-                        numerator: params.execution_costs.mem_price.numerator as i32,
-                        denominator: params.execution_costs.mem_price.denominator as u32,
-                    }),
-                }),
-                max_execution_units_per_transaction: Some(u5c::ExUnits {
-                    memory: params.max_tx_ex_units.mem,
-                    steps: params.max_tx_ex_units.steps,
-                }),
-                max_execution_units_per_block: Some(u5c::ExUnits {
-                    memory: params.max_block_ex_units.mem,
-                    steps: params.max_block_ex_units.steps,
-                }),
+                prices: Some(execution_prices_to_u5c(params.execution_costs)),
+                max_execution_units_per_transaction: Some(execution_units_to_u5c(
+                    params.max_tx_ex_units,
+                )),
+                max_execution_units_per_block: Some(execution_units_to_u5c(
+                    params.max_block_ex_units,
+                )),
                 cost_models: u5c::CostModels {
                     // Only plutusv1.
                     plutus_v1: params
@@ -76,18 +77,9 @@ impl<C: LedgerContext> Mapper<C> {
                 stake_key_deposit: params.key_deposit,
                 pool_deposit: params.pool_deposit,
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
-                pool_influence: Some(u5c::RationalNumber {
-                    numerator: params.pool_pledge_influence.numerator as i32,
-                    denominator: params.pool_pledge_influence.denominator as u32,
-                }),
-                monetary_expansion: Some(u5c::RationalNumber {
-                    numerator: params.expansion_rate.numerator as i32,
-                    denominator: params.expansion_rate.denominator as u32,
-                }),
-                treasury_expansion: Some(u5c::RationalNumber {
-                    numerator: params.treasury_growth_rate.numerator as i32,
-                    denominator: params.treasury_growth_rate.denominator as u32,
-                }),
+                pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
+                monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
+                treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
                 min_pool_cost: params.min_pool_cost,
                 protocol_version: Some(u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
@@ -105,19 +97,9 @@ impl<C: LedgerContext> Mapper<C> {
                 stake_key_deposit: params.key_deposit,
                 pool_deposit: params.pool_deposit,
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
-                pool_influence: Some(u5c::RationalNumber {
-                    numerator: params.pool_pledge_influence.numerator as i32,
-                    denominator: params.pool_pledge_influence.denominator as u32,
-                }),
-                monetary_expansion: u5c::RationalNumber {
-                    numerator: params.expansion_rate.numerator as i32,
-                    denominator: params.expansion_rate.denominator as u32,
-                }
-                .into(),
-                treasury_expansion: Some(u5c::RationalNumber {
-                    numerator: params.treasury_growth_rate.numerator as i32,
-                    denominator: params.treasury_growth_rate.denominator as u32,
-                }),
+                pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
+                monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
+                treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
                 min_pool_cost: params.min_pool_cost,
                 protocol_version: u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
@@ -127,24 +109,13 @@ impl<C: LedgerContext> Mapper<C> {
                 max_value_size: params.max_value_size.into(),
                 collateral_percentage: params.collateral_percentage.into(),
                 max_collateral_inputs: params.max_collateral_inputs.into(),
-                prices: Some(u5c::ExPrices {
-                    steps: Some(u5c::RationalNumber {
-                        numerator: params.execution_costs.step_price.numerator as i32,
-                        denominator: params.execution_costs.step_price.denominator as u32,
-                    }),
-                    memory: Some(u5c::RationalNumber {
-                        numerator: params.execution_costs.mem_price.numerator as i32,
-                        denominator: params.execution_costs.mem_price.denominator as u32,
-                    }),
-                }),
-                max_execution_units_per_transaction: Some(u5c::ExUnits {
-                    memory: params.max_tx_ex_units.mem,
-                    steps: params.max_tx_ex_units.steps,
-                }),
-                max_execution_units_per_block: Some(u5c::ExUnits {
-                    memory: params.max_block_ex_units.mem,
-                    steps: params.max_block_ex_units.steps,
-                }),
+                prices: Some(execution_prices_to_u5c(params.execution_costs)),
+                max_execution_units_per_transaction: Some(execution_units_to_u5c(
+                    params.max_tx_ex_units,
+                )),
+                max_execution_units_per_block: Some(execution_units_to_u5c(
+                    params.max_block_ex_units,
+                )),
                 cost_models: u5c::CostModels {
                     plutus_v1: params
                         .cost_models_for_script_languages
@@ -175,19 +146,9 @@ impl<C: LedgerContext> Mapper<C> {
                 stake_key_deposit: params.key_deposit,
                 pool_deposit: params.pool_deposit,
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
-                pool_influence: Some(u5c::RationalNumber {
-                    numerator: params.pool_pledge_influence.numerator as i32,
-                    denominator: params.pool_pledge_influence.denominator as u32,
-                }),
-                monetary_expansion: u5c::RationalNumber {
-                    numerator: params.expansion_rate.numerator as i32,
-                    denominator: params.expansion_rate.denominator as u32,
-                }
-                .into(),
-                treasury_expansion: Some(u5c::RationalNumber {
-                    numerator: params.treasury_growth_rate.numerator as i32,
-                    denominator: params.treasury_growth_rate.denominator as u32,
-                }),
+                pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
+                monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
+                treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
                 min_pool_cost: params.min_pool_cost,
                 protocol_version: u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
@@ -197,95 +158,44 @@ impl<C: LedgerContext> Mapper<C> {
                 max_value_size: params.max_value_size.into(),
                 collateral_percentage: params.collateral_percentage.into(),
                 max_collateral_inputs: params.max_collateral_inputs.into(),
-                prices: Some(u5c::ExPrices {
-                    steps: Some(u5c::RationalNumber {
-                        numerator: params.execution_costs.step_price.numerator as i32,
-                        denominator: params.execution_costs.step_price.denominator as u32,
-                    }),
-                    memory: Some(u5c::RationalNumber {
-                        numerator: params.execution_costs.mem_price.numerator as i32,
-                        denominator: params.execution_costs.mem_price.denominator as u32,
-                    }),
-                }),
-                max_execution_units_per_transaction: Some(u5c::ExUnits {
-                    memory: params.max_tx_ex_units.mem,
-                    steps: params.max_tx_ex_units.steps,
-                }),
-                max_execution_units_per_block: Some(u5c::ExUnits {
-                    memory: params.max_block_ex_units.mem,
-                    steps: params.max_block_ex_units.steps,
-                }),
-                min_fee_script_ref_cost_per_byte: Some(u5c::RationalNumber {
-                    numerator: params.minfee_refscript_cost_per_byte.numerator as i32,
-                    denominator: params.minfee_refscript_cost_per_byte.denominator as u32,
-                }),
-                pool_voting_thresholds: Some(u5c::VotingThresholds{
+                prices: Some(execution_prices_to_u5c(params.execution_costs)),
+                max_execution_units_per_transaction: Some(execution_units_to_u5c(
+                    params.max_tx_ex_units,
+                )),
+                max_execution_units_per_block: Some(execution_units_to_u5c(
+                    params.max_block_ex_units,
+                )),
+                min_fee_script_ref_cost_per_byte: Some(rational_number_to_u5c(
+                    params.minfee_refscript_cost_per_byte,
+                )),
+                pool_voting_thresholds: Some(u5c::VotingThresholds {
                     thresholds: vec![
-                        u5c::RationalNumber {
-                            numerator: params.pool_voting_thresholds.motion_no_confidence.numerator as i32,
-                            denominator: params.pool_voting_thresholds.motion_no_confidence.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.pool_voting_thresholds.committee_normal.numerator as i32,
-                            denominator: params.pool_voting_thresholds.committee_normal.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.pool_voting_thresholds.committee_no_confidence.numerator as i32,
-                            denominator: params.pool_voting_thresholds.committee_no_confidence.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.pool_voting_thresholds.hard_fork_initiation.numerator as i32,
-                            denominator: params.pool_voting_thresholds.hard_fork_initiation.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.pool_voting_thresholds.security_voting_threshold.numerator as i32,
-                            denominator: params.pool_voting_thresholds.security_voting_threshold.denominator as u32,
-                        },
-                    ]
+                        rational_number_to_u5c(params.pool_voting_thresholds.motion_no_confidence),
+                        rational_number_to_u5c(params.pool_voting_thresholds.committee_normal),
+                        rational_number_to_u5c(
+                            params.pool_voting_thresholds.committee_no_confidence,
+                        ),
+                        rational_number_to_u5c(params.pool_voting_thresholds.hard_fork_initiation),
+                        rational_number_to_u5c(
+                            params.pool_voting_thresholds.security_voting_threshold,
+                        ),
+                    ],
                 }),
-                drep_voting_thresholds: Some(u5c::VotingThresholds{
+                drep_voting_thresholds: Some(u5c::VotingThresholds {
                     thresholds: vec![
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.motion_no_confidence.numerator as i32,
-                            denominator: params.drep_voting_thresholds.motion_no_confidence.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.committee_normal.numerator as i32,
-                            denominator: params.drep_voting_thresholds.committee_normal.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.committee_no_confidence.numerator as i32,
-                            denominator: params.drep_voting_thresholds.committee_no_confidence.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.update_constitution.numerator as i32,
-                            denominator: params.drep_voting_thresholds.update_constitution.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.hard_fork_initiation.numerator as i32,
-                            denominator: params.drep_voting_thresholds.hard_fork_initiation.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.pp_network_group.numerator as i32,
-                            denominator: params.drep_voting_thresholds.pp_network_group.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.pp_economic_group.numerator as i32,
-                            denominator: params.drep_voting_thresholds.pp_economic_group.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.pp_technical_group.numerator as i32,
-                            denominator: params.drep_voting_thresholds.pp_technical_group.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.pp_governance_group.numerator as i32,
-                            denominator: params.drep_voting_thresholds.pp_governance_group.denominator as u32,
-                        },
-                        u5c::RationalNumber {
-                            numerator: params.drep_voting_thresholds.treasury_withdrawal.numerator as i32,
-                            denominator: params.drep_voting_thresholds.treasury_withdrawal.denominator as u32,
-                        },
-                    ]
+                        rational_number_to_u5c(params.drep_voting_thresholds.motion_no_confidence),
+                        rational_number_to_u5c(params.drep_voting_thresholds.committee_normal),
+                        rational_number_to_u5c(
+                            params.drep_voting_thresholds.committee_no_confidence,
+                        ),
+                        rational_number_to_u5c(params.drep_voting_thresholds.update_constitution),
+                        rational_number_to_u5c(params.drep_voting_thresholds.hard_fork_initiation),
+                        rational_number_to_u5c(params.drep_voting_thresholds.pp_network_group),
+                        rational_number_to_u5c(params.drep_voting_thresholds.pp_economic_group),
+                        rational_number_to_u5c(params.drep_voting_thresholds.pp_technical_group),
+                        rational_number_to_u5c(params.drep_voting_thresholds.pp_governance_group),
+                        rational_number_to_u5c(params.drep_voting_thresholds.treasury_withdrawal),
+                    ],
                 }),
                 min_committee_size: params.min_committee_size as u32,
                 committee_term_limit: params.committee_term_limit.into(),
@@ -302,10 +212,7 @@ impl<C: LedgerContext> Mapper<C> {
                         .cost_models_for_script_languages
                         .plutus_v2
                         .map(|values| u5c::CostModel { values }),
-                    plutus_v3: params
-                        .cost_models_for_script_languages
-                        .plutus_v3
-                        .map(|values| u5c::CostModel { values }),
+                    ..Default::default()
                 }
                 .into(),
                 ..Default::default()
