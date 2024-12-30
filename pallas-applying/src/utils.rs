@@ -326,7 +326,7 @@ fn conway_coerce_to_non_zero_coin(
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
         for (asset_name, amount) in assets.clone().to_vec().iter() {
-            aa.push((asset_name.clone(), PositiveCoin::try_from(amount.get() as u64).unwrap()));
+            aa.push((asset_name.clone(), PositiveCoin::try_from(i64::from(amount) as u64).unwrap()));
         }
         res.push((*policy, NonEmptyKeyValuePairs::<AssetName, PositiveCoin>::try_from(aa).unwrap()));
     }
@@ -420,8 +420,8 @@ fn conway_add_same_non_zero_policy_assets(
     let mut res: HashMap<AssetName, u64> = old_assets.clone();
     for (asset_name, new_amount) in new_assets.iter() {
         match res.get(asset_name) {
-            Some(old_amount) => res.insert(asset_name.clone(), old_amount + new_amount.get() as u64),
-            None => res.insert(asset_name.clone(), new_amount.get() as u64),
+            Some(old_amount) => res.insert(asset_name.clone(), old_amount + i64::from(new_amount) as u64),
+            None => res.insert(asset_name.clone(), i64::from(new_amount) as u64),
         };
     }
     res

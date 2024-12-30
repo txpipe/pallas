@@ -1042,12 +1042,6 @@ impl<C> minicbor::encode::Encode<C> for PositiveCoin {
 #[serde(transparent)]
 pub struct NonZeroInt(i64);
 
-impl NonZeroInt {
-    pub fn get(&self) -> i64 {
-        self.0
-    }
-}
-
 impl TryFrom<i64> for NonZeroInt {
     type Error = i64;
 
