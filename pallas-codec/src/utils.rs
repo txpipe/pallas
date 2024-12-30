@@ -1054,7 +1054,6 @@ impl TryFrom<i64> for NonZeroInt {
     }
 }
 
-
 impl From<NonZeroInt> for i64 {
     fn from(value: NonZeroInt) -> Self {
         value.0
