@@ -1,8 +1,8 @@
+use super::Value;
 pub use crate::miniprotocols::localstate::queries_v16::TransactionInput;
 use pallas_codec::minicbor::{self, Decode, Encode};
 use pallas_codec::utils::{AnyCbor, Bytes};
 use std::collections::BTreeSet;
-use super::Value;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {

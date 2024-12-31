@@ -231,9 +231,7 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
         d.array()?;
 
         match d.u8()? {
-            0 => {
-                Ok(UtxoFailure::UtxosFailure(d.decode()?))
-            }
+            0 => Ok(UtxoFailure::UtxosFailure(d.decode()?)),
             1 => {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
@@ -247,12 +245,11 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
             18 => {
                 return Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?));
             }
-            19 => {
-                Ok(UtxoFailure::NoCollateralInputs)
-            }
-            20 => {
-                Ok(UtxoFailure::IncorrectTotalCollateralField(d.i64()?, d.u64()?))
-            }
+            19 => Ok(UtxoFailure::NoCollateralInputs),
+            20 => Ok(UtxoFailure::IncorrectTotalCollateralField(
+                d.i64()?,
+                d.u64()?,
+            )),
             _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
@@ -315,18 +312,12 @@ impl<'b> Decode<'b, ()> for UtxosFailure {
         d.array()?;
 
         match d.u8()? {
-            0 => {
-                Ok(UtxosFailure::ValidationTagMismatch(
-                    d.decode()?,
-                    d.decode()?,
-                ))
-            }
-            1 => {
-                Ok(UtxosFailure::CollectErrors(d.decode()?))
-            }
-            _ => {
-                Err(decode::Error::message("Unknown `UtxosFailure` variant"))
-            }
+            0 => Ok(UtxosFailure::ValidationTagMismatch(
+                d.decode()?,
+                d.decode()?,
+            )),
+            1 => Ok(UtxosFailure::CollectErrors(d.decode()?)),
+            _ => Err(decode::Error::message("Unknown `UtxosFailure` variant")),
         }
     }
 }
@@ -360,17 +351,11 @@ impl<'b> Decode<'b, ()> for TagMismatchDescription {
         d.array()?;
 
         match d.u8()? {
-            0 => {
-                Ok(TagMismatchDescription::PassedUnexpectedly)
-            }
-            1 => {
-                Ok(TagMismatchDescription::FailedUnexpectedly(d.decode()?))
-            }
-            _ => {
-                Err(decode::Error::message(
-                    "Unknown `TagMismatchDescription` variant",
-                ))
-            }
+            0 => Ok(TagMismatchDescription::PassedUnexpectedly),
+            1 => Ok(TagMismatchDescription::FailedUnexpectedly(d.decode()?)),
+            _ => Err(decode::Error::message(
+                "Unknown `TagMismatchDescription` variant",
+            )),
         }
     }
 }

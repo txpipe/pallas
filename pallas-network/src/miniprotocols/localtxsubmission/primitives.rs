@@ -1,8 +1,8 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
+use crate::miniprotocols::localstate::queries_v16::{AssetName, Coin, PolicyId};
 pub use pallas_codec::utils::KeyValuePairs;
 pub use pallas_crypto::hash::Hash;
-use crate::miniprotocols::localstate::queries_v16::{Coin, PolicyId, AssetName};
 
 use pallas_codec::minicbor;
 
