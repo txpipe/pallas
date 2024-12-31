@@ -2,6 +2,7 @@ pub use crate::miniprotocols::localstate::queries_v16::TransactionInput;
 use pallas_codec::minicbor::{self, Decode, Encode};
 use pallas_codec::utils::{AnyCbor, Bytes};
 use std::collections::BTreeSet;
+use super::Value;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -77,6 +78,7 @@ pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
     InsufficientCollateral(i64, u64),
+    CollateralContainsNonADA(Value),
     TooManyCollateralInputs(u16, u16),
     NoCollateralInputs,
     IncorrectTotalCollateralField(i64, u64),
