@@ -247,6 +247,9 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
             19 => {
                 Ok(UtxoFailure::NoCollateralInputs)
             }
+            20 => {
+                Ok(UtxoFailure::IncorrectTotalCollateralField(d.i64()?, d.u64()?))
+            }
             _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
@@ -282,9 +285,15 @@ impl Encode<()> for UtxoFailure {
                 e.u16(*allowed)?;
                 e.u16(*num)?;
             }
-                UtxoFailure::NoCollateralInputs => {
+            UtxoFailure::NoCollateralInputs => {
                 e.array(1)?;
                 e.u8(19)?;
+            }
+            UtxoFailure::IncorrectTotalCollateralField(provided, decl) => {
+                e.array(3)?;
+                e.u8(20)?;
+                e.i64(*provided)?;
+                e.u64(*decl)?;
             }
             UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
         }

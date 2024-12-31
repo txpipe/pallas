@@ -79,6 +79,7 @@ pub enum UtxoFailure {
     InsufficientCollateral(i64, u64),
     TooManyCollateralInputs(u16, u16),
     NoCollateralInputs,
+    IncorrectTotalCollateralField(i64, u64),
     Raw(Vec<u8>),
 }
 
