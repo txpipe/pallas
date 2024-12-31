@@ -77,6 +77,7 @@ pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
     InsufficientCollateral(i64, u64),
+    TooManyCollateralInputs(u16, u16),
     NoCollateralInputs,
     Raw(Vec<u8>),
 }
