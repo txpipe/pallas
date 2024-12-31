@@ -238,6 +238,9 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
+            19 => {
+                Ok(UtxoFailure::NoCollateralInputs)
+            }
             _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
@@ -260,6 +263,10 @@ impl Encode<()> for UtxoFailure {
                 e.u8(1)?;
                 e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
+            }
+            UtxoFailure::NoCollateralInputs => {
+                e.array(1)?;
+                e.u8(19)?;
             }
             UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
         }
