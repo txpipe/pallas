@@ -87,6 +87,7 @@ pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
     MaxTxSizeUTxO(u64, u64),
+    InputSetEmptyUTxO,
     ValueNotConservedUTxO(Value, Value),
     WrongNetwork(Network, BTreeSet<Bytes>),
     InsufficientCollateral(i64, u64),
