@@ -198,6 +198,7 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
 
                 Ok(UtxowFailure::NotAllowedSupplementalDatums(unallowed, acceptable))
             }
+            15 => Ok(UtxowFailure::ExtraRedeemers(d.decode()?)),
             _ => Ok(UtxowFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
@@ -228,6 +229,11 @@ impl Encode<()> for UtxowFailure {
                 e.encode(unall)?;
                 e.tag(Tag::new(258))?;
                 e.encode(accpt)?;
+            }
+            UtxowFailure::ExtraRedeemers(purp) => {
+                e.array(2)?;
+                e.u8(15)?;
+                e.encode(purp)?;
             }
             UtxowFailure::UtxoFailure(failure) => {
                 e.array(2)?;

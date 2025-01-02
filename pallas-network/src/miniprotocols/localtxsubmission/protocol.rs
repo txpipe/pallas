@@ -96,6 +96,7 @@ pub enum UtxowFailure {
     UtxoFailure(UtxoFailure),
     MissingTxBodyMetadataHash(Bytes),
     NotAllowedSupplementalDatums(BTreeSet<Bytes>, BTreeSet<Bytes>),
+    ExtraRedeemers(PlutusPurpose),
     Raw(Vec<u8>),
 }
 
