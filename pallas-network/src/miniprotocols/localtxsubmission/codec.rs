@@ -315,6 +315,9 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
             4 => {
                 return Ok(UtxoFailure::InputSetEmptyUTxO);
             }
+            5 => {
+                return Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?));
+            }
             6 => {
                 return Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?));
             }
@@ -369,6 +372,12 @@ impl Encode<()> for UtxoFailure {
             UtxoFailure::InputSetEmptyUTxO => {
                 e.array(1)?;
                 e.u8(4)?;
+            }
+            UtxoFailure::FeeTooSmallUTxO(min, supplied) => {
+                e.array(3)?;
+                e.u8(5)?;
+                e.u64(*min)?;
+                e.u64(*supplied)?;
             }
             UtxoFailure::ValueNotConservedUTxO(cons, prod) => {
                 e.array(3)?;
@@ -561,7 +570,7 @@ mod tests {
         decode_reject_reason(RAW_REJECT_RESPONSE_CONWAY);
         decode_reject_reason(ISVALID_REJECT_PREVIEW);
         decode_reject_reason(MISSING_METADATA_HASH);
-        decode_reject_reason(INPUTSETEMPTY_PREVIEW);
+        decode_reject_reason(INPUT_SET_EMPTY_FEE_OUTPUT_SMALL_PREVIEW);
     }
 
     const RAW_REJECT_RESPONSE: &str =
@@ -665,6 +674,8 @@ mod tests {
     const MISSING_METADATA_HASH: &str =
         "82028182068182018205582059182929bdbb6e212a80e65564a1c21a3ffae38dc99b9dc2b6f4184b12dd2b8c";
 
-    const INPUTSETEMPTY_PREVIEW: &str =
-        "820281820683820182008306001a0bebc200820182008104820182008302828081011a041f9503";
+    const INPUT_SET_EMPTY_FEE_OUTPUT_SMALL_PREVIEW: &str =
+        "8202818206858201820082158182825839004464b02c100eb32bc337ffbe0ce79fcf80cced5beb1b672ed8a58d\
+         776ed48e025b63487772f02996258396adcfaacf402de624980949eaa9011a000e88be82018200830600018201\
+         820083051a00027e3d00820182008104820182008302828081011a041f9b1b";
 }
