@@ -190,6 +190,14 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
 
                 Ok(UtxowFailure::ExtraneousScriptWitnessesUTXOW(vec_bytes))
             }
+            12 => {
+                d.tag()?;
+                let unallowed = d.decode()?;
+                d.tag()?;
+                let acceptable = d.decode()?;
+
+                Ok(UtxowFailure::NotAllowedSupplementalDatums(unallowed, acceptable))
+            }
             _ => Ok(UtxowFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
@@ -212,6 +220,14 @@ impl Encode<()> for UtxowFailure {
                 e.array(2)?;
                 e.u8(5)?;
                 e.encode(addr)?;
+            }
+            UtxowFailure::NotAllowedSupplementalDatums(unall, accpt) => {
+                e.array(3)?;
+                e.u8(12)?;
+                e.tag(Tag::new(258))?;
+                e.encode(unall)?;
+                e.tag(Tag::new(258))?;
+                e.encode(accpt)?;
             }
             UtxowFailure::UtxoFailure(failure) => {
                 e.array(2)?;

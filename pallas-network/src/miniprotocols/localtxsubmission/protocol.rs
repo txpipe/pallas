@@ -95,6 +95,7 @@ pub enum UtxowFailure {
     ExtraneousScriptWitnessesUTXOW(Vec<Bytes>),
     UtxoFailure(UtxoFailure),
     MissingTxBodyMetadataHash(Bytes),
+    NotAllowedSupplementalDatums(BTreeSet<Bytes>, BTreeSet<Bytes>),
     Raw(Vec<u8>),
 }
 
