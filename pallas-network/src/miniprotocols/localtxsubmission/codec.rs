@@ -309,6 +309,9 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
+            3 => {
+                return Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?));
+            }
             6 => {
                 return Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?));
             }
@@ -353,6 +356,12 @@ impl Encode<()> for UtxoFailure {
                 e.u8(1)?;
                 e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
+            }
+            UtxoFailure::MaxTxSizeUTxO(actual, max) => {
+                e.array(3)?;
+                e.u8(3)?;
+                e.u64(*actual)?;
+                e.u64(*max)?;
             }
             UtxoFailure::ValueNotConservedUTxO(cons, prod) => {
                 e.array(3)?;
