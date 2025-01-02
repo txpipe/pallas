@@ -335,12 +335,21 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
             18 => {
                 return Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?));
             }
-            19 => Ok(UtxoFailure::NoCollateralInputs),
-            20 => Ok(UtxoFailure::IncorrectTotalCollateralField(
-                d.i64()?,
-                d.u64()?,
-            )),
-            _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
+            19 => {
+                return Ok(UtxoFailure::NoCollateralInputs);
+            }
+            20 => {
+                return Ok(UtxoFailure::IncorrectTotalCollateralField(
+                    d.i64()?,
+                    d.u64()?,
+                ));
+            }
+            21 => {
+                return Ok(UtxoFailure::BabbageOutputTooSmallUTxO(d.decode()?));
+            }
+            _ => {
+                return Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?));
+            }
         }
     }
 }
@@ -418,6 +427,11 @@ impl Encode<()> for UtxoFailure {
                 e.u8(20)?;
                 e.i64(*provided)?;
                 e.u64(*decl)?;
+            }
+            UtxoFailure::BabbageOutputTooSmallUTxO(out_mins) => {
+                e.array(2)?;
+                e.u8(21)?;
+                e.encode(out_mins)?;
             }
             UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
         }

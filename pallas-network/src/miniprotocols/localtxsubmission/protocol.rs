@@ -1,5 +1,8 @@
 use super::Value;
-pub use crate::miniprotocols::localstate::queries_v16::TransactionInput;
+pub use crate::miniprotocols::localstate::queries_v16::{
+    TransactionInput,
+    TransactionOutput,
+};
 use pallas_codec::minicbor::{self, Decode, Encode};
 use pallas_codec::utils::{AnyCbor, Bytes};
 use std::collections::BTreeSet;
@@ -96,6 +99,7 @@ pub enum UtxoFailure {
     TooManyCollateralInputs(u16, u16),
     NoCollateralInputs,
     IncorrectTotalCollateralField(i64, u64),
+    BabbageOutputTooSmallUTxO(Vec<(TransactionOutput, u64)>),
     Raw(Vec<u8>),
 }
 
