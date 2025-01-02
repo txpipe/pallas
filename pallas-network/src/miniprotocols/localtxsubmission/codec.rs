@@ -309,6 +309,11 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
+            7 => {
+                let network = d.decode()?;
+                d.tag()?;
+                return Ok(UtxoFailure::WrongNetwork(network, d.decode()?));
+            }
             15 => {
                 return Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?));
             }
@@ -345,6 +350,13 @@ impl Encode<()> for UtxoFailure {
                 e.u8(1)?;
                 e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
+            }
+            UtxoFailure::WrongNetwork(net, addrs) => {
+                e.array(3)?;
+                e.u8(7)?;
+                e.encode(net)?;
+                e.tag(Tag::new(258))?;
+                e.encode(addrs)?;
             }
             UtxoFailure::InsufficientCollateral(deltacoin, coin) => {
                 e.array(3)?;

@@ -68,6 +68,15 @@ pub enum UtxosFailure {
     CollectErrors(CollectError),
 }
 
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[cbor(index_only)]
+pub enum Network {
+    #[n(0)]
+    Testnet,
+    #[n(1)]
+    Mainnet,
+}
+
 /// Conway Utxo transaction errors. It corresponds to [ConwayUtxoPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxo.hs#L78C6-L78C28)
 /// in the Haskell sources. Not to be confused with [UtxosFailure].
 ///
@@ -77,6 +86,7 @@ pub enum UtxosFailure {
 pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
+    WrongNetwork(Network, BTreeSet<Bytes>),
     InsufficientCollateral(i64, u64),
     CollateralContainsNonADA(Value),
     TooManyCollateralInputs(u16, u16),
