@@ -85,6 +85,12 @@ pub enum UtxoFailure {
     Raw(Vec<u8>),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SMaybe<T> {
+    Some(T),
+    None,
+}
+
 /// Conway era transaction errors. It corresponds to [ConwayUtxowPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs#L94)
 /// in the Haskell sources.
 ///
@@ -95,6 +101,7 @@ pub enum UtxowFailure {
     ExtraneousScriptWitnessesUTXOW(Vec<Bytes>),
     UtxoFailure(UtxoFailure),
     MissingTxBodyMetadataHash(Bytes),
+    PPViewHashesDontMatch(SMaybe<Bytes>, SMaybe<Bytes>),
     NotAllowedSupplementalDatums(BTreeSet<Bytes>, BTreeSet<Bytes>),
     ExtraRedeemers(PlutusPurpose),
     Raw(Vec<u8>),
