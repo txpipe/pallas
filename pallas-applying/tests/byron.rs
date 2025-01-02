@@ -24,6 +24,45 @@ use std::vec::Vec;
 mod byron_tests {
     use super::*;
 
+    macro_rules! hardcoded_environment_values {
+        ($($key:ident = $value:expr),*) => {
+            {
+                #[allow(unused_mut)]
+                let mut pparams = ByronProtParams {
+                    block_version: (1, 0, 0),
+                    start_time: 1506203091,
+                    script_version: 0,
+                    slot_duration: 20000,
+                    max_block_size: 2000000,
+                    max_header_size: 2000000,
+                    max_tx_size: 4096,
+                    max_proposal_size: 700,
+                    mpc_thd: 20000000000000,
+                    heavy_del_thd: 300000000000,
+                    update_vote_thd: 1000000000000,
+                    update_proposal_thd: 100000000000000,
+                    update_implicit: 10000,
+                    soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
+                    summand: 155381,
+                    multiplier: 44,
+                    unlock_stake_epoch: 18446744073709551615,
+                };
+
+                $(
+                    pparams.$key = $value;
+                )*
+
+                Environment {
+                    prot_params: MultiEraProtocolParameters::Byron(pparams),
+                    prot_magic: 764824073,
+                    block_slot: 6341,
+                    network_id: 1,
+                    acnt: None,
+                }
+            }
+        }
+    }
+
     #[test]
     // Transaction hash:
     // a9e4413a5fb61a7a43c7df006ffcaaf3f2ffc9541f54757023968c5a8f8294fd
@@ -38,30 +77,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 6341,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -83,30 +99,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -136,30 +129,7 @@ mod byron_tests {
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Inputs set should not be empty"),
@@ -192,30 +162,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Outputs set should not be empty"),
@@ -233,30 +180,7 @@ mod byron_tests {
         let mtxp: MintedTxPayload = minted_tx_payload_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
         let utxos: UTxOs = UTxOs::new();
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
@@ -295,30 +219,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All outputs must contain lovelace"),
@@ -342,30 +243,8 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 1000,
-                multiplier: 1000,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+
+        let env: Environment = hardcoded_environment_values!(summand = 1000, multiplier = 1000);
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Fees should not be below minimum"),
@@ -389,30 +268,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 0,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!(max_tx_size = 0);
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Transaction size cannot exceed protocol limit"),
@@ -444,30 +300,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must have a witness signature"),
@@ -508,30 +341,7 @@ mod byron_tests {
                 19999000000,
             )],
         );
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Byron(ByronProtParams {
-                block_version: (1, 0, 0),
-                script_version: 0,
-                slot_duration: 20000,
-                max_block_size: 2000000,
-                max_header_size: 2000000,
-                max_tx_size: 4096,
-                max_proposal_size: 700,
-                mpc_thd: 20000000000000,
-                heavy_del_thd: 300000000000,
-                update_vote_thd: 1000000000000,
-                update_proposal_thd: 100000000000000,
-                update_implicit: 10000,
-                soft_fork_rule: (900000000000000, 600000000000000, 50000000000000),
-                summand: 155381,
-                multiplier: 44,
-                unlock_stake_epoch: 18446744073709551615,
-            }),
-            prot_magic: 764824073,
-            block_slot: 3241381,
-            network_id: 1,
-            acnt: None,
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Witness signature should verify the transaction"),

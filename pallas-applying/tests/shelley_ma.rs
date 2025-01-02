@@ -29,6 +29,69 @@ use std::str::FromStr;
 mod shelley_ma_tests {
     use super::*;
 
+    macro_rules! hardcoded_environment_values {
+        ($($key:ident = $value:expr),*) => {
+            {
+                #[allow(unused_mut)]
+                let mut pparams = ShelleyProtParams {
+                    system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+                    epoch_length: 432000,
+                    slot_length: 1,
+                    minfee_b: 155381,
+                    minfee_a: 44,
+                    max_block_body_size: 65536,
+                    max_transaction_size: 4096,
+                    max_block_header_size: 1100,
+                    key_deposit: 2000000,
+                    pool_deposit: 500000000,
+                    maximum_epoch: 18,
+                    desired_number_of_stake_pools: 150,
+                    pool_pledge_influence: RationalNumber {
+                        // FIX: this is a made-up value.
+                        numerator: 1,
+                        denominator: 1,
+                    },
+                    expansion_rate: RationalNumber {
+                        // FIX: this is a made-up value.
+                        numerator: 1,
+                        denominator: 1,
+                    },
+                    treasury_growth_rate: RationalNumber {
+                        // FIX: this is a made-up value.
+                        numerator: 1,
+                        denominator: 1,
+                    },
+                    decentralization_constant: RationalNumber {
+                        numerator: 1,
+                        denominator: 1,
+                    },
+                    extra_entropy: Nonce {
+                        variant: NonceVariant::NeutralNonce,
+                        hash: None,
+                    },
+                    protocol_version: (0, 2),
+                    min_utxo_value: 1000000,
+                    min_pool_cost: 340000000,
+                };
+
+                $(
+                    pparams.$key = $value;
+                )*
+
+                Environment {
+                    prot_params: MultiEraProtocolParameters::Shelley(pparams),
+                    prot_magic: 764824073,
+                    block_slot: 5281340,
+                    network_id: 1,
+                    acnt: Some(AccountState {
+                        treasury: 261_254_564_000_000,
+                        reserves: 0,
+                    }),
+                }
+            }
+        }
+    }
+
     #[test]
     // Transaction hash:
     // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
@@ -44,54 +107,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
 
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -115,54 +132,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 17584925,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -171,8 +141,8 @@ mod shelley_ma_tests {
     }
 
     #[test]
-    // Same as successful_mainnet_shelley_tx_with_script, but changing "All" to "any" and
-    // deleting one key-witness pair
+    // Same as successful_mainnet_shelley_tx_with_script, but changing "All" to
+    // "any" and deleting one key-witness pair
     fn successful_mainnet_shelley_tx_with_changed_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley4.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
@@ -196,54 +166,8 @@ mod shelley_ma_tests {
                 None,
             )],
         );
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
 
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 17584925,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -267,54 +191,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5860488,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -338,54 +215,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 24381863,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -409,51 +239,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 16384,
-                max_block_header_size: 1100,
-                key_deposit: 2_000_000,
-                pool_deposit: 500_000_000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 500,
-                pool_pledge_influence: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                expansion_rate: RationalNumber {
-                    numerator: 3,
-                    denominator: 1000,
-                },
-                treasury_growth_rate: RationalNumber {
-                    numerator: 2,
-                    denominator: 10,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 0,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (4, 0),
-                min_utxo_value: 1_000_000,
-                min_pool_cost: 340_000_000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 26342415,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         let hash =
             Hash::from_str("FB2B631DB76384F64DD94B47F97FC8C2A206764C17A1DE7DA2F70E83").unwrap();
@@ -551,6 +337,9 @@ mod shelley_ma_tests {
 
         Environment {
             prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+                epoch_length: 432000,
+                slot_length: 1,
                 minfee_b: 155381,
                 minfee_a: 44,
                 max_block_body_size: 65536,
@@ -608,51 +397,9 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
+        let mut env: Environment = hardcoded_environment_values!(max_transaction_size = 16384);
+        env.block_slot = 19282133;
 
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 16384,
-                max_block_header_size: 1100,
-                key_deposit: 2_000_000,
-                pool_deposit: 500_000_000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 500,
-                pool_pledge_influence: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                expansion_rate: RationalNumber {
-                    numerator: 3,
-                    denominator: 1000,
-                },
-                treasury_growth_rate: RationalNumber {
-                    numerator: 2,
-                    denominator: 10,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (3, 0),
-                min_utxo_value: 1_000_000,
-                min_pool_cost: 340_000_000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 19282133,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
@@ -685,54 +432,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Inputs set should not be empty"),
@@ -751,54 +451,7 @@ mod shelley_ma_tests {
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = UTxOs::new();
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
@@ -833,54 +486,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("TTL must always be present in Shelley transactions"),
@@ -906,54 +512,9 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
+        let mut env: Environment = hardcoded_environment_values!();
+        env.block_slot = 9999999;
 
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 9999999,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("TTL cannot be exceeded"),
@@ -979,54 +540,8 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
+        let env: Environment = hardcoded_environment_values!(max_transaction_size = 0);
 
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 0,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Tx size exceeds max limit"),
@@ -1053,54 +568,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 10000000000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env = hardcoded_environment_values!(min_utxo_value = 10000000000000);
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output amount must be above min lovelace value"),
@@ -1136,54 +604,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Preservation of value property doesn't hold"),
@@ -1209,54 +630,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 70,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!(minfee_b = 155381, minfee_a = 70);
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Fee should not be below minimum"),
@@ -1305,54 +679,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1389,54 +716,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5860488,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
@@ -1466,54 +746,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1556,54 +789,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1641,54 +827,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1728,54 +867,7 @@ mod shelley_ma_tests {
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 4096,
-                max_block_header_size: 1100,
-                key_deposit: 2000000,
-                pool_deposit: 500000000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 150,
-                pool_pledge_influence: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                expansion_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                treasury_growth_rate: RationalNumber {
-                    // FIX: this is a made-up value.
-                    numerator: 1,
-                    denominator: 1,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 1,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (0, 2),
-                min_utxo_value: 1000000,
-                min_pool_cost: 340000000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 5281340,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!();
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1874,51 +966,7 @@ mod shelley_ma_tests {
             )],
         );
 
-        let acnt = AccountState {
-            treasury: 261_254_564_000_000,
-            reserves: 0,
-        };
-
-        let env: Environment = Environment {
-            prot_params: MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 16384,
-                max_block_header_size: 1100,
-                key_deposit: 2_000_000,
-                pool_deposit: 500_000_000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 500,
-                pool_pledge_influence: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                expansion_rate: RationalNumber {
-                    numerator: 3,
-                    denominator: 1000,
-                },
-                treasury_growth_rate: RationalNumber {
-                    numerator: 2,
-                    denominator: 10,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (3, 0),
-                min_utxo_value: 1_000_000,
-                min_pool_cost: 340_000_000,
-            }),
-            prot_magic: 764824073,
-            block_slot: 19483200,
-            network_id: 1,
-            acnt: Some(acnt),
-        };
+        let env: Environment = hardcoded_environment_values!(max_transaction_size = 16384);
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => panic!("MIR after the stability window"),
