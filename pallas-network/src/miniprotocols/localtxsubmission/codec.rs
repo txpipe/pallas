@@ -309,6 +309,9 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
+            6 => {
+                return Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?));
+            }
             7 => {
                 let network = d.decode()?;
                 d.tag()?;
@@ -350,6 +353,12 @@ impl Encode<()> for UtxoFailure {
                 e.u8(1)?;
                 e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
+            }
+            UtxoFailure::ValueNotConservedUTxO(cons, prod) => {
+                e.array(3)?;
+                e.u8(6)?;
+                e.encode(cons)?;
+                e.encode(prod)?;
             }
             UtxoFailure::WrongNetwork(net, addrs) => {
                 e.array(3)?;

@@ -86,6 +86,7 @@ pub enum Network {
 pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
+    ValueNotConservedUTxO(Value, Value),
     WrongNetwork(Network, BTreeSet<Bytes>),
     InsufficientCollateral(i64, u64),
     CollateralContainsNonADA(Value),
