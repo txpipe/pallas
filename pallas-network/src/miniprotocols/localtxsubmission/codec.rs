@@ -552,8 +552,8 @@ mod tests {
         println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok());
         let mut datum: Vec<u8> = Vec::new();
+        // Encoding back
         encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
-        println!("Encoding back: {:02x?}", datum);
         assert_eq!(bytes, datum);
     }
 
