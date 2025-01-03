@@ -25,8 +25,18 @@ pub struct EraTx(pub u16, pub Vec<u8>);
 
 // TODO: Temporary aliases before we decode this
 pub type PlutusPurpose = AnyCbor;
-pub type ScriptHash = AnyCbor;
-pub type Language = AnyCbor;
+
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[cbor(index_only)]
+pub enum Language {
+    #[n(0)]
+    PlutusV1,
+    #[n(1)]
+    PlutusV2,
+    #[n(3)]
+    PlutusV3,
+}
+
 pub type ContextError = AnyCbor;
 pub type FailureDescription = AnyCbor;
 
@@ -49,7 +59,7 @@ pub enum CollectError {
     #[n(0)]
     NoRedeemer(#[n(0)] PlutusPurpose),
     #[n(1)]
-    NoWitness(#[n(0)] ScriptHash),
+    NoWitness(#[n(0)] Bytes),
     #[n(2)]
     NoCostModel(#[n(0)] Language),
     #[n(3)]
