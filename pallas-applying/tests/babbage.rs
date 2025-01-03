@@ -4,7 +4,7 @@ use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
 use pallas_applying::{
     utils::{
-        AccountState, BabbageError, BabbageProtParams, Environment, MultiEraProtocolParameters,
+        AccountState, PostAlonzoError, BabbageProtParams, Environment, MultiEraProtocolParameters,
         ValidationError::*,
     },
     validate_txs, CertState, UTxOs,
@@ -615,7 +615,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
-                Babbage(BabbageError::TxInsEmpty) => (),
+                PostAlonzo(PostAlonzoError::TxInsEmpty) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -645,7 +645,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
             Err(err) => match err {
-                Babbage(BabbageError::InputNotInUTxO) => (),
+                PostAlonzo(PostAlonzoError::InputNotInUTxO) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -695,7 +695,7 @@ mod babbage_tests {
                 "Validity interval lower bound should have been reached"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::BlockPrecedesValInt) => (),
+                PostAlonzo(PostAlonzoError::BlockPrecedesValInt) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -745,7 +745,7 @@ mod babbage_tests {
                 "Validity interval upper bound should not have been surpassed"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::BlockExceedsValInt) => (),
+                PostAlonzo(PostAlonzoError::BlockExceedsValInt) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -788,7 +788,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Fee should not be below minimum"),
             Err(err) => match err {
-                Babbage(BabbageError::FeeBelowMin) => (),
+                PostAlonzo(PostAlonzoError::FeeBelowMin) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -874,7 +874,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "No collateral inputs"),
             Err(err) => match err {
-                Babbage(BabbageError::CollateralMissing) => (),
+                PostAlonzo(PostAlonzoError::CollateralMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -957,7 +957,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
             Err(err) => match err {
-                Babbage(BabbageError::TooManyCollaterals) => (),
+                PostAlonzo(PostAlonzoError::TooManyCollaterals) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1056,7 +1056,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
             Err(err) => match err {
-                Babbage(BabbageError::CollateralNotVKeyLocked) => (),
+                PostAlonzo(PostAlonzoError::CollateralNotVKeyLocked) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1148,7 +1148,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
             Err(err) => match err {
-                Babbage(BabbageError::NonLovelaceCollateral) => (),
+                PostAlonzo(PostAlonzoError::NonLovelaceCollateral) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1234,7 +1234,7 @@ mod babbage_tests {
                 "Collateral balance should contained the minimum lovelace"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::CollateralMinLovelace) => (),
+                PostAlonzo(PostAlonzoError::CollateralMinLovelace) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1320,7 +1320,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Collateral annotation"),
             Err(err) => match err {
-                Babbage(BabbageError::CollateralAnnotation) => (),
+                PostAlonzo(PostAlonzoError::CollateralAnnotation) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1367,7 +1367,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Preservation of value does not hold"),
             Err(err) => match err {
-                Babbage(BabbageError::PreservationOfValue) => (),
+                PostAlonzo(PostAlonzoError::PreservationOfValue) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1410,7 +1410,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Output minimum lovelace is unreached"),
             Err(err) => match err {
-                Babbage(BabbageError::MinLovelaceUnreached) => (),
+                PostAlonzo(PostAlonzoError::MinLovelaceUnreached) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1453,7 +1453,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Max value size exceeded"),
             Err(err) => match err {
-                Babbage(BabbageError::MaxValSizeExceeded) => (),
+                PostAlonzo(PostAlonzoError::MaxValSizeExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1531,7 +1531,7 @@ mod babbage_tests {
                 "Output network ID should match environment network ID"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::OutputWrongNetworkID) => (),
+                PostAlonzo(PostAlonzoError::OutputWrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1581,7 +1581,7 @@ mod babbage_tests {
                 "Transaction network ID should match environment network ID"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::TxWrongNetworkID) => (),
+                PostAlonzo(PostAlonzoError::TxWrongNetworkID) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1665,7 +1665,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Transaction ex units should be below maximum"),
             Err(err) => match err {
-                Babbage(BabbageError::TxExUnitsExceeded) => (),
+                PostAlonzo(PostAlonzoError::TxExUnitsExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1712,7 +1712,7 @@ mod babbage_tests {
                 "Transaction size should not exceed the maximum allowed"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::MaxTxSizeExceeded) => (),
+                PostAlonzo(PostAlonzoError::MaxTxSizeExceeded) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1829,7 +1829,7 @@ mod babbage_tests {
                 "Minting policy is not supported by the corresponding native script"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::MintingLacksPolicy) => (),
+                PostAlonzo(PostAlonzoError::MintingLacksPolicy) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1907,7 +1907,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Transaction auxiliary data removed"),
             Err(err) => match err {
-                Babbage(BabbageError::MetadataHash) => (),
+                PostAlonzo(PostAlonzoError::MetadataHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -1997,7 +1997,7 @@ mod babbage_tests {
                 "Script hash in input is not matched to a script in the witness set"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::ScriptWitnessMissing) => (),
+                PostAlonzo(PostAlonzoError::ScriptWitnessMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2086,7 +2086,7 @@ mod babbage_tests {
                 "Datum matching the script input datum hash is missing"
             ),
             Err(err) => match err {
-                Babbage(BabbageError::DatumMissing) => (),
+                PostAlonzo(PostAlonzoError::DatumMissing) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2178,7 +2178,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Unneeded datum"),
             Err(err) => match err {
-                Babbage(BabbageError::UnneededDatum) => (),
+                PostAlonzo(PostAlonzoError::UnneededDatum) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2271,7 +2271,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Unneeded datum"),
             Err(err) => match err {
-                Babbage(BabbageError::UnneededRedeemer) => (),
+                PostAlonzo(PostAlonzoError::UnneededRedeemer) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
@@ -2361,7 +2361,7 @@ mod babbage_tests {
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => assert!(false, "Wrong script integrity hash"),
             Err(err) => match err {
-                Babbage(BabbageError::ScriptIntegrityHash) => (),
+                PostAlonzo(PostAlonzoError::ScriptIntegrityHash) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }

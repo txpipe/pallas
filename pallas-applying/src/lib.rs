@@ -5,10 +5,12 @@ pub mod babbage;
 pub mod byron;
 pub mod shelley_ma;
 pub mod utils;
+pub mod conway;
 
 use alonzo::validate_alonzo_tx;
 use babbage::validate_babbage_tx;
 use byron::validate_byron_tx;
+use conway::validate_conway_tx;
 use pallas_primitives::alonzo::TransactionIndex;
 use pallas_traverse::{Era, MultiEraTx};
 use shelley_ma::validate_shelley_ma_tx;
@@ -85,8 +87,16 @@ pub fn validate_tx(
             ),
             _ => Err(TxAndProtParamsDiffer),
         },
-        (MultiEraProtocolParameters::Conway(_), _) => {
-            todo!("conway phase-1 validation not yet implemented");
+        (MultiEraProtocolParameters::Conway(cpp), _) => match metx {
+            MultiEraTx::Conway(mtx) => validate_conway_tx(
+                mtx,
+                utxos,
+                cpp,
+                env.block_slot(),
+                env.prot_magic(),
+                env.network_id(),
+            ),
+            _ => Err(TxAndProtParamsDiffer),
         }
         (_, None) => Err(EnvMissingAccountState),
     }
