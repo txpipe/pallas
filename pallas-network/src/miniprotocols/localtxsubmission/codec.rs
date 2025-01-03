@@ -309,47 +309,25 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
-            3 => {
-                return Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?));
-            }
-            4 => {
-                return Ok(UtxoFailure::InputSetEmptyUTxO);
-            }
-            5 => {
-                return Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?));
-            }
-            6 => {
-                return Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?));
-            }
+            3 => Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?)),
+            4 => Ok(UtxoFailure::InputSetEmptyUTxO),
+            5 => Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?)),
+            6 => Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?)),
             7 => {
                 let network = d.decode()?;
                 d.tag()?;
-                return Ok(UtxoFailure::WrongNetwork(network, d.decode()?));
+                Ok(UtxoFailure::WrongNetwork(network, d.decode()?))
             }
-            15 => {
-                return Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?));
-            }
-            12 => {
-                return Ok(UtxoFailure::InsufficientCollateral(d.i64()?, d.u64()?));
-            }
-            18 => {
-                return Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?));
-            }
-            19 => {
-                return Ok(UtxoFailure::NoCollateralInputs);
-            }
-            20 => {
-                return Ok(UtxoFailure::IncorrectTotalCollateralField(
-                    d.i64()?,
-                    d.u64()?,
-                ));
-            }
-            21 => {
-                return Ok(UtxoFailure::BabbageOutputTooSmallUTxO(d.decode()?));
-            }
-            _ => {
-                return Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?));
-            }
+            15 => Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?)),
+            12 => Ok(UtxoFailure::InsufficientCollateral(d.i64()?, d.u64()?)),
+            18 => Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?)),
+            19 => Ok(UtxoFailure::NoCollateralInputs),
+            20 => Ok(UtxoFailure::IncorrectTotalCollateralField(
+                d.i64()?,
+                d.u64()?,
+            )),
+            21 => Ok(UtxoFailure::BabbageOutputTooSmallUTxO(d.decode()?)),
+            _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
 }
