@@ -5,6 +5,8 @@ use pallas_codec::utils::Bytes;
 use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, TxError};
 use std::str::from_utf8;
 
+use crate::miniprotocols::localtxsubmission::UtxowFailure;
+
 impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
 where
     Tx: Encode<()>,
@@ -127,49 +129,55 @@ impl Encode<()> for RejectReason {
 
 impl<'b> Decode<'b, ()> for TxError {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let data = d.input();
+        let start_pos = d.position();
+        let mut raw_elements = Vec::new();
+
         match d.datatype()? {
-            CborType::U8 => return Ok(TxError::U8(d.u8()?)),
             CborType::Array => d.array()?,
             _ => {
-                return Err(decode::Error::message(
-                    "Error types are supposed to be `array` or `u8`",
-                ))
+                d.skip()?;
+                // Skip decoding the elements of the array
+                // Store the slice of raw CBOR
+                raw_elements.append(&mut data[start_pos..d.position()].to_vec());
+
+                return Ok(TxError::Raw(raw_elements));
             }
         };
-        // This seems to be always 1 for Conway errors.
-        let fst_num = d.u8()?;
+
+        match d.u8()? {
+            1 => Ok(TxError::ConwayUtxowFailure(d.decode()?)),
+            _ => {
+                d.set_position(start_pos);
+                d.skip()?;
+                raw_elements.append(&mut data[start_pos..d.position()].to_vec());
+
+                Ok(TxError::Raw(raw_elements))
+            }
+        }
+    }
+}
+
+impl<'b> Decode<'b, ()> for UtxowFailure {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let data = d.input();
-        let size = d.array()?.ok_or(decode::Error::message(
-            "Errors are supposed to be definite-length arrays",
-        ))?;
-        let mut raw_elements = Vec::new();
         let start_pos = d.position();
-
-        if fst_num != 1 {
-            for _ in 0..size {
-                d.skip()?
-            } // Skip decoding the elements of the array
-              // Store the slice of raw CBOR
-            raw_elements.append(&mut data[start_pos..d.position()].to_vec());
-
-            return Ok(TxError::Raw(raw_elements));
-        };
+        let mut raw_elements = Vec::new();
+        d.array()?;
 
         match d.u8()? {
             9 => {
                 d.tag()?;
                 let vec_bytes: Vec<Bytes> = d.decode()?;
 
-                Ok(TxError::ExtraneousScriptWitnessesUTXOW(vec_bytes))
+                Ok(UtxowFailure::ExtraneousScriptWitnessesUTXOW(vec_bytes))
             }
             _ => {
-                for _ in 1..size {
-                    d.skip()?
-                } // Skip decoding the elements of the array
-                  // Store the slice of raw CBOR
+                d.set_position(start_pos);
+                d.skip()?;
                 raw_elements.append(&mut data[start_pos..d.position()].to_vec());
 
-                Ok(TxError::Raw(raw_elements))
+                Ok(UtxowFailure::Raw(raw_elements))
             }
         }
     }

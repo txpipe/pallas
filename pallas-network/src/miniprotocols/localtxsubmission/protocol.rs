@@ -23,9 +23,17 @@ pub struct EraTx(pub u16, pub Vec<u8>);
 /// It is partially structured; the `Raw` variant collects errors that have not
 /// been implemented yet keeping their raw form (to be deprecated).
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum TxError {
+pub enum UtxowFailure {
     ExtraneousScriptWitnessesUTXOW(Vec<Bytes>),
-    U8(u8),
+    Raw(Vec<u8>),
+}
+
+/// Conway era ledger transaction errors.
+/// It is partially structured; the `Raw` variant collects errors that have not
+/// been implemented yet keeping their raw form (to be deprecated).
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum TxError {
+    ConwayUtxowFailure(UtxowFailure),
     Raw(Vec<u8>),
 }
 
