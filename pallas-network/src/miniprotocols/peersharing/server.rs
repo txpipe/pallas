@@ -100,7 +100,7 @@ impl Server {
         let msg = self.recv_message().await?;
         match msg {
             Message::ShareRequest(amount) => {
-                debug!("received share request with amount {}", amount);
+                debug!(amount, "received share request");
                 self.0 = State::Busy(amount);
                 Ok(Some(amount))
             }

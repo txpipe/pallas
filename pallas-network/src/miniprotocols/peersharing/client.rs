@@ -103,7 +103,7 @@ impl Client {
         let msg = Message::ShareRequest(amount);
         self.send_message(&msg).await?;
         self.0 = State::Busy(amount);
-        debug!("sent share request message with amount {}", amount);
+        debug!(amount, "sent share request message");
 
         Ok(())
     }
@@ -113,9 +113,9 @@ impl Client {
         match msg {
             Message::SharePeers(addresses) => {
                 debug!(
-                    "received {} peer addresses: {:?}",
-                    addresses.len(),
-                    addresses
+                    length = addresses.len(),
+                    ?addresses,
+                    "received peer addresses"
                 );
                 self.0 = State::Idle;
                 Ok(addresses)
