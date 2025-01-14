@@ -108,8 +108,72 @@ pub struct ProtocolParams {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Metadata {
+    pub hash: String,
+    pub url: String
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SingleHostAddr {
+    pub port: Option<u32>,
+    pub IPv6: Option<String>,
+    pub IPv4: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SingleHostName {
+    pub port: Option<u32>,
+    pub dns_name: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MultiHostName {
+    pub dns_name: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum Relay {
+    SingleHostAddr(SingleHostAddr),
+    SingleHostName(SingleHostName),
+    MultiHostName(MultiHostName),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum Credential {
+    KeyHash(String),
+    ScriptHash(String),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RewardAccount {
+    pub credential: Credential,
+    pub network: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Pool {
+    pub cost: u64,
+    #[serde(deserialize_with = "deserialize_rational")]
+    pub margin: pallas_primitives::alonzo::RationalNumber,
+    pub metadata: Option<Metadata>,
+    pub owners: Vec<String>,
+    pub pledge: u64,
+    pub public_key: String, // pool ID
+    pub relays: Vec<HashMap<String, Relay>>,
+    pub reward_account: RewardAccount,
+    pub vrf: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Staking {
-    pub pools: Option<HashMap<String, String>>,
+    pub pools: Option<HashMap<String, Pool>>,
     pub stake: Option<HashMap<String, String>>,
 }
 
@@ -119,7 +183,7 @@ pub struct GenesisFile {
     pub active_slots_coeff: Option<f32>,
     pub epoch_length: Option<u32>,
     pub gen_delegs: Option<HashMap<String, GenDelegs>>,
-    pub initial_funds: Option<HashMap<String, String>>,
+    pub initial_funds: Option<HashMap<String, u64>>,
     pub max_kes_evolutions: Option<u32>,
     pub max_lovelace_supply: Option<u64>,
     pub network_id: Option<String>,
@@ -141,6 +205,21 @@ pub fn from_file(path: &std::path::Path) -> Result<GenesisFile, std::io::Error> 
     Ok(parsed)
 }
 
+pub type GenesisUtxo = (Hash<32>, pallas_addresses::Address, u64);
+
+pub fn shelley_utxos(config: &GenesisFile) -> Vec<GenesisUtxo> {
+    match &config.initial_funds {
+        None => Vec::new(),
+        Some(funds) => funds.iter().map(|(addr, amount)| {
+            let addr = pallas_addresses::Address::from_hex(addr).unwrap();
+
+            let txid = pallas_crypto::hash::Hasher::<256>::hash(&addr.to_vec());
+
+            (txid, addr, *amount)
+        }).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,6 +231,25 @@ mod tests {
             .join(format!("{network}-shelley-genesis.json"));
 
         from_file(&path).unwrap()
+    }
+
+    #[test]
+    fn calc_address_txid() {
+        let config = load_test_data_config("golden");
+        let utxos = shelley_utxos(&config);
+        let utxo = utxos.first().unwrap();
+        assert_eq!(
+            utxo.0.to_string(),
+            "f9ec23569778d1c5f7f43e0e98464335f02fb98b57683faa1c6b18c82921d2da"
+        );
+        assert_eq!(
+            utxo.1.to_bech32().unwrap(),
+            "addr_test1qrsm4h32h9r95f8at64ykuugxqu3wvu0s5ay3vg6tlyevjh4e2flkegka00r69gt8c4vkxgf2vnnph3nsvhlkg5ukgxslee3tf"
+        );
+        assert_eq!(
+            utxo.2,
+            12157196
+        );
     }
 
     #[test]
