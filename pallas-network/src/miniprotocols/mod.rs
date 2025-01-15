@@ -8,6 +8,7 @@ pub mod handshake;
 pub mod keepalive;
 pub mod localstate;
 pub mod localtxsubmission;
+pub mod peersharing;
 pub mod txmonitor;
 pub mod txsubmission;
 
