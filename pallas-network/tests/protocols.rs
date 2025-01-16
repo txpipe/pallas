@@ -16,6 +16,8 @@ use pallas_network::{
         handshake::n2n::VersionData,
         localstate,
         localstate::ClientQueryRequest,
+        peersharing,
+        peersharing::PeerAddress,
         txsubmission,
         txsubmission::{EraTxBody, TxIdAndSize},
         Point, MAINNET_MAGIC,
@@ -25,7 +27,7 @@ use pallas_network::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    net::{Ipv4Addr, SocketAddrV4},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddrV4},
     path::Path,
     str::FromStr,
     time::Duration,
@@ -1714,4 +1716,77 @@ pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
 
     // server should acknowledge the one transaction we sent now
     assert_eq!(ack, 1);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+pub async fn peer_sharing_server_and_client_happy_path() {
+    let amount = 3;
+
+    let peer_addresses = vec![
+        PeerAddress::V4(Ipv4Addr::new(127, 0, 0, 1), 3000),
+        PeerAddress::V4(Ipv4Addr::new(192, 0, 2, 146), 3001),
+        PeerAddress::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff), 8000),
+    ];
+
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
+        .await
+        .unwrap();
+
+    let server = tokio::spawn({
+        let addresses = peer_addresses.clone();
+        async move {
+            // server setup
+
+            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
+
+            let server_ps = peer_server.peersharing();
+
+            // server receives share request from client
+
+            let amount_request = server_ps.recv_share_request().await.unwrap().unwrap();
+
+            assert_eq!(amount_request, amount);
+            assert_eq!(*server_ps.state(), peersharing::State::Busy(amount));
+
+            // Server sends peer addresses
+
+            server_ps.send_peer_addresses(addresses).await.unwrap();
+
+            assert_eq!(*server_ps.state(), peersharing::State::Idle);
+
+            // Server receives Done message from client
+
+            assert_eq!(server_ps.recv_share_request().await.unwrap(), None);
+
+            assert_eq!(*server_ps.state(), peersharing::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+
+        let mut client_to_server_conn = PeerClient::connect("localhost:30003", 0).await.unwrap();
+
+        let client_ps = client_to_server_conn.peersharing();
+
+        // client sends peers request, receives peer addresses
+
+        client_ps.send_share_request(amount).await.unwrap();
+
+        assert_eq!(
+            client_ps.recv_peer_addresses().await.unwrap(),
+            peer_addresses
+        );
+
+        // client sends Done
+
+        client_ps.send_done().await.unwrap();
+
+        assert!(client_ps.is_done())
+    });
+
+    tokio::try_join!(client, server).unwrap();
 }

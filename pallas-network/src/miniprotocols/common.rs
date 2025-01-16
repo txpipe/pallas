@@ -51,6 +51,9 @@ pub const PROTOCOL_N2N_TX_SUBMISSION: u16 = 4;
 /// Protocol channel number for node-to-node Keep-alive
 pub const PROTOCOL_N2N_KEEP_ALIVE: u16 = 8;
 
+/// Protocol channel number for node-to-node Peer-sharing
+pub const PROTOCOL_N2N_PEER_SHARING: u16 = 10;
+
 /// Protocol channel number for node-to-client handshakes
 pub const PROTOCOL_N2C_HANDSHAKE: u16 = 0;
 
