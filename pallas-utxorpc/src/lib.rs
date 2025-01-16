@@ -636,11 +636,11 @@ mod tests {
 
             // un-comment the following to generate a new snapshot
 
-            std::fs::write(
-                "new_snapshot.json",
-                serde_json::to_string_pretty(&current).unwrap(),
-            )
-            .unwrap();
+            // std::fs::write(
+            //     "new_snapshot.json",
+            //     serde_json::to_string_pretty(&current).unwrap(),
+            // )
+            // .unwrap();
 
             let expected: serde_json::Value = serde_json::from_str(json_str).unwrap();
 
