@@ -1,10 +1,10 @@
 use pallas_codec::utils::KeepRaw;
 use pallas_primitives::{
     alonzo::{self, BootstrapWitness, NativeScript, VKeyWitness},
-    conway, PlutusData, PlutusScript,
+    conway, Hash, PlutusData, PlutusScript,
 };
 
-use crate::{MultiEraRedeemer, MultiEraTx};
+use crate::{MultiEraRedeemer, MultiEraTx, OriginalHash as _};
 
 impl<'b> MultiEraTx<'b> {
     pub fn vkey_witnesses(&self) -> &[VKeyWitness] {
@@ -125,6 +125,12 @@ impl<'b> MultiEraTx<'b> {
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
         }
+    }
+
+    pub fn find_plutus_data(&self, hash: &Hash<32>) -> Option<&KeepRaw<'b, PlutusData>> {
+        self.plutus_data()
+            .iter()
+            .find(|x| x.original_hash() == *hash)
     }
 
     pub fn redeemers(&self) -> Vec<MultiEraRedeemer> {
