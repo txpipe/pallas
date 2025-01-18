@@ -110,14 +110,16 @@ pub struct ProtocolParams {
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     pub hash: String,
-    pub url: String
+    pub url: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SingleHostAddr {
     pub port: Option<u32>,
-    pub IPv6: Option<String>,
-    pub IPv4: Option<String>,
+    #[serde(rename = "IPv6")]
+    pub ipv6: Option<String>,
+    #[serde(rename = "IPv4")]
+    pub ipv4: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -210,13 +212,16 @@ pub type GenesisUtxo = (Hash<32>, pallas_addresses::Address, u64);
 pub fn shelley_utxos(config: &GenesisFile) -> Vec<GenesisUtxo> {
     match &config.initial_funds {
         None => Vec::new(),
-        Some(funds) => funds.iter().map(|(addr, amount)| {
-            let addr = pallas_addresses::Address::from_hex(addr).unwrap();
+        Some(funds) => funds
+            .iter()
+            .map(|(addr, amount)| {
+                let addr = pallas_addresses::Address::from_hex(addr).unwrap();
 
-            let txid = pallas_crypto::hash::Hasher::<256>::hash(&addr.to_vec());
+                let txid = pallas_crypto::hash::Hasher::<256>::hash(&addr.to_vec());
 
-            (txid, addr, *amount)
-        }).collect()
+                (txid, addr, *amount)
+            })
+            .collect(),
     }
 }
 
@@ -246,10 +251,7 @@ mod tests {
             utxo.1.to_bech32().unwrap(),
             "addr_test1qrsm4h32h9r95f8at64ykuugxqu3wvu0s5ay3vg6tlyevjh4e2flkegka00r69gt8c4vkxgf2vnnph3nsvhlkg5ukgxslee3tf"
         );
-        assert_eq!(
-            utxo.2,
-            12157196
-        );
+        assert_eq!(utxo.2, 12157196);
     }
 
     #[test]

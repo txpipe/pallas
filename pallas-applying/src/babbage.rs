@@ -5,9 +5,9 @@ use crate::utils::{
     compute_plutus_v1_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
     get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
     is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list, values_are_equal,
-    verify_signature,
+    verify_signature, BabbageProtParams,
     PostAlonzoError::*,
-    BabbageProtParams, UTxOs,
+    UTxOs,
     ValidationError::{self, *},
     ValidationResult,
 };
@@ -261,8 +261,11 @@ fn check_collaterals_assets(
                 None => Value::Coin(0),
             };
             // The balance between collateral inputs and output contains only lovelace.
-            let paid_collateral: u64 =
-                lovelace_diff_or_fail(&coll_input, &coll_return, &PostAlonzo(NonLovelaceCollateral))?;
+            let paid_collateral: u64 = lovelace_diff_or_fail(
+                &coll_input,
+                &coll_return,
+                &PostAlonzo(NonLovelaceCollateral),
+            )?;
             let fee_percentage: u64 = tx_body.fee * prot_pps.collateral_percentage as u64;
             // The balance is not lower than the minimum allowed.
             if paid_collateral * 100 < fee_percentage {

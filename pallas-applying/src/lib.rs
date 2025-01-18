@@ -3,9 +3,9 @@
 pub mod alonzo;
 pub mod babbage;
 pub mod byron;
+pub mod conway;
 pub mod shelley_ma;
 pub mod utils;
-pub mod conway;
 
 use alonzo::validate_alonzo_tx;
 use babbage::validate_babbage_tx;
@@ -97,7 +97,7 @@ pub fn validate_tx(
                 env.network_id(),
             ),
             _ => Err(TxAndProtParamsDiffer),
-        }
+        },
         (_, None) => Err(EnvMissingAccountState),
     }
 }
