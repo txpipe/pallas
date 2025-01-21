@@ -21,6 +21,7 @@ pub type TxoRef = (TxHash, TxoIndex);
 pub type Cbor = Vec<u8>;
 pub type EraCbor = (trv::Era, Cbor);
 pub type UtxoMap = HashMap<TxoRef, EraCbor>;
+pub type DatumMap = HashMap<Hash<32>, alonzo::PlutusData>;
 
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
@@ -78,6 +79,7 @@ impl<C: LedgerContext> Mapper<C> {
         &self,
         resolved: &Option<UtxoMap>,
         input: &trv::MultiEraInput,
+        tx: &trv::MultiEraTx,
     ) -> Option<u5c::TxOutput> {
         let as_txref = (*input.hash(), input.index() as u32);
 
@@ -86,7 +88,7 @@ impl<C: LedgerContext> Mapper<C> {
             .and_then(|x| x.get(&as_txref))
             .and_then(|(era, cbor)| {
                 let o = trv::MultiEraOutput::decode(*era, cbor.as_slice()).ok()?;
-                Some(self.map_tx_output(&o))
+                Some(self.map_tx_output(&o, Some(tx)))
             })
     }
 
@@ -101,7 +103,7 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::TxInput {
             tx_hash: input.hash().to_vec().into(),
             output_index: input.index() as u32,
-            as_output: self.decode_resolved_utxo(resolved, input),
+            as_output: self.decode_resolved_utxo(resolved, input, tx),
             redeemer: tx.find_spend_redeemer(order).map(|x| self.map_redeemer(&x)),
         }
     }
@@ -110,11 +112,12 @@ impl<C: LedgerContext> Mapper<C> {
         &self,
         input: &trv::MultiEraInput,
         resolved: &Option<UtxoMap>,
+        tx: &trv::MultiEraTx,
     ) -> u5c::TxInput {
         u5c::TxInput {
             tx_hash: input.hash().to_vec().into(),
             output_index: input.index() as u32,
-            as_output: self.decode_resolved_utxo(resolved, input),
+            as_output: self.decode_resolved_utxo(resolved, input, tx),
             redeemer: None,
         }
     }
@@ -123,16 +126,21 @@ impl<C: LedgerContext> Mapper<C> {
         &self,
         input: &trv::MultiEraInput,
         resolved: &Option<UtxoMap>,
+        tx: &trv::MultiEraTx,
     ) -> u5c::TxInput {
         u5c::TxInput {
             tx_hash: input.hash().to_vec().into(),
             output_index: input.index() as u32,
-            as_output: self.decode_resolved_utxo(resolved, input),
+            as_output: self.decode_resolved_utxo(resolved, input, tx),
             redeemer: None,
         }
     }
 
-    pub fn map_tx_datum(&self, x: &trv::MultiEraOutput) -> u5c::Datum {
+    pub fn map_tx_datum(
+        &self,
+        x: &trv::MultiEraOutput,
+        tx: Option<&trv::MultiEraTx>,
+    ) -> u5c::Datum {
         u5c::Datum {
             hash: match x.datum() {
                 Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
@@ -141,6 +149,9 @@ impl<C: LedgerContext> Mapper<C> {
             },
             payload: match x.datum() {
                 Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
+                Some(babbage::PseudoDatumOption::Hash(x)) => tx
+                    .and_then(|tx| tx.find_plutus_data(&x))
+                    .map(|d| self.map_plutus_datum(d)),
                 _ => None,
             },
             original_cbor: match x.datum() {
@@ -150,7 +161,28 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_tx_output(&self, x: &trv::MultiEraOutput) -> u5c::TxOutput {
+    pub fn map_any_script(&self, x: &conway::MintedScriptRef) -> u5c::Script {
+        match x {
+            conway::PseudoScript::NativeScript(x) => u5c::Script {
+                script: u5c::script::Script::Native(Self::map_native_script(x)).into(),
+            },
+            conway::PseudoScript::PlutusV1Script(x) => u5c::Script {
+                script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
+            },
+            conway::PseudoScript::PlutusV2Script(x) => u5c::Script {
+                script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
+            },
+            conway::PseudoScript::PlutusV3Script(x) => u5c::Script {
+                script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
+            },
+        }
+    }
+
+    pub fn map_tx_output(
+        &self,
+        x: &trv::MultiEraOutput,
+        tx: Option<&trv::MultiEraTx>,
+    ) -> u5c::TxOutput {
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
             coin: x.value().coin(),
@@ -163,26 +195,8 @@ impl<C: LedgerContext> Mapper<C> {
                 .iter()
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
-            datum: self.map_tx_datum(x).into(),
-            script: match x.script_ref() {
-                Some(conway::PseudoScript::NativeScript(x)) => u5c::Script {
-                    script: u5c::script::Script::Native(Self::map_native_script(&x)).into(), /*  */
-                }
-                .into(),
-                Some(conway::PseudoScript::PlutusV1Script(x)) => u5c::Script {
-                    script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
-                }
-                .into(),
-                Some(conway::PseudoScript::PlutusV2Script(x)) => u5c::Script {
-                    script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
-                }
-                .into(),
-                Some(conway::PseudoScript::PlutusV3Script(x)) => u5c::Script {
-                    script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
-                }
-                .into(),
-                None => None,
-            },
+            datum: self.map_tx_datum(x, tx).into(),
+            script: x.script_ref().map(|x| self.map_any_script(&x)),
         }
     }
 
@@ -482,7 +496,11 @@ impl<C: LedgerContext> Mapper<C> {
                 .enumerate()
                 .map(|(order, i)| self.map_tx_input(i, tx, order as u32, &resolved))
                 .collect(),
-            outputs: tx.outputs().iter().map(|x| self.map_tx_output(x)).collect(),
+            outputs: tx
+                .outputs()
+                .iter()
+                .map(|x| self.map_tx_output(x, Some(tx)))
+                .collect(),
             certificates: tx
                 .certs()
                 .iter()
@@ -512,7 +530,7 @@ impl<C: LedgerContext> Mapper<C> {
             reference_inputs: tx
                 .reference_inputs()
                 .iter()
-                .map(|x| self.map_tx_reference_input(x, &resolved))
+                .map(|x| self.map_tx_reference_input(x, &resolved, tx))
                 .collect(),
             witnesses: u5c::WitnessSet {
                 vkeywitness: tx
@@ -532,9 +550,11 @@ impl<C: LedgerContext> Mapper<C> {
                 collateral: tx
                     .collateral()
                     .iter()
-                    .map(|x| self.map_tx_collateral(x, &resolved))
+                    .map(|x| self.map_tx_collateral(x, &resolved, tx))
                     .collect(),
-                collateral_return: tx.collateral_return().map(|x| self.map_tx_output(&x)),
+                collateral_return: tx
+                    .collateral_return()
+                    .map(|x| self.map_tx_output(&x, Some(tx))),
                 total_collateral: tx.total_collateral().unwrap_or_default(),
             }
             .into(),

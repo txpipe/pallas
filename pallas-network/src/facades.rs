@@ -12,11 +12,11 @@ use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, txmonitor,
-    txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_STATE_QUERY,
-    PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH,
-    PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE,
-    PROTOCOL_N2N_TX_SUBMISSION,
+    blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, peersharing,
+    txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE,
+    PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
+    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
+    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
@@ -105,6 +105,7 @@ pub struct PeerClient {
     pub chainsync: chainsync::N2NClient,
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
+    pub peersharing: peersharing::Client,
 }
 
 impl PeerClient {
@@ -121,6 +122,7 @@ impl PeerClient {
         let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
         let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
+        let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
         let keepalive = keepalive::Client::new(channel);
@@ -151,6 +153,7 @@ impl PeerClient {
             chainsync: chainsync::Client::new(cs_channel),
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
+            peersharing: peersharing::Client::new(peersharing_channel),
         };
 
         Ok(client)
@@ -177,6 +180,10 @@ impl PeerClient {
         &mut self.txsubmission
     }
 
+    pub fn peersharing(&mut self) -> &mut peersharing::Client {
+        &mut self.peersharing
+    }
+
     pub async fn abort(self) {
         self.plexer.abort().await
     }
@@ -190,6 +197,7 @@ pub struct PeerServer {
     pub blockfetch: blockfetch::Server,
     pub txsubmission: txsubmission::Server,
     pub keepalive: keepalive::Server,
+    pub peersharing: peersharing::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<(u64, n2n::VersionData)>,
 }
@@ -203,12 +211,14 @@ impl PeerServer {
         let bf_channel = plexer.subscribe_server(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_server(PROTOCOL_N2N_TX_SUBMISSION);
         let keepalive_channel = plexer.subscribe_server(PROTOCOL_N2N_KEEP_ALIVE);
+        let peersharing_channel = plexer.subscribe_server(PROTOCOL_N2N_PEER_SHARING);
 
         let hs = handshake::N2NServer::new(hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
         let bf = blockfetch::Server::new(bf_channel);
         let txsub = txsubmission::Server::new(txsub_channel);
         let keepalive = keepalive::Server::new(keepalive_channel);
+        let peersharing = peersharing::Server::new(peersharing_channel);
 
         let plexer = plexer.spawn();
 
@@ -219,6 +229,7 @@ impl PeerServer {
             blockfetch: bf,
             txsubmission: txsub,
             keepalive,
+            peersharing,
             accepted_address: None,
             accepted_version: None,
         }
@@ -265,6 +276,10 @@ impl PeerServer {
 
     pub fn keepalive(&mut self) -> &mut keepalive::Server {
         &mut self.keepalive
+    }
+
+    pub fn peersharing(&mut self) -> &mut peersharing::Server {
+        &mut self.peersharing
     }
 
     pub fn accepted_address(&self) -> Option<&SocketAddr> {
