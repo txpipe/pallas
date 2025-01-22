@@ -3,21 +3,18 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use pallas_codec::utils::Bytes;
 
 use crate::miniprotocols::localtxsubmission::{
-    EraTx, Message, RejectReason, TagMismatchDescription, TxError, UtxoFailure, UtxosFailure,
+    EraTx, Message, RejectReason, SMaybe, TagMismatchDescription, TxError, UtxoFailure,
+    UtxosFailure, UtxowFailure,
 };
 use std::str::from_utf8;
 
-use crate::miniprotocols::localtxsubmission::UtxowFailure;
-
-// FIXME: Unify with above after merge
-use crate::miniprotocols::localtxsubmission::SMaybe;
-
-impl<'b, T: Decode<'b, ()>> Decode<'b, ()> for SMaybe<T> {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+// `Ctx` generic needed after introducing `ValidityInterval`.
+impl<'b, T: Decode<'b, Ctx>, Ctx> Decode<'b, Ctx> for SMaybe<T> {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut Ctx) -> Result<Self, decode::Error> {
         let len = d.array()?;
         match len {
             Some(0) => Ok(SMaybe::None),
-            Some(1) => Ok(SMaybe::Some(d.decode()?)),
+            Some(1) => Ok(SMaybe::Some(d.decode_with(ctx)?)),
             Some(_) => Err(decode::Error::message("Expected array of length <=1")),
             None => Err(decode::Error::message(
                 "Expected array of length <=1, obtained `None`",
@@ -26,14 +23,15 @@ impl<'b, T: Decode<'b, ()>> Decode<'b, ()> for SMaybe<T> {
     }
 }
 
-impl<T> Encode<()> for SMaybe<T>
+// `Ctx` generic needed after introducing `ValidityInterval`.
+impl<T, Ctx> Encode<Ctx> for SMaybe<T>
 where
-    T: Encode<()>,
+    T: Encode<Ctx>,
 {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
-        _ctx: &mut (),
+        ctx: &mut Ctx,
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             SMaybe::None => {
@@ -41,7 +39,7 @@ where
             }
             SMaybe::Some(t) => {
                 e.array(1)?;
-                e.encode(t)?;
+                e.encode_with(t, ctx)?;
             }
         }
         Ok(())
@@ -310,6 +308,10 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
             3 => Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?)),
+            2 => Ok(UtxoFailure::OutsideValidityIntervalUTxO(
+                d.decode()?,
+                d.decode()?,
+            )),
             4 => Ok(UtxoFailure::InputSetEmptyUTxO),
             5 => Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?)),
             6 => Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?)),
@@ -349,6 +351,12 @@ impl Encode<()> for UtxoFailure {
                 e.u8(1)?;
                 e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
+            }
+            UtxoFailure::OutsideValidityIntervalUTxO(inter, slot) => {
+                e.array(3)?;
+                e.u8(2)?;
+                e.encode(inter)?;
+                e.encode(slot)?;
             }
             UtxoFailure::MaxTxSizeUTxO(actual, max) => {
                 e.array(3)?;

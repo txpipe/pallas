@@ -77,6 +77,16 @@ pub enum Network {
     Mainnet,
 }
 
+pub type Slot = u64;
+
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+pub struct ValidityInterval {
+    #[n(0)]
+    invalid_before: SMaybe<u64>,
+    #[n(1)]
+    invalid_hereafter: SMaybe<u64>,
+}
+
 /// Conway Utxo transaction errors. It corresponds to [ConwayUtxoPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxo.hs#L78C6-L78C28)
 /// in the Haskell sources. Not to be confused with [UtxosFailure].
 ///
@@ -86,6 +96,7 @@ pub enum Network {
 pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
+    OutsideValidityIntervalUTxO(ValidityInterval, Slot),
     MaxTxSizeUTxO(u64, u64),
     InputSetEmptyUTxO,
     FeeTooSmallUTxO(u64, u64),
