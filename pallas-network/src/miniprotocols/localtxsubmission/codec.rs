@@ -167,9 +167,7 @@ impl Encode<()> for TxError {
                 e.u8(1)?;
                 e.encode(val)?;
             }
-            TxError::Raw(s) => {
-                e.writer_mut().write_all(s).map_err(encode::Error::write)?
-            }
+            TxError::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
         }
 
         Ok(())
@@ -186,7 +184,7 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
             9 => {
                 d.tag()?;
                 let vec_bytes: Vec<Bytes> = d.decode()?;
-                
+
                 Ok(UtxowFailure::ExtraneousScriptWitnessesUTXOW(vec_bytes))
             }
             _ => Ok(UtxowFailure::Raw(cbor_last(d, start_pos)?)),
@@ -227,12 +225,12 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
         match d.u8()? {
             1 => {
                 d.tag()?;
-                return Ok(UtxoFailure::BadInputsUTxO(d.decode()?));
+                Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
             _ => {
-                return Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?));
+                Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?))
             }
-        };
+        }
     }
 }
 
