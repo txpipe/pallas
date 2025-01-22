@@ -232,15 +232,13 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
 
         match d.u8()? {
             0 => {
-                return Ok(UtxoFailure::UtxosFailure(d.decode()?));
+                Ok(UtxoFailure::UtxosFailure(d.decode()?))
             }
             1 => {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
-            _ => {
-                Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?))
-            }
+            _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
 }
@@ -276,18 +274,18 @@ impl<'b> Decode<'b, ()> for UtxosFailure {
 
         match d.u8()? {
             0 => {
-                return Ok(UtxosFailure::ValidationTagMismatch(
+                Ok(UtxosFailure::ValidationTagMismatch(
                     d.decode()?,
                     d.decode()?,
-                ));
+                ))
             }
             1 => {
-                return Ok(UtxosFailure::CollectErrors(d.decode()?));
+                Ok(UtxosFailure::CollectErrors(d.decode()?))
             }
             _ => {
-                return Err(decode::Error::message("Unknown `UtxosFailure` variant"));
+                Err(decode::Error::message("Unknown `UtxosFailure` variant"))
             }
-        };
+        }
     }
 }
 
@@ -321,17 +319,17 @@ impl<'b> Decode<'b, ()> for TagMismatchDescription {
 
         match d.u8()? {
             0 => {
-                return Ok(TagMismatchDescription::PassedUnexpectedly);
+                Ok(TagMismatchDescription::PassedUnexpectedly)
             }
             1 => {
-                return Ok(TagMismatchDescription::FailedUnexpectedly(d.decode()?));
+                Ok(TagMismatchDescription::FailedUnexpectedly(d.decode()?))
             }
             _ => {
-                return Err(decode::Error::message(
+                Err(decode::Error::message(
                     "Unknown `TagMismatchDescription` variant",
-                ));
+                ))
             }
-        };
+        }
     }
 }
 
