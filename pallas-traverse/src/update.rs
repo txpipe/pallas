@@ -104,6 +104,10 @@ impl<'b> MultiEraUpdate<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(update)))
     }
 
+    pub fn from_conway(update: &'b conway::Update) -> Self {
+        Self::Conway(Box::new(Cow::Borrowed(update)))
+    }
+
     pub fn as_byron(&self) -> Option<&byron::UpProp> {
         match self {
             Self::Byron(_, x) => Some(x),

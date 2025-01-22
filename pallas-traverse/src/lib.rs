@@ -19,6 +19,7 @@ pub mod block;
 pub mod cert;
 pub mod era;
 pub mod fees;
+pub mod governance;
 pub mod hashes;
 pub mod header;
 pub mod input;
@@ -187,6 +188,18 @@ pub enum MultiEraUpdate<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::Update>>),
     Babbage(Box<Cow<'b, babbage::Update>>),
     Conway(Box<Cow<'b, conway::Update>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraProposal<'b> {
+    Conway(Box<Cow<'b, conway::ProposalProcedure>>),
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraGovAction<'b> {
+    Conway(Box<Cow<'b, conway::GovAction>>),
 }
 
 #[derive(Debug, Clone)]

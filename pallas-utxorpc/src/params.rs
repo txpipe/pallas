@@ -1,14 +1,8 @@
 use pallas_applying::MultiEraProtocolParameters;
+use pallas_primitives::conway;
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
-use crate::{LedgerContext, Mapper};
-
-fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
-    u5c::RationalNumber {
-        numerator: value.numerator as i32,
-        denominator: value.denominator as u32,
-    }
-}
+use crate::{rational_number_to_u5c, LedgerContext, Mapper};
 
 fn execution_prices_to_u5c(value: pallas_primitives::ExUnitPrices) -> u5c::ExPrices {
     u5c::ExPrices {
@@ -221,6 +215,88 @@ impl<C: LedgerContext> Mapper<C> {
                 ..Default::default()
             },
             _ => unimplemented!(),
+        }
+    }
+
+    pub fn map_conway_pparams_update(&self, x: &conway::ProtocolParamUpdate) -> u5c::PParams {
+        u5c::PParams {
+            coins_per_utxo_byte: x.ada_per_utxo_byte.unwrap_or_default(),
+            max_tx_size: x.max_transaction_size.unwrap_or_default() as u64,
+            min_fee_coefficient: x.minfee_a.unwrap_or_default() as u64,
+            min_fee_constant: x.minfee_b.unwrap_or_default() as u64,
+            max_block_body_size: x.max_block_body_size.unwrap_or_default() as u64,
+            max_block_header_size: x.max_block_header_size.unwrap_or_default() as u64,
+            stake_key_deposit: x.key_deposit.unwrap_or_default(),
+            pool_deposit: x.pool_deposit.unwrap_or_default(),
+            pool_retirement_epoch_bound: x.maximum_epoch.unwrap_or_default() as u64,
+            desired_number_of_pools: x.desired_number_of_stake_pools.unwrap_or_default() as u64,
+            pool_influence: x.pool_pledge_influence.clone().map(rational_number_to_u5c),
+            monetary_expansion: x.expansion_rate.clone().map(rational_number_to_u5c),
+            treasury_expansion: x.treasury_growth_rate.clone().map(rational_number_to_u5c),
+            min_pool_cost: x.min_pool_cost.unwrap_or_default(),
+            protocol_version: None,
+            max_value_size: x.max_value_size.unwrap_or_default() as u64,
+            collateral_percentage: x.collateral_percentage.unwrap_or_default() as u64,
+            max_collateral_inputs: x.max_collateral_inputs.unwrap_or_default() as u64,
+            cost_models: x
+                .cost_models_for_script_languages
+                .clone()
+                .map(|cm| u5c::CostModels {
+                    plutus_v1: cm.plutus_v1.map(|values| u5c::CostModel { values }),
+                    plutus_v2: cm.plutus_v2.map(|values| u5c::CostModel { values }),
+                    plutus_v3: cm.plutus_v3.map(|values| u5c::CostModel { values }),
+                }),
+            prices: x.execution_costs.clone().map(|p| u5c::ExPrices {
+                memory: Some(rational_number_to_u5c(p.mem_price)),
+                steps: Some(rational_number_to_u5c(p.step_price)),
+            }),
+            max_execution_units_per_transaction: x.max_tx_ex_units.map(|u| u5c::ExUnits {
+                memory: u.mem,
+                steps: u.steps,
+            }),
+            max_execution_units_per_block: x.max_block_ex_units.map(|u| u5c::ExUnits {
+                memory: u.mem,
+                steps: u.steps,
+            }),
+            min_fee_script_ref_cost_per_byte: x
+                .minfee_refscript_cost_per_byte
+                .clone()
+                .map(rational_number_to_u5c),
+            pool_voting_thresholds: x.pool_voting_thresholds.clone().map(|t| {
+                u5c::VotingThresholds {
+                    thresholds: vec![
+                        rational_number_to_u5c(t.motion_no_confidence),
+                        rational_number_to_u5c(t.committee_normal),
+                        rational_number_to_u5c(t.committee_no_confidence),
+                        rational_number_to_u5c(t.hard_fork_initiation),
+                        rational_number_to_u5c(t.security_voting_threshold),
+                    ],
+                }
+            }),
+            drep_voting_thresholds: x.drep_voting_thresholds.clone().map(|t| {
+                u5c::VotingThresholds {
+                    thresholds: vec![
+                        rational_number_to_u5c(t.motion_no_confidence),
+                        rational_number_to_u5c(t.committee_normal),
+                        rational_number_to_u5c(t.committee_no_confidence),
+                        rational_number_to_u5c(t.update_constitution),
+                        rational_number_to_u5c(t.hard_fork_initiation),
+                        rational_number_to_u5c(t.pp_network_group),
+                        rational_number_to_u5c(t.pp_economic_group),
+                        rational_number_to_u5c(t.pp_technical_group),
+                        rational_number_to_u5c(t.pp_governance_group),
+                        rational_number_to_u5c(t.treasury_withdrawal),
+                    ],
+                }
+            }),
+            min_committee_size: x.min_committee_size.unwrap_or_default() as u32,
+            committee_term_limit: x.committee_term_limit.unwrap_or_default() as u64,
+            governance_action_validity_period: x
+                .governance_action_validity_period
+                .unwrap_or_default() as u64,
+            governance_action_deposit: x.governance_action_deposit.unwrap_or_default(),
+            drep_deposit: x.drep_deposit.unwrap_or_default(),
+            drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default() as u64,
         }
     }
 }
