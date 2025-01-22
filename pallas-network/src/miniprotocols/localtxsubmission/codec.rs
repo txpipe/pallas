@@ -155,6 +155,27 @@ impl<'b> Decode<'b, ()> for TxError {
     }
 }
 
+impl Encode<()> for TxError {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            TxError::ConwayUtxowFailure(val) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(val)?;
+            }
+            TxError::Raw(s) => {
+                e.writer_mut().write_all(s).map_err(encode::Error::write)?
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl<'b> Decode<'b, ()> for UtxowFailure {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         let start_pos = d.position();
@@ -173,30 +194,25 @@ impl<'b> Decode<'b, ()> for UtxowFailure {
     }
 }
 
-impl Encode<()> for TxError {
+impl Encode<()> for UtxowFailure {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        e.array(2)?;
-        e.u8(1)?;
         match self {
-            TxError::ExtraneousScriptWitnessesUTXOW(addrs) => {
+            UtxowFailure::ExtraneousScriptWitnessesUTXOW(addrs) => {
                 e.array(2)?;
                 e.u8(9)?;
                 e.tag(Tag::new(258))?;
                 e.encode(addrs)?;
             }
-            TxError::UtxoFailure(failure) => {
+            UtxowFailure::UtxoFailure(failure) => {
                 e.array(2)?;
                 e.u8(0)?;
                 e.encode(failure)?;
             }
-            TxError::U8(n) => {
-                e.u8(*n)?;
-            }
-            TxError::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+            UtxowFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
         }
 
         Ok(())
