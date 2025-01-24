@@ -3,8 +3,8 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use pallas_codec::utils::Bytes;
 
 use crate::miniprotocols::localtxsubmission::{
-    EraTx, Message, RejectReason, SMaybe, TagMismatchDescription, TxError, UtxoFailure,
-    UtxosFailure, UtxowFailure,
+    EraTx, Message, PlutusPurpose, RejectReason, SMaybe, TagMismatchDescription, TxError,
+    UtxoFailure, UtxosFailure, UtxowFailure,
 };
 use std::str::from_utf8;
 
@@ -496,6 +496,62 @@ impl Encode<()> for TagMismatchDescription {
                 e.encode(c)?;
             }
         }
+
+        Ok(())
+    }
+}
+
+impl<'b, T0, T1, T2, T3, T4, T5, Ctx> Decode<'b, Ctx> for PlutusPurpose<T0, T1, T2, T3, T4, T5>
+where
+    T0: Decode<'b, ()>,
+    T1: Decode<'b, ()>,
+    T2: Decode<'b, ()>,
+    T3: Decode<'b, ()>,
+    T4: Decode<'b, ()>,
+    T5: Decode<'b, ()>,
+{
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut Ctx) -> Result<Self, decode::Error> {
+        d.array()?;
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(PlutusPurpose::Spending(d.decode()?)),
+            1 => Ok(PlutusPurpose::Minting(d.decode()?)),
+            2 => Ok(PlutusPurpose::Certifying(d.decode()?)),
+            3 => Ok(PlutusPurpose::Rewarding(d.decode()?)),
+            4 => Ok(PlutusPurpose::Voting(d.decode()?)),
+            5 => Ok(PlutusPurpose::Proposing(d.decode()?)),
+            _ => Err(decode::Error::message("Unknown `PlutusPurpose` variant")),
+        }
+    }
+}
+
+impl<T0, T1, T2, T3, T4, T5, Ctx> Encode<Ctx> for PlutusPurpose<T0, T1, T2, T3, T4, T5>
+where
+    T0: Encode<()>,
+    T1: Encode<()>,
+    T2: Encode<()>,
+    T3: Encode<()>,
+    T4: Encode<()>,
+    T5: Encode<()>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut Ctx,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(1)?;
+        e.array(2)?;
+        e.u8(self.ord())?;
+
+        match self {
+            PlutusPurpose::Spending(x) => e.encode(x)?,
+            PlutusPurpose::Minting(x) => e.encode(x)?,
+            PlutusPurpose::Certifying(x) => e.encode(x)?,
+            PlutusPurpose::Rewarding(x) => e.encode(x)?,
+            PlutusPurpose::Voting(x) => e.encode(x)?,
+            PlutusPurpose::Proposing(x) => e.encode(x)?,
+        };
 
         Ok(())
     }
