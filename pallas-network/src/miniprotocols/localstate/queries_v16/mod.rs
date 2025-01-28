@@ -49,7 +49,7 @@ pub enum BlockQuery {
     GetRewardInfoPools,
     GetPoolState(SMaybe<Pools>),
     GetStakeSnapshots(SMaybe<Pools>),
-    GetPoolDistr(AnyCbor),
+    GetPoolDistr(SMaybe<Pools>),
     GetStakeDelegDeposits(AnyCbor),
     GetConstitutionHash,
 }
@@ -262,6 +262,20 @@ pub struct PState {
     deposits: BTreeMap<Bytes, Coin>,
 }
 
+/// Stake controlled by a single pool, corresponding to [`IndividualPoolStake`](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query/Types.hs#L32-L35)
+/// in the Haskell sources.
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct IndividualPoolStake {
+    #[n(0)]
+    individual_pool_stake: RationalNumber,
+    #[n(1)]
+    individual_pool_stake_vrf: Bytes,
+}
+
+/// Map from pool hashes to [IndividualPoolStake]s, corresponding to [`PoolDistr`](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query/Types.hs#L62-L64)
+/// in the Haskell sources.
+pub type PoolDistr = BTreeMap<Bytes, IndividualPoolStake>;
+
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
 /// as an untagged array.
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
@@ -300,7 +314,6 @@ pub struct FilteredDelegsRewards {
     pub delegs: Delegations,
     pub rewards: RewardAccounts,
 }
-
 
 /// Set of pool hashes.
 ///
@@ -585,9 +598,23 @@ pub async fn get_stake_pool_params(
 pub async fn get_pool_state(
     client: &mut Client,
     era: u16,
-    opt_keyhashes: SMaybe<TaggedSet<Bytes>>,
+    opt_pools: SMaybe<Pools>,
 ) -> Result<PState, ClientError> {
-    let query = BlockQuery::GetPoolState(opt_keyhashes);
+    let query = BlockQuery::GetPoolState(opt_pools);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result: (_,) = client.query(query).await?;
+
+    Ok(result.0)
+}
+
+/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
+pub async fn get_pool_distr(
+    client: &mut Client,
+    era: u16,
+    opt_pools: SMaybe<Pools>,
+) -> Result<PoolDistr, ClientError> {
+    let query = BlockQuery::GetPoolDistr(opt_pools);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result: (_,) = client.query(query).await?;

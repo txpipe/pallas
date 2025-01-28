@@ -144,7 +144,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             18 => Ok(Self::GetRewardInfoPools),
             19 => Ok(Self::GetPoolState(d.decode()?)),
             20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
-            // 21 => Ok(Self::GetPoolDistr(())),
+            21 => Ok(Self::GetPoolDistr(d.decode()?)),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
             // 23 => Ok(Self::GetConstitutionHash),
             _ => unreachable!(),

@@ -789,7 +789,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 query,
                 queries_v16::Request::LedgerQuery(queries_v16::LedgerQuery::BlockQuery(
                     5,
-                    queries_v16::BlockQuery::GetStakeSnapshots(SMaybe::Some(BTreeSet::new().into())),
+                    queries_v16::BlockQuery::GetStakeSnapshots(SMaybe::Some(
+                        BTreeSet::new().into()
+                    )),
                 ),)
             );
 
