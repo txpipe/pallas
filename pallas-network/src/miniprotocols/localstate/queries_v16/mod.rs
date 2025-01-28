@@ -18,6 +18,8 @@ pub use primitives::{PoolMetadata, Relay};
 
 use crate::miniprotocols::Point;
 
+use crate::miniprotocols::localtxsubmission::SMaybe;
+
 use super::{Client, ClientError};
 
 mod codec;
@@ -45,7 +47,7 @@ pub enum BlockQuery {
     GetStakePools,
     GetStakePoolParams(PoolIds),
     GetRewardInfoPools,
-    GetPoolState(AnyCbor),
+    GetPoolState(SMaybe<Bytes>),
     GetStakeSnapshots(Pools),
     GetPoolDistr(AnyCbor),
     GetStakeDelegDeposits(AnyCbor),
@@ -254,6 +256,20 @@ pub struct PoolParams {
 
     #[n(8)]
     pub pool_metadata: Nullable<PoolMetadata>,
+}
+
+/// State of Pools at the Cardano ledger, corresponding to [`PState`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/CertState.hs#L246-L259)
+/// in the Haskell sources.
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct PState {
+    #[n(0)]
+    stake_pool_params: BTreeMap<Bytes, PoolParams>,
+    #[n(1)]
+    future_stake_pool_params: BTreeMap<Bytes, PoolParams>,
+    #[n(2)]
+    retiring: BTreeMap<Bytes, u32>,
+    #[n(3)]
+    deposits: BTreeMap<Bytes, Coin>,
 }
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
@@ -563,6 +579,20 @@ pub async fn get_stake_pool_params(
     pool_ids: PoolIds,
 ) -> Result<BTreeMap<Bytes, PoolParams>, ClientError> {
     let query = BlockQuery::GetStakePoolParams(pool_ids);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result: (_,) = client.query(query).await?;
+
+    Ok(result.0)
+}
+
+/// Get the current state of the given pool, or of all of them.
+pub async fn get_pool_state(
+    client: &mut Client,
+    era: u16,
+    opt_keyhash: SMaybe<Bytes>,
+) -> Result<PState, ClientError> {
+    let query = BlockQuery::GetPoolState(opt_keyhash);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result: (_,) = client.query(query).await?;
