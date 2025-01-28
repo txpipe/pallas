@@ -9,6 +9,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{self, Addr, Addrs, Pools, StakeAddr, TransactionInput},
+            localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
@@ -71,10 +72,17 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let pool_id2 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
     let pool_id2 = Bytes::from_str(pool_id2).unwrap();
     let mut pools: Pools = BTreeSet::new();
-    pools.insert(pool_id1);
+    pools.insert(pool_id1.clone());
     pools.insert(pool_id2);
 
     let result = queries_v16::get_stake_pool_params(client, era, pools.into())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    pools = [pool_id1].into();
+
+    let result = queries_v16::get_pool_state(client, era, SMaybe::Some(pools.into()))
         .await
         .unwrap();
     info!("result: {:?}", result);

@@ -418,3 +418,32 @@ impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
         Ok(())
     }
 }
+
+impl<'b, T, C> minicbor::decode::Decode<'b, C> for TaggedSet<T>
+where
+    T: minicbor::Decode<'b, C> + Ord,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        d.tag()?;
+        Ok(TaggedSet {
+            inner: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<T, C> minicbor::encode::Encode<C> for TaggedSet<T>
+where
+    T: Clone + minicbor::Encode<C>,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.tag(Tag::new(258))?;
+        e.encode_with(self.inner.clone(), ctx)?;
+
+        Ok(())
+    }
+}

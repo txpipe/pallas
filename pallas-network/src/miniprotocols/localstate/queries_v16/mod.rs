@@ -47,7 +47,7 @@ pub enum BlockQuery {
     GetStakePools,
     GetStakePoolParams(PoolIds),
     GetRewardInfoPools,
-    GetPoolState(SMaybe<Bytes>),
+    GetPoolState(SMaybe<TaggedSet<Bytes>>),
     GetStakeSnapshots(Pools),
     GetPoolDistr(AnyCbor),
     GetStakeDelegDeposits(AnyCbor),
@@ -213,6 +213,24 @@ pub struct PoolIds {
 impl From<Pools> for PoolIds {
     fn from(hashes: Pools) -> Self {
         Self { hashes }
+    }
+}
+
+/// Newtype on `BTreeSet` which uses the "Set" CBOR tag.
+#[derive(Debug, PartialEq, Clone)]
+pub struct TaggedSet<T> {
+    pub inner: BTreeSet<T>,
+}
+
+impl<T> From<BTreeSet<T>> for TaggedSet<T> {
+    fn from(inner: BTreeSet<T>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<T> From<TaggedSet<T>> for BTreeSet<T> {
+    fn from(set: TaggedSet<T>) -> Self {
+        set.inner
     }
 }
 
@@ -586,13 +604,13 @@ pub async fn get_stake_pool_params(
     Ok(result.0)
 }
 
-/// Get the current state of the given pool, or of all of them.
+/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
 pub async fn get_pool_state(
     client: &mut Client,
     era: u16,
-    opt_keyhash: SMaybe<Bytes>,
+    opt_keyhashes: SMaybe<TaggedSet<Bytes>>,
 ) -> Result<PState, ClientError> {
-    let query = BlockQuery::GetPoolState(opt_keyhash);
+    let query = BlockQuery::GetPoolState(opt_keyhashes);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result: (_,) = client.query(query).await?;
