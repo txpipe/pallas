@@ -45,10 +45,10 @@ pub enum BlockQuery {
     GetRewardProvenance,
     GetUTxOByTxIn(TxIns),
     GetStakePools,
-    GetStakePoolParams(PoolIds),
+    GetStakePoolParams(Pools),
     GetRewardInfoPools,
-    GetPoolState(SMaybe<TaggedSet<Bytes>>),
-    GetStakeSnapshots(Pools),
+    GetPoolState(SMaybe<Pools>),
+    GetStakeSnapshots(SMaybe<Pools>),
     GetPoolDistr(AnyCbor),
     GetStakeDelegDeposits(AnyCbor),
     GetConstitutionHash,
@@ -203,36 +203,8 @@ pub struct StakeDistribution {
     pub pools: KeyValuePairs<Bytes, Pool>,
 }
 
-/// The use of `BTreeMap`s as per [Pools] definition ensures that the hashes are
-/// in order (otherwise, the node will reject some queries).
-#[derive(Debug, PartialEq, Clone)]
-pub struct PoolIds {
-    pub hashes: Pools,
-}
-
-impl From<Pools> for PoolIds {
-    fn from(hashes: Pools) -> Self {
-        Self { hashes }
-    }
-}
-
-/// Newtype on `BTreeSet` which uses the "Set" CBOR tag.
-#[derive(Debug, PartialEq, Clone)]
-pub struct TaggedSet<T> {
-    pub inner: BTreeSet<T>,
-}
-
-impl<T> From<BTreeSet<T>> for TaggedSet<T> {
-    fn from(inner: BTreeSet<T>) -> Self {
-        Self { inner }
-    }
-}
-
-impl<T> From<TaggedSet<T>> for BTreeSet<T> {
-    fn from(set: TaggedSet<T>) -> Self {
-        set.inner
-    }
-}
+/// Tuple struct based on `BTreeSet` which uses the "Set" CBOR tag.
+pub type TaggedSet<T> = TagWrap<BTreeSet<T>, 258>;
 
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct Pool {
@@ -267,7 +239,7 @@ pub struct PoolParams {
     pub reward_account: Addr,
 
     #[n(6)]
-    pub pool_owners: PoolIds,
+    pub pool_owners: Pools,
 
     #[n(7)]
     pub relays: Vec<Relay>,
@@ -329,7 +301,12 @@ pub struct FilteredDelegsRewards {
     pub rewards: RewardAccounts,
 }
 
-pub type Pools = BTreeSet<Bytes>;
+
+/// Set of pool hashes.
+///
+/// The use of `BTreeMap`s (as per `TaggedSet` definition) ensures that the hashes are
+/// in order (otherwise, the node will reject some queries).
+pub type Pools = TaggedSet<Bytes>;
 
 pub type Coin = AnyUInt;
 
@@ -567,7 +544,7 @@ pub async fn get_utxo_by_address(
 pub async fn get_stake_snapshots(
     client: &mut Client,
     era: u16,
-    pools: BTreeSet<Bytes>,
+    pools: SMaybe<Pools>,
 ) -> Result<StakeSnapshot, ClientError> {
     let query = BlockQuery::GetStakeSnapshots(pools);
     let query = LedgerQuery::BlockQuery(era, query);
@@ -594,9 +571,9 @@ pub async fn get_cbor(
 pub async fn get_stake_pool_params(
     client: &mut Client,
     era: u16,
-    pool_ids: PoolIds,
+    pools: Pools,
 ) -> Result<BTreeMap<Bytes, PoolParams>, ClientError> {
-    let query = BlockQuery::GetStakePoolParams(pool_ids);
+    let query = BlockQuery::GetStakePoolParams(pools);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result: (_,) = client.query(query).await?;

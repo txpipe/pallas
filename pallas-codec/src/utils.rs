@@ -575,6 +575,12 @@ impl<I, const T: u64> TagWrap<I, T> {
     }
 }
 
+impl<I, const T: u64> From<I> for TagWrap<I, T> {
+    fn from(inner: I) -> Self {
+        TagWrap(inner)
+    }
+}
+
 impl<'b, C, I, const T: u64> minicbor::Decode<'b, C> for TagWrap<I, T>
 where
     I: minicbor::Decode<'b, C>,

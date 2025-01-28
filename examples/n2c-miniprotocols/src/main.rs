@@ -8,7 +8,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, Pools, StakeAddr, TransactionInput},
+            localstate::queries_v16::{self, Addr, Addrs, StakeAddr, TransactionInput},
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
         },
@@ -71,7 +71,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let pool_id1 = Bytes::from_str(pool_id1).unwrap();
     let pool_id2 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
     let pool_id2 = Bytes::from_str(pool_id2).unwrap();
-    let mut pools: Pools = BTreeSet::new();
+    let mut pools = BTreeSet::new();
     pools.insert(pool_id1.clone());
     pools.insert(pool_id2);
 
@@ -119,7 +119,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
     // Empty Set means all pools.
     let pools: BTreeSet<Bytes> = BTreeSet::new();
-    let result = queries_v16::get_stake_snapshots(client, era, pools)
+    let result = queries_v16::get_stake_snapshots(client, era, SMaybe::Some(pools.into()))
         .await
         .unwrap();
     println!("result: {:?}", result);

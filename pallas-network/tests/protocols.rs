@@ -5,6 +5,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
     RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
 };
+use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
     facades::{NodeClient, PeerClient, PeerServer},
     miniprotocols::{
@@ -788,7 +789,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 query,
                 queries_v16::Request::LedgerQuery(queries_v16::LedgerQuery::BlockQuery(
                     5,
-                    queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
+                    queries_v16::BlockQuery::GetStakeSnapshots(SMaybe::Some(BTreeSet::new().into())),
                 ),)
             );
 
@@ -1157,7 +1158,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
             queries_v16::LedgerQuery::BlockQuery(
                 5,
-                queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
+                queries_v16::BlockQuery::GetStakeSnapshots(SMaybe::Some(BTreeSet::new().into())),
             ),
         ));
 

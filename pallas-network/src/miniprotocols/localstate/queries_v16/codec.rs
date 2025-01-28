@@ -97,12 +97,6 @@ impl Encode<()> for BlockQuery {
             BlockQuery::GetStakeSnapshots(pools) => {
                 e.array(2)?;
                 e.u16(20)?;
-
-                if !pools.is_empty() {
-                    e.array(1)?;
-                    e.tag(Tag::new(258))?;
-                }
-
                 e.encode(pools)?;
             }
             BlockQuery::GetPoolDistr(x) => {
@@ -339,29 +333,6 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
     }
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for PoolIds {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.tag()?;
-
-        Ok(PoolIds {
-            hashes: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for PoolIds {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::new(258))?;
-        e.encode_with(self.hashes.clone(), ctx)?;
-
-        Ok(())
-    }
-}
-
 impl<'b, C> minicbor::decode::Decode<'b, C> for TransactionOutput {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
@@ -414,35 +385,6 @@ impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
         e.array(2)?;
         e.encode_with(self.delegs.clone(), ctx)?;
         e.encode_with(self.rewards.clone(), ctx)?;
-
-        Ok(())
-    }
-}
-
-impl<'b, T, C> minicbor::decode::Decode<'b, C> for TaggedSet<T>
-where
-    T: minicbor::Decode<'b, C> + Ord,
-{
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        d.tag()?;
-        Ok(TaggedSet {
-            inner: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<T, C> minicbor::encode::Encode<C> for TaggedSet<T>
-where
-    T: Clone + minicbor::Encode<C>,
-{
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.tag(Tag::new(258))?;
-        e.encode_with(self.inner.clone(), ctx)?;
 
         Ok(())
     }
