@@ -6,10 +6,8 @@ use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
+use pallas_codec::minicbor::{Decode, Encode};
 use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
-use pallas_codec::{
-    minicbor::{Decode, Encode},
-};
 
 pub mod primitives;
 
