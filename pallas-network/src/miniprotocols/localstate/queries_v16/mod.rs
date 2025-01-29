@@ -9,7 +9,6 @@ use pallas_codec::minicbor::{self};
 use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 use pallas_codec::{
     minicbor::{Decode, Encode},
-    utils::AnyCbor,
 };
 
 pub mod primitives;
@@ -50,7 +49,7 @@ pub enum BlockQuery {
     GetPoolState(SMaybe<Pools>),
     GetStakeSnapshots(SMaybe<Pools>),
     GetPoolDistr(SMaybe<Pools>),
-    GetStakeDelegDeposits(AnyCbor),
+    GetStakeDelegDeposits(TaggedSet<StakeAddr>),
     GetConstitutionHash,
 }
 
@@ -653,6 +652,14 @@ block_query! {
     GetUTxOByTxIn,
     TxIns,
     UTxOByTxin,
+}
+
+block_query! {
+    #[doc = "Get the key deposits from each stake credential given."]
+    get_stake_deleg_deposits,
+    GetStakeDelegDeposits,
+    TaggedSet<StakeAddr>,
+    BTreeMap<StakeAddr, Coin>,
 }
 
 /// Get the genesis configuration for the given era.

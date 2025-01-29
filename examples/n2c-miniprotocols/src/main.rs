@@ -62,14 +62,19 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .into();
     addrs.insert(StakeAddr::from((0x00, addr.clone())));
 
-    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
+    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs.clone())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let result = queries_v16::get_stake_deleg_deposits(client, era, addrs.into())
         .await
         .unwrap();
     info!("result: {:?}", result);
 
     let addrs: BTreeSet<_> = [Either::<Coin, _>::Right((0x00, addr).into())].into();
 
-    let result = queries_v16::get_non_myopic_member_rewards(client, era, addrs.into())
+    let result = queries_v16::get_non_myopic_member_rewards(client, era, addrs.clone().into())
         .await
         .unwrap();
     info!("result: {:?}", result);
