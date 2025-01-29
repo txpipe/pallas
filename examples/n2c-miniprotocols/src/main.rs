@@ -8,7 +8,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, StakeAddr, TransactionInput},
+            localstate::queries_v16::{self, Addr, Addrs, Coin, Either, StakeAddr, TransactionInput},
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
         },
@@ -60,9 +60,16 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let addr: Addr = hex::decode("1419F37748E73865EB8F1D2ACDFFB8A87CDD37B36E3D549F0AE57017")
         .unwrap()
         .into();
-    addrs.insert(StakeAddr::from((0x00, addr)));
+    addrs.insert(StakeAddr::from((0x00, addr.clone())));
 
     let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let addrs: BTreeSet<_> = [Either::<Coin, _>::Right((0x00, addr).into())].into();
+
+    let result = queries_v16::get_non_myopic_member_rewards(client, era, addrs.into())
         .await
         .unwrap();
     info!("result: {:?}", result);

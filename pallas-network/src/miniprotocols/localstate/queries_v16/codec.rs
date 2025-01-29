@@ -389,3 +389,46 @@ impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
         Ok(())
     }
 }
+
+impl<'b, S, T, C> minicbor::decode::Decode<'b, C> for Either<S, T>
+where
+    S: minicbor::Decode<'b, C> + Ord,
+    T: minicbor::Decode<'b, C> + Ord,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        match d.u8()? {
+            0 => Ok(Either::Left(d.decode_with(ctx)?)),
+            1 => Ok(Either::Right(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor variant for `Either` enum",
+            )),
+        }
+    }
+}
+
+impl<S, T, C> minicbor::encode::Encode<C> for Either<S, T>
+where
+    S: Clone + minicbor::Encode<C>,
+    T: Clone + minicbor::Encode<C>,
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.array(2)?;
+        match self {
+            Either::Left(x) => {
+                e.u8(0)?;
+                e.encode_with(x, ctx)?;
+            }
+            Either::Right(x) => {
+                e.u8(1)?;
+                e.encode_with(x, ctx)?;
+            }
+        }
+
+        Ok(())
+    }
+}

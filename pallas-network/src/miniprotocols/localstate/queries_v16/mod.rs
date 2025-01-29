@@ -30,7 +30,7 @@ mod codec;
 pub enum BlockQuery {
     GetLedgerTip,
     GetEpochNo,
-    GetNonMyopicMemberRewards(AnyCbor),
+    GetNonMyopicMemberRewards(TaggedSet<Either<Coin, StakeAddr>>),
     GetCurrentPParams,
     GetProposedPParamsUpdates,
     GetStakeDistribution,
@@ -275,6 +275,17 @@ pub struct IndividualPoolStake {
 /// Map from pool hashes to [IndividualPoolStake]s, corresponding to [`PoolDistr`](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query/Types.hs#L62-L64)
 /// in the Haskell sources (not to be confused with [the `cardano-ledger` notion with the same name](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/PoolDistr.hs#L100-L106)).
 pub type PoolDistr = BTreeMap<Bytes, IndividualPoolStake>;
+
+/// Flat encoding coincides with the one at the [Cardano ledger](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Encoding/EncCBOR.hs#L767-L769).
+#[derive(Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
+pub enum Either<S, T> {
+    Left(S),
+    Right(T),
+}
+
+/// Map corresponding to [the type with the same name](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs#L103-L107)
+/// in the Haskell sources.
+pub type NonMyopicMemberRewards = BTreeMap<Either<Coin, StakeAddr>, BTreeMap<Bytes, Coin>>;
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
 /// as an untagged array.
@@ -615,6 +626,20 @@ pub async fn get_pool_distr(
     opt_pools: SMaybe<Pools>,
 ) -> Result<PoolDistr, ClientError> {
     let query = BlockQuery::GetPoolDistr(opt_pools);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let result: (_,) = client.query(query).await?;
+
+    Ok(result.0)
+}
+
+/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
+pub async fn get_non_myopic_member_rewards(
+    client: &mut Client,
+    era: u16,
+    addrs: TaggedSet<Either<Coin, StakeAddr>>,
+) -> Result<NonMyopicMemberRewards, ClientError> {
+    let query = BlockQuery::GetNonMyopicMemberRewards(addrs);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result: (_,) = client.query(query).await?;
