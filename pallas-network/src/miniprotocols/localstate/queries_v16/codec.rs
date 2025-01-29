@@ -125,7 +125,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
         match d.u16()? {
             0 => Ok(Self::GetLedgerTip),
             1 => Ok(Self::GetEpochNo),
-            // 2 => Ok(Self::GetNonMyopicMemberRewards(())),
+            2 => Ok(Self::GetNonMyopicMemberRewards(d.decode()?)),
             3 => Ok(Self::GetCurrentPParams),
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
