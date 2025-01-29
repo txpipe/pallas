@@ -320,9 +320,11 @@ pub type StakeAddrs = BTreeSet<StakeAddr>;
 pub type Delegations = KeyValuePairs<StakeAddr, Bytes>;
 pub type RewardAccounts = KeyValuePairs<StakeAddr, u64>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct FilteredDelegsRewards {
+    #[n(0)]
     pub delegs: Delegations,
+    #[n(1)]
     pub rewards: RewardAccounts,
 }
 
@@ -340,11 +342,7 @@ pub type AssetName = Bytes;
 
 pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
-pub struct UTxOByAddress {
-    #[n(0)]
-    pub utxo: KeyValuePairs<UTxO, TransactionOutput>,
-}
+pub type UTxOByAddress = KeyValuePairs<UTxO, TransactionOutput>;
 
 pub type UTxOByTxin = UTxOByAddress;
 
@@ -547,20 +545,6 @@ pub async fn get_stake_distribution(
     Ok(result)
 }
 
-/// Get the UTxO set for the given era.
-pub async fn get_utxo_by_address(
-    client: &mut Client,
-    era: u16,
-    addrs: Addrs,
-) -> Result<UTxOByAddress, ClientError> {
-    let query = BlockQuery::GetUTxOByAddress(addrs);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
 /// Get stake snapshots for the given era and stake pools.
 /// If `pools` are empty, all pools are queried.
 /// Otherwise, only the specified pool is queried.
@@ -591,60 +575,84 @@ pub async fn get_cbor(
     Ok(result)
 }
 
-/// Get parameters for the given pools.
-pub async fn get_stake_pool_params(
-    client: &mut Client,
-    era: u16,
-    pools: Pools,
-) -> Result<BTreeMap<Bytes, PoolParams>, ClientError> {
-    let query = BlockQuery::GetStakePoolParams(pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
+/// Macro to generate an async function with specific parameters and logic.
+macro_rules! block_query {
+    (
+        $(#[doc = $doc:expr])*
+        $fn_name:ident,
+        $variant:ident,
+        $type1:ty,
+        $type2:ty,
+    ) => {
+        $(#[doc = $doc])*
+        pub async fn $fn_name(
+            client: &mut Client,
+            era: u16,
+            val: $type1,
+        ) -> Result<$type2, ClientError> {
+            let query = BlockQuery::$variant(val);
+            let query = LedgerQuery::BlockQuery(era, query);
+            let query = Request::LedgerQuery(query);
+            let result: (_,) = client.query(query).await?;
 
-    Ok(result.0)
+            Ok(result.0)
+        }
+    };
 }
 
-/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
-pub async fn get_pool_state(
-    client: &mut Client,
-    era: u16,
-    opt_pools: SMaybe<Pools>,
-) -> Result<PState, ClientError> {
-    let query = BlockQuery::GetPoolState(opt_pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
-
-    Ok(result.0)
+block_query! {
+    #[doc = "Get the UTxO set for the given era."]
+    get_utxo_by_address,
+    GetUTxOByAddress,
+    Addrs,
+    UTxOByAddress,
 }
 
-/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
-pub async fn get_pool_distr(
-    client: &mut Client,
-    era: u16,
-    opt_pools: SMaybe<Pools>,
-) -> Result<PoolDistr, ClientError> {
-    let query = BlockQuery::GetPoolDistr(opt_pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
-
-    Ok(result.0)
+block_query! {
+    #[doc = "Get parameters for the given pools."]
+    get_stake_pool_params,
+    GetStakePoolParams,
+    Pools,
+    BTreeMap<Bytes, PoolParams>,
 }
 
-/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
-pub async fn get_non_myopic_member_rewards(
-    client: &mut Client,
-    era: u16,
-    addrs: TaggedSet<Either<Coin, StakeAddr>>,
-) -> Result<NonMyopicMemberRewards, ClientError> {
-    let query = BlockQuery::GetNonMyopicMemberRewards(addrs);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
+block_query! {
+    #[doc = "Get the current state of the given pools, or of all of them in case of a `SMaybe::None`."]
+    get_pool_state,
+    GetPoolState,
+    SMaybe<Pools>,
+    PState,
+}
 
-    Ok(result.0)
+block_query! {
+    #[doc = "Get the stake controlled the given pools, or of all of them in case of a `SMaybe::None`."]
+    get_pool_distr,
+    GetPoolDistr,
+    SMaybe<Pools>,
+    PoolDistr,
+}
+
+block_query! {
+    get_non_myopic_member_rewards,
+    GetNonMyopicMemberRewards,
+    TaggedSet<Either<Coin, StakeAddr>>,
+    NonMyopicMemberRewards,
+}
+
+block_query! {
+    #[doc = "Get the delegations and rewards for the given stake addresses."]
+    get_filtered_delegations_rewards,
+    GetFilteredDelegationsAndRewardAccounts,
+    StakeAddrs,
+    FilteredDelegsRewards,
+}
+
+block_query! {
+    #[doc = "Get a subset of the UTxO, filtered by transaction input."]
+    get_utxo_by_txin,
+    GetUTxOByTxIn,
+    TxIns,
+    UTxOByTxin,
 }
 
 /// Get the genesis configuration for the given era.
@@ -653,34 +661,6 @@ pub async fn get_genesis_config(
     era: u16,
 ) -> Result<Vec<GenesisConfig>, ClientError> {
     let query = BlockQuery::GetGenesisConfig;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get the delegations and rewards for the given stake addresses.
-pub async fn get_filtered_delegations_rewards(
-    client: &mut Client,
-    era: u16,
-    addrs: StakeAddrs,
-) -> Result<FilteredDelegsRewards, ClientError> {
-    let query = BlockQuery::GetFilteredDelegationsAndRewardAccounts(addrs);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get a subset of the UTxO, filtered by transaction input.
-pub async fn get_utxo_by_txin(
-    client: &mut Client,
-    era: u16,
-    txins: TxIns,
-) -> Result<UTxOByTxin, ClientError> {
-    let query = BlockQuery::GetUTxOByTxIn(txins);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
