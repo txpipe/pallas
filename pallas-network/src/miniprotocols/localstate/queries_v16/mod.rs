@@ -263,7 +263,7 @@ pub struct PState {
 }
 
 /// Stake controlled by a single pool, corresponding to [`IndividualPoolStake`](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query/Types.hs#L32-L35)
-/// in the Haskell sources.
+/// in the Haskell sources (not to be confused with [the `cardano-ledger` notion with the same name](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/PoolDistr.hs#L53-L61)).
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct IndividualPoolStake {
     #[n(0)]
@@ -273,7 +273,7 @@ pub struct IndividualPoolStake {
 }
 
 /// Map from pool hashes to [IndividualPoolStake]s, corresponding to [`PoolDistr`](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query/Types.hs#L62-L64)
-/// in the Haskell sources.
+/// in the Haskell sources (not to be confused with [the `cardano-ledger` notion with the same name](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/PoolDistr.hs#L100-L106)).
 pub type PoolDistr = BTreeMap<Bytes, IndividualPoolStake>;
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
