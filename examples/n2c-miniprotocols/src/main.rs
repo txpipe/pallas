@@ -49,6 +49,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
+    let result = queries_v16::get_constitution(client, era).await.unwrap();
+    info!("result: {:02x?}", result);
+
     // Getting delegation and rewards for preprod stake addresses:
     let mut addrs = BTreeSet::new();
     // 1. `stake_test1uqfp3atrunssjk8a4w7lk3ct97wnscs4wc7v3ynnmx7ll7s2ea9p2`

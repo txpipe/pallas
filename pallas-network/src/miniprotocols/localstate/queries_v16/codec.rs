@@ -109,7 +109,7 @@ impl Encode<()> for BlockQuery {
                 e.u16(22)?;
                 e.encode(x)?;
             }
-            BlockQuery::GetConstitutionHash => {
+            BlockQuery::GetConstitution => {
                 e.array(1)?;
                 e.u16(23)?;
             }
@@ -146,7 +146,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
             21 => Ok(Self::GetPoolDistr(d.decode()?)),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
-            // 23 => Ok(Self::GetConstitutionHash),
+            23 => Ok(Self::GetConstitution),
             _ => unreachable!(),
         }
     }

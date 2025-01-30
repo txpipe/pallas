@@ -51,7 +51,7 @@ pub enum BlockQuery {
     GetStakeSnapshots(SMaybe<Pools>),
     GetPoolDistr(SMaybe<Pools>),
     GetStakeDelegDeposits(AnyCbor),
-    GetConstitutionHash,
+    GetConstitution,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -275,6 +275,24 @@ pub struct IndividualPoolStake {
 /// Map from pool hashes to [IndividualPoolStake]s, corresponding to [`PoolDistr`](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query/Types.hs#L62-L64)
 /// in the Haskell sources (not to be confused with [the `cardano-ledger` notion with the same name](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/PoolDistr.hs#L100-L106)).
 pub type PoolDistr = BTreeMap<Bytes, IndividualPoolStake>;
+
+/// Anchor as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/BaseTypes.hs#L867-L870).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Anchor {
+    #[n(0)]
+    pub url: String,
+    #[n(1)]
+    pub data_hash: Bytes,
+}
+
+/// Constitution as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L884-L887).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct Constitution {
+    #[n(0)]
+    pub anchor: Anchor,
+    #[n(1)]
+    pub script: Option<Bytes>,
+}
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
 /// as an untagged array.
@@ -669,6 +687,16 @@ pub async fn get_utxo_whole(client: &mut Client, era: u16) -> Result<UTxOWhole, 
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the current Constitution.
+pub async fn get_constitution(client: &mut Client, era: u16) -> Result<Constitution, ClientError> {
+    let query = BlockQuery::GetConstitution;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
 
     Ok(result)
 }
