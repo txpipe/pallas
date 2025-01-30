@@ -145,10 +145,10 @@ impl VersionTable {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData {
-    network_magic: u64,
-    initiator_only_diffusion_mode: bool,
-    peer_sharing: Option<u8>,
-    query: Option<bool>,
+    pub network_magic: u64,
+    pub initiator_only_diffusion_mode: bool,
+    pub peer_sharing: Option<u8>,
+    pub query: Option<bool>,
 }
 
 impl VersionData {

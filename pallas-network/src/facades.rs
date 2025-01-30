@@ -106,6 +106,7 @@ pub struct PeerClient {
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
     pub peersharing: peersharing::Client,
+    pub is_peer_sharing: bool,
 }
 
 impl PeerClient {
@@ -154,6 +155,10 @@ impl PeerClient {
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
             peersharing: peersharing::Client::new(peersharing_channel),
+            is_peer_sharing: match handshake {
+                Confirmation::Accepted(_, data) => data.peer_sharing.unwrap_or(0) != 0,
+                _ => false,
+            },
         };
 
         Ok(client)
