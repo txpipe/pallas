@@ -65,10 +65,13 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .into();
     addrs.insert(StakeAddr::from((0x00, addr)));
 
-    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
+    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs.clone())
         .await
         .unwrap();
     info!("result: {:?}", result);
+
+    let result = queries_v16::get_drep_state(client, era, addrs.into()).await.unwrap();
+    info!("result: {:02x?}", result);
 
     let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
     let pool_id1 = Bytes::from_str(pool_id1).unwrap();

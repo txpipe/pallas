@@ -52,6 +52,7 @@ pub enum BlockQuery {
     GetPoolDistr(SMaybe<Pools>),
     GetStakeDelegDeposits(AnyCbor),
     GetConstitution,
+    GetDRepState(TaggedSet<StakeAddr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -292,6 +293,19 @@ pub struct Constitution {
     pub anchor: Anchor,
     #[n(1)]
     pub script: Option<Bytes>,
+}
+
+/// Constitution as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L125-L130).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct DRepState {
+    #[n(0)]
+    pub expiry: Epoch,
+    #[n(1)]
+    pub anchor: SMaybe<Anchor>,
+    #[n(2)]
+    pub deposit: Coin,
+    #[n(3)]
+    pub delegs: TaggedSet<StakeAddr>,
 }
 
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
@@ -694,6 +708,20 @@ pub async fn get_utxo_whole(client: &mut Client, era: u16) -> Result<UTxOWhole, 
 /// Get the current Constitution.
 pub async fn get_constitution(client: &mut Client, era: u16) -> Result<Constitution, ClientError> {
     let query = BlockQuery::GetConstitution;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the current DRep state.
+pub async fn get_drep_state(
+    client: &mut Client,
+    era: u16,
+    value: TaggedSet<StakeAddr>,
+) -> Result<BTreeMap<StakeAddr, DRepState>, ClientError> {
+    let query = BlockQuery::GetDRepState(value);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
