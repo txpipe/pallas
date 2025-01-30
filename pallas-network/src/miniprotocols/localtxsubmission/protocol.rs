@@ -1,5 +1,5 @@
 use super::Value;
-pub use crate::miniprotocols::localstate::queries_v16::TransactionInput;
+pub use crate::miniprotocols::localstate::queries_v16::{TransactionInput, TransactionOutput};
 use pallas_codec::minicbor::{self, Decode, Encode};
 use pallas_codec::utils::{AnyCbor, Bytes};
 use std::collections::BTreeSet;
@@ -68,6 +68,25 @@ pub enum UtxosFailure {
     CollectErrors(CollectError),
 }
 
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[cbor(index_only)]
+pub enum Network {
+    #[n(0)]
+    Testnet,
+    #[n(1)]
+    Mainnet,
+}
+
+pub type Slot = u64;
+
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+pub struct ValidityInterval {
+    #[n(0)]
+    invalid_before: SMaybe<u64>,
+    #[n(1)]
+    invalid_hereafter: SMaybe<u64>,
+}
+
 /// Conway Utxo transaction errors. It corresponds to [ConwayUtxoPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxo.hs#L78C6-L78C28)
 /// in the Haskell sources. Not to be confused with [UtxosFailure].
 ///
@@ -77,11 +96,18 @@ pub enum UtxosFailure {
 pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
     BadInputsUTxO(BTreeSet<TransactionInput>),
+    OutsideValidityIntervalUTxO(ValidityInterval, Slot),
+    MaxTxSizeUTxO(u64, u64),
+    InputSetEmptyUTxO,
+    FeeTooSmallUTxO(u64, u64),
+    ValueNotConservedUTxO(Value, Value),
+    WrongNetwork(Network, BTreeSet<Bytes>),
     InsufficientCollateral(i64, u64),
     CollateralContainsNonADA(Value),
     TooManyCollateralInputs(u16, u16),
     NoCollateralInputs,
     IncorrectTotalCollateralField(i64, u64),
+    BabbageOutputTooSmallUTxO(Vec<(TransactionOutput, u64)>),
     Raw(Vec<u8>),
 }
 

@@ -3,21 +3,18 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use pallas_codec::utils::Bytes;
 
 use crate::miniprotocols::localtxsubmission::{
-    EraTx, Message, RejectReason, TagMismatchDescription, TxError, UtxoFailure, UtxosFailure,
+    EraTx, Message, RejectReason, SMaybe, TagMismatchDescription, TxError, UtxoFailure,
+    UtxosFailure, UtxowFailure,
 };
 use std::str::from_utf8;
 
-use crate::miniprotocols::localtxsubmission::UtxowFailure;
-
-// FIXME: Unify with above after merge
-use crate::miniprotocols::localtxsubmission::SMaybe;
-
-impl<'b, T: Decode<'b, ()>> Decode<'b, ()> for SMaybe<T> {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+// `Ctx` generic needed after introducing `ValidityInterval`.
+impl<'b, T: Decode<'b, Ctx>, Ctx> Decode<'b, Ctx> for SMaybe<T> {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut Ctx) -> Result<Self, decode::Error> {
         let len = d.array()?;
         match len {
             Some(0) => Ok(SMaybe::None),
-            Some(1) => Ok(SMaybe::Some(d.decode()?)),
+            Some(1) => Ok(SMaybe::Some(d.decode_with(ctx)?)),
             Some(_) => Err(decode::Error::message("Expected array of length <=1")),
             None => Err(decode::Error::message(
                 "Expected array of length <=1, obtained `None`",
@@ -26,14 +23,15 @@ impl<'b, T: Decode<'b, ()>> Decode<'b, ()> for SMaybe<T> {
     }
 }
 
-impl<T> Encode<()> for SMaybe<T>
+// `Ctx` generic needed after introducing `ValidityInterval`.
+impl<T, Ctx> Encode<Ctx> for SMaybe<T>
 where
-    T: Encode<()>,
+    T: Encode<Ctx>,
 {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
-        _ctx: &mut (),
+        ctx: &mut Ctx,
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             SMaybe::None => {
@@ -41,7 +39,7 @@ where
             }
             SMaybe::Some(t) => {
                 e.array(1)?;
-                e.encode(t)?;
+                e.encode_with(t, ctx)?;
             }
         }
         Ok(())
@@ -309,20 +307,28 @@ impl<'b> Decode<'b, ()> for UtxoFailure {
                 d.tag()?;
                 Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
             }
-            15 => {
-                return Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?));
+            3 => Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?)),
+            2 => Ok(UtxoFailure::OutsideValidityIntervalUTxO(
+                d.decode()?,
+                d.decode()?,
+            )),
+            4 => Ok(UtxoFailure::InputSetEmptyUTxO),
+            5 => Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?)),
+            6 => Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?)),
+            7 => {
+                let network = d.decode()?;
+                d.tag()?;
+                Ok(UtxoFailure::WrongNetwork(network, d.decode()?))
             }
-            12 => {
-                return Ok(UtxoFailure::InsufficientCollateral(d.i64()?, d.u64()?));
-            }
-            18 => {
-                return Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?));
-            }
+            15 => Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?)),
+            12 => Ok(UtxoFailure::InsufficientCollateral(d.i64()?, d.u64()?)),
+            18 => Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?)),
             19 => Ok(UtxoFailure::NoCollateralInputs),
             20 => Ok(UtxoFailure::IncorrectTotalCollateralField(
                 d.i64()?,
                 d.u64()?,
             )),
+            21 => Ok(UtxoFailure::BabbageOutputTooSmallUTxO(d.decode()?)),
             _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
         }
     }
@@ -345,6 +351,41 @@ impl Encode<()> for UtxoFailure {
                 e.u8(1)?;
                 e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
+            }
+            UtxoFailure::OutsideValidityIntervalUTxO(inter, slot) => {
+                e.array(3)?;
+                e.u8(2)?;
+                e.encode(inter)?;
+                e.encode(slot)?;
+            }
+            UtxoFailure::MaxTxSizeUTxO(actual, max) => {
+                e.array(3)?;
+                e.u8(3)?;
+                e.u64(*actual)?;
+                e.u64(*max)?;
+            }
+            UtxoFailure::InputSetEmptyUTxO => {
+                e.array(1)?;
+                e.u8(4)?;
+            }
+            UtxoFailure::FeeTooSmallUTxO(min, supplied) => {
+                e.array(3)?;
+                e.u8(5)?;
+                e.u64(*min)?;
+                e.u64(*supplied)?;
+            }
+            UtxoFailure::ValueNotConservedUTxO(cons, prod) => {
+                e.array(3)?;
+                e.u8(6)?;
+                e.encode(cons)?;
+                e.encode(prod)?;
+            }
+            UtxoFailure::WrongNetwork(net, addrs) => {
+                e.array(3)?;
+                e.u8(7)?;
+                e.encode(net)?;
+                e.tag(Tag::new(258))?;
+                e.encode(addrs)?;
             }
             UtxoFailure::InsufficientCollateral(deltacoin, coin) => {
                 e.array(3)?;
@@ -372,6 +413,11 @@ impl Encode<()> for UtxoFailure {
                 e.u8(20)?;
                 e.i64(*provided)?;
                 e.u64(*decl)?;
+            }
+            UtxoFailure::BabbageOutputTooSmallUTxO(out_mins) => {
+                e.array(2)?;
+                e.u8(21)?;
+                e.encode(out_mins)?;
             }
             UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
         }
@@ -514,8 +560,8 @@ mod tests {
         println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok());
         let mut datum: Vec<u8> = Vec::new();
+        // Encoding back
         encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
-        println!("Encoding back: {:02x?}", datum);
         assert_eq!(bytes, datum);
     }
 
@@ -524,6 +570,8 @@ mod tests {
         decode_reject_reason(RAW_REJECT_RESPONSE_CONWAY);
         decode_reject_reason(ISVALID_REJECT_PREVIEW);
         decode_reject_reason(MISSING_METADATA_HASH);
+        decode_reject_reason(INPUT_SET_EMPTY_FEE_OUTPUT_SMALL_PREVIEW);
+        decode_reject_reason(MAX_TX_SIZE_PREVIEW);
     }
 
     const RAW_REJECT_RESPONSE: &str =
@@ -626,4 +674,11 @@ mod tests {
 
     const MISSING_METADATA_HASH: &str =
         "82028182068182018205582059182929bdbb6e212a80e65564a1c21a3ffae38dc99b9dc2b6f4184b12dd2b8c";
+
+    const INPUT_SET_EMPTY_FEE_OUTPUT_SMALL_PREVIEW: &str =
+        "8202818206858201820082158182825839004464b02c100eb32bc337ffbe0ce79fcf80cced5beb1b672ed8a58d\
+         776ed48e025b63487772f02996258396adcfaacf402de624980949eaa9011a000e88be82018200830600018201\
+         820083051a00027e3d00820182008104820182008302828081011a041f9b1b";
+
+    const MAX_TX_SIZE_PREVIEW: &str = "82028182068182018200830319405f194000";
 }
