@@ -13,20 +13,21 @@ const PROTOCOL_V12: u64 = 12;
 const PROTOCOL_V13: u64 = 13;
 
 const PEER_SHARING_DISABLED: u8 = 0;
+const PEER_SHARING_ENABLED: u8 = 1;
 
 impl VersionTable {
     #[deprecated(note = "no longer supported by spec")]
-    pub fn v4_and_above(network_magic: u64) -> VersionTable {
+    pub fn v4_and_above(network_magic: u64, peer_sharing: bool) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
         // Try not to break compatibility with older pallas users.
-        Self::v7_and_above(network_magic)
+        Self::v7_and_above(network_magic, peer_sharing)
     }
 
     #[deprecated(note = "no longer supported by spec")]
-    pub fn v6_and_above(network_magic: u64) -> VersionTable {
+    pub fn v6_and_above(network_magic: u64, peer_sharing: bool) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
         // Try not to break compatibility with older pallas users.
-        Self::v7_and_above(network_magic)
+        Self::v7_and_above(network_magic, peer_sharing)
     }
 
     pub fn v7_to_v10(network_magic: u64) -> VersionTable {
@@ -54,7 +55,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
-    pub fn v7_and_above(network_magic: u64) -> VersionTable {
+    pub fn v7_and_above(network_magic: u64, peer_sharing: bool) -> VersionTable {
         let values = vec![
             (
                 PROTOCOL_V7,
@@ -77,7 +78,10 @@ impl VersionTable {
                 VersionData::new(
                     network_magic,
                     true,
-                    Some(PEER_SHARING_DISABLED),
+                    match peer_sharing {
+                        true => Some(PEER_SHARING_ENABLED),
+                        false => Some(PEER_SHARING_DISABLED),
+                    },
                     Some(false),
                 ),
             ),
@@ -86,7 +90,10 @@ impl VersionTable {
                 VersionData::new(
                     network_magic,
                     true,
-                    Some(PEER_SHARING_DISABLED),
+                    match peer_sharing {
+                        true => Some(PEER_SHARING_ENABLED),
+                        false => Some(PEER_SHARING_DISABLED),
+                    },
                     Some(false),
                 ),
             ),
@@ -95,7 +102,10 @@ impl VersionTable {
                 VersionData::new(
                     network_magic,
                     true,
-                    Some(PEER_SHARING_DISABLED),
+                    match peer_sharing {
+                        true => Some(PEER_SHARING_ENABLED),
+                        false => Some(PEER_SHARING_DISABLED),
+                    },
                     Some(false),
                 ),
             ),
@@ -106,14 +116,17 @@ impl VersionTable {
         VersionTable { values }
     }
 
-    pub fn v11_and_above(network_magic: u64) -> VersionTable {
+    pub fn v11_and_above(network_magic: u64, peer_sharing: bool) -> VersionTable {
         let values = vec![
             (
                 PROTOCOL_V11,
                 VersionData::new(
                     network_magic,
                     true,
-                    Some(PEER_SHARING_DISABLED),
+                    match peer_sharing {
+                        true => Some(PEER_SHARING_ENABLED),
+                        false => Some(PEER_SHARING_DISABLED),
+                    },
                     Some(false),
                 ),
             ),
@@ -122,7 +135,10 @@ impl VersionTable {
                 VersionData::new(
                     network_magic,
                     true,
-                    Some(PEER_SHARING_DISABLED),
+                    match peer_sharing {
+                        true => Some(PEER_SHARING_ENABLED),
+                        false => Some(PEER_SHARING_DISABLED),
+                    },
                     Some(false),
                 ),
             ),
@@ -131,7 +147,10 @@ impl VersionTable {
                 VersionData::new(
                     network_magic,
                     true,
-                    Some(PEER_SHARING_DISABLED),
+                    match peer_sharing {
+                        true => Some(PEER_SHARING_ENABLED),
+                        false => Some(PEER_SHARING_DISABLED),
+                    },
                     Some(false),
                 ),
             ),
