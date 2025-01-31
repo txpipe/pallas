@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
+use pallas_codec::minicbor;
 use thiserror::Error;
 use tracing::{debug, error};
 
@@ -136,12 +137,14 @@ impl PeerClient {
         let plexer = plexer.spawn();
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic, peer_sharing);
-
+        let versions_cbor = minicbor::to_vec(&versions).unwrap();
+        println!("versions_cbor: {:?}", hex::encode(versions_cbor));
+        println!("handshaking with versions: {:?}", versions);
         let handshake = handshake
             .handshake(versions)
             .await
             .map_err(Error::HandshakeProtocol)?;
-
+        println!("handshake: {:?}", handshake);
         if let handshake::Confirmation::Rejected(reason) = handshake {
             error!(?reason, "handshake refused");
             return Err(Error::IncompatibleVersion);

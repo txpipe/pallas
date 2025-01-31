@@ -1,5 +1,5 @@
 use pallas::{
-    ledger::traverse::MultiEraHeader,
+    ledger::traverse::{wellknown::{PREVIEW_MAGIC, TESTNET_MAGIC}, MultiEraBlock, MultiEraHeader},
     network::{
         facades::PeerClient,
         miniprotocols::{blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
@@ -35,6 +35,8 @@ async fn do_blockfetch(
 
     for block in &blocks {
         tracing::trace!("received block of size: {}", block.len());
+        // print block cbor hex
+        println!("block hex: {}", hex::encode(block));
     }
     tracing::info!(
         "received {} blocks. last slot: {}",
@@ -130,22 +132,31 @@ async fn main() {
     loop {
         // setup a TCP socket to act as data bearer between our agents and the remote
         // relay.
-        let server = "backbone.cardano-mainnet.iohk.io:3001";
+        let server = "1.tcp.ap.ngrok.io:25317";
         // let server = "localhost:6000";
-        let peer = PeerClient::connect(server, MAINNET_MAGIC).await.unwrap();
+        let peer = PeerClient::connect_with_peersharing(server, PREVIEW_MAGIC, true).await.unwrap();
 
         let PeerClient {
             plexer,
-            chainsync,
-            blockfetch,
             ..
         } = peer;
+        
+        // log peer.is_peer_sharing
+        println!("peer.is_peer_sharing: {}", peer.is_peer_sharing);
 
-        do_chainsync(chainsync, blockfetch).await.unwrap();
+        // do_chainsync(chainsync, blockfetch).await.unwrap();
+        // let start_slot = 31782565;
+        // let start_hash = hex::decode("c265fc1c669400d6b210f431060633a563ebfc9ed267e5b61ec060cdb5afe2b2").unwrap();
+
+        // let range = (
+        //     Point::Specific(start_slot, start_hash.clone()),
+        //     Point::Specific(start_slot, start_hash.clone()));
+
+        // do_blockfetch(&mut blockfetch, range).await.unwrap();
 
         plexer.abort().await;
 
         tracing::info!("waiting 10 seconds before reconnecting...");
-        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(10000)).await;
     }
 }
