@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
+use pallas_codec::minicbor;
 use thiserror::Error;
 use tracing::{debug, error};
 
@@ -106,10 +107,16 @@ pub struct PeerClient {
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
     pub peersharing: peersharing::Client,
+    pub is_peer_sharing: bool,
 }
 
 impl PeerClient {
+
     pub async fn connect(addr: impl ToSocketAddrs, magic: u64) -> Result<Self, Error> {
+        Self::connect_with_peersharing(addr, magic, false).await
+    }
+
+    pub async fn connect_with_peersharing(addr: impl ToSocketAddrs, magic: u64, peer_sharing: bool) -> Result<Self, Error> {
         let bearer = Bearer::connect_tcp(addr)
             .await
             .map_err(Error::ConnectFailure)?;
@@ -129,13 +136,15 @@ impl PeerClient {
 
         let plexer = plexer.spawn();
 
-        let versions = handshake::n2n::VersionTable::v7_and_above(magic);
-
+        let versions = handshake::n2n::VersionTable::v7_and_above(magic, peer_sharing);
+        let versions_cbor = minicbor::to_vec(&versions).unwrap();
+        println!("versions_cbor: {:?}", hex::encode(versions_cbor));
+        println!("handshaking with versions: {:?}", versions);
         let handshake = handshake
             .handshake(versions)
             .await
             .map_err(Error::HandshakeProtocol)?;
-
+        println!("handshake: {:?}", handshake);
         if let handshake::Confirmation::Rejected(reason) = handshake {
             error!(?reason, "handshake refused");
             return Err(Error::IncompatibleVersion);
@@ -154,6 +163,14 @@ impl PeerClient {
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
             peersharing: peersharing::Client::new(peersharing_channel),
+            is_peer_sharing: match handshake {
+                Confirmation::Accepted(_, data) => {
+                    // log data.peer_sharing
+                    println!("data.peer_sharing: {:?}", data.peer_sharing);
+                    data.peer_sharing.unwrap_or(0) != 0
+                }
+                _ => false,
+            },
         };
 
         Ok(client)
@@ -235,7 +252,7 @@ impl PeerServer {
         }
     }
 
-    pub async fn accept(listener: &TcpListener, magic: u64) -> Result<Self, Error> {
+    pub async fn accept(listener: &TcpListener, magic: u64, peer_sharing: bool) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_tcp(listener)
             .await
             .map_err(Error::ConnectFailure)?;
@@ -244,7 +261,7 @@ impl PeerServer {
 
         let accepted_version = client
             .handshake()
-            .handshake(n2n::VersionTable::v7_and_above(magic))
+            .handshake(n2n::VersionTable::v7_and_above(magic, peer_sharing))
             .await
             .map_err(Error::HandshakeProtocol)?;
 

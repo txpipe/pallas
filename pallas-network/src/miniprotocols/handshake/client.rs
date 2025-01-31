@@ -107,7 +107,10 @@ where
             Message::Accept(v, m) => {
                 self.0 = State::Done;
                 debug!("handshake accepted");
-
+                // log v and m
+                println!("handshake accepted");
+                println!("v: {:?}", v);
+                println!("m: {:?}", m);
                 Ok(Confirmation::Accepted(v, m))
             }
             Message::Refuse(r) => {

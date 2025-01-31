@@ -547,12 +547,16 @@ impl ChannelBuffer {
     where
         M: Fragment,
     {
+        println!("recv_full_msg");
+        println!("temp.len() = {}", self.temp.len());
         trace!(len = self.temp.len(), "waiting for full message");
 
         if !self.temp.is_empty() {
             trace!("buffer has data from previous payload");
 
             if let Some(msg) = try_decode_message::<M>(&mut self.temp)? {
+                //log the self.temp in hex
+                trace!("buffered data: {}", hex::encode(&self.temp));
                 debug!("decoding done");
                 return Ok(msg);
             }
@@ -561,7 +565,8 @@ impl ChannelBuffer {
         loop {
             let chunk = self.channel.dequeue_chunk().await?;
             self.temp.extend(chunk);
-
+            //log the self.temp in hex
+            println!("buffered data: {}", hex::encode(&self.temp));
             if let Some(msg) = try_decode_message::<M>(&mut self.temp)? {
                 debug!("decoding done");
                 return Ok(msg);

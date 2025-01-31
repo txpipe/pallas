@@ -199,7 +199,7 @@ pub async fn blockfetch_server_and_client_happy_path() {
         async move {
             // server setup
 
-            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
+            let mut peer_server = PeerServer::accept(&listener, 0, false).await.unwrap();
 
             let server_bf = peer_server.blockfetch();
 
@@ -1465,7 +1465,7 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
     let server = tokio::spawn({
         let test_txs = test_txs.clone();
         async move {
-            let mut peer_server = PeerServer::accept(&server_listener, 0).await.unwrap();
+            let mut peer_server = PeerServer::accept(&server_listener, 0, false).await.unwrap();
 
             let server_txsub = peer_server.txsubmission();
 
@@ -1738,7 +1738,7 @@ pub async fn peer_sharing_server_and_client_happy_path() {
         async move {
             // server setup
 
-            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
+            let mut peer_server = PeerServer::accept(&listener, 0, false).await.unwrap();
 
             let server_ps = peer_server.peersharing();
 
