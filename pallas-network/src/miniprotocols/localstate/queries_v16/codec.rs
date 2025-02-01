@@ -113,6 +113,10 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(23)?;
             }
+            BlockQuery::GetGovState => {
+                e.array(1)?;
+                e.u16(24)?;
+            }
             BlockQuery::GetDRepState(x) => {
                 e.array(2)?;
                 e.u16(25)?;
@@ -152,6 +156,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             21 => Ok(Self::GetPoolDistr(d.decode()?)),
             // 22 => Ok(Self::GetStakeDelegDeposits(())),
             23 => Ok(Self::GetConstitution),
+            24 => Ok(Self::GetGovState),
             25 => Ok(Self::GetDRepState(d.decode()?)),
             _ => unreachable!(),
         }

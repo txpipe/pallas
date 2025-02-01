@@ -52,6 +52,7 @@ pub enum BlockQuery {
     GetPoolDistr(SMaybe<Pools>),
     GetStakeDelegDeposits(AnyCbor),
     GetConstitution,
+    GetGovState,
     GetDRepState(TaggedSet<StakeAddr>),
 }
 
@@ -295,7 +296,43 @@ pub struct Constitution {
     pub script: Option<Bytes>,
 }
 
-/// Constitution as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L125-L130).
+pub type Proposals = AnyCbor;
+pub type Committee = AnyCbor;
+pub type DRepPulsingState = AnyCbor;
+
+/// Future protocol parameters as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/Governance.hs#L137-L148).
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
+pub enum FuturePParams {
+    #[n(0)]
+    NoPParamsUpdate,
+    #[n(1)]
+    DefinitePParamsUpdate(#[n(0)] ProtocolParam),
+    #[n(2)]
+    PotentialPParamsUpdate(#[n(0)] SMaybe<ProtocolParam>),
+}
+
+/// Governance state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance.hs#L241-L256)
+/// (via [`EraGov`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/Governance.hs#L83-L85) and
+/// [this instance](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance.hs#L388-L389)).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct GovState {
+    #[n(0)]
+    pub proposals: Proposals,
+    #[n(1)]
+    pub committee: SMaybe<Committee>,
+    #[n(2)]
+    pub constitution: Constitution,
+    #[n(3)]
+    pub cur_pparams: ProtocolParam,
+    #[n(4)]
+    pub prev_pparams: ProtocolParam,
+    #[n(5)]
+    pub future_pparams: FuturePParams,
+    #[n(6)]
+    pub drep_pulsing_state: DRepPulsingState,
+}
+
+/// DRep state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L125-L130).
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct DRepState {
     #[n(0)]
@@ -708,6 +745,16 @@ pub async fn get_utxo_whole(client: &mut Client, era: u16) -> Result<UTxOWhole, 
 /// Get the current Constitution.
 pub async fn get_constitution(client: &mut Client, era: u16) -> Result<Constitution, ClientError> {
     let query = BlockQuery::GetConstitution;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the current governance state.
+pub async fn get_gov_state(client: &mut Client, era: u16) -> Result<GovState, ClientError> {
+    let query = BlockQuery::GetGovState;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;

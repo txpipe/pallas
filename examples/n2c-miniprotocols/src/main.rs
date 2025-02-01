@@ -49,6 +49,10 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
+    // This one is large (~120MB in preprod).
+    // let result = queries_v16::get_gov_state(client, era).await.unwrap();
+    // info!("result: {:02x?}", result);
+
     let result = queries_v16::get_constitution(client, era).await.unwrap();
     info!("result: {:02x?}", result);
 
