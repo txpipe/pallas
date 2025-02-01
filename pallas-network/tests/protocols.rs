@@ -770,6 +770,15 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 max_value_size: None,
                 collateral_percentage: None,
                 max_collateral_inputs: None,
+                pool_voting_thresholds: None,
+                drep_voting_thresholds: None,
+                committee_min_size: None,
+                committee_max_term_length: None,
+                gov_action_lifetime: None,
+                gov_action_deposit: None,
+                drep_deposit: None,
+                drep_activity: None,
+                min_fee_ref_script_cost_per_byte: None,
             }]);
 
             server.statequery().send_result(result).await.unwrap();
@@ -1154,6 +1163,15 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 max_value_size: None,
                 collateral_percentage: None,
                 max_collateral_inputs: None,
+                pool_voting_thresholds: None,
+                drep_voting_thresholds: None,
+                committee_min_size: None,
+                committee_max_term_length: None,
+                gov_action_lifetime: None,
+                gov_action_deposit: None,
+                drep_deposit: None,
+                drep_activity: None,
+                min_fee_ref_script_cost_per_byte: None,
             }]
         );
 
