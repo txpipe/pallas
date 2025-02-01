@@ -138,13 +138,6 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_genesis_config(client, era).await.unwrap();
     println!("result: {:?}", result);
 
-    // Ensure decoding across version disparities by always receiving a valid
-    // response using the wrap function for the query result with CBOR-in-CBOR
-    // concept.
-    let query = queries_v16::BlockQuery::GetCurrentPParams;
-    let result = queries_v16::get_cbor(client, era, query).await.unwrap();
-    println!("result: {:?}", result);
-
     client.send_release().await.unwrap();
 }
 

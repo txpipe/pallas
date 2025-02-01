@@ -149,9 +149,49 @@ pub struct ExUnits {
     #[n(1)]
     pub steps: u64,
 }
-
+/// Pool voting thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L223-L229).
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
-#[cbor(array)]
+pub struct PoolVotingThresholds {
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(4)]
+    pub pp_security_group: UnitInterval,
+}
+
+/// DRrep voting thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L295-L306).
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct DRepVotingThresholds {
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub update_to_constitution: UnitInterval,
+    #[n(4)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(5)]
+    pub pp_network_group: UnitInterval,
+    #[n(6)]
+    pub pp_economic_group: UnitInterval,
+    #[n(7)]
+    pub pp_technical_group: UnitInterval,
+    #[n(8)]
+    pub pp_gov_group: UnitInterval,
+    #[n(9)]
+    pub treasury_withdrawal: UnitInterval,
+}
+
+/// Conway era protocol parameters, corresponding to [`ConwayPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L512-L579)
+/// in the Haskell sources.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ProtocolParam {
     #[n(0)]
     pub minfee_a: Option<u32>,
@@ -197,6 +237,24 @@ pub struct ProtocolParam {
     pub collateral_percentage: Option<u32>,
     #[n(21)]
     pub max_collateral_inputs: Option<u32>,
+    #[n(22)]
+    pub pool_voting_thresholds: Option<PoolVotingThresholds>,
+    #[n(23)]
+    pub drep_voting_thresholds: Option<AnyCbor>,
+    #[n(24)]
+    pub committee_min_size: Option<u16>,
+    #[n(25)]
+    pub committee_max_term_length: Option<Epoch>,
+    #[n(26)]
+    pub gov_action_lifetime: Option<Epoch>,
+    #[n(27)]
+    pub gov_action_deposit: Option<Coin>,
+    #[n(28)]
+    pub drep_deposit: Option<Coin>,
+    #[n(29)]
+    pub drep_activity: Option<Epoch>,
+    #[n(30)]
+    pub min_fee_ref_script_cost_per_byte: Option<RationalNumber>,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
