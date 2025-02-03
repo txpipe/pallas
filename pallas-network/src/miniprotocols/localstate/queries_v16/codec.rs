@@ -122,6 +122,49 @@ impl Encode<()> for BlockQuery {
                 e.u16(25)?;
                 e.encode(x)?;
             }
+            BlockQuery::GetDRepStakeDistr(dreps) => {
+                e.array(2)?;
+                e.u16(26)?;
+                e.encode(dreps)?;
+            }
+            BlockQuery::GetCommitteeMembersState(set1, set2, status) => {
+                e.array(4)?;
+                e.u16(27)?;
+                e.encode(set1)?;
+                e.encode(set2)?;
+                e.encode(status)?;
+            }
+            BlockQuery::GetFilteredVoteDelegatees(addrs) => {
+                e.array(2)?;
+                e.u16(28)?;
+                e.encode(addrs)?;
+            }
+            BlockQuery::GetAccountState => {
+                e.array(1)?;
+                e.u16(29)?;
+            }
+            BlockQuery::GetSPOStakeDistr(pools) => {
+                e.array(2)?;
+                e.u16(30)?;
+                e.encode(pools)?;
+            }
+            BlockQuery::GetProposals(proposals) => {
+                e.array(2)?;
+                e.u16(31)?;
+                e.encode(proposals)?;
+            }
+            BlockQuery::GetRatifyState => {
+                e.array(1)?;
+                e.u16(32)?;
+            }
+            BlockQuery::GetFuturePParams => {
+                e.array(1)?;
+                e.u16(33)?;
+            }
+            BlockQuery::GetBigLedgerPeerSnapshot => {
+                e.array(1)?;
+                e.u16(34)?;
+            }
         }
         Ok(())
     }
@@ -134,30 +177,43 @@ impl<'b> Decode<'b, ()> for BlockQuery {
         match d.u16()? {
             0 => Ok(Self::GetLedgerTip),
             1 => Ok(Self::GetEpochNo),
-            // 2 => Ok(Self::GetNonMyopicMemberRewards(())),
+            2 => Ok(Self::GetNonMyopicMemberRewards(d.decode()?)),
             3 => Ok(Self::GetCurrentPParams),
             4 => Ok(Self::GetProposedPParamsUpdates),
             5 => Ok(Self::GetStakeDistribution),
             6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
             7 => Ok(Self::GetUTxOWhole),
-            // 8 => Ok(Self::DebugEpochState),
+            8 => Ok(Self::DebugEpochState),
             9 => Ok(Self::GetCBOR(d.decode()?)),
             10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(d.decode()?)),
             11 => Ok(Self::GetGenesisConfig),
-            // 12 => Ok(Self::DebugNewEpochState),
+            12 => Ok(Self::DebugNewEpochState),
             13 => Ok(Self::DebugChainDepState),
             14 => Ok(Self::GetRewardProvenance),
             15 => Ok(Self::GetUTxOByTxIn(d.decode()?)),
             16 => Ok(Self::GetStakePools),
-            // 17 => Ok(Self::GetStakePoolParams(())),
+            17 => Ok(Self::GetStakePoolParams(d.decode()?)),
             18 => Ok(Self::GetRewardInfoPools),
             19 => Ok(Self::GetPoolState(d.decode()?)),
             20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
             21 => Ok(Self::GetPoolDistr(d.decode()?)),
-            // 22 => Ok(Self::GetStakeDelegDeposits(())),
+            22 => Ok(Self::GetStakeDelegDeposits(d.decode()?)),
             23 => Ok(Self::GetConstitution),
             24 => Ok(Self::GetGovState),
             25 => Ok(Self::GetDRepState(d.decode()?)),
+            26 => Ok(Self::GetDRepStakeDistr(d.decode()?)),
+            27 => Ok(Self::GetCommitteeMembersState(
+                d.decode()?,
+                d.decode()?,
+                d.decode()?,
+            )),
+            28 => Ok(Self::GetFilteredVoteDelegatees(d.decode()?)),
+            29 => Ok(Self::GetAccountState),
+            30 => Ok(Self::GetSPOStakeDistr(d.decode()?)),
+            31 => Ok(Self::GetProposals(d.decode()?)),
+            32 => Ok(Self::GetRatifyState),
+            33 => Ok(Self::GetFuturePParams),
+            34 => Ok(Self::GetBigLedgerPeerSnapshot),
             _ => unreachable!(),
         }
     }

@@ -53,8 +53,25 @@ pub enum BlockQuery {
     GetStakeDelegDeposits(AnyCbor),
     GetConstitution,
     GetGovState,
-    GetDRepState(TaggedSet<StakeAddr>),
+    GetDRepState(TaggedSet<Credential>),
+    GetDRepStakeDistr(TaggedSet<DRep>),
+    GetCommitteeMembersState(TaggedSet<Credential>, TaggedSet<Credential>, MemberStatus),
+    GetFilteredVoteDelegatees(StakeAddrs),
+    GetAccountState,
+    GetSPOStakeDistr(Pools),
+    GetProposals(TaggedSet<GovActionId>),
+    GetRatifyState,
+    GetFuturePParams,
+    GetBigLedgerPeerSnapshot,
 }
+
+pub type Credential = StakeAddr;
+
+pub type DRep = AnyCbor;
+
+pub type MemberStatus = AnyCbor;
+
+pub type GovActionId = AnyCbor;
 
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u16)]
