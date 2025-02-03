@@ -8,7 +8,7 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, StakeAddr, TransactionInput},
+            localstate::queries_v16::{self, Addr, Addrs, DRep, StakeAddr, TransactionInput},
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
         },
@@ -136,6 +136,14 @@ async fn do_localstate_query(client: &mut NodeClient) {
     println!("result: {:?}", result);
 
     let result = queries_v16::get_genesis_config(client, era).await.unwrap();
+    println!("result: {:?}", result);
+
+    // DRep drep1ygpuetneftlmufa97hm5mf3xvqpdkyw656hyg6h20qaewtg3csnkc
+    let drep_bytes = Bytes::from_str("03ccae794affbe27a5f5f74da6266002db11daa6ae446aea783b972d")
+        .unwrap();
+    let dreps: BTreeSet<_> = [DRep::KeyHash(drep_bytes)].into();
+
+    let result = queries_v16::get_drep_stake_distr(client, era, dreps.into()).await.unwrap();
     println!("result: {:?}", result);
 
     client.send_release().await.unwrap();

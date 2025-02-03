@@ -857,3 +857,17 @@ pub async fn get_drep_state(
 
     Ok(result)
 }
+
+/// Get the current DRep stake distribution.
+pub async fn get_drep_stake_distr(
+    client: &mut Client,
+    era: u16,
+    value: TaggedSet<DRep>,
+) -> Result<BTreeMap<DRep, Coin>, ClientError> {
+    let query = BlockQuery::GetDRepStakeDistr(value);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}

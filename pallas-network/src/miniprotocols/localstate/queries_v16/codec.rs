@@ -462,6 +462,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for DRep {
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
     ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
         match d.u16()? {
             0 => Ok(Self::KeyHash(d.decode()?)),
             1 => Ok(Self::ScriptHash(d.decode()?)),
