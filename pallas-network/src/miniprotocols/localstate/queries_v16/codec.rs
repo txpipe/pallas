@@ -456,3 +456,48 @@ impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
         Ok(())
     }
 }
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for DRep {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        match d.u16()? {
+            0 => Ok(Self::KeyHash(d.decode()?)),
+            1 => Ok(Self::ScriptHash(d.decode()?)),
+            2 => Ok(Self::AlwaysAbstain),
+            3 => Ok(Self::AlwaysNoConfidence),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for DRep {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            DRep::KeyHash(bytes) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode(bytes)?;
+            }
+            DRep::ScriptHash(bytes) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode(bytes)?;
+            }
+            DRep::AlwaysAbstain => {
+                e.array(1)?;
+                e.u16(2)?;
+            }
+            DRep::AlwaysNoConfidence => {
+                e.array(1)?;
+                e.u16(3)?;
+            }
+        }
+        Ok(())
+    }
+}
