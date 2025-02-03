@@ -67,7 +67,18 @@ pub enum BlockQuery {
 
 pub type Credential = StakeAddr;
 
-pub type DRep = AnyCbor;
+/// DRep thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L52-L57
+#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub enum DRep {
+    #[n(0)]
+    KeyHash(#[n(0)] Bytes),
+    #[n(1)]
+    ScriptHash(#[n(0)] Bytes),
+    #[n(2)]
+    AlwaysAbstain,
+    #[n(3)]
+    AlwaysNoConfidence,
+}
 
 pub type MemberStatus = AnyCbor;
 
