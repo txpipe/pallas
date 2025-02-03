@@ -1,3 +1,5 @@
+use std::net::Ipv4Addr;
+
 use super::protocol::*;
 use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
 
@@ -34,7 +36,8 @@ impl<'b> Decode<'b, ()> for PeerAddress {
 
         match label {
             0 => {
-                let address = d.decode()?;
+                let ip: u32 = d.decode()?;
+                let address = Ipv4Addr::from(ip);
                 let port = d.decode()?;
                 Ok(PeerAddress::V4(address, port))
             }
