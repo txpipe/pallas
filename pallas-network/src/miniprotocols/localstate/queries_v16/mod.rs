@@ -67,6 +67,15 @@ pub enum BlockQuery {
 
 pub type Credential = StakeAddr;
 
+/// Committee authorization as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/CertState.hs#L294-L298C54
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CommitteeAuthorization {
+    CommitteeHotCredential(Credential),
+    CommitteeMemberResigned(SMaybe<Anchor>),
+}
+
+pub type CommitteeState = BTreeMap<Credential, CommitteeAuthorization>;
+
 /// DRep thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L52-L57
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum DRep {
@@ -361,7 +370,7 @@ pub struct IndividualPoolStake {
 pub type PoolDistr = BTreeMap<Bytes, IndividualPoolStake>;
 
 /// Anchor as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/BaseTypes.hs#L867-L870).
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
 pub struct Anchor {
     #[n(0)]
     pub url: String,
@@ -865,6 +874,22 @@ pub async fn get_drep_stake_distr(
     value: TaggedSet<DRep>,
 ) -> Result<BTreeMap<DRep, Coin>, ClientError> {
     let query = BlockQuery::GetDRepStakeDistr(value);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the state of committee members.
+pub async fn get_committee_members_state(
+    client: &mut Client,
+    era: u16,
+    hot_credentials: TaggedSet<Credential>,
+    cold_credentials: TaggedSet<Credential>,
+    member_status: MemberStatus,
+) -> Result<CommitteeState, ClientError> {
+    let query = BlockQuery::GetCommitteeMembersState(hot_credentials, cold_credentials, member_status);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;

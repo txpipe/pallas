@@ -502,3 +502,39 @@ impl<C> minicbor::encode::Encode<C> for DRep {
         Ok(())
     }
 }
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for CommitteeAuthorization {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        match d.u16()? {
+            0 => Ok(Self::CommitteeHotCredential(d.decode()?)),
+            1 => Ok(Self::CommitteeMemberResigned(d.decode()?)),
+            _ => unreachable!(),
+        }
+}
+}
+
+impl<C> minicbor::encode::Encode<C> for CommitteeAuthorization {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            CommitteeAuthorization::CommitteeHotCredential(credential) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode(credential)?;
+            }
+            CommitteeAuthorization::CommitteeMemberResigned(anchor) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode(anchor)?;
+            }
+        }
+        Ok(())
+    }
+}
