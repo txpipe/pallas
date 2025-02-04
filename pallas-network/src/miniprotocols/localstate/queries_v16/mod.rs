@@ -67,14 +67,26 @@ pub enum BlockQuery {
 
 pub type Credential = StakeAddr;
 
-/// Committee authorization as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/CertState.hs#L294-L298C54
+/// Committee authorization as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/CertState.hs#L294-L298).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum CommitteeAuthorization {
-    CommitteeHotCredential(Credential),
-    CommitteeMemberResigned(SMaybe<Anchor>),
+    HotCredential(Credential),
+    MemberResigned(SMaybe<Anchor>),
 }
 
-pub type CommitteeState = BTreeMap<Credential, CommitteeAuthorization>;
+/// TODO: Committee member state as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L106-L113). Not to be confused with plural [CommitteeMembersState].
+pub type CommitteeMemberState = AnyCbor;
+
+/// Committee members' state as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L149-L154). Not to be confused with singular [CommitteeMemberState].
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct CommitteeMembersState {
+    #[n(0)]
+    pub committee: BTreeMap<Credential, CommitteeMemberState>,
+    #[n(1)]
+    pub threshold: SMaybe<RationalNumber>,
+    #[n(2)]
+    pub epoch: Epoch,
+}
 
 /// DRep thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L52-L57
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
@@ -85,7 +97,7 @@ pub enum DRep {
     AlwaysNoConfidence,
 }
 
-pub type MemberStatus = AnyCbor;
+pub type MemberStatus = TaggedSet<AnyCbor>;
 
 pub type GovActionId = AnyCbor;
 
@@ -888,7 +900,7 @@ pub async fn get_committee_members_state(
     hot_credentials: TaggedSet<Credential>,
     cold_credentials: TaggedSet<Credential>,
     member_status: MemberStatus,
-) -> Result<CommitteeState, ClientError> {
+) -> Result<CommitteeMembersState, ClientError> {
     let query = BlockQuery::GetCommitteeMembersState(hot_credentials, cold_credentials, member_status);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);

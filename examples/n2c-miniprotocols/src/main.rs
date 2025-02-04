@@ -8,7 +8,9 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, DRep, StakeAddr, TransactionInput},
+            localstate::queries_v16::{
+                self, Addr, Addrs, Credential, DRep, StakeAddr, TransactionInput
+            },
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
         },
@@ -52,6 +54,22 @@ async fn do_localstate_query(client: &mut NodeClient) {
     // This one is large (~120MB in preprod).
     // let result = queries_v16::get_gov_state(client, era).await.unwrap();
     // info!("result: {:02x?}", result);
+
+    // CC Member cc_cold1zwn2tcqxl48g75gx9hzrzd3rdxe2gv2q408d32307gjk67cp3tktt
+    let cold_bytes = Bytes::from_str("a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b")
+        .unwrap();
+    let colds: BTreeSet<_> = [Credential::from((0x01, cold_bytes))].into();
+    let hots: BTreeSet<_> = [].into();
+    let status: BTreeSet<_> = [].into();
+
+    let result = queries_v16::get_committee_members_state(
+        client,
+        era,
+        colds.into(),
+        hots.into(),
+        status.into(),
+    ).await.unwrap();
+    println!("result: {:?}", result);
 
     let result = queries_v16::get_constitution(client, era).await.unwrap();
     info!("result: {:02x?}", result);

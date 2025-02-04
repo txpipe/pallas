@@ -510,8 +510,8 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for CommitteeAuthorization {
     ) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
         match d.u16()? {
-            0 => Ok(Self::CommitteeHotCredential(d.decode()?)),
-            1 => Ok(Self::CommitteeMemberResigned(d.decode()?)),
+            0 => Ok(Self::HotCredential(d.decode()?)),
+            1 => Ok(Self::MemberResigned(d.decode()?)),
             _ => unreachable!(),
         }
 }
@@ -524,12 +524,12 @@ impl<C> minicbor::encode::Encode<C> for CommitteeAuthorization {
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         match self {
-            CommitteeAuthorization::CommitteeHotCredential(credential) => {
+            CommitteeAuthorization::HotCredential(credential) => {
                 e.array(2)?;
                 e.u16(0)?;
                 e.encode(credential)?;
             }
-            CommitteeAuthorization::CommitteeMemberResigned(anchor) => {
+            CommitteeAuthorization::MemberResigned(anchor) => {
                 e.array(2)?;
                 e.u16(1)?;
                 e.encode(anchor)?;
