@@ -173,6 +173,8 @@ impl PeerClient {
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
         let mut handshake = handshake::Client::new(channel);
 
+        let _plexer = plexer.spawn();
+
         let versions = handshake::n2n::VersionTable::v7_and_above_with_query(magic, true);
 
         let handshake = handshake
