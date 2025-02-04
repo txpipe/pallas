@@ -12,7 +12,8 @@ impl Encode<()> for PeerAddress {
         match self {
             PeerAddress::V4(address, port) => {
                 e.array(3)?.u16(0)?;
-                e.encode(address)?;
+                let word = address.to_bits();
+                e.encode(word)?;
                 e.encode(port)?;
             }
             PeerAddress::V6(address, flow_info, scope_id, port) => {
