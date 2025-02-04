@@ -55,6 +55,10 @@ impl VersionTable {
     }
 
     pub fn v7_and_above(network_magic: u64) -> VersionTable {
+        Self::v7_and_above_with_query(network_magic, false)
+    }
+
+    pub fn v7_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
         let values = vec![
             (
                 PROTOCOL_V7,
@@ -78,7 +82,7 @@ impl VersionTable {
                     network_magic,
                     true,
                     Some(PEER_SHARING_DISABLED),
-                    Some(false),
+                    Some(query),
                 ),
             ),
             (
@@ -87,7 +91,7 @@ impl VersionTable {
                     network_magic,
                     true,
                     Some(PEER_SHARING_DISABLED),
-                    Some(false),
+                    Some(query),
                 ),
             ),
             (
@@ -96,7 +100,7 @@ impl VersionTable {
                     network_magic,
                     true,
                     Some(PEER_SHARING_DISABLED),
-                    Some(false),
+                    Some(query),
                 ),
             ),
         ]
@@ -107,6 +111,10 @@ impl VersionTable {
     }
 
     pub fn v11_and_above(network_magic: u64) -> VersionTable {
+        Self::v11_and_above_with_query(network_magic, false)
+    }
+
+    pub fn v11_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
         let values = vec![
             (
                 PROTOCOL_V11,
@@ -114,7 +122,7 @@ impl VersionTable {
                     network_magic,
                     true,
                     Some(PEER_SHARING_DISABLED),
-                    Some(false),
+                    Some(query),
                 ),
             ),
             (
@@ -123,7 +131,7 @@ impl VersionTable {
                     network_magic,
                     true,
                     Some(PEER_SHARING_DISABLED),
-                    Some(false),
+                    Some(query),
                 ),
             ),
             (
@@ -132,7 +140,7 @@ impl VersionTable {
                     network_magic,
                     true,
                     Some(PEER_SHARING_DISABLED),
-                    Some(false),
+                    Some(query),
                 ),
             ),
         ]
