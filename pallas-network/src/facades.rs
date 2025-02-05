@@ -160,7 +160,7 @@ impl PeerClient {
         Ok(client)
     }
 
-    pub async fn query(
+    pub async fn handshake_query(
         addr: impl ToSocketAddrs,
         magic: u64,
     ) -> Result<VersionTable<VersionData>, Error> {
