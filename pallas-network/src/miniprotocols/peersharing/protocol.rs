@@ -16,7 +16,7 @@ pub enum State {
 #[derive(Debug, PartialEq, Clone)]
 pub enum PeerAddress {
     V4(Ipv4Addr, Port),
-    V6(Ipv6Addr, Port),
+    V6(Ipv6Addr, u32, u32, Port),
 }
 
 #[derive(Debug)]
