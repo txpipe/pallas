@@ -908,3 +908,17 @@ pub async fn get_committee_members_state(
 
     Ok(result)
 }
+
+/// Get the filtered vote delegatees.
+pub async fn get_filtered_vote_delegatees(
+    client: &mut Client,
+    era: u16,
+    stake_addrs: StakeAddrs,
+) -> Result<BTreeMap<StakeAddr, DRep>, ClientError> {
+    let query = BlockQuery::GetFilteredVoteDelegatees(stake_addrs);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}

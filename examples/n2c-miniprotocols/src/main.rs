@@ -81,8 +81,8 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap()
         .into();
     addrs.insert(StakeAddr::from((0x00, addr)));
-    // 2. `stake_test1uq2pnumhfrnnse0t3uwj4n0lhz58ehfhkdhr64ylptjhq9cyney6d`
-    let addr: Addr = hex::decode("1419F37748E73865EB8F1D2ACDFFB8A87CDD37B36E3D549F0AE57017")
+    // 2. `stake_test1upvpjglz8cz97wc26qf2glnz3q7egxq58xxul28ma2yhwkqhfylwh`
+    let addr: Addr = hex::decode("581923e23e045f3b0ad012a47e62883d941814398dcfa8fbea897758")
         .unwrap()
         .into();
     addrs.insert(StakeAddr::from((0x00, addr)));
@@ -92,7 +92,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_drep_state(client, era, addrs.into()).await.unwrap();
+    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.into()).await.unwrap();
     info!("result: {:02x?}", result);
 
     let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
@@ -159,10 +159,14 @@ async fn do_localstate_query(client: &mut NodeClient) {
     // DRep drep1ygpuetneftlmufa97hm5mf3xvqpdkyw656hyg6h20qaewtg3csnkc
     let drep_bytes = Bytes::from_str("03ccae794affbe27a5f5f74da6266002db11daa6ae446aea783b972d")
         .unwrap();
-    let dreps: BTreeSet<_> = [DRep::KeyHash(drep_bytes)].into();
+    let dreps: BTreeSet<_> = [DRep::KeyHash(drep_bytes.clone())].into();
 
     let result = queries_v16::get_drep_stake_distr(client, era, dreps.into()).await.unwrap();
     println!("result: {:?}", result);
+
+    let dreps: BTreeSet<_> = [StakeAddr::from((0x00, drep_bytes))].into();
+    let result = queries_v16::get_drep_state(client, era, dreps.into()).await.unwrap();
+    info!("result: {:02x?}", result);
 
     client.send_release().await.unwrap();
 }
