@@ -9,7 +9,8 @@ use tokio::net::{TcpListener, ToSocketAddrs};
 #[cfg(unix)]
 use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
 
-use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber};
+use crate::miniprotocols::handshake::n2n::VersionData;
+use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
     blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, peersharing,
@@ -157,6 +158,46 @@ impl PeerClient {
         };
 
         Ok(client)
+    }
+
+    pub async fn handshake_query(
+        addr: impl ToSocketAddrs,
+        magic: u64,
+    ) -> Result<VersionTable<VersionData>, Error> {
+        let bearer = Bearer::connect_tcp(addr)
+            .await
+            .map_err(Error::ConnectFailure)?;
+
+        let mut plexer = multiplexer::Plexer::new(bearer);
+
+        let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
+        let mut handshake = handshake::Client::new(channel);
+
+        let _plexer = plexer.spawn();
+
+        let versions = handshake::n2n::VersionTable::v7_and_above_with_query(magic, true);
+
+        let handshake = handshake
+            .handshake(versions)
+            .await
+            .map_err(Error::HandshakeProtocol)?;
+
+        let version_table = match handshake {
+            handshake::Confirmation::QueryReply(version_table) => {
+                debug!("handshake query reply received");
+                version_table
+            }
+            handshake::Confirmation::Accepted(_, _) => {
+                error!("handshake accepted when we expected query reply");
+                return Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound));
+            }
+            handshake::Confirmation::Rejected(reason) => {
+                error!(?reason, "handshake refused");
+                return Err(Error::IncompatibleVersion);
+            }
+        };
+
+        Ok(version_table)
     }
 
     pub fn chainsync(&mut self) -> &mut chainsync::N2NClient {
