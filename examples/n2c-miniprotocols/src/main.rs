@@ -9,7 +9,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{
-                self, Addr, Addrs, Credential, DRep, StakeAddr, TransactionInput
+                self, Addr, Addrs, Credential, DRep, StakeAddr, TransactionInput,
             },
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
@@ -54,7 +54,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_account_state(client, era).await.unwrap();
     info!("result: {:02x?}", result);
 
-    let result = queries_v16::get_future_protocol_params(client, era).await.unwrap();
+    let result = queries_v16::get_future_protocol_params(client, era)
+        .await
+        .unwrap();
     info!("result: {:02x?}", result);
 
     // This one is large (~120MB in preprod).
@@ -62,8 +64,8 @@ async fn do_localstate_query(client: &mut NodeClient) {
     // info!("result: {:02x?}", result);
 
     // CC Member cc_cold1zwn2tcqxl48g75gx9hzrzd3rdxe2gv2q408d32307gjk67cp3tktt
-    let cold_bytes = Bytes::from_str("a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b")
-        .unwrap();
+    let cold_bytes =
+        Bytes::from_str("a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b").unwrap();
     let colds: BTreeSet<_> = [Credential::from((0x01, cold_bytes))].into();
     let hots: BTreeSet<_> = [].into();
     let status: BTreeSet<_> = [].into();
@@ -74,7 +76,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
         colds.into(),
         hots.into(),
         status.into(),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     println!("result: {:?}", result);
 
     let result = queries_v16::get_constitution(client, era).await.unwrap();
@@ -98,7 +102,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.into()).await.unwrap();
+    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.into())
+        .await
+        .unwrap();
     info!("result: {:02x?}", result);
 
     let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
@@ -118,6 +124,11 @@ async fn do_localstate_query(client: &mut NodeClient) {
     info!("result: {:?}", result);
 
     let result = queries_v16::get_pool_distr(client, era, SMaybe::Some(pools.clone().into()))
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_spo_stake_distr(client, era, pools.into())
         .await
         .unwrap();
     info!("result: {:02x?}", result);
@@ -163,15 +174,19 @@ async fn do_localstate_query(client: &mut NodeClient) {
     println!("result: {:?}", result);
 
     // DRep drep1ygpuetneftlmufa97hm5mf3xvqpdkyw656hyg6h20qaewtg3csnkc
-    let drep_bytes = Bytes::from_str("03ccae794affbe27a5f5f74da6266002db11daa6ae446aea783b972d")
-        .unwrap();
+    let drep_bytes =
+        Bytes::from_str("03ccae794affbe27a5f5f74da6266002db11daa6ae446aea783b972d").unwrap();
     let dreps: BTreeSet<_> = [DRep::KeyHash(drep_bytes.clone())].into();
 
-    let result = queries_v16::get_drep_stake_distr(client, era, dreps.into()).await.unwrap();
+    let result = queries_v16::get_drep_stake_distr(client, era, dreps.into())
+        .await
+        .unwrap();
     println!("result: {:?}", result);
 
     let dreps: BTreeSet<_> = [StakeAddr::from((0x00, drep_bytes))].into();
-    let result = queries_v16::get_drep_state(client, era, dreps.into()).await.unwrap();
+    let result = queries_v16::get_drep_state(client, era, dreps.into())
+        .await
+        .unwrap();
     info!("result: {:02x?}", result);
 
     client.send_release().await.unwrap();

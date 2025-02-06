@@ -939,8 +939,25 @@ pub async fn get_account_state(client: &mut Client, era: u16) -> Result<AccountS
 }
 
 /// Get the future protocol parameters. *Note*: It does **not** return [FuturePParams].
-pub async fn get_future_protocol_params(client: &mut Client, era: u16) -> Result<SMaybe<ProtocolParam>, ClientError> {
+pub async fn get_future_protocol_params(
+    client: &mut Client,
+    era: u16,
+)-> Result<SMaybe<ProtocolParam>, ClientError> {
     let query = BlockQuery::GetFuturePParams;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Query the SPO voting stake distribution
+pub async fn get_spo_stake_distr(
+    client: &mut Client,
+    era: u16,
+    pools: Pools,
+)-> Result<BTreeMap<Addr, Coin>, ClientError> {
+    let query = BlockQuery::GetSPOStakeDistr(pools);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
