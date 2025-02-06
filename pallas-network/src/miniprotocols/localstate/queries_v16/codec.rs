@@ -514,7 +514,7 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for CommitteeAuthorization {
             1 => Ok(Self::MemberResigned(d.decode()?)),
             _ => unreachable!(),
         }
-}
+    }
 }
 
 impl<C> minicbor::encode::Encode<C> for CommitteeAuthorization {

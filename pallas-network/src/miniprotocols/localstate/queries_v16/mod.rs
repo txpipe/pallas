@@ -416,8 +416,8 @@ pub struct Constitution {
     pub script: Option<Bytes>,
 }
 
-pub type GovActionState = AnyCbor; 
-pub type GovRelation = AnyCbor; 
+pub type GovActionState = AnyCbor;
+pub type GovRelation = AnyCbor;
 
 /// Enact state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Internal.hs#L146-L157).
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
@@ -949,7 +949,8 @@ pub async fn get_committee_members_state(
     cold_credentials: TaggedSet<Credential>,
     member_status: MemberStatus,
 ) -> Result<CommitteeMembersState, ClientError> {
-    let query = BlockQuery::GetCommitteeMembersState(hot_credentials, cold_credentials, member_status);
+    let query =
+        BlockQuery::GetCommitteeMembersState(hot_credentials, cold_credentials, member_status);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
@@ -985,7 +986,7 @@ pub async fn get_account_state(client: &mut Client, era: u16) -> Result<AccountS
 pub async fn get_future_protocol_params(
     client: &mut Client,
     era: u16,
-)-> Result<SMaybe<ProtocolParam>, ClientError> {
+) -> Result<SMaybe<ProtocolParam>, ClientError> {
     let query = BlockQuery::GetFuturePParams;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
@@ -999,7 +1000,7 @@ pub async fn get_spo_stake_distr(
     client: &mut Client,
     era: u16,
     pools: Pools,
-)-> Result<BTreeMap<Addr, Coin>, ClientError> {
+) -> Result<BTreeMap<Addr, Coin>, ClientError> {
     let query = BlockQuery::GetSPOStakeDistr(pools);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
@@ -1009,10 +1010,7 @@ pub async fn get_spo_stake_distr(
 }
 
 /// Get the ratify state.
-pub async fn get_ratify_state(
-    client: &mut Client,
-    era: u16,
-)-> Result<RatifyState, ClientError> {
+pub async fn get_ratify_state(client: &mut Client, era: u16) -> Result<RatifyState, ClientError> {
     let query = BlockQuery::GetRatifyState;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);

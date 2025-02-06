@@ -53,7 +53,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
 
     let result = queries_v16::get_ratify_state(client, era).await.unwrap();
     info!("result: {:02x?}", result);
-    
+
     let result = queries_v16::get_account_state(client, era).await.unwrap();
     info!("result: {:02x?}", result);
 
