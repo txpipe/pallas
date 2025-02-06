@@ -116,7 +116,28 @@ pub enum DRep {
 
 pub type MemberStatus = TaggedSet<AnyCbor>;
 
-pub type GovActionId = AnyCbor;
+/// Action index as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L154).
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct GovActionIx {
+    #[n(0)]
+    pub index: u16,
+}
+
+/// Transaction ID as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/TxIn.hs#L56
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct TxId {
+    #[n(0)]
+    pub id: Bytes,
+}
+
+/// Governance action id as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L167-L170).
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct GovActionId {
+    #[n(0)]
+    pub tx_id: TxId,
+    #[n(1)]
+    pub gov_action_ix: GovActionIx,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u16)]
@@ -416,7 +437,9 @@ pub struct Constitution {
     pub script: Option<Bytes>,
 }
 
+/// TODO: Governance action state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L211-L219).
 pub type GovActionState = AnyCbor;
+
 pub type GovRelation = AnyCbor;
 
 /// TODO: Ledger peer snapshot as defined [in the Haskell sources](https://github.com/IntersectMBO/ouroboros-network/blob/df3431f95ef9e47a8a26fd3376efd61ed0837747/ouroboros-network-api/src/Ouroboros/Network/PeerSelection/LedgerPeers/Type.hs#L51-L53).
@@ -1005,6 +1028,20 @@ pub async fn get_spo_stake_distr(
     pools: Pools,
 ) -> Result<BTreeMap<Addr, Coin>, ClientError> {
     let query = BlockQuery::GetSPOStakeDistr(pools);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get proposals
+pub async fn get_proposals(
+    client: &mut Client,
+    era: u16,
+    action_ids: TaggedSet<GovActionId>,
+) -> Result<Vec<GovActionState>, ClientError> {
+    let query = BlockQuery::GetProposals(action_ids);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;

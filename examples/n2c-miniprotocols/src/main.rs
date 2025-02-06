@@ -63,6 +63,12 @@ async fn do_localstate_query(client: &mut NodeClient) {
     //     .unwrap();
     // info!("result: {:02x?}", result);
 
+    let gov_ids: BTreeSet<_> = [].into();
+    let result = queries_v16::get_proposals(client, era, gov_ids.into())
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
     let result = queries_v16::get_future_protocol_params(client, era)
         .await
         .unwrap();
