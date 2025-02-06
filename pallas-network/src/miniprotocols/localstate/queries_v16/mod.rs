@@ -419,6 +419,9 @@ pub struct Constitution {
 pub type GovActionState = AnyCbor;
 pub type GovRelation = AnyCbor;
 
+/// TODO: Ledger peer snapshot as defined [in the Haskell sources](https://github.com/IntersectMBO/ouroboros-network/blob/df3431f95ef9e47a8a26fd3376efd61ed0837747/ouroboros-network-api/src/Ouroboros/Network/PeerSelection/LedgerPeers/Type.hs#L51-L53).
+pub type LedgerPeerSnapshot = AnyCbor;
+
 /// Enact state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Internal.hs#L146-L157).
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct EnactState {
@@ -1012,6 +1015,19 @@ pub async fn get_spo_stake_distr(
 /// Get the ratify state.
 pub async fn get_ratify_state(client: &mut Client, era: u16) -> Result<RatifyState, ClientError> {
     let query = BlockQuery::GetRatifyState;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get a snapshot of big ledger peers.
+pub async fn get_big_ledger_snapshot(
+    client: &mut Client,
+    era: u16,
+) -> Result<LedgerPeerSnapshot, ClientError> {
+    let query = BlockQuery::GetBigLedgerPeerSnapshot;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
