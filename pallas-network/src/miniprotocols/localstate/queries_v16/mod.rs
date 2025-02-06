@@ -412,14 +412,11 @@ pub type Committee = AnyCbor;
 pub type DRepPulsingState = AnyCbor;
 
 /// Future protocol parameters as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/Governance.hs#L137-L148).
-#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FuturePParams {
-    #[n(0)]
     NoPParamsUpdate,
-    #[n(1)]
-    DefinitePParamsUpdate(#[n(0)] ProtocolParam),
-    #[n(2)]
-    PotentialPParamsUpdate(#[n(0)] SMaybe<ProtocolParam>),
+    DefinitePParamsUpdate(ProtocolParam),
+    PotentialPParamsUpdate(SMaybe<ProtocolParam>),
 }
 
 /// Governance state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance.hs#L241-L256)
@@ -934,6 +931,16 @@ pub async fn get_filtered_vote_delegatees(
 /// Get the current account state.
 pub async fn get_account_state(client: &mut Client, era: u16) -> Result<AccountState, ClientError> {
     let query = BlockQuery::GetAccountState;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the future protocol parameters. *Note*: It does **not** return [FuturePParams].
+pub async fn get_future_protocol_params(client: &mut Client, era: u16) -> Result<SMaybe<ProtocolParam>, ClientError> {
+    let query = BlockQuery::GetFuturePParams;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;

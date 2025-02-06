@@ -538,3 +538,44 @@ impl<C> minicbor::encode::Encode<C> for CommitteeAuthorization {
         Ok(())
     }
 }
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for FuturePParams {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        match d.u16()? {
+            0 => Ok(FuturePParams::NoPParamsUpdate),
+            1 => Ok(FuturePParams::DefinitePParamsUpdate(d.decode()?)),
+            2 => Ok(FuturePParams::PotentialPParamsUpdate(d.decode()?)),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for FuturePParams {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            FuturePParams::NoPParamsUpdate => {
+                e.array(1)?;
+                e.u16(0)?;
+            }
+            FuturePParams::DefinitePParamsUpdate(param) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode(param)?;
+            }
+            FuturePParams::PotentialPParamsUpdate(maybe_param) => {
+                e.array(2)?;
+                e.u16(2)?;
+                e.encode(maybe_param)?;
+            }
+        }
+        Ok(())
+    }
+}
