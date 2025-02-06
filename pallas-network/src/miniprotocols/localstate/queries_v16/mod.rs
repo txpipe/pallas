@@ -67,6 +67,14 @@ pub enum BlockQuery {
 
 pub type Credential = StakeAddr;
 
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct AccountState {
+    #[n(0)]
+    pub treasury: Coin,
+    #[n(1)]
+    pub reserves: Coin,
+}
+
 /// Committee authorization as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/CertState.hs#L294-L298).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum CommitteeAuthorization {
@@ -916,6 +924,16 @@ pub async fn get_filtered_vote_delegatees(
     stake_addrs: StakeAddrs,
 ) -> Result<BTreeMap<StakeAddr, DRep>, ClientError> {
     let query = BlockQuery::GetFilteredVoteDelegatees(stake_addrs);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the current account state.
+pub async fn get_account_state(client: &mut Client, era: u16) -> Result<AccountState, ClientError> {
+    let query = BlockQuery::GetAccountState;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
