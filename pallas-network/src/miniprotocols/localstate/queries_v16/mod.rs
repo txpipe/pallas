@@ -82,6 +82,15 @@ pub enum CommitteeAuthorization {
     MemberResigned(SMaybe<Anchor>),
 }
 
+/// Committee authorization as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L532-L537).
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct Committee {
+    #[n(0)]
+    pub members: BTreeMap<Credential, Epoch>,
+    #[n(1)]
+    pub threshold: UnitInterval,
+}
+
 /// TODO: Committee member state as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L106-L113). Not to be confused with plural [CommitteeMembersState].
 pub type CommitteeMemberState = AnyCbor;
 
@@ -407,8 +416,42 @@ pub struct Constitution {
     pub script: Option<Bytes>,
 }
 
+pub type GovActionState = AnyCbor; 
+pub type GovRelation = AnyCbor; 
+
+/// Enact state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Internal.hs#L146-L157).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct EnactState {
+    #[n(0)]
+    pub committee: SMaybe<Committee>,
+    #[n(1)]
+    pub constitution: Constitution,
+    #[n(2)]
+    pub cur_pparams: ProtocolParam,
+    #[n(3)]
+    pub prev_pparams: ProtocolParam,
+    #[n(4)]
+    pub treasury: Coin,
+    #[n(5)]
+    pub withdrawals: BTreeMap<Credential, Coin>,
+    #[n(6)]
+    pub prev_gov_action_ids: GovRelation,
+}
+
+/// Ratify state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Internal.hs#L269-L275).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct RatifyState {
+    #[n(0)]
+    pub enact_state: EnactState,
+    #[n(1)]
+    pub enacted: GovActionState,
+    #[n(2)]
+    pub expired: TaggedSet<GovActionId>,
+    #[n(3)]
+    pub delayed: bool,
+}
+
 pub type Proposals = AnyCbor;
-pub type Committee = AnyCbor;
 pub type DRepPulsingState = AnyCbor;
 
 /// Future protocol parameters as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/Governance.hs#L137-L148).
@@ -958,6 +1001,19 @@ pub async fn get_spo_stake_distr(
     pools: Pools,
 )-> Result<BTreeMap<Addr, Coin>, ClientError> {
     let query = BlockQuery::GetSPOStakeDistr(pools);
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get the ratify state.
+pub async fn get_ratify_state(
+    client: &mut Client,
+    era: u16,
+)-> Result<RatifyState, ClientError> {
+    let query = BlockQuery::GetRatifyState;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
