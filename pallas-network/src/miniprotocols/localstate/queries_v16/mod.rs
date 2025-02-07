@@ -1065,6 +1065,8 @@ pub async fn get_ratify_state(client: &mut Client, era: u16) -> Result<RatifySta
 }
 
 /// Get a snapshot of big ledger peers.
+///
+/// *Note*: This query (introduced by commit [ce08a04](https://github.com/IntersectMBO/ouroboros-consensus/commit/ce08a043e2bb6d6684375add5d347a9e023c1f1f) at [Ouroboros Consensus](https://github.com/IntersectMBO/ouroboros-consensus/blob/ce08a04/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs#L325) has not been included in any node release yet.
 pub async fn get_big_ledger_snapshot(
     client: &mut Client,
     era: u16,

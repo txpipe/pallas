@@ -62,7 +62,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_account_state(client, era).await.unwrap();
     info!("result: {:02x?}", result);
 
-    // Not yet available in Demeter nodes to test.
+    // Not yet available in the Cardano node to test.
     // let result = queries_v16::get_big_ledger_snapshot(client, era)
     //     .await
     //     .unwrap();
