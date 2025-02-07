@@ -67,6 +67,9 @@ pub enum BlockQuery {
 
 pub type Credential = StakeAddr;
 
+/// TODO: Propoped updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/PParams.hs#L510-L511).
+pub type ProposedPPUpdates = BTreeMap<Bytes, AnyCbor>;
+
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct AccountState {
     #[n(0)]
@@ -1067,6 +1070,19 @@ pub async fn get_big_ledger_snapshot(
     era: u16,
 ) -> Result<LedgerPeerSnapshot, ClientError> {
     let query = BlockQuery::GetBigLedgerPeerSnapshot;
+    let query = LedgerQuery::BlockQuery(era, query);
+    let query = Request::LedgerQuery(query);
+    let (result,) = client.query(query).await?;
+
+    Ok(result)
+}
+
+/// Get propoped updates to the protocol params.
+pub async fn get_proposed_pparams_updates(
+    client: &mut Client,
+    era: u16,
+) -> Result<ProposedPPUpdates, ClientError> {
+    let query = BlockQuery::GetProposedPParamsUpdates;
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let (result,) = client.query(query).await?;
