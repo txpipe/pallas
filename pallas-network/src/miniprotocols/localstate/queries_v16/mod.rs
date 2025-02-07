@@ -67,8 +67,12 @@ pub enum BlockQuery {
 
 pub type Credential = StakeAddr;
 
-/// TODO: Propoped updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/PParams.hs#L510-L511).
-pub type ProposedPPUpdates = BTreeMap<Bytes, AnyCbor>;
+/// Updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L151)
+/// (via [`EraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L255-L258)).
+pub type PParamsUpdate = ProtocolParam;
+
+/// Propoped updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/PParams.hs#L510-L511).
+pub type ProposedPPUpdates = BTreeMap<Bytes, PParamsUpdate>;
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct AccountState {
