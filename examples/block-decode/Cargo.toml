@@ -8,5 +8,4 @@ publish = false
 
 [dependencies]
 pallas = { path = "../../pallas" }
-net2 = "0.2.37"
 hex = "0.4.3"
