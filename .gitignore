@@ -6,3 +6,4 @@ scratchpad
 RELEASE.md
 .idea
 .vscode
+/.direnv/
