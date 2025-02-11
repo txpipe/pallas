@@ -450,9 +450,28 @@ pub struct Constitution {
 pub type Vote = AnyCbor;
 
 pub type RewardAccount = Bytes;
+pub type ScriptHash = Bytes;
 
-/// TODO: Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
-pub type GovAction = AnyCbor;
+/// Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
+#[derive(Debug, PartialEq, Clone)]
+pub enum GovAction {
+    ParameterChange(
+        Option<GovPurposeId>,
+        PParamsUpdate,
+        Option<ScriptHash>,
+    ),
+    HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
+    TreasuryWithdrawals(BTreeMap<RewardAccount, Coin>, Option<ScriptHash>),
+    NoConfidence(Option<GovPurposeId>),
+    UpdateCommittee(
+        Option<GovPurposeId>,
+        TaggedSet<Credential>,
+        BTreeMap<Credential, Epoch>,
+        UnitInterval,
+    ),
+    NewConstitution(Option<GovPurposeId>, Constitution),
+    InfoAction,
+}
 
 /// Proposal procedure state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L476-L481
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]

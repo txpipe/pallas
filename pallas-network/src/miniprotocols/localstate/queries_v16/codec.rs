@@ -579,3 +579,81 @@ impl<C> minicbor::encode::Encode<C> for FuturePParams {
         Ok(())
     }
 }
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        match d.u16()? {
+            0 => Ok(Self::ParameterChange(d.decode()?, d.decode()?, d.decode()?)),
+            1 => Ok(Self::HardForkInitiation(d.decode()?, d.decode()?)),
+            2 => Ok(Self::TreasuryWithdrawals(d.decode()?, d.decode()?)),
+            3 => Ok(Self::NoConfidence(d.decode()?)),
+            4 => Ok(Self::UpdateCommittee(
+                d.decode()?,
+                d.decode()?,
+                d.decode()?,
+                d.decode()?,
+            )),
+            5 => Ok(Self::NewConstitution(d.decode()?, d.decode()?)),
+            6 => Ok(Self::InfoAction),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for GovAction {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            GovAction::ParameterChange(sm_id, params, hash) => {
+                e.array(4)?;
+                e.u16(0)?;
+                e.encode(sm_id)?;
+                e.encode(params)?;
+                e.encode(hash)?;
+            }
+            GovAction::HardForkInitiation(sm_id, version) => {
+                e.array(3)?;
+                e.u16(1)?;
+                e.encode(sm_id)?;
+                e.encode(version)?;
+            }
+            GovAction::TreasuryWithdrawals(withdrawals, hash) => {
+                e.array(3)?;
+                e.u16(2)?;
+                e.encode(withdrawals)?;
+                e.encode(hash)?;
+            }
+            GovAction::NoConfidence(sm_id) => {
+                e.array(2)?;
+                e.u16(3)?;
+                e.encode(sm_id)?;
+            }
+            GovAction::UpdateCommittee(sm_id, removed, added, threshold) => {
+                e.array(5)?;
+                e.u16(4)?;
+                e.encode(sm_id)?;
+                e.encode(removed)?;
+                e.encode(added)?;
+                e.encode(threshold)?;
+            }
+            GovAction::NewConstitution(sm_id, constitution) => {
+                e.array(3)?;
+                e.u16(5)?;
+                e.encode(sm_id)?;
+                e.encode(constitution)?;
+            }
+            GovAction::InfoAction => {
+                e.array(1)?;
+                e.u16(6)?;
+            }
+        }
+        Ok(())
+    }
+}
