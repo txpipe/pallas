@@ -446,10 +446,62 @@ pub struct Constitution {
     pub script: Option<Bytes>,
 }
 
-/// TODO: Governance action state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L211-L219).
-pub type GovActionState = AnyCbor;
+/// TODO: Votes as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L365-L368).
+pub type Vote = AnyCbor;
 
-pub type GovRelation = AnyCbor;
+pub type RewardAccount = Bytes;
+
+/// TODO: Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
+pub type GovAction = AnyCbor;
+
+/// Proposal procedure state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L476-L481
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct ProposalProcedure {
+    #[n(0)]
+    pub deposit: Coin,
+    #[n(1)]
+    pub return_addr: RewardAccount,
+    #[n(2)]
+    pub gov_action: GovAction,
+    #[n(3)]
+    pub anchor: Anchor,
+}
+
+/// Governance action state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L211-L219).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct GovActionState {
+    #[n(0)]
+    pub id: GovActionId,
+    #[n(1)]
+    pub committee_votes: BTreeMap<Credential, Vote>,
+    #[n(2)]
+    pub drep_votes: BTreeMap<Credential, Vote>,
+    #[n(3)]
+    pub stake_pool_votes: BTreeMap<Bytes, Vote>,
+    #[n(4)]
+    pub proposal_procedure: ProposalProcedure,
+    #[n(5)]
+    pub proposed_in: Epoch,
+    #[n(6)]
+    pub expires_after: Epoch,
+}
+
+pub type GovPurposeId = AnyCbor;
+pub type GovActionStateAny = AnyCbor;
+
+/// Governance relation as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L636-L641)
+/// (where the higher order argument `f` is `StrictMaybe`).
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+pub struct GovRelation {
+    #[n(0)]
+    pub pparam_update: SMaybe<GovPurposeId>,
+    #[n(1)]
+    pub hard_fork: SMaybe<GovPurposeId>,
+    #[n(2)]
+    pub committee: SMaybe<GovPurposeId>,
+    #[n(3)]
+    pub constitution: SMaybe<GovPurposeId>,
+}
 
 /// TODO: Ledger peer snapshot as defined [in the Haskell sources](https://github.com/IntersectMBO/ouroboros-network/blob/df3431f95ef9e47a8a26fd3376efd61ed0837747/ouroboros-network-api/src/Ouroboros/Network/PeerSelection/LedgerPeers/Type.hs#L51-L53).
 pub type LedgerPeerSnapshot = AnyCbor;
@@ -479,7 +531,7 @@ pub struct RatifyState {
     #[n(0)]
     pub enact_state: EnactState,
     #[n(1)]
-    pub enacted: GovActionState,
+    pub enacted: Vec<GovActionState>,
     #[n(2)]
     pub expired: TaggedSet<GovActionId>,
     #[n(3)]
