@@ -118,6 +118,7 @@ pub type MemberStatus = TaggedSet<AnyCbor>;
 
 /// Action index as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L154).
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[cbor(transparent)]
 pub struct GovActionIx {
     #[n(0)]
     pub index: u16,
@@ -125,6 +126,7 @@ pub struct GovActionIx {
 
 /// Transaction ID as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/TxIn.hs#L56
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[cbor(transparent)]
 pub struct TxId {
     #[n(0)]
     pub id: Bytes,
