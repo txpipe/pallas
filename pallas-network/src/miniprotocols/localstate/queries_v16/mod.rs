@@ -899,280 +899,225 @@ pub async fn get_cbor(
 }
 
 /// Macro to generate an async function with specific parameters and logic.
-macro_rules! block_query {
+macro_rules! block_query_with_args {
     (
         $(#[doc = $doc:expr])*
         $fn_name:ident,
         $variant:ident,
-        $type1:ty,
+        ( $( $arg_name:ident : $arg_type:ty ),* ),
         $type2:ty,
     ) => {
         $(#[doc = $doc])*
         pub async fn $fn_name(
             client: &mut Client,
             era: u16,
-            val: $type1,
+            $( $arg_name : $arg_type ),*,
         ) -> Result<$type2, ClientError> {
-            let query = BlockQuery::$variant(val);
+            let query = BlockQuery::$variant($( $arg_name ),*);
             let query = LedgerQuery::BlockQuery(era, query);
             let query = Request::LedgerQuery(query);
-            let result: (_,) = client.query(query).await?;
+            let (result,) = client.query(query).await?;
 
-            Ok(result.0)
+            Ok(result)
         }
     };
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get the UTxO set for the given era."]
     get_utxo_by_address,
     GetUTxOByAddress,
-    Addrs,
+    (val : Addrs),
     UTxOByAddress,
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get parameters for the given pools."]
     get_stake_pool_params,
     GetStakePoolParams,
-    Pools,
+    (val : Pools),
     BTreeMap<Bytes, PoolParams>,
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get the current state of the given pools, or of all of them in case of a `SMaybe::None`."]
     get_pool_state,
     GetPoolState,
-    SMaybe<Pools>,
+    (val : SMaybe<Pools>),
     PState,
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get the stake controlled the given pools, or of all of them in case of a `SMaybe::None`."]
     get_pool_distr,
     GetPoolDistr,
-    SMaybe<Pools>,
+    (val : SMaybe<Pools>),
     PoolDistr,
 }
 
-block_query! {
+block_query_with_args! {
     get_non_myopic_member_rewards,
     GetNonMyopicMemberRewards,
-    TaggedSet<Either<Coin, StakeAddr>>,
+    (val : TaggedSet<Either<Coin, StakeAddr>>),
     NonMyopicMemberRewards,
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get the delegations and rewards for the given stake addresses."]
     get_filtered_delegations_rewards,
     GetFilteredDelegationsAndRewardAccounts,
-    StakeAddrs,
+    (val : StakeAddrs),
     FilteredDelegsRewards,
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get a subset of the UTxO, filtered by transaction input."]
     get_utxo_by_txin,
     GetUTxOByTxIn,
-    TxIns,
+    (val : TxIns),
     UTxOByTxin,
 }
 
-block_query! {
+block_query_with_args! {
     #[doc = "Get the key deposits from each stake credential given."]
     get_stake_deleg_deposits,
     GetStakeDelegDeposits,
-    TaggedSet<StakeAddr>,
+    (val : TaggedSet<StakeAddr>),
     BTreeMap<StakeAddr, Coin>,
 }
 
-/// Get the genesis configuration for the given era.
-pub async fn get_genesis_config(
-    client: &mut Client,
-    era: u16,
-) -> Result<Vec<GenesisConfig>, ClientError> {
-    let query = BlockQuery::GetGenesisConfig;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
+block_query_with_args! {
+    #[doc = "Get the current DRep state."]
+    get_drep_state,
+    GetDRepState,
+    (val : TaggedSet<StakeAddr>),
+    BTreeMap<StakeAddr, DRepState>,
 }
 
-/// Get the /entire/ UTxO.
-pub async fn get_utxo_whole(client: &mut Client, era: u16) -> Result<UTxOWhole, ClientError> {
-    let query = BlockQuery::GetUTxOWhole;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
+block_query_with_args! {
+    #[doc = "Get the current DRep stake distribution."]
+    get_drep_stake_distr,
+    GetDRepStakeDistr,
+    (val : TaggedSet<DRep>),
+    BTreeMap<DRep, Coin>,
 }
 
-/// Get the current Constitution.
-pub async fn get_constitution(client: &mut Client, era: u16) -> Result<Constitution, ClientError> {
-    let query = BlockQuery::GetConstitution;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_with_args! {
+    #[doc = "Get the filtered vote delegatees."]
+    get_filtered_vote_delegatees,
+    GetFilteredVoteDelegatees,
+    (val : StakeAddrs),
+    BTreeMap<StakeAddr, DRep>,
 }
 
-/// Get the current governance state.
-pub async fn get_gov_state(client: &mut Client, era: u16) -> Result<GovState, ClientError> {
-    let query = BlockQuery::GetGovState;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_with_args! {
+    #[doc = "Query the SPO voting stake distribution"]
+    get_spo_stake_distr,
+    GetSPOStakeDistr,
+    (val : Pools),
+    BTreeMap<Addr, Coin>,
 }
 
-/// Get the current DRep state.
-pub async fn get_drep_state(
-    client: &mut Client,
-    era: u16,
-    value: TaggedSet<StakeAddr>,
-) -> Result<BTreeMap<StakeAddr, DRepState>, ClientError> {
-    let query = BlockQuery::GetDRepState(value);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_with_args! {
+    #[doc = "Get proposals."]
+    get_proposals,
+    GetProposals,
+    (val : TaggedSet<GovActionId>),
+    Vec<GovActionState>,
 }
 
-/// Get the current DRep stake distribution.
-pub async fn get_drep_stake_distr(
-    client: &mut Client,
-    era: u16,
-    value: TaggedSet<DRep>,
-) -> Result<BTreeMap<DRep, Coin>, ClientError> {
-    let query = BlockQuery::GetDRepStakeDistr(value);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_with_args! {
+    #[doc = "Get the state of committee members."]
+    get_committee_members_state,
+    GetCommitteeMembersState,
+    (val1 : TaggedSet<Credential>, val2 : TaggedSet<Credential>, val3 : MemberStatus),
+    CommitteeMembersState,
 }
 
-/// Get the state of committee members.
-pub async fn get_committee_members_state(
-    client: &mut Client,
-    era: u16,
-    hot_credentials: TaggedSet<Credential>,
-    cold_credentials: TaggedSet<Credential>,
-    member_status: MemberStatus,
-) -> Result<CommitteeMembersState, ClientError> {
-    let query =
-        BlockQuery::GetCommitteeMembersState(hot_credentials, cold_credentials, member_status);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
+/// Macro to generate an async function with specific parameters and logic.
+macro_rules! block_query_no_args {
+    (
+        $(#[doc = $doc:expr])*
+        $fn_name:ident,
+        $variant:ident,
+        $type2:ty,
+    ) => {
+        $(#[doc = $doc])*
+        pub async fn $fn_name(
+            client: &mut Client,
+            era: u16,
+        ) -> Result<$type2, ClientError> {
+            let query = BlockQuery::$variant;
+            let query = LedgerQuery::BlockQuery(era, query);
+            let query = Request::LedgerQuery(query);
+            let (result,) = client.query(query).await?;
 
-    Ok(result)
+            Ok(result)
+        }
+    };
 }
 
-/// Get the filtered vote delegatees.
-pub async fn get_filtered_vote_delegatees(
-    client: &mut Client,
-    era: u16,
-    stake_addrs: StakeAddrs,
-) -> Result<BTreeMap<StakeAddr, DRep>, ClientError> {
-    let query = BlockQuery::GetFilteredVoteDelegatees(stake_addrs);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the genesis configuration for the given era."]
+    get_genesis_config,
+    GetGenesisConfig,
+    GenesisConfig,
 }
 
-/// Get the current account state.
-pub async fn get_account_state(client: &mut Client, era: u16) -> Result<AccountState, ClientError> {
-    let query = BlockQuery::GetAccountState;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the /entire/ UTxO."]
+    get_utxo_whole,
+    GetUTxOWhole,
+    UTxOWhole,
 }
 
-/// Get the future protocol parameters. *Note*: It does **not** return [FuturePParams].
-pub async fn get_future_protocol_params(
-    client: &mut Client,
-    era: u16,
-) -> Result<SMaybe<ProtocolParam>, ClientError> {
-    let query = BlockQuery::GetFuturePParams;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the current Constitution."]
+    get_constitution,
+    GetConstitution,
+    Constitution,
 }
 
-/// Query the SPO voting stake distribution
-pub async fn get_spo_stake_distr(
-    client: &mut Client,
-    era: u16,
-    pools: Pools,
-) -> Result<BTreeMap<Addr, Coin>, ClientError> {
-    let query = BlockQuery::GetSPOStakeDistr(pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the current governance state."]
+    get_gov_state,
+    GetGovState,
+    GovState,
 }
 
-/// Get proposals
-pub async fn get_proposals(
-    client: &mut Client,
-    era: u16,
-    action_ids: TaggedSet<GovActionId>,
-) -> Result<Vec<GovActionState>, ClientError> {
-    let query = BlockQuery::GetProposals(action_ids);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the current account state."]
+    get_account_state,
+    GetAccountState,
+    AccountState,
 }
 
-/// Get the ratify state.
-pub async fn get_ratify_state(client: &mut Client, era: u16) -> Result<RatifyState, ClientError> {
-    let query = BlockQuery::GetRatifyState;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the future protocol parameters. *Note*: It does **not** return [FuturePParams]."]
+    get_future_protocol_params,
+    GetFuturePParams,
+    SMaybe<ProtocolParam>,
 }
 
-/// Get a snapshot of big ledger peers.
-///
-/// *Note*: This query (introduced by commit [ce08a04](https://github.com/IntersectMBO/ouroboros-consensus/commit/ce08a043e2bb6d6684375add5d347a9e023c1f1f) at [Ouroboros Consensus](https://github.com/IntersectMBO/ouroboros-consensus/blob/ce08a04/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs#L325) has not been included in any node release yet.
-pub async fn get_big_ledger_snapshot(
-    client: &mut Client,
-    era: u16,
-) -> Result<LedgerPeerSnapshot, ClientError> {
-    let query = BlockQuery::GetBigLedgerPeerSnapshot;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
-
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get the ratify state."]
+    get_ratify_state,
+    GetRatifyState,
+    RatifyState,
 }
 
-/// Get propoped updates to the protocol params.
-pub async fn get_proposed_pparams_updates(
-    client: &mut Client,
-    era: u16,
-) -> Result<ProposedPPUpdates, ClientError> {
-    let query = BlockQuery::GetProposedPParamsUpdates;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,) = client.query(query).await?;
+block_query_no_args! {
+    #[doc = "Get a snapshot of big ledger peers."]
+    #[doc = ""]
+    #[doc = "*Note*: This query (introduced by commit [ce08a04](https://github.com/IntersectMBO/ouroboros-consensus/commit/ce08a043e2bb6d6684375add5d347a9e023c1f1f) at [Ouroboros Consensus](https://github.com/IntersectMBO/ouroboros-consensus/blob/ce08a04/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs#L325) has not been included in any node release yet."]
+    get_big_ledger_snapshot,
+    GetBigLedgerPeerSnapshot,
+    LedgerPeerSnapshot,
+}
 
-    Ok(result)
+block_query_no_args! {
+    #[doc = "Get propoped updates to the protocol params."]
+    get_proposed_pparams_updates,
+    GetProposedPParamsUpdates,
+    ProposedPPUpdates,
 }
