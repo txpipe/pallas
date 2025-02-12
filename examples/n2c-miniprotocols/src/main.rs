@@ -9,7 +9,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{
-                self, Addr, Addrs, Credential, DRep, StakeAddr, TransactionInput,
+                self, Addr, Addrs, Credential, Coin, Either, DRep, StakeAddr, TransactionInput,
             },
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
@@ -115,17 +115,29 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let addr: Addr = hex::decode("581923e23e045f3b0ad012a47e62883d941814398dcfa8fbea897758")
         .unwrap()
         .into();
-    addrs.insert(StakeAddr::from((0x00, addr)));
+    addrs.insert(StakeAddr::from((0x00, addr.clone())));
 
     let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs.clone())
         .await
         .unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.into())
+    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.clone().into())
         .await
         .unwrap();
     info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_stake_deleg_deposits(client, era, addrs.into())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let addrs: BTreeSet<_> = [Either::<Coin, _>::Right((0x00, addr).into())].into();
+
+    let result = queries_v16::get_non_myopic_member_rewards(client, era, addrs.clone().into())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
 
     let pool_id1 = "fdb5834ba06eb4baafd50550d2dc9b3742d2c52cc5ee65bf8673823b";
     let pool_id1 = Bytes::from_str(pool_id1).unwrap();

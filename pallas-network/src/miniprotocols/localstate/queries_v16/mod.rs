@@ -6,11 +6,8 @@ use std::hash::Hash as StdHash;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
-use pallas_codec::utils::{AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
-use pallas_codec::{
-    minicbor::{Decode, Encode},
-    utils::AnyCbor,
-};
+use pallas_codec::minicbor::{Decode, Encode};
+use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 
 pub mod primitives;
 
@@ -30,7 +27,7 @@ mod codec;
 pub enum BlockQuery {
     GetLedgerTip,
     GetEpochNo,
-    GetNonMyopicMemberRewards(AnyCbor),
+    GetNonMyopicMemberRewards(TaggedSet<Either<Coin, StakeAddr>>),
     GetCurrentPParams,
     GetProposedPParamsUpdates,
     GetStakeDistribution,
@@ -50,7 +47,7 @@ pub enum BlockQuery {
     GetPoolState(SMaybe<Pools>),
     GetStakeSnapshots(SMaybe<Pools>),
     GetPoolDistr(SMaybe<Pools>),
-    GetStakeDelegDeposits(AnyCbor),
+    GetStakeDelegDeposits(TaggedSet<StakeAddr>),
     GetConstitution,
     GetGovState,
     GetDRepState(TaggedSet<Credential>),
@@ -602,6 +599,17 @@ pub struct DRepState {
     pub delegs: TaggedSet<StakeAddr>,
 }
 
+/// Flat encoding coincides with the one at the [Cardano ledger](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Encoding/EncCBOR.hs#L767-L769).
+#[derive(Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
+pub enum Either<S, T> {
+    Left(S),
+    Right(T),
+}
+
+/// Map corresponding to [the type with the same name](https://github.com/IntersectMBO/ouroboros-consensus/blob/e924f61d1fe63d25e9ecd8499b705aff4d553209/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs#L103-L107)
+/// in the Haskell sources.
+pub type NonMyopicMemberRewards = BTreeMap<Either<Coin, StakeAddr>, BTreeMap<Bytes, Coin>>;
+
 /// Type used at [GenesisConfig], which is a fraction that is CBOR-encoded
 /// as an untagged array.
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
@@ -635,9 +643,11 @@ pub type StakeAddrs = BTreeSet<StakeAddr>;
 pub type Delegations = KeyValuePairs<StakeAddr, Bytes>;
 pub type RewardAccounts = KeyValuePairs<StakeAddr, u64>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, PartialEq, Clone)]
 pub struct FilteredDelegsRewards {
+    #[n(0)]
     pub delegs: Delegations,
+    #[n(1)]
     pub rewards: RewardAccounts,
 }
 
@@ -655,11 +665,7 @@ pub type AssetName = Bytes;
 
 pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
-pub struct UTxOByAddress {
-    #[n(0)]
-    pub utxo: KeyValuePairs<UTxO, TransactionOutput>,
-}
+pub type UTxOByAddress = KeyValuePairs<UTxO, TransactionOutput>;
 
 pub type UTxOByTxin = UTxOByAddress;
 
@@ -862,20 +868,6 @@ pub async fn get_stake_distribution(
     Ok(result)
 }
 
-/// Get the UTxO set for the given era.
-pub async fn get_utxo_by_address(
-    client: &mut Client,
-    era: u16,
-    addrs: Addrs,
-) -> Result<UTxOByAddress, ClientError> {
-    let query = BlockQuery::GetUTxOByAddress(addrs);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
 /// Get stake snapshots for the given era and stake pools.
 /// If `pools` are empty, all pools are queried.
 /// Otherwise, only the specified pool is queried.
@@ -906,46 +898,92 @@ pub async fn get_cbor(
     Ok(result)
 }
 
-/// Get parameters for the given pools.
-pub async fn get_stake_pool_params(
-    client: &mut Client,
-    era: u16,
-    pools: Pools,
-) -> Result<BTreeMap<Bytes, PoolParams>, ClientError> {
-    let query = BlockQuery::GetStakePoolParams(pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
+/// Macro to generate an async function with specific parameters and logic.
+macro_rules! block_query {
+    (
+        $(#[doc = $doc:expr])*
+        $fn_name:ident,
+        $variant:ident,
+        $type1:ty,
+        $type2:ty,
+    ) => {
+        $(#[doc = $doc])*
+        pub async fn $fn_name(
+            client: &mut Client,
+            era: u16,
+            val: $type1,
+        ) -> Result<$type2, ClientError> {
+            let query = BlockQuery::$variant(val);
+            let query = LedgerQuery::BlockQuery(era, query);
+            let query = Request::LedgerQuery(query);
+            let result: (_,) = client.query(query).await?;
 
-    Ok(result.0)
+            Ok(result.0)
+        }
+    };
 }
 
-/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
-pub async fn get_pool_state(
-    client: &mut Client,
-    era: u16,
-    opt_pools: SMaybe<Pools>,
-) -> Result<PState, ClientError> {
-    let query = BlockQuery::GetPoolState(opt_pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
-
-    Ok(result.0)
+block_query! {
+    #[doc = "Get the UTxO set for the given era."]
+    get_utxo_by_address,
+    GetUTxOByAddress,
+    Addrs,
+    UTxOByAddress,
 }
 
-/// Get the current state of the given pools, or of all of them in case of a `SMaybe::None`.
-pub async fn get_pool_distr(
-    client: &mut Client,
-    era: u16,
-    opt_pools: SMaybe<Pools>,
-) -> Result<PoolDistr, ClientError> {
-    let query = BlockQuery::GetPoolDistr(opt_pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result: (_,) = client.query(query).await?;
+block_query! {
+    #[doc = "Get parameters for the given pools."]
+    get_stake_pool_params,
+    GetStakePoolParams,
+    Pools,
+    BTreeMap<Bytes, PoolParams>,
+}
 
-    Ok(result.0)
+block_query! {
+    #[doc = "Get the current state of the given pools, or of all of them in case of a `SMaybe::None`."]
+    get_pool_state,
+    GetPoolState,
+    SMaybe<Pools>,
+    PState,
+}
+
+block_query! {
+    #[doc = "Get the stake controlled the given pools, or of all of them in case of a `SMaybe::None`."]
+    get_pool_distr,
+    GetPoolDistr,
+    SMaybe<Pools>,
+    PoolDistr,
+}
+
+block_query! {
+    get_non_myopic_member_rewards,
+    GetNonMyopicMemberRewards,
+    TaggedSet<Either<Coin, StakeAddr>>,
+    NonMyopicMemberRewards,
+}
+
+block_query! {
+    #[doc = "Get the delegations and rewards for the given stake addresses."]
+    get_filtered_delegations_rewards,
+    GetFilteredDelegationsAndRewardAccounts,
+    StakeAddrs,
+    FilteredDelegsRewards,
+}
+
+block_query! {
+    #[doc = "Get a subset of the UTxO, filtered by transaction input."]
+    get_utxo_by_txin,
+    GetUTxOByTxIn,
+    TxIns,
+    UTxOByTxin,
+}
+
+block_query! {
+    #[doc = "Get the key deposits from each stake credential given."]
+    get_stake_deleg_deposits,
+    GetStakeDelegDeposits,
+    TaggedSet<StakeAddr>,
+    BTreeMap<StakeAddr, Coin>,
 }
 
 /// Get the genesis configuration for the given era.
@@ -954,34 +992,6 @@ pub async fn get_genesis_config(
     era: u16,
 ) -> Result<Vec<GenesisConfig>, ClientError> {
     let query = BlockQuery::GetGenesisConfig;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get the delegations and rewards for the given stake addresses.
-pub async fn get_filtered_delegations_rewards(
-    client: &mut Client,
-    era: u16,
-    addrs: StakeAddrs,
-) -> Result<FilteredDelegsRewards, ClientError> {
-    let query = BlockQuery::GetFilteredDelegationsAndRewardAccounts(addrs);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get a subset of the UTxO, filtered by transaction input.
-pub async fn get_utxo_by_txin(
-    client: &mut Client,
-    era: u16,
-    txins: TxIns,
-) -> Result<UTxOByTxin, ClientError> {
-    let query = BlockQuery::GetUTxOByTxIn(txins);
     let query = LedgerQuery::BlockQuery(era, query);
     let query = Request::LedgerQuery(query);
     let result = client.query(query).await?;

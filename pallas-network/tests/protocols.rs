@@ -643,7 +643,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 values,
             )]);
 
-            let result = AnyCbor::from_encode(queries_v16::UTxOByAddress { utxo });
+            let result = AnyCbor::from_encode(utxo);
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -716,7 +716,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 ),
             ]);
 
-            let result = AnyCbor::from_encode(localstate::queries_v16::UTxOWhole { utxo: utxos });
+            let result = AnyCbor::from_encode(utxos);
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -1086,7 +1086,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             values,
         )]);
 
-        assert_eq!(result, queries_v16::UTxOByAddress { utxo });
+        assert_eq!(result, utxo);
 
         let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
             localstate::queries_v16::LedgerQuery::BlockQuery(
@@ -1104,7 +1104,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .unwrap();
 
         let utxo = Vec::<u8>::from_hex(
-            "81A28258201610F289E36C9D83C464F85A0AADD59101DDDB0E89592A92809D95D6\
+            "A28258201610F289E36C9D83C464F85A0AADD59101DDDB0E89592A92809D95D6\
              8D79EED90282581D60C0359EBB7D0688D79064BD118C99C8B87B5853E3AF59245B\
              B97E84D21A00BD81D1825820A7BED2F5FCD72BA4CEFDA7C2CC94D119279A17D71B\
              FFC4D90DD4272B93E8A88F00A300581D603F2728EC78EF8B0F356E91A5662FF312\
@@ -1282,7 +1282,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .unwrap();
 
         let delegs_rewards_cbor = Vec::<u8>::from_hex(
-            "8182a18200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bd\
+            "82a18200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bd\
              fffa581c1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005ba1\
              8200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bdfffa1a\
              0eeebb3b",

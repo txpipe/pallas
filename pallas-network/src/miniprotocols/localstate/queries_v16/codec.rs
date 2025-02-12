@@ -431,27 +431,44 @@ impl<C> minicbor::encode::Encode<C> for TransactionOutput {
     }
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for FilteredDelegsRewards {
+impl<'b, S, T, C> minicbor::decode::Decode<'b, C> for Either<S, T>
+where
+    S: minicbor::Decode<'b, C> + Ord,
+    T: minicbor::Decode<'b, C> + Ord,
+{
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         d.array()?;
-        d.array()?;
-        Ok(FilteredDelegsRewards {
-            delegs: d.decode_with(ctx)?,
-            rewards: d.decode_with(ctx)?,
-        })
+        match d.u8()? {
+            0 => Ok(Either::Left(d.decode_with(ctx)?)),
+            1 => Ok(Either::Right(d.decode_with(ctx)?)),
+            _ => Err(minicbor::decode::Error::message(
+                "unknown cbor variant for `Either` enum",
+            )),
+        }
     }
 }
 
-impl<C> minicbor::encode::Encode<C> for FilteredDelegsRewards {
+impl<S, T, C> minicbor::encode::Encode<C> for Either<S, T>
+where
+    S: Clone + minicbor::Encode<C>,
+    T: Clone + minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(1)?;
         e.array(2)?;
-        e.encode_with(self.delegs.clone(), ctx)?;
-        e.encode_with(self.rewards.clone(), ctx)?;
+        match self {
+            Either::Left(x) => {
+                e.u8(0)?;
+                e.encode_with(x, ctx)?;
+            }
+            Either::Right(x) => {
+                e.u8(1)?;
+                e.encode_with(x, ctx)?;
+            }
+        }
 
         Ok(())
     }
