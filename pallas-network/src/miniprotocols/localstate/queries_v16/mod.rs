@@ -452,11 +452,7 @@ pub type ScriptHash = Bytes;
 /// Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
 #[derive(Debug, PartialEq, Clone)]
 pub enum GovAction {
-    ParameterChange(
-        Option<GovPurposeId>,
-        PParamsUpdate,
-        Option<ScriptHash>,
-    ),
+    ParameterChange(Option<GovPurposeId>, PParamsUpdate, Option<ScriptHash>),
     HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
     TreasuryWithdrawals(BTreeMap<RewardAccount, Coin>, Option<ScriptHash>),
     NoConfidence(Option<GovPurposeId>),
