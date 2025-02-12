@@ -161,7 +161,7 @@ pub enum UtxoFailure {
     Raw(Vec<u8>),
 }
 
-/// An option type that de/encodes equivalently to [`StrictMaybe`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Encoding/Encoder.hs#L326-L329) in the Haskel sources.
+/// An option type that de/encodes equivalently to [`StrictMaybe`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Encoding/Encoder.hs#L326-L329) in the Haskell sources.
 ///
 /// `None` encodes as `[]`, Some(x) as `[encode(x)]`.
 #[derive(Debug, Clone, Eq, PartialEq)]

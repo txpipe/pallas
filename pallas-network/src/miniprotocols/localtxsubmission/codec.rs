@@ -91,26 +91,15 @@ impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()> + From<String>> Decode<'b, (
                 .to_string()
                 .into();
 
-            // skip this data via setting the decoder position, because it doesn't recognize
-            // it with rejection decode
-            d.set_position(d.input().len());
-
             return Ok(Message::RejectTx(rejection));
         }
 
         let label = d.u16()?;
 
         match label {
-            0 => {
-                let tx = d.decode()?;
-                Ok(Message::SubmitTx(tx))
-            }
+            0 => Ok(Message::SubmitTx(d.decode()?)),
             1 => Ok(Message::AcceptTx),
-            2 => {
-                let rejection = d.decode()?;
-
-                Ok(Message::RejectTx(rejection))
-            }
+            2 => Ok(Message::RejectTx(d.decode()?)),
             3 => Ok(Message::Done),
             _ => Err(decode::Error::message("can't decode Message")),
         }
