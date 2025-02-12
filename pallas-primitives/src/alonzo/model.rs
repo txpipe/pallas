@@ -596,31 +596,36 @@ impl<C> minicbor::encode::Encode<C> for NativeScript {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
 
         match self {
             NativeScript::ScriptPubkey(v) => {
+                e.array(2)?;
                 e.encode_with(0, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptAll(v) => {
+                e.array(2)?;
                 e.encode_with(1, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptAny(v) => {
+                e.array(2)?;
                 e.encode_with(2, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptNOfK(a, b) => {
+                e.array(3)?;
                 e.encode_with(3, ctx)?;
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
             NativeScript::InvalidBefore(v) => {
+                e.array(2)?;
                 e.encode_with(4, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::InvalidHereafter(v) => {
+                e.array(2)?;
                 e.encode_with(5, ctx)?;
                 e.encode_with(v, ctx)?;
             }
