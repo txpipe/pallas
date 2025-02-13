@@ -52,7 +52,11 @@ pub enum BlockQuery {
     GetGovState,
     GetDRepState(TaggedSet<Credential>),
     GetDRepStakeDistr(TaggedSet<DRep>),
-    GetCommitteeMembersState(TaggedSet<Credential>, TaggedSet<Credential>, TaggedSet<MemberStatus>),
+    GetCommitteeMembersState(
+        TaggedSet<Credential>,
+        TaggedSet<Credential>,
+        TaggedSet<MemberStatus>,
+    ),
     GetFilteredVoteDelegatees(StakeAddrs),
     GetAccountState,
     GetSPOStakeDistr(Pools),

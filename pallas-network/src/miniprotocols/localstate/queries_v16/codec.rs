@@ -685,7 +685,9 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for HotCredAuthStatus {
             0 => Ok(Self::MemberAuthorized(d.decode()?)),
             1 => Ok(Self::MemberNotAuthorized),
             2 => Ok(Self::MemberResigned(d.decode()?)),
-            _ => Err(minicbor::decode::Error::message("Unknown variant for HotCredAuthStatus")),
+            _ => Err(minicbor::decode::Error::message(
+                "Unknown variant for HotCredAuthStatus",
+            )),
         }
     }
 }
