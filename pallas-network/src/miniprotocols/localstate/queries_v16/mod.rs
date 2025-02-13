@@ -52,7 +52,7 @@ pub enum BlockQuery {
     GetGovState,
     GetDRepState(TaggedSet<Credential>),
     GetDRepStakeDistr(TaggedSet<DRep>),
-    GetCommitteeMembersState(TaggedSet<Credential>, TaggedSet<Credential>, MemberStatus),
+    GetCommitteeMembersState(TaggedSet<Credential>, TaggedSet<Credential>, TaggedSet<MemberStatus>),
     GetFilteredVoteDelegatees(StakeAddrs),
     GetAccountState,
     GetSPOStakeDistr(Pools),
@@ -95,8 +95,48 @@ pub struct Committee {
     pub threshold: UnitInterval,
 }
 
-/// TODO: Committee member state as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L106-L113). Not to be confused with plural [CommitteeMembersState].
-pub type CommitteeMemberState = AnyCbor;
+/// Hot credential auth status as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L55-L60).
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum HotCredAuthStatus {
+    MemberAuthorized(Credential),
+    MemberNotAuthorized,
+    MemberResigned(SMaybe<Anchor>),
+}
+
+/// Next epoch change status as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L77-L84).
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum NextEpochChange {
+    ToBeEnacted,
+    ToBeRemoved,
+    NoChangeExpected,
+    ToBeExpired,
+    TermAdjusted(Epoch),
+}
+
+/// Member status as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L39-L46).
+#[derive(Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[cbor(index_only)]
+pub enum MemberStatus {
+    #[n(0)]
+    Active,
+    #[n(1)]
+    Expired,
+    #[n(2)]
+    Unrecognized,
+}
+
+/// Committee member state as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L106-L113). Not to be confused with plural [CommitteeMembersState].
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
+pub struct CommitteeMemberState {
+    #[n(0)]
+    pub hot_cred_auth_status: HotCredAuthStatus,
+    #[n(1)]
+    pub status: MemberStatus,
+    #[n(2)]
+    pub expiration: SMaybe<Epoch>,
+    #[n(3)]
+    pub next_epoch_change: NextEpochChange,
+}
 
 /// Committee members' state as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-api/src/Cardano/Ledger/Api/State/Query/CommitteeMembersState.hs#L149-L154). Not to be confused with singular [CommitteeMemberState].
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -117,8 +157,6 @@ pub enum DRep {
     AlwaysAbstain,
     AlwaysNoConfidence,
 }
-
-pub type MemberStatus = TaggedSet<AnyCbor>;
 
 /// Action index as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L154).
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
@@ -329,7 +367,7 @@ pub struct ProtocolParam {
     #[n(22)]
     pub pool_voting_thresholds: Option<PoolVotingThresholds>,
     #[n(23)]
-    pub drep_voting_thresholds: Option<AnyCbor>,
+    pub drep_voting_thresholds: Option<DRepVotingThresholds>,
     #[n(24)]
     pub committee_min_size: Option<u16>,
     #[n(25)]
@@ -1026,7 +1064,7 @@ block_query_with_args! {
     #[doc = "Get the state of committee members."]
     get_committee_members_state,
     GetCommitteeMembersState,
-    (val1 : TaggedSet<Credential>, val2 : TaggedSet<Credential>, val3 : MemberStatus),
+    (val1 : TaggedSet<Credential>, val2 : TaggedSet<Credential>, val3 : TaggedSet<MemberStatus>),
     CommitteeMembersState,
 }
 

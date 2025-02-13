@@ -674,3 +674,94 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
         Ok(())
     }
 }
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for HotCredAuthStatus {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        match d.u16()? {
+            0 => Ok(Self::MemberAuthorized(d.decode()?)),
+            1 => Ok(Self::MemberNotAuthorized),
+            2 => Ok(Self::MemberResigned(d.decode()?)),
+            _ => Err(minicbor::decode::Error::message("Unknown variant for HotCredAuthStatus")),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for HotCredAuthStatus {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            HotCredAuthStatus::MemberAuthorized(credential) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode(credential)?;
+            }
+            HotCredAuthStatus::MemberNotAuthorized => {
+                e.array(1)?;
+                e.u16(1)?;
+            }
+            HotCredAuthStatus::MemberResigned(anchor) => {
+                e.array(2)?;
+                e.u16(2)?;
+                e.encode(anchor)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::decode::Decode<'b, C> for NextEpochChange {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+        match d.u16()? {
+            0 => Ok(Self::ToBeEnacted),
+            1 => Ok(Self::ToBeRemoved),
+            2 => Ok(Self::NoChangeExpected),
+            3 => Ok(Self::ToBeExpired),
+            4 => Ok(Self::TermAdjusted(d.decode()?)),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<C> minicbor::encode::Encode<C> for NextEpochChange {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            Self::ToBeEnacted => {
+                e.array(1)?;
+                e.u16(0)?;
+            }
+            Self::ToBeRemoved => {
+                e.array(1)?;
+                e.u16(1)?;
+            }
+            Self::NoChangeExpected => {
+                e.array(1)?;
+                e.u16(2)?;
+            }
+            Self::ToBeExpired => {
+                e.array(1)?;
+                e.u16(3)?;
+            }
+            Self::TermAdjusted(epoch) => {
+                e.array(2)?;
+                e.u16(4)?;
+                e.encode(epoch)?;
+            }
+        }
+        Ok(())
+    }
+}
