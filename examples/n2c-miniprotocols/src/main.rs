@@ -8,7 +8,11 @@ use pallas::{
         facades::NodeClient,
         miniprotocols::{
             chainsync,
-            localstate::queries_v16::{self, Addr, Addrs, Pools, StakeAddr, TransactionInput},
+            localstate::queries_v16::{
+                self, Addr, Addrs, Coin, Credential, DRep, Either, GovActionId, StakeAddr,
+                TransactionInput,
+            },
+            localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
         },
     },
@@ -48,6 +52,66 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let era = queries_v16::get_current_era(client).await.unwrap();
     info!("result: {:?}", era);
 
+    let result = queries_v16::get_proposed_pparams_updates(client, era)
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_ratify_state(client, era).await.unwrap();
+    info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_account_state(client, era).await.unwrap();
+    info!("result: {:02x?}", result);
+
+    // Not yet available in the Cardano node to test.
+    // let result = queries_v16::get_big_ledger_snapshot(client, era)
+    //     .await
+    //     .unwrap();
+    // info!("result: {:02x?}", result);
+
+    let tx_id = Bytes::from_str("be1640dd2b3485e94703be5683c804d5051d96c12e1eaacc17c30e74de580ce5")
+        .unwrap();
+    let gov_id = GovActionId {
+        tx_id,
+        gov_action_ix: 0,
+    };
+
+    let gov_ids: BTreeSet<_> = [gov_id].into();
+    let result = queries_v16::get_proposals(client, era, gov_ids.into())
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_future_protocol_params(client, era)
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
+    // This one is large (~120MB in preprod).
+    // let result = queries_v16::get_gov_state(client, era).await.unwrap();
+    // info!("result: {:02x?}", result);
+
+    // CC Member cc_cold1zwn2tcqxl48g75gx9hzrzd3rdxe2gv2q408d32307gjk67cp3tktt
+    let cold_bytes =
+        Bytes::from_str("a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b").unwrap();
+    let colds: BTreeSet<_> = [Credential::from((0x01, cold_bytes))].into();
+    let hots: BTreeSet<_> = [].into();
+    let status: BTreeSet<_> = [].into();
+
+    let result = queries_v16::get_committee_members_state(
+        client,
+        era,
+        colds.into(),
+        hots.into(),
+        status.into(),
+    )
+    .await
+    .unwrap();
+    println!("result: {:02x?}", result);
+
+    let result = queries_v16::get_constitution(client, era).await.unwrap();
+    info!("result: {:02x?}", result);
+
     // Getting delegation and rewards for preprod stake addresses:
     let mut addrs = BTreeSet::new();
     // 1. `stake_test1uqfp3atrunssjk8a4w7lk3ct97wnscs4wc7v3ynnmx7ll7s2ea9p2`
@@ -55,13 +119,30 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap()
         .into();
     addrs.insert(StakeAddr::from((0x00, addr)));
-    // 2. `stake_test1uq2pnumhfrnnse0t3uwj4n0lhz58ehfhkdhr64ylptjhq9cyney6d`
-    let addr: Addr = hex::decode("1419F37748E73865EB8F1D2ACDFFB8A87CDD37B36E3D549F0AE57017")
+    // 2. `stake_test1upvpjglz8cz97wc26qf2glnz3q7egxq58xxul28ma2yhwkqhfylwh`
+    let addr: Addr = hex::decode("581923e23e045f3b0ad012a47e62883d941814398dcfa8fbea897758")
         .unwrap()
         .into();
-    addrs.insert(StakeAddr::from((0x00, addr)));
+    addrs.insert(StakeAddr::from((0x00, addr.clone())));
 
-    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs)
+    let result = queries_v16::get_filtered_delegations_rewards(client, era, addrs.clone())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.clone().into())
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_stake_deleg_deposits(client, era, addrs.into())
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let addrs: BTreeSet<_> = [Either::<Coin, _>::Right((0x00, addr).into())].into();
+
+    let result = queries_v16::get_non_myopic_member_rewards(client, era, addrs.clone().into())
         .await
         .unwrap();
     info!("result: {:?}", result);
@@ -70,14 +151,27 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let pool_id1 = Bytes::from_str(pool_id1).unwrap();
     let pool_id2 = "1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005b";
     let pool_id2 = Bytes::from_str(pool_id2).unwrap();
-    let mut pools: Pools = BTreeSet::new();
-    pools.insert(pool_id1);
-    pools.insert(pool_id2);
+    let pools: BTreeSet<_> = [pool_id1, pool_id2].into();
 
-    let result = queries_v16::get_stake_pool_params(client, era, pools.into())
+    let result = queries_v16::get_stake_pool_params(client, era, pools.clone().into())
         .await
         .unwrap();
     info!("result: {:?}", result);
+
+    let result = queries_v16::get_pool_state(client, era, SMaybe::Some(pools.clone().into()))
+        .await
+        .unwrap();
+    info!("result: {:?}", result);
+
+    let result = queries_v16::get_pool_distr(client, era, SMaybe::Some(pools.clone().into()))
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
+
+    let result = queries_v16::get_spo_stake_distr(client, era, pools.into())
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
 
     let result = queries_v16::get_block_epoch_number(client, era)
         .await
@@ -111,7 +205,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
     // Empty Set means all pools.
     let pools: BTreeSet<Bytes> = BTreeSet::new();
-    let result = queries_v16::get_stake_snapshots(client, era, pools)
+    let result = queries_v16::get_stake_snapshots(client, era, SMaybe::Some(pools.into()))
         .await
         .unwrap();
     println!("result: {:?}", result);
@@ -119,12 +213,21 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_genesis_config(client, era).await.unwrap();
     println!("result: {:?}", result);
 
-    // Ensure decoding across version disparities by always receiving a valid
-    // response using the wrap function for the query result with CBOR-in-CBOR
-    // concept.
-    let query = queries_v16::BlockQuery::GetCurrentPParams;
-    let result = queries_v16::get_cbor(client, era, query).await.unwrap();
+    // DRep drep1ygpuetneftlmufa97hm5mf3xvqpdkyw656hyg6h20qaewtg3csnkc
+    let drep_bytes =
+        Bytes::from_str("03ccae794affbe27a5f5f74da6266002db11daa6ae446aea783b972d").unwrap();
+    let dreps: BTreeSet<_> = [DRep::KeyHash(drep_bytes.clone())].into();
+
+    let result = queries_v16::get_drep_stake_distr(client, era, dreps.into())
+        .await
+        .unwrap();
     println!("result: {:?}", result);
+
+    let dreps: BTreeSet<_> = [StakeAddr::from((0x00, drep_bytes))].into();
+    let result = queries_v16::get_drep_state(client, era, dreps.into())
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
 
     client.send_release().await.unwrap();
 }

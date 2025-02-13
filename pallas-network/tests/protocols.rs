@@ -3,8 +3,9 @@ use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagW
 use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
-    RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
+    RationalNumber, Relay, StakeAddr, StakeSnapshots, Stakes, SystemStart, UnitInterval, Value,
 };
+use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
     facades::{NodeClient, PeerClient, PeerServer},
     miniprotocols::{
@@ -575,16 +576,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     .into(),
             };
 
-            let pools = vec![(
+            let pools: Vec<(Bytes, _)> = vec![(
                 b"pool1qvfw4r3auysa5mhpr90n7mmdhs55js8gdywh0y2e3sy6568j2wp"
                     .to_vec()
                     .into(),
                 pool,
             )];
 
-            let pools = KeyValuePairs::from(pools);
-
-            let result = AnyCbor::from_encode(queries_v16::StakeDistribution { pools });
+            let result = AnyCbor::from_encode(KeyValuePairs::from(pools));
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -642,7 +641,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 values,
             )]);
 
-            let result = AnyCbor::from_encode(queries_v16::UTxOByAddress { utxo });
+            let result = AnyCbor::from_encode(utxo);
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -715,7 +714,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 ),
             ]);
 
-            let result = AnyCbor::from_encode(localstate::queries_v16::UTxOWhole { utxo: utxos });
+            let result = AnyCbor::from_encode(utxos);
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -769,6 +768,15 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 max_value_size: None,
                 collateral_percentage: None,
                 max_collateral_inputs: None,
+                pool_voting_thresholds: None,
+                drep_voting_thresholds: None,
+                committee_min_size: None,
+                committee_max_term_length: None,
+                gov_action_lifetime: None,
+                gov_action_deposit: None,
+                drep_deposit: None,
+                drep_activity: None,
+                min_fee_ref_script_cost_per_byte: None,
             }]);
 
             server.statequery().send_result(result).await.unwrap();
@@ -788,7 +796,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 query,
                 queries_v16::Request::LedgerQuery(queries_v16::LedgerQuery::BlockQuery(
                     5,
-                    queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
+                    queries_v16::BlockQuery::GetStakeSnapshots(SMaybe::Some(
+                        BTreeSet::new().into()
+                    )),
                 ),)
             );
 
@@ -808,14 +818,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 },
             )]);
 
-            let snapshots = Snapshots {
+            let snapshots = StakeSnapshots {
                 stake_snapshots,
                 snapshot_stake_mark_total: 0,
                 snapshot_stake_set_total: 0,
                 snapshot_stake_go_total: 0,
             };
 
-            let result = AnyCbor::from_encode(queries_v16::StakeSnapshot { snapshots });
+            let result = AnyCbor::from_encode(snapshots);
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -1019,9 +1029,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             pool,
         )];
 
-        let pools = KeyValuePairs::from(pools);
-
-        assert_eq!(result, queries_v16::StakeDistribution { pools });
+        assert_eq!(result, KeyValuePairs::from(pools));
 
         let addr_hex =
 "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
@@ -1074,7 +1082,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             values,
         )]);
 
-        assert_eq!(result, queries_v16::UTxOByAddress { utxo });
+        assert_eq!(result, utxo);
 
         let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
             localstate::queries_v16::LedgerQuery::BlockQuery(
@@ -1092,7 +1100,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .unwrap();
 
         let utxo = Vec::<u8>::from_hex(
-            "81A28258201610F289E36C9D83C464F85A0AADD59101DDDB0E89592A92809D95D6\
+            "A28258201610F289E36C9D83C464F85A0AADD59101DDDB0E89592A92809D95D6\
              8D79EED90282581D60C0359EBB7D0688D79064BD118C99C8B87B5853E3AF59245B\
              B97E84D21A00BD81D1825820A7BED2F5FCD72BA4CEFDA7C2CC94D119279A17D71B\
              FFC4D90DD4272B93E8A88F00A300581D603F2728EC78EF8B0F356E91A5662FF312\
@@ -1151,19 +1159,28 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 max_value_size: None,
                 collateral_percentage: None,
                 max_collateral_inputs: None,
+                pool_voting_thresholds: None,
+                drep_voting_thresholds: None,
+                committee_min_size: None,
+                committee_max_term_length: None,
+                gov_action_lifetime: None,
+                gov_action_deposit: None,
+                drep_deposit: None,
+                drep_activity: None,
+                min_fee_ref_script_cost_per_byte: None,
             }]
         );
 
         let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
             queries_v16::LedgerQuery::BlockQuery(
                 5,
-                queries_v16::BlockQuery::GetStakeSnapshots(BTreeSet::new()),
+                queries_v16::BlockQuery::GetStakeSnapshots(SMaybe::Some(BTreeSet::new().into())),
             ),
         ));
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: queries_v16::StakeSnapshot = client
+        let result: queries_v16::StakeSnapshots = client
             .statequery()
             .recv_while_querying()
             .await
@@ -1185,14 +1202,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
             },
         )]);
 
-        let snapshots = Snapshots {
+        let snapshots = StakeSnapshots {
             stake_snapshots,
             snapshot_stake_mark_total: 0,
             snapshot_stake_set_total: 0,
             snapshot_stake_go_total: 0,
         };
 
-        assert_eq!(result, queries_v16::StakeSnapshot { snapshots });
+        assert_eq!(result, snapshots);
 
         let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
             queries_v16::LedgerQuery::BlockQuery(5, queries_v16::BlockQuery::GetGenesisConfig),
@@ -1261,7 +1278,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             .unwrap();
 
         let delegs_rewards_cbor = Vec::<u8>::from_hex(
-            "8182a18200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bd\
+            "82a18200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bd\
              fffa581c1e3105f23f2ac91b3fb4c35fa4fe301421028e356e114944e902005ba1\
              8200581c1218f563e4e10958fdabbdfb470b2f9d386215763cc89273d9bdfffa1a\
              0eeebb3b",
