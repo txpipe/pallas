@@ -162,29 +162,15 @@ pub enum DRep {
     AlwaysNoConfidence,
 }
 
-/// Action index as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L154).
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
-#[cbor(transparent)]
-pub struct GovActionIx {
-    #[n(0)]
-    pub index: u16,
-}
-
-/// Transaction ID as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/TxIn.hs#L56
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
-#[cbor(transparent)]
-pub struct TxId {
-    #[n(0)]
-    pub id: Bytes,
-}
-
-/// Governance action id as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L167-L170).
+/// Governance action id as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L167-L170),
+/// via [Transaction ID](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/TxIn.hs#L56
+/// and [Action Index](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L154).
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct GovActionId {
     #[n(0)]
-    pub tx_id: TxId,
+    pub tx_id: Bytes,
     #[n(1)]
-    pub gov_action_ix: GovActionIx,
+    pub gov_action_ix: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]

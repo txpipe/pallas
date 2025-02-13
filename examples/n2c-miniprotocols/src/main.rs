@@ -9,7 +9,8 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{
-                self, Addr, Addrs, Coin, Credential, DRep, Either, StakeAddr, TransactionInput,
+                self, Addr, Addrs, Coin, Credential, DRep, Either, GovActionId, StakeAddr,
+                TransactionInput,
             },
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,
@@ -68,7 +69,14 @@ async fn do_localstate_query(client: &mut NodeClient) {
     //     .unwrap();
     // info!("result: {:02x?}", result);
 
-    let gov_ids: BTreeSet<_> = [].into();
+    let tx_id = Bytes::from_str("be1640dd2b3485e94703be5683c804d5051d96c12e1eaacc17c30e74de580ce5")
+        .unwrap();
+    let gov_id = GovActionId {
+        tx_id,
+        gov_action_ix: 0,
+    };
+
+    let gov_ids: BTreeSet<_> = [gov_id].into();
     let result = queries_v16::get_proposals(client, era, gov_ids.into())
         .await
         .unwrap();
