@@ -11,7 +11,8 @@ use pallas_primitives::{
 
 use crate::{
     Era, Error, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
-    MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals, OriginalHash,
+    MultiEraProposal, MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals,
+    OriginalHash,
 };
 
 impl<'b> MultiEraTx<'b> {
@@ -383,6 +384,19 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.transaction_body.total_collateral,
             MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
             _ => None,
+        }
+    }
+
+    pub fn gov_proposals(&self) -> Vec<MultiEraProposal> {
+        match self {
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .proposal_procedures
+                .iter()
+                .flatten()
+                .map(|x| MultiEraProposal::from_conway(x))
+                .collect(),
+            _ => vec![],
         }
     }
 

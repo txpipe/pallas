@@ -23,10 +23,60 @@ pub enum Message<Tx, Reject> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EraTx(pub u16, pub Vec<u8>);
 
-// TODO: Temporary aliases before we decode this
-pub type PlutusPurpose = AnyCbor;
-pub type ScriptHash = AnyCbor;
-pub type Language = AnyCbor;
+pub type PolicyID = AnyCbor;
+pub type TxCert = AnyCbor;
+pub type Voter = AnyCbor;
+pub type ProposalProcedure = AnyCbor;
+
+/// Purpose of the script. It corresponds to
+/// [`ConwayPlutusPurpose`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs#L188-L194)
+/// in the Haskell sources.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum PlutusPurpose<T0, T1, T2, T3, T4, T5> {
+    Spending(T0),
+    Minting(T1),
+    Certifying(T2),
+    Rewarding(T3),
+    Voting(T4),
+    Proposing(T5),
+}
+
+impl<T0, T1, T2, T3, T4, T5> PlutusPurpose<T0, T1, T2, T3, T4, T5> {
+    /// Returns the ordinal of the `PlutusPurpose` variant.
+    pub fn ord(&self) -> u8 {
+        match self {
+            PlutusPurpose::Spending(_) => 0,
+            PlutusPurpose::Minting(_) => 1,
+            PlutusPurpose::Certifying(_) => 2,
+            PlutusPurpose::Rewarding(_) => 3,
+            PlutusPurpose::Voting(_) => 4,
+            PlutusPurpose::Proposing(_) => 5,
+        }
+    }
+}
+
+/// Purpose with the corresponding item. It corresponds to
+/// [`ConwayPlutusPurpose`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs#L188-L194)
+/// in the Haskell sources, where the higher-order argument `f` equals `AsItem`.
+pub type PlutusPurposeItem =
+    PlutusPurpose<TransactionInput, PolicyID, TxCert, Bytes, Voter, ProposalProcedure>;
+
+/// Purpose with the corresponding index. It corresponds to
+/// [`ConwayPlutusPurpose`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs#L188-L194)
+/// in the Haskell sources, where the higher-order argument `f` equals `AsIx`.
+pub type PlutusPurposeIx = PlutusPurpose<u32, u32, u32, u32, u32, u32>;
+
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[cbor(index_only)]
+pub enum Language {
+    #[n(0)]
+    PlutusV1,
+    #[n(1)]
+    PlutusV2,
+    #[n(3)]
+    PlutusV3,
+}
+
 pub type ContextError = AnyCbor;
 pub type FailureDescription = AnyCbor;
 
@@ -42,14 +92,14 @@ pub enum TagMismatchDescription {
     FailedUnexpectedly(BTreeSet<FailureDescription>),
 }
 
-/// Errors that can occur when collecting inputs for phase-2 scripts.
+/// Errors that can occur when collecting arguments for phase-2 scripts.
 /// It corresponds to [CollectError](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Plutus/Evaluate.hs#L78-L83).
 #[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
 pub enum CollectError {
     #[n(0)]
-    NoRedeemer(#[n(0)] PlutusPurpose),
+    NoRedeemer(#[n(0)] PlutusPurposeItem),
     #[n(1)]
-    NoWitness(#[n(0)] ScriptHash),
+    NoWitness(#[n(0)] Bytes),
     #[n(2)]
     NoCostModel(#[n(0)] Language),
     #[n(3)]
@@ -132,7 +182,7 @@ pub enum UtxowFailure {
     MissingTxBodyMetadataHash(Bytes),
     PPViewHashesDontMatch(SMaybe<Bytes>, SMaybe<Bytes>),
     NotAllowedSupplementalDatums(BTreeSet<Bytes>, BTreeSet<Bytes>),
-    ExtraRedeemers(PlutusPurpose),
+    ExtraRedeemers(PlutusPurposeIx),
     Raw(Vec<u8>),
 }
 
