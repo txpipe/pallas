@@ -99,7 +99,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     )
     .await
     .unwrap();
-    println!("result: {:?}", result);
+    println!("result: {:02x?}", result);
 
     let result = queries_v16::get_constitution(client, era).await.unwrap();
     info!("result: {:02x?}", result);

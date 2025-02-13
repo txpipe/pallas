@@ -536,9 +536,6 @@ pub struct GovActionState {
     pub expires_after: Epoch,
 }
 
-pub type GovPurposeId = AnyCbor;
-pub type GovActionStateAny = AnyCbor;
-
 /// Governance relation as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L636-L641)
 /// (where the higher order argument `f` is `StrictMaybe`).
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
@@ -555,6 +552,9 @@ pub struct GovRelation {
 
 /// TODO: Ledger peer snapshot as defined [in the Haskell sources](https://github.com/IntersectMBO/ouroboros-network/blob/df3431f95ef9e47a8a26fd3376efd61ed0837747/ouroboros-network-api/src/Ouroboros/Network/PeerSelection/LedgerPeers/Type.hs#L51-L53).
 pub type LedgerPeerSnapshot = AnyCbor;
+
+/// Governance purpose Id as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L618-L620).
+pub type GovPurposeId = GovActionId;
 
 /// Enact state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Internal.hs#L146-L157).
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
