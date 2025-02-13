@@ -24,7 +24,7 @@ impl Encode<()> for PeerAddress {
                 let word2: u32 = ((bits >> 64) & 0xFFFF_FFFF) as u32;
                 let word3: u32 = ((bits >> 32) & 0xFFFF_FFFF) as u32;
                 let word4: u32 = (bits & 0xFFFF_FFFF) as u32;
-                
+
                 e.encode(&word1)?;
                 e.encode(&word2)?;
                 e.encode(&word3)?;

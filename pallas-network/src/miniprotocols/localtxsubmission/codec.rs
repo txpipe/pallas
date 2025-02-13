@@ -1,7 +1,50 @@
-use pallas_codec::minicbor::data::IanaTag;
+use pallas_codec::minicbor::data::{IanaTag, Tag, Type as CborType};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::utils::Bytes;
 
-use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
+use crate::miniprotocols::localtxsubmission::{
+    EraTx, Message, PlutusPurpose, RejectReason, SMaybe, TagMismatchDescription, TxError,
+    UtxoFailure, UtxosFailure, UtxowFailure,
+};
+use std::str::from_utf8;
+
+// `Ctx` generic needed after introducing `ValidityInterval`.
+impl<'b, T: Decode<'b, Ctx>, Ctx> Decode<'b, Ctx> for SMaybe<T> {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut Ctx) -> Result<Self, decode::Error> {
+        let len = d.array()?;
+        match len {
+            Some(0) => Ok(SMaybe::None),
+            Some(1) => Ok(SMaybe::Some(d.decode_with(ctx)?)),
+            Some(_) => Err(decode::Error::message("Expected array of length <=1")),
+            None => Err(decode::Error::message(
+                "Expected array of length <=1, obtained `None`",
+            )),
+        }
+    }
+}
+
+// `Ctx` generic needed after introducing `ValidityInterval`.
+impl<T, Ctx> Encode<Ctx> for SMaybe<T>
+where
+    T: Encode<Ctx>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut Ctx,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            SMaybe::None => {
+                e.array(0)?;
+            }
+            SMaybe::Some(t) => {
+                e.array(1)?;
+                e.encode_with(t, ctx)?;
+            }
+        }
+        Ok(())
+    }
+}
 
 impl<Tx, Reject> Encode<()> for Message<Tx, Reject>
 where
@@ -36,27 +79,27 @@ where
     }
 }
 
-impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()>> Decode<'b, ()> for Message<Tx, Reject> {
+impl<'b, Tx: Decode<'b, ()>, Reject: Decode<'b, ()> + From<String>> Decode<'b, ()>
+    for Message<Tx, Reject>
+{
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
         if d.array().is_err() {
             // if the first element isn't an array, it's a plutus error
             // the node sends string data
-            let rejection = d.decode()?;
+            let rejection = from_utf8(d.input())
+                .or(Err(decode::Error::message("Not valid as a string")))?
+                .to_string()
+                .into();
+
             return Ok(Message::RejectTx(rejection));
         }
 
         let label = d.u16()?;
 
         match label {
-            0 => {
-                let tx = d.decode()?;
-                Ok(Message::SubmitTx(tx))
-            }
+            0 => Ok(Message::SubmitTx(d.decode()?)),
             1 => Ok(Message::AcceptTx),
-            2 => {
-                let rejection = d.decode()?;
-                Ok(Message::RejectTx(rejection))
-            }
+            2 => Ok(Message::RejectTx(d.decode()?)),
             3 => Ok(Message::Done),
             _ => Err(decode::Error::message("can't decode Message")),
         }
@@ -91,13 +134,12 @@ impl Encode<()> for EraTx {
 
 impl<'b> Decode<'b, ()> for RejectReason {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        // `d.input()` is the entire input; we just want it starting at where we stopped decoding:
-        let start_pos = d.position();
-        let remainder = d.input()[start_pos..].to_vec();
-        // skip this data via setting the decoder position, because it doesn't recognize
-        // it with rejection decode
-        d.set_position(d.input().len());
-        Ok(RejectReason(remainder))
+        d.array()?;
+        d.array()?;
+        let era = d.u8()?;
+        let errors = d.decode()?;
+
+        Ok(RejectReason::EraErrors(era, errors))
     }
 }
 
@@ -107,16 +149,418 @@ impl Encode<()> for RejectReason {
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        e.writer_mut()
-            .write_all(&self.0)
-            .map_err(encode::Error::write)?;
+        match self {
+            RejectReason::Plutus(s) => e
+                .writer_mut()
+                .write_all(s.as_bytes())
+                .map_err(encode::Error::write)?,
+            RejectReason::EraErrors(era, errors) => {
+                e.array(1)?;
+                e.array(2)?;
+                e.u8(*era)?;
+                e.encode(errors)?;
+            }
+        }
         Ok(())
     }
 }
 
+impl<'b> Decode<'b, ()> for TxError {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let start_pos = d.position();
+
+        match d.datatype()? {
+            CborType::Array => d.array()?,
+            _ => {
+                return Ok(TxError::Raw(cbor_last(d, start_pos)?));
+            }
+        };
+
+        match d.u8()? {
+            1 => Ok(TxError::ConwayUtxowFailure(d.decode()?)),
+            _ => Ok(TxError::Raw(cbor_last(d, start_pos)?)),
+        }
+    }
+}
+
+impl Encode<()> for TxError {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            TxError::ConwayUtxowFailure(val) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(val)?;
+            }
+            TxError::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for UtxowFailure {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let start_pos = d.position();
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(UtxowFailure::UtxoFailure(d.decode()?)),
+            5 => Ok(UtxowFailure::MissingTxBodyMetadataHash(d.decode()?)),
+            9 => {
+                d.tag()?;
+                let vec_bytes: Vec<Bytes> = d.decode()?;
+
+                Ok(UtxowFailure::ExtraneousScriptWitnessesUTXOW(vec_bytes))
+            }
+            12 => {
+                d.tag()?;
+                let unallowed = d.decode()?;
+                d.tag()?;
+                let acceptable = d.decode()?;
+
+                Ok(UtxowFailure::NotAllowedSupplementalDatums(
+                    unallowed, acceptable,
+                ))
+            }
+            13 => Ok(UtxowFailure::PPViewHashesDontMatch(
+                d.decode()?,
+                d.decode()?,
+            )),
+            15 => Ok(UtxowFailure::ExtraRedeemers(d.decode()?)),
+            _ => Ok(UtxowFailure::Raw(cbor_last(d, start_pos)?)),
+        }
+    }
+}
+
+impl Encode<()> for UtxowFailure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            UtxowFailure::ExtraneousScriptWitnessesUTXOW(addrs) => {
+                e.array(2)?;
+                e.u8(9)?;
+                e.tag(Tag::new(258))?;
+                e.encode(addrs)?;
+            }
+            UtxowFailure::MissingTxBodyMetadataHash(addr) => {
+                e.array(2)?;
+                e.u8(5)?;
+                e.encode(addr)?;
+            }
+            UtxowFailure::NotAllowedSupplementalDatums(unall, accpt) => {
+                e.array(3)?;
+                e.u8(12)?;
+                e.tag(Tag::new(258))?;
+                e.encode(unall)?;
+                e.tag(Tag::new(258))?;
+                e.encode(accpt)?;
+            }
+            UtxowFailure::PPViewHashesDontMatch(body_hash, pp_hash) => {
+                e.array(3)?;
+                e.u8(13)?;
+                e.encode(body_hash)?;
+                e.encode(pp_hash)?;
+            }
+            UtxowFailure::ExtraRedeemers(purp) => {
+                e.array(2)?;
+                e.u8(15)?;
+                e.encode(purp)?;
+            }
+            UtxowFailure::UtxoFailure(failure) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(failure)?;
+            }
+            UtxowFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for UtxoFailure {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        let start_pos = d.position();
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(UtxoFailure::UtxosFailure(d.decode()?)),
+            1 => {
+                d.tag()?;
+                Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
+            }
+            3 => Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?)),
+            2 => Ok(UtxoFailure::OutsideValidityIntervalUTxO(
+                d.decode()?,
+                d.decode()?,
+            )),
+            4 => Ok(UtxoFailure::InputSetEmptyUTxO),
+            5 => Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?)),
+            6 => Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?)),
+            7 => {
+                let network = d.decode()?;
+                d.tag()?;
+                Ok(UtxoFailure::WrongNetwork(network, d.decode()?))
+            }
+            15 => Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?)),
+            12 => Ok(UtxoFailure::InsufficientCollateral(d.i64()?, d.u64()?)),
+            18 => Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?)),
+            19 => Ok(UtxoFailure::NoCollateralInputs),
+            20 => Ok(UtxoFailure::IncorrectTotalCollateralField(
+                d.i64()?,
+                d.u64()?,
+            )),
+            21 => Ok(UtxoFailure::BabbageOutputTooSmallUTxO(d.decode()?)),
+            _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
+        }
+    }
+}
+
+impl Encode<()> for UtxoFailure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            UtxoFailure::UtxosFailure(failure) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.encode(failure)?;
+            }
+            UtxoFailure::BadInputsUTxO(inputs) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.tag(Tag::new(258))?;
+                e.encode(inputs)?;
+            }
+            UtxoFailure::OutsideValidityIntervalUTxO(inter, slot) => {
+                e.array(3)?;
+                e.u8(2)?;
+                e.encode(inter)?;
+                e.encode(slot)?;
+            }
+            UtxoFailure::MaxTxSizeUTxO(actual, max) => {
+                e.array(3)?;
+                e.u8(3)?;
+                e.u64(*actual)?;
+                e.u64(*max)?;
+            }
+            UtxoFailure::InputSetEmptyUTxO => {
+                e.array(1)?;
+                e.u8(4)?;
+            }
+            UtxoFailure::FeeTooSmallUTxO(min, supplied) => {
+                e.array(3)?;
+                e.u8(5)?;
+                e.u64(*min)?;
+                e.u64(*supplied)?;
+            }
+            UtxoFailure::ValueNotConservedUTxO(cons, prod) => {
+                e.array(3)?;
+                e.u8(6)?;
+                e.encode(cons)?;
+                e.encode(prod)?;
+            }
+            UtxoFailure::WrongNetwork(net, addrs) => {
+                e.array(3)?;
+                e.u8(7)?;
+                e.encode(net)?;
+                e.tag(Tag::new(258))?;
+                e.encode(addrs)?;
+            }
+            UtxoFailure::InsufficientCollateral(deltacoin, coin) => {
+                e.array(3)?;
+                e.u8(12)?;
+                e.i64(*deltacoin)?;
+                e.u64(*coin)?;
+            }
+            UtxoFailure::CollateralContainsNonADA(value) => {
+                e.array(2)?;
+                e.u8(15)?;
+                e.encode(value)?;
+            }
+            UtxoFailure::TooManyCollateralInputs(allowed, num) => {
+                e.array(3)?;
+                e.u8(18)?;
+                e.u16(*allowed)?;
+                e.u16(*num)?;
+            }
+            UtxoFailure::NoCollateralInputs => {
+                e.array(1)?;
+                e.u8(19)?;
+            }
+            UtxoFailure::IncorrectTotalCollateralField(provided, decl) => {
+                e.array(3)?;
+                e.u8(20)?;
+                e.i64(*provided)?;
+                e.u64(*decl)?;
+            }
+            UtxoFailure::BabbageOutputTooSmallUTxO(out_mins) => {
+                e.array(2)?;
+                e.u8(21)?;
+                e.encode(out_mins)?;
+            }
+            UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for UtxosFailure {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(UtxosFailure::ValidationTagMismatch(
+                d.decode()?,
+                d.decode()?,
+            )),
+            1 => Ok(UtxosFailure::CollectErrors(d.decode()?)),
+            _ => Err(decode::Error::message("Unknown `UtxosFailure` variant")),
+        }
+    }
+}
+
+impl Encode<()> for UtxosFailure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            UtxosFailure::ValidationTagMismatch(isv, tmd) => {
+                e.array(3)?;
+                e.u8(0)?;
+                e.encode(isv)?;
+                e.encode(tmd)?;
+            }
+            UtxosFailure::CollectErrors(c) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(c)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for TagMismatchDescription {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(TagMismatchDescription::PassedUnexpectedly),
+            1 => Ok(TagMismatchDescription::FailedUnexpectedly(d.decode()?)),
+            _ => Err(decode::Error::message(
+                "Unknown `TagMismatchDescription` variant",
+            )),
+        }
+    }
+}
+
+impl Encode<()> for TagMismatchDescription {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            TagMismatchDescription::PassedUnexpectedly => {
+                e.array(1)?;
+                e.u8(0)?;
+            }
+            TagMismatchDescription::FailedUnexpectedly(c) => {
+                e.array(2)?;
+                e.u8(1)?;
+                e.encode(c)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b, T0, T1, T2, T3, T4, T5, Ctx> Decode<'b, Ctx> for PlutusPurpose<T0, T1, T2, T3, T4, T5>
+where
+    T0: Decode<'b, ()>,
+    T1: Decode<'b, ()>,
+    T2: Decode<'b, ()>,
+    T3: Decode<'b, ()>,
+    T4: Decode<'b, ()>,
+    T5: Decode<'b, ()>,
+{
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut Ctx) -> Result<Self, decode::Error> {
+        d.array()?;
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(PlutusPurpose::Spending(d.decode()?)),
+            1 => Ok(PlutusPurpose::Minting(d.decode()?)),
+            2 => Ok(PlutusPurpose::Certifying(d.decode()?)),
+            3 => Ok(PlutusPurpose::Rewarding(d.decode()?)),
+            4 => Ok(PlutusPurpose::Voting(d.decode()?)),
+            5 => Ok(PlutusPurpose::Proposing(d.decode()?)),
+            _ => Err(decode::Error::message("Unknown `PlutusPurpose` variant")),
+        }
+    }
+}
+
+impl<T0, T1, T2, T3, T4, T5, Ctx> Encode<Ctx> for PlutusPurpose<T0, T1, T2, T3, T4, T5>
+where
+    T0: Encode<()>,
+    T1: Encode<()>,
+    T2: Encode<()>,
+    T3: Encode<()>,
+    T4: Encode<()>,
+    T5: Encode<()>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut Ctx,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(1)?;
+        e.array(2)?;
+        e.u8(self.ord())?;
+
+        match self {
+            PlutusPurpose::Spending(x) => e.encode(x)?,
+            PlutusPurpose::Minting(x) => e.encode(x)?,
+            PlutusPurpose::Certifying(x) => e.encode(x)?,
+            PlutusPurpose::Rewarding(x) => e.encode(x)?,
+            PlutusPurpose::Voting(x) => e.encode(x)?,
+            PlutusPurpose::Proposing(x) => e.encode(x)?,
+        };
+
+        Ok(())
+    }
+}
+
+/// Returns the CBOR data of the item at the provided position.
+pub fn cbor_last(d: &mut Decoder, start_pos: usize) -> Result<Vec<u8>, decode::Error> {
+    let data = d.input();
+    d.set_position(start_pos);
+    d.skip()?;
+
+    Ok(data[start_pos..d.position()].to_vec())
+}
+
 #[cfg(test)]
 mod tests {
-    use pallas_codec::{minicbor, Fragment};
+    use pallas_codec::{
+        minicbor::{self, encode},
+        Fragment,
+    };
 
     use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason};
     use crate::multiplexer::Error;
@@ -125,6 +569,7 @@ mod tests {
     fn decode_reject_message() {
         let mut bytes = hex::decode(RAW_REJECT_RESPONSE).unwrap();
         let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes);
+        println!("Result: {:02x?}", msg_res);
         assert!(msg_res.is_ok())
     }
 
@@ -150,8 +595,28 @@ mod tests {
     fn decode_reject_string_message() {
         let mut bytes = hex::decode(RAW_REJECT_REPONSE_ERROR_STRING).unwrap();
         let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes);
-        println!("result {:?}", msg_res);
+        println!("Result: {:?}", msg_res);
         assert!(msg_res.is_ok())
+    }
+
+    fn decode_reject_reason(reject: &str) {
+        let bytes = hex::decode(reject).unwrap();
+        let msg_res = try_decode_message::<Message<EraTx, RejectReason>>(&mut bytes.clone());
+        println!("Result: {:02x?}", msg_res);
+        assert!(msg_res.is_ok());
+        let mut datum: Vec<u8> = Vec::new();
+        // Encoding back
+        encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
+        assert_eq!(bytes, datum);
+    }
+
+    #[test]
+    fn round_trip_codec() {
+        decode_reject_reason(RAW_REJECT_RESPONSE_CONWAY);
+        decode_reject_reason(ISVALID_REJECT_PREVIEW);
+        decode_reject_reason(MISSING_METADATA_HASH);
+        decode_reject_reason(INPUT_SET_EMPTY_FEE_OUTPUT_SMALL_PREVIEW);
+        decode_reject_reason(MAX_TX_SIZE_PREVIEW);
     }
 
     const RAW_REJECT_RESPONSE: &str =
@@ -232,4 +697,33 @@ mod tests {
         845657a426d5249524448705765462b4d69394961367935426b564665434675786155714d522f77442f32486d66\
         32486d66324871665742776d474f6c4d32775a354c7757756d78374869774978394c66304956736254505575593\
         04c652f39683667502b68514b4641476774734d63445965352f59655a2f59";
+
+    const RAW_REJECT_RESPONSE_CONWAY: &str =
+        "82028182068a82018209d9010281581ca55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360882\
+         01830cd901028158203e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465d9010280\
+         8201820f818200008201830d815820b8f025288ba73aed0fe31fad243c58bef276caf20e70ade9d343bbed62b5\
+         fdc08158200f9a8c36fd5205f371efa8a251e0c27c6d944afa837ac2a7ae0776c51a6372cd82018200830700d9\
+         01028458390170e60f3b5ea7153e0acc7a803e4401d44b8ed1bae1c7baaad1a62a721e78aae7c90cc36d624f7b\
+         3bb6d86b52696dc84e490f343eba89005f583901b7469fffd8657fdc71bfcc2368abf070025f8ed3b2d07edf42\
+         11383c9e2efeca24440f4ef0d0718ed066b0d0928af76584eb87a3b7fe2549583901c7f913cb1a0d62a1dbd9eb\
+         0c5fb4d5b9ff1ed370fbb6b2dbe98c4b82d3e62702c687b1d0d010136220d0a389b590f2e98399502a2bfc4b2b\
+         583901f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc8\
+         5aa279ea70e8cdacee4c6cae40fd82018200830600821a0198de8ca1581c787f0c946b98153500edc0a753e654\
+         57250544da8486b17c85708135a15818506572666563744c6567656e64617279446572705365616c0182018200\
+         8201d9010283825820459763315cb9af2ecd9003a4236aacae4ec4777df7f4f757b5b0187a32eca90700825820\
+         df92937f762ae2f0afcb9829c3ef514635ac0d9975750225519cdb071e1cff9201825820ff4f36b81327cfb4b1\
+         7c958b790447c4734fe39c8741dd1f38ace0fd54fcf2fc0182018200811382018200830c001a000fbd72820182\
+         00830282811a044f777c811a044f858c1a04ace388";
+
+    const ISVALID_REJECT_PREVIEW: &str = "8202818206818201820082008300f48100";
+
+    const MISSING_METADATA_HASH: &str =
+        "82028182068182018205582059182929bdbb6e212a80e65564a1c21a3ffae38dc99b9dc2b6f4184b12dd2b8c";
+
+    const INPUT_SET_EMPTY_FEE_OUTPUT_SMALL_PREVIEW: &str =
+        "8202818206858201820082158182825839004464b02c100eb32bc337ffbe0ce79fcf80cced5beb1b672ed8a58d\
+         776ed48e025b63487772f02996258396adcfaacf402de624980949eaa9011a000e88be82018200830600018201\
+         820083051a00027e3d00820182008104820182008302828081011a041f9b1b";
+
+    const MAX_TX_SIZE_PREVIEW: &str = "82028182068182018200830319405f194000";
 }

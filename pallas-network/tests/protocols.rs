@@ -1730,7 +1730,12 @@ pub async fn peer_sharing_server_and_client_happy_path() {
     let peer_addresses = vec![
         PeerAddress::V4(Ipv4Addr::new(127, 0, 0, 1), 3000),
         PeerAddress::V4(Ipv4Addr::new(192, 0, 2, 146), 3001),
-        PeerAddress::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),123456789, 987654321, 8000),
+        PeerAddress::V6(
+            Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),
+            123456789,
+            987654321,
+            8000,
+        ),
     ];
 
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
