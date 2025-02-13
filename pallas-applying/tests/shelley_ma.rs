@@ -321,10 +321,10 @@ mod shelley_ma_tests {
             .to_vec(),
             pool_metadata: Nullable::Some(PoolMetadata {
                 url: "https://cardapool.com/a.json".to_string(),
-                hash: Hash::from_str(
-                    "01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E",
-                )
-                .unwrap(),
+                hash: "01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E"
+                    .to_string()
+                    .try_into()
+                    .unwrap(),
             }),
         }
     }

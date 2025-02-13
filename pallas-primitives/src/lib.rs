@@ -206,7 +206,7 @@ pub struct PoolMetadata {
     pub hash: PoolMetadataHash,
 }
 
-pub type PoolMetadataHash = Hash<32>;
+pub type PoolMetadataHash = Bytes;
 
 pub type Port = u32;
 
