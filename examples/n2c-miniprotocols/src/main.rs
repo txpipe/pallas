@@ -9,7 +9,7 @@ use pallas::{
         miniprotocols::{
             chainsync,
             localstate::queries_v16::{
-                self, Addr, Addrs, Credential, Coin, Either, DRep, StakeAddr, TransactionInput,
+                self, Addr, Addrs, Coin, Credential, DRep, Either, StakeAddr, TransactionInput,
             },
             localtxsubmission::SMaybe,
             Point, PRE_PRODUCTION_MAGIC,

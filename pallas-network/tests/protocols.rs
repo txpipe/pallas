@@ -3,7 +3,7 @@ use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagW
 use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
-    RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
+    RationalNumber, Relay, StakeAddr, StakeSnapshots, Stakes, SystemStart, UnitInterval, Value,
 };
 use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
@@ -576,16 +576,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     .into(),
             };
 
-            let pools = vec![(
+            let pools: Vec<(Bytes, _)> = vec![(
                 b"pool1qvfw4r3auysa5mhpr90n7mmdhs55js8gdywh0y2e3sy6568j2wp"
                     .to_vec()
                     .into(),
                 pool,
             )];
 
-            let pools = KeyValuePairs::from(pools);
-
-            let result = AnyCbor::from_encode(queries_v16::StakeDistribution { pools });
+            let result = AnyCbor::from_encode(KeyValuePairs::from(pools));
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -820,14 +818,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 },
             )]);
 
-            let snapshots = Snapshots {
+            let snapshots = StakeSnapshots {
                 stake_snapshots,
                 snapshot_stake_mark_total: 0,
                 snapshot_stake_set_total: 0,
                 snapshot_stake_go_total: 0,
             };
 
-            let result = AnyCbor::from_encode(queries_v16::StakeSnapshot { snapshots });
+            let result = AnyCbor::from_encode(snapshots);
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
@@ -1031,9 +1029,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
             pool,
         )];
 
-        let pools = KeyValuePairs::from(pools);
-
-        assert_eq!(result, queries_v16::StakeDistribution { pools });
+        assert_eq!(result, KeyValuePairs::from(pools));
 
         let addr_hex =
 "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
@@ -1184,7 +1180,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         client.statequery().send_query(request).await.unwrap();
 
-        let result: queries_v16::StakeSnapshot = client
+        let result: queries_v16::StakeSnapshots = client
             .statequery()
             .recv_while_querying()
             .await
@@ -1206,14 +1202,14 @@ pub async fn local_state_query_server_and_client_happy_path() {
             },
         )]);
 
-        let snapshots = Snapshots {
+        let snapshots = StakeSnapshots {
             stake_snapshots,
             snapshot_stake_mark_total: 0,
             snapshot_stake_set_total: 0,
             snapshot_stake_go_total: 0,
         };
 
-        assert_eq!(result, queries_v16::StakeSnapshot { snapshots });
+        assert_eq!(result, snapshots);
 
         let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
             queries_v16::LedgerQuery::BlockQuery(5, queries_v16::BlockQuery::GetGenesisConfig),

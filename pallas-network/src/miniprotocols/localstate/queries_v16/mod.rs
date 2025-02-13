@@ -388,11 +388,7 @@ pub struct ProtocolParam {
     pub min_fee_ref_script_cost_per_byte: Option<RationalNumber>,
 }
 
-#[derive(Debug, Encode, Decode, PartialEq)]
-pub struct StakeDistribution {
-    #[n(0)]
-    pub pools: KeyValuePairs<Bytes, Pool>,
-}
+pub type StakeDistribution = KeyValuePairs<Bytes, Pool>;
 
 /// Tuple struct based on `BTreeSet` which uses the "Set" CBOR tag.
 pub type TaggedSet<T> = TagWrap<BTreeSet<T>, 258>;
@@ -767,14 +763,8 @@ pub struct UTxO {
     pub index: AnyUInt,
 }
 
-#[derive(Debug, Encode, Decode, PartialEq)]
-pub struct StakeSnapshot {
-    #[n(0)]
-    pub snapshots: Snapshots,
-}
-
 #[derive(Debug, Encode, Decode, PartialEq, Clone)]
-pub struct Snapshots {
+pub struct StakeSnapshots {
     #[n(0)]
     pub stake_snapshots: KeyValuePairs<Bytes, Stakes>,
 
@@ -870,59 +860,6 @@ pub async fn get_chain_block_no(client: &mut Client) -> Result<ChainBlockNumber,
     Ok(result)
 }
 
-/// Get the current protocol parameters.
-pub async fn get_current_pparams(
-    client: &mut Client,
-    era: u16,
-) -> Result<Vec<ProtocolParam>, ClientError> {
-    let query = BlockQuery::GetCurrentPParams;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get the block number for the current tip.
-pub async fn get_block_epoch_number(client: &mut Client, era: u16) -> Result<u32, ClientError> {
-    let query = BlockQuery::GetEpochNo;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let (result,): (_,) = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get the current stake distribution for the given era.
-pub async fn get_stake_distribution(
-    client: &mut Client,
-    era: u16,
-) -> Result<StakeDistribution, ClientError> {
-    let query = BlockQuery::GetStakeDistribution;
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
-/// Get stake snapshots for the given era and stake pools.
-/// If `pools` are empty, all pools are queried.
-/// Otherwise, only the specified pool is queried.
-/// Note: This Query is limited by 1 pool per request.
-pub async fn get_stake_snapshots(
-    client: &mut Client,
-    era: u16,
-    pools: SMaybe<Pools>,
-) -> Result<StakeSnapshot, ClientError> {
-    let query = BlockQuery::GetStakeSnapshots(pools);
-    let query = LedgerQuery::BlockQuery(era, query);
-    let query = Request::LedgerQuery(query);
-    let result = client.query(query).await?;
-
-    Ok(result)
-}
-
 pub async fn get_cbor(
     client: &mut Client,
     era: u16,
@@ -959,6 +896,14 @@ macro_rules! block_query_with_args {
             Ok(result)
         }
     };
+}
+
+block_query_with_args! {
+    #[doc = "Get stake snapshots for the given era and stake pools."]
+    get_stake_snapshots,
+    GetStakeSnapshots,
+    (val : SMaybe<Pools>),
+    StakeSnapshots,
 }
 
 block_query_with_args! {
@@ -1093,6 +1038,27 @@ macro_rules! block_query_no_args {
             Ok(result)
         }
     };
+}
+
+block_query_no_args! {
+    #[doc = "Get the current protocol parameters"]
+    get_current_pparams,
+    GetCurrentPParams,
+    ProtocolParam,
+}
+
+block_query_no_args! {
+    #[doc = "Get the block number for the current tip."]
+    get_block_epoch_number,
+    GetEpochNo,
+    u32,
+}
+
+block_query_no_args! {
+    #[doc = "Get the current stake distribution for the given era."]
+    get_stake_distribution,
+    GetStakeDistribution,
+    StakeDistribution,
 }
 
 block_query_no_args! {
