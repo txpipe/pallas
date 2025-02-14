@@ -4,7 +4,7 @@ use minicbor::{
     Decode, Encode,
 };
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 use std::{collections::HashMap, fmt, hash::Hash as StdHash, ops::Deref};
 
 static TAG_SET: u64 = 258;
@@ -1112,17 +1112,24 @@ impl<C> minicbor::encode::Encode<C> for NonZeroInt {
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct KeepRaw<'b, T> {
-    raw: &'b [u8],
+    raw: Cow<'b, [u8]>,
     inner: T,
 }
 
-impl<'b, T> KeepRaw<'b, T> {
-    pub fn raw_cbor(&self) -> &'b [u8] {
-        self.raw
+impl<T> KeepRaw<'_, T> {
+    pub fn raw_cbor(&self) -> &[u8] {
+        &self.raw
     }
 
     pub fn unwrap(self) -> T {
         self.inner
+    }
+
+    pub fn to_owned(self) -> KeepRaw<'static, T> {
+        KeepRaw {
+            raw: Cow::Owned(self.raw.into_owned()),
+            inner: self.inner,
+        }
     }
 }
 
@@ -1146,7 +1153,7 @@ where
 
         Ok(Self {
             inner,
-            raw: &all[start..end],
+            raw: Cow::Borrowed(&all[start..end]),
         })
     }
 }
@@ -1265,6 +1272,14 @@ where
     {
         match self {
             Nullable::Some(x) => Nullable::Some(f(x)),
+            Nullable::Null => Nullable::Null,
+            Nullable::Undefined => Nullable::Undefined,
+        }
+    }
+
+    pub fn as_ref(&self) -> Nullable<&T> {
+        match self {
+            Nullable::Some(x) => Nullable::Some(x),
             Nullable::Null => Nullable::Null,
             Nullable::Undefined => Nullable::Undefined,
         }
