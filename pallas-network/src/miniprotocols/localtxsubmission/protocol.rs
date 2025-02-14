@@ -1,5 +1,7 @@
 use super::Value;
-pub use crate::miniprotocols::localstate::queries_v16::{TransactionInput, TransactionOutput};
+pub use crate::miniprotocols::localstate::queries_v16::{
+    Coin, ExUnits, TaggedSet, TransactionInput, TransactionOutput, UTxO,
+};
 use pallas_codec::minicbor::{self, Decode, Encode};
 use pallas_codec::utils::{AnyCbor, Bytes};
 use std::collections::BTreeSet;
@@ -94,16 +96,12 @@ pub enum TagMismatchDescription {
 
 /// Errors that can occur when collecting arguments for phase-2 scripts.
 /// It corresponds to [CollectError](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Plutus/Evaluate.hs#L78-L83).
-#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum CollectError {
-    #[n(0)]
-    NoRedeemer(#[n(0)] PlutusPurposeItem),
-    #[n(1)]
-    NoWitness(#[n(0)] Bytes),
-    #[n(2)]
-    NoCostModel(#[n(0)] Language),
-    #[n(3)]
-    BadTranslation(#[n(0)] ContextError),
+    NoRedeemer(PlutusPurposeItem),
+    NoWitness(Bytes),
+    NoCostModel(Language),
+    BadTranslation(ContextError),
 }
 
 #[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
@@ -139,26 +137,31 @@ pub struct ValidityInterval {
 
 /// Conway Utxo transaction errors. It corresponds to [ConwayUtxoPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxo.hs#L78C6-L78C28)
 /// in the Haskell sources. Not to be confused with [UtxosFailure].
-///
-/// It is partially structured; the `Raw` variant collects errors that have not
-/// been implemented yet keeping their raw form (to be deprecated).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UtxoFailure {
     UtxosFailure(UtxosFailure),
-    BadInputsUTxO(BTreeSet<TransactionInput>),
+    BadInputsUTxO(TaggedSet<TransactionInput>),
     OutsideValidityIntervalUTxO(ValidityInterval, Slot),
     MaxTxSizeUTxO(u64, u64),
     InputSetEmptyUTxO,
     FeeTooSmallUTxO(u64, u64),
     ValueNotConservedUTxO(Value, Value),
-    WrongNetwork(Network, BTreeSet<Bytes>),
+    WrongNetwork(Network, TaggedSet<Bytes>),
+    WrongNetworkWithdrawal(Network, TaggedSet<AnyCbor>),
+    OutputTooSmallUTxO(Vec<TransactionOutput>),
+    OutputBootAddrAttrsTooBig(Vec<TransactionOutput>),
+    OutputTooBigUTxO(Vec<(i64, i64, TransactionOutput)>),
     InsufficientCollateral(i64, u64),
+    ScriptsNotPaidUTxO(UTxO),
+    ExUnitsTooBigUTxO(ExUnits, ExUnits),
     CollateralContainsNonADA(Value),
+    WrongNetworkInTxBody(Network, Network),
+    OutsideForecast(Slot),
     TooManyCollateralInputs(u16, u16),
     NoCollateralInputs,
     IncorrectTotalCollateralField(i64, u64),
     BabbageOutputTooSmallUTxO(Vec<(TransactionOutput, u64)>),
-    Raw(Vec<u8>),
+    BabbageNonDisjointRefInputs(AnyCbor),
 }
 
 /// An option type that de/encodes equivalently to [`StrictMaybe`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Encoding/Encoder.hs#L326-L329) in the Haskel sources.
@@ -172,30 +175,45 @@ pub enum SMaybe<T> {
 
 /// Conway era transaction errors. It corresponds to [ConwayUtxowPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs#L94)
 /// in the Haskell sources.
-///
-/// It is partially structured; the `Raw` variant collects errors that have not
-/// been implemented yet keeping their raw form (to be deprecated).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UtxowFailure {
-    ExtraneousScriptWitnessesUTXOW(Vec<Bytes>),
     UtxoFailure(UtxoFailure),
+    InvalidWitnessesUTXOW(AnyCbor),
+    MissingVKeyWitnessesUTXOW(AnyCbor),
+    MissingScriptWitnessesUTXOW(AnyCbor),
+    ScriptWitnessNotValidatingUTXOW(AnyCbor),
     MissingTxBodyMetadataHash(Bytes),
+    MissingTxMetadata(AnyCbor),
+    ConflictingMetadataHash(AnyCbor, AnyCbor),
+    InvalidMetadata,
+    ExtraneousScriptWitnessesUTXOW(TaggedSet<Bytes>),
+    MissingRedeemers(AnyCbor, AnyCbor),
+    MissingRequiredDatums(AnyCbor, AnyCbor),
+    NotAllowedSupplementalDatums(TaggedSet<Bytes>, TaggedSet<Bytes>),
     PPViewHashesDontMatch(SMaybe<Bytes>, SMaybe<Bytes>),
-    NotAllowedSupplementalDatums(BTreeSet<Bytes>, BTreeSet<Bytes>),
+    UnspendableUTxONoDatumHash(AnyCbor),
     ExtraRedeemers(PlutusPurposeIx),
-    Raw(Vec<u8>),
+    MalformedScriptWitnesses(AnyCbor),
+    MalformedReferenceScripts(AnyCbor),
 }
 
-/// Conway era ledger transaction errors.
-/// It is partially structured; the `Raw` variant collects errors that have not
-/// been implemented yet keeping their raw form (to be deprecated).
+/// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs#L138-L153)
+/// in the Haskell sources.
+///
+/// The `u8` variant appears for backward compatibility.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TxError {
     ConwayUtxowFailure(UtxowFailure),
-    Raw(Vec<u8>),
+    ConwayCertsFailure(AnyCbor),
+    ConwayGovFailure(AnyCbor),
+    ConwayWdrlNotDelegatedToDRep(Vec<Bytes>),
+    ConwayTreasuryValueMismatch(Coin, Coin),
+    ConwayTxRefScriptsSizeTooBig(i64, i64),
+    ConwayMempoolFailure(String),
+    U8(u8),
 }
 
-// Raw reject reason.
+/// Reject reason. It can be a pair of an era number and a sequence of errors, or else a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RejectReason {
     EraErrors(u8, Vec<TxError>),

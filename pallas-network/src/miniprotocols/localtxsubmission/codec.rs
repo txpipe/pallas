@@ -1,11 +1,11 @@
-use pallas_codec::minicbor::data::{IanaTag, Tag, Type as CborType};
+use pallas_codec::minicbor::data::{IanaTag, Type as CborType};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
-use pallas_codec::utils::Bytes;
 
 use crate::miniprotocols::localtxsubmission::{
-    EraTx, Message, PlutusPurpose, RejectReason, SMaybe, TagMismatchDescription, TxError,
-    UtxoFailure, UtxosFailure, UtxowFailure,
+    CollectError, EraTx, Message, PlutusPurpose, RejectReason, SMaybe, TagMismatchDescription,
+    TxError, UtxoFailure, UtxosFailure, UtxowFailure,
 };
+
 use std::str::from_utf8;
 
 // `Ctx` generic needed after introducing `ValidityInterval`.
@@ -165,73 +165,107 @@ impl Encode<()> for RejectReason {
     }
 }
 
-impl<'b> Decode<'b, ()> for TxError {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let start_pos = d.position();
-
+impl<'b, C> Decode<'b, C> for TxError {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
         match d.datatype()? {
             CborType::Array => d.array()?,
+            CborType::U8 => {
+                return Ok(TxError::U8(d.u8()?));
+            }
             _ => {
-                return Ok(TxError::Raw(cbor_last(d, start_pos)?));
+                return Err(decode::Error::message("Unknown ledger error CBOR type"));
             }
         };
 
         match d.u8()? {
-            1 => Ok(TxError::ConwayUtxowFailure(d.decode()?)),
-            _ => Ok(TxError::Raw(cbor_last(d, start_pos)?)),
+            0 => Ok(Self::ConwayUtxowFailure(d.decode()?)),
+            1 => Ok(Self::ConwayCertsFailure(d.decode()?)),
+            2 => Ok(Self::ConwayGovFailure(d.decode()?)),
+            3 => Ok(Self::ConwayWdrlNotDelegatedToDRep(d.decode()?)),
+            4 => Ok(Self::ConwayTreasuryValueMismatch(d.decode()?, d.decode()?)),
+            5 => Ok(Self::ConwayTxRefScriptsSizeTooBig(d.decode()?, d.decode()?)),
+            6 => Ok(Self::ConwayMempoolFailure(d.decode()?)),
+            _ => Err(decode::Error::message("Unknown variant")),
         }
     }
 }
 
-impl Encode<()> for TxError {
+impl<C> Encode<C> for TxError {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
-        _ctx: &mut (),
+        _ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
-            TxError::ConwayUtxowFailure(val) => {
+            Self::ConwayUtxowFailure(inner) => {
                 e.array(2)?;
-                e.u8(1)?;
-                e.encode(val)?;
+                e.u16(0)?;
+                e.encode(inner)?;
             }
-            TxError::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+            Self::ConwayCertsFailure(inner) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode(inner)?;
+            }
+            Self::ConwayGovFailure(inner) => {
+                e.array(2)?;
+                e.u16(2)?;
+                e.encode(inner)?;
+            }
+            Self::ConwayWdrlNotDelegatedToDRep(keys) => {
+                e.array(2)?;
+                e.u16(3)?;
+                e.encode(keys)?;
+            }
+            Self::ConwayTreasuryValueMismatch(actual, submitted) => {
+                e.array(3)?;
+                e.u16(4)?;
+                e.encode(actual)?;
+                e.encode(submitted)?;
+            }
+            Self::ConwayTxRefScriptsSizeTooBig(computed_size, max_size) => {
+                e.array(3)?;
+                e.u16(5)?;
+                e.encode(computed_size)?;
+                e.encode(max_size)?;
+            }
+            Self::ConwayMempoolFailure(msg) => {
+                e.array(2)?;
+                e.u16(6)?;
+                e.encode(msg)?;
+            }
+            Self::U8(x) => {
+                e.u8(*x)?;
+            }
         }
-
         Ok(())
     }
 }
 
 impl<'b> Decode<'b, ()> for UtxowFailure {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let start_pos = d.position();
         d.array()?;
 
         match d.u8()? {
-            0 => Ok(UtxowFailure::UtxoFailure(d.decode()?)),
-            5 => Ok(UtxowFailure::MissingTxBodyMetadataHash(d.decode()?)),
-            9 => {
-                d.tag()?;
-                let vec_bytes: Vec<Bytes> = d.decode()?;
-
-                Ok(UtxowFailure::ExtraneousScriptWitnessesUTXOW(vec_bytes))
-            }
-            12 => {
-                d.tag()?;
-                let unallowed = d.decode()?;
-                d.tag()?;
-                let acceptable = d.decode()?;
-
-                Ok(UtxowFailure::NotAllowedSupplementalDatums(
-                    unallowed, acceptable,
-                ))
-            }
-            13 => Ok(UtxowFailure::PPViewHashesDontMatch(
-                d.decode()?,
-                d.decode()?,
-            )),
-            15 => Ok(UtxowFailure::ExtraRedeemers(d.decode()?)),
-            _ => Ok(UtxowFailure::Raw(cbor_last(d, start_pos)?)),
+            0 => Ok(Self::UtxoFailure(d.decode()?)),
+            1 => Ok(Self::InvalidWitnessesUTXOW(d.decode()?)),
+            2 => Ok(Self::MissingVKeyWitnessesUTXOW(d.decode()?)),
+            3 => Ok(Self::MissingScriptWitnessesUTXOW(d.decode()?)),
+            4 => Ok(Self::ScriptWitnessNotValidatingUTXOW(d.decode()?)),
+            5 => Ok(Self::MissingTxBodyMetadataHash(d.decode()?)),
+            6 => Ok(Self::MissingTxMetadata(d.decode()?)),
+            7 => Ok(Self::ConflictingMetadataHash(d.decode()?, d.decode()?)),
+            8 => Ok(Self::InvalidMetadata),
+            9 => Ok(Self::ExtraneousScriptWitnessesUTXOW(d.decode()?)),
+            10 => Ok(Self::MissingRedeemers(d.decode()?, d.decode()?)),
+            11 => Ok(Self::MissingRequiredDatums(d.decode()?, d.decode()?)),
+            12 => Ok(Self::NotAllowedSupplementalDatums(d.decode()?, d.decode()?)),
+            13 => Ok(Self::PPViewHashesDontMatch(d.decode()?, d.decode()?)),
+            14 => Ok(Self::UnspendableUTxONoDatumHash(d.decode()?)),
+            15 => Ok(Self::ExtraRedeemers(d.decode()?)),
+            16 => Ok(Self::MalformedScriptWitnesses(d.decode()?)),
+            17 => Ok(Self::MalformedReferenceScripts(d.decode()?)),
+            _ => unreachable!(),
         }
     }
 }
@@ -246,7 +280,6 @@ impl Encode<()> for UtxowFailure {
             UtxowFailure::ExtraneousScriptWitnessesUTXOW(addrs) => {
                 e.array(2)?;
                 e.u8(9)?;
-                e.tag(Tag::new(258))?;
                 e.encode(addrs)?;
             }
             UtxowFailure::MissingTxBodyMetadataHash(addr) => {
@@ -257,9 +290,7 @@ impl Encode<()> for UtxowFailure {
             UtxowFailure::NotAllowedSupplementalDatums(unall, accpt) => {
                 e.array(3)?;
                 e.u8(12)?;
-                e.tag(Tag::new(258))?;
                 e.encode(unall)?;
-                e.tag(Tag::new(258))?;
                 e.encode(accpt)?;
             }
             UtxowFailure::PPViewHashesDontMatch(body_hash, pp_hash) => {
@@ -278,7 +309,7 @@ impl Encode<()> for UtxowFailure {
                 e.u8(0)?;
                 e.encode(failure)?;
             }
-            UtxowFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+            _ => todo!(),
         }
 
         Ok(())
@@ -287,38 +318,33 @@ impl Encode<()> for UtxowFailure {
 
 impl<'b> Decode<'b, ()> for UtxoFailure {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let start_pos = d.position();
         d.array()?;
 
         match d.u8()? {
-            0 => Ok(UtxoFailure::UtxosFailure(d.decode()?)),
-            1 => {
-                d.tag()?;
-                Ok(UtxoFailure::BadInputsUTxO(d.decode()?))
-            }
-            3 => Ok(UtxoFailure::MaxTxSizeUTxO(d.decode()?, d.decode()?)),
-            2 => Ok(UtxoFailure::OutsideValidityIntervalUTxO(
-                d.decode()?,
-                d.decode()?,
-            )),
-            4 => Ok(UtxoFailure::InputSetEmptyUTxO),
-            5 => Ok(UtxoFailure::FeeTooSmallUTxO(d.decode()?, d.decode()?)),
-            6 => Ok(UtxoFailure::ValueNotConservedUTxO(d.decode()?, d.decode()?)),
-            7 => {
-                let network = d.decode()?;
-                d.tag()?;
-                Ok(UtxoFailure::WrongNetwork(network, d.decode()?))
-            }
-            15 => Ok(UtxoFailure::CollateralContainsNonADA(d.decode()?)),
-            12 => Ok(UtxoFailure::InsufficientCollateral(d.i64()?, d.u64()?)),
-            18 => Ok(UtxoFailure::TooManyCollateralInputs(d.u16()?, d.u16()?)),
-            19 => Ok(UtxoFailure::NoCollateralInputs),
-            20 => Ok(UtxoFailure::IncorrectTotalCollateralField(
-                d.i64()?,
-                d.u64()?,
-            )),
-            21 => Ok(UtxoFailure::BabbageOutputTooSmallUTxO(d.decode()?)),
-            _ => Ok(UtxoFailure::Raw(cbor_last(d, start_pos)?)),
+            0 => Ok(Self::UtxosFailure(d.decode()?)),
+            1 => Ok(Self::BadInputsUTxO(d.decode()?)),
+            2 => Ok(Self::OutsideValidityIntervalUTxO(d.decode()?, d.decode()?)),
+            3 => Ok(Self::MaxTxSizeUTxO(d.decode()?, d.decode()?)),
+            4 => Ok(Self::InputSetEmptyUTxO),
+            5 => Ok(Self::FeeTooSmallUTxO(d.decode()?, d.decode()?)),
+            6 => Ok(Self::ValueNotConservedUTxO(d.decode()?, d.decode()?)),
+            7 => Ok(Self::WrongNetwork(d.decode()?, d.decode()?)),
+            8 => Ok(Self::WrongNetworkWithdrawal(d.decode()?, d.decode()?)),
+            9 => Ok(Self::OutputTooSmallUTxO(d.decode()?)),
+            10 => Ok(Self::OutputBootAddrAttrsTooBig(d.decode()?)),
+            11 => Ok(Self::OutputTooBigUTxO(d.decode()?)),
+            12 => Ok(Self::InsufficientCollateral(d.i64()?, d.u64()?)),
+            13 => Ok(Self::ScriptsNotPaidUTxO(d.decode()?)),
+            14 => Ok(Self::ExUnitsTooBigUTxO(d.decode()?, d.decode()?)),
+            15 => Ok(Self::CollateralContainsNonADA(d.decode()?)),
+            16 => Ok(Self::WrongNetworkInTxBody(d.decode()?, d.decode()?)),
+            17 => Ok(Self::OutsideForecast(d.decode()?)),
+            18 => Ok(Self::TooManyCollateralInputs(d.u16()?, d.u16()?)),
+            19 => Ok(Self::NoCollateralInputs),
+            20 => Ok(Self::IncorrectTotalCollateralField(d.i64()?, d.u64()?)),
+            21 => Ok(Self::BabbageOutputTooSmallUTxO(d.decode()?)),
+            22 => Ok(Self::BabbageNonDisjointRefInputs(d.decode()?)),
+            _ => unreachable!(),
         }
     }
 }
@@ -338,7 +364,6 @@ impl Encode<()> for UtxoFailure {
             UtxoFailure::BadInputsUTxO(inputs) => {
                 e.array(2)?;
                 e.u8(1)?;
-                e.tag(Tag::new(258))?;
                 e.encode(inputs)?;
             }
             UtxoFailure::OutsideValidityIntervalUTxO(inter, slot) => {
@@ -373,7 +398,6 @@ impl Encode<()> for UtxoFailure {
                 e.array(3)?;
                 e.u8(7)?;
                 e.encode(net)?;
-                e.tag(Tag::new(258))?;
                 e.encode(addrs)?;
             }
             UtxoFailure::InsufficientCollateral(deltacoin, coin) => {
@@ -408,7 +432,7 @@ impl Encode<()> for UtxoFailure {
                 e.u8(21)?;
                 e.encode(out_mins)?;
             }
-            UtxoFailure::Raw(s) => e.writer_mut().write_all(s).map_err(encode::Error::write)?,
+            _ => todo!(),
         }
 
         Ok(())
@@ -450,6 +474,51 @@ impl Encode<()> for UtxosFailure {
             }
         }
 
+        Ok(())
+    }
+}
+
+impl<'b, C> decode::Decode<'b, C> for CollectError {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+        match d.u16()? {
+            0 => Ok(Self::NoRedeemer(d.decode()?)),
+            1 => Ok(Self::NoWitness(d.decode()?)),
+            2 => Ok(Self::NoCostModel(d.decode()?)),
+            3 => Ok(Self::BadTranslation(d.decode()?)),
+            _ => Err(decode::Error::message("Unknown variant")),
+        }
+    }
+}
+
+impl<C> encode::Encode<C> for CollectError {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Self::NoRedeemer(item) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode(item)?;
+            }
+            Self::NoWitness(bytes) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode(bytes)?;
+            }
+            Self::NoCostModel(language) => {
+                e.array(2)?;
+                e.u16(2)?;
+                e.encode(language)?;
+            }
+            Self::BadTranslation(error) => {
+                e.array(2)?;
+                e.u16(3)?;
+                e.encode(error)?;
+            }
+        }
         Ok(())
     }
 }
@@ -544,15 +613,6 @@ where
 
         Ok(())
     }
-}
-
-/// Returns the CBOR data of the item at the provided position.
-pub fn cbor_last(d: &mut Decoder, start_pos: usize) -> Result<Vec<u8>, decode::Error> {
-    let data = d.input();
-    d.set_position(start_pos);
-    d.skip()?;
-
-    Ok(data[start_pos..d.position()].to_vec())
 }
 
 #[cfg(test)]
