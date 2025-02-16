@@ -27,3 +27,54 @@ where
 pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;
 }
+
+macro_rules! heterog_enum {
+    (
+        $enum_name:ident,
+        [$( $attrs:ident ),*],
+        $( $one_f:ident => $type:ty | $( $cbortype:ident )|* ),*,
+        ($( $many_f:ident => $( $vars:ident:$types:ty | $( $cbortypes:ident )|*),+ )?)
+    ) => {
+        #[derive(Debug, Clone, $( $attrs ),*)]
+        pub enum $enum_name {
+            $( $one_f($type) ),*,
+            $( $many_f( $($types ),* ) ),*
+        }
+
+        impl<'b, C> minicbor::decode::Decode<'b, C> for $enum_name {
+            fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+                match d.datatype()? {
+                    $( minicbor::data::Type::Array => {
+                        d.array()?;
+
+                        Ok($enum_name::$many_f($( d.decode_with::<_, $types>(ctx)?, )+ ))
+                    }, )?
+                    $( $( minicbor::data::Type::$cbortype )|* => Ok($enum_name::$one_f(d.decode_with(ctx)?)), )*
+                    _ => Err(minicbor::decode::Error::message(
+                            "Unknown cbor data type for this macro-defined enum.")
+                    ),
+                }
+            }
+        }
+
+        impl<C> minicbor::encode::Encode<C> for $enum_name {
+            fn encode<W: minicbor::encode::Write>(
+                &self,
+                e: &mut minicbor::Encoder<W>,
+                ctx: &mut C,
+            ) -> Result<(), minicbor::encode::Error<W::Error>> {
+                match self {
+                    $( $enum_name::$many_f ($( $vars ),+) => {
+                        e.array(2)?;
+                        $( e.encode_with($vars, ctx)?; )+
+                    }, )?
+                    $( $enum_name::$one_f(__x666) => {
+                        e.encode_with(__x666, ctx)?;
+                    } )*
+                };
+
+                Ok(())
+            }
+        }
+    }
+}
