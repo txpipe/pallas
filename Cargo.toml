@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "pallas-applying",
   "pallas-codec",
   "pallas-addresses",
   "pallas-network",

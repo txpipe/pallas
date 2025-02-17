@@ -28,10 +28,6 @@ pub mod ledger {
     // WARNING: this is deprecated, use `pallas::interop::hardano::configs` instead.
     // Since deprecation notices don't work for re-exports we don't have a way to notify users.
     pub use pallas_configs as configs;
-
-    #[doc(inline)]
-    #[cfg(feature = "pallas-applying")]
-    pub use pallas_applying as rules;
 }
 
 #[doc(inline)]
@@ -77,12 +73,6 @@ pub mod storage {
     // Since deprecation notices don't work for re-exports we don't have a way to notify users.
     pub use pallas_hardano::storage as hardano;
 }
-
-#[doc(inline)]
-#[cfg(feature = "pallas-applying")]
-// WARNING: this is deprecated but since deprecation notices don't work for re-exports
-// we don't have a way to notify users.
-pub use pallas_applying as applying;
 
 #[cfg(feature = "wallet")]
 pub mod wallet {

@@ -21,12 +21,10 @@ pallas-utxorpc = { version = "=0.32.0", path = "../pallas-utxorpc/" }
 pallas-configs = { version = "=0.32.0", path = "../pallas-configs/" }
 pallas-txbuilder = { version = "=0.32.0", path = "../pallas-txbuilder/" }
 pallas-validate = { version = "=0.32.0", path = "../pallas-validate/" }
-pallas-applying = { version = "=0.32.0", path = "../pallas-applying/", optional = true }
 pallas-wallet = { version = "=0.32.0", path = "../pallas-wallet/", optional = true }
 pallas-hardano = { version = "=0.32.0", path = "../pallas-hardano/", optional = true }
 
 [features]
 hardano = ["pallas-hardano"]
 wallet = ["pallas-wallet"]
-applying = ["pallas-applying"]
-unstable = ["hardano", "wallet", "applying"]
+unstable = ["hardano", "wallet"]
