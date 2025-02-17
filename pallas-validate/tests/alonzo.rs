@@ -3,13 +3,6 @@ pub mod common;
 use common::*;
 
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-use pallas_applying::{
-    utils::{
-        AccountState, AlonzoError, AlonzoProtParams, Environment, MultiEraProtocolParameters,
-        ValidationError::*,
-    },
-    validate_txs, CertState, UTxOs,
-};
 use pallas_codec::{
     minicbor::{
         decode::{Decode, Decoder},
@@ -23,6 +16,13 @@ use pallas_primitives::alonzo::{
     RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
+use pallas_validate::{
+    phase_one::validate_txs,
+    utils::{
+        AccountState, AlonzoError, AlonzoProtParams, CertState, Environment,
+        MultiEraProtocolParameters, UTxOs, ValidationError::*,
+    },
+};
 use std::borrow::Cow;
 
 #[cfg(test)]

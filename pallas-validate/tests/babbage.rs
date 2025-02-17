@@ -2,13 +2,6 @@ pub mod common;
 
 use common::*;
 use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-use pallas_applying::{
-    utils::{
-        AccountState, BabbageProtParams, Environment, MultiEraProtocolParameters, PostAlonzoError,
-        ValidationError::*,
-    },
-    validate_txs, CertState, UTxOs,
-};
 use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
 use pallas_codec::{
     minicbor::{
@@ -24,6 +17,13 @@ use pallas_primitives::babbage::{
     PseudoTransactionOutput, RationalNumber, Redeemer, RedeemerTag, Value,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
+use pallas_validate::{
+    phase_one::validate_txs,
+    utils::{
+        AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
+        PostAlonzoError, UTxOs, ValidationError::*,
+    },
+};
 use std::borrow::Cow;
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::utils::{
+use crate::utils::{
     ByronError::*,
     ByronProtParams, UTxOs,
     ValidationError::{self, *},

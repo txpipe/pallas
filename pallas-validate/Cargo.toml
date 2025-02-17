@@ -9,7 +9,6 @@ pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
 pallas-primitives = { version = "=0.32.0", path = "../pallas-primitives" }
 pallas-traverse = { version = "=0.32.0", path = "../pallas-traverse" }
-pallas-applying = { version = "=0.32.0", path = "../pallas-applying/" }
 rand = "0.8"
 hex = "0.4"
 chrono = "0.4.39"

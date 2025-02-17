@@ -1,6 +1,6 @@
 //! Utilities required for Conway-era transaction validation.
 
-use super::utils::{
+use crate::utils::{
     aux_data_from_conway_minted_tx, compute_native_script_hash, compute_plutus_v1_script_hash,
     compute_plutus_v2_script_hash, compute_plutus_v3_script_hash, conway_add_minted_non_zero,
     conway_add_values, conway_get_val_size_in_words, conway_lovelace_diff_or_fail,

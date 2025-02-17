@@ -1,4 +1,3 @@
-use pallas_applying::UTxOs;
 use pallas_codec::{minicbor::bytes::ByteVec, utils::TagWrap};
 use pallas_primitives::{
     alonzo::{MintedTx, TransactionBody, TransactionOutput, Value},
@@ -10,6 +9,7 @@ use pallas_primitives::{
     byron::{Address, MintedTxPayload, Tx, TxOut},
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput};
+use pallas_validate::utils::UTxOs;
 use std::{borrow::Cow, iter::zip, vec::Vec};
 
 use pallas_codec::utils::{Bytes, CborWrap};

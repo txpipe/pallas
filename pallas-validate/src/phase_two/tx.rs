@@ -1,8 +1,8 @@
-use crate::UtxoMap;
+use crate::utils::{MultiEraProtocolParameters, UtxoMap};
 
 use super::{
-        script_context::{ScriptContext, TxInfo, TxInfoV1},
-        to_plutus_data::ToPlutusData,
+    script_context::{ScriptContext, TxInfo, TxInfoV1},
+    to_plutus_data::ToPlutusData,
 };
 
 use super::{
@@ -12,8 +12,10 @@ use super::{
     },
     to_plutus_data::convert_tag_to_constr,
 };
-use pallas_applying::MultiEraProtocolParameters;
-use pallas_primitives::{conway::{Redeemer, RedeemerTag}, ExUnits, PlutusData};
+use pallas_primitives::{
+    conway::{Redeemer, RedeemerTag},
+    ExUnits, PlutusData,
+};
 use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
 use rug::{ops::NegAssign, Complete, Integer};

@@ -1,12 +1,12 @@
 pub mod common;
 
 use common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
-use pallas_applying::{
+use pallas_validate::{
+    phase_one::validate_txs,
     utils::{
-        ByronError, ByronProtParams, CertState, Environment, MultiEraProtocolParameters,
+        ByronError, ByronProtParams, CertState, Environment, MultiEraProtocolParameters, UTxOs,
         ValidationError::*,
     },
-    validate_txs, UTxOs,
 };
 
 use pallas_codec::{
