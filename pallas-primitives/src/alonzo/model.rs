@@ -106,8 +106,8 @@ pub enum Value {
 
 codec_by_datatype! {
     Value,
-    Coin => U8 | U16 | U32 | U64,
-    (Multiasset => coin | U8 | U16 | U32 | U64, multi | Map)
+    U8 | U16 | U32 | U64 => Coin,
+    (coin | U8 | U16 | U32 | U64, multi | Map => Multiasset)
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -146,8 +146,8 @@ pub enum InstantaneousRewardTarget {
 
 codec_by_datatype! {
     InstantaneousRewardTarget,
-    StakeCredentials => Map | MapIndef,
-    OtherAccountingPot => U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int,
+    Map | MapIndef => StakeCredentials,
+    U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => OtherAccountingPot,
     ()
 }
 
@@ -507,9 +507,9 @@ pub enum AuxiliaryData {
 
 codec_by_datatype! {
     AuxiliaryData,
-    Shelley => Map | MapIndef,
-    ShelleyMa => Array,
-    PostAlonzo => Tag,
+    Map | MapIndef => Shelley,
+    Array => ShelleyMa,
+    Tag => PostAlonzo,
     ()
 }
 

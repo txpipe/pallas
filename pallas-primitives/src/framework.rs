@@ -31,8 +31,8 @@ pub trait ToCanonicalJson {
 macro_rules! codec_by_datatype {
     (
         $enum_name:ident,
-        $( $one_f:ident => $( $cbortype:ident )|* ),*,
-        ($( $many_f:ident => $( $vars:ident | $( $cbortypes:ident )|*),+ )?)
+        $( $( $cbortype:ident )|* => $one_f:ident ),*,
+        ($( $( $vars:ident | $( $cbortypes:ident )|*),+ => $many_f:ident )?)
     ) => {
         impl<'b, C> minicbor::decode::Decode<'b, C> for $enum_name {
             fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {

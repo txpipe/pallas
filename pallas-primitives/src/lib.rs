@@ -76,11 +76,11 @@ pub enum Metadatum {
 // Missing StringIndef?
 codec_by_datatype! {
     Metadatum,
-    Int => U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int,
+    U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => Int,
     Bytes => Bytes,
-    Text => String,
-    Array => Array | ArrayIndef,
-    Map => Map | MapIndef,
+    String => Text,
+    Array | ArrayIndef => Array,
+    Map | MapIndef => Map,
     ()
 }
 
