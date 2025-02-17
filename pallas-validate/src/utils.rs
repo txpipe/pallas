@@ -30,9 +30,6 @@ pub use validation::*;
 
 pub type TxHash = Hash<32>;
 pub type TxoIdx = u32;
-pub type BlockSlot = u64;
-pub type BlockHash = Hash<32>;
-pub type TxOrder = usize;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EraCbor(pub Era, pub Vec<u8>);
