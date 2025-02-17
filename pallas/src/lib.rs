@@ -40,6 +40,9 @@ pub use pallas_crypto as crypto;
 #[doc(inline)]
 pub use pallas_codec as codec;
 
+#[doc(inline)]
+pub use pallas_validate as validate;
+
 // TODO: re-incorporate math here once we commit to a final set of upstream
 // dependencies
 

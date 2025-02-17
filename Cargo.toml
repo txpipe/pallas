@@ -14,10 +14,11 @@ members = [
   "pallas-hardano",
   "pallas-wallet",
   "pallas-math",
+  "pallas-validate",
   "pallas",
   "examples/block-download",
   "examples/block-decode",
   "examples/crawler",
   "examples/n2n-miniprotocols",
-  "examples/n2c-miniprotocols",
+  "examples/n2c-miniprotocols", "pallas-validate",
 ]
