@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use pallas_codec::minicbor::{self, data::Tag, Decode, Encode};
+use pallas_codec::minicbor::{self, Decode, Encode};
 
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch,
@@ -98,10 +98,15 @@ pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
 
-heterog_enum! {
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub enum Value {
+    Coin(Coin),
+    Multiasset(Coin, Multiasset<Coin>),
+}
+
+codec_by_datatype! {
     Value,
-    [Serialize, Deserialize, PartialEq, Eq],
-    Coin => Coin | U8 | U16 | U32 | U64,
+    Coin => U8 | U16 | U32 | U64,
     (Multiasset => c:Coin | U8 | U16 | U32 | U64, m:Multiasset<Coin> | Map)
 }
 
@@ -124,42 +129,13 @@ pub struct TransactionOutput {
 ; otherwise the funds are given to the other accounting pot.
  */
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[cbor(index_only)]
 pub enum InstantaneousRewardSource {
+    #[n(0)]
     Reserves,
+    #[n(1)]
     Treasury,
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for InstantaneousRewardSource {
-    fn decode(
-        d: &mut minicbor::Decoder<'b>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(Self::Reserves),
-            1 => Ok(Self::Treasury),
-            _ => Err(minicbor::decode::Error::message("invalid funds variant")),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for InstantaneousRewardSource {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        let variant = match self {
-            Self::Reserves => 0,
-            Self::Treasury => 1,
-        };
-
-        e.u32(variant)?;
-
-        Ok(())
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -168,40 +144,11 @@ pub enum InstantaneousRewardTarget {
     OtherAccountingPot(Coin),
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for InstantaneousRewardTarget {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let datatype = d.datatype()?;
-
-        match datatype {
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                let a = d.decode_with(ctx)?;
-                Ok(Self::StakeCredentials(a))
-            }
-            _ => {
-                let a = d.decode_with(ctx)?;
-                Ok(Self::OtherAccountingPot(a))
-            }
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for InstantaneousRewardTarget {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            InstantaneousRewardTarget::StakeCredentials(a) => {
-                e.encode_with(a, ctx)?;
-                Ok(())
-            }
-            InstantaneousRewardTarget::OtherAccountingPot(a) => {
-                e.encode_with(a, ctx)?;
-                Ok(())
-            }
-        }
-    }
+codec_by_datatype! {
+    InstantaneousRewardTarget,
+    StakeCredentials => Map | MapIndef,
+    OtherAccountingPot => U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int,
+    ()
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -218,172 +165,46 @@ pub type Withdrawals = KeyValuePairs<RewardAccount, Coin>;
 
 pub type RequiredSigners = Vec<AddrKeyhash>;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[cbor(flat)]
 pub enum Certificate {
-    StakeRegistration(StakeCredential),
-    StakeDeregistration(StakeCredential),
-    StakeDelegation(StakeCredential, PoolKeyhash),
+    #[n(0)]
+    StakeRegistration(#[n(0)] StakeCredential),
+    #[n(1)]
+    StakeDeregistration(#[n(0)] StakeCredential),
+    #[n(2)]
+    StakeDelegation(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash),
+    #[n(3)]
     PoolRegistration {
+        #[n(0)]
         operator: PoolKeyhash,
+        #[n(1)]
         vrf_keyhash: VrfKeyhash,
+        #[n(2)]
         pledge: Coin,
+        #[n(3)]
         cost: Coin,
+        #[n(4)]
         margin: UnitInterval,
+        #[n(5)]
         reward_account: RewardAccount,
+        #[n(6)]
         pool_owners: Vec<AddrKeyhash>,
+        #[n(7)]
         relays: Vec<Relay>,
+        #[n(8)]
         pool_metadata: Nullable<PoolMetadata>,
     },
-    PoolRetirement(PoolKeyhash, Epoch),
-    GenesisKeyDelegation(Genesishash, GenesisDelegateHash, VrfKeyhash),
-    MoveInstantaneousRewardsCert(MoveInstantaneousReward),
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
-
-        match variant {
-            0 => {
-                let a = d.decode_with(ctx)?;
-                Ok(Certificate::StakeRegistration(a))
-            }
-            1 => {
-                let a = d.decode_with(ctx)?;
-                Ok(Certificate::StakeDeregistration(a))
-            }
-            2 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::StakeDelegation(a, b))
-            }
-            3 => {
-                let operator = d.decode_with(ctx)?;
-                let vrf_keyhash = d.decode_with(ctx)?;
-                let pledge = d.decode_with(ctx)?;
-                let cost = d.decode_with(ctx)?;
-                let margin = d.decode_with(ctx)?;
-                let reward_account = d.decode_with(ctx)?;
-                let pool_owners = d.decode_with(ctx)?;
-                let relays = d.decode_with(ctx)?;
-                let pool_metadata = d.decode_with(ctx)?;
-
-                Ok(Certificate::PoolRegistration {
-                    operator,
-                    vrf_keyhash,
-                    pledge,
-                    cost,
-                    margin,
-                    reward_account,
-                    pool_owners,
-                    relays,
-                    pool_metadata,
-                })
-            }
-            4 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::PoolRetirement(a, b))
-            }
-            5 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                Ok(Certificate::GenesisKeyDelegation(a, b, c))
-            }
-            6 => {
-                let a = d.decode_with(ctx)?;
-                Ok(Certificate::MoveInstantaneousRewardsCert(a))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant id for certificate",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for Certificate {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Certificate::StakeRegistration(a) => {
-                e.array(2)?;
-                e.u16(0)?;
-                e.encode_with(a, ctx)?;
-
-                Ok(())
-            }
-            Certificate::StakeDeregistration(a) => {
-                e.array(2)?;
-                e.u16(1)?;
-                e.encode_with(a, ctx)?;
-
-                Ok(())
-            }
-            Certificate::StakeDelegation(a, b) => {
-                e.array(3)?;
-                e.u16(2)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-
-                Ok(())
-            }
-            Certificate::PoolRegistration {
-                operator,
-                vrf_keyhash,
-                pledge,
-                cost,
-                margin,
-                reward_account,
-                pool_owners,
-                relays,
-                pool_metadata,
-            } => {
-                e.array(10)?;
-                e.u16(3)?;
-
-                e.encode_with(operator, ctx)?;
-                e.encode_with(vrf_keyhash, ctx)?;
-                e.encode_with(pledge, ctx)?;
-                e.encode_with(cost, ctx)?;
-                e.encode_with(margin, ctx)?;
-                e.encode_with(reward_account, ctx)?;
-                e.encode_with(pool_owners, ctx)?;
-                e.encode_with(relays, ctx)?;
-                e.encode_with(pool_metadata, ctx)?;
-
-                Ok(())
-            }
-            Certificate::PoolRetirement(a, b) => {
-                e.array(3)?;
-                e.u16(4)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-
-                Ok(())
-            }
-            Certificate::GenesisKeyDelegation(a, b, c) => {
-                e.array(4)?;
-                e.u16(5)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-
-                Ok(())
-            }
-            Certificate::MoveInstantaneousRewardsCert(a) => {
-                e.array(2)?;
-                e.u16(6)?;
-                e.encode_with(a, ctx)?;
-
-                Ok(())
-            }
-        }
-    }
+    #[n(4)]
+    PoolRetirement(#[n(0)] PoolKeyhash, #[n(1)] Epoch),
+    #[n(5)]
+    GenesisKeyDelegation(
+        #[n(0)] Genesishash,
+        #[n(1)] GenesisDelegateHash,
+        #[n(2)] VrfKeyhash,
+    ),
+    #[n(6)]
+    MoveInstantaneousRewardsCert(#[n(0)] MoveInstantaneousReward),
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -517,76 +338,21 @@ pub struct VKeyWitness {
     pub signature: Bytes,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cbor(flat)]
 pub enum NativeScript {
-    ScriptPubkey(AddrKeyhash),
-    ScriptAll(Vec<NativeScript>),
-    ScriptAny(Vec<NativeScript>),
-    ScriptNOfK(u32, Vec<NativeScript>),
-    InvalidBefore(u64),
-    InvalidHereafter(u64),
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for NativeScript {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u32()?;
-
-        match variant {
-            0 => Ok(NativeScript::ScriptPubkey(d.decode_with(ctx)?)),
-            1 => Ok(NativeScript::ScriptAll(d.decode_with(ctx)?)),
-            2 => Ok(NativeScript::ScriptAny(d.decode_with(ctx)?)),
-            3 => Ok(NativeScript::ScriptNOfK(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            4 => Ok(NativeScript::InvalidBefore(d.decode_with(ctx)?)),
-            5 => Ok(NativeScript::InvalidHereafter(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant id for native script",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for NativeScript {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        match self {
-            NativeScript::ScriptPubkey(v) => {
-                e.encode_with(0, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::ScriptAll(v) => {
-                e.encode_with(1, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::ScriptAny(v) => {
-                e.encode_with(2, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::ScriptNOfK(a, b) => {
-                e.encode_with(3, ctx)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            NativeScript::InvalidBefore(v) => {
-                e.encode_with(4, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-            NativeScript::InvalidHereafter(v) => {
-                e.encode_with(5, ctx)?;
-                e.encode_with(v, ctx)?;
-            }
-        }
-
-        Ok(())
-    }
+    #[n(0)]
+    ScriptPubkey(#[n(0)] AddrKeyhash),
+    #[n(1)]
+    ScriptAll(#[n(0)] Vec<NativeScript>),
+    #[n(2)]
+    ScriptAny(#[n(0)] Vec<NativeScript>),
+    #[n(3)]
+    ScriptNOfK(#[n(0)] u32, #[n(1)] Vec<NativeScript>),
+    #[n(4)]
+    InvalidBefore(#[n(0)] u64),
+    #[n(5)]
+    InvalidHereafter(#[n(0)] u64),
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
@@ -711,7 +477,7 @@ impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-#[cbor(map)]
+#[cbor(map, tag(259))]
 pub struct PostAlonzoAuxiliaryData {
     #[n(0)]
     pub metadata: Option<Metadata>,
@@ -739,46 +505,12 @@ pub enum AuxiliaryData {
     PostAlonzo(PostAlonzoAuxiliaryData),
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for AuxiliaryData {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(AuxiliaryData::Shelley(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Array => Ok(AuxiliaryData::ShelleyMa(d.decode_with(ctx)?)),
-            minicbor::data::Type::Tag => {
-                d.tag()?;
-                Ok(AuxiliaryData::PostAlonzo(d.decode_with(ctx)?))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "Can't infer variant from data type for AuxiliaryData",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::Encode<C> for AuxiliaryData {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            AuxiliaryData::Shelley(m) => {
-                e.encode_with(m, ctx)?;
-            }
-            AuxiliaryData::ShelleyMa(m) => {
-                e.encode_with(m, ctx)?;
-            }
-            AuxiliaryData::PostAlonzo(v) => {
-                // TODO: check if this is the correct tag
-                e.tag(Tag::new(259))?;
-                e.encode_with(v, ctx)?;
-            }
-        };
-
-        Ok(())
-    }
+codec_by_datatype! {
+    AuxiliaryData,
+    Shelley => Map | MapIndef,
+    ShelleyMa => Array,
+    PostAlonzo => Tag,
+    ()
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]

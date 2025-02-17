@@ -64,15 +64,23 @@ pub type IPv6 = Bytes;
 
 pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum Metadatum {
+    Int(Int),
+    Bytes(Bytes),
+    Text(String),
+    Array(Vec<Metadatum>),
+    Map(KeyValuePairs<Metadatum, Metadatum>),
+}
+
 // Missing StringIndef?
-heterog_enum! {
+codec_by_datatype! {
     Metadatum,
-    [Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord],
-    Int => Int | U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int,
-    Bytes => Bytes | Bytes,
-    Text => String | String,
-    Array => Vec<Metadatum> | Array | ArrayIndef,
-    Map => KeyValuePairs<Metadatum, Metadatum> | Map | MapIndef,
+    Int => U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int,
+    Bytes => Bytes,
+    Text => String,
+    Array => Array | ArrayIndef,
+    Map => Map | MapIndef,
     ()
 }
 

@@ -28,19 +28,12 @@ pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;
 }
 
-macro_rules! heterog_enum {
+macro_rules! codec_by_datatype {
     (
         $enum_name:ident,
-        [$( $attrs:ident ),*],
-        $( $one_f:ident => $type:ty | $( $cbortype:ident )|* ),*,
+        $( $one_f:ident => $( $cbortype:ident )|* ),*,
         ($( $many_f:ident => $( $vars:ident:$types:ty | $( $cbortypes:ident )|*),+ )?)
     ) => {
-        #[derive(Debug, Clone, $( $attrs ),*)]
-        pub enum $enum_name {
-            $( $one_f($type) ),*,
-            $( $many_f( $($types ),* ) ),*
-        }
-
         impl<'b, C> minicbor::decode::Decode<'b, C> for $enum_name {
             fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
                 match d.datatype()? {
