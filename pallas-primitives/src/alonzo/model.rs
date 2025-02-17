@@ -107,7 +107,7 @@ pub enum Value {
 codec_by_datatype! {
     Value,
     Coin => U8 | U16 | U32 | U64,
-    (Multiasset => c:Coin | U8 | U16 | U32 | U64, m:Multiasset<Coin> | Map)
+    (Multiasset => coin | U8 | U16 | U32 | U64, multi | Map)
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]

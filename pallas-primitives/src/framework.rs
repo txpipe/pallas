@@ -32,15 +32,15 @@ macro_rules! codec_by_datatype {
     (
         $enum_name:ident,
         $( $one_f:ident => $( $cbortype:ident )|* ),*,
-        ($( $many_f:ident => $( $vars:ident:$types:ty | $( $cbortypes:ident )|*),+ )?)
+        ($( $many_f:ident => $( $vars:ident | $( $cbortypes:ident )|*),+ )?)
     ) => {
         impl<'b, C> minicbor::decode::Decode<'b, C> for $enum_name {
             fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
                 match d.datatype()? {
                     $( minicbor::data::Type::Array => {
                         d.array()?;
-
-                        Ok($enum_name::$many_f($( d.decode_with::<_, $types>(ctx)?, )+ ))
+                        // Using the identifiers trivially to ensure repetition.
+                        Ok($enum_name::$many_f($({ let $vars = d.decode_with(ctx)?; $vars }, )+ ))
                     }, )?
                     $( $( minicbor::data::Type::$cbortype )|* => Ok($enum_name::$one_f(d.decode_with(ctx)?)), )*
                     _ => Err(minicbor::decode::Error::message(
