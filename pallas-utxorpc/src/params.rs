@@ -1,5 +1,5 @@
-use pallas_applying::MultiEraProtocolParameters;
 use pallas_primitives::conway;
+use pallas_validate::utils::MultiEraProtocolParameters;
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 use crate::{rational_number_to_u5c, LedgerContext, Mapper};
