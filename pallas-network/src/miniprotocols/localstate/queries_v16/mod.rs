@@ -248,6 +248,9 @@ pub struct CostMdls {
 
     #[n(1)]
     pub plutus_v2: Option<CostModel>,
+
+    #[n(2)]
+    pub plutus_v3: Option<CostModel>,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
