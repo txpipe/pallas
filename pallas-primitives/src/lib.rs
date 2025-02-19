@@ -1,6 +1,5 @@
 //! Ledger primitives and cbor codec for the Cardano eras
 
-#[macro_use]
 mod framework;
 mod plutus_data;
 
@@ -11,6 +10,8 @@ pub mod conway;
 pub use plutus_data::*;
 
 pub use framework::*;
+
+pub use pallas_codec::codec_by_datatype;
 
 pub use pallas_codec::utils::{
     Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
@@ -138,7 +139,7 @@ pub enum NonceVariant {
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
-pub struct PlutusScript<const VERSION: usize>(#[n(0)] pub Bytes);
+pub struct PlutusScript<const VERSION: usize>(pub Bytes);
 
 impl<const VERSION: usize> AsRef<[u8]> for PlutusScript<VERSION> {
     fn as_ref(&self) -> &[u8] {
