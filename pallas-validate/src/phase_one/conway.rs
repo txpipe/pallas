@@ -69,11 +69,14 @@ fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
 // All transaction inputs, collateral inputs and reference inputs are in the
 // UTxO set.
 fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
+    println!("Checking all inputs in UTxOs");
     for input in tx_body.inputs.iter() {
+        println!("Checking input {:?}", input);
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
             return Err(PostAlonzo(InputNotInUTxO));
         }
     }
+    println!("Checking all collateral inputs in UTxOs");
     match &tx_body.collateral {
         None => (),
         Some(collaterals) => {
@@ -84,6 +87,7 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
             }
         }
     }
+    println!("Checking all reference inputs in UTxOs");
     match &tx_body.reference_inputs {
         None => (),
         Some(reference_inputs) => {
@@ -1433,13 +1437,12 @@ fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     if any_byron_addresses(&all_outputs) {
         vec![]
     } else if any_datums_or_script_refs(&all_outputs)
-        || any_reference_inputs(&Some(
-            mtx.transaction_body
+    || any_reference_inputs(
+        &mtx.transaction_body
                 .reference_inputs
                 .clone()
-                .unwrap()
-                .to_vec(),
-        ))
+                .map(|x| x.to_vec()),
+        )
     {
         vec![Language::PlutusV2, Language::PlutusV3]
     } else {
