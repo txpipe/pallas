@@ -73,12 +73,11 @@ pub enum Metadatum {
     Map(KeyValuePairs<Metadatum, Metadatum>),
 }
 
-// Missing StringIndef?
 codec_by_datatype! {
     Metadatum,
     U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => Int,
     Bytes => Bytes,
-    String => Text,
+    String | StringIndef => Text,
     Array | ArrayIndef => Array,
     Map | MapIndef => Map,
     ()

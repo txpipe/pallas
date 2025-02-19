@@ -107,7 +107,7 @@ pub enum Value {
 codec_by_datatype! {
     Value,
     U8 | U16 | U32 | U64 => Coin,
-    (coin | U8 | U16 | U32 | U64, multi | Map => Multiasset)
+    (coin | U8 | U16 | U32 | U64, multi | Map | MapIndef => Multiasset)
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -508,7 +508,7 @@ pub enum AuxiliaryData {
 codec_by_datatype! {
     AuxiliaryData,
     Map | MapIndef => Shelley,
-    Array => ShelleyMa,
+    Array | ArrayIndef => ShelleyMa,
     Tag => PostAlonzo,
     ()
 }
