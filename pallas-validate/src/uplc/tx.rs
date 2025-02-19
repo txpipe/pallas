@@ -170,6 +170,7 @@ fn execute_script(
         tag: redeemer.tag,
         index: redeemer.index,
         units: ExUnits {
+            // @TODO hack until we have cost models
             steps: (result.info.consumed_budget.cpu * 11 / 10) as u64,
             mem: (result.info.consumed_budget.mem * 11 / 10) as u64,
         },
