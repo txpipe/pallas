@@ -1433,13 +1433,12 @@ fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     if any_byron_addresses(&all_outputs) {
         vec![]
     } else if any_datums_or_script_refs(&all_outputs)
-        || any_reference_inputs(&Some(
-            mtx.transaction_body
+        || any_reference_inputs(
+            &mtx.transaction_body
                 .reference_inputs
                 .clone()
-                .unwrap()
-                .to_vec(),
-        ))
+                .map(|x| x.to_vec()),
+        )
     {
         vec![Language::PlutusV2, Language::PlutusV3]
     } else {
