@@ -7,13 +7,11 @@ pub use environment::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::encode,
-    utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
+    utils::{Bytes, KeyValuePairs, Nullable},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
-    alonzo::{
-        AuxiliaryData, MintedTx as AlonzoMintedTx, Multiasset, NativeScript, VKeyWitness, Value,
-    },
+    alonzo::{MintedTx as AlonzoMintedTx, Multiasset, NativeScript, VKeyWitness, Value},
     babbage::MintedTx as BabbageMintedTx,
     conway::{MintedTx as ConwayMintedTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, NetworkId,
@@ -661,21 +659,15 @@ pub fn is_byron_address(address: &[u8]) -> bool {
 }
 
 pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoMintedTx) -> Option<&'a [u8]> {
-    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
-        .as_ref()
-        .map(KeepRaw::raw_cbor)
+    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
 pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageMintedTx) -> Option<&'a [u8]> {
-    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
-        .as_ref()
-        .map(KeepRaw::raw_cbor)
+    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
 pub fn aux_data_from_conway_minted_tx<'a>(mtx: &'a ConwayMintedTx) -> Option<&'a [u8]> {
-    Option::<KeepRaw<AuxiliaryData>>::from((mtx.auxiliary_data).clone())
-        .as_ref()
-        .map(KeepRaw::raw_cbor)
+    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
 pub fn get_val_size_in_words(val: &Value) -> u64 {
