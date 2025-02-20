@@ -18,7 +18,4 @@ regex = "1.10.5"
 thiserror = "1.0.61"
 
 [dev-dependencies]
-quickcheck = "1.0"
-quickcheck_macros = "1.0"
-rand = "0.8"
 proptest = "1.5"

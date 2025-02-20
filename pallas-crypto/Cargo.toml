@@ -17,11 +17,9 @@ thiserror = "1.0"
 rand_core = "0.6"
 pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
 serde = "1.0.143"
-zeroize = "1.8.1"
 
 [dev-dependencies]
 itertools = "0.13"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
-rand = "0.8"
 serde_test = "1.0.143"
