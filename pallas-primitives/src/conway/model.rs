@@ -459,7 +459,7 @@ pub enum Language {
 #[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
 pub type CostMdls = CostModels;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct CostModels {
     #[n(0)]
@@ -470,6 +470,36 @@ pub struct CostModels {
 
     #[n(2)]
     pub plutus_v3: Option<CostModel>,
+
+    #[cbor(skip)]
+    pub unknown: KeyValuePairs<u64, CostModel>,
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for CostModels {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let models: KeyValuePairs<u64, CostModel> = d.decode_with(ctx)?;
+
+        let mut plutus_v1 = None;
+        let mut plutus_v2 = None;
+        let mut plutus_v3 = None;
+        let mut unknown: Vec<(u64, CostModel)> = Vec::new();
+
+        for (k, v) in models.iter() {
+            match k {
+                0 => plutus_v1 = Some(v.clone()),
+                1 => plutus_v2 = Some(v.clone()),
+                2 => plutus_v3 = Some(v.clone()),
+                _ => unknown.push((*k, v.clone())),
+            }
+        }
+
+        Ok(Self {
+            plutus_v1,
+            plutus_v2,
+            plutus_v3,
+            unknown: unknown.into(),
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
