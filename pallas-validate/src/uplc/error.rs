@@ -5,7 +5,7 @@ use uplc::{
     machine::{self, ExBudget},
 };
 
-#[derive(thiserror::Error, Debug, miette::Diagnostic)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
     Address(#[from] pallas_addresses::Error),

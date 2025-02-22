@@ -1107,6 +1107,28 @@ mod babbage_tests {
                 None,
                 None,
             ),
+            (
+                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[(

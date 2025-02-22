@@ -69,14 +69,11 @@ fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
 // All transaction inputs, collateral inputs and reference inputs are in the
 // UTxO set.
 fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
-    println!("Checking all inputs in UTxOs");
     for input in tx_body.inputs.iter() {
-        println!("Checking input {:?}", input);
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
             return Err(PostAlonzo(InputNotInUTxO));
         }
     }
-    println!("Checking all collateral inputs in UTxOs");
     match &tx_body.collateral {
         None => (),
         Some(collaterals) => {
@@ -87,7 +84,6 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
             }
         }
     }
-    println!("Checking all reference inputs in UTxOs");
     match &tx_body.reference_inputs {
         None => (),
         Some(reference_inputs) => {
@@ -116,6 +112,8 @@ fn check_tx_validity_interval(
 fn check_lower_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> ValidationResult {
     match tx_body.validity_interval_start {
         Some(lower_bound) => {
+            println!("lower_bound: {}", lower_bound);
+            println!("block_slot: {}", block_slot);
             if block_slot < lower_bound {
                 Err(PostAlonzo(BlockPrecedesValInt))
             } else {
@@ -274,7 +272,31 @@ fn check_collaterals_assets(
                 }
             }
             let coll_return: Value = match &tx_body.collateral_return {
-                Some(PseudoTransactionOutput::Legacy(_)) => todo!("Legacy output"),
+                Some(PseudoTransactionOutput::Legacy(output)) => {
+                    let amount = output.amount.clone();
+                    match amount {
+                        babbage::Value::Coin(coin) => Value::Coin(coin),
+                        babbage::Value::Multiasset(coin, assets) => {
+                            let mut conway_assets = Vec::new();
+                            for (key, val) in assets.to_vec() {
+                                let mut conway_value = Vec::new();
+                                for (inner_key, inner_val) in val.to_vec() {
+                                    conway_value.push((
+                                        inner_key,
+                                        PositiveCoin::try_from(inner_val).unwrap(),
+                                    ));
+                                }
+                                conway_assets.push((
+                                    key,
+                                    NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                                ));
+                            }
+                            let conway_assets =
+                                NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                            Value::Multiasset(coin, conway_assets)
+                        }
+                    }
+                }
                 Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
                 None => Value::Coin(0),
             };
@@ -642,7 +664,13 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let tx_body: &MintedTransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let vkey_wits: &Option<Vec<VKeyWitness>> = &Some(tx_wits.vkeywitness.clone().unwrap().to_vec());
+    let vkey_wits: &Option<Vec<VKeyWitness>> = &Some(
+        tx_wits
+            .vkeywitness
+            .clone()
+            .map(|wits| wits.to_vec())
+            .unwrap_or_else(|| Vec::new()),
+    );
     let native_scripts: Vec<PolicyId> = match &tx_wits.native_script {
         Some(scripts) => scripts
             .clone()
@@ -699,7 +727,13 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
     check_vkey_input_wits(
         mtx,
-        &Some(tx_wits.vkeywitness.clone().unwrap().to_vec()),
+        &Some(
+            tx_wits
+                .vkeywitness
+                .clone()
+                .map(|wits| wits.to_vec())
+                .unwrap_or_else(|| Vec::new()),
+        ),
         utxos,
     )
 }
@@ -1437,8 +1471,8 @@ fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     if any_byron_addresses(&all_outputs) {
         vec![]
     } else if any_datums_or_script_refs(&all_outputs)
-    || any_reference_inputs(
-        &mtx.transaction_body
+        || any_reference_inputs(
+            &mtx.transaction_body
                 .reference_inputs
                 .clone()
                 .map(|x| x.to_vec()),
