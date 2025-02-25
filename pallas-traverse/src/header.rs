@@ -31,7 +31,7 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    pub fn cbor(&self) -> &'b [u8] {
+    pub fn cbor(&self) -> &[u8] {
         match self {
             MultiEraHeader::EpochBoundary(x) => x.raw_cbor(),
             MultiEraHeader::ShelleyCompatible(x) => x.raw_cbor(),
@@ -87,7 +87,7 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    pub fn header_body_cbor(&self) -> Option<&'b [u8]> {
+    pub fn header_body_cbor(&self) -> Option<&[u8]> {
         match self {
             MultiEraHeader::ShelleyCompatible(x) => Some(x.header_body.raw_cbor()),
             MultiEraHeader::BabbageCompatible(x) => Some(x.header_body.raw_cbor()),

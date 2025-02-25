@@ -11,6 +11,8 @@ pub use plutus_data::*;
 
 pub use framework::*;
 
+pub use pallas_codec::codec_by_datatype;
+
 pub use pallas_codec::utils::{
     Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
     NonZeroInt, Nullable, PositiveCoin, Set,
@@ -72,62 +74,14 @@ pub enum Metadatum {
     Map(KeyValuePairs<Metadatum, Metadatum>),
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::U8
-            | minicbor::data::Type::U16
-            | minicbor::data::Type::U32
-            | minicbor::data::Type::U64
-            | minicbor::data::Type::I8
-            | minicbor::data::Type::I16
-            | minicbor::data::Type::I32
-            | minicbor::data::Type::I64
-            | minicbor::data::Type::Int => {
-                let i = d.decode()?;
-                Ok(Metadatum::Int(i))
-            }
-            minicbor::data::Type::Bytes => Ok(Metadatum::Bytes(d.decode_with(ctx)?)),
-            minicbor::data::Type::String => Ok(Metadatum::Text(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(Metadatum::Array(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Metadatum::Map(d.decode_with(ctx)?))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "Can't turn data type into metadatum",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::Encode<C> for Metadatum {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Metadatum::Int(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Metadatum::Bytes(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Metadatum::Text(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Metadatum::Array(a) => {
-                e.encode_with(a, ctx)?;
-            }
-            Metadatum::Map(a) => {
-                e.encode_with(a, ctx)?;
-            }
-        };
-
-        Ok(())
-    }
+codec_by_datatype! {
+    Metadatum,
+    U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => Int,
+    Bytes => Bytes,
+    String | StringIndef => Text,
+    Array | ArrayIndef => Array,
+    Map | MapIndef => Map,
+    ()
 }
 
 pub type MetadatumLabel = u64;
@@ -185,7 +139,7 @@ pub enum NonceVariant {
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
-pub struct PlutusScript<const VERSION: usize>(#[n(0)] pub Bytes);
+pub struct PlutusScript<const VERSION: usize>(pub Bytes);
 
 impl<const VERSION: usize> AsRef<[u8]> for PlutusScript<VERSION> {
     fn as_ref(&self) -> &[u8] {
@@ -315,7 +269,9 @@ pub type RewardAccount = Bytes;
 
 pub type ScriptHash = Hash<28>;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash)]
+#[derive(
+    Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode, Decode,
+)]
 // !! NOTE / IMPORTANT !!
 // It is tempting to swap the order of the two constructors so that AddrKeyHash
 // comes first. This indeed nicely maps the binary representation which
@@ -326,49 +282,12 @@ pub type ScriptHash = Hash<28>;
 // and `Ord` instances; which impacts how Maps/Dictionnaries indexed by
 // StakeCredential will be ordered. So, it is crucial to preserve this quirks to
 // avoid hard to troubleshoot issues down the line.
+#[cbor(flat)]
 pub enum StakeCredential {
-    ScriptHash(ScriptHash),
-    AddrKeyhash(AddrKeyhash),
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for StakeCredential {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
-
-        match variant {
-            0 => Ok(StakeCredential::AddrKeyhash(d.decode_with(ctx)?)),
-            1 => Ok(StakeCredential::ScriptHash(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant id for StakeCredential",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for StakeCredential {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            StakeCredential::AddrKeyhash(a) => {
-                e.array(2)?;
-                e.encode_with(0, ctx)?;
-                e.encode_with(a, ctx)?;
-
-                Ok(())
-            }
-            StakeCredential::ScriptHash(a) => {
-                e.array(2)?;
-                e.encode_with(1, ctx)?;
-                e.encode_with(a, ctx)?;
-
-                Ok(())
-            }
-        }
-    }
+    #[n(1)]
+    ScriptHash(#[n(0)] ScriptHash),
+    #[n(0)]
+    AddrKeyhash(#[n(0)] AddrKeyhash),
 }
 
 pub type TransactionIndex = u32;
