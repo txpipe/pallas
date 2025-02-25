@@ -28,8 +28,7 @@ use std::borrow::Cow;
 #[cfg(test)]
 mod conway_tests {
     use pallas_primitives::{
-        conway::{DRepVotingThresholds, PoolVotingThresholds},
-        PositiveCoin, Set,
+        conway::{DRepVotingThresholds, PoolVotingThresholds}, KeyValuePairs, PositiveCoin, Set
     };
 
     use super::*;
@@ -2516,6 +2515,7 @@ mod conway_tests {
 
                 plutus_v2: None,
                 plutus_v3: None,
+                unknown: KeyValuePairs::from(vec![])
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -2838,6 +2838,7 @@ mod conway_tests {
                     20000000000,
                 ]),
                 plutus_v3: None,
+                unknown: KeyValuePairs::from(vec![])
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -2998,6 +2999,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
+                unknown: KeyValuePairs::from(vec![])
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -3158,6 +3160,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
+                unknown: KeyValuePairs::from(vec![])
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
