@@ -38,7 +38,7 @@ mod conway_tests {
     // Transaction hash:
     // b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d
     fn successful_mainnet_tx() {
-        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway1.tx"));
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway2.tx"));
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
@@ -157,7 +157,7 @@ mod conway_tests {
     // Transaction hash:
     // ac96a0a2dfdb876b237a8ae674eadab453fd146fb97b221cfd29a1812046fa36
     fn successful_mainnet_tx_with_plutus_v2_script() {
-        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway2.tx"));
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway1.tx"));
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
