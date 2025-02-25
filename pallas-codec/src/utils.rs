@@ -903,9 +903,11 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for AnyUInt {
             U16 => Ok(AnyUInt::U16(d.u16()?)),
             U32 => Ok(AnyUInt::U32(d.u32()?)),
             U64 => Ok(AnyUInt::U64(d.u64()?)),
-            _ => Err(minicbor::decode::Error::message(
-                format!("invalid data type for AnyUInt at position {}: {}",d.position(), data_type),
-            )),
+            _ => Err(minicbor::decode::Error::message(format!(
+                "invalid data type for AnyUInt at position {}: {}",
+                d.position(),
+                data_type
+            ))),
         }
     }
 }

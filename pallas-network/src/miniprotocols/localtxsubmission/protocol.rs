@@ -9,6 +9,8 @@ use pallas_primitives::conway::{
 use pallas_primitives::{
     AddrKeyhash, PolicyId, ProtocolVersion, ScriptHash, Set, StakeCredential, TransactionInput,
 };
+use serde::Serialize;
+use serde_with::SerializeDisplay;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -29,7 +31,8 @@ pub enum Message<Tx, Reject> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EraTx(pub u16, pub Vec<u8>);
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+// https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub enum ShelleyBasedEra {
     ShelleyBasedEraShelley,
     ShelleyBasedEraAllegra,
@@ -185,6 +188,12 @@ pub struct SlotNo(#[n(0)] pub u64);
 #[cbor(transparent)]
 pub struct DisplayCoin(#[n(0)] pub Coin);
 
+impl From<&u64> for DisplayCoin {
+    fn from(v: &u64) -> Self {
+        DisplayCoin(Coin::U64(*v))
+    }
+}
+
 #[derive(Debug, Decode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct DisplayAddress(#[n(0)] pub Bytes);
@@ -211,6 +220,12 @@ pub struct DeltaCoin(#[n(0)] pub i32);
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct DisplayRewardAccount(#[n(0)] pub Bytes);
+
+impl From<&Bytes> for DisplayRewardAccount {
+    fn from(bytes: &Bytes) -> Self {
+        DisplayRewardAccount(bytes.to_owned())
+    }
+}
 
 pub type Slot = u64;
 
@@ -274,7 +289,7 @@ pub struct KeyHash(#[n(0)] pub Bytes);
 
 /// Conway era transaction errors. It corresponds to [ConwayUtxowPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs#L94)
 /// in the Haskell sources.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, SerializeDisplay, Clone, Eq, PartialEq)]
 pub enum ConwayUtxoWPredFailure {
     UtxoFailure(UtxoFailure),
     InvalidWitnessesUTXOW(Array<VKey>),
@@ -325,22 +340,6 @@ pub enum Credential {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum xxxPlutusPurpose {
-    Spending(AsIx),
-    Minting(AsIx),
-    Certifying(AsIx),
-    Rewarding(xxxPurposeAs),
-    Voting(xxxPurposeAs),
-    Proposing(AsIx),
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum xxxPurposeAs {
-    Ix(AsIx),
-    Item(AsItem<DisplayRewardAccount>),
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mismatch<T>(pub T, pub T);
 
 #[derive(Debug, Decode, Clone, Eq, PartialEq)]
@@ -358,8 +357,8 @@ pub struct AsIx(#[n(0)] pub u64);
 /// in the Haskell sources.
 ///
 /// The `u8` variant appears for backward compatibility.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum TxError {
+#[derive(Debug, SerializeDisplay, Clone, Eq, PartialEq)]
+pub enum ApplyConwayTxPredError {
     ConwayUtxowFailure(ConwayUtxoWPredFailure),
     ConwayCertsFailure(ConwayCertsPredFailure),
     ConwayGovFailure(ConwayGovPredFailure),
@@ -484,14 +483,24 @@ pub enum ConwayGovPredFailure {
 }
 
 /// Reject reason. It can be a pair of an era number and a sequence of errors, or else a string.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum RejectReason {
-    EraErrors(u8, Vec<TxError>),
+#[derive(Debug, Serialize, Clone, Eq, PartialEq)]
+#[serde(tag = "kind")]
+pub enum TxValidationError {
+    ByronTxValidationError {
+        error: ApplyTxError,
+    },
+    ShelleyTxValidationError {
+        error: ApplyTxError,
+        era: ShelleyBasedEra,
+    },
     Plutus(String),
 }
 
-impl From<String> for RejectReason {
-    fn from(string: String) -> RejectReason {
-        RejectReason::Plutus(string)
+impl From<String> for TxValidationError {
+    fn from(string: String) -> TxValidationError {
+        TxValidationError::Plutus(string)
     }
 }
+
+#[derive(Debug, Serialize, Clone, Eq, PartialEq)]
+pub struct ApplyTxError(pub Vec<ApplyConwayTxPredError>);
