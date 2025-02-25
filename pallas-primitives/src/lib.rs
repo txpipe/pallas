@@ -22,6 +22,8 @@ pub use pallas_crypto::hash::Hash;
 use pallas_codec::minicbor::{self, data::Tag, Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use std::collections::BTreeMap;
+
 // ----- Common type definitions
 
 pub type AddrKeyhash = Hash<28>;
@@ -63,7 +65,7 @@ pub type IPv4 = Bytes;
 
 pub type IPv6 = Bytes;
 
-pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
+pub type Metadata = BTreeMap<MetadatumLabel, Metadatum>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum Metadatum {
@@ -71,7 +73,7 @@ pub enum Metadatum {
     Bytes(Bytes),
     Text(String),
     Array(Vec<Metadatum>),
-    Map(KeyValuePairs<Metadatum, Metadatum>),
+    Map(BTreeMap<Metadatum, Metadatum>),
 }
 
 codec_by_datatype! {
