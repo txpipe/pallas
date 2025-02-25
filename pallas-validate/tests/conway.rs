@@ -28,7 +28,8 @@ use std::borrow::Cow;
 #[cfg(test)]
 mod conway_tests {
     use pallas_primitives::{
-        conway::{DRepVotingThresholds, PoolVotingThresholds}, KeyValuePairs, PositiveCoin, Set
+        conway::{DRepVotingThresholds, PoolVotingThresholds},
+        KeyValuePairs, PositiveCoin, Set,
     };
 
     use super::*;
@@ -2515,7 +2516,7 @@ mod conway_tests {
 
                 plutus_v2: None,
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![])
+                unknown: KeyValuePairs::from(vec![]),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -2605,9 +2606,9 @@ mod conway_tests {
             min_committee_size: 10,
             committee_term_limit: 5,
             governance_action_validity_period: 3600, // in seconds
-            governance_action_deposit: 1000, // arbitrary value
-            drep_deposit: 2000, // arbitrary value
-            drep_inactivity_period: 60, // in seconds
+            governance_action_deposit: 1000,         // arbitrary value
+            drep_deposit: 2000,                      // arbitrary value
+            drep_inactivity_period: 60,              // in seconds
             minfee_refscript_cost_per_byte: RationalNumber {
                 numerator: 10,
                 denominator: 100,
@@ -2838,7 +2839,7 @@ mod conway_tests {
                     20000000000,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![])
+                unknown: KeyValuePairs::from(vec![]),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -2999,7 +3000,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![])
+                unknown: KeyValuePairs::from(vec![]),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -3160,7 +3161,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![])
+                unknown: KeyValuePairs::from(vec![]),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {

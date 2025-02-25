@@ -36,9 +36,6 @@ pub use pallas_crypto as crypto;
 #[doc(inline)]
 pub use pallas_codec as codec;
 
-#[doc(inline)]
-pub use pallas_validate as validate;
-
 // TODO: re-incorporate math here once we commit to a final set of upstream
 // dependencies
 
@@ -90,3 +87,23 @@ pub mod wallet {
 // WARNING: this is deprecated, use `pallas::wallet::txbuilder` instead.
 // Since deprecation notices don't work for re-exports we don't have a way to notify users.
 pub use pallas_txbuilder as txbuilder;
+
+pub mod validate {
+    //! Utilities for Cardano tx validation
+
+    #[cfg(feature = "phase_two")]
+    #[doc(inline)]
+    pub use pallas_validate::uplc;
+
+    #[cfg(any(feature = "phase_one", feature = "phase_two"))]
+    #[doc(inline)]
+    pub use pallas_validate::utils;
+
+    #[cfg(feature = "phase_one")]
+    #[doc(inline)]
+    pub use pallas_validate::phase_one;
+
+    #[cfg(feature = "phase_two")]
+    #[doc(inline)]
+    pub use pallas_validate::phase_two;
+}

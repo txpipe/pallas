@@ -19,5 +19,5 @@ members = [
   "examples/block-decode",
   "examples/crawler",
   "examples/n2n-miniprotocols",
-  "examples/n2c-miniprotocols", "pallas-validate",
+  "examples/n2c-miniprotocols",
 ]
