@@ -15,10 +15,10 @@ use pallas_codec::{
         decode::{Decode, Decoder},
         encode,
     },
-    utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
+    utils::{Bytes, KeepRaw},
 };
 use pallas_primitives::alonzo::{
-    AddrKeyhash, CostModel, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
+    AddrKeyhash, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
     NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer,
     RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
 };
@@ -82,15 +82,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -461,15 +461,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -580,15 +580,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -691,15 +691,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -824,15 +824,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -894,15 +894,15 @@ mod alonzo_tests {
                 String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Multiasset(
                     5000000,
-                    KeyValuePairs::from(Vec::from([(
+                    [(
                         "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                             .parse()
                             .unwrap(),
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                             1000,
-                        )])),
-                    )])),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
             )],
@@ -945,15 +945,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1206,15 +1206,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1361,15 +1361,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1575,15 +1575,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1691,15 +1691,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1858,15 +1858,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1974,15 +1974,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2096,15 +2096,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2219,15 +2219,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2326,7 +2326,7 @@ mod alonzo_tests {
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo4.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = Nullable::Null;
+        mtx.auxiliary_data = None;
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -2453,15 +2453,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2593,7 +2593,7 @@ mod alonzo_tests {
             protocol_version: (6, 0),
             min_pool_cost: 340000000,
             ada_per_utxo_byte: 34482,
-            cost_models_for_script_languages: KeyValuePairs::<Language, CostModel>::from(vec![(
+            cost_models_for_script_languages: [(
                 Language::PlutusV1,
                 vec![
                     197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
@@ -2609,7 +2609,7 @@ mod alonzo_tests {
                     1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
                     150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
                 ],
-            )]),
+            )].into(),
             execution_costs: ExUnitPrices {
                 mem_price: RationalNumber {
                     numerator: 577,
@@ -2671,7 +2671,7 @@ mod alonzo_tests {
             protocol_version: (6, 0),
             min_pool_cost: 340000000,
             ada_per_utxo_byte: 34482,
-            cost_models_for_script_languages: KeyValuePairs::<Language, CostModel>::from(vec![(
+            cost_models_for_script_languages: [(
                 Language::PlutusV1,
                 vec![
                     197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
@@ -2687,7 +2687,7 @@ mod alonzo_tests {
                     1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
                     150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
                 ],
-            )]),
+            )].into(),
             execution_costs: ExUnitPrices {
                 mem_price: RationalNumber {
                     numerator: 577,
