@@ -997,7 +997,6 @@ fn mk_plutus_script_redeemer_pointers(
 fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
     let mut res: Vec<PolicyId> = mint
         .clone()
-        .to_vec()
         .iter()
         .map(|(policy_id, _)| *policy_id)
         .collect();

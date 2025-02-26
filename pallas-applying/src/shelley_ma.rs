@@ -467,7 +467,7 @@ fn check_certificates(
                         reward_account: reward_account.clone(),
                         pool_owners: pool_owners.clone(),
                         relays: relays.clone(),
-                        pool_metadata: pool_metadata.clone(),
+                        pool_metadata: pool_metadata.clone().into(),
                     };
                     check_pool_reg_or_update(operator, &pool_param, &mpc, &mut cert_state.pstate)?;
                 }
@@ -659,7 +659,7 @@ fn check_mir(
         let mut combined: HashMap<StakeCredential, Coin> = HashMap::new();
         if let StakeCredentials(kvp) = &mir.target {
             let mut kvv: Vec<(StakeCredential, u64)> = // TODO: Err if the value is negative
-                kvp.iter().map(|kv| (kv.clone().0, kv.clone().1 as u64)).collect();
+                kvp.iter().map(|kv| (kv.0.clone(), *kv.clone().1 as u64)).collect();
             kvv.extend(ir_pot);
             for (key, value) in kvv {
                 combined.insert(key, value);

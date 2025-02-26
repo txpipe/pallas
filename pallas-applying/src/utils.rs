@@ -7,7 +7,7 @@ pub use environment::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::encode,
-    utils::{Bytes, KeyValuePairs, Nullable},
+    utils::{Bytes, Nullable},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
@@ -15,7 +15,7 @@ use pallas_primitives::{
     babbage::MintedTx as BabbageMintedTx,
     conway::{MintedTx as ConwayMintedTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, NetworkId,
-    NonEmptyKeyValuePairs, NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
+    NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
     PositiveCoin, Relay, RewardAccount, StakeCredential, TransactionIndex, UnitInterval,
     VrfKeyhash,
 };
@@ -29,7 +29,7 @@ pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
 pub fn get_alonzo_comp_tx_size(mtx: &AlonzoMintedTx) -> u32 {
     match &mtx.auxiliary_data {
-        Nullable::Some(aux_data) => {
+        Some(aux_data) => {
             (aux_data.raw_cbor().len()
                 + mtx.transaction_body.raw_cbor().len()
                 + mtx.transaction_witness_set.raw_cbor().len()) as u32
@@ -58,7 +58,7 @@ pub fn get_conway_tx_size(mtx: &ConwayMintedTx) -> Option<u32> {
 }
 
 pub fn empty_value() -> Value {
-    Value::Multiasset(0, Multiasset::<Coin>::from(Vec::new()))
+    Value::Multiasset(0, std::collections::BTreeMap::new())
 }
 
 pub fn add_values(
@@ -288,72 +288,70 @@ pub fn conway_add_minted_non_zero(
 }
 
 fn coerce_to_i64(value: &Multiasset<Coin>) -> Multiasset<i64> {
-    let mut res: Vec<(PolicyId, KeyValuePairs<AssetName, i64>)> = Vec::new();
-    for (policy, assets) in value.clone().to_vec().iter() {
+    let mut res: Vec<(PolicyId, _)> = Vec::new();
+    for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, i64)> = Vec::new();
-        for (asset_name, amount) in assets.clone().to_vec().iter() {
+        for (asset_name, amount) in assets.iter() {
             aa.push((asset_name.clone(), *amount as i64));
         }
-        res.push((*policy, KeyValuePairs::<AssetName, i64>::from(aa)));
+        res.push((*policy, aa.into_iter().collect()));
     }
-    KeyValuePairs::<PolicyId, KeyValuePairs<AssetName, i64>>::from(res)
+    res.into_iter().collect()
 }
 
 fn coerce_to_u64(value: &ConwayMultiasset<PositiveCoin>) -> ConwayMultiasset<u64> {
-    let mut res: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, u64>)> = Vec::new();
-    for (policy, assets) in value.clone().to_vec().iter() {
+    let mut res: Vec<(PolicyId, _)> = Vec::new();
+    for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, u64)> = Vec::new();
-        for (asset_name, amount) in assets.clone().to_vec().iter() {
+        for (asset_name, amount) in assets.iter() {
             aa.push((asset_name.clone(), (*amount).into()));
         }
-        res.push((
-            *policy,
-            NonEmptyKeyValuePairs::<AssetName, u64>::try_from(aa).unwrap(),
-        ));
+        res.push((*policy, aa.into_iter().collect()));
     }
-    NonEmptyKeyValuePairs::<PolicyId, NonEmptyKeyValuePairs<AssetName, u64>>::try_from(res).unwrap()
+    res.into_iter().collect()
 }
 
 fn coerce_to_coin(
     value: &Multiasset<i64>,
     _err: &ValidationError,
 ) -> Result<Multiasset<Coin>, ValidationError> {
-    let mut res: Vec<(PolicyId, KeyValuePairs<AssetName, Coin>)> = Vec::new();
+    let mut res: Vec<(PolicyId, _)> = Vec::new();
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, Coin)> = Vec::new();
-        for (asset_name, amount) in assets.clone().to_vec().iter() {
+        for (asset_name, amount) in assets.iter() {
             aa.push((asset_name.clone(), *amount as u64));
         }
-        res.push((*policy, KeyValuePairs::<AssetName, Coin>::from(aa)));
+        res.push((*policy, aa.into_iter().collect()));
     }
-    Ok(KeyValuePairs::<PolicyId, KeyValuePairs<AssetName, Coin>>::from(res))
+    Ok(res.into_iter().collect())
 }
 
 fn conway_coerce_to_coin(
     value: &ConwayMultiasset<u64>,
     _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
-    let mut res: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> = Vec::new();
+    let mut res: Vec<(PolicyId, _)> = Vec::new();
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
-        for (asset_name, amount) in assets.clone().to_vec().iter() {
+        for (asset_name, amount) in assets.iter() {
             aa.push((asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()));
         }
         res.push((
             *policy,
-            NonEmptyKeyValuePairs::<AssetName, PositiveCoin>::try_from(aa).unwrap(),
+            aa.into_iter().collect(),
         ));
     }
-    Ok(ConwayMultiasset::try_from(res).unwrap())
+    Ok(res.into_iter().collect())
 }
+
 fn conway_coerce_to_non_zero_coin(
     value: &ConwayMultiasset<NonZeroInt>,
     _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
-    let mut res: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> = Vec::new();
+    let mut res: Vec<(PolicyId, _)> = Vec::new();
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
-        for (asset_name, amount) in assets.clone().to_vec().iter() {
+        for (asset_name, amount) in assets.iter() {
             aa.push((
                 asset_name.clone(),
                 PositiveCoin::try_from(i64::from(amount) as u64).unwrap(),
@@ -361,10 +359,10 @@ fn conway_coerce_to_non_zero_coin(
         }
         res.push((
             *policy,
-            NonEmptyKeyValuePairs::<AssetName, PositiveCoin>::try_from(aa).unwrap(),
+            aa.into_iter().collect(),
         ));
     }
-    Ok(ConwayMultiasset::try_from(res).unwrap())
+    Ok(res.into_iter().collect())
 }
 
 fn add_multiasset_values(first: &Multiasset<i64>, second: &Multiasset<i64>) -> Multiasset<i64> {
@@ -450,7 +448,7 @@ fn conway_add_multiasset_non_zero_values(
 
 fn add_same_policy_assets(
     old_assets: &HashMap<AssetName, i64>,
-    new_assets: &KeyValuePairs<AssetName, i64>,
+    new_assets: &std::collections::BTreeMap<AssetName, i64>,
 ) -> HashMap<AssetName, i64> {
     let mut res: HashMap<AssetName, i64> = old_assets.clone();
     for (asset_name, new_amount) in new_assets.iter() {
@@ -463,7 +461,7 @@ fn add_same_policy_assets(
 }
 fn conway_add_same_policy_assets(
     old_assets: &HashMap<AssetName, u64>,
-    new_assets: &NonEmptyKeyValuePairs<AssetName, u64>,
+    new_assets: &std::collections::BTreeMap<AssetName, u64>,
 ) -> HashMap<AssetName, u64> {
     let mut res: HashMap<AssetName, u64> = old_assets.clone();
     for (asset_name, new_amount) in new_assets.iter() {
@@ -477,7 +475,7 @@ fn conway_add_same_policy_assets(
 
 fn conway_add_same_non_zero_policy_assets(
     old_assets: &HashMap<AssetName, u64>,
-    new_assets: &NonEmptyKeyValuePairs<AssetName, NonZeroInt>,
+    new_assets: &std::collections::BTreeMap<AssetName, NonZeroInt>,
 ) -> HashMap<AssetName, u64> {
     let mut res: HashMap<AssetName, u64> = old_assets.clone();
     for (asset_name, new_amount) in new_assets.iter() {
@@ -493,39 +491,29 @@ fn conway_add_same_non_zero_policy_assets(
 }
 
 fn wrap_multiasset(input: HashMap<PolicyId, HashMap<AssetName, i64>>) -> Multiasset<i64> {
-    Multiasset::<i64>::from(
-        input
-            .into_iter()
-            .map(|(policy, assets)| {
-                (
-                    policy,
-                    KeyValuePairs::<AssetName, i64>::from(
-                        assets.into_iter().collect::<Vec<(AssetName, i64)>>(),
-                    ),
-                )
-            })
-            .collect::<Vec<(PolicyId, KeyValuePairs<AssetName, i64>)>>(),
-    )
+    input
+        .into_iter()
+        .map(|(policy, assets)| {
+            (
+                policy,
+                assets.into_iter().collect(),
+            )
+        })
+        .collect()
 }
 
 fn conway_wrap_multiasset(
     input: HashMap<PolicyId, HashMap<AssetName, u64>>,
 ) -> ConwayMultiasset<u64> {
-    ConwayMultiasset::try_from(
-        input
-            .into_iter()
-            .map(|(policy, assets)| {
-                (
-                    policy,
-                    NonEmptyKeyValuePairs::<AssetName, u64>::try_from(
-                        assets.into_iter().collect::<Vec<(AssetName, u64)>>(),
-                    )
-                    .unwrap(),
-                )
-            })
-            .collect::<Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, u64>)>>(),
-    )
-    .unwrap()
+    input
+        .into_iter()
+        .map(|(policy, assets)| {
+            (
+                policy,
+                assets.into_iter().collect(),
+            )
+        })
+        .collect()
 }
 
 pub fn values_are_equal(first: &Value, second: &Value) -> bool {
@@ -560,8 +548,8 @@ pub fn conway_values_are_equal(first: &ConwayValue, second: &ConwayValue) -> boo
 fn find_policy(
     mary_value: &Multiasset<Coin>,
     search_policy: &PolicyId,
-) -> Option<KeyValuePairs<AssetName, Coin>> {
-    for (policy, assets) in mary_value.clone().to_vec().iter() {
+) -> Option<std::collections::BTreeMap<AssetName, Coin>> {
+    for (policy, assets) in mary_value.iter() {
         if policy == search_policy {
             return Some(assets.clone());
         }
@@ -572,8 +560,8 @@ fn find_policy(
 fn conway_find_policy(
     mary_value: &ConwayMultiasset<PositiveCoin>,
     search_policy: &PolicyId,
-) -> Option<NonEmptyKeyValuePairs<AssetName, PositiveCoin>> {
-    for (policy, assets) in mary_value.clone().to_vec().iter() {
+) -> Option<std::collections::BTreeMap<AssetName, PositiveCoin>> {
+    for (policy, assets) in mary_value.iter() {
         if policy == search_policy {
             return Some(assets.clone());
         }
@@ -581,8 +569,8 @@ fn conway_find_policy(
     None
 }
 
-fn find_assets(assets: &KeyValuePairs<AssetName, Coin>, asset_name: &AssetName) -> Option<Coin> {
-    for (an, amount) in assets.clone().to_vec().iter() {
+fn find_assets(assets: &std::collections::BTreeMap<AssetName, Coin>, asset_name: &AssetName) -> Option<Coin> {
+    for (an, amount) in assets.iter() {
         if an == asset_name {
             return Some(*amount);
         }
@@ -590,10 +578,10 @@ fn find_assets(assets: &KeyValuePairs<AssetName, Coin>, asset_name: &AssetName) 
     None
 }
 fn conway_find_assets(
-    assets: &NonEmptyKeyValuePairs<AssetName, PositiveCoin>,
+    assets: &std::collections::BTreeMap<AssetName, PositiveCoin>,
     asset_name: &AssetName,
 ) -> Option<PositiveCoin> {
-    for (an, amount) in assets.clone().to_vec().iter() {
+    for (an, amount) in assets.iter() {
         if an == asset_name {
             return Some(*amount);
         }
