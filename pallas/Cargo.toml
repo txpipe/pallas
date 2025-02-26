@@ -30,5 +30,5 @@ wallet = ["pallas-wallet"]
 unstable = ["hardano", "wallet"]
 
 # pallas-validate feature flags
-phase_one = ["pallas-validate/phase_one"]
-phase_two = ["pallas-validate/phase_two"]
+phase-one = ["pallas-validate/phase_one"]
+phase-two = ["pallas-validate/phase_two"]
