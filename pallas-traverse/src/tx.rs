@@ -524,16 +524,10 @@ impl<'b> MultiEraTx<'b> {
 
     pub(crate) fn aux_data(&self) -> Option<&KeepRaw<'_, alonzo::AuxiliaryData>> {
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
-                x => x.as_ref(),
-            },
-            MultiEraTx::Babbage(x) => match &x.auxiliary_data {
-                x => x.as_ref(),
-            },
+            MultiEraTx::AlonzoCompatible(x, _) => x.auxiliary_data.as_ref(),
+            MultiEraTx::Babbage(x) => x.auxiliary_data.as_ref(),
             MultiEraTx::Byron(_) => None,
-            MultiEraTx::Conway(x) => match &x.auxiliary_data {
-                x => x.as_ref(),
-            },
+            MultiEraTx::Conway(x) => x.auxiliary_data.as_ref(),
         }
     }
 
