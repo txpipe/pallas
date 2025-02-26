@@ -13,8 +13,9 @@ macro_rules! param_boilerplate {
                     $(
                         MultiEraUpdate::$variant(x) => x
                             .proposed_protocol_parameter_updates
-                            .first()
-                            .and_then(|x| x.1.$name.clone()),
+                            .values()
+                            .next()
+                            .and_then(|x| x.$name.clone()),
                     )*
 
                     _ => None,
@@ -29,8 +30,8 @@ macro_rules! param_boilerplate {
                     $(
                         MultiEraUpdate::$variant(x) => x
                             .proposed_protocol_parameter_updates
-                            .iter()
-                            .map(|x| x.1.$name.clone())
+                            .values()
+                            .map(|x| x.$name.clone())
                             .flatten()
                             .collect::<Vec<_>>(),
                     )*
@@ -167,8 +168,9 @@ impl<'b> MultiEraUpdate<'b> {
         match self {
             MultiEraUpdate::AlonzoCompatible(x) => x
                 .proposed_protocol_parameter_updates
-                .first()
-                .and_then(|x| x.1.cost_models_for_script_languages.clone()),
+                .values()
+                .next()
+                .and_then(|x| x.cost_models_for_script_languages.clone()),
             _ => None,
         }
     }
@@ -179,8 +181,9 @@ impl<'b> MultiEraUpdate<'b> {
         match self {
             MultiEraUpdate::Babbage(x) => x
                 .proposed_protocol_parameter_updates
-                .first()
-                .and_then(|x| x.1.cost_models_for_script_languages.clone()),
+                .values()
+                .next()
+                .and_then(|x| x.cost_models_for_script_languages.clone()),
             _ => None,
         }
     }
@@ -191,8 +194,9 @@ impl<'b> MultiEraUpdate<'b> {
         match self {
             MultiEraUpdate::Conway(x) => x
                 .proposed_protocol_parameter_updates
-                .first()
-                .and_then(|x| x.1.cost_models_for_script_languages.clone()),
+                .values()
+                .next()
+                .and_then(|x| x.cost_models_for_script_languages.clone()),
             _ => None,
         }
     }
