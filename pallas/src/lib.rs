@@ -25,6 +25,9 @@ pub mod ledger {
     pub use pallas_addresses as addresses;
 
     #[doc(inline)]
+    pub use pallas_validate as validate;
+
+    #[doc(inline)]
     // WARNING: this is deprecated, use `pallas::interop::hardano::configs` instead.
     // Since deprecation notices don't work for re-exports we don't have a way to notify users.
     pub use pallas_configs as configs;
@@ -87,21 +90,3 @@ pub mod wallet {
 // WARNING: this is deprecated, use `pallas::wallet::txbuilder` instead.
 // Since deprecation notices don't work for re-exports we don't have a way to notify users.
 pub use pallas_txbuilder as txbuilder;
-
-pub mod validate {
-    //! Utilities for Cardano tx validation
-
-    #[doc(inline)]
-    pub use pallas_validate::utils;
-
-    #[doc(inline)]
-    pub use pallas_validate::phase_one;
-
-    #[cfg(feature = "phase-two")]
-    #[doc(inline)]
-    pub use pallas_validate::uplc;
-
-    #[cfg(feature = "phase-two")]
-    #[doc(inline)]
-    pub use pallas_validate::phase_two;
-}
