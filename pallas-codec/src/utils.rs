@@ -892,17 +892,22 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for AnyUInt {
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
     ) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::U8 => match d.u8()? {
+        let data_type = d.datatype()?;
+
+        use minicbor::data::Type::*;
+        match data_type {
+            U8 => match d.u8()? {
                 x @ 0..=0x17 => Ok(AnyUInt::MajorByte(x)),
                 x @ 0x18..=0xff => Ok(AnyUInt::U8(x)),
             },
-            minicbor::data::Type::U16 => Ok(AnyUInt::U16(d.u16()?)),
-            minicbor::data::Type::U32 => Ok(AnyUInt::U32(d.u32()?)),
-            minicbor::data::Type::U64 => Ok(AnyUInt::U64(d.u64()?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid data type for AnyUInt",
-            )),
+            U16 => Ok(AnyUInt::U16(d.u16()?)),
+            U32 => Ok(AnyUInt::U32(d.u32()?)),
+            U64 => Ok(AnyUInt::U64(d.u64()?)),
+            _ => Err(minicbor::decode::Error::message(format!(
+                "invalid data type for AnyUInt at position {}: {}",
+                d.position(),
+                data_type
+            ))),
         }
     }
 }
