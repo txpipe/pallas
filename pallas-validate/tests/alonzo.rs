@@ -1,35 +1,33 @@
 pub mod common;
 
-use common::*;
-
-use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::{
-    minicbor::{
-        decode::{Decode, Decoder},
-        encode,
-    },
-    utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
-};
-use pallas_primitives::alonzo::{
-    AddrKeyhash, CostModel, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
-    NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer,
-    RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
-};
-use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
-use pallas_validate::{
-    phase_one::validate_txs,
-    utils::{
-        AccountState, AlonzoError, AlonzoProtParams, CertState, Environment,
-        MultiEraProtocolParameters, UTxOs, ValidationError::*,
-    },
-};
-use std::borrow::Cow;
-
-#[cfg(test)]
+#[cfg(all(test, feature = "phase_one"))]
 mod alonzo_tests {
     use pallas_primitives::MaybeIndefArray;
 
-    use super::*;
+    use crate::common::*;
+
+    use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
+    use pallas_codec::{
+        minicbor::{
+            decode::{Decode, Decoder},
+            encode,
+        },
+        utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
+    };
+    use pallas_primitives::alonzo::{
+        AddrKeyhash, CostModel, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
+        NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer,
+        RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
+    };
+    use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
+    use pallas_validate::{
+        phase_one::validate_txs,
+        utils::{
+            AccountState, AlonzoError, AlonzoProtParams, CertState, Environment,
+            MultiEraProtocolParameters, UTxOs, ValidationError::*,
+        },
+    };
+    use std::borrow::Cow;
 
     #[test]
     // Transaction hash:

@@ -1,36 +1,36 @@
 pub mod common;
 
-use common::*;
-use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
-use pallas_codec::{
-    minicbor::{
-        decode::{Decode, Decoder},
-        encode,
-    },
-    utils::Nullable,
-};
-use pallas_primitives::babbage::{
-    CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
-    MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
-    NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript, PseudoDatumOption, PseudoScript,
-    PseudoTransactionOutput, RationalNumber, Redeemer, RedeemerTag, Value,
-};
-use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
-use pallas_validate::{
-    phase_one::validate_txs,
-    utils::{
-        AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
-        PostAlonzoError, UTxOs, ValidationError::*,
-    },
-};
-use std::borrow::Cow;
-
-#[cfg(test)]
+#[cfg(all(test, feature = "phase_one"))]
 mod babbage_tests {
+    use crate::common::*;
+
     use pallas_primitives::MaybeIndefArray;
 
-    use super::*;
+    use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
+    use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
+    use pallas_codec::{
+        minicbor::{
+            decode::{Decode, Decoder},
+            encode,
+        },
+        utils::Nullable,
+    };
+    use pallas_primitives::babbage::{
+        CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
+        MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx,
+        MintedWitnessSet, NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript,
+        PseudoDatumOption, PseudoScript, PseudoTransactionOutput, RationalNumber, Redeemer,
+        RedeemerTag, Value,
+    };
+    use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
+    use pallas_validate::{
+        phase_one::validate_txs,
+        utils::{
+            AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
+            PostAlonzoError, UTxOs, ValidationError::*,
+        },
+    };
+    use std::borrow::Cow;
 
     #[test]
     // Transaction hash:

@@ -278,7 +278,7 @@ pub fn conway_multi_asset_included(
             Some(sassets) => {
                 for (fasset_name, famount) in fassets.iter() {
                     // Discard the case where there is 0 of an asset
-                    if *famount != PositiveCoin::try_from(0).unwrap() {
+                    if *famount >= PositiveCoin::try_from(1).unwrap() {
                         match conway_find_assets(&sassets, fasset_name) {
                             Some(samount) => {
                                 if *famount != samount {

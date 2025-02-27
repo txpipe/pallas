@@ -1,28 +1,27 @@
 pub mod common;
 
-use common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
-use pallas_validate::{
-    phase_one::validate_txs,
-    utils::{
-        ByronError, ByronProtParams, CertState, Environment, MultiEraProtocolParameters, UTxOs,
-        ValidationError::*,
-    },
-};
-
-use pallas_codec::{
-    minicbor::{
-        decode::{Decode, Decoder},
-        encode,
-    },
-    utils::{CborWrap, MaybeIndefArray},
-};
-use pallas_primitives::byron::{MintedTxPayload, Twit, Tx, TxOut, Witnesses};
-use pallas_traverse::MultiEraTx;
-use std::vec::Vec;
-
-#[cfg(test)]
+#[cfg(all(test, feature = "phase_one"))]
 mod byron_tests {
-    use super::*;
+
+    use crate::common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
+    use pallas_validate::{
+        phase_one::validate_txs,
+        utils::{
+            ByronError, ByronProtParams, CertState, Environment, MultiEraProtocolParameters, UTxOs,
+            ValidationError::*,
+        },
+    };
+
+    use pallas_codec::{
+        minicbor::{
+            decode::{Decode, Decoder},
+            encode,
+        },
+        utils::{CborWrap, MaybeIndefArray},
+    };
+    use pallas_primitives::byron::{MintedTxPayload, Twit, Tx, TxOut, Witnesses};
+    use pallas_traverse::MultiEraTx;
+    use std::vec::Vec;
 
     macro_rules! hardcoded_environment_values {
         ($($key:ident = $value:expr),*) => {
