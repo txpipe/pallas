@@ -1,4 +1,4 @@
-# Pallas Applying
+# Pallas Validate
 
 Crate for performing transaction validation according to the Cardano protocol. Generally speaking, this crate is structured in multiple modules, each one handling a specific Cardano era. These eras are: Byron, ShelleyMA, Alonzo and Babbage.
 

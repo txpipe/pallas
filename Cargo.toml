@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "pallas-applying",
   "pallas-codec",
   "pallas-addresses",
   "pallas-network",
@@ -14,6 +13,7 @@ members = [
   "pallas-hardano",
   "pallas-wallet",
   "pallas-math",
+  "pallas-validate",
   "pallas",
   "examples/block-download",
   "examples/block-decode",

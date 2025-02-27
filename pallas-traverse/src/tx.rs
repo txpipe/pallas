@@ -28,6 +28,10 @@ impl<'b> MultiEraTx<'b> {
         Self::Babbage(Box::new(Cow::Borrowed(tx)))
     }
 
+    pub fn from_conway(tx: &'b conway::MintedTx<'b>) -> Self {
+        Self::Conway(Box::new(Cow::Borrowed(tx)))
+    }
+
     pub fn encode(&self) -> Vec<u8> {
         // to_vec is infallible
         match self {

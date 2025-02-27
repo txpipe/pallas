@@ -14,16 +14,84 @@ use pallas_primitives::{
     alonzo::{MintedTx as AlonzoMintedTx, Multiasset, NativeScript, VKeyWitness, Value},
     babbage::MintedTx as BabbageMintedTx,
     conway::{MintedTx as ConwayMintedTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
-    AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, NetworkId,
+    AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, Hash, NetworkId,
     NonEmptyKeyValuePairs, NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
     PositiveCoin, Relay, RewardAccount, StakeCredential, TransactionIndex, UnitInterval,
     VrfKeyhash,
 };
 
-use pallas_traverse::{time::Slot, MultiEraInput, MultiEraOutput};
-use std::collections::HashMap;
+use pallas_traverse::{time::Slot, Era, MultiEraInput, MultiEraOutput, MultiEraUpdate};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 pub use validation::*;
+
+pub type TxHash = Hash<32>;
+pub type TxoIdx = u32;
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct EraCbor(pub Era, pub Vec<u8>);
+
+impl From<(Era, Vec<u8>)> for EraCbor {
+    fn from(value: (Era, Vec<u8>)) -> Self {
+        Self(value.0, value.1)
+    }
+}
+
+impl From<EraCbor> for (Era, Vec<u8>) {
+    fn from(value: EraCbor) -> Self {
+        (value.0, value.1)
+    }
+}
+
+impl From<MultiEraOutput<'_>> for EraCbor {
+    fn from(value: MultiEraOutput<'_>) -> Self {
+        EraCbor(value.era(), value.encode())
+    }
+}
+
+impl<'a> TryFrom<&'a EraCbor> for MultiEraOutput<'a> {
+    type Error = pallas_codec::minicbor::decode::Error;
+
+    fn try_from(value: &'a EraCbor) -> Result<Self, Self::Error> {
+        MultiEraOutput::decode(value.0, &value.1)
+    }
+}
+
+impl TryFrom<EraCbor> for MultiEraUpdate<'_> {
+    type Error = pallas_codec::minicbor::decode::Error;
+
+    fn try_from(value: EraCbor) -> Result<Self, Self::Error> {
+        MultiEraUpdate::decode_for_era(value.0, &value.1)
+    }
+}
+
+pub type UtxoBody<'a> = MultiEraOutput<'a>;
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+pub struct TxoRef(pub TxHash, pub TxoIdx);
+
+impl From<(TxHash, TxoIdx)> for TxoRef {
+    fn from(value: (TxHash, TxoIdx)) -> Self {
+        Self(value.0, value.1)
+    }
+}
+
+impl From<TxoRef> for (TxHash, TxoIdx) {
+    fn from(value: TxoRef) -> Self {
+        (value.0, value.1)
+    }
+}
+
+impl From<&MultiEraInput<'_>> for TxoRef {
+    fn from(value: &MultiEraInput<'_>) -> Self {
+        TxoRef(*value.hash(), value.index() as u32)
+    }
+}
+
+pub type UtxoMap = HashMap<TxoRef, EraCbor>;
+
+pub type UtxoSet = HashSet<TxoRef>;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
@@ -210,7 +278,7 @@ pub fn conway_multi_asset_included(
             Some(sassets) => {
                 for (fasset_name, famount) in fassets.iter() {
                     // Discard the case where there is 0 of an asset
-                    if *famount != PositiveCoin::try_from(0).unwrap() {
+                    if *famount >= PositiveCoin::try_from(1).unwrap() {
                         match conway_find_assets(&sassets, fasset_name) {
                             Some(samount) => {
                                 if *famount != samount {

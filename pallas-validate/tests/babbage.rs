@@ -1,36 +1,35 @@
 pub mod common;
 
-use common::*;
-use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-use pallas_applying::{
-    utils::{
-        AccountState, BabbageProtParams, Environment, MultiEraProtocolParameters, PostAlonzoError,
-        ValidationError::*,
-    },
-    validate_txs, CertState, UTxOs,
-};
-use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
-use pallas_codec::{
-    minicbor::{
-        decode::{Decode, Decoder},
-        encode,
-    },
-    utils::Nullable,
-};
-use pallas_primitives::babbage::{
-    CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
-    MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
-    NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript, PseudoDatumOption, PseudoScript,
-    PseudoTransactionOutput, RationalNumber, Redeemer, RedeemerTag, Value,
-};
-use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
-use std::borrow::Cow;
-
-#[cfg(test)]
 mod babbage_tests {
+    use crate::common::*;
+
     use pallas_primitives::MaybeIndefArray;
 
-    use super::*;
+    use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
+    use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
+    use pallas_codec::{
+        minicbor::{
+            decode::{Decode, Decoder},
+            encode,
+        },
+        utils::Nullable,
+    };
+    use pallas_primitives::babbage::{
+        CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
+        MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx,
+        MintedWitnessSet, NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript,
+        PseudoDatumOption, PseudoScript, PseudoTransactionOutput, RationalNumber, Redeemer,
+        RedeemerTag, Value,
+    };
+    use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
+    use pallas_validate::{
+        phase_one::validate_txs,
+        utils::{
+            AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
+            PostAlonzoError, UTxOs, ValidationError::*,
+        },
+    };
+    use std::borrow::Cow;
 
     #[test]
     // Transaction hash:
@@ -1105,6 +1104,28 @@ mod babbage_tests {
                     )])),
                 ),
                 None,
+                None,
+            ),
+            (
+                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
+                None,
+            ),
+            (
+                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                Value::Coin(25000000),
+                Some(PseudoDatumOption::Hash(
+                    hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                )),
                 None,
             ),
         ];

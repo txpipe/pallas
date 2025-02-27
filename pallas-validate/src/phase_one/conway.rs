@@ -21,11 +21,10 @@ use pallas_primitives::{
     babbage,
     conway::{
         Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
-        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer,
-        Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value,
+        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value,
     },
-    AddrKeyhash, Hash, NonEmptyKeyValuePairs, PlutusData, PlutusScript, PolicyId, PositiveCoin,
-    TransactionInput,
+    AddrKeyhash, Hash, NonEmptyKeyValuePairs, PlutusData, PlutusScript, PolicyId,
+    PositiveCoin, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
@@ -270,7 +269,31 @@ fn check_collaterals_assets(
                 }
             }
             let coll_return: Value = match &tx_body.collateral_return {
-                Some(PseudoTransactionOutput::Legacy(_)) => todo!("Legacy output"),
+                Some(PseudoTransactionOutput::Legacy(output)) => {
+                    let amount = output.amount.clone();
+                    match amount {
+                        babbage::Value::Coin(coin) => Value::Coin(coin),
+                        babbage::Value::Multiasset(coin, assets) => {
+                            let mut conway_assets = Vec::new();
+                            for (key, val) in assets.to_vec() {
+                                let mut conway_value = Vec::new();
+                                for (inner_key, inner_val) in val.to_vec() {
+                                    conway_value.push((
+                                        inner_key,
+                                        PositiveCoin::try_from(inner_val).unwrap(),
+                                    ));
+                                }
+                                conway_assets.push((
+                                    key,
+                                    NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                                ));
+                            }
+                            let conway_assets =
+                                NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                            Value::Multiasset(coin, conway_assets)
+                        }
+                    }
+                }
                 Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
                 None => Value::Coin(0),
             };
@@ -638,7 +661,13 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let tx_body: &MintedTransactionBody = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let vkey_wits: &Option<Vec<VKeyWitness>> = &Some(tx_wits.vkeywitness.clone().unwrap().to_vec());
+    let vkey_wits: &Option<Vec<VKeyWitness>> = &Some(
+        tx_wits
+            .vkeywitness
+            .clone()
+            .map(|wits| wits.to_vec())
+            .unwrap_or_else(|| Vec::new()),
+    );
     let native_scripts: Vec<PolicyId> = match &tx_wits.native_script {
         Some(scripts) => scripts
             .clone()
@@ -695,7 +724,13 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
     check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
     check_vkey_input_wits(
         mtx,
-        &Some(tx_wits.vkeywitness.clone().unwrap().to_vec()),
+        &Some(
+            tx_wits
+                .vkeywitness
+                .clone()
+                .map(|wits| wits.to_vec())
+                .unwrap_or_else(|| Vec::new()),
+        ),
         utxos,
     )
 }
@@ -1606,49 +1641,19 @@ fn check_script_data_hash(
                 // The Plutus data part of the script integrity hash may either need to be
                 // serialized as a indefinite-length array, or a definite-length one.
                 // TODO: compute only the correct hash, not both of them.
-                match redeemer.clone().unwrap() {
-                    Redeemers::List(redeemers) => {
-                        let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
-                            &tx_languages(mtx, utxos),
-                            &plutus_data,
-                            &redeemers.to_vec(),
-                            network_magic,
-                            network_id,
-                            block_slot,
-                        );
-                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
-                        {
-                            Ok(())
-                        } else {
-                            Err(PostAlonzo(ScriptIntegrityHash))
-                        }
-                    }
-                    Redeemers::Map(redeemers) => {
-                        let redeemers: Vec<Redeemer> = redeemers
-                            .iter()
-                            .map(|x| Redeemer {
-                                tag: x.0.tag,
-                                index: x.0.index,
-                                data: x.1.data.clone(),
-                                ex_units: x.1.ex_units,
-                            })
-                            .collect();
+                let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
+                    &tx_languages(mtx, utxos),
+                    &plutus_data,
+                    &redeemer.clone().unwrap(),
+                    network_magic,
+                    network_id,
+                    block_slot,
+                );
 
-                        let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
-                            &tx_languages(mtx, utxos),
-                            &plutus_data,
-                            &redeemers,
-                            network_magic,
-                            network_id,
-                            block_slot,
-                        );
-                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
-                        {
-                            Ok(())
-                        } else {
-                            Err(PostAlonzo(ScriptIntegrityHash))
-                        }
-                    }
+                if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
+                    Ok(())
+                } else {
+                    Err(PostAlonzo(ScriptIntegrityHash))
                 }
             }
             (None, Some(redeemer)) => {
@@ -1656,49 +1661,19 @@ fn check_script_data_hash(
                 // The Plutus data part of the script integrity hash may either need to be
                 // serialized as a indefinite-length array, or a definite-length one.
                 // TODO: compute only the correct hash, not both of them.
-                match redeemer.clone().unwrap() {
-                    Redeemers::List(redeemers) => {
-                        let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
-                            &tx_languages(mtx, utxos),
-                            &plutus_data,
-                            &redeemers.to_vec(),
-                            network_magic,
-                            network_id,
-                            block_slot,
-                        );
-                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
-                        {
-                            Ok(())
-                        } else {
-                            Err(PostAlonzo(ScriptIntegrityHash))
-                        }
-                    }
-                    Redeemers::Map(redeemers) => {
-                        let redeemers: Vec<Redeemer> = redeemers
-                            .iter()
-                            .map(|x| Redeemer {
-                                tag: x.0.tag,
-                                index: x.0.index,
-                                data: x.1.data.clone(),
-                                ex_units: x.1.ex_units,
-                            })
-                            .collect();
+                let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
+                    &tx_languages(mtx, utxos),
+                    &plutus_data,
+                    &redeemer.clone().unwrap(),
+                    network_magic,
+                    network_id,
+                    block_slot,
+                );
 
-                        let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
-                            &tx_languages(mtx, utxos),
-                            &plutus_data,
-                            &redeemers,
-                            network_magic,
-                            network_id,
-                            block_slot,
-                        );
-                        if script_data_hash == indefinite_hash || script_data_hash == definite_hash
-                        {
-                            Ok(())
-                        } else {
-                            Err(PostAlonzo(ScriptIntegrityHash))
-                        }
-                    }
+                if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
+                    Ok(())
+                } else {
+                    Err(PostAlonzo(ScriptIntegrityHash))
                 }
             }
             (None, None) => Err(PostAlonzo(ScriptIntegrityHash)),
@@ -1750,7 +1725,7 @@ fn check_script_data_hash(
 fn compute_script_integrity_hash(
     tx_languages: &[Language],
     plutus_data: &[PlutusData],
-    redeemer: &[Redeemer],
+    redeemer: &Redeemers,
     network_magic: &u32,
     network_id: &u8,
     block_slot: &u64,

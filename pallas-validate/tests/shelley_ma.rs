@@ -1,33 +1,32 @@
 pub mod common;
 
-use common::*;
-use pallas_addresses::{Address, Network, ShelleyAddress};
-use pallas_applying::utils::PoolParam;
-use pallas_applying::{
-    utils::{
-        AccountState, Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
-        ValidationError::*,
-    },
-    validate_txs, CertState, UTxOs,
-};
-use pallas_codec::{
-    minicbor::{
-        decode::{Decode, Decoder},
-        encode,
-    },
-    utils::{Bytes, Nullable},
-};
-use pallas_crypto::hash::Hash;
-use pallas_primitives::alonzo::{
-    Certificate, MintedTx, MintedWitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
-    RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness, Value,
-};
-use pallas_traverse::{Era, MultiEraTx};
-use std::str::FromStr;
-
-#[cfg(test)]
 mod shelley_ma_tests {
-    use super::*;
+
+    use crate::common::*;
+    use pallas_addresses::{Address, Network, ShelleyAddress};
+    use pallas_codec::{
+        minicbor::{
+            decode::{Decode, Decoder},
+            encode,
+        },
+        utils::{Bytes, Nullable},
+    };
+    use pallas_crypto::hash::Hash;
+    use pallas_primitives::alonzo::{
+        Certificate, MintedTx, MintedWitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
+        RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness,
+        Value,
+    };
+    use pallas_traverse::{Era, MultiEraTx};
+    use pallas_validate::utils::PoolParam;
+    use pallas_validate::{
+        phase_one::validate_txs,
+        utils::{
+            AccountState, CertState, Environment, MultiEraProtocolParameters, ShelleyMAError,
+            ShelleyProtParams, UTxOs, ValidationError::*,
+        },
+    };
+    use std::str::FromStr;
 
     macro_rules! hardcoded_environment_values {
         ($($key:ident = $value:expr),*) => {
