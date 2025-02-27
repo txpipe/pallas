@@ -24,7 +24,7 @@ use pallas_primitives::{
         NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer,
         Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value,
     },
-    AddrKeyhash, Hash, NonEmptyKeyValuePairs, PlutusData, PlutusScript, PolicyId, PositiveCoin,
+    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin,
     TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
@@ -305,16 +305,16 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
                 babbage::Value::Coin(coin) => Value::Coin(coin),
                 babbage::Value::Multiasset(coin, assets) => {
                     let mut conway_assets = Vec::new();
-                    for (key, val) in assets.to_vec() {
+                    for (key, val) in assets.into_iter() {
                         let mut conway_value = Vec::new();
-                        for (inner_key, inner_val) in val.to_vec() {
+                        for (inner_key, inner_val) in val.into_iter() {
                             conway_value
                                 .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                         }
                         conway_assets
-                            .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                            .push((key, conway_value.into_iter().collect()));
                     }
-                    let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                    let conway_assets = conway_assets.into_iter().collect();
                     Value::Multiasset(coin, conway_assets)
                 }
             }
@@ -374,16 +374,16 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                 babbage::Value::Coin(coin) => Value::Coin(coin),
                 babbage::Value::Multiasset(coin, assets) => {
                     let mut conway_assets = Vec::new();
-                    for (key, val) in assets.to_vec() {
+                    for (key, val) in assets.into_iter() {
                         let mut conway_value = Vec::new();
-                        for (inner_key, inner_val) in val.to_vec() {
+                        for (inner_key, inner_val) in val.into_iter() {
                             conway_value
                                 .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                         }
                         conway_assets
-                            .push((key, NonEmptyKeyValuePairs::from_vec(conway_value).unwrap()));
+                            .push((key, conway_value.into_iter().collect()));
                     }
-                    let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                    let conway_assets = conway_assets.into_iter().collect();
                     Value::Multiasset(coin, conway_assets)
                 }
             }
@@ -401,18 +401,18 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                     }
                     babbage::Value::Multiasset(coin, assets) => {
                         let mut conway_assets = Vec::new();
-                        for (key, val) in assets.to_vec() {
+                        for (key, val) in assets.into_iter() {
                             let mut conway_value = Vec::new();
-                            for (inner_key, inner_val) in val.to_vec() {
+                            for (inner_key, inner_val) in val.into_iter() {
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
                             conway_assets.push((
                                 key,
-                                NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                                conway_value.into_iter().collect(),
                             ));
                         }
-                        let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                        let conway_assets = conway_assets.into_iter().collect();
                         res = conway_add_values(
                             &res,
                             &Value::Multiasset(coin, conway_assets),
@@ -441,18 +441,18 @@ fn check_min_lovelace(
                     babbage::Value::Coin(coin) => &Value::Coin(coin),
                     babbage::Value::Multiasset(coin, assets) => {
                         let mut conway_assets = Vec::new();
-                        for (key, val) in assets.to_vec() {
+                        for (key, val) in assets.into_iter() {
                             let mut conway_value = Vec::new();
-                            for (inner_key, inner_val) in val.to_vec() {
+                            for (inner_key, inner_val) in val.into_iter() {
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
                             conway_assets.push((
                                 key,
-                                NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                                conway_value.into_iter().collect(),
                             ));
                         }
-                        let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                        let conway_assets = conway_assets.into_iter().collect();
                         &Value::Multiasset(coin, conway_assets)
                     }
                 }
@@ -484,18 +484,18 @@ fn check_output_val_size(
                     babbage::Value::Coin(coin) => &Value::Coin(coin),
                     babbage::Value::Multiasset(coin, assets) => {
                         let mut conway_assets = Vec::new();
-                        for (key, val) in assets.to_vec() {
+                        for (key, val) in assets.into_iter() {
                             let mut conway_value = Vec::new();
-                            for (inner_key, inner_val) in val.to_vec() {
+                            for (inner_key, inner_val) in val.into_iter() {
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
                             conway_assets.push((
                                 key,
-                                NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
+                                conway_value.into_iter().collect(),
                             ));
                         }
-                        let conway_assets = NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                        let conway_assets = conway_assets.into_iter().collect();
                         &Value::Multiasset(coin, conway_assets)
                     }
                 }
@@ -1213,7 +1213,6 @@ fn mk_plutus_script_redeemer_pointers(
 fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
     let mut res: Vec<PolicyId> = mint
         .clone()
-        .to_vec()
         .iter()
         .map(|(policy_id, _)| *policy_id)
         .collect();
@@ -1727,7 +1726,7 @@ fn check_script_data_hash(
                             }
                         }
                         Redeemers::Map(redeemers) => {
-                            if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
+                            if !option_vec_is_empty(&Some(redeemers.clone().iter().collect())) {
                                 return Err(PostAlonzo(ScriptIntegrityHash));
                             }
                         }

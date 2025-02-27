@@ -1170,6 +1170,29 @@ impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
     }
 }
 
+impl<T: Serialize> Serialize for KeepRaw<'_, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.deref().serialize(serializer)
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for KeepRaw<'_, T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let inner: T = T::deserialize(deserializer)?;
+
+        Ok(Self {
+            inner,
+            raw: Cow::from(vec![]),
+        })
+    }
+}
+
 /// Struct to hold arbitrary CBOR to be processed independently
 ///
 /// # Examples

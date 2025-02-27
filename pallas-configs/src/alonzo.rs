@@ -75,13 +75,11 @@ pub struct CostModelPerLanguage(HashMap<Language, CostModel>);
 
 impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostModels {
     fn from(value: CostModelPerLanguage) -> Self {
-        let inner = value
+        value
             .0
             .into_iter()
             .map(|(k, v)| (k.into(), v.into()))
-            .collect();
-
-        Self::Def(inner)
+            .collect()
     }
 }
 
