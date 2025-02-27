@@ -1,6 +1,5 @@
 pub mod common;
 
-#[cfg(all(test, feature = "phase_one"))]
 mod byron_tests {
 
     use crate::common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};

@@ -1,6 +1,5 @@
 pub mod common;
 
-#[cfg(all(test, feature = "phase_one"))]
 mod babbage_tests {
     use crate::common::*;
 
