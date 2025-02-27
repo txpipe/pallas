@@ -9,8 +9,6 @@ use pallas_primitives::conway::{
 use pallas_primitives::{
     AddrKeyhash, PolicyId, ProtocolVersion, ScriptHash, Set, StakeCredential, TransactionInput,
 };
-use serde::Serialize;
-use serde_with::SerializeDisplay;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -32,7 +30,7 @@ pub enum Message<Tx, Reject> {
 pub struct EraTx(pub u16, pub Vec<u8>);
 
 // https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271
-#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ShelleyBasedEra {
     ShelleyBasedEraShelley,
     ShelleyBasedEraAllegra,
@@ -86,7 +84,7 @@ pub type PlutusPurposeItem = PlutusPurpose<
 /// Purpose with the corresponding index. It corresponds to
 /// [`ConwayPlutusPurpose`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs#L188-L194)
 /// in the Haskell sources, where the higher-order argument `f` equals `AsIx`.
-pub type PlutusPurposeIx = PlutusPurpose<u32, u32, u32, u32, u32, u32>;
+pub type PlutusPurposeIx = PlutusPurpose<u64, u64, u64, u64, u64, u64>;
 
 #[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
 #[cbor(index_only)]
@@ -194,7 +192,7 @@ impl From<&u64> for DisplayCoin {
     }
 }
 
-#[derive(Debug, Decode, Clone, Eq, PartialEq)]
+#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct DisplayAddress(#[n(0)] pub Bytes);
 
@@ -213,7 +211,7 @@ pub enum Network {
     Mainnet,
 }
 
-#[derive(Debug, Decode, Clone, Eq, PartialEq)]
+#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct DeltaCoin(#[n(0)] pub i32);
 
@@ -279,7 +277,7 @@ pub enum SMaybe<T> {
 #[cbor(transparent)]
 pub struct Array<T: Clone>(#[n(0)] pub Vec<T>);
 
-#[derive(Debug, Decode, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Decode, Encode, Hash, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
 pub struct VKey(#[n(0)] pub Bytes);
 
@@ -289,7 +287,7 @@ pub struct KeyHash(#[n(0)] pub Bytes);
 
 /// Conway era transaction errors. It corresponds to [ConwayUtxowPredFailure](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs#L94)
 /// in the Haskell sources.
-#[derive(Debug, SerializeDisplay, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ConwayUtxoWPredFailure {
     UtxoFailure(UtxoFailure),
     InvalidWitnessesUTXOW(Array<VKey>),
@@ -357,7 +355,7 @@ pub struct AsIx(#[n(0)] pub u64);
 /// in the Haskell sources.
 ///
 /// The `u8` variant appears for backward compatibility.
-#[derive(Debug, SerializeDisplay, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ApplyConwayTxPredError {
     ConwayUtxowFailure(ConwayUtxoWPredFailure),
     ConwayCertsFailure(ConwayCertsPredFailure),
@@ -435,7 +433,7 @@ pub enum ConwayDelegPredFailure {
 }
 
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Gov.hs#L164
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
+#[derive(Debug, Encode, Clone, Eq, PartialEq)]
 pub enum ConwayGovPredFailure {
     #[n(0)]
     GovActionsDoNotExist(#[n(0)] Vec<GovActionId>),
@@ -483,8 +481,7 @@ pub enum ConwayGovPredFailure {
 }
 
 /// Reject reason. It can be a pair of an era number and a sequence of errors, or else a string.
-#[derive(Debug, Serialize, Clone, Eq, PartialEq)]
-#[serde(tag = "kind")]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TxValidationError {
     ByronTxValidationError {
         error: ApplyTxError,
@@ -502,5 +499,5 @@ impl From<String> for TxValidationError {
     }
 }
 
-#[derive(Debug, Serialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ApplyTxError(pub Vec<ApplyConwayTxPredError>);
