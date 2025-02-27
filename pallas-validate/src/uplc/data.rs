@@ -2,7 +2,6 @@ use pallas_primitives::{BigInt, Constr, PlutusData};
 
 pub struct Data;
 
-// TODO: See about moving these builders upstream to Pallas?
 impl Data {
     pub fn to_hex(data: PlutusData) -> String {
         let mut bytes = Vec::new();
