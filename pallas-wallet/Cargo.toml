@@ -16,5 +16,5 @@ pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
 ed25519-bip32 = "0.4.1"
 bip39 = { version = "2.0.0", features = ["rand_core"] }
 cryptoxide = "0.4.4"
-bech32 = "0.9.1"
+bech32 = "0.11.0"
 rand = "0.8.5"
