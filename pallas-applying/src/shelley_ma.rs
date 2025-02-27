@@ -467,7 +467,7 @@ fn check_certificates(
                         reward_account: reward_account.clone(),
                         pool_owners: pool_owners.clone(),
                         relays: relays.clone(),
-                        pool_metadata: pool_metadata.clone().into(),
+                        pool_metadata: pool_metadata.clone(),
                     };
                     check_pool_reg_or_update(operator, &pool_param, &mpc, &mut cert_state.pstate)?;
                 }

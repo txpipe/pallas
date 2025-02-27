@@ -1,4 +1,4 @@
-use crate::KeyValuePairs;
+use crate::BTreeMap;
 use pallas_codec::utils::Int;
 use pallas_codec::{
     minicbor::{
@@ -14,7 +14,7 @@ use std::{fmt, ops::Deref};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
-    Map(KeyValuePairs<PlutusData, PlutusData>),
+    Map(BTreeMap<PlutusData, PlutusData>),
     BigInt(BigInt),
     BoundedBytes(BoundedBytes),
     Array(MaybeIndefArray<PlutusData>),

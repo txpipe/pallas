@@ -14,8 +14,8 @@ pub use framework::*;
 pub use pallas_codec::codec_by_datatype;
 
 pub use pallas_codec::utils::{
-    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
-    NonZeroInt, Nullable, PositiveCoin, Set,
+    Bytes, Int, KeepRaw, MaybeIndefArray, NonEmptySet,
+    NonZeroInt, PositiveCoin, Set,
 };
 pub use pallas_crypto::hash::Hash;
 
@@ -204,8 +204,8 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Relay {
-    SingleHostAddr(Nullable<Port>, Nullable<IPv4>, Nullable<IPv6>),
-    SingleHostName(Nullable<Port>, DnsName),
+    SingleHostAddr(Option<Port>, Option<IPv4>, Option<IPv6>),
+    SingleHostName(Option<Port>, DnsName),
     MultiHostName(DnsName),
 }
 

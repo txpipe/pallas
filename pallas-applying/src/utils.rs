@@ -7,7 +7,7 @@ pub use environment::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::encode,
-    utils::{Bytes, Nullable},
+    utils::Bytes,
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
@@ -737,7 +737,7 @@ pub struct PoolParam {
     pub reward_account: RewardAccount, // FIXME: Should be a `StakeCredential`, or `Hash<_>`???
     pub pool_owners: Vec<AddrKeyhash>,
     pub relays: Vec<Relay>,
-    pub pool_metadata: Nullable<PoolMetadata>,
+    pub pool_metadata: Option<PoolMetadata>,
 }
 
 #[derive(Default, Clone)] // for testing
