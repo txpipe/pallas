@@ -2326,7 +2326,7 @@ mod alonzo_tests {
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo4.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = None;
+        mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,

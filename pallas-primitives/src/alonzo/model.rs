@@ -529,7 +529,7 @@ pub struct Block {
     pub transaction_witness_sets: Vec<WitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, Option<AuxiliaryData>>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
@@ -552,7 +552,7 @@ pub struct MintedBlock<'b> {
     pub transaction_witness_sets: Vec<KeepRaw<'b, MintedWitnessSet<'b>>>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, Option<AuxiliaryData>>>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
@@ -610,7 +610,7 @@ pub struct MintedTx<'b> {
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Option<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: KeepRaw<'b, Option<AuxiliaryData>>,
 }
 
 #[cfg(test)]

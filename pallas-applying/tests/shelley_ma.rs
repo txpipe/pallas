@@ -14,6 +14,7 @@ use pallas_codec::{
     minicbor::{
         decode::{Decode, Decoder},
         encode,
+        to_vec,
     },
     utils::Bytes,
 };
@@ -387,6 +388,8 @@ mod shelley_ma_tests {
     fn successful_mainnet_allegra_tx_with_mir() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
         let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        println!("-------------------------------------------------------\n\
+                  CBOR:\n{:02x?}", to_vec(mtx.clone()));
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -705,7 +708,7 @@ mod shelley_ma_tests {
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = None;
+        mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,

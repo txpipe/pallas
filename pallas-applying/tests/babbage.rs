@@ -1840,7 +1840,7 @@ mod babbage_tests {
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage6.tx"));
         let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = None;
+        mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,

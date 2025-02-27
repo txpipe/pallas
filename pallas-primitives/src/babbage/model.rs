@@ -647,7 +647,7 @@ where
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
+pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, Option<AuxiliaryData>>;
 
 /// A memory representation of an already minted block
 ///
@@ -658,7 +658,7 @@ pub type MintedBlock<'b> = PseudoBlock<
     KeepRaw<'b, MintedHeader<'b>>,
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
-    KeepRaw<'b, AuxiliaryData>,
+    KeepRaw<'b, Option<AuxiliaryData>>,
 >;
 
 impl<'b> From<MintedBlock<'b>> for Block {
@@ -706,15 +706,15 @@ where
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Option<T3>,
+    pub auxiliary_data: T3,
 }
 
-pub type Tx = PseudoTx<TransactionBody, WitnessSet, AuxiliaryData>;
+pub type Tx = PseudoTx<TransactionBody, WitnessSet, Option<AuxiliaryData>>;
 
 pub type MintedTx<'b> = PseudoTx<
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
-    KeepRaw<'b, AuxiliaryData>,
+    KeepRaw<'b, Option<AuxiliaryData>>,
 >;
 
 impl<'b> From<MintedTx<'b>> for Tx {
@@ -723,7 +723,7 @@ impl<'b> From<MintedTx<'b>> for Tx {
             transaction_body: x.transaction_body.unwrap().into(),
             transaction_witness_set: x.transaction_witness_set.unwrap().into(),
             success: x.success,
-            auxiliary_data: x.auxiliary_data.map(|x| x.unwrap()),
+            auxiliary_data: x.auxiliary_data.unwrap(),
         }
     }
 }

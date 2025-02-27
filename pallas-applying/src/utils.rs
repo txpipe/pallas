@@ -28,17 +28,9 @@ pub use validation::*;
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
 pub fn get_alonzo_comp_tx_size(mtx: &AlonzoMintedTx) -> u32 {
-    match &mtx.auxiliary_data {
-        Some(aux_data) => {
-            (aux_data.raw_cbor().len()
-                + mtx.transaction_body.raw_cbor().len()
-                + mtx.transaction_witness_set.raw_cbor().len()) as u32
-        }
-        _ => {
-            (mtx.transaction_body.raw_cbor().len() + mtx.transaction_witness_set.raw_cbor().len())
-                as u32
-        }
-    }
+    (mtx.auxiliary_data.raw_cbor().len()
+     + mtx.transaction_body.raw_cbor().len()
+     + mtx.transaction_witness_set.raw_cbor().len()) as u32
 }
 
 pub fn get_babbage_tx_size(mtx: &BabbageMintedTx) -> Option<u32> {
@@ -647,15 +639,27 @@ pub fn is_byron_address(address: &[u8]) -> bool {
 }
 
 pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoMintedTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    if let Some(_) = mtx.auxiliary_data.deref() {
+        Some(mtx.auxiliary_data.raw_cbor())
+    } else {
+        None
+    }
 }
 
 pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageMintedTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    if let Some(_) = mtx.auxiliary_data.deref() {
+        Some(mtx.auxiliary_data.raw_cbor())
+    } else {
+        None
+    }
 }
 
 pub fn aux_data_from_conway_minted_tx<'a>(mtx: &'a ConwayMintedTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    if let Some(_) = mtx.auxiliary_data.deref() {
+        Some(mtx.auxiliary_data.raw_cbor())
+    } else {
+        None
+    }
 }
 
 pub fn get_val_size_in_words(val: &Value) -> u64 {
