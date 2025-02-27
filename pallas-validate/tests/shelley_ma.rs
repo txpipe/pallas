@@ -1,7 +1,5 @@
-#[cfg(feature = "phase_one")]
 pub mod common;
 
-#[cfg(all(test, feature = "phase_one"))]
 mod shelley_ma_tests {
 
     use crate::common::*;

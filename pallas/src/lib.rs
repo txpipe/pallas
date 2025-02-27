@@ -91,17 +91,15 @@ pub use pallas_txbuilder as txbuilder;
 pub mod validate {
     //! Utilities for Cardano tx validation
 
-    #[cfg(feature = "phase-two")]
-    #[doc(inline)]
-    pub use pallas_validate::uplc;
-
-    #[cfg(any(feature = "phase-one", feature = "phase-two"))]
     #[doc(inline)]
     pub use pallas_validate::utils;
 
-    #[cfg(feature = "phase-one")]
     #[doc(inline)]
     pub use pallas_validate::phase_one;
+
+    #[cfg(feature = "phase-two")]
+    #[doc(inline)]
+    pub use pallas_validate::uplc;
 
     #[cfg(feature = "phase-two")]
     #[doc(inline)]
