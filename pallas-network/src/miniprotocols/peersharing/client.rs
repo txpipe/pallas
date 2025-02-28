@@ -41,7 +41,7 @@ impl Client {
         self.0 == State::Done
     }
 
-    fn has_agency(&self) -> bool {
+    pub fn has_agency(&self) -> bool {
         match &self.0 {
             State::Idle => true,
             State::Busy(..) => false,
