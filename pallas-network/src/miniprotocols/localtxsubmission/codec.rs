@@ -1,7 +1,9 @@
-use pallas_codec::minicbor::data::IanaTag;
+use pallas_codec::minicbor::data::{IanaTag, Tag};
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
-use pallas_primitives::conway::Certificate;
 
+use crate::miniprotocols::localstate::queries_v16::{
+    BigInt, BoundedBytes, Constr, DatumOption, PlutusData,
+};
 use crate::miniprotocols::localtxsubmission::{
     ApplyConwayTxPredError, BabbageContextError, CollectError, ConwayCertPredFailure,
     ConwayCertsPredFailure, ConwayContextError, ConwayDelegPredFailure, ConwayGovCertPredFailure,
@@ -10,11 +12,12 @@ use crate::miniprotocols::localtxsubmission::{
     TagMismatchDescription, TxOutSource,
 };
 
+use std::ops::Deref;
 use std::str::from_utf8;
 
 use super::{
-    ApplyTxError, ConwayTxCert, OHashMap, ShelleyBasedEra, TxValidationError, Utxo, UtxoFailure,
-    UtxosFailure,
+    ApplyTxError, Certificate, ConwayTxCert, OHashMap, ShelleyBasedEra, TxValidationError, Utxo,
+    UtxoFailure, UtxosFailure, Voter, VotingProcedure,
 };
 
 // `Ctx` generic needed after introducing `ValidityInterval`.
@@ -1465,6 +1468,591 @@ impl<C> Encode<C> for Utxo {
     }
 }
 
+impl<'b, C> Decode<'b, C> for VotingProcedure {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        Ok(Self {
+            vote: d.decode_with(ctx)?,
+            anchor: d.decode_with(ctx)?,
+        })
+    }
+}
+
+impl<C> Encode<C> for VotingProcedure {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+
+        e.encode_with(&self.vote, ctx)?;
+        e.encode_with(&self.anchor, ctx)?;
+
+        Ok(())
+    }
+}
+
+impl<'b, C> Decode<'b, C> for Voter {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+        let variant = d.u16()?;
+
+        use Voter::*;
+
+        match variant {
+            0 => Ok(ConstitutionalCommitteeKey(d.decode_with(ctx)?)),
+            1 => Ok(ConstitutionalCommitteeScript(d.decode_with(ctx)?)),
+            2 => Ok(DRepKey(d.decode_with(ctx)?)),
+            3 => Ok(DRepScript(d.decode_with(ctx)?)),
+            4 => Ok(StakePoolKey(d.decode_with(ctx)?)),
+            _ => Err(decode::Error::message("invalid variant id for DRep")),
+        }
+    }
+}
+
+impl<C> Encode<C> for Voter {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+
+        use Voter::*;
+
+        match self {
+            ConstitutionalCommitteeKey(h) => {
+                e.encode_with(0, ctx)?;
+                e.encode_with(h, ctx)?;
+
+                Ok(())
+            }
+            ConstitutionalCommitteeScript(h) => {
+                e.encode_with(1, ctx)?;
+                e.encode_with(h, ctx)?;
+
+                Ok(())
+            }
+            DRepKey(h) => {
+                e.encode_with(2, ctx)?;
+                e.encode_with(h, ctx)?;
+
+                Ok(())
+            }
+            DRepScript(h) => {
+                e.encode_with(3, ctx)?;
+                e.encode_with(h, ctx)?;
+
+                Ok(())
+            }
+            StakePoolKey(h) => {
+                e.encode_with(4, ctx)?;
+                e.encode_with(h, ctx)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<'b, C> Decode<'b, C> for Certificate {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+        let variant = d.u16()?;
+
+        match variant {
+            0 => {
+                let a = d.decode_with(ctx)?;
+                Ok(Certificate::StakeRegistration(a))
+            }
+            1 => {
+                let a = d.decode_with(ctx)?;
+                Ok(Certificate::StakeDeregistration(a))
+            }
+            2 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::StakeDelegation(a, b))
+            }
+            3 => {
+                let operator = d.decode_with(ctx)?;
+                let vrf_keyhash = d.decode_with(ctx)?;
+                let pledge = d.decode_with(ctx)?;
+                let cost = d.decode_with(ctx)?;
+                let margin = d.decode_with(ctx)?;
+                let reward_account = d.decode_with(ctx)?;
+                let pool_owners = d.decode_with(ctx)?;
+                let relays = d.decode_with(ctx)?;
+                let pool_metadata = d.decode_with(ctx)?;
+
+                Ok(Certificate::PoolRegistration {
+                    operator,
+                    vrf_keyhash,
+                    pledge,
+                    cost,
+                    margin,
+                    reward_account,
+                    pool_owners,
+                    relays,
+                    pool_metadata,
+                })
+            }
+            4 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::PoolRetirement(a, b))
+            }
+
+            7 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::Reg(a, b))
+            }
+            8 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UnReg(a, b))
+            }
+            9 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::VoteDeleg(a, b))
+            }
+            10 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::StakeVoteDeleg(a, b, c))
+            }
+            11 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::StakeRegDeleg(a, b, c))
+            }
+            12 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::VoteRegDeleg(a, b, c))
+            }
+            13 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                let d = d.decode_with(ctx)?;
+                Ok(Certificate::StakeVoteRegDeleg(a, b, c, d))
+            }
+            14 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::AuthCommitteeHot(a, b))
+            }
+            15 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::ResignCommitteeCold(a, b))
+            }
+            16 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                let c = d.decode_with(ctx)?;
+                Ok(Certificate::RegDRepCert(a, b, c))
+            }
+            17 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UnRegDRepCert(a, b))
+            }
+            18 => {
+                let a = d.decode_with(ctx)?;
+                let b = d.decode_with(ctx)?;
+                Ok(Certificate::UpdateDRepCert(a, b))
+            }
+            _ => Err(decode::Error::message("unknown variant id for certificate")),
+        }
+    }
+}
+
+impl<C> Encode<C> for Certificate {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Certificate::StakeRegistration(a) => {
+                e.array(2)?;
+                e.u16(0)?;
+                e.encode_with(a, ctx)?;
+            }
+            Certificate::StakeDeregistration(a) => {
+                e.array(2)?;
+                e.u16(1)?;
+                e.encode_with(a, ctx)?;
+            }
+            Certificate::StakeDelegation(a, b) => {
+                e.array(3)?;
+                e.u16(2)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::PoolRegistration {
+                operator,
+                vrf_keyhash,
+                pledge,
+                cost,
+                margin,
+                reward_account,
+                pool_owners,
+                relays,
+                pool_metadata,
+            } => {
+                e.array(10)?;
+                e.u16(3)?;
+
+                e.encode_with(operator, ctx)?;
+                e.encode_with(vrf_keyhash, ctx)?;
+                e.encode_with(pledge, ctx)?;
+                e.encode_with(cost, ctx)?;
+                e.encode_with(margin, ctx)?;
+                e.encode_with(reward_account, ctx)?;
+                e.encode_with(pool_owners, ctx)?;
+                e.encode_with(relays, ctx)?;
+                e.encode_with(pool_metadata, ctx)?;
+            }
+            Certificate::PoolRetirement(a, b) => {
+                e.array(3)?;
+                e.u16(4)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            // 5 and 6 removed in conway
+            Certificate::Reg(a, b) => {
+                e.array(3)?;
+                e.u16(7)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::UnReg(a, b) => {
+                e.array(3)?;
+                e.u16(8)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::VoteDeleg(a, b) => {
+                e.array(3)?;
+                e.u16(9)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::StakeVoteDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(10)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::StakeRegDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(11)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::VoteRegDeleg(a, b, c) => {
+                e.array(4)?;
+                e.u16(12)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::StakeVoteRegDeleg(a, b, c, d) => {
+                e.array(5)?;
+                e.u16(13)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+                e.encode_with(d, ctx)?;
+            }
+            Certificate::AuthCommitteeHot(a, b) => {
+                e.array(3)?;
+                e.u16(14)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::ResignCommitteeCold(a, b) => {
+                e.array(3)?;
+                e.u16(15)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::RegDRepCert(a, b, c) => {
+                e.array(4)?;
+                e.u16(16)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+                e.encode_with(c, ctx)?;
+            }
+            Certificate::UnRegDRepCert(a, b) => {
+                e.array(3)?;
+                e.u16(17)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            Certificate::UpdateDRepCert(a, b) => {
+                e.array(3)?;
+                e.u16(18)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b, C> Decode<'b, C> for DatumOption {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(Self::Hash(d.decode_with(ctx)?)),
+            1 => Ok(Self::Data(d.decode_with(ctx)?)),
+            _ => Err(decode::Error::message(
+                "invalid variant for datum option enum",
+            )),
+        }
+    }
+}
+
+impl<C> Encode<C> for DatumOption {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Self::Hash(x) => e.encode_with((0, x), ctx)?,
+            Self::Data(x) => e.encode_with((1, x), ctx)?,
+        };
+
+        Ok(())
+    }
+}
+
+impl<'b, C> Decode<'b, C> for PlutusData {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        let type_ = d.datatype()?;
+
+        use pallas_codec::minicbor::data::Type::*;
+
+        match type_ {
+            Tag => {
+                let mut probe = d.probe();
+                let tag = probe.tag()?;
+
+                if tag == IanaTag::PosBignum.tag() || tag == IanaTag::NegBignum.tag() {
+                    Ok(Self::BigInt(d.decode_with(ctx)?))
+                } else {
+                    match tag.as_u64() {
+                        (121..=127) | (1280..=1400) | 102 => Ok(Self::Constr(d.decode_with(ctx)?)),
+                        _ => Err(decode::Error::message("unknown tag for plutus data tag")),
+                    }
+                }
+            }
+            U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => {
+                Ok(Self::BigInt(d.decode_with(ctx)?))
+            }
+            Map | MapIndef => Ok(Self::Map(d.decode_with(ctx)?)),
+            Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
+            BytesIndef => {
+                let mut full = Vec::new();
+
+                for slice in d.bytes_iter()? {
+                    full.extend(slice?);
+                }
+
+                Ok(Self::BoundedBytes(BoundedBytes::from(full)))
+            }
+            Array | ArrayIndef => Ok(Self::Array(d.decode_with(ctx)?)),
+
+            any => Err(decode::Error::message(format!(
+                "bad cbor data type ({any:?}) for plutus data"
+            ))),
+        }
+    }
+}
+
+impl<C> Encode<C> for PlutusData {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Self::Constr(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Self::Map(a) => {
+                // we use definite array to match the approach used by haskell's plutus
+                // implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
+                e.map(a.len().try_into().unwrap())?;
+                for (k, v) in a.iter() {
+                    k.encode(e, ctx)?;
+                    v.encode(e, ctx)?;
+                }
+            }
+            Self::BigInt(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Self::BoundedBytes(a) => {
+                e.encode_with(a, ctx)?;
+            }
+            Self::Array(a) => {
+                e.encode_with(a, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
+
+impl<'b, C> Decode<'b, C> for BigInt {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        let datatype = d.datatype()?;
+
+        use pallas_codec::minicbor::data::Type::*;
+
+        match datatype {
+            U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => Ok(Self::Int(d.decode_with(ctx)?)),
+            Tag => {
+                let tag = d.tag()?;
+                if tag == IanaTag::PosBignum.tag() {
+                    Ok(Self::BigUInt(d.decode_with(ctx)?))
+                } else if tag == IanaTag::NegBignum.tag() {
+                    Ok(Self::BigNInt(d.decode_with(ctx)?))
+                } else {
+                    Err(decode::Error::message("invalid cbor tag for big int"))
+                }
+            }
+            _ => Err(decode::Error::message("invalid cbor data type for big int")),
+        }
+    }
+}
+
+impl<C> Encode<C> for BigInt {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            BigInt::Int(x) => {
+                e.encode_with(x, ctx)?;
+            }
+            BigInt::BigUInt(x) => {
+                e.tag(IanaTag::PosBignum)?;
+                e.encode_with(x, ctx)?;
+            }
+            BigInt::BigNInt(x) => {
+                e.tag(IanaTag::NegBignum)?;
+                e.encode_with(x, ctx)?;
+            }
+        };
+
+        Ok(())
+    }
+}
+
+impl<C> Encode<C> for BoundedBytes {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        // we match the haskell implementation by encoding bytestrings longer than 64
+        // bytes as indefinite lists of bytes
+        const CHUNK_SIZE: usize = 64;
+        let bs: &Vec<u8> = self.deref();
+        if bs.len() <= 64 {
+            e.bytes(bs)?;
+        } else {
+            e.begin_bytes()?;
+            for b in bs.chunks(CHUNK_SIZE) {
+                e.bytes(b)?;
+            }
+            e.end()?;
+        }
+        Ok(())
+    }
+}
+
+impl<'b, C> Decode<'b, C> for BoundedBytes {
+    fn decode(d: &mut Decoder<'b>, _: &mut C) -> Result<Self, decode::Error> {
+        let mut res = Vec::new();
+        for chunk in d.bytes_iter()? {
+            let bs = chunk?;
+            res.extend_from_slice(bs);
+        }
+        Ok(BoundedBytes::from(res))
+    }
+}
+
+impl<'b, C, A> Decode<'b, C> for Constr<A>
+where
+    A: decode::Decode<'b, C>,
+{
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        let tag = d.tag()?;
+        let x = tag.as_u64();
+        match x {
+            121..=127 | 1280..=1400 => Ok(Constr {
+                tag: x,
+                fields: d.decode_with(ctx)?,
+                any_constructor: None,
+            }),
+            102 => {
+                d.array()?;
+
+                Ok(Constr {
+                    tag: x,
+                    any_constructor: Some(d.decode_with(ctx)?),
+                    fields: d.decode_with(ctx)?,
+                })
+            }
+            _ => Err(decode::Error::message("bad tag code for plutus data")),
+        }
+    }
+}
+
+impl<C, A> Encode<C> for Constr<A>
+where
+    A: Encode<C>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.tag(Tag::new(self.tag))?;
+
+        match self.tag {
+            102 => {
+                let x = (self.any_constructor.unwrap_or_default(), &self.fields);
+                e.encode_with(x, ctx)?;
+                Ok(())
+            }
+            _ => {
+                e.encode_with(&self.fields, ctx)?;
+                Ok(())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use pallas_codec::minicbor::{self, encode};
@@ -2871,11 +3459,15 @@ mod tests {
         let bytes = hex::decode(reject).unwrap();
         let msg_res = try_decode_error(&mut bytes.clone());
 
-        assert!(msg_res.is_ok());
-
-        let mut datum: Vec<u8> = Vec::new();
-        // Encoding back
-        encode(msg_res.unwrap().unwrap(), &mut datum).expect("Error encoding");
-        // assert_eq!(hex::encode(bytes), hex::encode(datum));
+        match msg_res {
+            Ok(Some(msg)) => {
+                let mut datum: Vec<u8> = Vec::new();
+                // Encoding back
+                encode(msg, &mut datum).expect("Error encoding");
+                // assert_eq!(hex::encode(bytes), hex::encode(datum));
+            }
+            Ok(None) => panic!("Expected error, got None"),
+            Err(err) => panic!("Error: {:?}", err),
+        }
     }
 }
