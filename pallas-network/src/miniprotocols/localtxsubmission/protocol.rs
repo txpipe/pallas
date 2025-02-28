@@ -1,14 +1,13 @@
 use super::Value;
+use crate::miniprotocols::localstate::queries_v16::{
+    Anchor, DRep, Epoch, GovAction, GovActionId, PolicyId, PoolMetadata, ProposalProcedure,
+    ProtocolVersion, Relay, RewardAccount, ScriptHash, TransactionInput, TransactionOutput,
+    UnitInterval, Vote,
+};
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use pallas_codec::minicbor::{self, Decode, Encode};
-use pallas_codec::utils::Bytes;
-use pallas_primitives::conway::{
-    Certificate, GovAction, GovActionId, ProposalProcedure, TransactionOutput, Voter,
-    VotingProcedures,
-};
-use pallas_primitives::{
-    AddrKeyhash, PolicyId, ProtocolVersion, ScriptHash, Set, StakeCredential, TransactionInput,
-};
+use pallas_codec::utils::{Bytes, NonEmptyKeyValuePairs, Nullable, Set};
+pub use pallas_crypto::hash::Hash;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -97,6 +96,75 @@ pub enum Language {
     PlutusV3,
 }
 
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+pub enum Voter {
+    ConstitutionalCommitteeKey(AddrKeyhash),
+    ConstitutionalCommitteeScript(ScriptHash),
+    DRepKey(AddrKeyhash),
+    DRepScript(ScriptHash),
+    StakePoolKey(AddrKeyhash),
+}
+
+pub type AddrKeyhash = Hash<28>;
+
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode, Decode)]
+// !! NOTE / IMPORTANT !!
+// It is tempting to swap the order of the two constructors so that AddrKeyHash
+// comes first. This indeed nicely maps the binary representation which
+// associates 0 to AddrKeyHash and 1 to ScriptHash.
+//
+// However, for historical reasons, the ScriptHash variant comes first in the
+// Haskell reference codebase. From this ordering is derived the `PartialOrd`
+// and `Ord` instances; which impacts how Maps/Dictionnaries indexed by
+// StakeCredential will be ordered. So, it is crucial to preserve this quirks to
+// avoid hard to troubleshoot issues down the line.
+#[cbor(flat)]
+pub enum StakeCredential {
+    #[n(1)]
+    ScriptHash(#[n(0)] ScriptHash),
+    #[n(0)]
+    AddrKeyhash(#[n(0)] AddrKeyhash),
+}
+
+pub type PoolKeyhash = Hash<28>;
+pub type VrfKeyhash = Hash<32>;
+pub type DRepCredential = StakeCredential;
+pub type CommitteeColdCredential = StakeCredential;
+pub type CommitteeHotCredential = StakeCredential;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Certificate {
+    StakeRegistration(StakeCredential),
+    StakeDeregistration(StakeCredential),
+    StakeDelegation(StakeCredential, PoolKeyhash),
+    PoolRegistration {
+        operator: PoolKeyhash,
+        vrf_keyhash: VrfKeyhash,
+        pledge: Coin,
+        cost: Coin,
+        margin: UnitInterval,
+        reward_account: RewardAccount,
+        pool_owners: Set<AddrKeyhash>,
+        relays: Vec<Relay>,
+        pool_metadata: Nullable<PoolMetadata>,
+    },
+    PoolRetirement(PoolKeyhash, Epoch),
+
+    Reg(StakeCredential, Coin),
+    UnReg(StakeCredential, Coin),
+    VoteDeleg(StakeCredential, DRep),
+    StakeVoteDeleg(StakeCredential, PoolKeyhash, DRep),
+    StakeRegDeleg(StakeCredential, PoolKeyhash, Coin),
+    VoteRegDeleg(StakeCredential, DRep, Coin),
+    StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
+
+    AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
+    ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
+    RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
+    UnRegDRepCert(DRepCredential, Coin),
+    UpdateDRepCert(DRepCredential, Nullable<Anchor>),
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum FailureDescription {
     PlutusFailure(String, Bytes),
@@ -122,6 +190,16 @@ pub enum CollectError {
     NoCostModel(Language),
     BadTranslation(ConwayContextError),
 }
+
+pub type VotingProcedures =
+    NonEmptyKeyValuePairs<Voter, NonEmptyKeyValuePairs<GovActionId, VotingProcedure>>;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct VotingProcedure {
+    pub vote: Vote,
+    pub anchor: Nullable<Anchor>,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ConwayContextError {
     BabbageContextError(BabbageContextError),

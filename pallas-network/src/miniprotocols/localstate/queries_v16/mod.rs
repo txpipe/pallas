@@ -3,11 +3,14 @@
 use pallas_crypto::hash::Hash;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash as StdHash;
+use std::ops::Deref;
 // required for derive attrs to work
 use pallas_codec::minicbor::{self};
 
 use pallas_codec::minicbor::{Decode, Encode};
-use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
+use pallas_codec::utils::{
+    AnyCbor, AnyUInt, Bytes, CborWrap, Int, KeyValuePairs, MaybeIndefArray, Nullable, TagWrap,
+};
 
 pub mod primitives;
 
@@ -240,9 +243,9 @@ pub type ProtocolVersion = (ProtocolVersionMajor, ProtocolVersionMinor);
 
 pub type CostModel = Vec<i64>;
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
-pub struct CostMdls {
+pub struct CostModels {
     #[n(0)]
     pub plutus_v1: Option<CostModel>,
 
@@ -251,6 +254,36 @@ pub struct CostMdls {
 
     #[n(2)]
     pub plutus_v3: Option<CostModel>,
+
+    #[cbor(skip)]
+    pub unknown: KeyValuePairs<u64, CostModel>,
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for CostModels {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let models: KeyValuePairs<u64, CostModel> = d.decode_with(ctx)?;
+
+        let mut plutus_v1 = None;
+        let mut plutus_v2 = None;
+        let mut plutus_v3 = None;
+        let mut unknown: Vec<(u64, CostModel)> = Vec::new();
+
+        for (k, v) in models.iter() {
+            match k {
+                0 => plutus_v1 = Some(v.clone()),
+                1 => plutus_v2 = Some(v.clone()),
+                2 => plutus_v3 = Some(v.clone()),
+                _ => unknown.push((*k, v.clone())),
+            }
+        }
+
+        Ok(Self {
+            plutus_v1,
+            plutus_v2,
+            plutus_v3,
+            unknown: unknown.into(),
+        })
+    }
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -311,18 +344,20 @@ pub struct DRepVotingThresholds {
 
 /// Conway era protocol parameters, corresponding to [`ConwayPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L512-L579)
 /// in the Haskell sources.
+/// @todo: Encoding should be handled manually, Encode derive won't be correct.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(map)]
 pub struct ProtocolParam {
     #[n(0)]
-    pub minfee_a: Option<u32>,
+    pub minfee_a: Option<u64>,
     #[n(1)]
-    pub minfee_b: Option<u32>,
+    pub minfee_b: Option<u64>,
     #[n(2)]
-    pub max_block_body_size: Option<u32>,
+    pub max_block_body_size: Option<u64>,
     #[n(3)]
-    pub max_transaction_size: Option<u32>,
+    pub max_transaction_size: Option<u64>,
     #[n(4)]
-    pub max_block_header_size: Option<u32>,
+    pub max_block_header_size: Option<u64>,
     #[n(5)]
     pub key_deposit: Option<Coin>,
     #[n(6)]
@@ -330,51 +365,51 @@ pub struct ProtocolParam {
     #[n(7)]
     pub maximum_epoch: Option<Epoch>,
     #[n(8)]
-    pub desired_number_of_stake_pools: Option<u32>,
+    pub desired_number_of_stake_pools: Option<u64>,
     #[n(9)]
     pub pool_pledge_influence: Option<RationalNumber>,
     #[n(10)]
     pub expansion_rate: Option<UnitInterval>,
     #[n(11)]
     pub treasury_growth_rate: Option<UnitInterval>,
-    #[n(12)]
-    pub protocol_version: Option<ProtocolVersion>,
-    #[n(13)]
-    pub min_pool_cost: Option<Coin>,
-    #[n(14)]
-    pub ada_per_utxo_byte: Option<Coin>,
-    #[n(15)]
-    pub cost_models_for_script_languages: Option<CostMdls>,
+
     #[n(16)]
-    pub execution_costs: Option<ExUnitPrices>,
+    pub min_pool_cost: Option<Coin>,
     #[n(17)]
-    pub max_tx_ex_units: Option<ExUnits>,
+    pub ada_per_utxo_byte: Option<Coin>,
     #[n(18)]
-    pub max_block_ex_units: Option<ExUnits>,
+    pub cost_models_for_script_languages: Option<CostModels>,
     #[n(19)]
-    pub max_value_size: Option<u32>,
+    pub execution_costs: Option<ExUnitPrices>,
     #[n(20)]
-    pub collateral_percentage: Option<u32>,
+    pub max_tx_ex_units: Option<ExUnits>,
     #[n(21)]
-    pub max_collateral_inputs: Option<u32>,
+    pub max_block_ex_units: Option<ExUnits>,
     #[n(22)]
-    pub pool_voting_thresholds: Option<PoolVotingThresholds>,
+    pub max_value_size: Option<u64>,
     #[n(23)]
-    pub drep_voting_thresholds: Option<DRepVotingThresholds>,
+    pub collateral_percentage: Option<u64>,
     #[n(24)]
-    pub committee_min_size: Option<u16>,
+    pub max_collateral_inputs: Option<u64>,
+
     #[n(25)]
-    pub committee_max_term_length: Option<Epoch>,
+    pub pool_voting_thresholds: Option<PoolVotingThresholds>,
     #[n(26)]
-    pub gov_action_lifetime: Option<Epoch>,
+    pub drep_voting_thresholds: Option<DRepVotingThresholds>,
     #[n(27)]
-    pub gov_action_deposit: Option<Coin>,
+    pub min_committee_size: Option<u64>,
     #[n(28)]
-    pub drep_deposit: Option<Coin>,
+    pub committee_term_limit: Option<Epoch>,
     #[n(29)]
-    pub drep_activity: Option<Epoch>,
+    pub governance_action_validity_period: Option<Epoch>,
     #[n(30)]
-    pub min_fee_ref_script_cost_per_byte: Option<RationalNumber>,
+    pub governance_action_deposit: Option<Coin>,
+    #[n(31)]
+    pub drep_deposit: Option<Coin>,
+    #[n(32)]
+    pub drep_inactivity_period: Option<Epoch>,
+    #[n(33)]
+    pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
 }
 
 pub type StakeDistribution = KeyValuePairs<Bytes, Pool>;
@@ -462,7 +497,7 @@ pub struct Anchor {
 }
 
 /// Constitution as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L884-L887).
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone)]
 pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
@@ -471,13 +506,22 @@ pub struct Constitution {
 }
 
 /// TODO: Votes as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L365-L368).
-pub type Vote = AnyCbor;
+#[derive(Debug, Decode, Encode, PartialEq, Eq, Clone)]
+#[cbor(index_only)]
+pub enum Vote {
+    #[n(0)]
+    No,
+    #[n(1)]
+    Yes,
+    #[n(2)]
+    Abstain,
+}
 
 pub type RewardAccount = Bytes;
 pub type ScriptHash = Bytes;
 
 /// Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum GovAction {
     ParameterChange(Option<GovPurposeId>, PParamsUpdate, Option<ScriptHash>),
     HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
@@ -494,7 +538,7 @@ pub enum GovAction {
 }
 
 /// Proposal procedure state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L476-L481
-#[derive(Debug, Encode, Decode, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone)]
 pub struct ProposalProcedure {
     #[n(0)]
     pub deposit: Coin,
@@ -697,6 +741,73 @@ pub type UTxOWhole = UTxOByAddress;
 // Bytes CDDL ->  #6.121([ * #6.121([ *datum ]) ])
 pub type Datum = (Era, TagWrap<Bytes, 24>);
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum DatumOption {
+    Hash(DatumHash),
+    Data(CborWrap<PlutusData>),
+}
+
+pub type DatumHash = Hash<32>;
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum PlutusData {
+    Constr(Constr<PlutusData>),
+    Map(KeyValuePairs<PlutusData, PlutusData>),
+    BigInt(BigInt),
+    BoundedBytes(BoundedBytes),
+    Array(MaybeIndefArray<PlutusData>),
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum BigInt {
+    Int(Int),
+    BigUInt(BoundedBytes),
+    BigNInt(BoundedBytes),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BoundedBytes(Vec<u8>);
+
+impl From<Vec<u8>> for BoundedBytes {
+    fn from(xs: Vec<u8>) -> Self {
+        BoundedBytes(xs)
+    }
+}
+
+impl From<BoundedBytes> for Vec<u8> {
+    fn from(b: BoundedBytes) -> Self {
+        b.0
+    }
+}
+
+impl Deref for BoundedBytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for BoundedBytes {
+    type Error = hex::FromHexError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let v = hex::decode(value)?;
+        Ok(BoundedBytes(v))
+    }
+}
+
+impl From<BoundedBytes> for String {
+    fn from(b: BoundedBytes) -> Self {
+        hex::encode(b.deref())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct Constr<A> {
+    pub tag: u64,
+    pub any_constructor: Option<u64>,
+    pub fields: MaybeIndefArray<A>,
+}
 // From `pallas-primitives`, with fewer `derive`s
 #[derive(Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct TransactionInput {
@@ -725,7 +836,7 @@ pub struct PostAlonsoTransactionOutput {
     pub amount: Value,
 
     #[n(2)]
-    pub inline_datum: Option<Datum>,
+    pub inline_datum: Option<DatumOption>,
 
     #[n(3)]
     pub script_ref: Option<TagWrap<Bytes, 24>>,
