@@ -1,8 +1,8 @@
+use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
 use super::Value;
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, DRep, Epoch, GovAction, GovActionId, PolicyId, PoolMetadata, ProposalProcedure,
-    ProtocolVersion, Relay, RewardAccount, ScriptHash, TransactionInput, TransactionOutput,
-    UnitInterval, Vote,
+    Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash,
+    TransactionInput, TransactionOutput, Vote,
 };
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use pallas_codec::minicbor::{self, Decode, Encode};
@@ -24,19 +24,20 @@ pub enum Message<Tx, Reject> {
     Done,
 }
 
-// The bytes of a transaction with an era number.
+/// The bytes of a transaction with an era number.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EraTx(pub u16, pub Vec<u8>);
 
-// https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271
+/// Era to be used in tx errors
+/// https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ShelleyBasedEra {
-    ShelleyBasedEraShelley,
-    ShelleyBasedEraAllegra,
-    ShelleyBasedEraMary,
-    ShelleyBasedEraAlonzo,
-    ShelleyBasedEraBabbage,
-    ShelleyBasedEraConway,
+    Shelley,
+    Allegra,
+    Mary,
+    Alonzo,
+    Babbage,
+    Conway,
 }
 
 /// Purpose of the script. It corresponds to
@@ -84,86 +85,6 @@ pub type PlutusPurposeItem = PlutusPurpose<
 /// [`ConwayPlutusPurpose`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Scripts.hs#L188-L194)
 /// in the Haskell sources, where the higher-order argument `f` equals `AsIx`.
 pub type PlutusPurposeIx = PlutusPurpose<u64, u64, u64, u64, u64, u64>;
-
-#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
-#[cbor(index_only)]
-pub enum Language {
-    #[n(0)]
-    PlutusV1,
-    #[n(1)]
-    PlutusV2,
-    #[n(3)]
-    PlutusV3,
-}
-
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
-pub enum Voter {
-    ConstitutionalCommitteeKey(AddrKeyhash),
-    ConstitutionalCommitteeScript(ScriptHash),
-    DRepKey(AddrKeyhash),
-    DRepScript(ScriptHash),
-    StakePoolKey(AddrKeyhash),
-}
-
-pub type AddrKeyhash = Hash<28>;
-
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode, Decode)]
-// !! NOTE / IMPORTANT !!
-// It is tempting to swap the order of the two constructors so that AddrKeyHash
-// comes first. This indeed nicely maps the binary representation which
-// associates 0 to AddrKeyHash and 1 to ScriptHash.
-//
-// However, for historical reasons, the ScriptHash variant comes first in the
-// Haskell reference codebase. From this ordering is derived the `PartialOrd`
-// and `Ord` instances; which impacts how Maps/Dictionnaries indexed by
-// StakeCredential will be ordered. So, it is crucial to preserve this quirks to
-// avoid hard to troubleshoot issues down the line.
-#[cbor(flat)]
-pub enum StakeCredential {
-    #[n(1)]
-    ScriptHash(#[n(0)] ScriptHash),
-    #[n(0)]
-    AddrKeyhash(#[n(0)] AddrKeyhash),
-}
-
-pub type PoolKeyhash = Hash<28>;
-pub type VrfKeyhash = Hash<32>;
-pub type DRepCredential = StakeCredential;
-pub type CommitteeColdCredential = StakeCredential;
-pub type CommitteeHotCredential = StakeCredential;
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Certificate {
-    StakeRegistration(StakeCredential),
-    StakeDeregistration(StakeCredential),
-    StakeDelegation(StakeCredential, PoolKeyhash),
-    PoolRegistration {
-        operator: PoolKeyhash,
-        vrf_keyhash: VrfKeyhash,
-        pledge: Coin,
-        cost: Coin,
-        margin: UnitInterval,
-        reward_account: RewardAccount,
-        pool_owners: Set<AddrKeyhash>,
-        relays: Vec<Relay>,
-        pool_metadata: Nullable<PoolMetadata>,
-    },
-    PoolRetirement(PoolKeyhash, Epoch),
-
-    Reg(StakeCredential, Coin),
-    UnReg(StakeCredential, Coin),
-    VoteDeleg(StakeCredential, DRep),
-    StakeVoteDeleg(StakeCredential, PoolKeyhash, DRep),
-    StakeRegDeleg(StakeCredential, PoolKeyhash, Coin),
-    VoteRegDeleg(StakeCredential, DRep, Coin),
-    StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
-
-    AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
-    ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
-    RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
-    UnRegDRepCert(DRepCredential, Coin),
-    UpdateDRepCert(DRepCredential, Nullable<Anchor>),
-}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum FailureDescription {
@@ -231,8 +152,8 @@ pub enum BabbageContextError {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TxOutSource {
-    TxOutFromInput(TransactionInput),
-    TxOutFromOutput(u64),
+    Input(TransactionInput),
+    Output(u64),
 }
 
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
@@ -388,32 +309,25 @@ pub enum ConwayUtxoWPredFailure {
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ConwayPlutusPurpose {
-    ConwaySpending(AsItem<TransactionInput>),
-    ConwayMinting(AsItem<DisplayPolicyId>),
-    ConwayCertifying(AsItem<ConwayTxCert>),
-    ConwayRewarding(AsItem<DisplayRewardAccount>),
-    ConwayVoting(AsItem<Voter>),
-    ConwayProposing(AsItem<ProposalProcedure>),
+    Spending(AsItem<TransactionInput>),
+    Minting(AsItem<DisplayPolicyId>),
+    Certifying(AsItem<ConwayTxCert>),
+    Rewarding(AsItem<DisplayRewardAccount>),
+    Voting(AsItem<Voter>),
+    Proposing(AsItem<ProposalProcedure>),
 }
 #[derive(Debug, Decode, Encode, Hash, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
 pub struct SafeHash(#[n(0)] pub Bytes);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ConwayTxCert {
-    ConwayTxCertDeleg(Certificate),
-    ConwayTxCertPool(Certificate),
-    ConwayTxCertGov(Certificate),
+    Deleg(Certificate),
+    Pool(Certificate),
+    Gov(Certificate),
 }
 #[derive(Debug, Decode, Hash, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
 pub struct DisplayPolicyId(#[n(0)] pub PolicyId);
-
-// https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs#L82
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum Credential {
-    ScriptHashObj(ScriptHash),
-    KeyHashObj(AddrKeyhash),
-}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mismatch<T>(pub T, pub T);
@@ -434,14 +348,14 @@ pub struct AsIx(#[n(0)] pub u64);
 ///
 /// The `u8` variant appears for backward compatibility.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ApplyConwayTxPredError {
-    ConwayUtxowFailure(ConwayUtxoWPredFailure),
-    ConwayCertsFailure(ConwayCertsPredFailure),
-    ConwayGovFailure(ConwayGovPredFailure),
-    ConwayWdrlNotDelegatedToDRep(Vec<KeyHash>),
-    ConwayTreasuryValueMismatch(DisplayCoin, DisplayCoin),
-    ConwayTxRefScriptsSizeTooBig(i64, i64),
-    ConwayMempoolFailure(String),
+pub enum ConwayLedgerFailure {
+    UtxowFailure(ConwayUtxoWPredFailure),
+    CertsFailure(ConwayCertsPredFailure),
+    GovFailure(ConwayGovPredFailure),
+    WdrlNotDelegatedToDRep(Vec<KeyHash>),
+    TreasuryValueMismatch(DisplayCoin, DisplayCoin),
+    TxRefScriptsSizeTooBig(i64, i64),
+    MempoolFailure(String),
     U8(u8),
 }
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Certs.hs#L113
@@ -480,17 +394,17 @@ pub enum ShelleyPoolPredFailure {
 #[derive(Debug, Encode, Clone, Eq, PartialEq)]
 pub enum ConwayGovCertPredFailure {
     #[n(0)]
-    ConwayDRepAlreadyRegistered(#[n(0)] Credential),
+    DRepAlreadyRegistered(#[n(0)] Credential),
     #[n(1)]
-    ConwayDRepNotRegistered(#[n(0)] Credential),
+    DRepNotRegistered(#[n(0)] Credential),
     #[n(2)]
-    ConwayDRepIncorrectDeposit(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
+    DRepIncorrectDeposit(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
     #[n(3)]
-    ConwayCommitteeHasPreviouslyResigned(#[n(0)] Credential),
+    CommitteeHasPreviouslyResigned(#[n(0)] Credential),
     #[n(4)]
-    ConwayDRepIncorrectRefund(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
+    DRepIncorrectRefund(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
     #[n(5)]
-    ConwayCommitteeIsUnknown(#[n(0)] Credential),
+    CommitteeIsUnknown(#[n(0)] Credential),
 }
 
 // https://github.com/IntersectMBO/cardano-ledger/blob/b14ba8190e21ced6cc68c18a02dd1dbc2ff45a3c/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Deleg.hs#L104
@@ -578,4 +492,4 @@ impl From<String> for TxValidationError {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ApplyTxError(pub Vec<ApplyConwayTxPredError>);
+pub struct ApplyTxError(pub Vec<ConwayLedgerFailure>);

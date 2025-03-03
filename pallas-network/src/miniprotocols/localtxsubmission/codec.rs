@@ -4,10 +4,11 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use crate::miniprotocols::localstate::queries_v16::{
     BigInt, BoundedBytes, Constr, DatumOption, PlutusData,
 };
+use crate::miniprotocols::localtxsubmission::primitives::{Credential, Voter};
 use crate::miniprotocols::localtxsubmission::{
-    ApplyConwayTxPredError, BabbageContextError, CollectError, ConwayCertPredFailure,
-    ConwayCertsPredFailure, ConwayContextError, ConwayDelegPredFailure, ConwayGovCertPredFailure,
-    ConwayGovPredFailure, ConwayPlutusPurpose, ConwayUtxoWPredFailure, Credential, EpochNo, EraTx,
+    BabbageContextError, CollectError, ConwayCertPredFailure, ConwayCertsPredFailure,
+    ConwayContextError, ConwayDelegPredFailure, ConwayGovCertPredFailure, ConwayGovPredFailure,
+    ConwayLedgerFailure, ConwayPlutusPurpose, ConwayUtxoWPredFailure, EpochNo, EraTx,
     FailureDescription, Message, Mismatch, Network, PlutusPurpose, SMaybe, ShelleyPoolPredFailure,
     TagMismatchDescription, TxOutSource,
 };
@@ -15,9 +16,10 @@ use crate::miniprotocols::localtxsubmission::{
 use std::ops::Deref;
 use std::str::from_utf8;
 
+use super::primitives::Certificate;
 use super::{
-    ApplyTxError, Certificate, ConwayTxCert, OHashMap, ShelleyBasedEra, TxValidationError, Utxo,
-    UtxoFailure, UtxosFailure, Voter, VotingProcedure,
+    ApplyTxError, ConwayTxCert, OHashMap, ShelleyBasedEra, TxValidationError, Utxo, UtxoFailure,
+    UtxosFailure, VotingProcedure,
 };
 
 // `Ctx` generic needed after introducing `ValidityInterval`.
@@ -172,77 +174,77 @@ impl<C> Encode<C> for TxValidationError {
     }
 }
 
-impl<'b, C> Decode<'b, C> for ApplyConwayTxPredError {
+impl<'b, C> Decode<'b, C> for ConwayLedgerFailure {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
         d.array()?;
 
         let error = d.u16()?;
 
-        use ApplyConwayTxPredError::*;
+        use ConwayLedgerFailure::*;
 
         match error {
-            1 => Ok(ConwayUtxowFailure(d.decode_with(ctx)?)),
-            2 => Ok(ConwayCertsFailure(d.decode_with(ctx)?)),
-            3 => Ok(ConwayGovFailure(d.decode_with(ctx)?)),
-            4 => Ok(ConwayWdrlNotDelegatedToDRep(d.decode_with(ctx)?)),
-            5 => Ok(ConwayTreasuryValueMismatch(
+            1 => Ok(UtxowFailure(d.decode_with(ctx)?)),
+            2 => Ok(CertsFailure(d.decode_with(ctx)?)),
+            3 => Ok(GovFailure(d.decode_with(ctx)?)),
+            4 => Ok(WdrlNotDelegatedToDRep(d.decode_with(ctx)?)),
+            5 => Ok(TreasuryValueMismatch(
                 d.decode_with(ctx)?,
                 d.decode_with(ctx)?,
             )),
-            6 => Ok(ConwayTxRefScriptsSizeTooBig(
+            6 => Ok(TxRefScriptsSizeTooBig(
                 d.decode_with(ctx)?,
                 d.decode_with(ctx)?,
             )),
-            7 => Ok(ConwayMempoolFailure(d.decode_with(ctx)?)),
+            7 => Ok(MempoolFailure(d.decode_with(ctx)?)),
             _ => Err(decode::Error::message(format!(
-                "Unknown variant for ApplyConwayTxPredError: {}",
+                "Unknown variant for ConwayLedgerFailure: {}",
                 error
             ))),
         }
     }
 }
 
-impl<C> Encode<C> for ApplyConwayTxPredError {
+impl<C> Encode<C> for ConwayLedgerFailure {
     fn encode<W: encode::Write>(
         &self,
         e: &mut Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
-        use ApplyConwayTxPredError::*;
+        use ConwayLedgerFailure::*;
         match self {
-            ConwayUtxowFailure(failure) => {
+            UtxowFailure(failure) => {
                 e.array(2)?;
                 e.u8(1)?;
                 e.encode(failure)?;
             }
-            ConwayCertsFailure(failure) => {
+            CertsFailure(failure) => {
                 e.array(2)?;
                 e.u8(2)?;
                 e.encode(failure)?;
             }
-            ConwayGovFailure(failure) => {
+            GovFailure(failure) => {
                 e.array(2)?;
                 e.u8(3)?;
                 e.encode(failure)?;
             }
-            ConwayWdrlNotDelegatedToDRep(failure) => {
+            WdrlNotDelegatedToDRep(failure) => {
                 e.array(2)?;
                 e.u8(4)?;
                 e.encode(failure)?;
             }
-            ConwayTreasuryValueMismatch(val1, val2) => {
+            TreasuryValueMismatch(val1, val2) => {
                 e.array(3)?;
                 e.u8(5)?;
                 e.encode(val1)?;
                 e.encode(val2)?;
             }
-            ConwayTxRefScriptsSizeTooBig(val1, val2) => {
+            TxRefScriptsSizeTooBig(val1, val2) => {
                 e.array(3)?;
                 e.u8(6)?;
                 e.encode(val1)?;
                 e.encode(val2)?;
             }
-            ConwayMempoolFailure(failure) => {
+            MempoolFailure(failure) => {
                 e.array(2)?;
                 e.u8(7)?;
                 e.encode(failure)?;
@@ -257,9 +259,7 @@ impl<C> Encode<C> for ApplyConwayTxPredError {
 
 impl<'b, C> Decode<'b, C> for ApplyTxError {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
-        let errors = d
-            .array_iter_with::<C, ApplyConwayTxPredError>(ctx)?
-            .collect();
+        let errors = d.array_iter_with::<C, ConwayLedgerFailure>(ctx)?.collect();
 
         match errors {
             Ok(errors) => Ok(ApplyTxError(errors)),
@@ -1162,8 +1162,8 @@ impl<'b, C> Decode<'b, C> for TxOutSource {
         use TxOutSource::*;
 
         match error {
-            0 => Ok(TxOutFromInput(d.decode_with(ctx)?)),
-            1 => Ok(TxOutFromOutput(d.decode_with(ctx)?)),
+            0 => Ok(Input(d.decode_with(ctx)?)),
+            1 => Ok(Output(d.decode_with(ctx)?)),
 
             _ => Err(decode::Error::message(format!(
                 "unknown error tag while decoding TxOutSource: {}",
@@ -1180,12 +1180,12 @@ impl<C> Encode<C> for TxOutSource {
         ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
-            TxOutSource::TxOutFromInput(inner) => {
+            TxOutSource::Input(inner) => {
                 e.array(2)?;
                 e.u16(0)?;
                 e.encode_with(inner, ctx)?;
             }
-            TxOutSource::TxOutFromOutput(inner) => {
+            TxOutSource::Output(inner) => {
                 e.array(2)?;
                 e.u16(1)?;
                 e.encode_with(inner, ctx)?;
@@ -1202,12 +1202,12 @@ impl<'b, C> Decode<'b, C> for ConwayPlutusPurpose {
         use ConwayPlutusPurpose::*;
 
         match error {
-            0 => Ok(ConwaySpending(d.decode_with(ctx)?)),
-            1 => Ok(ConwayMinting(d.decode_with(ctx)?)),
-            2 => Ok(ConwayCertifying(d.decode_with(ctx)?)),
-            3 => Ok(ConwayRewarding(d.decode_with(ctx)?)),
-            4 => Ok(ConwayVoting(d.decode_with(ctx)?)),
-            5 => Ok(ConwayProposing(d.decode_with(ctx)?)),
+            0 => Ok(Spending(d.decode_with(ctx)?)),
+            1 => Ok(Minting(d.decode_with(ctx)?)),
+            2 => Ok(Certifying(d.decode_with(ctx)?)),
+            3 => Ok(Rewarding(d.decode_with(ctx)?)),
+            4 => Ok(Voting(d.decode_with(ctx)?)),
+            5 => Ok(Proposing(d.decode_with(ctx)?)),
             _ => Err(decode::Error::message(format!(
                 "unknown error tag while decoding ConwayPlutusPurpose: {}",
                 error
@@ -1243,18 +1243,18 @@ impl<'b, C> Decode<'b, C> for ConwayGovCertPredFailure {
         use ConwayGovCertPredFailure::*;
 
         match error {
-            0 => Ok(ConwayDRepAlreadyRegistered(d.decode_with(ctx)?)),
-            1 => Ok(ConwayDRepNotRegistered(d.decode_with(ctx)?)),
-            2 => Ok(ConwayDRepIncorrectDeposit(
+            0 => Ok(DRepAlreadyRegistered(d.decode_with(ctx)?)),
+            1 => Ok(DRepNotRegistered(d.decode_with(ctx)?)),
+            2 => Ok(DRepIncorrectDeposit(
                 d.decode_with(ctx)?,
                 d.decode_with(ctx)?,
             )),
-            3 => Ok(ConwayCommitteeHasPreviouslyResigned(d.decode_with(ctx)?)),
-            4 => Ok(ConwayDRepIncorrectRefund(
+            3 => Ok(CommitteeHasPreviouslyResigned(d.decode_with(ctx)?)),
+            4 => Ok(DRepIncorrectRefund(
                 d.decode_with(ctx)?,
                 d.decode_with(ctx)?,
             )),
-            5 => Ok(ConwayCommitteeIsUnknown(d.decode_with(ctx)?)),
+            5 => Ok(CommitteeIsUnknown(d.decode_with(ctx)?)),
             _ => Err(decode::Error::message(format!(
                 "unknown error tag while decoding ConwayGovCertPredFailure: {}",
                 error
@@ -1296,16 +1296,17 @@ impl<'b, C> Decode<'b, C> for ConwayTxCert {
         d.set_position(pos);
         let cert: Certificate = d.decode_with(ctx)?;
 
+        use ConwayTxCert::*;
         match variant {
             // shelley deleg certificates
-            0..3 => Ok(ConwayTxCert::ConwayTxCertDeleg(cert)),
+            0..3 => Ok(Deleg(cert)),
             // pool certificates
-            3..5 => Ok(ConwayTxCert::ConwayTxCertPool(cert)),
+            3..5 => Ok(Pool(cert)),
             // conway deleg certificates
             5 => decode_err!("Genesis delegation certificates are no longer supported"),
             6 => decode_err!("MIR certificates are no longer supported"),
-            7..14 => Ok(ConwayTxCert::ConwayTxCertDeleg(cert)),
-            14..19 => Ok(ConwayTxCert::ConwayTxCertGov(cert)),
+            7..14 => Ok(Deleg(cert)),
+            14..19 => Ok(Gov(cert)),
             _ => Err(decode::Error::message(format!(
                 "unknown certificate variant while decoding ConwayTxCert: {}",
                 variant
@@ -1320,14 +1321,15 @@ impl<C> Encode<C> for ConwayTxCert {
         e: &mut Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
+        use ConwayTxCert::*;
         match self {
-            ConwayTxCert::ConwayTxCertDeleg(cert) => {
+            Deleg(cert) => {
                 e.encode_with(cert, ctx)?;
             }
-            ConwayTxCert::ConwayTxCertPool(cert) => {
+            Pool(cert) => {
                 e.encode_with(cert, ctx)?;
             }
-            ConwayTxCert::ConwayTxCertGov(cert) => {
+            Gov(cert) => {
                 e.encode_with(cert, ctx)?;
             }
         }
@@ -1417,12 +1419,12 @@ impl<'b, C> Decode<'b, C> for ShelleyBasedEra {
         use ShelleyBasedEra::*;
 
         match era {
-            1 => Ok(ShelleyBasedEraShelley),
-            2 => Ok(ShelleyBasedEraAllegra),
-            3 => Ok(ShelleyBasedEraMary),
-            4 => Ok(ShelleyBasedEraAlonzo),
-            5 => Ok(ShelleyBasedEraBabbage),
-            6 => Ok(ShelleyBasedEraConway),
+            1 => Ok(Shelley),
+            2 => Ok(Allegra),
+            3 => Ok(Mary),
+            4 => Ok(Alonzo),
+            5 => Ok(Babbage),
+            6 => Ok(Conway),
             _ => Err(decode::Error::message(format!(
                 "unknown era while decoding ShelleyBasedEra: {}",
                 era
@@ -1438,13 +1440,16 @@ impl<C> Encode<C> for ShelleyBasedEra {
         _ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
         e.array(1)?;
+
+        use ShelleyBasedEra::*;
+
         match self {
-            ShelleyBasedEra::ShelleyBasedEraShelley => e.u16(1)?,
-            ShelleyBasedEra::ShelleyBasedEraAllegra => e.u16(2)?,
-            ShelleyBasedEra::ShelleyBasedEraMary => e.u16(3)?,
-            ShelleyBasedEra::ShelleyBasedEraAlonzo => e.u16(4)?,
-            ShelleyBasedEra::ShelleyBasedEraBabbage => e.u16(5)?,
-            ShelleyBasedEra::ShelleyBasedEraConway => e.u16(6)?,
+            Shelley => e.u16(1)?,
+            Allegra => e.u16(2)?,
+            Mary => e.u16(3)?,
+            Alonzo => e.u16(4)?,
+            Babbage => e.u16(5)?,
+            Conway => e.u16(6)?,
         };
         Ok(())
     }
@@ -2059,12 +2064,6 @@ mod tests {
 
     use crate::miniprotocols::localtxsubmission::TxValidationError;
     use crate::multiplexer::Error;
-
-    #[test]
-    fn decode_reject_message() {
-        let reason = assert_reject_reason("8182068183051a000a9c7c1a000f37b5");
-        println!("Reject reason: {:?}", reason);
-    }
 
     #[test]
     #[allow(non_snake_case)]

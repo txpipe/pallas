@@ -1,10 +1,16 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
-use crate::miniprotocols::localstate::queries_v16::{AssetName, Coin, PolicyId};
+use crate::miniprotocols::localstate::queries_v16::{
+    Anchor, AssetName, Coin, DRep, Epoch, PolicyId, PoolMetadata, Relay, RewardAccount, ScriptHash,
+    UnitInterval,
+};
 pub use pallas_codec::utils::KeyValuePairs;
 pub use pallas_crypto::hash::Hash;
 
-use pallas_codec::minicbor;
+use pallas_codec::{
+    minicbor::{self, Decode, Encode},
+    utils::{Nullable, Set},
+};
 
 pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
 
@@ -56,4 +62,90 @@ impl<C> minicbor::encode::Encode<C> for Value {
 
         Ok(())
     }
+}
+
+// https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs#L82
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum Credential {
+    ScriptHashObj(ScriptHash),
+    KeyHashObj(AddrKeyhash),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Certificate {
+    StakeRegistration(StakeCredential),
+    StakeDeregistration(StakeCredential),
+    StakeDelegation(StakeCredential, PoolKeyhash),
+    PoolRegistration {
+        operator: PoolKeyhash,
+        vrf_keyhash: VrfKeyhash,
+        pledge: Coin,
+        cost: Coin,
+        margin: UnitInterval,
+        reward_account: RewardAccount,
+        pool_owners: Set<AddrKeyhash>,
+        relays: Vec<Relay>,
+        pool_metadata: Nullable<PoolMetadata>,
+    },
+    PoolRetirement(PoolKeyhash, Epoch),
+
+    Reg(StakeCredential, Coin),
+    UnReg(StakeCredential, Coin),
+    VoteDeleg(StakeCredential, DRep),
+    StakeVoteDeleg(StakeCredential, PoolKeyhash, DRep),
+    StakeRegDeleg(StakeCredential, PoolKeyhash, Coin),
+    VoteRegDeleg(StakeCredential, DRep, Coin),
+    StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
+
+    AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
+    ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
+    RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
+    UnRegDRepCert(DRepCredential, Coin),
+    UpdateDRepCert(DRepCredential, Nullable<Anchor>),
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode, Decode)]
+// !! NOTE / IMPORTANT !!
+// It is tempting to swap the order of the two constructors so that AddrKeyHash
+// comes first. This indeed nicely maps the binary representation which
+// associates 0 to AddrKeyHash and 1 to ScriptHash.
+//
+// However, for historical reasons, the ScriptHash variant comes first in the
+// Haskell reference codebase. From this ordering is derived the `PartialOrd`
+// and `Ord` instances; which impacts how Maps/Dictionnaries indexed by
+// StakeCredential will be ordered. So, it is crucial to preserve this quirks to
+// avoid hard to troubleshoot issues down the line.
+#[cbor(flat)]
+pub enum StakeCredential {
+    #[n(1)]
+    ScriptHash(#[n(0)] ScriptHash),
+    #[n(0)]
+    AddrKeyhash(#[n(0)] AddrKeyhash),
+}
+
+pub type PoolKeyhash = Hash<28>;
+pub type VrfKeyhash = Hash<32>;
+pub type DRepCredential = StakeCredential;
+pub type CommitteeColdCredential = StakeCredential;
+pub type CommitteeHotCredential = StakeCredential;
+pub type AddrKeyhash = Hash<28>;
+
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+pub enum Voter {
+    ConstitutionalCommitteeKey(AddrKeyhash),
+    ConstitutionalCommitteeScript(ScriptHash),
+    DRepKey(AddrKeyhash),
+    DRepScript(ScriptHash),
+    StakePoolKey(AddrKeyhash),
+}
+
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[cbor(index_only)]
+pub enum Language {
+    #[n(0)]
+    PlutusV1,
+    #[n(1)]
+    PlutusV2,
+    #[n(3)]
+    PlutusV3,
 }
