@@ -1,12 +1,12 @@
 # Testing framework documentation
 
 ## Execution
-Starting at the root of the repository, simply go to *pallas-applying* and run `cargo test`.
+Starting at the root of the repository, simply go to *pallas-validate* and run `cargo test`.
 
 
 ## Explanations
 ### Byron
-*pallas-applying/tests/byron.rs* contains multiple unit tests for validation in the Byron era.
+*pallas-validate/tests/byron.rs* contains multiple unit tests for validation in the Byron era.
 
 The first one, **suceessful_mainnet_tx**, is a positive unit test. It takes the CBOR of a mainnet transaction. Namely, the one whose hash is `a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26`, which can be viewed on Cardano Explorer [here](https://cexplorer.io/tx/a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26). Such a transaction has a single input which is added to the UTxO, prior to validation, by associating it to a transaction output sitting at its real (mainnet) address. This information was taken from Cardano Explorer as well, following the address link of the only input to the transaction, and taking its raw address CBOR content.
 
@@ -21,7 +21,7 @@ Then comes a series of negative unit tests, namely:
 - **wrong_signature** takes the mainnet transaction, alters the content of its witness, and calls validation on it.
 
 ### ShelleyMA
-*pallas-applying/tests/shelley_ma_.rs* contains multiple unit tests for validation in the ShelleyMA era, which is composed of the Shelley era itself as well as its two hardforks, Allegra and Mary.
+*pallas-validate/tests/shelley_ma_.rs* contains multiple unit tests for validation in the ShelleyMA era, which is composed of the Shelley era itself as well as its two hardforks, Allegra and Mary.
 
 Note that, since phase-1 validations do not include the execution of native scripts or any of their extensions introduced in Allegra and Mary, there is virtually no difference between the Shelley era and the Allegra hardfork. The Mary hardfork does however introduce features involved in phase-1 validations, namely checking whether the policies of all minted / burnt assets have a matching native script in the transaction witnesses set.
 
@@ -71,7 +71,7 @@ List of negative unit tests:
   is advanced to a later moment.
 
 ### Alonzo
-*pallas-applying/tests/alonzo.rs* contains multiple unit tests for validation in the Alonzo era.
+*pallas-validate/tests/alonzo.rs* contains multiple unit tests for validation in the Alonzo era.
 
 Note that phase-1 validations do not include the execution of native scripts or Plutus scripts, which would correspond to phase-2 validations.
 
@@ -113,7 +113,7 @@ List of negative unit tests:
 - **script_integrity_hash** takes sucessful_mainnet_tx_with_plutus_script and modifies the execution values of one of the redeemers in the witness set of the transaction, in such a way that all checks pass but the integrity hash of script-related data of the transaction is different from the script data hash contained in the body of the transaction.
 
 ### Babbage
-*pallas-applying/tests/babbage.rs* contains multiple unit tests for validation in the Alonzo era.
+*pallas-validate/tests/babbage.rs* contains multiple unit tests for validation in the Alonzo era.
 
 Babbage introduces novel ways to provide Plutus-script-related data, like the introduction of reference scripts and novel ways to provide for collateral.
 

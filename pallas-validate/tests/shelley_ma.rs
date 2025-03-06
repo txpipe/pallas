@@ -1,34 +1,32 @@
 pub mod common;
 
-use common::*;
-use pallas_addresses::{Address, Network, ShelleyAddress};
-use pallas_applying::utils::PoolParam;
-use pallas_applying::{
-    utils::{
-        AccountState, Environment, MultiEraProtocolParameters, ShelleyMAError, ShelleyProtParams,
-        ValidationError::*,
-    },
-    validate_txs, CertState, UTxOs,
-};
-use pallas_codec::{
-    minicbor::{
-        decode::{Decode, Decoder},
-        encode,
-        to_vec,
-    },
-    utils::Bytes,
-};
-use pallas_crypto::hash::Hash;
-use pallas_primitives::alonzo::{
-    Certificate, MintedTx, MintedWitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
-    RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness, Value,
-};
-use pallas_traverse::{Era, MultiEraTx};
-use std::str::FromStr;
-
-#[cfg(test)]
 mod shelley_ma_tests {
-    use super::*;
+
+    use crate::common::*;
+    use pallas_addresses::{Address, Network, ShelleyAddress};
+    use pallas_codec::{
+        minicbor::{
+            decode::{Decode, Decoder},
+            encode,
+        },
+        utils::{Bytes, Nullable},
+    };
+    use pallas_crypto::hash::Hash;
+    use pallas_primitives::alonzo::{
+        Certificate, MintedTx, MintedWitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
+        RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness,
+        Value,
+    };
+    use pallas_traverse::{Era, MultiEraTx};
+    use pallas_validate::utils::PoolParam;
+    use pallas_validate::{
+        phase_one::validate_txs,
+        utils::{
+            AccountState, CertState, Environment, MultiEraProtocolParameters, ShelleyMAError,
+            ShelleyProtParams, UTxOs, ValidationError::*,
+        },
+    };
+    use std::str::FromStr;
 
     macro_rules! hardcoded_environment_values {
         ($($key:ident = $value:expr),*) => {
@@ -322,10 +320,10 @@ mod shelley_ma_tests {
             .to_vec(),
             pool_metadata: Some(PoolMetadata {
                 url: "https://cardapool.com/a.json".to_string(),
-                hash: Hash::from_str(
-                    "01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E",
-                )
-                .unwrap(),
+                hash: "01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E"
+                    .to_string()
+                    .try_into()
+                    .unwrap(),
             }),
         }
     }

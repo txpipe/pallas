@@ -5,7 +5,6 @@ pub mod babbage;
 pub mod byron;
 pub mod conway;
 pub mod shelley_ma;
-pub mod utils;
 
 use alonzo::validate_alonzo_tx;
 use babbage::validate_babbage_tx;
@@ -15,11 +14,10 @@ use pallas_primitives::alonzo::TransactionIndex;
 use pallas_traverse::{Era, MultiEraTx};
 use shelley_ma::validate_shelley_ma_tx;
 
-pub use utils::{
+use crate::utils::{
     CertState, Environment, MultiEraProtocolParameters, UTxOs,
     ValidationError::{
         EnvMissingAccountState, PParamsByronDoesntNeedAccountState, TxAndProtParamsDiffer,
-        UnknownProtParams,
     },
     ValidationResult,
 };

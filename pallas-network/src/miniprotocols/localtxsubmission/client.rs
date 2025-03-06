@@ -5,11 +5,13 @@ use tracing::debug;
 
 use pallas_codec::Fragment;
 
-use crate::miniprotocols::localtxsubmission::{EraTx, Message, RejectReason, State};
+use crate::miniprotocols::localtxsubmission::{EraTx, Message, State};
 use crate::multiplexer;
 
+use super::TxValidationError;
+
 /// Cardano specific instantiation of LocalTxSubmission client.
-pub type Client = GenericClient<EraTx, RejectReason>;
+pub type Client = GenericClient<EraTx, TxValidationError>;
 
 /// A generic Ouroboros client for submitting a generic transaction
 /// to a server, which possibly results in a generic rejection.
