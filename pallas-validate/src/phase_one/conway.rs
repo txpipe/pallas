@@ -275,21 +275,17 @@ fn check_collaterals_assets(
                         babbage::Value::Coin(coin) => Value::Coin(coin),
                         babbage::Value::Multiasset(coin, assets) => {
                             let mut conway_assets = Vec::new();
-                            for (key, val) in assets.to_vec() {
+                            for (key, val) in assets.into_iter() {
                                 let mut conway_value = Vec::new();
-                                for (inner_key, inner_val) in val.to_vec() {
+                                for (inner_key, inner_val) in val.into_iter() {
                                     conway_value.push((
                                         inner_key,
                                         PositiveCoin::try_from(inner_val).unwrap(),
                                     ));
                                 }
-                                conway_assets.push((
-                                    key,
-                                    NonEmptyKeyValuePairs::from_vec(conway_value).unwrap(),
-                                ));
+                                conway_assets.push((key, conway_value.into_iter().collect()));
                             }
-                            let conway_assets =
-                                NonEmptyKeyValuePairs::from_vec(conway_assets).unwrap();
+                            let conway_assets = conway_assets.into_iter().collect();
                             Value::Multiasset(coin, conway_assets)
                         }
                     }
