@@ -11,10 +11,10 @@ mod alonzo_tests {
             decode::{Decode, Decoder},
             encode,
         },
-        utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
+        utils::{Bytes, KeepRaw},
     };
     use pallas_primitives::alonzo::{
-        AddrKeyhash, CostModel, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
+        AddrKeyhash, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
         NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer,
         RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
     };

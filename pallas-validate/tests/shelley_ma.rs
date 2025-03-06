@@ -8,8 +8,9 @@ mod shelley_ma_tests {
         minicbor::{
             decode::{Decode, Decoder},
             encode,
+            to_vec,
         },
-        utils::{Bytes, Nullable},
+        utils::Bytes,
     };
     use pallas_crypto::hash::Hash;
     use pallas_primitives::alonzo::{

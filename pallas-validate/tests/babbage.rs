@@ -6,13 +6,12 @@ mod babbage_tests {
     use pallas_primitives::MaybeIndefArray;
 
     use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-    use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, KeyValuePairs};
+    use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
     use pallas_codec::{
         minicbor::{
             decode::{Decode, Decoder},
             encode,
         },
-        utils::Nullable,
     };
     use pallas_primitives::babbage::{
         CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,

@@ -2,13 +2,12 @@ pub mod common;
 
 use common::*;
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, NonEmptyKeyValuePairs};
+use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
 use pallas_codec::{
     minicbor::{
         decode::{Decode, Decoder},
         encode,
     },
-    utils::Nullable,
 };
 use pallas_primitives::conway::{
     CostModels, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput, MintedScriptRef,
@@ -23,13 +22,13 @@ use pallas_validate::{
         PostAlonzoError, UTxOs, ValidationError::*,
     },
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 #[cfg(test)]
 mod conway_tests {
     use pallas_primitives::{
         conway::{DRepVotingThresholds, PoolVotingThresholds},
-        KeyValuePairs, PositiveCoin, Set,
+        PositiveCoin, Set,
     };
 
     use super::*;
@@ -100,22 +99,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -170,22 +165,18 @@ mod conway_tests {
                 String::from("119068A7A3F008803EDAC87AF1619860F2CDCDE40C26987325ACE138AD81728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
                 Value::Multiasset(
                     1318860,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
                             [(
                                 "95ab9a125c900c14cf7d39093e3577b0c8e39c9f7548a8301a28ee2d"
                                     .parse().
                                     unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
+                                [(
                                     Bytes::from(
                                         hex::decode("4164614964696f7431313235")
                                             .unwrap(),
                                     ),
                                     PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                                )].into(),
+                            )].into(),
                 ),
                 Some(PseudoDatumOption::Hash(
                     hex::decode("d75ad82787a8d45b85c156c97736d2c6525d6b3a09b5d6297d1b45c6a63bccd3")
@@ -269,11 +260,11 @@ mod conway_tests {
                 String::from("708D73F125395466F1D68570447E4F4B87CD633C6728F3802B2DCFCA20"),
                 Value::Multiasset(
                     2000000,
-                    NonEmptyKeyValuePairs::try_from(Vec::from([(
+                    [(
                         "7F5AC1926607F0D6C000E088CEA67A1EDFDF5CB21F8B7F73412319B0"
                             .parse()
                             .unwrap(),
-                        NonEmptyKeyValuePairs::try_from(Vec::from([(
+                        [(
                             Bytes::from(
                                 hex::decode(
                                     "B5F82AAEBDC942BB0C8774DC712338B82E5133FE69EBBC3B6312098E",
@@ -281,12 +272,8 @@ mod conway_tests {
                                 .unwrap(),
                             ),
                             PositiveCoin::try_from(1).ok().unwrap(),
-                        )]))
-                        .ok()
-                        .unwrap(),
-                    )]))
-                    .ok()
-                    .unwrap(),
+                        )].into(),
+                    )].into()
                 ),
                 Some(PseudoDatumOption::Hash(
                     hex::decode("923918E403BF43C34B4EF6B48EB2EE04BABED17320D8D1B9FF9AD086E86F44EC")
@@ -349,22 +336,18 @@ mod conway_tests {
                 String::from("30DAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5EDAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5E"),
                 Value::Multiasset(
                     2000000,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "CCFC2EFE9C1C360EF60D7D2E35CDD359FAD373A62A8905345F8A8BC4"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("4F7261636C65546872656164546F6B656E")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "CCFC2EFE9C1C360EF60D7D2E35CDD359FAD373A62A8905345F8A8BC4"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("4F7261636C65546872656164546F6B656E")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into()
+                    )].into(),
                 ),
                 Some(PseudoDatumOption::Data(
                     CborWrap(
@@ -432,34 +415,32 @@ mod conway_tests {
                 String::from("719b85d5e8611945505f078aeededcbed1d6ca11053f61e3f9d999fe44"),
                 Value::Multiasset(
                     2034438,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from([
-                            (
-                                "D195CA7DB29F0F13A00CAC7FCA70426FF60BAD4E1E87D3757FAE8484"
-                                    .parse()
-                                    .unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("323738333331333737")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            ),
-                            (
-                                "E4214B7CCE62AC6FBBA385D164DF48E157EAE5863521B4B67CA71D86"
-                                    .parse()
-                                    .unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("39B9B709AC8605FC82116A2EFC308181BA297C11950F0F350001E28F0E50868B")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(42555569).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            ),
-                        ])
-                    ).ok().unwrap(),
+                    [
+                        (
+                            "D195CA7DB29F0F13A00CAC7FCA70426FF60BAD4E1E87D3757FAE8484"
+                                .parse()
+                                .unwrap(),
+                            [(
+                                Bytes::from(
+                                    hex::decode("323738333331333737")
+                                        .unwrap(),
+                                ),
+                                PositiveCoin::try_from(1).ok().unwrap(),
+                            )].into(),
+                        ),
+                        (
+                            "E4214B7CCE62AC6FBBA385D164DF48E157EAE5863521B4B67CA71D86"
+                                .parse()
+                                .unwrap(),
+                            [(
+                                Bytes::from(
+                                    hex::decode("39B9B709AC8605FC82116A2EFC308181BA297C11950F0F350001E28F0E50868B")
+                                        .unwrap(),
+                                ),
+                                PositiveCoin::try_from(42555569).ok().unwrap(),
+                            )].into(),
+                        ),
+                    ].into()
                 ),
                 Some(PseudoDatumOption::Hash(
                     hex::decode("BB6F798DF7709327DB5BEB6C7A20BA5F170DE1841DDC38F98E192CD36E857B22")
@@ -473,22 +454,18 @@ mod conway_tests {
                 String::from("0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e"),
                 Value::Multiasset(
                     197714998,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
                             [(
                                 "29D222CE763455E3D7A09A665CE554F00AC89D2E99A1A83D267170C6"
                                     .parse().
                                     unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
+                                [(
                                     Bytes::from(
                                         hex::decode("4D494E")
                                             .unwrap(),
                                     ),
                                     PositiveCoin::try_from(4913396066).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                                )].into(),
+                            )].into(),
                 ),
                 None,
                 None,
@@ -543,22 +520,18 @@ mod conway_tests {
                 String::from("11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
                 Value::Multiasset(
                     1689618,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "29D222CE763455E3D7A09A665CE554F00AC89D2E99A1A83D267170C6"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("4D494E")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "29D222CE763455E3D7A09A665CE554F00AC89D2E99A1A83D267170C6"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("4D494E")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 Some(PseudoDatumOption::Hash(
                     hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
@@ -853,22 +826,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -945,22 +914,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
                                             .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -1030,22 +995,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -1136,22 +1097,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -1167,22 +1124,18 @@ mod conway_tests {
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Multiasset(
                 5000000,
-                NonEmptyKeyValuePairs::try_from(
-                    Vec::from(
-                        [(
-                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
-                                .parse().
-                                unwrap(),
-                            NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                Bytes::from(
-                                    hex::decode("4879706562656173747332343233")
+                [(
+                    "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                        .parse().
+                        unwrap(),
+                    [(
+                        Bytes::from(
+                            hex::decode("4879706562656173747332343233")
                                         .unwrap(),
-                                ),
-                                PositiveCoin::try_from(1000).ok().unwrap(),
-                            )])).ok().unwrap(),
-                        )]
-                    )
-                ).ok().unwrap(),
+                        ),
+                        PositiveCoin::try_from(1000).ok().unwrap(),
+                    )].into(),
+                )].into(),
             ),
             None,
             None,
@@ -1238,22 +1191,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -1327,22 +1276,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -1680,22 +1625,18 @@ mod conway_tests {
                 String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
                 Value::Multiasset(
                     1795660,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("506572666563744c6567656e64617279446572705365616c")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "787f0c946b98153500edc0a753e65457250544da8486b17c85708135"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("506572666563744c6567656e64617279446572705365616c")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
                 None,
@@ -1920,7 +1861,7 @@ mod conway_tests {
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway2.tx"));
         let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = Nullable::Null;
+        mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1932,22 +1873,18 @@ mod conway_tests {
                 String::from("11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
                 Value::Multiasset(
                     1689618,
-                    NonEmptyKeyValuePairs::try_from(
-                        Vec::from(
-                            [(
-                                "dc8f23301b0e3d71af9ac5d1559a060271aa6cf56ac98bdaeea19e18"
-                                    .parse().
-                                    unwrap(),
-                                NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                    Bytes::from(
-                                        hex::decode("303734")
-                                            .unwrap(),
-                                    ),
-                                    PositiveCoin::try_from(1).ok().unwrap(),
-                                )])).ok().unwrap(),
-                            )]
-                        )
-                    ).ok().unwrap(),
+                    [(
+                        "dc8f23301b0e3d71af9ac5d1559a060271aa6cf56ac98bdaeea19e18"
+                            .parse().
+                            unwrap(),
+                        [(
+                            Bytes::from(
+                                hex::decode("303734")
+                                    .unwrap(),
+                            ),
+                            PositiveCoin::try_from(1).ok().unwrap(),
+                        )].into(),
+                    )].into(),
                 ),
                 Some(PseudoDatumOption::Hash(
                     hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
@@ -2516,7 +2453,7 @@ mod conway_tests {
 
                 plutus_v2: None,
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -2839,7 +2776,7 @@ mod conway_tests {
                     20000000000,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -3000,7 +2937,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -3161,7 +3098,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
