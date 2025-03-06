@@ -495,6 +495,7 @@ pub type ScriptHash = Bytes;
 
 /// Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
 #[derive(Debug, Eq, PartialEq, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum GovAction {
     ParameterChange(Option<GovPurposeId>, PParamsUpdate, Option<ScriptHash>),
     HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
@@ -693,8 +694,8 @@ pub struct FilteredDelegsRewards {
 
 /// Set of pool hashes.
 ///
-/// The use of `BTreeMap`s (as per `TaggedSet` definition) ensures that the hashes are
-/// in order (otherwise, the node will reject some queries).
+/// The use of `BTreeMap`s (as per `TaggedSet` definition) ensures that the
+/// hashes are in order (otherwise, the node will reject some queries).
 pub type Pools = TaggedSet<Bytes>;
 
 pub type Coin = AnyUInt;

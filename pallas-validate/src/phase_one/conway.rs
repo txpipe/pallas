@@ -21,7 +21,8 @@ use pallas_primitives::{
     babbage,
     conway::{
         Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
-        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemers, RedeemersKey, RequiredSigners, VKeyWitness, Value,
+        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemers,
+        RedeemersKey, RequiredSigners, VKeyWitness, Value,
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin,
     TransactionInput,
@@ -662,7 +663,7 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
             .vkeywitness
             .clone()
             .map(|wits| wits.to_vec())
-            .unwrap_or_else(|| Vec::new()),
+            .unwrap_or_default(),
     );
     let native_scripts: Vec<PolicyId> = match &tx_wits.native_script {
         Some(scripts) => scripts
@@ -725,7 +726,7 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
                 .vkeywitness
                 .clone()
                 .map(|wits| wits.to_vec())
-                .unwrap_or_else(|| Vec::new()),
+                .unwrap_or_default(),
         ),
         utxos,
     )

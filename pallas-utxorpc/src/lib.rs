@@ -427,99 +427,94 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_conway_gov_action(&self, x: &conway::GovAction) -> u5c::GovernanceAction {
-        let inner =
-            match x {
-                conway::GovAction::ParameterChange(gov_id, params, script) => {
-                    u5c::governance_action::GovernanceAction::ParameterChangeAction(
-                        u5c::ParameterChangeAction {
-                            gov_action_id: self.map_gov_action_id(gov_id),
-                            protocol_param_update: Some(self.map_conway_pparams_update(&params)),
-                            policy_hash: match script {
+        let inner = match x {
+            conway::GovAction::ParameterChange(gov_id, params, script) => {
+                u5c::governance_action::GovernanceAction::ParameterChangeAction(
+                    u5c::ParameterChangeAction {
+                        gov_action_id: self.map_gov_action_id(gov_id),
+                        protocol_param_update: Some(self.map_conway_pparams_update(params)),
+                        policy_hash: match script {
+                            Some(x) => x.to_vec().into(),
+                            _ => Default::default(),
+                        },
+                    },
+                )
+            }
+            conway::GovAction::HardForkInitiation(gov_id, version) => {
+                u5c::governance_action::GovernanceAction::HardForkInitiationAction(
+                    u5c::HardForkInitiationAction {
+                        gov_action_id: self.map_gov_action_id(gov_id),
+                        protocol_version: Some(u5c::ProtocolVersion {
+                            major: version.0 as u32,
+                            minor: version.1 as u32,
+                        }),
+                    },
+                )
+            }
+            conway::GovAction::TreasuryWithdrawals(withdrawals, script) => {
+                u5c::governance_action::GovernanceAction::TreasuryWithdrawalsAction(
+                    u5c::TreasuryWithdrawalsAction {
+                        withdrawals: withdrawals
+                            .iter()
+                            .map(|(k, v)| u5c::WithdrawalAmount {
+                                reward_account: k.to_vec().into(),
+                                coin: *v,
+                            })
+                            .collect(),
+                        policy_hash: match script {
+                            Some(x) => x.to_vec().into(),
+                            _ => Default::default(),
+                        },
+                    },
+                )
+            }
+            conway::GovAction::NoConfidence(gov_id) => {
+                u5c::governance_action::GovernanceAction::NoConfidenceAction(
+                    u5c::NoConfidenceAction {
+                        gov_action_id: self.map_gov_action_id(gov_id),
+                    },
+                )
+            }
+            conway::GovAction::UpdateCommittee(gov_id, remove, add, threshold) => {
+                u5c::governance_action::GovernanceAction::UpdateCommitteeAction(
+                    u5c::UpdateCommitteeAction {
+                        gov_action_id: self.map_gov_action_id(gov_id),
+                        remove_committee_credentials: remove
+                            .iter()
+                            .map(|x| self.map_stake_credential(x))
+                            .collect(),
+                        new_committee_credentials: add
+                            .iter()
+                            .map(|(cred, epoch)| u5c::NewCommitteeCredentials {
+                                committee_cold_credential: Some(self.map_stake_credential(cred)),
+                                expires_epoch: *epoch as u32,
+                            })
+                            .collect(),
+                        new_committee_threshold: Some(rational_number_to_u5c(threshold.clone())),
+                    },
+                )
+            }
+            conway::GovAction::NewConstitution(gov_id, constitution) => {
+                u5c::governance_action::GovernanceAction::NewConstitutionAction(
+                    u5c::NewConstitutionAction {
+                        gov_action_id: self.map_gov_action_id(gov_id),
+                        constitution: Some(u5c::Constitution {
+                            anchor: Some(u5c::Anchor {
+                                url: constitution.anchor.url.clone(),
+                                content_hash: constitution.anchor.content_hash.to_vec().into(),
+                            }),
+                            hash: match constitution.guardrail_script {
                                 Some(x) => x.to_vec().into(),
                                 _ => Default::default(),
                             },
-                        },
-                    )
-                }
-                conway::GovAction::HardForkInitiation(gov_id, version) => {
-                    u5c::governance_action::GovernanceAction::HardForkInitiationAction(
-                        u5c::HardForkInitiationAction {
-                            gov_action_id: self.map_gov_action_id(gov_id),
-                            protocol_version: Some(u5c::ProtocolVersion {
-                                major: version.0 as u32,
-                                minor: version.1 as u32,
-                            }),
-                        },
-                    )
-                }
-                conway::GovAction::TreasuryWithdrawals(withdrawals, script) => {
-                    u5c::governance_action::GovernanceAction::TreasuryWithdrawalsAction(
-                        u5c::TreasuryWithdrawalsAction {
-                            withdrawals: withdrawals
-                                .iter()
-                                .map(|(k, v)| u5c::WithdrawalAmount {
-                                    reward_account: k.to_vec().into(),
-                                    coin: *v,
-                                })
-                                .collect(),
-                            policy_hash: match script {
-                                Some(x) => x.to_vec().into(),
-                                _ => Default::default(),
-                            },
-                        },
-                    )
-                }
-                conway::GovAction::NoConfidence(gov_id) => {
-                    u5c::governance_action::GovernanceAction::NoConfidenceAction(
-                        u5c::NoConfidenceAction {
-                            gov_action_id: self.map_gov_action_id(gov_id),
-                        },
-                    )
-                }
-                conway::GovAction::UpdateCommittee(gov_id, remove, add, threshold) => {
-                    u5c::governance_action::GovernanceAction::UpdateCommitteeAction(
-                        u5c::UpdateCommitteeAction {
-                            gov_action_id: self.map_gov_action_id(gov_id),
-                            remove_committee_credentials: remove
-                                .iter()
-                                .map(|x| self.map_stake_credential(x))
-                                .collect(),
-                            new_committee_credentials: add
-                                .iter()
-                                .map(|(cred, epoch)| u5c::NewCommitteeCredentials {
-                                    committee_cold_credential: Some(
-                                        self.map_stake_credential(cred),
-                                    ),
-                                    expires_epoch: *epoch as u32,
-                                })
-                                .collect(),
-                            new_committee_threshold: Some(rational_number_to_u5c(
-                                threshold.clone(),
-                            )),
-                        },
-                    )
-                }
-                conway::GovAction::NewConstitution(gov_id, constitution) => {
-                    u5c::governance_action::GovernanceAction::NewConstitutionAction(
-                        u5c::NewConstitutionAction {
-                            gov_action_id: self.map_gov_action_id(gov_id),
-                            constitution: Some(u5c::Constitution {
-                                anchor: Some(u5c::Anchor {
-                                    url: constitution.anchor.url.clone(),
-                                    content_hash: constitution.anchor.content_hash.to_vec().into(),
-                                }),
-                                hash: match constitution.guardrail_script {
-                                    Some(x) => x.to_vec().into(),
-                                    _ => Default::default(),
-                                },
-                            }),
-                        },
-                    )
-                }
-                conway::GovAction::Information => {
-                    u5c::governance_action::GovernanceAction::InfoAction(6) // The 6 is just a placeholder, we don't need to use it
-                }
-            };
+                        }),
+                    },
+                )
+            }
+            conway::GovAction::Information => {
+                u5c::governance_action::GovernanceAction::InfoAction(6) // The 6 is just a placeholder, we don't need to use it
+            }
+        };
 
         u5c::GovernanceAction {
             governance_action: Some(inner),
