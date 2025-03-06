@@ -398,7 +398,7 @@ impl<'b> MultiEraTx<'b> {
                 .proposal_procedures
                 .iter()
                 .flatten()
-                .map(|x| MultiEraProposal::from_conway(x))
+                .map(MultiEraProposal::from_conway)
                 .collect(),
             _ => vec![],
         }

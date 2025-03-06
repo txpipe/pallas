@@ -712,7 +712,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     values_2,
                 ),
             ]);
-             
+
             let result = AnyCbor::from_encode(utxos);
             server.statequery().send_result(result).await.unwrap();
             */
@@ -1357,8 +1357,11 @@ pub async fn local_state_query_server_and_client_happy_path2() {
                     .into();
             let pool_metadata: Nullable<PoolMetadata> = Some(PoolMetadata {
                 url: "https://csouza.me/jp-pp.json".to_string(),
-                hash: Vec::from_hex("C9623111188D0BF90E8305E40AA91A040D8036C7813A4ECA44E06FA0A1A893A6").unwrap().into()
-                 
+                hash: Vec::from_hex(
+                    "C9623111188D0BF90E8305E40AA91A040D8036C7813A4ECA44E06FA0A1A893A6",
+                )
+                .unwrap()
+                .into(),
             })
             .into();
             let pool_params = PoolParams {
