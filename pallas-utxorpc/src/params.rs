@@ -221,23 +221,23 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn map_conway_pparams_update(&self, x: &conway::ProtocolParamUpdate) -> u5c::PParams {
         u5c::PParams {
             coins_per_utxo_byte: x.ada_per_utxo_byte.unwrap_or_default(),
-            max_tx_size: x.max_transaction_size.unwrap_or_default() as u64,
-            min_fee_coefficient: x.minfee_a.unwrap_or_default() as u64,
-            min_fee_constant: x.minfee_b.unwrap_or_default() as u64,
-            max_block_body_size: x.max_block_body_size.unwrap_or_default() as u64,
-            max_block_header_size: x.max_block_header_size.unwrap_or_default() as u64,
+            max_tx_size: x.max_transaction_size.unwrap_or_default(),
+            min_fee_coefficient: x.minfee_a.unwrap_or_default(),
+            min_fee_constant: x.minfee_b.unwrap_or_default(),
+            max_block_body_size: x.max_block_body_size.unwrap_or_default(),
+            max_block_header_size: x.max_block_header_size.unwrap_or_default(),
             stake_key_deposit: x.key_deposit.unwrap_or_default(),
             pool_deposit: x.pool_deposit.unwrap_or_default(),
-            pool_retirement_epoch_bound: x.maximum_epoch.unwrap_or_default() as u64,
-            desired_number_of_pools: x.desired_number_of_stake_pools.unwrap_or_default() as u64,
+            pool_retirement_epoch_bound: x.maximum_epoch.unwrap_or_default(),
+            desired_number_of_pools: x.desired_number_of_stake_pools.unwrap_or_default(),
             pool_influence: x.pool_pledge_influence.clone().map(rational_number_to_u5c),
             monetary_expansion: x.expansion_rate.clone().map(rational_number_to_u5c),
             treasury_expansion: x.treasury_growth_rate.clone().map(rational_number_to_u5c),
             min_pool_cost: x.min_pool_cost.unwrap_or_default(),
             protocol_version: None,
-            max_value_size: x.max_value_size.unwrap_or_default() as u64,
-            collateral_percentage: x.collateral_percentage.unwrap_or_default() as u64,
-            max_collateral_inputs: x.max_collateral_inputs.unwrap_or_default() as u64,
+            max_value_size: x.max_value_size.unwrap_or_default(),
+            collateral_percentage: x.collateral_percentage.unwrap_or_default(),
+            max_collateral_inputs: x.max_collateral_inputs.unwrap_or_default(),
             cost_models: x
                 .cost_models_for_script_languages
                 .clone()
@@ -290,13 +290,13 @@ impl<C: LedgerContext> Mapper<C> {
                 }
             }),
             min_committee_size: x.min_committee_size.unwrap_or_default() as u32,
-            committee_term_limit: x.committee_term_limit.unwrap_or_default() as u64,
+            committee_term_limit: x.committee_term_limit.unwrap_or_default(),
             governance_action_validity_period: x
                 .governance_action_validity_period
-                .unwrap_or_default() as u64,
+                .unwrap_or_default(),
             governance_action_deposit: x.governance_action_deposit.unwrap_or_default(),
             drep_deposit: x.drep_deposit.unwrap_or_default(),
-            drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default() as u64,
+            drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default(),
         }
     }
 }

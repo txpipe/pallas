@@ -435,7 +435,7 @@ impl<C: LedgerContext> Mapper<C> {
                     u5c::governance_action::GovernanceAction::ParameterChangeAction(
                         u5c::ParameterChangeAction {
                             gov_action_id: self.map_gov_action_id(gov_id),
-                            protocol_param_update: Some(self.map_conway_pparams_update(&params)),
+                            protocol_param_update: Some(self.map_conway_pparams_update(params)),
                             policy_hash: match script {
                                 conway::Nullable::Some(x) => x.to_vec().into(),
                                 _ => Default::default(),

@@ -130,7 +130,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     info!("result: {:?}", result);
 
-    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.clone().into())
+    let result = queries_v16::get_filtered_vote_delegatees(client, era, addrs.clone())
         .await
         .unwrap();
     info!("result: {:02x?}", result);
