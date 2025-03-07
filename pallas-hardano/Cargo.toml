@@ -17,6 +17,14 @@ tap = "1.0.1"
 tracing = "0.1.40"
 pallas-traverse = { version = "=0.32.0", path = "../pallas-traverse" }
 pallas-network = { version = "=0.32.0", path = "../pallas-network" }
+pallas-addresses = { version = "=0.32.0", path = "../pallas-addresses" }
+pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
+pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
+
+serde = { version = "1.0.218", features = ["derive"] }
+hex = "0.4.3"
+serde_with = "3.12.0"
+serde_json = "1.0.140"
 
 [dev-dependencies]
 tracing-subscriber = "0.3.17"

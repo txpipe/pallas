@@ -9,13 +9,14 @@ use pallas_codec::minicbor::{self};
 
 use pallas_codec::minicbor::{Decode, Encode};
 use pallas_codec::utils::{
-    AnyCbor, AnyUInt, Bytes, CborWrap, Int, KeyValuePairs, MaybeIndefArray, Nullable, TagWrap,
+    AnyCbor, AnyUInt, Bytes, CborWrap, Int, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, Nullable, TagWrap
 };
 
 pub mod primitives;
 
 pub use primitives::{PoolMetadata, Relay};
 
+use crate::miniprotocols::localtxsubmission::primitives::{CommitteeColdCredential, CommitteeHotCredential, ScriptRef};
 use crate::miniprotocols::Point;
 
 use crate::miniprotocols::localtxsubmission::SMaybe;
@@ -171,9 +172,9 @@ pub enum DRep {
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct GovActionId {
     #[n(0)]
-    pub tx_id: Bytes,
+    pub tx_id: Hash<32>,
     #[n(1)]
-    pub gov_action_ix: u16,
+    pub gov_action_ix: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -475,7 +476,7 @@ pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
     #[n(1)]
-    pub script: Option<Bytes>,
+    pub script: Option<ScriptHash>,
 }
 
 /// TODO: Votes as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L365-L368).
@@ -491,7 +492,7 @@ pub enum Vote {
 }
 
 pub type RewardAccount = Bytes;
-pub type ScriptHash = Bytes;
+pub type ScriptHash = Hash<28>;
 
 /// Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -499,12 +500,12 @@ pub type ScriptHash = Bytes;
 pub enum GovAction {
     ParameterChange(Option<GovPurposeId>, PParamsUpdate, Option<ScriptHash>),
     HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
-    TreasuryWithdrawals(BTreeMap<RewardAccount, Coin>, Option<ScriptHash>),
+    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>, Option<ScriptHash>),
     NoConfidence(Option<GovPurposeId>),
     UpdateCommittee(
         Option<GovPurposeId>,
-        TaggedSet<Credential>,
-        BTreeMap<Credential, Epoch>,
+        TaggedSet<CommitteeColdCredential>,
+        BTreeMap<CommitteeHotCredential, Epoch>,
         UnitInterval,
     ),
     NewConstitution(Option<GovPurposeId>, Constitution),
@@ -704,7 +705,7 @@ pub type PolicyId = Hash<28>;
 
 pub type AssetName = Bytes;
 
-pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
+pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
 
 pub type UTxOByAddress = KeyValuePairs<UTxO, TransactionOutput>;
 
@@ -813,7 +814,7 @@ pub struct PostAlonsoTransactionOutput {
     pub inline_datum: Option<DatumOption>,
 
     #[n(3)]
-    pub script_ref: Option<TagWrap<Bytes, 24>>,
+    pub script_ref: Option<CborWrap<ScriptRef>>,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]

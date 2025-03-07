@@ -6,4 +6,3 @@ mod codec;
 mod protocol;
 
 pub mod primitives;
-pub use primitives::Value;
