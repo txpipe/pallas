@@ -17,10 +17,13 @@ pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<A
 pub type Mint = Multiasset<i64>;
 
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs#L82
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Decode, Encode, Clone, Hash, PartialEq, Eq)]
+#[cbor(flat)]
 pub enum Credential {
-    ScriptHashObj(ScriptHash),
-    KeyHashObj(AddrKeyhash),
+    #[n(0)]
+    ScriptHashObj(#[n(0)] ScriptHash),
+    #[n(1)]
+    KeyHashObj(#[n(0)] AddrKeyhash),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
