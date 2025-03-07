@@ -1,5 +1,6 @@
 use pallas_codec::Fragment;
 use pallas_multiplexer::agents::{Channel, ChannelBuffer, ChannelError};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use thiserror::*;
 
@@ -24,9 +25,10 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub enum Confirmation<D> {
+pub enum Confirmation<D: Debug + Clone> {
     Accepted(VersionNumber, D),
     Rejected(RefuseReason),
+    QueryReply(VersionTable<D>),
 }
 
 pub struct Client<H, D>(State, ChannelBuffer<H>, PhantomData<D>)
@@ -86,6 +88,7 @@ where
         match (&self.0, msg) {
             (State::Confirm, Message::Accept(..)) => Ok(()),
             (State::Confirm, Message::Refuse(..)) => Ok(()),
+            (State::Confirm, Message::QueryReply(..)) => Ok(()),
             _ => Err(Error::InvalidInbound),
         }
     }
@@ -124,6 +127,7 @@ where
                 self.0 = State::Done;
                 Ok(Confirmation::Rejected(r))
             }
+            Message::QueryReply(version_table) => Ok(Confirmation::QueryReply(version_table)),
             _ => Err(Error::InvalidInbound),
         }
     }
