@@ -20,9 +20,9 @@ pub type Mint = Multiasset<i64>;
 #[derive(Debug, Decode, Encode, Clone, Hash, PartialEq, Eq)]
 #[cbor(flat)]
 pub enum Credential {
-    #[n(0)]
-    ScriptHashObj(#[n(0)] ScriptHash),
     #[n(1)]
+    ScriptHashObj(#[n(0)] ScriptHash),
+    #[n(0)]
     KeyHashObj(#[n(0)] AddrKeyhash),
 }
 
