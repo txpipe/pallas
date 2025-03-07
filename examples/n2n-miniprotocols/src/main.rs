@@ -20,6 +20,9 @@ fn do_handshake(channel: StdChannel) {
         handshake::Confirmation::Rejected(x) => {
             log::info!("hand-shake rejected with reason {:?}", x)
         }
+        handshake::Confirmation::QueryReply(v) => {
+            log::info!("hand-shake query reply {:?}", v)
+        }
     }
 }
 
