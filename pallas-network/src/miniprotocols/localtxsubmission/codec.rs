@@ -8,15 +8,15 @@ use crate::miniprotocols::localtxsubmission::primitives::{Credential, Voter};
 use crate::miniprotocols::localtxsubmission::{
     BabbageContextError, CollectError, ConwayCertPredFailure, ConwayCertsPredFailure,
     ConwayContextError, ConwayDelegPredFailure, ConwayGovCertPredFailure, ConwayGovPredFailure,
-    ConwayLedgerFailure, ConwayPlutusPurpose, ConwayUtxoWPredFailure, EpochNo, EraTx,
-    FailureDescription, Message, Mismatch, Network, PlutusPurpose, SMaybe, ShelleyPoolPredFailure,
-    TagMismatchDescription, TxOutSource,
+    ConwayLedgerFailure, ConwayUtxoWPredFailure, EpochNo, EraTx, FailureDescription, Message,
+    Mismatch, Network, PlutusPurpose, SMaybe, ShelleyPoolPredFailure, TagMismatchDescription,
+    TxOutSource,
 };
 
 use std::ops::Deref;
 use std::str::from_utf8;
 
-use super::primitives::Certificate;
+use super::primitives::{Certificate, NativeScript, PseudoScript};
 use super::{
     ApplyTxError, ConwayTxCert, OHashMap, ShelleyBasedEra, TxValidationError, Utxo, UtxoFailure,
     UtxosFailure, VotingProcedure,
@@ -488,7 +488,7 @@ impl<'b, C> Decode<'b, C> for UtxoFailure {
             21 => Ok(BabbageOutputTooSmallUTxO(d.decode_with(ctx)?)),
             22 => Ok(BabbageNonDisjointRefInputs(d.decode_with(ctx)?)),
             _ => Err(decode::Error::message(format!(
-                "unknown error tag while decoding ConwayUtxoPredFailure: {}",
+                "unknown error tag while decoding UtxoFailure: {}",
                 error
             ))),
         }
@@ -1194,27 +1194,6 @@ impl<C> Encode<C> for TxOutSource {
         Ok(())
     }
 }
-impl<'b, C> Decode<'b, C> for ConwayPlutusPurpose {
-    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
-        d.array()?;
-        let error = d.u16()?;
-
-        use ConwayPlutusPurpose::*;
-
-        match error {
-            0 => Ok(Spending(d.decode_with(ctx)?)),
-            1 => Ok(Minting(d.decode_with(ctx)?)),
-            2 => Ok(Certifying(d.decode_with(ctx)?)),
-            3 => Ok(Rewarding(d.decode_with(ctx)?)),
-            4 => Ok(Voting(d.decode_with(ctx)?)),
-            5 => Ok(Proposing(d.decode_with(ctx)?)),
-            _ => Err(decode::Error::message(format!(
-                "unknown error tag while decoding ConwayPlutusPurpose: {}",
-                error
-            ))),
-        }
-    }
-}
 
 impl<'b, C> Decode<'b, C> for ConwayCertPredFailure {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
@@ -1512,7 +1491,7 @@ impl<'b, C> Decode<'b, C> for Voter {
             2 => Ok(DRepKey(d.decode_with(ctx)?)),
             3 => Ok(DRepScript(d.decode_with(ctx)?)),
             4 => Ok(StakePoolKey(d.decode_with(ctx)?)),
-            _ => Err(decode::Error::message("invalid variant id for DRep")),
+            _ => Err(decode::Error::message("invalid variant id for Voter")),
         }
     }
 }
@@ -2055,6 +2034,112 @@ where
                 Ok(())
             }
         }
+    }
+}
+
+impl<'b, C> Decode<'b, C> for NativeScript {
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+        let variant = d.u32()?;
+
+        match variant {
+            0 => Ok(NativeScript::ScriptPubkey(d.decode_with(ctx)?)),
+            1 => Ok(NativeScript::ScriptAll(d.decode_with(ctx)?)),
+            2 => Ok(NativeScript::ScriptAny(d.decode_with(ctx)?)),
+            3 => Ok(NativeScript::ScriptNOfK(
+                d.decode_with(ctx)?,
+                d.decode_with(ctx)?,
+            )),
+            4 => Ok(NativeScript::InvalidBefore(d.decode_with(ctx)?)),
+            5 => Ok(NativeScript::InvalidHereafter(d.decode_with(ctx)?)),
+            _ => Err(decode::Error::message(
+                "unknown variant id for native script",
+            )),
+        }
+    }
+}
+
+impl<C> Encode<C> for NativeScript {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            NativeScript::ScriptPubkey(v) => {
+                e.array(2)?;
+                e.encode_with(0, ctx)?;
+                e.encode_with(v, ctx)?;
+            }
+            NativeScript::ScriptAll(v) => {
+                e.array(2)?;
+                e.encode_with(1, ctx)?;
+                e.encode_with(v, ctx)?;
+            }
+            NativeScript::ScriptAny(v) => {
+                e.array(2)?;
+                e.encode_with(2, ctx)?;
+                e.encode_with(v, ctx)?;
+            }
+            NativeScript::ScriptNOfK(a, b) => {
+                e.array(3)?;
+                e.encode_with(3, ctx)?;
+                e.encode_with(a, ctx)?;
+                e.encode_with(b, ctx)?;
+            }
+            NativeScript::InvalidBefore(v) => {
+                e.array(2)?;
+                e.encode_with(4, ctx)?;
+                e.encode_with(v, ctx)?;
+            }
+            NativeScript::InvalidHereafter(v) => {
+                e.array(2)?;
+                e.encode_with(5, ctx)?;
+                e.encode_with(v, ctx)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<'b, C, T> Decode<'b, C> for PseudoScript<T>
+where
+    T: Decode<'b, ()>,
+{
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+
+        match d.u8()? {
+            0 => Ok(Self::NativeScript(d.decode()?)),
+            1 => Ok(Self::PlutusV1Script(d.decode()?)),
+            2 => Ok(Self::PlutusV2Script(d.decode()?)),
+            3 => Ok(Self::PlutusV3Script(d.decode()?)),
+            x => Err(decode::Error::message(format!(
+                "invalid variant for script enum: {}",
+                x
+            ))),
+        }
+    }
+}
+
+impl<C, T> Encode<C> for PseudoScript<T>
+where
+    T: Encode<C>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Self::NativeScript(x) => e.encode_with((0, x), ctx)?,
+            Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
+            Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
+            Self::PlutusV3Script(x) => e.encode_with((3, x), ctx)?,
+        };
+
+        Ok(())
     }
 }
 
@@ -3438,6 +3523,7 @@ mod tests {
         assert_reject_reason("81820682820181088203820c841a000236ae581df0552d969928f472c24f005ce4aaeb1a888ecc58f6e75ce0ac65a6be41810682783568747470733a2f2f3975576958314e416b6a6d764e7551775759525131705a75415059416e312d705974514568577249392e636f6d5820f70f8c1b6b57c2d9483bc98f062b088723b3f74e760419ccd4232abba36b75d3");
     }
 
+    #[cfg(test)]
     fn try_decode_error(buffer: &mut Vec<u8>) -> Result<Option<TxValidationError>, Error> {
         let mut decoder = minicbor::Decoder::new(buffer);
         let maybe_msg = decoder.decode();

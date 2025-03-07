@@ -1738,7 +1738,7 @@ pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
 pub async fn peer_sharing_server_and_client_happy_path() {
     use tracing::info;
 
-    let _ = tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt::init();
 
     let amount = 3;
 

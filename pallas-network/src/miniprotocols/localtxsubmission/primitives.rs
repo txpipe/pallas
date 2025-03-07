@@ -9,60 +9,12 @@ pub use pallas_crypto::hash::Hash;
 
 use pallas_codec::{
     minicbor::{self, Decode, Encode},
-    utils::{Nullable, Set},
+    utils::{Bytes, NonEmptyKeyValuePairs, Nullable, Set},
 };
 
-pub type Multiasset<A> = KeyValuePairs<PolicyId, KeyValuePairs<AssetName, A>>;
+pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
 
 pub type Mint = Multiasset<i64>;
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Value {
-    Coin(Coin),
-    Multiasset(Coin, Multiasset<Coin>),
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array => {
-                d.array()?;
-                let coin = d.decode_with(ctx)?;
-                let multiasset = d.decode_with(ctx)?;
-                Ok(Value::Multiasset(coin, multiasset))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "unknown cbor data type for Alonzo Value enum",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for Value {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        // TODO: check how to deal with uint variants (u32 vs u64)
-        match self {
-            Value::Coin(coin) => {
-                e.encode_with(coin, ctx)?;
-            }
-            Value::Multiasset(coin, other) => {
-                e.array(2)?;
-                e.encode_with(coin, ctx)?;
-                e.encode_with(other, ctx)?;
-            }
-        };
-
-        Ok(())
-    }
-}
 
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/libs/cardano-ledger-core/src/Cardano/Ledger/Credential.hs#L82
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -146,6 +98,30 @@ pub enum Language {
     PlutusV1,
     #[n(1)]
     PlutusV2,
-    #[n(3)]
+    #[n(2)]
     PlutusV3,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PseudoScript<T1> {
+    NativeScript(T1),
+    PlutusV1Script(PlutusScript<1>),
+    PlutusV2Script(PlutusScript<2>),
+    PlutusV3Script(PlutusScript<3>),
+}
+
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(transparent)]
+pub struct PlutusScript<const VERSION: usize>(#[n(0)] pub Bytes);
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum NativeScript {
+    ScriptPubkey(AddrKeyhash),
+    ScriptAll(Vec<NativeScript>),
+    ScriptAny(Vec<NativeScript>),
+    ScriptNOfK(u32, Vec<NativeScript>),
+    InvalidBefore(u64),
+    InvalidHereafter(u64),
+}
+
+pub type ScriptRef = PseudoScript<NativeScript>;

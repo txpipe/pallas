@@ -1,12 +1,10 @@
 use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
-use super::Value;
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash,
-    TransactionInput, TransactionOutput, Vote,
+    Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash, TransactionInput, TransactionOutput, Value, Vote
 };
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use pallas_codec::minicbor::{self, Decode, Encode};
-use pallas_codec::utils::{Bytes, NonEmptyKeyValuePairs, Nullable, Set};
+use pallas_codec::utils::{AnyUInt, Bytes, NonEmptyKeyValuePairs, Nullable, Set};
 pub use pallas_crypto::hash::Hash;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -156,10 +154,6 @@ pub enum TxOutSource {
     Output(u64),
 }
 
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct TxIx(#[n(0)] pub u64);
-
 // this type can be used inside a SMaybe
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
@@ -188,6 +182,12 @@ pub struct DisplayCoin(#[n(0)] pub Coin);
 impl From<&u64> for DisplayCoin {
     fn from(v: &u64) -> Self {
         DisplayCoin(Coin::U64(*v))
+    }
+}
+
+impl From<&AnyUInt> for DisplayCoin {
+    fn from(v: &AnyUInt) -> Self {
+        DisplayCoin(*v)
     }
 }
 
@@ -307,15 +307,7 @@ pub enum ConwayUtxoWPredFailure {
     MalformedScriptWitnesses(Set<ScriptHash>),
     MalformedReferenceScripts(Set<ScriptHash>),
 }
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ConwayPlutusPurpose {
-    Spending(AsItem<TransactionInput>),
-    Minting(AsItem<DisplayPolicyId>),
-    Certifying(AsItem<ConwayTxCert>),
-    Rewarding(AsItem<DisplayRewardAccount>),
-    Voting(AsItem<Voter>),
-    Proposing(AsItem<ProposalProcedure>),
-}
+
 #[derive(Debug, Decode, Encode, Hash, PartialEq, Eq, Clone)]
 #[cbor(transparent)]
 pub struct SafeHash(#[n(0)] pub Bytes);
@@ -332,17 +324,10 @@ pub struct DisplayPolicyId(#[n(0)] pub PolicyId);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mismatch<T>(pub T, pub T);
 
-#[derive(Debug, Decode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct AsItem<T>(#[n(0)] pub T);
-
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct EpochNo(#[n(0)] pub u64);
 
-#[derive(Debug, Decode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct AsIx(#[n(0)] pub u64);
 /// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs#L138-L153)
 /// in the Haskell sources.
 ///
