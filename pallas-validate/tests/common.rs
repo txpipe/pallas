@@ -7,6 +7,7 @@ use pallas_primitives::{
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput};
 use pallas_validate::utils::UTxOs;
+use pallas_validate::utils::{EraCbor, TxoRef, UtxoMap};
 use std::{borrow::Cow, iter::zip, vec::Vec};
 
 use pallas_codec::utils::{Bytes, CborWrap};
@@ -123,9 +124,9 @@ pub fn mk_utxo_for_conway_tx<'a>(
     )],
 ) -> UTxOs<'a> {
     let mut utxos: UTxOs = UTxOs::new();
-    for (tx_in, (addr, val, datum_opt, script_ref)) in
-        zip(tx_body.inputs.clone().to_vec(), tx_outs_info)
-    {
+    let tx_inputs = tx_body.inputs.clone().to_vec();
+
+    for (tx_in, (addr, val, datum_opt, script_ref)) in zip(tx_inputs.clone(), tx_outs_info) {
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
         let address_bytes: Bytes = match hex::decode(addr) {
@@ -145,6 +146,15 @@ pub fn mk_utxo_for_conway_tx<'a>(
         utxos.insert(multi_era_in, multi_era_out);
     }
     utxos
+}
+
+pub fn mk_utxo_for_eval<'a>(utxos: UTxOs) -> UtxoMap {
+    let mut eval_utxos: UtxoMap = UtxoMap::new();
+
+    for (tx_in, tx_out) in utxos {
+        eval_utxos.insert(TxoRef::from(&tx_in), EraCbor::from(tx_out));
+    }
+    eval_utxos
 }
 
 pub fn add_collateral_alonzo<'a>(
