@@ -30,6 +30,15 @@ use pallas_validate::{
 
 #[cfg(test)]
 mod conway_tests {
+    use std::borrow::Cow;
+
+    use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
+    use pallas_primitives::{
+        conway::{MintedPostAlonzoTransactionOutput, PseudoTransactionOutput},
+        NonEmptyKeyValuePairs, PositiveCoin,
+    };
+    use pallas_traverse::{MultiEraInput, MultiEraOutput};
+
     use super::*;
 
     #[test]
@@ -638,6 +647,431 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxWrongNetworkID) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v3_script, except that all
+    // collaterals are removed before calling validation.
+    fn no_collateral_inputs() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
+        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
+            Value::Coin(2000000),
+            Some(PseudoDatumOption::Data(CborWrap(
+                minicbor::decode(&datum_bytes).unwrap(),
+            ))),
+            None,
+        )];
+
+        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+            Value::Coin(49731771),
+            None,
+            None,
+        )];
+        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(mk_mainnet_params_epoch_380()),
+            prot_magic: 764824073,
+            block_slot: 149807950,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        tx_body.collateral = None;
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_body, &mut tx_buf);
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => assert!(false, "No collateral inputs"),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::CollateralMissing) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v3_script, except that validation
+    // is called on an environment which does not allow enough collateral inputs
+    // for the transaction to be valid.
+    fn too_many_collateral_inputs() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
+        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+        let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
+            Value::Coin(2000000),
+            Some(PseudoDatumOption::Data(CborWrap(
+                minicbor::decode(&datum_bytes).unwrap(),
+            ))),
+            None,
+        )];
+
+        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+            Value::Coin(49731771),
+            None,
+            None,
+        )];
+        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let mut conway_prot_params: ConwayProtParams = mk_mainnet_params_epoch_380();
+        conway_prot_params.max_collateral_inputs = 0;
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(conway_prot_params),
+            prot_magic: 764824073,
+            block_slot: 149807950,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::TooManyCollaterals) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v3_script, except that the address
+    // of a collateral inputs is altered into a script-locked one.
+    fn collateral_is_not_verification_key_locked() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
+        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
+            Value::Coin(2000000),
+            Some(PseudoDatumOption::Data(CborWrap(
+                minicbor::decode(&datum_bytes).unwrap(),
+            ))),
+            None,
+        )];
+
+        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(mk_mainnet_params_epoch_380()),
+            prot_magic: 764824073,
+            block_slot: 149807950,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let old_address: Address = match hex::decode(String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba")) {
+            Ok(bytes_vec) => Address::from_bytes(bytes_vec.as_slice()).unwrap(),
+            _ => panic!("Unable to parse collateral input address"),
+        };
+        let old_shelley_address: ShelleyAddress = match old_address {
+            Address::Shelley(shelley_addr) => shelley_addr,
+            _ => panic!("Unable to parse collateral input address"),
+        };
+        let altered_address: ShelleyAddress = ShelleyAddress::new(
+            old_shelley_address.network(),
+            ShelleyPaymentPart::Script(*old_shelley_address.payment().as_hash()),
+            old_shelley_address.delegation().clone(),
+        );
+        let tx_in = mtx
+            .transaction_body
+            .collateral
+            .clone()
+            .unwrap()
+            .to_vec()
+            .pop()
+            .unwrap();
+        let multi_era_in: MultiEraInput =
+            MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
+        let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(
+            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+                address: Bytes::try_from(altered_address.to_hex()).unwrap(),
+                value: Value::Coin(5000000),
+                datum_option: None,
+                script_ref: None,
+            }),
+        )));
+        utxos.insert(multi_era_in, multi_era_out);
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::CollateralNotVKeyLocked) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v3_script, except that the balance
+    // between assets in collateral inputs and assets in collateral return output
+    // contains assets other than lovelace.
+    fn collateral_with_other_assets() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
+        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+        let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
+            Value::Coin(2000000),
+            Some(PseudoDatumOption::Data(CborWrap(
+                minicbor::decode(&datum_bytes).unwrap(),
+            ))),
+            None,
+        )];
+
+        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(mk_mainnet_params_epoch_380()),
+            prot_magic: 764824073,
+            block_slot: 149807950,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            Value::Multiasset(
+                5000000,
+                NonEmptyKeyValuePairs::try_from(
+                    Vec::from(
+                        [(
+                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                                .parse().
+                                unwrap(),
+                            NonEmptyKeyValuePairs::try_from(Vec::from([(
+                                Bytes::from(
+                                    hex::decode("4879706562656173747332343233")
+                                        .unwrap(),
+                                ),
+                                PositiveCoin::try_from(1000).ok().unwrap(),
+                            )])).ok().unwrap(),
+                        )]
+                    )
+                ).ok().unwrap(),
+            ),
+            None,
+            None,
+        )];
+        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::NonLovelaceCollateral) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v3_script, except that the number
+    // of lovelace in the total collateral balance is insufficient.
+    fn collateral_min_lovelace() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
+        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+        let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
+            Value::Coin(2000000),
+            Some(PseudoDatumOption::Data(CborWrap(
+                minicbor::decode(&datum_bytes).unwrap(),
+            ))),
+            None,
+        )];
+
+        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+            Value::Coin(88118796),
+            None,
+            None,
+        )];
+        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(mk_mainnet_params_epoch_380()),
+            prot_magic: 764824073,
+            block_slot: 149807950,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+        let mut conway_prot_params: ConwayProtParams = mk_mainnet_params_epoch_380();
+        conway_prot_params.collateral_percentage = 10;
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => assert!(
+                false,
+                "Collateral balance should contained the minimum lovelace"
+            ),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::CollateralMinLovelace) => (),
+                _ => assert!(false, "Unexpected error ({:?})", err),
+            },
+        }
+    }
+
+    #[test]
+    // Same as successful_mainnet_tx_with_plutus_v3_script, except that the
+    // annotated collateral is wrong.
+    fn collateral_annotation() {
+        let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
+        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+
+        let tx_outs_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
+            Value::Coin(2000000),
+            Some(PseudoDatumOption::Data(CborWrap(
+                minicbor::decode(&datum_bytes).unwrap(),
+            ))),
+            None,
+        )];
+
+        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+
+        let collateral_info: &[(
+            String,
+            Value,
+            Option<MintedDatumOption>,
+            Option<CborWrap<MintedScriptRef>>,
+        )] = &[(
+            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+            Value::Coin(100118796),
+            None,
+            None,
+        )];
+        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+
+        let acnt = AccountState {
+            treasury: 261_254_564_000_000,
+            reserves: 0,
+        };
+
+        let env: Environment = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(mk_mainnet_params_epoch_380()),
+            prot_magic: 764824073,
+            block_slot: 149807950,
+            network_id: 1,
+            acnt: Some(acnt),
+        };
+
+        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        tx_body.total_collateral = Some(5000001); // This is 1 more than the actual paid collateral
+        let mut tx_buf: Vec<u8> = Vec::new();
+        let _ = encode(tx_body, &mut tx_buf);
+        mtx.transaction_body =
+            Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
+        let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+
+        let mut cert_state: CertState = CertState::default();
+        match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
+            Ok(()) => assert!(false, "Collateral annotation"),
+            Err(err) => match err {
+                PostAlonzo(PostAlonzoError::CollateralAnnotation) => (),
                 _ => assert!(false, "Unexpected error ({:?})", err),
             },
         }
