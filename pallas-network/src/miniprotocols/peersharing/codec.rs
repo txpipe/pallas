@@ -16,7 +16,7 @@ impl Encode<()> for PeerAddress {
                 e.encode(word)?;
                 e.encode(port)?;
             }
-            PeerAddress::V6(address, flow_info, scope_id, port) => {
+            PeerAddress::V6(address, port) => {
                 e.array(8)?.u16(1)?;
 
                 let bits: u128 = address.to_bits();
@@ -29,8 +29,6 @@ impl Encode<()> for PeerAddress {
                 e.encode(word2)?;
                 e.encode(word3)?;
                 e.encode(word4)?;
-                e.encode(flow_info)?;
-                e.encode(scope_id)?;
                 e.encode(port)?;
             }
         }
@@ -65,10 +63,8 @@ impl<'b> Decode<'b, ()> for PeerAddress {
                     | (word4 as u128);
 
                 let address = Ipv6Addr::from_bits(bits);
-                let flow_info: u32 = d.decode()?;
-                let scope_id: u32 = d.decode()?;
                 let port: u32 = d.decode()?;
-                Ok(PeerAddress::V6(address, flow_info, scope_id, port))
+                Ok(PeerAddress::V6(address, port))
             }
             _ => Err(decode::Error::message("can't decode PeerAddress")),
         }
