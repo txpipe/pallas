@@ -16,6 +16,7 @@ use pallas_primitives::{
     KeyValuePairs, Set,
 };
 use pallas_traverse::MultiEraTx;
+
 #[cfg(feature = "phase_two")]
 use pallas_validate::uplc::{script_context::SlotConfig, tx::eval_tx};
 
@@ -75,7 +76,7 @@ mod conway_tests {
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
-        // let plutus_data = PlutusData::decode_fragment(&datum_bytes).unwrap();
+
         let tx_outs_info: &[(
             String,
             Value,
@@ -163,7 +164,7 @@ mod conway_tests {
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
-        // let plutus_data = PlutusData::decode_fragment(&datum_bytes).unwrap();
+
         let tx_outs_info: &[(
             String,
             Value,
