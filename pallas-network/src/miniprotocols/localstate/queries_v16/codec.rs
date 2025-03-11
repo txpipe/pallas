@@ -795,6 +795,38 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
+
+impl<C> minicbor::Encode<C> for FieldedRewardAccount {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        let network: u8 = self.network.clone().into();
+
+        let hash = match &self.stake_credential {
+            StakeCredential::ScriptHash(hash) | StakeCredential::AddrKeyhash(hash) => hash,
+        };
+
+        let mut bytes: [u8; 29] = [0u8; 29];
+
+        bytes[0] = network;
+        bytes[1..].copy_from_slice(hash.as_ref());
+
+        e.bytes(&bytes)?;
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for FieldedRewardAccount {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        Ok(d.bytes()?.into())
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use pallas_codec::minicbor;

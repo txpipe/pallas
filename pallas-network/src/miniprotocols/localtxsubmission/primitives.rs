@@ -1,7 +1,7 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, AssetName, Coin, DRep, Epoch, PolicyId, PoolMetadata, Relay, RewardAccount, ScriptHash,
+    Anchor, AssetName, Coin, DRep, Epoch, PolicyId, PoolMetadata, Relay, FieldedRewardAccount, ScriptHash,
     UnitInterval,
 };
 pub use pallas_codec::utils::KeyValuePairs;
@@ -37,7 +37,7 @@ pub enum Certificate {
         pledge: Coin,
         cost: Coin,
         margin: UnitInterval,
-        reward_account: RewardAccount,
+        reward_account: FieldedRewardAccount,
         pool_owners: Set<AddrKeyhash>,
         relays: Vec<Relay>,
         pool_metadata: Nullable<PoolMetadata>,

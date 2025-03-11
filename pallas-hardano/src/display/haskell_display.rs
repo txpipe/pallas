@@ -20,10 +20,10 @@ use pallas_network::miniprotocols::{
     handshake::NetworkMagic,
     localstate::queries_v16::{
         primitives::Bytes, Anchor, AssetName, BoundedBytes, Constitution, CostModel, CostModels,
-        DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, GovAction, GovActionId,
-        PParamsUpdate, PlutusData, PolicyId, PoolMetadata, PoolVotingThresholds, ProposalProcedure,
-        ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, TransactionInput,
-        TransactionOutput, Value, Vote,
+        DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, FieldedRewardAccount,
+        GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId, PoolMetadata,
+        PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber, Relay,
+        ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
     },
     localtxsubmission::{
         primitives::{
@@ -38,10 +38,9 @@ use pallas_network::miniprotocols::localtxsubmission::{
     Array, BabbageContextError, CollectError, ConwayCertPredFailure, ConwayContextError,
     ConwayDelegPredFailure, ConwayGovCertPredFailure, ConwayGovPredFailure, ConwayLedgerFailure,
     ConwayTxCert, ConwayUtxoWPredFailure, DeltaCoin, DisplayAddress, DisplayCoin, DisplayOSet,
-    DisplayPolicyId, DisplayRewardAccount, DisplayScriptHash, DisplayVotingProcedures, EpochNo,
-    FailureDescription, KeyHash, Mismatch, OHashMap, PlutusPurpose, SMaybe, SafeHash,
-    ShelleyPoolPredFailure, SlotNo, TagMismatchDescription, TxOutSource, Utxo, UtxoFailure,
-    UtxosFailure, VKey, ValidityInterval,
+    DisplayPolicyId, DisplayScriptHash, DisplayVotingProcedures, EpochNo, FailureDescription,
+    KeyHash, Mismatch, OHashMap, PlutusPurpose, SMaybe, SafeHash, ShelleyPoolPredFailure, SlotNo,
+    TagMismatchDescription, TxOutSource, Utxo, UtxoFailure, UtxosFailure, VKey, ValidityInterval,
 };
 
 use super::haskells_show_string::haskell_show_string;
@@ -626,26 +625,12 @@ where
     }
 }
 
-impl HaskellDisplay for DisplayRewardAccount {
+impl HaskellDisplay for FieldedRewardAccount {
     fn to_haskell_str(&self) -> String {
-        let network = if self.0[0] & 0b00000001 != 0 {
-            Network::Mainnet
-        } else {
-            Network::Testnet
-        };
-
-        let mut hash = [0; 28];
-        hash.copy_from_slice(&self.0[1..29]);
-        let credential = if &self.0[0] & 0b00010000 != 0 {
-            StakeCredential::ScriptHash(hash.into())
-        } else {
-            StakeCredential::AddrKeyhash(hash.into())
-        };
-
         format!(
             "RewardAccount {{raNetwork = {}, raCredential = {}}}",
-            network.to_haskell_str(),
-            credential.to_haskell_str()
+            self.network.to_haskell_str(),
+            self.stake_credential.to_haskell_str()
         )
     }
 }
@@ -807,8 +792,8 @@ impl HaskellDisplay for GovAction {
                 )
             }
             TreasuryWithdrawals(a, b) => {
-                let data: KeyValuePairs<DisplayRewardAccount, DisplayCoin> =
-                    a.iter().map(|(k, v)| (k.into(), v.into())).collect();
+                let data: KeyValuePairs<FieldedRewardAccount, DisplayCoin> =
+                    a.iter().map(|(k, v)| (k.clone(), v.into())).collect();
 
                 format!(
                     "TreasuryWithdrawals {} {}",
@@ -977,7 +962,7 @@ impl HaskellDisplay for ProposalProcedure {
         format!(
             "ProposalProcedure {{pProcDeposit = {}, pProcReturnAddr = {}, pProcGovAction = {}, pProcAnchor = {}}}",
             self.deposit.as_display_coin(),
-            self.return_addr.as_reward_account(),
+            self.return_addr.to_haskell_str(),
             self.gov_action.to_haskell_str(),
             self.anchor.to_haskell_str()
         )
@@ -1395,16 +1380,6 @@ impl AsProtocolVersion for ProtocolVersion {
             "ProtVer {{pvMajor = Version {}, pvMinor = {}}}",
             self.0, self.1
         )
-    }
-}
-
-trait AsRewardAccount {
-    fn as_reward_account(&self) -> String;
-}
-
-impl AsRewardAccount for RewardAccount {
-    fn as_reward_account(&self) -> String {
-        DisplayRewardAccount(self.clone()).to_haskell_str()
     }
 }
 
@@ -2189,7 +2164,7 @@ impl HaskellDisplay
         TransactionInput,
         PolicyId,
         ConwayTxCert,
-        DisplayRewardAccount,
+        FieldedRewardAccount,
         Voter,
         ProposalProcedure,
     >
@@ -2309,7 +2284,7 @@ impl HaskellDisplay for Certificate {
                 pledge.as_display_coin(),
                 cost.as_display_coin(),
                 margin.to_haskell_str(),
-                reward_account.as_reward_account(),
+                reward_account.to_haskell_str(),
                 pool_owners.as_key_hash(),
                 relays.as_strict_seq(),
                 pool_metadata.to_haskell_str()
@@ -2423,11 +2398,7 @@ impl HaskellDisplay for DisplayOSet<ProposalProcedure> {
 
         let mut sorted_vec = self.0.deref().clone();
 
-        sorted_vec.sort_by(|a, b| {
-            a.deposit
-                .cmp(&b.deposit)
-                .then_with(|| b.return_addr.cmp(&a.return_addr))
-        });
+        sorted_vec.sort();
 
         format!(
             "OSet {{osSSeq = {}, osSet = {}}}",
