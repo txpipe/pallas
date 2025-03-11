@@ -18,11 +18,11 @@ pub mod primitives;
 pub use primitives::{PoolMetadata, Relay};
 
 use crate::miniprotocols::localtxsubmission::primitives::{
-    CommitteeColdCredential, CommitteeHotCredential, ScriptRef,
+    CommitteeColdCredential, CommitteeHotCredential, ScriptRef, StakeCredential
 };
 use crate::miniprotocols::Point;
 
-use crate::miniprotocols::localtxsubmission::SMaybe;
+use crate::miniprotocols::localtxsubmission::{Network, SMaybe};
 
 use super::{Client, ClientError};
 
@@ -77,7 +77,7 @@ pub type Credential = StakeAddr;
 
 /// Updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L151)
 /// (via [`EraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L255-L258)).
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
 #[cbor(map)]
 pub struct PParamsUpdate {
     #[n(0)]
@@ -297,7 +297,7 @@ pub struct ChainBlockNumber {
     pub block_number: u32,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct RationalNumber {
     pub numerator: u64,
     pub denominator: u64,
@@ -312,7 +312,7 @@ pub type ProtocolVersion = (ProtocolVersionMajor, ProtocolVersionMinor);
 
 pub type CostModel = Vec<i64>;
 
-#[derive(Encode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(map)]
 pub struct CostModels {
     #[n(0)]
@@ -328,7 +328,7 @@ pub struct CostModels {
     pub unknown: KeyValuePairs<u64, CostModel>,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct ExUnitPrices {
     #[n(0)]
     pub mem_price: PositiveInterval,
@@ -337,7 +337,7 @@ pub struct ExUnitPrices {
     pub step_price: PositiveInterval,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct ExUnits {
     #[n(0)]
     pub mem: u64,
@@ -345,7 +345,7 @@ pub struct ExUnits {
     pub steps: u64,
 }
 /// Pool voting thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L223-L229).
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct PoolVotingThresholds {
     #[n(0)]
     pub motion_no_confidence: UnitInterval,
@@ -360,7 +360,7 @@ pub struct PoolVotingThresholds {
 }
 
 /// DRrep voting thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L295-L306).
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct DRepVotingThresholds {
     #[n(0)]
     pub motion_no_confidence: UnitInterval,
@@ -386,7 +386,9 @@ pub struct DRepVotingThresholds {
 
 /// Conway era protocol parameters, corresponding to [`ConwayPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L512-L579)
 /// in the Haskell sources.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+/// @todo: Encoding should be handled manually, Encode derive won't be correct.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[cbor(map)]
 pub struct ProtocolParam {
     #[n(0)]
     pub minfee_a: Option<u64>,
@@ -528,7 +530,7 @@ pub struct IndividualPoolStake {
 pub type PoolDistr = BTreeMap<Bytes, IndividualPoolStake>;
 
 /// Anchor as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/BaseTypes.hs#L867-L870).
-#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone)]
+#[derive(Debug, Encode, Decode, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Anchor {
     #[n(0)]
     pub url: String,
@@ -537,7 +539,7 @@ pub struct Anchor {
 }
 
 /// Constitution as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L884-L887).
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, PartialOrd, Ord)]
 pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
@@ -557,16 +559,41 @@ pub enum Vote {
     Abstain,
 }
 
-pub type RewardAccount = Bytes;
+#[derive(Debug,  Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub struct FieldedRewardAccount{
+    pub network: Network, pub stake_credential: StakeCredential}
+
+impl From<&[u8]> for FieldedRewardAccount {
+    fn from(bytes: &[u8]) -> Self {
+
+        let network = if bytes[0] & 0b00000001 != 0 {
+            Network::Mainnet
+        } else {
+            Network::Testnet
+        };
+
+        let mut hash = [0; 28];
+        hash.copy_from_slice(&bytes[1..29]);
+        let stake_credential = if &bytes[0] & 0b00010000 != 0 {
+            StakeCredential::ScriptHash(hash.into())
+        } else {
+            StakeCredential::AddrKeyhash(hash.into())
+        };
+
+
+        FieldedRewardAccount{network, stake_credential}
+    }
+}
+
 pub type ScriptHash = Hash<28>;
 
 /// Governance action as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L785-L824).
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, PartialOrd, Ord)]
 #[allow(clippy::large_enum_variant)]
 pub enum GovAction {
     ParameterChange(Option<GovPurposeId>, PParamsUpdate, Option<ScriptHash>),
     HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
-    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>, Option<ScriptHash>),
+    TreasuryWithdrawals(KeyValuePairs<FieldedRewardAccount, Coin>, Option<ScriptHash>),
     NoConfidence(Option<GovPurposeId>),
     UpdateCommittee(
         Option<GovPurposeId>,
@@ -579,12 +606,12 @@ pub enum GovAction {
 }
 
 /// Proposal procedure state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L476-L481
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone)]
+#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, PartialOrd, Ord)]
 pub struct ProposalProcedure {
     #[n(0)]
     pub deposit: Coin,
     #[n(1)]
-    pub return_addr: RewardAccount,
+    pub return_addr: FieldedRewardAccount,
     #[n(2)]
     pub gov_action: GovAction,
     #[n(3)]

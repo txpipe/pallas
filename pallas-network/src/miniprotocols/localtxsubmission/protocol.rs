@@ -3,8 +3,7 @@ use thiserror::Error;
 use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
 use crate::miniprotocols::localstate::queries_v16::{
     Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash,
-    TransactionInput, TransactionOutput, Value, Vote,
-};
+    TransactionInput, TransactionOutput, Value, Vote, FieldedRewardAccount};
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use crate::multiplexer;
 use pallas_codec::minicbor::{self, Decode, Encode};
@@ -103,7 +102,7 @@ pub type PlutusPurposeItem = PlutusPurpose<
     TransactionInput,
     PolicyId,
     ConwayTxCert,
-    DisplayRewardAccount,
+    FieldedRewardAccount,
     Voter,
     ProposalProcedure,
 >;
@@ -263,7 +262,7 @@ pub struct Utxo(pub OHashMap<TransactionInput, TransactionOutput>);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OHashMap<K, V>(pub Vec<(K, V)>);
 
-#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 #[cbor(index_only)]
 pub enum Network {
     #[n(0)]
@@ -272,19 +271,19 @@ pub enum Network {
     Mainnet,
 }
 
+impl From<Network> for u8 {
+    fn from(value: Network) -> u8 {
+        match value {
+            Network::Mainnet => 1,
+            Network::Testnet => 0,
+        }
+    }
+}
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct DeltaCoin(#[n(0)] pub i32);
 
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct DisplayRewardAccount(#[n(0)] pub Bytes);
 
-impl From<&Bytes> for DisplayRewardAccount {
-    fn from(bytes: &Bytes) -> Self {
-        DisplayRewardAccount(bytes.to_owned())
-    }
-}
 
 pub type Slot = u64;
 
@@ -318,7 +317,7 @@ pub enum UtxoFailure {
     #[n(7)]
     WrongNetwork(#[n(0)] Network, #[n(1)] Set<DisplayAddress>),
     #[n(8)]
-    WrongNetworkWithdrawal(#[n(0)] Network, #[n(1)] Set<DisplayRewardAccount>),
+    WrongNetworkWithdrawal(#[n(0)] Network, #[n(1)] Set<FieldedRewardAccount>),
     #[n(9)]
     OutputTooSmallUTxO(#[n(0)] Array<TransactionOutput>),
     #[n(10)]
@@ -464,7 +463,11 @@ pub enum ConwayLedgerFailure {
 #[cbor(flat)]
 pub enum ConwayCertsPredFailure {
     #[n(0)]
+<<<<<<< HEAD
     WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<DisplayRewardAccount, DisplayCoin>),
+=======
+    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),  
+>>>>>>> ff7db11 (Match ProposalProcedure ordering with Haskell implementation)
     #[n(1)]
     CertFailure(#[n(0)] ConwayCertPredFailure),
 }
@@ -542,9 +545,9 @@ pub enum ConwayGovPredFailure {
     #[n(1)]
     MalformedProposal(#[n(0)] GovAction),
     #[n(2)]
-    ProposalProcedureNetworkIdMismatch(#[n(0)] DisplayRewardAccount, #[n(1)] Network),
+    ProposalProcedureNetworkIdMismatch(#[n(0)] FieldedRewardAccount, #[n(1)] Network),
     #[n(3)]
-    TreasuryWithdrawalsNetworkIdMismatch(#[n(0)] Set<DisplayRewardAccount>, #[n(1)] Network),
+    TreasuryWithdrawalsNetworkIdMismatch(#[n(0)] Set<FieldedRewardAccount>, #[n(1)] Network),
     #[n(4)]
     ProposalDepositIncorrect(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
     #[n(5)]
@@ -577,9 +580,9 @@ pub enum ConwayGovPredFailure {
     #[n(15)]
     ZeroTreasuryWithdrawals(#[n(0)] GovAction),
     #[n(16)]
-    ProposalReturnAccountDoesNotExist(#[n(0)] DisplayRewardAccount),
+    ProposalReturnAccountDoesNotExist(#[n(0)] FieldedRewardAccount),
     #[n(17)]
-    TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<DisplayRewardAccount>),
+    TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<FieldedRewardAccount>),
 }
 
 /// Reject reason. It can be a pair of an era number and a sequence of errors,
