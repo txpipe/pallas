@@ -124,9 +124,8 @@ pub fn mk_utxo_for_conway_tx<'a>(
     )],
 ) -> UTxOs<'a> {
     let mut utxos: UTxOs = UTxOs::new();
-    let tx_inputs = tx_body.inputs.clone().to_vec();
-
-    for (tx_in, (addr, val, datum_opt, script_ref)) in zip(tx_inputs.clone(), tx_outs_info) {
+    
+    for (tx_in, (addr, val, datum_opt, script_ref)) in zip(tx_body.inputs.clone().to_vec(), tx_outs_info) {
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
         let address_bytes: Bytes = match hex::decode(addr) {
