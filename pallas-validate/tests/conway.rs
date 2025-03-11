@@ -43,7 +43,7 @@ mod conway_tests {
 
     #[test]
     // Transaction hash:
-    // b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d
+    // 90bd64b133e327daecfa0cc60c26f3b96fc6f0285a6d96cc122819908b3aaf93
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
@@ -80,6 +80,8 @@ mod conway_tests {
     }
 
     #[test]
+    //Transaction hash:
+    // b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f
     fn successful_preview_tx_with_plutus_v3_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway4.tx"));
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
@@ -168,6 +170,8 @@ mod conway_tests {
     }
 
     #[test]
+    // Transaction hash:
+    // 3e1ae85c08b610d5d03e67cf90e78980d1d2f54ffc50c21672e24180b450d354
     fn successful_mainnet_tx_with_plutus_v3_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway5.tx"));
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
