@@ -579,11 +579,21 @@ mod tests {
             trace!("{}", block.hash());
 
             if let Some(last_slot) = last_slot {
-                assert!(last_slot < block.slot());
+                // Taking care of Byron era up to the switch to protocol v.1.0
+                if last_slot <= 3780000 && last_slot % 21600 == 0 {
+                    assert!(last_slot <= block.slot());
+                } else {
+                    assert!(last_slot < block.slot());
+                }
             }
 
             if let Some(last_height) = last_height {
-                assert_eq!(last_height + 1, block.number());
+                // Taking care of Byron era up to the switch to protocol v.1.0
+                if block.slot() <= 3780000 && block.slot() % 21600 == 0 {
+                    assert!(last_height <= block.number() && block.number() <= last_height + 1);
+                } else {
+                    assert_eq!(last_height + 1, block.number());
+                }
             }
 
             if let Some(last_hash) = last_hash {
