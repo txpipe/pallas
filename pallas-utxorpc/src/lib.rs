@@ -1,5 +1,6 @@
-use std::{collections::{BTreeMap, HashMap}, ops::Deref};
+use std::{collections::HashMap, ops::Deref};
 
+use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse::{self as trv};
@@ -355,7 +356,7 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_plutus_map(
         &self,
-        x: &BTreeMap<alonzo::PlutusData, alonzo::PlutusData>,
+        x: &KeyValuePairs<alonzo::PlutusData, alonzo::PlutusData>,
     ) -> u5c::PlutusDataMap {
         u5c::PlutusDataMap {
             pairs: x
