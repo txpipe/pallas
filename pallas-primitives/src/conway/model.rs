@@ -298,101 +298,27 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PoolVotingThresholds {
-    pub motion_no_confidence: UnitInterval,
-    pub committee_normal: UnitInterval,
-    pub committee_no_confidence: UnitInterval,
-    pub hard_fork_initiation: UnitInterval,
-    pub security_voting_threshold: UnitInterval,
+    #[n(0)] pub motion_no_confidence: UnitInterval,
+    #[n(1)] pub committee_normal: UnitInterval,
+    #[n(2)] pub committee_no_confidence: UnitInterval,
+    #[n(3)] pub hard_fork_initiation: UnitInterval,
+    #[n(4)] pub security_voting_threshold: UnitInterval,
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for PoolVotingThresholds {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            motion_no_confidence: d.decode_with(ctx)?,
-            committee_normal: d.decode_with(ctx)?,
-            committee_no_confidence: d.decode_with(ctx)?,
-            hard_fork_initiation: d.decode_with(ctx)?,
-            security_voting_threshold: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for PoolVotingThresholds {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(5)?;
-
-        e.encode_with(&self.motion_no_confidence, ctx)?;
-        e.encode_with(&self.committee_normal, ctx)?;
-        e.encode_with(&self.committee_no_confidence, ctx)?;
-        e.encode_with(&self.hard_fork_initiation, ctx)?;
-        e.encode_with(&self.security_voting_threshold, ctx)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct DRepVotingThresholds {
-    pub motion_no_confidence: UnitInterval,
-    pub committee_normal: UnitInterval,
-    pub committee_no_confidence: UnitInterval,
-    pub update_constitution: UnitInterval,
-    pub hard_fork_initiation: UnitInterval,
-    pub pp_network_group: UnitInterval,
-    pub pp_economic_group: UnitInterval,
-    pub pp_technical_group: UnitInterval,
-    pub pp_governance_group: UnitInterval,
-    pub treasury_withdrawal: UnitInterval,
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for DRepVotingThresholds {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            motion_no_confidence: d.decode_with(ctx)?,
-            committee_normal: d.decode_with(ctx)?,
-            committee_no_confidence: d.decode_with(ctx)?,
-            update_constitution: d.decode_with(ctx)?,
-            hard_fork_initiation: d.decode_with(ctx)?,
-            pp_network_group: d.decode_with(ctx)?,
-            pp_economic_group: d.decode_with(ctx)?,
-            pp_technical_group: d.decode_with(ctx)?,
-            pp_governance_group: d.decode_with(ctx)?,
-            treasury_withdrawal: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for DRepVotingThresholds {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(10)?;
-
-        e.encode_with(&self.motion_no_confidence, ctx)?;
-        e.encode_with(&self.committee_normal, ctx)?;
-        e.encode_with(&self.committee_no_confidence, ctx)?;
-        e.encode_with(&self.update_constitution, ctx)?;
-        e.encode_with(&self.hard_fork_initiation, ctx)?;
-        e.encode_with(&self.pp_network_group, ctx)?;
-        e.encode_with(&self.pp_economic_group, ctx)?;
-        e.encode_with(&self.pp_technical_group, ctx)?;
-        e.encode_with(&self.pp_governance_group, ctx)?;
-        e.encode_with(&self.treasury_withdrawal, ctx)?;
-
-        Ok(())
-    }
+    #[n(0)] pub motion_no_confidence: UnitInterval,
+    #[n(1)] pub committee_normal: UnitInterval,
+    #[n(2)] pub committee_no_confidence: UnitInterval,
+    #[n(3)] pub update_constitution: UnitInterval,
+    #[n(4)] pub hard_fork_initiation: UnitInterval,
+    #[n(5)] pub pp_network_group: UnitInterval,
+    #[n(6)] pub pp_economic_group: UnitInterval,
+    #[n(7)] pub pp_technical_group: UnitInterval,
+    #[n(8)] pub pp_governance_group: UnitInterval,
+    #[n(9)] pub treasury_withdrawal: UnitInterval,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -491,77 +417,20 @@ impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cbor(index_only)]
 pub enum Vote {
-    No,
-    Yes,
-    Abstain,
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for Vote {
-    fn decode(
-        d: &mut minicbor::Decoder<'b>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
-        match d.u8()? {
-            0 => Ok(Self::No),
-            1 => Ok(Self::Yes),
-            2 => Ok(Self::Abstain),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid number for Vote kind",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::Encode<C> for Vote {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match &self {
-            Self::No => e.u8(0)?,
-            Self::Yes => e.u8(1)?,
-            Self::Abstain => e.u8(2)?,
-        };
-
-        Ok(())
-    }
+    #[n(0)] No,
+    #[n(1)] Yes,
+    #[n(2)] Abstain,
 }
 
 pub type VotingProcedures = BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
-    pub vote: Vote,
-    pub anchor: Option<Anchor>,
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for VotingProcedure {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            vote: d.decode_with(ctx)?,
-            anchor: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for VotingProcedure {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(&self.vote, ctx)?;
-        e.encode_with(&self.anchor, ctx)?;
-
-        Ok(())
-    }
+    #[n(0)] pub vote: Vote,
+    #[n(1)] pub anchor: Option<Anchor>,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
