@@ -48,7 +48,6 @@ pub fn validate_shelley_ma_tx(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let minted_tx_body: &KeepRaw<'_, TransactionBody> = &mtx.transaction_body;
-    println!("Tx Body:\n{:?}", tx_body.clone());
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let size: u32 = get_alonzo_comp_tx_size(mtx);
     let stk_dep_count: &mut u64 = &mut 0; // count of key registrations (for deposits)
@@ -290,7 +289,6 @@ fn check_witnesses(
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
         &mut mk_alonzo_vk_wits_check_list(&tx_wits.vkeywitness, ShelleyMA(MissingVKWitness))?;
     let tx_hash: &Vec<u8> = &Vec::from(tx_body.original_hash().as_ref());
-    println!("Tx hash: {:02x?}", tx_hash.clone());
     let native_scripts: Vec<NativeScript> = match &tx_wits.native_script {
         Some(scripts) => scripts.iter().map(|x| x.clone().unwrap()).collect(),
         None => Vec::new(),
