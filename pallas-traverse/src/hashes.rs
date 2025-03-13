@@ -52,7 +52,7 @@ impl ComputeHash<32> for alonzo::Header {
     }
 }
 
-impl OriginalHash<32> for KeepRaw<'_, alonzo::MintedHeader<'_>> {
+impl OriginalHash<32> for KeepRaw<'_, alonzo::Header> {
     fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }

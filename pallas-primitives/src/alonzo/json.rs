@@ -84,7 +84,7 @@ mod tests {
 
     use crate::{alonzo::Block, ToCanonicalJson};
 
-    type BlockWrapper = (u16, Block);
+    type BlockWrapper<'a> = (u16, Block<'a>);
 
     #[test]
     fn test_datums_serialize_as_expected() {

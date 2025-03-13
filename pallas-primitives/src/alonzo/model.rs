@@ -67,36 +67,16 @@ pub struct HeaderBody {
     pub protocol_minor: u64,
 }
 
-pub type MintedHeaderBody<'a> = KeepRaw<'a, HeaderBody>;
-
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
-pub struct PseudoHeader<T1> {
+pub struct Header {
     #[n(0)]
-    pub header_body: T1,
+    pub header_body: HeaderBody,
 
     #[n(1)]
     pub body_signature: Bytes,
 }
 
-pub type Header = PseudoHeader<HeaderBody>;
-
-pub type MintedHeader<'a> = KeepRaw<'a, PseudoHeader<MintedHeaderBody<'a>>>;
-
-impl<'a> From<MintedHeader<'a>> for Header {
-    fn from(x: MintedHeader<'a>) -> Self {
-        let x = x.unwrap();
-        Self {
-            header_body: x.header_body.into(),
-            body_signature: x.body_signature,
-        }
-    }
-}
-
-impl<'a> From<MintedHeaderBody<'a>> for HeaderBody {
-    fn from(x: MintedHeaderBody<'a>) -> Self {
-        x.unwrap()
-    }
-}
+pub type MintedHeader<'a> = KeepRaw<'a, Header>;
 
 pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
 
@@ -518,9 +498,9 @@ codec_by_datatype! {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-pub struct Block {
+pub struct Block<'b> {
     #[n(0)]
-    pub header: Header,
+    pub header: KeepRaw<'b, Header>,
 
     #[b(1)]
     pub transaction_bodies: Vec<TransactionBody>,
@@ -533,6 +513,10 @@ pub struct Block {
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
+
+    // Required for `Decode` derive recognize the lifetime.
+    #[cbor(n(5), with = "minicbor::bytes")]
+    _phantom: Option<&'b [u8]>,
 }
 
 /// A memory representation of an already minted block
@@ -543,7 +527,7 @@ pub struct Block {
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
 pub struct MintedBlock<'b> {
     #[n(0)]
-    pub header: KeepRaw<'b, MintedHeader<'b>>,
+    pub header: KeepRaw<'b, Header>,
 
     #[b(1)]
     pub transaction_bodies: Vec<KeepRaw<'b, TransactionBody>>,
@@ -558,10 +542,10 @@ pub struct MintedBlock<'b> {
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-impl<'b> From<MintedBlock<'b>> for Block {
+impl<'b> From<MintedBlock<'b>> for Block<'b> {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
-            header: x.header.unwrap().into(),
+            header: x.header,
             transaction_bodies: x
                 .transaction_bodies
                 .into_iter()
@@ -579,6 +563,7 @@ impl<'b> From<MintedBlock<'b>> for Block {
                 .map(|(k, v)| (k, v.unwrap()))
                 .collect(),
             invalid_transactions: x.invalid_transactions.map(|x| x.into()),
+            _phantom: None,
         }
     }
 }
@@ -697,7 +682,7 @@ mod tests {
             let bytes = hex::decode(header_str).unwrap_or_else(|_| panic!("bad header file {idx}"));
 
             let header: Header = minicbor::decode(&bytes[..])
-                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
+                .unwrap();//_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
             let bytes2 = to_vec(header)
                 .unwrap_or_else(|_| panic!("error encoding header cbor for file {idx}"));
