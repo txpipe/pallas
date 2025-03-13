@@ -417,15 +417,14 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_gov_action_id(
         &self,
-        x: &conway::Nullable<conway::GovActionId>,
+        x: &Option<conway::GovActionId>,
     ) -> Option<u5c::GovernanceActionId> {
-        match x {
-            conway::Nullable::Some(x) => Some(u5c::GovernanceActionId {
-                transaction_id: x.transaction_id.to_vec().into(),
-                governance_action_index: x.action_index,
-            }),
-            _ => None,
-        }
+        x.as_ref().map(|inner|
+              u5c::GovernanceActionId {
+                  transaction_id: inner.transaction_id.to_vec().into(),
+                  governance_action_index: inner.action_index,
+              }
+        )
     }
 
     pub fn map_conway_gov_action(&self, x: &conway::GovAction) -> u5c::GovernanceAction {
@@ -436,7 +435,7 @@ impl<C: LedgerContext> Mapper<C> {
                         gov_action_id: self.map_gov_action_id(gov_id),
                         protocol_param_update: Some(self.map_conway_pparams_update(params)),
                         policy_hash: match script {
-                            conway::Nullable::Some(x) => x.to_vec().into(),
+                            Some(x) => x.to_vec().into(),
                             _ => Default::default(),
                         },
                     },
@@ -464,7 +463,7 @@ impl<C: LedgerContext> Mapper<C> {
                             })
                             .collect(),
                         policy_hash: match script {
-                            conway::Nullable::Some(x) => x.to_vec().into(),
+                            Some(x) => x.to_vec().into(),
                             _ => Default::default(),
                         },
                     },
@@ -506,7 +505,7 @@ impl<C: LedgerContext> Mapper<C> {
                                 content_hash: constitution.anchor.content_hash.to_vec().into(),
                             }),
                             hash: match constitution.guardrail_script {
-                                conway::Nullable::Some(x) => x.to_vec().into(),
+                                Some(x) => x.to_vec().into(),
                                 _ => Default::default(),
                             },
                         }),

@@ -1,4 +1,4 @@
-use pallas_primitives::conway;
+use pallas_primitives::{alonzo::Language, conway};
 use pallas_validate::utils::MultiEraProtocolParameters;
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
@@ -53,7 +53,7 @@ impl<C: LedgerContext> Mapper<C> {
                     // Only plutusv1.
                     plutus_v1: params
                         .cost_models_for_script_languages
-                        .first()
+                        .get_key_value(&Language::PlutusV1)
                         .map(|(_, data)| u5c::CostModel {
                             values: data.to_vec(),
                         }),

@@ -1,23 +1,12 @@
-use pallas_codec::utils::Nullable;
-
 use crate::{MultiEraBlock, MultiEraTx};
 
 impl MultiEraTx<'_> {
     fn aux_data_size(&self) -> usize {
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
-                Nullable::Some(x) => x.raw_cbor().len(),
-                _ => 2,
-            },
-            MultiEraTx::Babbage(x) => match &x.auxiliary_data {
-                Nullable::Some(x) => x.raw_cbor().len(),
-                _ => 2,
-            },
+            MultiEraTx::AlonzoCompatible(x, _) => x.auxiliary_data.raw_cbor().len(),
+            MultiEraTx::Babbage(x) => x.auxiliary_data.raw_cbor().len(),
             MultiEraTx::Byron(_) => 0,
-            MultiEraTx::Conway(x) => match &x.auxiliary_data {
-                Nullable::Some(x) => x.raw_cbor().len(),
-                _ => 2,
-            },
+            MultiEraTx::Conway(x) => x.auxiliary_data.raw_cbor().len(),
         }
     }
 

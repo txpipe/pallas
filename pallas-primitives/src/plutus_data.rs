@@ -1,5 +1,4 @@
-use crate::KeyValuePairs;
-use pallas_codec::utils::Int;
+use pallas_codec::utils::{Int, KeyValuePairs};
 use pallas_codec::{
     minicbor::{
         self,
