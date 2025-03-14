@@ -11,7 +11,7 @@ use pallas_codec::{
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
-    alonzo::{MintedTx as AlonzoMintedTx, Multiasset, NativeScript, VKeyWitness, Value},
+    alonzo::{Tx as AlonzoTx, Multiasset, NativeScript, VKeyWitness, Value},
     babbage::MintedTx as BabbageMintedTx,
     conway::{MintedTx as ConwayMintedTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, Hash, NetworkId,
@@ -95,7 +95,7 @@ pub type UtxoSet = HashSet<TxoRef>;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-pub fn get_alonzo_comp_tx_size(mtx: &AlonzoMintedTx) -> u32 {
+pub fn get_alonzo_comp_tx_size(mtx: &AlonzoTx) -> u32 {
     match &mtx.auxiliary_data {
         Nullable::Some(aux_data) => {
             (aux_data.raw_cbor().len()
@@ -714,7 +714,7 @@ pub fn is_byron_address(address: &[u8]) -> bool {
     matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
 }
 
-pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoMintedTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 

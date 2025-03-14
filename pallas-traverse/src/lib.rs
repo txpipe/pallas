@@ -76,7 +76,7 @@ pub enum MultiEraHeader<'b> {
 #[non_exhaustive]
 pub enum MultiEraBlock<'b> {
     EpochBoundary(Box<byron::MintedEbBlock<'b>>),
-    AlonzoCompatible(Box<alonzo::MintedBlock<'b>>, Era),
+    AlonzoCompatible(Box<alonzo::Block<'b>>, Era),
     Babbage(Box<babbage::MintedBlock<'b>>),
     Byron(Box<byron::MintedBlock<'b>>),
     Conway(Box<conway::MintedBlock<'b>>),
@@ -85,7 +85,7 @@ pub enum MultiEraBlock<'b> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraTx<'b> {
-    AlonzoCompatible(Box<Cow<'b, alonzo::MintedTx<'b>>>, Era),
+    AlonzoCompatible(Box<Cow<'b, alonzo::Tx<'b>>>, Era),
     Babbage(Box<Cow<'b, babbage::MintedTx<'b>>>),
     Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
     Conway(Box<Cow<'b, conway::MintedTx<'b>>>),

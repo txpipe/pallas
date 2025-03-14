@@ -76,6 +76,7 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
+// TODO: To be deprecated.
 pub type MintedHeader<'a> = KeepRaw<'a, Header>;
 
 pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
@@ -400,29 +401,7 @@ pub struct BootstrapWitness {
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct WitnessSet {
-    #[n(0)]
-    pub vkeywitness: Option<Vec<VKeyWitness>>,
-
-    #[n(1)]
-    pub native_script: Option<Vec<NativeScript>>,
-
-    #[n(2)]
-    pub bootstrap_witness: Option<Vec<BootstrapWitness>>,
-
-    #[n(3)]
-    pub plutus_script: Option<Vec<PlutusScript<1>>>,
-
-    #[n(4)]
-    pub plutus_data: Option<Vec<PlutusData>>,
-
-    #[n(5)]
-    pub redeemer: Option<Vec<Redeemer>>,
-}
-
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-#[cbor(map)]
-pub struct MintedWitnessSet<'b> {
+pub struct WitnessSet<'b> {
     #[n(0)]
     pub vkeywitness: Option<Vec<VKeyWitness>>,
 
@@ -442,23 +421,8 @@ pub struct MintedWitnessSet<'b> {
     pub redeemer: Option<Vec<Redeemer>>,
 }
 
-impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
-    #[allow(deprecated)]
-    fn from(x: MintedWitnessSet<'b>) -> Self {
-        WitnessSet {
-            vkeywitness: x.vkeywitness,
-            native_script: x
-                .native_script
-                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
-            bootstrap_witness: x.bootstrap_witness,
-            plutus_script: x.plutus_script,
-            plutus_data: x
-                .plutus_data
-                .map(|x| x.into_iter().map(|x| x.unwrap()).collect()),
-            redeemer: x.redeemer,
-        }
-    }
-}
+// TODO: To be deprecated.
+pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map, tag(259))]
@@ -497,35 +461,13 @@ codec_by_datatype! {
     ()
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-pub struct Block<'b> {
-    #[n(0)]
-    pub header: KeepRaw<'b, Header>,
-
-    #[b(1)]
-    pub transaction_bodies: Vec<TransactionBody>,
-
-    #[n(2)]
-    pub transaction_witness_sets: Vec<WitnessSet>,
-
-    #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
-
-    #[n(4)]
-    pub invalid_transactions: Option<Vec<TransactionIndex>>,
-
-    // Required for `Decode` derive recognize the lifetime.
-    #[cbor(n(5), with = "minicbor::bytes")]
-    _phantom: Option<&'b [u8]>,
-}
-
 /// A memory representation of an already minted block
 ///
-/// This structure is analogous to [Block], but it allows to retrieve the
+/// This structure allows to retrieve the
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-pub struct MintedBlock<'b> {
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+pub struct Block<'b> {
     #[n(0)]
     pub header: KeepRaw<'b, Header>,
 
@@ -533,7 +475,7 @@ pub struct MintedBlock<'b> {
     pub transaction_bodies: Vec<KeepRaw<'b, TransactionBody>>,
 
     #[n(2)]
-    pub transaction_witness_sets: Vec<KeepRaw<'b, MintedWitnessSet<'b>>>,
+    pub transaction_witness_sets: Vec<KeepRaw<'b, WitnessSet<'b>>>,
 
     #[n(3)]
     pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
@@ -542,54 +484,16 @@ pub struct MintedBlock<'b> {
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-impl<'b> From<MintedBlock<'b>> for Block<'b> {
-    fn from(x: MintedBlock<'b>) -> Self {
-        Block {
-            header: x.header,
-            transaction_bodies: x
-                .transaction_bodies
-                .into_iter()
-                .map(|x| x.unwrap())
-                .collect(),
-            transaction_witness_sets: x
-                .transaction_witness_sets
-                .into_iter()
-                .map(|x| x.unwrap())
-                .map(WitnessSet::from)
-                .collect(),
-            auxiliary_data_set: x
-                .auxiliary_data_set
-                .into_iter()
-                .map(|(k, v)| (k, v.unwrap()))
-                .collect(),
-            invalid_transactions: x.invalid_transactions.map(|x| x.into()),
-            _phantom: None,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
-pub struct Tx {
-    #[n(0)]
-    pub transaction_body: TransactionBody,
-
-    #[n(1)]
-    pub transaction_witness_set: WitnessSet,
-
-    #[n(2)]
-    pub success: bool,
-
-    #[n(3)]
-    pub auxiliary_data: Option<AuxiliaryData>,
-}
+// TODO: To be deprecated.
+pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Encode, Decode, Debug, Clone)]
-pub struct MintedTx<'b> {
+pub struct Tx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody>,
 
     #[n(1)]
-    pub transaction_witness_set: KeepRaw<'b, MintedWitnessSet<'b>>,
+    pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
     pub success: bool,
@@ -598,15 +502,18 @@ pub struct MintedTx<'b> {
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
+// TODO: To be deprecated.
+pub type MintedTx<'b> = Tx<'b>;
+
 #[cfg(test)]
 mod tests {
     use pallas_codec::minicbor::{self, to_vec};
 
     use crate::{alonzo::PlutusData, Fragment};
 
-    use super::{Header, MintedBlock};
+    use super::{Header, Block};
 
-    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    type BlockWrapper<'b> = (u16, Block<'b>);
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
