@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    fmt::format,
     net::Ipv6Addr,
     ops::Deref,
 };
@@ -43,7 +44,10 @@ use pallas_network::miniprotocols::localtxsubmission::{
     TagMismatchDescription, TxOutSource, Utxo, UtxoFailure, UtxosFailure, VKey, ValidityInterval,
 };
 
-use super::haskells_show_string::haskell_show_string;
+use super::{
+    haskell_error::{DecoderError, DeserialiseFailure},
+    haskells_show_string::haskell_show_string,
+};
 
 /// Trait used to generated Haskell-like string representation of a type.
 pub trait HaskellDisplay {
@@ -518,6 +522,28 @@ impl HaskellDisplay for BabbageContextError {
                 time.to_haskell_str()
             ),
         }
+    }
+}
+
+impl HaskellDisplay for DecoderError {
+    fn to_haskell_str(&self) -> String {
+        match self {
+            DecoderError::DeserialiseFailure(str, failure) => format!(
+                "DecoderErrorDeserialiseFailure {} {}",
+                str.to_haskell_str(),
+                failure.to_haskell_str_p()
+            ),
+            _ => format!("DecoderError ({:?})", self),
+        }
+    }
+}
+impl HaskellDisplay for DeserialiseFailure {
+    fn to_haskell_str(&self) -> String {
+        format!(
+            "DeserialiseFailure {} ({})",
+            self.0.to_haskell_str(),
+            self.1.to_haskell_str()
+        )
     }
 }
 
