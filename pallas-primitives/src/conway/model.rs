@@ -5,7 +5,6 @@
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{self, Decode, Encode};
-use pallas_codec::utils::CborWrap;
 
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
@@ -386,36 +385,9 @@ pub struct PseudoTransactionBody<T1> {
     pub donation: Option<PositiveCoin>,
 }
 
-pub type TransactionBody = PseudoTransactionBody<TransactionOutput>;
+pub type TransactionBody<'a> = PseudoTransactionBody<TransactionOutput<'a>>;
 
 pub type MintedTransactionBody<'a> = PseudoTransactionBody<MintedTransactionOutput<'a>>;
-
-impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
-    fn from(value: MintedTransactionBody<'a>) -> Self {
-        Self {
-            inputs: value.inputs,
-            outputs: value.outputs.into_iter().map(|x| x.into()).collect(),
-            fee: value.fee,
-            ttl: value.ttl,
-            certificates: value.certificates,
-            withdrawals: value.withdrawals,
-            auxiliary_data_hash: value.auxiliary_data_hash,
-            validity_interval_start: value.validity_interval_start,
-            mint: value.mint,
-            script_data_hash: value.script_data_hash,
-            collateral: value.collateral,
-            required_signers: value.required_signers,
-            network_id: value.network_id,
-            collateral_return: value.collateral_return.map(|x| x.into()),
-            total_collateral: value.total_collateral,
-            reference_inputs: value.reference_inputs,
-            voting_procedures: value.voting_procedures,
-            proposal_procedures: value.proposal_procedures,
-            treasury_value: value.treasury_value,
-            donation: value.donation,
-        }
-    }
-}
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
@@ -564,39 +536,15 @@ where
     }
 }
 
-pub type PostAlonzoTransactionOutput =
-    crate::babbage::PseudoPostAlonzoTransactionOutput<Value, DatumOption, ScriptRef>;
+pub type PostAlonzoTransactionOutput<'a> = crate::babbage::PostAlonzoTransactionOutput<'a>;
 
-pub type TransactionOutput = PseudoTransactionOutput<PostAlonzoTransactionOutput>;
+pub type TransactionOutput<'a> = PseudoTransactionOutput<PostAlonzoTransactionOutput<'a>>;
 
 pub type MintedTransactionOutput<'b> =
     PseudoTransactionOutput<MintedPostAlonzoTransactionOutput<'b>>;
 
-impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
-    fn from(value: MintedTransactionOutput<'b>) -> Self {
-        match value {
-            PseudoTransactionOutput::Legacy(x) => Self::Legacy(x),
-            PseudoTransactionOutput::PostAlonzo(x) => Self::PostAlonzo(x.into()),
-        }
-    }
-}
-
-pub type MintedPostAlonzoTransactionOutput<'b> = crate::babbage::PseudoPostAlonzoTransactionOutput<
-    Value,
-    MintedDatumOption<'b>,
-    MintedScriptRef<'b>,
->;
-
-impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
-    fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
-        Self {
-            address: value.address,
-            value: value.value,
-            datum_option: value.datum_option.map(|x| x.into()),
-            script_ref: value.script_ref.map(|x| CborWrap(x.unwrap().into())),
-        }
-    }
-}
+// TODO: To be deprecated.
+pub type MintedPostAlonzoTransactionOutput<'b> = crate::babbage::PostAlonzoTransactionOutput<'b>;
 
 pub use crate::alonzo::VKeyWitness;
 
@@ -798,8 +746,6 @@ pub struct PostAlonzoAuxiliaryData {
 
 pub use crate::babbage::DatumHash;
 
-pub use crate::babbage::PseudoDatumOption;
-
 pub use crate::babbage::DatumOption;
 
 pub use crate::babbage::MintedDatumOption;
@@ -917,7 +863,7 @@ where
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
+pub type Block<'a> = PseudoBlock<Header, TransactionBody<'a>, WitnessSet, AuxiliaryData>;
 
 /// A memory representation of an already minted block
 ///
@@ -931,10 +877,10 @@ pub type MintedBlock<'b> = PseudoBlock<
     KeepRaw<'b, AuxiliaryData>,
 >;
 
-impl<'b> From<MintedBlock<'b>> for Block {
+impl<'b> From<MintedBlock<'b>> for Block<'b> {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
-            header: x.header.unwrap().into(),
+            header: x.header.unwrap().unwrap(),
             transaction_bodies: x
                 .transaction_bodies
                 .iter()
@@ -979,7 +925,7 @@ where
     pub auxiliary_data: T3,
 }
 
-pub type Tx = PseudoTx<TransactionBody, WitnessSet, Nullable<AuxiliaryData>>;
+pub type Tx<'a> = PseudoTx<TransactionBody<'a>, WitnessSet, Nullable<AuxiliaryData>>;
 
 pub type MintedTx<'b> = PseudoTx<
     KeepRaw<'b, MintedTransactionBody<'b>>,
@@ -987,7 +933,7 @@ pub type MintedTx<'b> = PseudoTx<
     Nullable<KeepRaw<'b, AuxiliaryData>>,
 >;
 
-impl<'b> From<MintedTx<'b>> for Tx {
+impl<'b> From<MintedTx<'b>> for Tx<'b> {
     fn from(x: MintedTx<'b>) -> Self {
         Tx {
             transaction_body: x.transaction_body.unwrap().into(),
