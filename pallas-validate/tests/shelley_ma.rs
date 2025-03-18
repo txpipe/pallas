@@ -8,7 +8,6 @@ mod shelley_ma_tests {
         minicbor::{
             decode::{Decode, Decoder},
             encode,
-            to_vec,
         },
         utils::Bytes,
     };
