@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeSet, HashMap},
-    fmt::format,
     net::Ipv6Addr,
     ops::Deref,
 };
@@ -20,11 +19,11 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_network::miniprotocols::{
     handshake::NetworkMagic,
     localstate::queries_v16::{
-        primitives::Bytes, Anchor, AssetName, BoundedBytes, Constitution, CostModel, CostModels,
-        DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, FieldedRewardAccount,
-        GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId, PoolMetadata,
-        PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber, Relay,
-        ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
+        primitives::Bytes, Anchor, AssetName, BigInt, BoundedBytes, Constitution, CostModel,
+        CostModels, DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices,
+        FieldedRewardAccount, GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId,
+        PoolMetadata, PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber,
+        Relay, ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
     },
     localtxsubmission::{
         primitives::{
@@ -351,8 +350,8 @@ impl HaskellDisplay for UtxoFailure {
             ),
             MaxTxSizeUTxO(actual, max) => format!(
                 "(MaxTxSizeUTxO {} {})",
-                actual.to_haskell_str_p(),
-                max.to_haskell_str_p()
+                actual.to_haskell_str(),
+                max.to_haskell_str()
             ),
             InputSetEmptyUTxO => "InputSetEmptyUTxO".to_string(),
             FeeTooSmallUTxO(required, provided) => format!(
@@ -1076,6 +1075,20 @@ impl HaskellDisplay for i64 {
     }
 }
 
+impl HaskellDisplay for i128 {
+    fn to_haskell_str(&self) -> String {
+        self.to_string()
+    }
+
+    fn to_haskell_str_p(&self) -> String {
+        if *self >= 0 {
+            self.to_string()
+        } else {
+            format!("({})", self)
+        }
+    }
+}
+
 impl HaskellDisplay for u8 {
     fn to_haskell_str(&self) -> String {
         format!("{self}")
@@ -1531,6 +1544,25 @@ impl AsDisplayCoin for Option<&Coin> {
 impl HaskellDisplay for u64 {
     fn to_haskell_str(&self) -> String {
         self.to_string()
+    }
+}
+
+impl HaskellDisplay for BigInt {
+    fn to_haskell_str(&self) -> String {
+        use BigInt::*;
+
+        match self {
+            Int(i) => {
+                let value: i128 = i.0.into();
+                value.to_haskell_str_p()
+            },
+            BigNInt(bb) => {
+                format!("BigNInt {}", bb.to_haskell_str_p())
+            }
+            BigUInt(bb) => {
+                format!("BigUInt {}", bb.to_haskell_str_p())
+            }
+        }
     }
 }
 
@@ -2093,21 +2125,12 @@ impl AsDatumHash for DatumHash {
 
 impl HaskellDisplay for PlutusData {
     fn to_haskell_str(&self) -> String {
-        use pallas_network::miniprotocols::localstate::queries_v16::BigInt as Big;
         use PlutusData::*;
 
         match self {
             Constr(constr) => constr.fields.to_haskell_str(),
             Map(key_value_pairs) => key_value_pairs.to_haskell_str().to_string(),
-            BigInt(big_int) => match big_int {
-                Big::Int(i) => format!("BigInt Int {}", i.to_haskell_str()),
-                Big::BigNInt(bb) => {
-                    format!("BigNInt {}", bb.to_haskell_str())
-                }
-                Big::BigUInt(bb) => {
-                    format!("BigUInt {}", bb.to_haskell_str())
-                }
-            },
+            BigInt(big_int) => big_int.to_haskell_str(),
             BoundedBytes(bb) => bb.to_haskell_str(),
             Array(arr) => format!("Array {}", arr.to_haskell_str()),
         }
@@ -2141,7 +2164,7 @@ where
 
 impl HaskellDisplay for Int {
     fn to_haskell_str(&self) -> String {
-        format!("Int {}", self.0)
+        format!("{}", self.0)
     }
 }
 
