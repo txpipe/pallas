@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{self, Decode, Encode};
 
+pub use pallas_codec::codec_by_datatype;
+
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
     GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, Metadata, Metadatum,
@@ -35,46 +37,10 @@ pub enum Value {
     Multiasset(Coin, Multiasset<PositiveCoin>),
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array => {
-                d.array()?;
-                let coin = d.decode_with(ctx)?;
-                let multiasset = d.decode_with(ctx)?;
-                Ok(Value::Multiasset(coin, multiasset))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "unknown cbor data type for Alonzo Value enum",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for Value {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        // TODO: check how to deal with uint variants (u32 vs u64)
-        match self {
-            Value::Coin(coin) => {
-                e.encode_with(coin, ctx)?;
-            }
-            Value::Multiasset(coin, other) => {
-                e.array(2)?;
-                e.encode_with(coin, ctx)?;
-                e.encode_with(other, ctx)?;
-            }
-        };
-
-        Ok(())
-    }
+codec_by_datatype! {
+    Value,
+    U8 | U16 | U32 | U64 => Coin,
+    (coin, multi => Multiasset)
 }
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;

@@ -16,7 +16,7 @@ macro_rules! codec_by_datatype {
     (
         $enum_name:ident $( < $lifetime:lifetime > )?,
         $( $( $cbortype:ident )|* => $one_f:ident ),*,
-        ($( $( $vars:ident | $( $cbortypes:ident )|*),+ => $many_f:ident )?)
+        ($( $( $vars:ident ),+ => $many_f:ident )?)
     ) => {
         impl<$( $lifetime, )? '__b $(:$lifetime)?,  C> minicbor::decode::Decode<'__b, C> for $enum_name $(<$lifetime>)? {
             fn decode(d: &mut minicbor::Decoder<'__b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
