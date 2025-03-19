@@ -1,6 +1,7 @@
 use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash, TransactionInput, TransactionOutput, Value, Vote
+    Anchor, BigInt, FieldedRewardAccount, GovAction, GovActionId, PolicyId, ProposalProcedure,
+    ProtocolVersion, ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
 };
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use pallas_codec::minicbor::{self, Decode, Encode};
@@ -36,7 +37,7 @@ pub enum ShelleyBasedEra {
     #[n(2)]
     Allegra,
     #[n(3)]
-    Mary, 
+    Mary,
     #[n(4)]
     Alonzo,
     #[n(5)]
@@ -81,7 +82,7 @@ pub type PlutusPurposeItem = PlutusPurpose<
     TransactionInput,
     PolicyId,
     ConwayTxCert,
-    DisplayRewardAccount,
+    FieldedRewardAccount,
     Voter,
     ProposalProcedure,
 >;
@@ -163,11 +164,11 @@ pub struct DisplayOSet<T>(#[n(0)] pub Set<T>);
 pub struct DisplayVotingProcedures(#[n(0)] pub VotingProcedures);
 
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(flat)] 
+#[cbor(flat)]
 pub enum BabbageContextError {
     #[n(0)]
     ByronTxOutInContext(#[n(0)] TxOutSource),
-    #[n(1)] 
+    #[n(1)]
     AlonzoMissingInput(#[n(0)] TransactionInput),
     #[n(2)]
     RedeemerPointerPointsToNothing(#[n(0)] PlutusPurposeIx),
@@ -240,7 +241,7 @@ pub struct Utxo(pub OHashMap<TransactionInput, TransactionOutput>);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OHashMap<K, V>(pub Vec<(K, V)>);
 
-#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 #[cbor(index_only)]
 pub enum Network {
     #[n(0)]
@@ -249,19 +250,17 @@ pub enum Network {
     Mainnet,
 }
 
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct DeltaCoin(#[n(0)] pub i32);
-
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct DisplayRewardAccount(#[n(0)] pub Bytes);
-
-impl From<&Bytes> for DisplayRewardAccount {
-    fn from(bytes: &Bytes) -> Self {
-        DisplayRewardAccount(bytes.to_owned())
+impl From<Network> for u8 {
+    fn from(value: Network) -> u8 {
+        match value {
+            Network::Mainnet => 1,
+            Network::Testnet => 0,
+        }
     }
 }
+#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
+#[cbor(transparent)]
+pub struct DeltaCoin(#[n(0)] pub BigInt);
 
 pub type Slot = u64;
 
@@ -285,7 +284,7 @@ pub enum UtxoFailure {
     #[n(2)]
     OutsideValidityIntervalUTxO(#[n(0)] ValidityInterval, #[n(1)] Slot),
     #[n(3)]
-    MaxTxSizeUTxO(#[n(0)] i64, #[n(1)] i64),
+    MaxTxSizeUTxO(#[n(0)] BigInt, #[n(1)] BigInt),
     #[n(4)]
     InputSetEmptyUTxO,
     #[n(5)]
@@ -295,7 +294,7 @@ pub enum UtxoFailure {
     #[n(7)]
     WrongNetwork(#[n(0)] Network, #[n(1)] Set<DisplayAddress>),
     #[n(8)]
-    WrongNetworkWithdrawal(#[n(0)] Network, #[n(1)] Set<DisplayRewardAccount>),
+    WrongNetworkWithdrawal(#[n(0)] Network, #[n(1)] Set<FieldedRewardAccount>),
     #[n(9)]
     OutputTooSmallUTxO(#[n(0)] Array<TransactionOutput>),
     #[n(10)]
@@ -315,7 +314,7 @@ pub enum UtxoFailure {
     #[n(17)]
     OutsideForecast(#[n(0)] Slot),
     #[n(18)]
-    TooManyCollateralInputs(#[n(0)] u16, #[n(1)] u16),
+    TooManyCollateralInputs(#[n(0)] u64, #[n(1)] u64),
     #[n(19)]
     NoCollateralInputs,
     #[n(20)]
@@ -354,7 +353,7 @@ pub struct KeyHash(#[n(0)] pub Bytes);
 pub enum ConwayUtxoWPredFailure {
     #[n(0)]
     UtxoFailure(#[n(0)] UtxoFailure),
-    #[n(1)] 
+    #[n(1)]
     InvalidWitnessesUTXOW(#[n(0)] Array<VKey>),
     #[n(2)]
     MissingVKeyWitnessesUTXOW(#[n(0)] Set<KeyHash>),
@@ -440,7 +439,7 @@ pub enum ConwayLedgerFailure {
 #[cbor(flat)]
 pub enum ConwayCertsPredFailure {
     #[n(0)]
-    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<DisplayRewardAccount, DisplayCoin>),  
+    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),
     #[n(1)]
     CertFailure(#[n(0)] ConwayCertPredFailure),
 }
@@ -518,9 +517,9 @@ pub enum ConwayGovPredFailure {
     #[n(1)]
     MalformedProposal(#[n(0)] GovAction),
     #[n(2)]
-    ProposalProcedureNetworkIdMismatch(#[n(0)] DisplayRewardAccount, #[n(1)] Network),
+    ProposalProcedureNetworkIdMismatch(#[n(0)] FieldedRewardAccount, #[n(1)] Network),
     #[n(3)]
-    TreasuryWithdrawalsNetworkIdMismatch(#[n(0)] Set<DisplayRewardAccount>, #[n(1)] Network),
+    TreasuryWithdrawalsNetworkIdMismatch(#[n(0)] Set<FieldedRewardAccount>, #[n(1)] Network),
     #[n(4)]
     ProposalDepositIncorrect(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
     #[n(5)]
@@ -553,9 +552,9 @@ pub enum ConwayGovPredFailure {
     #[n(15)]
     ZeroTreasuryWithdrawals(#[n(0)] GovAction),
     #[n(16)]
-    ProposalReturnAccountDoesNotExist(#[n(0)] DisplayRewardAccount),
+    ProposalReturnAccountDoesNotExist(#[n(0)] FieldedRewardAccount),
     #[n(17)]
-    TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<DisplayRewardAccount>),
+    TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<FieldedRewardAccount>),
 }
 
 /// Reject reason. It can be a pair of an era number and a sequence of errors, or else a string.
