@@ -11,7 +11,7 @@ pub use pallas_codec::codec_by_datatype;
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch,
     ExUnitPrices, ExUnits, GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, Int, KeepRaw,
-    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, PlutusScript, PolicyId,
+    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript, PolicyId,
     PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion,
     RationalNumber, Relay, RewardAccount, ScriptHash, StakeCredential, TransactionIndex,
     TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
@@ -529,7 +529,7 @@ pub struct Block {
     pub transaction_witness_sets: Vec<WitnessSet>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, Option<AuxiliaryData>>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, AuxiliaryData>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
@@ -552,7 +552,7 @@ pub struct MintedBlock<'b> {
     pub transaction_witness_sets: Vec<KeepRaw<'b, MintedWitnessSet<'b>>>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, Option<AuxiliaryData>>>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
@@ -610,7 +610,7 @@ pub struct MintedTx<'b> {
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: KeepRaw<'b, Option<AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
 #[cfg(test)]

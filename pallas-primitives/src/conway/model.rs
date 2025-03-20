@@ -10,7 +10,7 @@ use pallas_codec::utils::CborWrap;
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
     GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, Metadata, Metadatum,
-    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, PlutusScript,
+    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, Nullable, PlutusScript,
     PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin, PositiveInterval,
     ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set, StakeCredential,
     TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
@@ -1565,7 +1565,7 @@ where
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, Option<AuxiliaryData>>;
+pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
 
 /// A memory representation of an already minted block
 ///
@@ -1576,7 +1576,7 @@ pub type MintedBlock<'b> = PseudoBlock<
     KeepRaw<'b, MintedHeader<'b>>,
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
-    KeepRaw<'b, Option<AuxiliaryData>>,
+    KeepRaw<'b, AuxiliaryData>,
 >;
 
 impl<'b> From<MintedBlock<'b>> for Block {
@@ -1627,12 +1627,12 @@ where
     pub auxiliary_data: T3,
 }
 
-pub type Tx = PseudoTx<TransactionBody, WitnessSet, Option<AuxiliaryData>>;
+pub type Tx = PseudoTx<TransactionBody, WitnessSet, Nullable<AuxiliaryData>>;
 
 pub type MintedTx<'b> = PseudoTx<
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
-    KeepRaw<'b, Option<AuxiliaryData>>,
+    Nullable<KeepRaw<'b, AuxiliaryData>>,
 >;
 
 impl<'b> From<MintedTx<'b>> for Tx {
@@ -1641,7 +1641,7 @@ impl<'b> From<MintedTx<'b>> for Tx {
             transaction_body: x.transaction_body.unwrap().into(),
             transaction_witness_set: x.transaction_witness_set.unwrap().into(),
             success: x.success,
-            auxiliary_data: x.auxiliary_data.unwrap(),
+            auxiliary_data: x.auxiliary_data.map(|x| x.unwrap()),
         }
     }
 }

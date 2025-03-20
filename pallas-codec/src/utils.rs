@@ -1198,21 +1198,6 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for KeepRaw<'_, T> {
     }
 }
 
-impl<'b, T> From<Option<KeepRaw<'b, Option<T>>>> for KeepRaw<'b, Option<T>> {
-    fn from(val: Option<KeepRaw<'b, Option<T>>>) -> Self {
-        match val {
-            Some(x) => KeepRaw {
-                raw: Cow::from(x.raw_cbor().to_vec()),
-                inner: x.unwrap(),
-            },
-            None => KeepRaw {
-                raw: Cow::from(vec![0xf6]),
-                inner: None,
-            },
-        }
-    }
-}
-
 /// Struct to hold arbitrary CBOR to be processed independently
 ///
 /// # Examples

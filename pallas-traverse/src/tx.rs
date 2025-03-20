@@ -526,28 +526,39 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub(crate) fn aux_data(&self) -> Option<&KeepRaw<'_, Option<alonzo::AuxiliaryData>>> {
+    pub(crate) fn aux_data(&self) -> Option<&KeepRaw<'_, alonzo::AuxiliaryData>> {
         match self {
-            MultiEraTx::AlonzoCompatible(x, _) => Some(&x.auxiliary_data),
-            MultiEraTx::Babbage(x) => Some(&x.auxiliary_data),
+            MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
+            MultiEraTx::Babbage(x) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
             MultiEraTx::Byron(_) => None,
-            MultiEraTx::Conway(x) => Some(&x.auxiliary_data),
+            MultiEraTx::Conway(x) => match &x.auxiliary_data {
+                pallas_codec::utils::Nullable::Some(x) => Some(x),
+                pallas_codec::utils::Nullable::Null => None,
+                pallas_codec::utils::Nullable::Undefined => None,
+            },
         }
     }
 
     pub fn metadata(&self) -> MultiEraMeta {
         match self.aux_data() {
             Some(x) => match x.deref() {
-                Some(alonzo::AuxiliaryData::Shelley(x)) => MultiEraMeta::AlonzoCompatible(x),
-                Some(alonzo::AuxiliaryData::ShelleyMa(x)) => {
+                alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
+                alonzo::AuxiliaryData::ShelleyMa(x) => {
                     MultiEraMeta::AlonzoCompatible(&x.transaction_metadata)
                 }
-                Some(alonzo::AuxiliaryData::PostAlonzo(x)) => x
+                alonzo::AuxiliaryData::PostAlonzo(x) => x
                     .metadata
                     .as_ref()
                     .map(MultiEraMeta::AlonzoCompatible)
                     .unwrap_or_default(),
-                None => MultiEraMeta::Empty,
             },
             None => MultiEraMeta::Empty,
         }
