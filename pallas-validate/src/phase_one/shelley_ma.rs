@@ -20,7 +20,7 @@ use pallas_primitives::{
         Coin, Epoch, GenesisDelegateHash, Genesishash,
         InstantaneousRewardSource::*,
         InstantaneousRewardTarget::*,
-        MintedTx, MintedWitnessSet, MoveInstantaneousReward, NativeScript, PolicyId, PoolKeyhash,
+        Tx, WitnessSet, MoveInstantaneousReward, NativeScript, PolicyId, PoolKeyhash,
         StakeCredential::{self},
         TransactionBody, TransactionIndex, TransactionOutput, VKeyWitness, Value, VrfKeyhash,
     },
@@ -36,7 +36,7 @@ use std::{cmp::max, collections::HashMap, ops::Deref};
 
 #[allow(clippy::too_many_arguments)]
 pub fn validate_shelley_ma_tx(
-    mtx: &MintedTx,
+    mtx: &Tx,
     txix: TransactionIndex,
     utxos: &UTxOs,
     cert_state: &mut CertState,
@@ -48,7 +48,7 @@ pub fn validate_shelley_ma_tx(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
     let minted_tx_body: &KeepRaw<'_, TransactionBody> = &mtx.transaction_body;
-    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+    let tx_wits: &WitnessSet = &mtx.transaction_witness_set;
     let size: u32 = get_alonzo_comp_tx_size(mtx);
     let stk_dep_count: &mut u64 = &mut 0; // count of key registrations (for deposits)
     let stk_refund_count: &mut u64 = &mut 0; // count of key deregs (for refunds)
@@ -262,7 +262,7 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
     Ok(())
 }
 
-fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+fn check_metadata(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
     match (
         &tx_body.auxiliary_data_hash,
         aux_data_from_alonzo_minted_tx(mtx),
@@ -283,7 +283,7 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
 
 fn check_witnesses(
     tx_body: &KeepRaw<'_, TransactionBody>,
-    tx_wits: &MintedWitnessSet,
+    tx_wits: &WitnessSet,
     utxos: &UTxOs,
 ) -> ValidationResult {
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
@@ -379,7 +379,7 @@ fn check_remaining_vk_wits(
     Ok(())
 }
 
-fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
             let native_script_wits: Vec<NativeScript> =
