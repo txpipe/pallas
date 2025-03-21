@@ -277,11 +277,12 @@ impl HeaderBody {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
-pub enum TransactionOutput<'b> {
+pub enum GenTransactionOutput<'b, T> {
     Legacy(KeepRaw<'b, LegacyTransactionOutput>),
-    PostAlonzo(KeepRaw<'b, PostAlonzoTransactionOutput<'b>>),
+    PostAlonzo(KeepRaw<'b, T>),
 }
 
+// FIXME: Repeated since macro does not handle type generics yet.
 codec_by_datatype! {
     TransactionOutput<'b>,
     Array | ArrayIndef => Legacy,
@@ -289,24 +290,28 @@ codec_by_datatype! {
     ()
 }
 
+pub type TransactionOutput<'b> = GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
+
 // TODO: To be deprecated.
 pub type MintedTransactionOutput<'b> = TransactionOutput<'b>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
-pub struct PostAlonzoTransactionOutput<'b> {
+pub struct GenPostAlonzoTransactionOutput<'b, V, S> {
     #[n(0)]
     pub address: Bytes,
 
     #[n(1)]
-    pub value: Value,
+    pub value: V,
 
-    #[n(2)]
+    #[b(2)]
     pub datum_option: Option<KeepRaw<'b, DatumOption<'b>>>,
 
-    #[b(3)]
-    pub script_ref: Option<CborWrap<ScriptRef<'b>>>,
+    #[n(3)]
+    pub script_ref: Option<CborWrap<S>>,
 }
+
+pub type PostAlonzoTransactionOutput<'b> = GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
 
 // TODO: To be deprecated.
 pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>;

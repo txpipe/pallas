@@ -124,25 +124,19 @@ impl OriginalHash<32> for KeepRaw<'_, babbage::Header> {
     }
 }
 
-impl ComputeHash<32> for babbage::TransactionBody {
+impl ComputeHash<32> for babbage::TransactionBody<'_> {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl OriginalHash<32> for KeepRaw<'_, babbage::TransactionBody> {
+impl OriginalHash<32> for KeepRaw<'_, babbage::TransactionBody<'_>> {
     fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
-impl OriginalHash<32> for KeepRaw<'_, babbage::MintedTransactionBody<'_>> {
-    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
-        Hasher::<256>::hash(self.raw_cbor())
-    }
-}
-
-impl ComputeHash<32> for babbage::DatumOption {
+impl ComputeHash<32> for babbage::DatumOption<'_> {
     fn compute_hash(&self) -> Hash<32> {
         match self {
             babbage::DatumOption::Hash(hash) => *hash,
@@ -153,19 +147,13 @@ impl ComputeHash<32> for babbage::DatumOption {
 
 // conway
 
-impl ComputeHash<32> for conway::TransactionBody {
+impl ComputeHash<32> for conway::TransactionBody<'_> {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
     }
 }
 
-impl OriginalHash<32> for KeepRaw<'_, conway::TransactionBody> {
-    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
-        Hasher::<256>::hash(self.raw_cbor())
-    }
-}
-
-impl OriginalHash<32> for KeepRaw<'_, conway::MintedTransactionBody<'_>> {
+impl OriginalHash<32> for KeepRaw<'_, conway::TransactionBody<'_>> {
     fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
     }
