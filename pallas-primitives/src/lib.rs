@@ -14,13 +14,15 @@ pub use framework::*;
 pub use pallas_codec::codec_by_datatype;
 
 pub use pallas_codec::utils::{
-    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptyKeyValuePairs, NonEmptySet,
+    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet,
     NonZeroInt, Nullable, PositiveCoin, Set,
 };
 pub use pallas_crypto::hash::Hash;
 
 use pallas_codec::minicbor::{self, data::Tag, Decode, Encode};
 use serde::{Deserialize, Serialize};
+
+use std::collections::BTreeMap;
 
 // ----- Common type definitions
 
@@ -63,7 +65,7 @@ pub type IPv4 = Bytes;
 
 pub type IPv6 = Bytes;
 
-pub type Metadata = KeyValuePairs<MetadatumLabel, Metadatum>;
+pub type Metadata = BTreeMap<MetadatumLabel, Metadatum>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum Metadatum {
@@ -202,8 +204,8 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Relay {
-    SingleHostAddr(Nullable<Port>, Nullable<IPv4>, Nullable<IPv6>),
-    SingleHostName(Nullable<Port>, DnsName),
+    SingleHostAddr(Option<Port>, Option<IPv4>, Option<IPv6>),
+    SingleHostName(Option<Port>, DnsName),
     MultiHostName(DnsName),
 }
 

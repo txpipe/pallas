@@ -13,7 +13,7 @@ use pallas_primitives::conway::{
 };
 use pallas_primitives::{
     conway::{DRepVotingThresholds, PoolVotingThresholds},
-    KeyValuePairs, Set,
+    Set,
 };
 use pallas_traverse::MultiEraTx;
 
@@ -30,12 +30,12 @@ use pallas_validate::{
 
 #[cfg(test)]
 mod conway_tests {
-    use std::borrow::Cow;
+    use std::{borrow::Cow, collections::BTreeMap};
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
     use pallas_primitives::{
         conway::{MintedPostAlonzoTransactionOutput, PseudoTransactionOutput},
-        NonEmptyKeyValuePairs, PositiveCoin,
+        PositiveCoin,
     };
     use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
@@ -915,22 +915,18 @@ mod conway_tests {
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Multiasset(
                 5000000,
-                NonEmptyKeyValuePairs::try_from(
-                    Vec::from(
-                        [(
-                            "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
-                                .parse().
-                                unwrap(),
-                            NonEmptyKeyValuePairs::try_from(Vec::from([(
-                                Bytes::from(
-                                    hex::decode("4879706562656173747332343233")
-                                        .unwrap(),
-                                ),
-                                PositiveCoin::try_from(1000).ok().unwrap(),
-                            )])).ok().unwrap(),
-                        )]
-                    )
-                ).ok().unwrap(),
+                [(
+                    "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
+                        .parse().
+                        unwrap(),
+                    [(
+                        Bytes::from(
+                            hex::decode("4879706562656173747332343233")
+                                .unwrap(),
+                        ),
+                        PositiveCoin::try_from(1000).ok().unwrap(),
+                    )].into()
+                )].into()
             ),
             None,
             None,
@@ -1175,7 +1171,7 @@ mod conway_tests {
 
                 plutus_v2: None,
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -1520,7 +1516,7 @@ mod conway_tests {
                     281145, 18848, 0, 1, 180194, 159, 1, 1, 158519, 8942, 0, 1, 159378, 8813, 0, 1,
                     107490, 3298, 1, 106057, 655, 1, 1964219, 24520, 3,
                 ]),
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {
@@ -1681,7 +1677,7 @@ mod conway_tests {
                     32947, 10,
                 ]),
                 plutus_v3: None,
-                unknown: KeyValuePairs::from(vec![]),
+                unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
                 mem_price: RationalNumber {

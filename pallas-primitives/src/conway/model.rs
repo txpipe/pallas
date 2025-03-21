@@ -9,13 +9,14 @@ use pallas_codec::utils::CborWrap;
 
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
-    GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, KeyValuePairs, MaybeIndefArray,
-    Metadata, Metadatum, MetadatumLabel, NetworkId, NonEmptyKeyValuePairs, NonEmptySet, NonZeroInt,
-    Nonce, NonceVariant, Nullable, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
-    PoolMetadataHash, Port, PositiveCoin, PositiveInterval, ProtocolVersion, RationalNumber, Relay,
-    RewardAccount, ScriptHash, Set, StakeCredential, TransactionIndex, TransactionInput,
-    UnitInterval, VrfCert, VrfKeyhash,
+    GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, Metadata, Metadatum,
+    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, Nullable, PlutusScript,
+    PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin, PositiveInterval,
+    ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set, StakeCredential,
+    TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
 };
+
+use crate::BTreeMap;
 
 use crate::babbage;
 
@@ -25,7 +26,7 @@ pub use crate::babbage::OperationalCert;
 
 pub use crate::babbage::Header;
 
-pub type Multiasset<A> = NonEmptyKeyValuePairs<PolicyId, NonEmptyKeyValuePairs<AssetName, A>>;
+pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
 
 pub type Mint = Multiasset<NonZeroInt>;
 
@@ -79,7 +80,7 @@ impl<C> minicbor::encode::Encode<C> for Value {
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
-pub type Withdrawals = NonEmptyKeyValuePairs<RewardAccount, Coin>;
+pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
@@ -97,7 +98,7 @@ pub enum Certificate {
         reward_account: RewardAccount,
         pool_owners: Set<AddrKeyhash>,
         relays: Vec<Relay>,
-        pool_metadata: Nullable<PoolMetadata>,
+        pool_metadata: Option<PoolMetadata>,
     },
     PoolRetirement(PoolKeyhash, Epoch),
 
@@ -110,10 +111,10 @@ pub enum Certificate {
     StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
 
     AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
-    ResignCommitteeCold(CommitteeColdCredential, Nullable<Anchor>),
-    RegDRepCert(DRepCredential, Coin, Nullable<Anchor>),
+    ResignCommitteeCold(CommitteeColdCredential, Option<Anchor>),
+    RegDRepCert(DRepCredential, Coin, Option<Anchor>),
     UnRegDRepCert(DRepCredential, Coin),
-    UpdateDRepCert(DRepCredential, Nullable<Anchor>),
+    UpdateDRepCert(DRepCredential, Option<Anchor>),
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
@@ -472,12 +473,12 @@ pub struct CostModels {
     pub plutus_v3: Option<CostModel>,
 
     #[cbor(skip)]
-    pub unknown: KeyValuePairs<u64, CostModel>,
+    pub unknown: BTreeMap<u64, CostModel>,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let models: KeyValuePairs<u64, CostModel> = d.decode_with(ctx)?;
+        let models: BTreeMap<u64, CostModel> = d.decode_with(ctx)?;
 
         let mut plutus_v1 = None;
         let mut plutus_v2 = None;
@@ -497,7 +498,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
             plutus_v1,
             plutus_v2,
             plutus_v3,
-            unknown: unknown.into(),
+            unknown: unknown.into_iter().collect(),
         })
     }
 }
@@ -572,7 +573,7 @@ pub struct ProtocolParamUpdate {
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct Update {
     #[n(0)]
-    pub proposed_protocol_parameter_updates: KeyValuePairs<Genesishash, ProtocolParamUpdate>,
+    pub proposed_protocol_parameter_updates: BTreeMap<Genesishash, ProtocolParamUpdate>,
 
     #[n(1)]
     pub epoch: Epoch,
@@ -694,7 +695,7 @@ pub struct PseudoTransactionBody<T1> {
     pub certificates: Option<NonEmptySet<Certificate>>,
 
     #[n(5)]
-    pub withdrawals: Option<NonEmptyKeyValuePairs<RewardAccount, Coin>>,
+    pub withdrawals: Option<BTreeMap<RewardAccount, Coin>>,
 
     #[n(7)]
     pub auxiliary_data_hash: Option<Bytes>,
@@ -810,13 +811,12 @@ impl<C> minicbor::Encode<C> for Vote {
     }
 }
 
-pub type VotingProcedures =
-    NonEmptyKeyValuePairs<Voter, NonEmptyKeyValuePairs<GovActionId, VotingProcedure>>;
+pub type VotingProcedures = BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
     pub vote: Vote,
-    pub anchor: Nullable<Anchor>,
+    pub anchor: Option<Anchor>,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for VotingProcedure {
@@ -886,20 +886,20 @@ impl<C> minicbor::Encode<C> for ProposalProcedure {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum GovAction {
     ParameterChange(
-        Nullable<GovActionId>,
+        Option<GovActionId>,
         Box<ProtocolParamUpdate>,
-        Nullable<ScriptHash>,
+        Option<ScriptHash>,
     ),
-    HardForkInitiation(Nullable<GovActionId>, ProtocolVersion),
-    TreasuryWithdrawals(KeyValuePairs<RewardAccount, Coin>, Nullable<ScriptHash>),
-    NoConfidence(Nullable<GovActionId>),
+    HardForkInitiation(Option<GovActionId>, ProtocolVersion),
+    TreasuryWithdrawals(BTreeMap<RewardAccount, Coin>, Option<ScriptHash>),
+    NoConfidence(Option<GovActionId>),
     UpdateCommittee(
-        Nullable<GovActionId>,
+        Option<GovActionId>,
         Set<CommitteeColdCredential>,
-        KeyValuePairs<CommitteeColdCredential, Epoch>,
+        BTreeMap<CommitteeColdCredential, Epoch>,
         UnitInterval,
     ),
-    NewConstitution(Nullable<GovActionId>, Constitution),
+    NewConstitution(Option<GovActionId>, Constitution),
     Information,
 }
 
@@ -1008,7 +1008,7 @@ impl<C> minicbor::encode::Encode<C> for GovAction {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Constitution {
     pub anchor: Anchor,
-    pub guardrail_script: Nullable<ScriptHash>,
+    pub guardrail_script: Option<ScriptHash>,
 }
 
 impl<'b, C> minicbor::Decode<'b, C> for Constitution {
@@ -1139,7 +1139,7 @@ impl<C> minicbor::Encode<C> for Anchor {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct GovActionId {
     pub transaction_id: Hash<32>,
     pub action_index: u32,
@@ -1259,7 +1259,9 @@ pub struct ExUnitPrices {
     pub step_price: RationalNumber,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord,
+)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1291,7 +1293,7 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct RedeemersKey {
     #[n(0)]
     pub tag: RedeemerTag,
@@ -1309,12 +1311,12 @@ pub struct RedeemersValue {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Redeemers {
-    List(MaybeIndefArray<Redeemer>),
-    Map(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>),
+    List(Vec<Redeemer>),
+    Map(BTreeMap<RedeemersKey, RedeemersValue>),
 }
 
-impl From<NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>> for Redeemers {
-    fn from(value: NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>) -> Self {
+impl From<BTreeMap<RedeemersKey, RedeemersValue>> for Redeemers {
+    fn from(value: BTreeMap<RedeemersKey, RedeemersValue>) -> Self {
         Redeemers::Map(value)
     }
 }
@@ -1551,16 +1553,16 @@ where
     pub header: T1,
 
     #[b(1)]
-    pub transaction_bodies: MaybeIndefArray<T2>,
+    pub transaction_bodies: Vec<T2>,
 
     #[n(2)]
-    pub transaction_witness_sets: MaybeIndefArray<T3>,
+    pub transaction_witness_sets: Vec<T3>,
 
     #[n(3)]
-    pub auxiliary_data_set: KeyValuePairs<TransactionIndex, T4>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, T4>,
 
     #[n(4)]
-    pub invalid_transactions: Option<MaybeIndefArray<TransactionIndex>>,
+    pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
 pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
@@ -1581,29 +1583,25 @@ impl<'b> From<MintedBlock<'b>> for Block {
     fn from(x: MintedBlock<'b>) -> Self {
         Block {
             header: x.header.unwrap().into(),
-            transaction_bodies: MaybeIndefArray::Def(
-                x.transaction_bodies
-                    .iter()
-                    .cloned()
-                    .map(|x| x.unwrap())
-                    .map(TransactionBody::from)
-                    .collect(),
-            ),
-            transaction_witness_sets: MaybeIndefArray::Def(
-                x.transaction_witness_sets
-                    .iter()
-                    .cloned()
-                    .map(|x| x.unwrap())
-                    .map(WitnessSet::from)
-                    .collect(),
-            ),
+            transaction_bodies: x
+                .transaction_bodies
+                .iter()
+                .cloned()
+                .map(|x| x.unwrap())
+                .map(TransactionBody::from)
+                .collect(),
+            transaction_witness_sets: x
+                .transaction_witness_sets
+                .iter()
+                .cloned()
+                .map(|x| x.unwrap())
+                .map(WitnessSet::from)
+                .collect(),
             auxiliary_data_set: x
                 .auxiliary_data_set
-                .to_vec()
                 .into_iter()
                 .map(|(k, v)| (k, v.unwrap()))
-                .collect::<Vec<_>>()
-                .into(),
+                .collect(),
             invalid_transactions: x.invalid_transactions,
         }
     }
@@ -1626,15 +1624,15 @@ where
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: Nullable<T3>,
+    pub auxiliary_data: T3,
 }
 
-pub type Tx = PseudoTx<TransactionBody, WitnessSet, AuxiliaryData>;
+pub type Tx = PseudoTx<TransactionBody, WitnessSet, Nullable<AuxiliaryData>>;
 
 pub type MintedTx<'b> = PseudoTx<
     KeepRaw<'b, MintedTransactionBody<'b>>,
     KeepRaw<'b, MintedWitnessSet<'b>>,
-    KeepRaw<'b, AuxiliaryData>,
+    Nullable<KeepRaw<'b, AuxiliaryData>>,
 >;
 
 impl<'b> From<MintedTx<'b>> for Tx {

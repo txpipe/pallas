@@ -12,6 +12,7 @@ use crate::utils::{
 };
 use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::minicbor::encode;
+use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hasher as PallasHasher;
 use pallas_primitives::{
     alonzo::{
@@ -26,7 +27,8 @@ use pallas_primitives::{
     byron::TxOut,
 };
 use pallas_traverse::{
-    time::Slot, wellknown::GenesisValues, ComputeHash, Era, MultiEraInput, MultiEraOutput,
+    time::Slot, wellknown::GenesisValues, Era, MultiEraInput, MultiEraOutput,
+    OriginalHash,
 };
 
 use std::{cmp::max, collections::HashMap, ops::Deref};
@@ -45,6 +47,7 @@ pub fn validate_shelley_ma_tx(
     era: &Era,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
+    let minted_tx_body: &KeepRaw<'_, TransactionBody> = &mtx.transaction_body;
     let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
     let size: u32 = get_alonzo_comp_tx_size(mtx);
     let stk_dep_count: &mut u64 = &mut 0; // count of key registrations (for deposits)
@@ -82,7 +85,7 @@ pub fn validate_shelley_ma_tx(
     check_fees(tx_body, &size, prot_pps)?;
     check_network_id(tx_body, network_id)?;
     check_metadata(tx_body, mtx)?;
-    check_witnesses(tx_body, tx_wits, utxos)?;
+    check_witnesses(minted_tx_body, tx_wits, utxos)?;
     check_minting(tx_body, mtx)
 }
 
@@ -279,13 +282,13 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
 }
 
 fn check_witnesses(
-    tx_body: &TransactionBody,
+    tx_body: &KeepRaw<'_, TransactionBody>,
     tx_wits: &MintedWitnessSet,
     utxos: &UTxOs,
 ) -> ValidationResult {
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
         &mut mk_alonzo_vk_wits_check_list(&tx_wits.vkeywitness, ShelleyMA(MissingVKWitness))?;
-    let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
+    let tx_hash: &Vec<u8> = &Vec::from(tx_body.original_hash().as_ref());
     let native_scripts: Vec<NativeScript> = match &tx_wits.native_script {
         Some(scripts) => scripts.iter().map(|x| x.clone().unwrap()).collect(),
         None => Vec::new(),
@@ -659,7 +662,7 @@ fn check_mir(
         let mut combined: HashMap<StakeCredential, Coin> = HashMap::new();
         if let StakeCredentials(kvp) = &mir.target {
             let mut kvv: Vec<(StakeCredential, u64)> = // TODO: Err if the value is negative
-                kvp.iter().map(|kv| (kv.clone().0, kv.clone().1 as u64)).collect();
+                kvp.iter().map(|kv| (kv.0.clone(), *kv.clone().1 as u64)).collect();
             kvv.extend(ir_pot);
             for (key, value) in kvv {
                 combined.insert(key, value);

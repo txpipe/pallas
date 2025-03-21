@@ -599,7 +599,6 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
 fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
     let mut res: Vec<PolicyId> = mint
         .clone()
-        .to_vec()
         .iter()
         .map(|(policy_id, _)| *policy_id)
         .collect();

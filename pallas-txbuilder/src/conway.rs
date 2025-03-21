@@ -9,7 +9,7 @@ use pallas_primitives::{
         PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx,
         Value, WitnessSet,
     },
-    Fragment, NonEmptyKeyValuePairs, NonEmptySet, PositiveCoin,
+    Fragment, NonEmptySet, PositiveCoin,
 };
 use pallas_traverse::ComputeHash;
 
@@ -53,24 +53,25 @@ impl BuildConway for StagingTransaction {
             .map(Output::build_babbage_raw)
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mint = NonEmptyKeyValuePairs::from_vec(
-            self.mint
-                .iter()
-                .flat_map(|x| x.deref().iter())
-                .map(|(pid, assets)| {
-                    (
-                        Hash::<28>::from(pid.0),
-                        NonEmptyKeyValuePairs::from_vec(
-                            assets
-                                .iter()
-                                .map(|(n, x)| (n.clone().into(), NonZeroInt::try_from(*x).unwrap()))
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
+        let mint: Vec<(Hash<28>, std::collections::BTreeMap<pallas_primitives::Bytes, _>)> = self
+            .mint
+            .iter()
+            .flat_map(|x| x.deref().iter())
+            .map(|(pid, assets)| {
+                (
+                    Hash::<28>::from(pid.0),
+                    assets
+                        .iter()
+                        .map(|(n, x)| (n.clone().into(), NonZeroInt::try_from(*x).unwrap()))
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let mint = if mint.is_empty() {
+            None
+        } else {
+            Some(mint.into_iter().collect())
+        };
 
         let collateral = NonEmptySet::from_vec(
             self.collateral_inputs
@@ -158,7 +159,7 @@ impl BuildConway for StagingTransaction {
 
         let mut mint_policies = mint
             .iter()
-            .flat_map(|x| x.deref().iter())
+            .flat_map(|x: &pallas_primitives::conway::Multiasset<NonZeroInt>| x.iter())
             .map(|(p, _)| *p)
             .collect::<Vec<_>>();
 
@@ -215,9 +216,7 @@ impl BuildConway for StagingTransaction {
             }
         };
 
-        let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(
-            pallas_codec::utils::MaybeIndefArray::Def(redeemers.clone()),
-        );
+        let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(redeemers.clone());
 
         let script_data_hash = self.language_view.map(|language_view| {
             let dta = scriptdata::ScriptData {
@@ -300,23 +299,25 @@ impl Output {
     pub fn build_babbage_raw(
         &self,
     ) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
-        let assets = NonEmptyKeyValuePairs::from_vec(
-            self.assets
-                .iter()
-                .flat_map(|x| x.deref().iter())
-                .map(|(pid, assets)| {
-                    (
-                        pid.0.into(),
-                        assets
-                            .iter()
-                            .map(|(n, x)| (n.clone().into(), PositiveCoin::try_from(*x).unwrap()))
-                            .collect::<Vec<_>>()
-                            .try_into()
-                            .unwrap(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
+        let assets = self
+            .assets
+            .iter()
+            .flat_map(|x| x.deref().iter())
+            .map(|(pid, assets)| {
+                (
+                    pid.0.into(),
+                    assets
+                        .iter()
+                        .map(|(n, x)| (n.clone().into(), PositiveCoin::try_from(*x).unwrap()))
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let assets = if assets.is_empty() {
+            None
+        } else {
+            Some(assets.into_iter().collect())
+        };
 
         let value = match assets {
             Some(assets) => Value::Multiasset(self.lovelace, assets),

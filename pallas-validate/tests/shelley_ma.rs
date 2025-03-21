@@ -9,7 +9,7 @@ mod shelley_ma_tests {
             decode::{Decode, Decoder},
             encode,
         },
-        utils::{Bytes, Nullable},
+        utils::Bytes,
     };
     use pallas_crypto::hash::Hash;
     use pallas_primitives::alonzo::{
@@ -313,12 +313,12 @@ mod shelley_ma_tests {
             )
             .unwrap()]),
             relays: [Relay::SingleHostAddr(
-                Nullable::Some(3001),
-                Nullable::Some(hex::decode("C22614BB").unwrap().into()),
-                Nullable::Null,
+                Some(3001),
+                Some(hex::decode("C22614BB").unwrap().into()),
+                None,
             )]
             .to_vec(),
-            pool_metadata: Nullable::Some(PoolMetadata {
+            pool_metadata: Some(PoolMetadata {
                 url: "https://cardapool.com/a.json".to_string(),
                 hash: "01F708549816C9A075FF96E9682C11A5F5C7F4E147862A663BDEECE0716AB76E"
                     .to_string()
@@ -704,7 +704,7 @@ mod shelley_ma_tests {
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
         let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = Nullable::Null;
+        mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
