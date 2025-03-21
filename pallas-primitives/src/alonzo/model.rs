@@ -589,7 +589,7 @@ mod tests {
             let bytes = hex::decode(header_str).unwrap_or_else(|_| panic!("bad header file {idx}"));
 
             let header: Header = minicbor::decode(&bytes[..])
-                .unwrap();//_or_else(|_| panic!("error decoding cbor for file {idx}"));
+                .unwrap_or_else(|_| panic!("error decoding cbor for file {idx}"));
 
             let bytes2 = to_vec(header)
                 .unwrap_or_else(|_| panic!("error encoding header cbor for file {idx}"));
