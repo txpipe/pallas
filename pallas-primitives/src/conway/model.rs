@@ -84,358 +84,77 @@ pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cbor(flat)]
 pub enum Certificate {
-    StakeRegistration(StakeCredential),
-    StakeDeregistration(StakeCredential),
-    StakeDelegation(StakeCredential, PoolKeyhash),
+    #[n(0)]
+    StakeRegistration(#[n(0)] StakeCredential),
+    #[n(1)]
+    StakeDeregistration(#[n(0)] StakeCredential),
+    #[n(2)]
+    StakeDelegation(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash),
+    #[n(3)]
     PoolRegistration {
+        #[n(0)]
         operator: PoolKeyhash,
+        #[n(1)]
         vrf_keyhash: VrfKeyhash,
+        #[n(2)]
         pledge: Coin,
+        #[n(3)]
         cost: Coin,
+        #[n(4)]
         margin: UnitInterval,
+        #[n(5)]
         reward_account: RewardAccount,
+        #[n(6)]
         pool_owners: Set<AddrKeyhash>,
+        #[n(7)]
         relays: Vec<Relay>,
+        #[n(8)]
         pool_metadata: Option<PoolMetadata>,
     },
-    PoolRetirement(PoolKeyhash, Epoch),
+    #[n(4)]
+    PoolRetirement(#[n(0)] PoolKeyhash, #[n(1)] Epoch),
 
-    Reg(StakeCredential, Coin),
-    UnReg(StakeCredential, Coin),
-    VoteDeleg(StakeCredential, DRep),
-    StakeVoteDeleg(StakeCredential, PoolKeyhash, DRep),
-    StakeRegDeleg(StakeCredential, PoolKeyhash, Coin),
-    VoteRegDeleg(StakeCredential, DRep, Coin),
-    StakeVoteRegDeleg(StakeCredential, PoolKeyhash, DRep, Coin),
+    #[n(7)]
+    Reg(#[n(0)] StakeCredential, #[n(1)] Coin),
+    #[n(8)]
+    UnReg(#[n(0)] StakeCredential, #[n(1)] Coin),
+    #[n(9)]
+    VoteDeleg(#[n(0)] StakeCredential, #[n(1)] DRep),
+    #[n(10)]
+    StakeVoteDeleg(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash, #[n(2)] DRep),
+    #[n(11)]
+    StakeRegDeleg(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash, #[n(2)] Coin),
+    #[n(12)]
+    VoteRegDeleg(#[n(0)] StakeCredential, #[n(1)] DRep, #[n(2)] Coin),
+    #[n(13)]
+    StakeVoteRegDeleg(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash, #[n(2)] DRep, #[n(3)] Coin),
 
-    AuthCommitteeHot(CommitteeColdCredential, CommitteeHotCredential),
-    ResignCommitteeCold(CommitteeColdCredential, Option<Anchor>),
-    RegDRepCert(DRepCredential, Coin, Option<Anchor>),
-    UnRegDRepCert(DRepCredential, Coin),
-    UpdateDRepCert(DRepCredential, Option<Anchor>),
+    #[n(14)]
+    AuthCommitteeHot(#[n(0)] CommitteeColdCredential, #[n(1)] CommitteeHotCredential),
+    #[n(15)]
+    ResignCommitteeCold(#[n(0)] CommitteeColdCredential, #[n(1)] Option<Anchor>),
+    #[n(16)]
+    RegDRepCert(#[n(0)] DRepCredential, #[n(1)] Coin, #[n(2)] Option<Anchor>),
+    #[n(17)]
+    UnRegDRepCert(#[n(0)] DRepCredential, #[n(1)] Coin),
+    #[n(18)]
+    UpdateDRepCert(#[n(0)] DRepCredential, #[n(1)] Option<Anchor>),
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for Certificate {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
-
-        match variant {
-            0 => {
-                let a = d.decode_with(ctx)?;
-                Ok(Certificate::StakeRegistration(a))
-            }
-            1 => {
-                let a = d.decode_with(ctx)?;
-                Ok(Certificate::StakeDeregistration(a))
-            }
-            2 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::StakeDelegation(a, b))
-            }
-            3 => {
-                let operator = d.decode_with(ctx)?;
-                let vrf_keyhash = d.decode_with(ctx)?;
-                let pledge = d.decode_with(ctx)?;
-                let cost = d.decode_with(ctx)?;
-                let margin = d.decode_with(ctx)?;
-                let reward_account = d.decode_with(ctx)?;
-                let pool_owners = d.decode_with(ctx)?;
-                let relays = d.decode_with(ctx)?;
-                let pool_metadata = d.decode_with(ctx)?;
-
-                Ok(Certificate::PoolRegistration {
-                    operator,
-                    vrf_keyhash,
-                    pledge,
-                    cost,
-                    margin,
-                    reward_account,
-                    pool_owners,
-                    relays,
-                    pool_metadata,
-                })
-            }
-            4 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::PoolRetirement(a, b))
-            }
-
-            7 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::Reg(a, b))
-            }
-            8 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::UnReg(a, b))
-            }
-            9 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::VoteDeleg(a, b))
-            }
-            10 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                Ok(Certificate::StakeVoteDeleg(a, b, c))
-            }
-            11 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                Ok(Certificate::StakeRegDeleg(a, b, c))
-            }
-            12 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                Ok(Certificate::VoteRegDeleg(a, b, c))
-            }
-            13 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                let d = d.decode_with(ctx)?;
-                Ok(Certificate::StakeVoteRegDeleg(a, b, c, d))
-            }
-            14 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::AuthCommitteeHot(a, b))
-            }
-            15 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::ResignCommitteeCold(a, b))
-            }
-            16 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                Ok(Certificate::RegDRepCert(a, b, c))
-            }
-            17 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::UnRegDRepCert(a, b))
-            }
-            18 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(Certificate::UpdateDRepCert(a, b))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant id for certificate",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for Certificate {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Certificate::StakeRegistration(a) => {
-                e.array(2)?;
-                e.u16(0)?;
-                e.encode_with(a, ctx)?;
-            }
-            Certificate::StakeDeregistration(a) => {
-                e.array(2)?;
-                e.u16(1)?;
-                e.encode_with(a, ctx)?;
-            }
-            Certificate::StakeDelegation(a, b) => {
-                e.array(3)?;
-                e.u16(2)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::PoolRegistration {
-                operator,
-                vrf_keyhash,
-                pledge,
-                cost,
-                margin,
-                reward_account,
-                pool_owners,
-                relays,
-                pool_metadata,
-            } => {
-                e.array(10)?;
-                e.u16(3)?;
-
-                e.encode_with(operator, ctx)?;
-                e.encode_with(vrf_keyhash, ctx)?;
-                e.encode_with(pledge, ctx)?;
-                e.encode_with(cost, ctx)?;
-                e.encode_with(margin, ctx)?;
-                e.encode_with(reward_account, ctx)?;
-                e.encode_with(pool_owners, ctx)?;
-                e.encode_with(relays, ctx)?;
-                e.encode_with(pool_metadata, ctx)?;
-            }
-            Certificate::PoolRetirement(a, b) => {
-                e.array(3)?;
-                e.u16(4)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            // 5 and 6 removed in conway
-            Certificate::Reg(a, b) => {
-                e.array(3)?;
-                e.u16(7)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::UnReg(a, b) => {
-                e.array(3)?;
-                e.u16(8)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::VoteDeleg(a, b) => {
-                e.array(3)?;
-                e.u16(9)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::StakeVoteDeleg(a, b, c) => {
-                e.array(4)?;
-                e.u16(10)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-            }
-            Certificate::StakeRegDeleg(a, b, c) => {
-                e.array(4)?;
-                e.u16(11)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-            }
-            Certificate::VoteRegDeleg(a, b, c) => {
-                e.array(4)?;
-                e.u16(12)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-            }
-            Certificate::StakeVoteRegDeleg(a, b, c, d) => {
-                e.array(5)?;
-                e.u16(13)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-                e.encode_with(d, ctx)?;
-            }
-            Certificate::AuthCommitteeHot(a, b) => {
-                e.array(3)?;
-                e.u16(14)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::ResignCommitteeCold(a, b) => {
-                e.array(3)?;
-                e.u16(15)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::RegDRepCert(a, b, c) => {
-                e.array(4)?;
-                e.u16(16)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-            }
-            Certificate::UnRegDRepCert(a, b) => {
-                e.array(3)?;
-                e.u16(17)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            Certificate::UpdateDRepCert(a, b) => {
-                e.array(3)?;
-                e.u16(18)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[cbor(flat)]
 pub enum DRep {
-    Key(AddrKeyhash),
-    Script(ScriptHash),
+    #[n(0)]
+    Key(#[n(0)] AddrKeyhash),
+    #[n(1)]
+    Script(#[n(0)] ScriptHash),
+    #[n(2)]
     Abstain,
+    #[n(3)]
     NoConfidence,
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for DRep {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
-
-        match variant {
-            0 => Ok(DRep::Key(d.decode_with(ctx)?)),
-            1 => Ok(DRep::Script(d.decode_with(ctx)?)),
-            2 => Ok(DRep::Abstain),
-            3 => Ok(DRep::NoConfidence),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant id for DRep",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for DRep {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            DRep::Key(h) => {
-                e.array(2)?;
-                e.encode_with(0, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-            DRep::Script(h) => {
-                e.array(2)?;
-                e.encode_with(1, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-            DRep::Abstain => {
-                e.array(1)?;
-                e.encode_with(2, ctx)?;
-
-                Ok(())
-            }
-            DRep::NoConfidence => {
-                e.array(1)?;
-                e.encode_with(3, ctx)?;
-
-                Ok(())
-            }
-        }
-    }
 }
 
 pub type DRepCredential = StakeCredential;
@@ -579,101 +298,27 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PoolVotingThresholds {
-    pub motion_no_confidence: UnitInterval,
-    pub committee_normal: UnitInterval,
-    pub committee_no_confidence: UnitInterval,
-    pub hard_fork_initiation: UnitInterval,
-    pub security_voting_threshold: UnitInterval,
+    #[n(0)] pub motion_no_confidence: UnitInterval,
+    #[n(1)] pub committee_normal: UnitInterval,
+    #[n(2)] pub committee_no_confidence: UnitInterval,
+    #[n(3)] pub hard_fork_initiation: UnitInterval,
+    #[n(4)] pub security_voting_threshold: UnitInterval,
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for PoolVotingThresholds {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            motion_no_confidence: d.decode_with(ctx)?,
-            committee_normal: d.decode_with(ctx)?,
-            committee_no_confidence: d.decode_with(ctx)?,
-            hard_fork_initiation: d.decode_with(ctx)?,
-            security_voting_threshold: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for PoolVotingThresholds {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(5)?;
-
-        e.encode_with(&self.motion_no_confidence, ctx)?;
-        e.encode_with(&self.committee_normal, ctx)?;
-        e.encode_with(&self.committee_no_confidence, ctx)?;
-        e.encode_with(&self.hard_fork_initiation, ctx)?;
-        e.encode_with(&self.security_voting_threshold, ctx)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct DRepVotingThresholds {
-    pub motion_no_confidence: UnitInterval,
-    pub committee_normal: UnitInterval,
-    pub committee_no_confidence: UnitInterval,
-    pub update_constitution: UnitInterval,
-    pub hard_fork_initiation: UnitInterval,
-    pub pp_network_group: UnitInterval,
-    pub pp_economic_group: UnitInterval,
-    pub pp_technical_group: UnitInterval,
-    pub pp_governance_group: UnitInterval,
-    pub treasury_withdrawal: UnitInterval,
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for DRepVotingThresholds {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            motion_no_confidence: d.decode_with(ctx)?,
-            committee_normal: d.decode_with(ctx)?,
-            committee_no_confidence: d.decode_with(ctx)?,
-            update_constitution: d.decode_with(ctx)?,
-            hard_fork_initiation: d.decode_with(ctx)?,
-            pp_network_group: d.decode_with(ctx)?,
-            pp_economic_group: d.decode_with(ctx)?,
-            pp_technical_group: d.decode_with(ctx)?,
-            pp_governance_group: d.decode_with(ctx)?,
-            treasury_withdrawal: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for DRepVotingThresholds {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(10)?;
-
-        e.encode_with(&self.motion_no_confidence, ctx)?;
-        e.encode_with(&self.committee_normal, ctx)?;
-        e.encode_with(&self.committee_no_confidence, ctx)?;
-        e.encode_with(&self.update_constitution, ctx)?;
-        e.encode_with(&self.hard_fork_initiation, ctx)?;
-        e.encode_with(&self.pp_network_group, ctx)?;
-        e.encode_with(&self.pp_economic_group, ctx)?;
-        e.encode_with(&self.pp_technical_group, ctx)?;
-        e.encode_with(&self.pp_governance_group, ctx)?;
-        e.encode_with(&self.treasury_withdrawal, ctx)?;
-
-        Ok(())
-    }
+    #[n(0)] pub motion_no_confidence: UnitInterval,
+    #[n(1)] pub committee_normal: UnitInterval,
+    #[n(2)] pub committee_no_confidence: UnitInterval,
+    #[n(3)] pub update_constitution: UnitInterval,
+    #[n(4)] pub hard_fork_initiation: UnitInterval,
+    #[n(5)] pub pp_network_group: UnitInterval,
+    #[n(6)] pub pp_economic_group: UnitInterval,
+    #[n(7)] pub pp_technical_group: UnitInterval,
+    #[n(8)] pub pp_governance_group: UnitInterval,
+    #[n(9)] pub treasury_withdrawal: UnitInterval,
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone)]
@@ -772,403 +417,110 @@ impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cbor(index_only)]
 pub enum Vote {
-    No,
-    Yes,
-    Abstain,
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for Vote {
-    fn decode(
-        d: &mut minicbor::Decoder<'b>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
-        match d.u8()? {
-            0 => Ok(Self::No),
-            1 => Ok(Self::Yes),
-            2 => Ok(Self::Abstain),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid number for Vote kind",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::Encode<C> for Vote {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match &self {
-            Self::No => e.u8(0)?,
-            Self::Yes => e.u8(1)?,
-            Self::Abstain => e.u8(2)?,
-        };
-
-        Ok(())
-    }
+    #[n(0)] No,
+    #[n(1)] Yes,
+    #[n(2)] Abstain,
 }
 
 pub type VotingProcedures = BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
-    pub vote: Vote,
-    pub anchor: Option<Anchor>,
+    #[n(0)] pub vote: Vote,
+    #[n(1)] pub anchor: Option<Anchor>,
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for VotingProcedure {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            vote: d.decode_with(ctx)?,
-            anchor: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for VotingProcedure {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(&self.vote, ctx)?;
-        e.encode_with(&self.anchor, ctx)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ProposalProcedure {
+    #[n(0)]
     pub deposit: Coin,
+    #[n(1)]
     pub reward_account: RewardAccount,
+    #[n(2)]
     pub gov_action: GovAction,
+    #[n(3)]
     pub anchor: Anchor,
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for ProposalProcedure {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            deposit: d.decode_with(ctx)?,
-            reward_account: d.decode_with(ctx)?,
-            gov_action: d.decode_with(ctx)?,
-            anchor: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for ProposalProcedure {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(4)?;
-
-        e.encode_with(self.deposit, ctx)?;
-        e.encode_with(&self.reward_account, ctx)?;
-        e.encode_with(&self.gov_action, ctx)?;
-        e.encode_with(&self.anchor, ctx)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cbor(flat)]
 pub enum GovAction {
+    #[n(0)]
     ParameterChange(
-        Option<GovActionId>,
-        Box<ProtocolParamUpdate>,
-        Option<ScriptHash>,
+        #[n(0)] Option<GovActionId>,
+        #[n(1)] Box<ProtocolParamUpdate>,
+        #[n(2)] Option<ScriptHash>,
     ),
-    HardForkInitiation(Option<GovActionId>, ProtocolVersion),
-    TreasuryWithdrawals(BTreeMap<RewardAccount, Coin>, Option<ScriptHash>),
-    NoConfidence(Option<GovActionId>),
+    #[n(1)]
+    HardForkInitiation(
+        #[n(0)] Option<GovActionId>,
+        #[n(1)] ProtocolVersion,
+    ),
+    #[n(2)]
+    TreasuryWithdrawals(
+        #[n(0)] BTreeMap<RewardAccount, Coin>,
+        #[n(1)] Option<ScriptHash>,
+    ),
+    #[n(3)]
+    NoConfidence(
+        #[n(0)] Option<GovActionId>,
+    ),
+    #[n(4)]
     UpdateCommittee(
-        Option<GovActionId>,
-        Set<CommitteeColdCredential>,
-        BTreeMap<CommitteeColdCredential, Epoch>,
-        UnitInterval,
+        #[n(0)] Option<GovActionId>,
+        #[n(1)] Set<CommitteeColdCredential>,
+        #[n(2)] BTreeMap<CommitteeColdCredential, Epoch>,
+        #[n(3)] UnitInterval,
     ),
-    NewConstitution(Option<GovActionId>, Constitution),
+    #[n(5)]
+    NewConstitution(
+        #[n(0)] Option<GovActionId>,
+        #[n(1)] Constitution,
+    ),
+    #[n(6)]
     Information,
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for GovAction {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
-
-        match variant {
-            0 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                Ok(GovAction::ParameterChange(a, b, c))
-            }
-            1 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(GovAction::HardForkInitiation(a, b))
-            }
-            2 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(GovAction::TreasuryWithdrawals(a, b))
-            }
-            3 => {
-                let a = d.decode_with(ctx)?;
-                Ok(GovAction::NoConfidence(a))
-            }
-            4 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                let c = d.decode_with(ctx)?;
-                let d = d.decode_with(ctx)?;
-                Ok(GovAction::UpdateCommittee(a, b, c, d))
-            }
-            5 => {
-                let a = d.decode_with(ctx)?;
-                let b = d.decode_with(ctx)?;
-                Ok(GovAction::NewConstitution(a, b))
-            }
-            6 => Ok(GovAction::Information),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown variant id for certificate",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for GovAction {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            GovAction::ParameterChange(a, b, c) => {
-                e.array(4)?;
-                e.u16(0)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-            }
-            GovAction::HardForkInitiation(a, b) => {
-                e.array(3)?;
-                e.u16(1)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            GovAction::TreasuryWithdrawals(a, b) => {
-                e.array(3)?;
-                e.u16(2)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            GovAction::NoConfidence(a) => {
-                e.array(2)?;
-                e.u16(3)?;
-                e.encode_with(a, ctx)?;
-            }
-            GovAction::UpdateCommittee(a, b, c, d) => {
-                e.array(5)?;
-                e.u16(4)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-                e.encode_with(c, ctx)?;
-                e.encode_with(d, ctx)?;
-            }
-            GovAction::NewConstitution(a, b) => {
-                e.array(3)?;
-                e.u16(5)?;
-                e.encode_with(a, ctx)?;
-                e.encode_with(b, ctx)?;
-            }
-            // TODO: CDDL says just "6", not group/array "(6)"?
-            GovAction::Information => {
-                e.array(1)?;
-                e.u16(6)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Constitution {
+    #[n(0)]
     pub anchor: Anchor,
+    #[n(1)]
     pub guardrail_script: Option<ScriptHash>,
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Constitution {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            anchor: d.decode_with(ctx)?,
-            guardrail_script: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for Constitution {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(&self.anchor, ctx)?;
-        e.encode_with(&self.guardrail_script, ctx)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[cbor(flat)]
 pub enum Voter {
-    ConstitutionalCommitteeKey(AddrKeyhash),
-    ConstitutionalCommitteeScript(ScriptHash),
-    DRepKey(AddrKeyhash),
-    DRepScript(ScriptHash),
-    StakePoolKey(AddrKeyhash),
+    #[n(0)]
+    ConstitutionalCommitteeKey(#[n(0)] AddrKeyhash),
+    #[n(1)]
+    ConstitutionalCommitteeScript(#[n(0)] ScriptHash),
+    #[n(2)]
+    DRepKey(#[n(0)] AddrKeyhash),
+    #[n(3)]
+    DRepScript(#[n(0)] ScriptHash),
+    #[n(4)]
+    StakePoolKey(#[n(0)] AddrKeyhash),
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for Voter {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
-
-        match variant {
-            0 => Ok(Voter::ConstitutionalCommitteeKey(d.decode_with(ctx)?)),
-            1 => Ok(Voter::ConstitutionalCommitteeScript(d.decode_with(ctx)?)),
-            2 => Ok(Voter::DRepKey(d.decode_with(ctx)?)),
-            3 => Ok(Voter::DRepScript(d.decode_with(ctx)?)),
-            4 => Ok(Voter::StakePoolKey(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant id for DRep",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for Voter {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        match self {
-            Voter::ConstitutionalCommitteeKey(h) => {
-                e.encode_with(0, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-            Voter::ConstitutionalCommitteeScript(h) => {
-                e.encode_with(1, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-            Voter::DRepKey(h) => {
-                e.encode_with(2, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-            Voter::DRepScript(h) => {
-                e.encode_with(3, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-            Voter::StakePoolKey(h) => {
-                e.encode_with(4, ctx)?;
-                e.encode_with(h, ctx)?;
-
-                Ok(())
-            }
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 pub struct Anchor {
+    #[n(0)]
     pub url: String,
+    #[n(1)]
     pub content_hash: Hash<32>,
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Anchor {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            url: d.decode_with(ctx)?,
-            content_hash: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for Anchor {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(&self.url, ctx)?;
-        e.encode_with(self.content_hash, ctx)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct GovActionId {
+    #[n(0)]
     pub transaction_id: Hash<32>,
+    #[n(1)]
     pub action_index: u32,
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for GovActionId {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        Ok(Self {
-            transaction_id: d.decode_with(ctx)?,
-            action_index: d.decode_with(ctx)?,
-        })
-    }
-}
-
-impl<C> minicbor::Encode<C> for GovActionId {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        e.encode_with(self.transaction_id, ctx)?;
-        e.encode_with(self.action_index, ctx)?;
-
-        Ok(())
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
