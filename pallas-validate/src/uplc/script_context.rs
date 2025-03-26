@@ -1,9 +1,7 @@
 use super::{error::Error, to_plutus_data::MintValue};
 use itertools::Itertools;
 use pallas_addresses::{Address, Network, StakePayload};
-use pallas_codec::utils::{
-    Bytes, KeyValuePairs, NonEmptyKeyValuePairs, NonEmptySet, Nullable, PositiveCoin,
-};
+use pallas_codec::utils::{Bytes, KeyValuePairs, NonEmptySet, PositiveCoin};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::conway::RedeemersValue;
 use pallas_primitives::{
@@ -18,6 +16,7 @@ use pallas_primitives::{
     },
 };
 use pallas_traverse::{ComputeHash, MultiEraTx, OriginalHash};
+use std::collections::BTreeMap;
 use std::{cmp::Ordering, collections::HashMap, ops::Deref};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -553,10 +552,7 @@ pub fn get_tx_in_info_v2(
 
 pub fn get_mint_info(mint: &Option<Mint>) -> MintValue {
     MintValue {
-        mint_value: mint
-            .as_ref()
-            .map(sort_mint)
-            .unwrap_or(NonEmptyKeyValuePairs::Indef(vec![])),
+        mint_value: mint.as_ref().map(sort_mint).unwrap_or_else(BTreeMap::new),
     }
 }
 
@@ -594,14 +590,14 @@ pub fn get_proposal_procedures_info(
 }
 
 pub fn get_withdrawals_info(
-    withdrawals: &Option<NonEmptyKeyValuePairs<RewardAccount, Coin>>,
+    withdrawals: &Option<BTreeMap<RewardAccount, Coin>>,
 ) -> Vec<(Address, Coin)> {
     withdrawals
-        .clone()
+        .as_ref()
         .map(|w| {
-            w.into_iter()
+            w.iter()
                 .sorted_by(|(accnt_a, _), (accnt_b, _)| sort_reward_accounts(accnt_a, accnt_b))
-                .map(|(reward_account, coin)| (Address::from_bytes(&reward_account).unwrap(), coin))
+                .map(|(reward_account, coin)| (Address::from_bytes(reward_account).unwrap(), *coin))
                 .collect()
         })
         .unwrap_or_default()
@@ -693,7 +689,10 @@ pub fn get_redeemers_info<'a>(
                             )
                         })
                         .collect::<Vec<_>>(),
-                    pallas_primitives::conway::Redeemers::Map(arr) => arr.deref().clone(),
+                    pallas_primitives::conway::Redeemers::Map(arr) => arr
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<Vec<_>>(),
                 };
 
                 redeemers
@@ -717,26 +716,25 @@ pub fn get_redeemers_info<'a>(
 }
 
 pub fn get_votes_info(
-    votes: &Option<
-        NonEmptyKeyValuePairs<Voter, NonEmptyKeyValuePairs<GovActionId, VotingProcedure>>,
-    >,
+    votes: &Option<BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>>,
 ) -> KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>> {
     KeyValuePairs::from(
         votes
-            .as_deref()
+            .as_ref()
             .map(|votes| {
                 votes
                     .iter()
                     .sorted_by(|(a, _), (b, _)| sort_voters(a, b))
-                    .cloned()
                     .map(|(voter, actions)| {
                         (
-                            voter,
+                            voter.clone(),
                             KeyValuePairs::from(
                                 actions
                                     .iter()
                                     .sorted_by(|(a, _), (b, _)| sort_gov_action_id(a, b))
-                                    .cloned()
+                                    .map(|(action_id, procedure)| {
+                                        (action_id.clone(), procedure.clone())
+                                    })
                                     .collect::<Vec<_>>(),
                             ),
                         )
@@ -762,7 +760,8 @@ fn script_purpose_builder<'a>(
         match tag {
             RedeemerTag::Mint => mint
                 .mint_value
-                .get(index)
+                .iter()
+                .nth(index)
                 .map(|(policy_id, _)| ScriptPurpose::Minting(*policy_id)),
 
             RedeemerTag::Spend => inputs
@@ -831,7 +830,8 @@ pub fn find_script(
     match redeemer.tag {
         RedeemerTag::Mint => get_mint_info(&tx.transaction_body.mint)
             .mint_value
-            .get(redeemer.index as usize)
+            .iter()
+            .nth(redeemer.index as usize)
             .ok_or(Error::MissingScriptForRedeemer)
             .and_then(|(policy_id, _)| {
                 let policy_id_array: [u8; 28] = policy_id.to_vec().try_into().unwrap();
@@ -927,8 +927,8 @@ pub fn find_script(
                 .get(redeemer.index as usize)
                 .ok_or(Error::MissingScriptForRedeemer)
                 .and_then(|procedure| match procedure.gov_action {
-                    GovAction::ParameterChange(_, _, Nullable::Some(ref hash)) => Ok(hash),
-                    GovAction::TreasuryWithdrawals(_, Nullable::Some(ref hash)) => Ok(hash),
+                    GovAction::ParameterChange(_, _, Some(ref hash)) => Ok(hash),
+                    GovAction::TreasuryWithdrawals(_, Some(ref hash)) => Ok(hash),
                     GovAction::HardForkInitiation(..)
                     | GovAction::Information
                     | GovAction::NewConstitution(..)
@@ -946,34 +946,22 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
     match value {
         alonzo::Value::Coin(coin) => Value::Coin(*coin),
         alonzo::Value::Multiasset(coin, assets) if assets.is_empty() => Value::Coin(*coin),
-        alonzo::Value::Multiasset(coin, assets) => Value::Multiasset(
-            *coin,
-            NonEmptyKeyValuePairs::try_from(
-                assets
-                    .iter()
-                    .cloned()
-                    .map(|(policy_id, tokens)| {
-                        (
-                            policy_id,
-                            NonEmptyKeyValuePairs::try_from(
-                                tokens
-                                    .iter()
-                                    .cloned()
-                                    .map(|(asset_name, quantity)| {
-                                        (
-                                            asset_name,
-                                            quantity.try_into().expect("0 Ada in output value?"),
-                                        )
-                                    })
-                                    .collect_vec(),
-                            )
-                            .expect("empty tokens under a policy?"),
-                        )
-                    })
-                    .collect_vec(),
-            )
-            .expect("assets cannot be empty due to pattern-guard"),
-        ),
+        alonzo::Value::Multiasset(coin, assets) => {
+            let mut ma_btree = BTreeMap::new();
+
+            for (policy_id, tokens) in assets.iter() {
+                let mut inner_btree = BTreeMap::new();
+                for (asset_name, quantity) in tokens.iter() {
+                    inner_btree.insert(
+                        asset_name.clone(),
+                        (*quantity).try_into().expect("0 Ada in output value?"),
+                    );
+                }
+                ma_btree.insert(policy_id.clone(), inner_btree);
+            }
+
+            Value::Multiasset(*coin, ma_btree)
+        }
     }
 }
 
@@ -1008,34 +996,32 @@ fn sort_tx_out_value(tx_output: &TransactionOutput) -> TransactionOutput {
 }
 
 fn sort_mint(mint: &Mint) -> Mint {
-    let mut mint_vec = vec![];
+    let mut mint_btree = BTreeMap::new();
 
-    for m in mint.deref().iter().sorted() {
-        mint_vec.push((
-            m.0,
-            NonEmptyKeyValuePairs::Indef(
-                m.1.deref().clone().into_iter().sorted().clone().collect(),
-            ),
-        ));
+    for m in mint.iter().sorted() {
+        let mut inner_btree = BTreeMap::new();
+        for (policy_id, tokens) in m.1.iter().sorted() {
+            inner_btree.insert(policy_id.clone(), tokens.clone());
+        }
+        mint_btree.insert(m.0.clone(), inner_btree);
     }
 
-    NonEmptyKeyValuePairs::Indef(mint_vec)
+    mint_btree
 }
 
 fn sort_value(value: &Value) -> Value {
     match value {
         Value::Coin(_) => value.clone(),
         Value::Multiasset(coin, ma) => {
-            let mut ma_vec = vec![];
-            for m in ma.deref().iter().sorted() {
-                ma_vec.push((
-                    m.0,
-                    NonEmptyKeyValuePairs::Indef(
-                        m.1.deref().clone().into_iter().sorted().clone().collect(),
-                    ),
-                ));
+            let mut ma_btree = BTreeMap::new();
+            for (policy_id, tokens) in ma.iter().sorted() {
+                let mut inner_btree = BTreeMap::new();
+                for (asset_name, quantity) in tokens.iter().sorted() {
+                    inner_btree.insert(asset_name.clone(), quantity.clone());
+                }
+                ma_btree.insert(policy_id.clone(), inner_btree);
             }
-            Value::Multiasset(*coin, NonEmptyKeyValuePairs::Indef(ma_vec))
+            Value::Multiasset(*coin, ma_btree)
         }
     }
 }
