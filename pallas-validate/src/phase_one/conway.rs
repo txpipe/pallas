@@ -20,9 +20,8 @@ use pallas_codec::{
 use pallas_primitives::{
     babbage,
     conway::{
-        Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
-        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemers,
-        RedeemersKey, RequiredSigners, VKeyWitness, Value,
+        DatumOption, Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
+        NativeScript, Redeemers, RedeemersKey, RequiredSigners, ScriptRef, VKeyWitness, Value,
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin,
     TransactionInput,
@@ -221,8 +220,8 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
             Some(multi_era_output) => {
                 if let Some(conway_output) = MultiEraOutput::as_conway(multi_era_output) {
                     let address: &Bytes = match conway_output {
-                        PseudoTransactionOutput::Legacy(inner) => &inner.address,
-                        PseudoTransactionOutput::PostAlonzo(inner) => &inner.address,
+                        MintedTransactionOutput::Legacy(inner) => &inner.address,
+                        MintedTransactionOutput::PostAlonzo(inner) => &inner.address,
                     };
                     if let ShelleyPaymentPart::Script(_) =
                         get_payment_part(address).ok_or(PostAlonzo(InputDecoding))?
@@ -270,7 +269,7 @@ fn check_collaterals_assets(
                 }
             }
             let coll_return: Value = match &tx_body.collateral_return {
-                Some(PseudoTransactionOutput::Legacy(output)) => {
+                Some(MintedTransactionOutput::Legacy(output)) => {
                     let amount = output.amount.clone();
                     match amount {
                         babbage::Value::Coin(coin) => Value::Coin(coin),
@@ -291,7 +290,7 @@ fn check_collaterals_assets(
                         }
                     }
                 }
-                Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+                Some(MintedTransactionOutput::PostAlonzo(output)) => output.value.clone(),
                 None => Value::Coin(0),
             };
             // The balance between collateral inputs and output contains only lovelace.
@@ -319,7 +318,7 @@ fn check_collaterals_assets(
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
     match multi_era_output.as_conway() {
-        Some(PseudoTransactionOutput::Legacy(output)) => {
+        Some(MintedTransactionOutput::Legacy(output)) => {
             let amount = output.amount.clone();
             match amount {
                 babbage::Value::Coin(coin) => Value::Coin(coin),
@@ -339,7 +338,7 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
                 }
             }
         }
-        Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+        Some(MintedTransactionOutput::PostAlonzo(output)) => output.value.clone(),
         None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
                                    * type MultiEraOutput was extended with another variant */
     }
@@ -388,7 +387,7 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
         return Err(PostAlonzo(TxInsEmpty));
     };
     let mut res: Value = match first_output {
-        PseudoTransactionOutput::Legacy(output) => {
+        MintedTransactionOutput::Legacy(output) => {
             let amount = output.amount.clone();
             match amount {
                 babbage::Value::Coin(coin) => Value::Coin(coin),
@@ -408,11 +407,11 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                 }
             }
         }
-        PseudoTransactionOutput::PostAlonzo(output) => output.value.clone(),
+        MintedTransactionOutput::PostAlonzo(output) => output.value.clone(),
     };
     for output in outputs_iter {
         match output {
-            PseudoTransactionOutput::Legacy(output) => {
+            MintedTransactionOutput::Legacy(output) => {
                 let amount = output.amount.clone();
                 match amount {
                     babbage::Value::Coin(coin) => {
@@ -441,7 +440,7 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                     }
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
+            MintedTransactionOutput::PostAlonzo(output) => {
                 res = conway_add_values(&res, &output.value, &PostAlonzo(NegativeValue))?
             }
         }
@@ -455,7 +454,7 @@ fn check_min_lovelace(
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output {
-            PseudoTransactionOutput::Legacy(output) => {
+            MintedTransactionOutput::Legacy(output) => {
                 let amount = output.amount.clone();
                 match amount {
                     babbage::Value::Coin(coin) => &Value::Coin(coin),
@@ -477,7 +476,7 @@ fn check_min_lovelace(
                     }
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => &output.value,
+            MintedTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if get_lovelace_from_conway_val(val) < compute_min_lovelace(val, prot_pps) {
             return Err(PostAlonzo(MinLovelaceUnreached));
@@ -498,7 +497,7 @@ fn check_output_val_size(
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output {
-            PseudoTransactionOutput::Legacy(output) => {
+            MintedTransactionOutput::Legacy(output) => {
                 let amount = output.amount.clone();
                 match amount {
                     babbage::Value::Coin(coin) => &Value::Coin(coin),
@@ -520,7 +519,7 @@ fn check_output_val_size(
                     }
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => &output.value,
+            MintedTransactionOutput::PostAlonzo(output) => &output.value,
         };
         if conway_get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
             return Err(PostAlonzo(MaxValSizeExceeded));
@@ -537,8 +536,8 @@ fn check_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Validat
 fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let addr_bytes: &Bytes = match output {
-            PseudoTransactionOutput::Legacy(output) => &output.address,
-            PseudoTransactionOutput::PostAlonzo(output) => &output.address,
+            MintedTransactionOutput::Legacy(output) => &output.address,
+            MintedTransactionOutput::PostAlonzo(output) => &output.address,
         };
         let addr: ShelleyAddress =
             get_shelley_address(Bytes::deref(addr_bytes)).ok_or(PostAlonzo(AddressDecoding))?;
@@ -899,11 +898,11 @@ fn get_script_hash_from_input(input: &TransactionInput, utxos: &UTxOs) -> Option
         .get(&MultiEraInput::from_alonzo_compatible(input))
         .and_then(MultiEraOutput::as_conway)
     {
-        Some(PseudoTransactionOutput::Legacy(output)) => match get_payment_part(&output.address) {
+        Some(MintedTransactionOutput::Legacy(output)) => match get_payment_part(&output.address) {
             Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
             _ => None,
         },
-        Some(PseudoTransactionOutput::PostAlonzo(output)) => {
+        Some(MintedTransactionOutput::PostAlonzo(output)) => {
             match get_payment_part(&output.address) {
                 Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
                 _ => None,
@@ -921,32 +920,32 @@ fn get_script_hash_from_reference_input(
         .get(&MultiEraInput::from_alonzo_compatible(ref_input))
         .and_then(MultiEraOutput::as_conway)
     {
-        Some(PseudoTransactionOutput::Legacy(_)) => None,
-        Some(PseudoTransactionOutput::PostAlonzo(output)) => {
+        Some(MintedTransactionOutput::Legacy(_)) => None,
+        Some(MintedTransactionOutput::PostAlonzo(output)) => {
             if let Some(script_ref_cborwrap) = &output.script_ref {
                 match script_ref_cborwrap.clone().unwrap() {
-                    PseudoScript::NativeScript(native_script) => {
+                    ScriptRef::NativeScript(native_script) => {
                         // First, the NativeScript header.
                         let mut val_to_hash: Vec<u8> = vec![0];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(native_script.raw_cbor());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
-                    PseudoScript::PlutusV1Script(plutus_v1_script) => {
+                    ScriptRef::PlutusV1Script(plutus_v1_script) => {
                         // First, the PlutusV1Script header.
                         let mut val_to_hash: Vec<u8> = vec![1];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(plutus_v1_script.as_ref());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
-                    PseudoScript::PlutusV2Script(plutus_v2_script) => {
+                    ScriptRef::PlutusV2Script(plutus_v2_script) => {
                         // First, the PlutusV2Script header.
                         let mut val_to_hash: Vec<u8> = vec![2];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(plutus_v2_script.as_ref());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
-                    PseudoScript::PlutusV3Script(plutus_v3_script) => {
+                    ScriptRef::PlutusV3Script(plutus_v3_script) => {
                         // First, the PlutusV2Script header.
                         let mut val_to_hash: Vec<u8> = vec![3];
                         // Then, the CBOR content.
@@ -1064,9 +1063,9 @@ fn check_input_datum_hash_in_witness_set(
 // Extract datum hash if one is contained.
 fn get_datum_hash(output: &MintedTransactionOutput) -> Option<Hash<32>> {
     match output {
-        PseudoTransactionOutput::Legacy(output) => output.datum_hash,
-        PseudoTransactionOutput::PostAlonzo(output) => match output.datum_option {
-            Some(PseudoDatumOption::Hash(hash)) => Some(hash),
+        MintedTransactionOutput::Legacy(output) => output.datum_hash,
+        MintedTransactionOutput::PostAlonzo(output) => match output.datum_option.as_ref().map(|k| k.deref()) {
+            Some(DatumOption::Hash(hash)) => Some(*hash),
             _ => None,
         },
     }
@@ -1113,15 +1112,15 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
     // Look for hash in collateral return output
     if let Some(babbage_output) = &tx_body.collateral_return {
         match babbage_output {
-            PseudoTransactionOutput::Legacy(output) => {
+            MintedTransactionOutput::Legacy(output) => {
                 if let Some(datum_hash) = &output.datum_hash {
                     if *hash == *datum_hash {
                         return Ok(());
                     }
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
-                if let Some(PseudoDatumOption::Hash(datum_hash)) = &output.datum_option {
+            MintedTransactionOutput::PostAlonzo(output) => {
+                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_ref().map(|k| k.deref()) {
                     if *hash == *datum_hash {
                         return Ok(());
                     }
@@ -1136,15 +1135,15 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
                 .get(&MultiEraInput::from_alonzo_compatible(reference_input))
                 .and_then(MultiEraOutput::as_conway)
             {
-                Some(PseudoTransactionOutput::Legacy(output)) => {
+                Some(MintedTransactionOutput::Legacy(output)) => {
                     if let Some(datum_hash) = &output.datum_hash {
                         if *hash == *datum_hash {
                             return Ok(());
                         }
                     }
                 }
-                Some(PseudoTransactionOutput::PostAlonzo(output)) => {
-                    if let Some(PseudoDatumOption::Hash(datum_hash)) = &output.datum_option {
+                Some(MintedTransactionOutput::PostAlonzo(output)) => {
+                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_ref().map(|k| k.deref()) {
                         if *hash == *datum_hash {
                             return Ok(());
                         }
@@ -1347,8 +1346,8 @@ fn check_vkey_input_wits(
             Some(multi_era_output) => {
                 if let Some(babbage_output) = MultiEraOutput::as_conway(multi_era_output) {
                     let address: &Bytes = match babbage_output {
-                        PseudoTransactionOutput::Legacy(output) => &output.address,
-                        PseudoTransactionOutput::PostAlonzo(output) => &output.address,
+                        MintedTransactionOutput::Legacy(output) => &output.address,
+                        MintedTransactionOutput::PostAlonzo(output) => &output.address,
                     };
                     match get_payment_part(address).ok_or(PostAlonzo(InputDecoding))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
@@ -1509,12 +1508,12 @@ fn compute_all_outputs<'a>(
 fn any_byron_addresses(all_outputs: &[&MintedTransactionOutput]) -> bool {
     for output in all_outputs.iter() {
         match output {
-            PseudoTransactionOutput::Legacy(output) => {
+            MintedTransactionOutput::Legacy(output) => {
                 if is_byron_address(&output.address) {
                     return true;
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
+            MintedTransactionOutput::PostAlonzo(output) => {
                 if is_byron_address(&output.address) {
                     return true;
                 }
@@ -1527,11 +1526,11 @@ fn any_byron_addresses(all_outputs: &[&MintedTransactionOutput]) -> bool {
 fn any_datums_or_script_refs(all_outputs: &[&MintedTransactionOutput]) -> bool {
     for output in all_outputs.iter() {
         match output {
-            PseudoTransactionOutput::Legacy(_) => (),
-            PseudoTransactionOutput::PostAlonzo(output) => {
+            MintedTransactionOutput::Legacy(_) => (),
+            MintedTransactionOutput::PostAlonzo(output) => {
                 if output.script_ref.is_some() {
                     return true;
-                } else if let Some(PseudoDatumOption::Data(_)) = &output.datum_option {
+                } else if let Some(DatumOption::Data(_)) = &output.datum_option.as_ref().map(|k| k.deref()) {
                     return true;
                 }
             }
@@ -1568,15 +1567,15 @@ fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
     }
     if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
         for ref_input in reference_inputs.iter() {
-            if let Some(PseudoTransactionOutput::PostAlonzo(output)) = utxos
+            if let Some(MintedTransactionOutput::PostAlonzo(output)) = utxos
                 .get(&MultiEraInput::from_alonzo_compatible(ref_input))
                 .and_then(MultiEraOutput::as_conway)
             {
                 if let Some(script_ref_cborwrap) = &output.script_ref {
                     match script_ref_cborwrap.clone().unwrap() {
-                        PseudoScript::PlutusV1Script(_) => v1_scripts = true,
-                        PseudoScript::PlutusV2Script(_) => v2_scripts = true,
-                        PseudoScript::PlutusV3Script(_) => v3_scripts = true,
+                        ScriptRef::PlutusV1Script(_) => v1_scripts = true,
+                        ScriptRef::PlutusV2Script(_) => v2_scripts = true,
+                        ScriptRef::PlutusV3Script(_) => v3_scripts = true,
                         _ => (),
                     }
                 }
