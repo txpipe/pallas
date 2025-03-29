@@ -992,8 +992,8 @@ impl From<&AnyUInt> for u64 {
 
 /// Introduced in Conway
 /// positive_coin = 1 .. 18446744073709551615
-#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Encode, Decode, Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)] #[cbor(transparent)]
 pub struct PositiveCoin(u64);
 
 impl TryFrom<u64> for PositiveCoin {
@@ -1017,30 +1017,6 @@ impl From<PositiveCoin> for u64 {
 impl From<&PositiveCoin> for u64 {
     fn from(x: &PositiveCoin) -> Self {
         u64::from(*x)
-    }
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for PositiveCoin {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let n = d.decode_with(ctx)?;
-
-        if n == 0 {
-            return Err(Error::message("decoding 0 as PositiveCoin"));
-        }
-
-        Ok(Self(n))
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for PositiveCoin {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.encode(self.0)?;
-
-        Ok(())
     }
 }
 

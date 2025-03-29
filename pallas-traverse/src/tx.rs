@@ -128,6 +128,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
+                .map(|keep| keep.deref())
                 .map(MultiEraOutput::from_babbage)
                 .collect(),
             MultiEraTx::Byron(x) => x
@@ -156,6 +157,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
+                .map(|keep| keep.deref())
                 .map(MultiEraOutput::from_babbage),
             MultiEraTx::Byron(x) => x
                 .transaction
@@ -373,6 +375,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .collateral_return
                 .as_ref()
+                .map(|keep| keep.deref())
                 .map(MultiEraOutput::from_babbage),
             MultiEraTx::Conway(x) => x
                 .transaction_body

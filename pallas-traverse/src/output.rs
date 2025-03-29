@@ -23,7 +23,7 @@ impl<'b> MultiEraOutput<'b> {
         Self::Conway(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn datum(&self) -> Option<conway::MintedDatumOption> {
+    pub fn datum(&self) -> Option<conway::DatumOption> {
         match self {
             MultiEraOutput::AlonzoCompatible(x, _) => {
                 x.datum_hash.map(babbage::MintedDatumOption::Hash)
@@ -32,14 +32,20 @@ impl<'b> MultiEraOutput<'b> {
                 babbage::MintedTransactionOutput::Legacy(x) => {
                     x.datum_hash.map(babbage::MintedDatumOption::Hash)
                 }
-                babbage::MintedTransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+                babbage::MintedTransactionOutput::PostAlonzo(x) => x
+                    .datum_option
+                    .clone()
+                    .map(|y| y.unwrap()),
             },
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(x) => match x.deref().deref() {
                 conway::MintedTransactionOutput::Legacy(x) => {
                     x.datum_hash.map(babbage::MintedDatumOption::Hash)
                 }
-                conway::MintedTransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+                conway::MintedTransactionOutput::PostAlonzo(x) => x
+                    .datum_option
+                    .clone()
+                    .map(|y| y.unwrap()),
             },
         }
     }

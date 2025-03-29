@@ -146,7 +146,7 @@ impl<'b> MultiEraHeader<'b> {
 
     pub fn as_babbage(&self) -> Option<&babbage::MintedHeader> {
         match self {
-            MultiEraHeader::BabbageCompatible(x) => Some(x.deref().deref()),
+            MultiEraHeader::BabbageCompatible(x) => Some(x.deref()),
             _ => None,
         }
     }

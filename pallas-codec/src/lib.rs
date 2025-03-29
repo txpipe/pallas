@@ -14,12 +14,12 @@ impl<T> Fragment for T where T: for<'b> minicbor::Decode<'b, ()> + minicbor::Enc
 #[macro_export]
 macro_rules! codec_by_datatype {
     (
-        $enum_name:ident,
+        $enum_name:ident $( < $lifetime:lifetime > )?,
         $( $( $cbortype:ident )|* => $one_f:ident ),*,
-        ($( $( $vars:ident | $( $cbortypes:ident )|*),+ => $many_f:ident )?)
+        ($( $( $vars:ident ),+ => $many_f:ident )?)
     ) => {
-        impl<'b, C> minicbor::decode::Decode<'b, C> for $enum_name {
-            fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        impl<$( $lifetime, )? '__b $(:$lifetime)?,  C> minicbor::decode::Decode<'__b, C> for $enum_name $(<$lifetime>)? {
+            fn decode(d: &mut minicbor::Decoder<'__b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
                 match d.datatype()? {
                     $( minicbor::data::Type::Array => {
                         d.array()?;
@@ -34,7 +34,7 @@ macro_rules! codec_by_datatype {
             }
         }
 
-        impl<C> minicbor::encode::Encode<C> for $enum_name {
+        impl< $( $lifetime, )? C> minicbor::encode::Encode<C> for $enum_name $(<$lifetime>)?  {
             fn encode<W: minicbor::encode::Write>(
                 &self,
                 e: &mut minicbor::Encoder<W>,
