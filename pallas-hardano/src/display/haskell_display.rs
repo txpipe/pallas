@@ -19,11 +19,11 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_network::miniprotocols::{
     handshake::NetworkMagic,
     localstate::queries_v16::{
-        primitives::Bytes, Anchor, AssetName, BoundedBytes, Constitution, CostModel, CostModels,
-        DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, GovAction, GovActionId,
-        PParamsUpdate, PlutusData, PolicyId, PoolMetadata, PoolVotingThresholds, ProposalProcedure,
-        ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, TransactionInput,
-        TransactionOutput, Value, Vote,
+        primitives::Bytes, Anchor, AssetName, BigInt, BoundedBytes, Constitution, CostModel,
+        CostModels, DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices,
+        FieldedRewardAccount, GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId,
+        PoolMetadata, PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber,
+        Relay, ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
     },
     localtxsubmission::{
         primitives::{
@@ -38,13 +38,15 @@ use pallas_network::miniprotocols::localtxsubmission::{
     Array, BabbageContextError, CollectError, ConwayCertPredFailure, ConwayContextError,
     ConwayDelegPredFailure, ConwayGovCertPredFailure, ConwayGovPredFailure, ConwayLedgerFailure,
     ConwayTxCert, ConwayUtxoWPredFailure, DeltaCoin, DisplayAddress, DisplayCoin, DisplayOSet,
-    DisplayPolicyId, DisplayRewardAccount, DisplayScriptHash, DisplayVotingProcedures, EpochNo,
-    FailureDescription, KeyHash, Mismatch, OHashMap, PlutusPurpose, SMaybe, SafeHash,
-    ShelleyPoolPredFailure, SlotNo, TagMismatchDescription, TxOutSource, Utxo, UtxoFailure,
-    UtxosFailure, VKey, ValidityInterval,
+    DisplayPolicyId, DisplayScriptHash, DisplayVotingProcedures, EpochNo, FailureDescription,
+    KeyHash, Mismatch, OHashMap, PlutusPurpose, SMaybe, SafeHash, ShelleyPoolPredFailure, SlotNo,
+    TagMismatchDescription, TxOutSource, Utxo, UtxoFailure, UtxosFailure, VKey, ValidityInterval,
 };
 
-use super::haskells_show_string::haskell_show_string;
+use super::{
+    haskell_error::{DecoderError, DeserialiseFailure},
+    haskells_show_string::haskell_show_string,
+};
 
 /// Trait used to generated Haskell-like string representation of a type.
 pub trait HaskellDisplay {
@@ -348,8 +350,8 @@ impl HaskellDisplay for UtxoFailure {
             ),
             MaxTxSizeUTxO(actual, max) => format!(
                 "(MaxTxSizeUTxO {} {})",
-                actual.to_haskell_str_p(),
-                max.to_haskell_str_p()
+                actual.to_haskell_str(),
+                max.to_haskell_str()
             ),
             InputSetEmptyUTxO => "InputSetEmptyUTxO".to_string(),
             FeeTooSmallUTxO(required, provided) => format!(
@@ -522,6 +524,28 @@ impl HaskellDisplay for BabbageContextError {
     }
 }
 
+impl HaskellDisplay for DecoderError {
+    fn to_haskell_str(&self) -> String {
+        match self {
+            DecoderError::DeserialiseFailure(str, failure) => format!(
+                "DecoderErrorDeserialiseFailure {} {}",
+                str.to_haskell_str(),
+                failure.to_haskell_str_p()
+            ),
+            _ => format!("DecoderError ({:?})", self),
+        }
+    }
+}
+impl HaskellDisplay for DeserialiseFailure {
+    fn to_haskell_str(&self) -> String {
+        format!(
+            "DeserialiseFailure {} ({})",
+            self.0.to_haskell_str(),
+            self.1.to_haskell_str()
+        )
+    }
+}
+
 impl HaskellDisplay for TxOutSource {
     fn to_haskell_str(&self) -> String {
         use TxOutSource::*;
@@ -626,26 +650,12 @@ where
     }
 }
 
-impl HaskellDisplay for DisplayRewardAccount {
+impl HaskellDisplay for FieldedRewardAccount {
     fn to_haskell_str(&self) -> String {
-        let network = if self.0[0] & 0b00000001 != 0 {
-            Network::Mainnet
-        } else {
-            Network::Testnet
-        };
-
-        let mut hash = [0; 28];
-        hash.copy_from_slice(&self.0[1..29]);
-        let credential = if &self.0[0] & 0b00010000 != 0 {
-            StakeCredential::ScriptHash(hash.into())
-        } else {
-            StakeCredential::AddrKeyhash(hash.into())
-        };
-
         format!(
             "RewardAccount {{raNetwork = {}, raCredential = {}}}",
-            network.to_haskell_str(),
-            credential.to_haskell_str()
+            self.network.to_haskell_str(),
+            self.stake_credential.to_haskell_str()
         )
     }
 }
@@ -807,8 +817,8 @@ impl HaskellDisplay for GovAction {
                 )
             }
             TreasuryWithdrawals(a, b) => {
-                let data: KeyValuePairs<DisplayRewardAccount, DisplayCoin> =
-                    a.iter().map(|(k, v)| (k.into(), v.into())).collect();
+                let data: KeyValuePairs<FieldedRewardAccount, DisplayCoin> =
+                    a.iter().map(|(k, v)| (k.clone(), v.into())).collect();
 
                 format!(
                     "TreasuryWithdrawals {} {}",
@@ -977,7 +987,7 @@ impl HaskellDisplay for ProposalProcedure {
         format!(
             "ProposalProcedure {{pProcDeposit = {}, pProcReturnAddr = {}, pProcGovAction = {}, pProcAnchor = {}}}",
             self.deposit.as_display_coin(),
-            self.return_addr.as_reward_account(),
+            self.return_addr.to_haskell_str(),
             self.gov_action.to_haskell_str(),
             self.anchor.to_haskell_str()
         )
@@ -1052,6 +1062,20 @@ impl HaskellDisplay for EpochNo {
 }
 
 impl HaskellDisplay for i64 {
+    fn to_haskell_str(&self) -> String {
+        self.to_string()
+    }
+
+    fn to_haskell_str_p(&self) -> String {
+        if *self >= 0 {
+            self.to_string()
+        } else {
+            format!("({})", self)
+        }
+    }
+}
+
+impl HaskellDisplay for i128 {
     fn to_haskell_str(&self) -> String {
         self.to_string()
     }
@@ -1398,16 +1422,6 @@ impl AsProtocolVersion for ProtocolVersion {
     }
 }
 
-trait AsRewardAccount {
-    fn as_reward_account(&self) -> String;
-}
-
-impl AsRewardAccount for RewardAccount {
-    fn as_reward_account(&self) -> String {
-        DisplayRewardAccount(self.clone()).to_haskell_str()
-    }
-}
-
 impl<T: HaskellDisplay> AsFromList for Vec<&Option<T>> {
     fn as_from_list(&self) -> String {
         let result = self
@@ -1530,6 +1544,25 @@ impl AsDisplayCoin for Option<&Coin> {
 impl HaskellDisplay for u64 {
     fn to_haskell_str(&self) -> String {
         self.to_string()
+    }
+}
+
+impl HaskellDisplay for BigInt {
+    fn to_haskell_str(&self) -> String {
+        use BigInt::*;
+
+        match self {
+            Int(i) => {
+                let value: i128 = i.0.into();
+                value.to_haskell_str_p()
+            },
+            BigNInt(bb) => {
+                format!("BigNInt {}", bb.to_haskell_str_p())
+            }
+            BigUInt(bb) => {
+                format!("BigUInt {}", bb.to_haskell_str_p())
+            }
+        }
     }
 }
 
@@ -2092,21 +2125,12 @@ impl AsDatumHash for DatumHash {
 
 impl HaskellDisplay for PlutusData {
     fn to_haskell_str(&self) -> String {
-        use pallas_network::miniprotocols::localstate::queries_v16::BigInt as Big;
         use PlutusData::*;
 
         match self {
             Constr(constr) => constr.fields.to_haskell_str(),
             Map(key_value_pairs) => key_value_pairs.to_haskell_str().to_string(),
-            BigInt(big_int) => match big_int {
-                Big::Int(i) => format!("BigInt Int {}", i.to_haskell_str()),
-                Big::BigNInt(bb) => {
-                    format!("BigNInt {}", bb.to_haskell_str())
-                }
-                Big::BigUInt(bb) => {
-                    format!("BigUInt {}", bb.to_haskell_str())
-                }
-            },
+            BigInt(big_int) => big_int.to_haskell_str(),
             BoundedBytes(bb) => bb.to_haskell_str(),
             Array(arr) => format!("Array {}", arr.to_haskell_str()),
         }
@@ -2140,7 +2164,7 @@ where
 
 impl HaskellDisplay for Int {
     fn to_haskell_str(&self) -> String {
-        format!("Int {}", self.0)
+        format!("{}", self.0)
     }
 }
 
@@ -2189,7 +2213,7 @@ impl HaskellDisplay
         TransactionInput,
         PolicyId,
         ConwayTxCert,
-        DisplayRewardAccount,
+        FieldedRewardAccount,
         Voter,
         ProposalProcedure,
     >
@@ -2309,7 +2333,7 @@ impl HaskellDisplay for Certificate {
                 pledge.as_display_coin(),
                 cost.as_display_coin(),
                 margin.to_haskell_str(),
-                reward_account.as_reward_account(),
+                reward_account.to_haskell_str(),
                 pool_owners.as_key_hash(),
                 relays.as_strict_seq(),
                 pool_metadata.to_haskell_str()
@@ -2423,11 +2447,7 @@ impl HaskellDisplay for DisplayOSet<ProposalProcedure> {
 
         let mut sorted_vec = self.0.deref().clone();
 
-        sorted_vec.sort_by(|a, b| {
-            a.deposit
-                .cmp(&b.deposit)
-                .then_with(|| b.return_addr.cmp(&a.return_addr))
-        });
+        sorted_vec.sort();
 
         format!(
             "OSet {{osSSeq = {}, osSet = {}}}",
