@@ -1,0 +1,15 @@
+
+header_body =
+  [ block_number     : uint
+  , slot             : uint
+  , prev_hash        : uint
+  , issuer_vkey      : uint
+  , vrf_vkey         : uint
+  , vrf_result       : uint
+  , block_body_size  : uint
+  , block_body_hash  : uint
+  , operational_cert : uint
+  , protocol_version : uint
+  ]
+
+
