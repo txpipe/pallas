@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::data::Data;
 use super::script_context::{
     from_alonzo_output, ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo,
@@ -16,6 +18,7 @@ use pallas_primitives::conway::{
     Redeemer, ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
     VotingProcedure,
 };
+use pallas_primitives::NonZeroInt;
 use pallas_traverse::ComputeHash;
 
 pub fn convert_tag_to_constr(tag: u64) -> Option<u64> {
@@ -211,6 +214,20 @@ where
     }
 }
 
+impl<K, V> ToPlutusData for BTreeMap<K, V>
+where
+    K: ToPlutusData + Clone,
+    V: ToPlutusData + Clone,
+{
+    fn to_plutus_data(&self) -> PlutusData {
+        let mut data_vec: Vec<(PlutusData, PlutusData)> = vec![];
+        for (key, value) in self.iter() {
+            data_vec.push((key.to_plutus_data(), value.to_plutus_data()))
+        }
+        PlutusData::Map(KeyValuePairs::Def(data_vec))
+    }
+}
+
 impl ToPlutusData for WithWrappedTransactionId<'_, KeyValuePairs<ScriptPurpose, Redeemer>> {
     fn to_plutus_data(&self) -> PlutusData {
         let mut data_vec: Vec<(PlutusData, PlutusData)> = vec![];
@@ -329,11 +346,30 @@ impl ToPlutusData for WithZeroAdaAsset<'_, Value> {
             Value::Coin(coin) => {
                 PlutusData::Map(KeyValuePairs::Def(vec![coin_to_plutus_data(coin)]))
             }
-            Value::Multiasset(coin, multiassets) => value_to_plutus_data(
-                multiassets.iter(),
-                |amount| u64::from(amount).to_plutus_data(),
-                vec![coin_to_plutus_data(coin)],
-            ),
+            Value::Multiasset(coin, multiassets) => {
+                let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> =
+                    multiassets
+                        .iter()
+                        .map(|(policy_id, tokens)| {
+                            let kvp = NonEmptyKeyValuePairs::try_from(
+                                tokens
+                                    .iter()
+                                    .map(|(asset_name, amount)| {
+                                        (asset_name.clone(), amount.clone())
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
+                            .expect("Empty tokens map");
+                            (*policy_id, kvp)
+                        })
+                        .collect();
+
+                value_to_plutus_data(
+                    transformed.iter(),
+                    |amount| u64::from(amount).to_plutus_data(),
+                    vec![coin_to_plutus_data(coin)],
+                )
+            }
         }
     }
 }
@@ -346,23 +382,58 @@ impl ToPlutusData for Value {
             } else {
                 vec![]
             })),
-            Value::Multiasset(coin, multiassets) => value_to_plutus_data(
-                multiassets.iter(),
-                |amount| u64::from(amount).to_plutus_data(),
-                if *coin > 0 {
-                    vec![coin_to_plutus_data(coin)]
-                } else {
-                    vec![]
-                },
-            ),
+            Value::Multiasset(coin, multiassets) => {
+                let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> =
+                    multiassets
+                        .iter()
+                        .map(|(policy_id, tokens)| {
+                            let kvp = NonEmptyKeyValuePairs::try_from(
+                                tokens
+                                    .iter()
+                                    .map(|(asset_name, amount)| {
+                                        (asset_name.clone(), amount.clone())
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
+                            .expect("Empty tokens map");
+                            (*policy_id, kvp)
+                        })
+                        .collect();
+
+                value_to_plutus_data(
+                    transformed.iter(),
+                    |amount| u64::from(amount).to_plutus_data(),
+                    if *coin > 0 {
+                        vec![coin_to_plutus_data(coin)]
+                    } else {
+                        vec![]
+                    },
+                )
+            }
         }
     }
 }
 
 impl ToPlutusData for WithZeroAdaAsset<'_, MintValue> {
     fn to_plutus_data(&self) -> PlutusData {
+        let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, NonZeroInt>)> = self
+            .0
+            .mint_value
+            .iter()
+            .map(|(policy_id, tokens)| {
+                let kvp = NonEmptyKeyValuePairs::try_from(
+                    tokens
+                        .iter()
+                        .map(|(asset_name, amount)| (asset_name.clone(), amount.clone()))
+                        .collect::<Vec<_>>(),
+                )
+                .expect("Empty tokens map");
+                (*policy_id, kvp)
+            })
+            .collect();
+
         value_to_plutus_data(
-            self.0.mint_value.iter(),
+            transformed.iter(),
             |amount| i64::from(amount).to_plutus_data(),
             vec![(
                 Bytes::from(vec![]).to_plutus_data(),
@@ -377,8 +448,23 @@ impl ToPlutusData for WithZeroAdaAsset<'_, MintValue> {
 
 impl ToPlutusData for MintValue {
     fn to_plutus_data(&self) -> PlutusData {
+        let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, NonZeroInt>)> = self
+            .mint_value
+            .iter()
+            .map(|(policy_id, tokens)| {
+                let kvp = NonEmptyKeyValuePairs::try_from(
+                    tokens
+                        .iter()
+                        .map(|(asset_name, amount)| (asset_name.clone(), amount.clone()))
+                        .collect::<Vec<_>>(),
+                )
+                .expect("Empty tokens map");
+                (*policy_id, kvp)
+            })
+            .collect();
+
         value_to_plutus_data(
-            self.mint_value.iter(),
+            transformed.iter(),
             |amount| i64::from(amount).to_plutus_data(),
             vec![],
         )
