@@ -2,7 +2,8 @@ use std::{fmt::Debug, ops::Deref};
 
 use crate::miniprotocols::Point;
 
-#[derive(Debug, Clone)]
+/// The tip of a chain, characterized by a point and its block height
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip(pub Point, pub u64);
 
 pub type IntersectResponse = (Option<Point>, Tip);
