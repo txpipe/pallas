@@ -1,134 +1,90 @@
 use rand::Rng;
-use std::fmt::Debug;
-use thiserror::*;
 use tracing::debug;
 
 use super::protocol::*;
-use crate::multiplexer;
+use crate::{
+    miniprotocols::{Agent, Error, PlexerAdapter},
+    multiplexer,
+};
 
-#[derive(Error, Debug)]
-pub enum ClientError {
-    #[error("attempted to receive message while agency is ours")]
-    AgencyIsOurs,
+pub struct Client(State);
 
-    #[error("attempted to send message while agency is theirs")]
-    AgencyIsTheirs,
-
-    #[error("inbound message is not valid for current state")]
-    InvalidInbound,
-
-    #[error("outbound message is not valid for current state")]
-    InvalidOutbound,
-
-    #[error("keepalive cookie mismatch")]
-    KeepAliveCookieMismatch,
-
-    #[error("error while sending or receiving data through the channel")]
-    Plexer(multiplexer::Error),
+impl Default for Client {
+    fn default() -> Self {
+        Self(State::Client(ClientState::Empty))
+    }
 }
 
-pub struct Client(State, multiplexer::ChannelBuffer);
+impl Agent for Client {
+    type State = State;
+    type Message = Message;
 
-impl Client {
-    pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(State::Client, multiplexer::ChannelBuffer::new(channel))
+    fn new(init: Self::State) -> Self {
+        Self(init)
     }
 
-    pub fn state(&self) -> &State {
-        &self.0
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.0 == State::Done
+    fn is_done(&self) -> bool {
+        matches!(self.0, State::Done)
     }
 
     fn has_agency(&self) -> bool {
         match &self.0 {
-            State::Client => true,
+            State::Client(..) => true,
             State::Server(..) => false,
-            State::Done => false,
+            State::Done => true,
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), ClientError> {
-        if !self.has_agency() {
-            Err(ClientError::AgencyIsTheirs)
-        } else {
-            Ok(())
+    fn state(&self) -> &Self::State {
+        &self.0
+    }
+
+    fn apply(&self, msg: &Self::Message) -> Result<Self::State, Error> {
+        match self.state() {
+            State::Client(..) => match msg {
+                Message::KeepAlive(x) => Ok(State::Server(*x)),
+                _ => Err(Error::InvalidOutbound),
+            },
+            State::Server(x) => match msg {
+                Message::ResponseKeepAlive(x) => Ok(State::Client(ClientState::Response(*x))),
+                _ => Err(Error::InvalidInbound),
+            },
+            State::Done => Err(Error::InvalidOutbound),
         }
     }
+}
 
-    fn assert_agency_is_theirs(&self) -> Result<(), ClientError> {
-        if self.has_agency() {
-            Err(ClientError::AgencyIsOurs)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn assert_outbound_state(&self, msg: &Message) -> Result<(), ClientError> {
-        match (&self.0, msg) {
-            (State::Client, Message::KeepAlive(..)) => Ok(()),
-            (State::Client, Message::Done) => Ok(()),
-            _ => Err(ClientError::InvalidOutbound),
-        }
-    }
-
-    fn assert_inbound_state(&self, msg: &Message) -> Result<(), ClientError> {
-        match (&self.0, msg) {
-            (State::Server(..), Message::ResponseKeepAlive(..)) => Ok(()),
-            _ => Err(ClientError::InvalidInbound),
-        }
-    }
-
-    pub async fn send_message(&mut self, msg: &Message) -> Result<(), ClientError> {
-        self.assert_agency_is_ours()?;
-        self.assert_outbound_state(msg)?;
-        self.1
-            .send_msg_chunks(msg)
-            .await
-            .map_err(ClientError::Plexer)?;
-
-        Ok(())
-    }
-
-    pub async fn recv_message(&mut self) -> Result<Message, ClientError> {
-        self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(ClientError::Plexer)?;
-        self.assert_inbound_state(&msg)?;
-
-        Ok(msg)
-    }
-
-    pub async fn send_keepalive_request(&mut self) -> Result<(), ClientError> {
+impl PlexerAdapter<Client> {
+    pub async fn send_keepalive_request(&mut self) -> Result<(), Error> {
         // generate random cookie value
         let cookie = rand::thread_rng().gen::<Cookie>();
         let msg = Message::KeepAlive(cookie);
-        self.send_message(&msg).await?;
-        self.0 = State::Server(cookie);
+
+        self.send(&msg).await?;
+
         debug!("sent keepalive message with cookie {}", cookie);
 
         Ok(())
     }
 
-    pub async fn recv_keepalive_response(&mut self) -> Result<(), ClientError> {
-        match self.recv_message().await? {
-            Message::ResponseKeepAlive(cookie) => {
-                debug!("received keepalive response with cookie {}", cookie);
-                match self.state() {
-                    State::Server(expected) if *expected == cookie => {
-                        self.0 = State::Client;
-                        Ok(())
-                    }
-                    State::Server(..) => Err(ClientError::KeepAliveCookieMismatch),
-                    _ => unreachable!(),
-                }
+    pub async fn recv_keepalive_response(&mut self) -> Result<(), Error> {
+        let expected = match self.state() {
+            State::Server(x) => *x,
+            _ => return Err(Error::InvalidInbound),
+        };
+
+        self.recv().await?;
+
+        if let State::Client(ClientState::Response(received)) = self.state() {
+            if *received == expected {
+                return Ok(());
             }
-            _ => Err(ClientError::InvalidInbound),
         }
+
+        Err(Error::InvalidInbound)
     }
 
-    pub async fn keepalive_roundtrip(&mut self) -> Result<(), ClientError> {
+    pub async fn keepalive_roundtrip(&mut self) -> Result<(), Error> {
         self.send_keepalive_request().await?;
         self.recv_keepalive_response().await?;
 

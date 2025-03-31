@@ -10,11 +10,11 @@ use tokio::net::{TcpListener, ToSocketAddrs};
 use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
 
 use crate::miniprotocols::handshake::n2n::VersionData;
-use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
+use crate::miniprotocols::handshake::{n2c, n2n, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, peersharing,
-    txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE,
+    self, blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, peersharing,
+    txmonitor, txsubmission, PlexerAdapter, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE,
     PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
     PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
     PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
@@ -31,13 +31,7 @@ pub enum Error {
     ConnectFailure(#[source] tokio::io::Error),
 
     #[error("handshake protocol error")]
-    HandshakeProtocol(handshake::Error),
-
-    #[error("keepalive client loop error")]
-    KeepAliveClientLoop(keepalive::ClientError),
-
-    #[error("keepalive server loop error")]
-    KeepAliveServerLoop(keepalive::ServerError),
+    AgentError(miniprotocols::Error),
 
     #[error("handshake version not accepted")]
     IncompatibleVersion,
@@ -48,21 +42,21 @@ pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
 pub type KeepAliveHandle = tokio::task::JoinHandle<Result<(), Error>>;
 
 pub enum KeepAliveLoop {
-    Client(keepalive::Client, Duration),
-    Server(keepalive::Server),
+    Client(PlexerAdapter<keepalive::Client>, Duration),
+    Server(PlexerAdapter<keepalive::Server>),
 }
 
 impl KeepAliveLoop {
-    pub fn client(client: keepalive::Client, interval: Duration) -> Self {
+    pub fn client(client: PlexerAdapter<keepalive::Client>, interval: Duration) -> Self {
         Self::Client(client, interval)
     }
 
-    pub fn server(server: keepalive::Server) -> Self {
+    pub fn server(server: PlexerAdapter<keepalive::Server>) -> Self {
         Self::Server(server)
     }
 
     pub async fn run_client(
-        mut client: keepalive::Client,
+        mut client: PlexerAdapter<keepalive::Client>,
         interval: Duration,
     ) -> Result<(), Error> {
         let mut interval = tokio::time::interval(interval);
@@ -74,18 +68,18 @@ impl KeepAliveLoop {
             client
                 .keepalive_roundtrip()
                 .await
-                .map_err(Error::KeepAliveClientLoop)?;
+                .map_err(Error::AgentError)?;
         }
     }
 
-    pub async fn run_server(mut server: keepalive::Server) -> Result<(), Error> {
+    pub async fn run_server(mut server: PlexerAdapter<keepalive::Server>) -> Result<(), Error> {
         loop {
             debug!("waiting keepalive request");
 
             server
                 .keepalive_roundtrip()
                 .await
-                .map_err(Error::KeepAliveServerLoop)?;
+                .map_err(Error::AgentError)?;
         }
     }
 
@@ -106,7 +100,7 @@ pub struct PeerClient {
     pub chainsync: chainsync::N2NClient,
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
-    pub peersharing: peersharing::Client,
+    pub peersharing: PlexerAdapter<peersharing::Client>,
 }
 
 impl PeerClient {
@@ -118,7 +112,7 @@ impl PeerClient {
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
-        let mut handshake = handshake::Client::new(channel);
+        let mut handshake = PlexerAdapter::new(handshake::Client::default(), channel);
 
         let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
         let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
@@ -126,7 +120,7 @@ impl PeerClient {
         let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
-        let keepalive = keepalive::Client::new(channel);
+        let keepalive = PlexerAdapter::new(keepalive::Client::default(), channel);
 
         let plexer = plexer.spawn();
 
@@ -135,9 +129,9 @@ impl PeerClient {
         let handshake = handshake
             .handshake(versions)
             .await
-            .map_err(Error::HandshakeProtocol)?;
+            .map_err(Error::AgentError)?;
 
-        if let handshake::Confirmation::Rejected(reason) = handshake {
+        if let handshake::DoneState::Rejected(reason) = handshake {
             error!(?reason, "handshake refused");
             return Err(Error::IncompatibleVersion);
         }
@@ -154,7 +148,7 @@ impl PeerClient {
             chainsync: chainsync::Client::new(cs_channel),
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
-            peersharing: peersharing::Client::new(peersharing_channel),
+            peersharing: PlexerAdapter::new(peersharing::Client::default(), peersharing_channel),
         };
 
         Ok(client)
@@ -171,7 +165,7 @@ impl PeerClient {
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
-        let mut handshake = handshake::Client::new(channel);
+        let mut handshake = PlexerAdapter::new(handshake::Client::default(), channel);
 
         let _plexer = plexer.spawn();
 
@@ -180,18 +174,18 @@ impl PeerClient {
         let handshake = handshake
             .handshake(versions)
             .await
-            .map_err(Error::HandshakeProtocol)?;
+            .map_err(Error::AgentError)?;
 
         let version_table = match handshake {
-            handshake::Confirmation::QueryReply(version_table) => {
+            handshake::DoneState::QueryReply(version_table) => {
                 debug!("handshake query reply received");
                 version_table
             }
-            handshake::Confirmation::Accepted(_, _) => {
+            handshake::DoneState::Accepted(_, _) => {
                 error!("handshake accepted when we expected query reply");
-                return Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound));
+                return Err(Error::AgentError(miniprotocols::Error::InvalidInbound));
             }
-            handshake::Confirmation::Rejected(reason) => {
+            handshake::DoneState::Rejected(reason) => {
                 error!(?reason, "handshake refused");
                 return Err(Error::IncompatibleVersion);
             }
@@ -221,7 +215,7 @@ impl PeerClient {
         &mut self.txsubmission
     }
 
-    pub fn peersharing(&mut self) -> &mut peersharing::Client {
+    pub fn peersharing(&mut self) -> &mut PlexerAdapter<peersharing::Client> {
         &mut self.peersharing
     }
 
@@ -233,11 +227,11 @@ impl PeerClient {
 /// Server of N2N Ouroboros
 pub struct PeerServer {
     pub plexer: RunningPlexer,
-    pub handshake: handshake::N2NServer,
+    pub handshake: PlexerAdapter<handshake::N2NServer>,
     pub chainsync: chainsync::N2NServer,
     pub blockfetch: blockfetch::Server,
     pub txsubmission: txsubmission::Server,
-    pub keepalive: keepalive::Server,
+    pub keepalive: PlexerAdapter<keepalive::Server>,
     pub peersharing: peersharing::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<(u64, n2n::VersionData)>,
@@ -254,11 +248,11 @@ impl PeerServer {
         let keepalive_channel = plexer.subscribe_server(PROTOCOL_N2N_KEEP_ALIVE);
         let peersharing_channel = plexer.subscribe_server(PROTOCOL_N2N_PEER_SHARING);
 
-        let hs = handshake::N2NServer::new(hs_channel);
+        let hs = PlexerAdapter::new(handshake::Server::default(), hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
         let bf = blockfetch::Server::new(bf_channel);
         let txsub = txsubmission::Server::new(txsub_channel);
-        let keepalive = keepalive::Server::new(keepalive_channel);
+        let keepalive = PlexerAdapter::new(keepalive::Server::default(), keepalive_channel);
         let peersharing = peersharing::Server::new(peersharing_channel);
 
         let plexer = plexer.spawn();
@@ -287,7 +281,7 @@ impl PeerServer {
             .handshake()
             .handshake(n2n::VersionTable::v7_and_above(magic))
             .await
-            .map_err(Error::HandshakeProtocol)?;
+            .map_err(Error::AgentError)?;
 
         if let Some((version, data)) = accepted_version {
             client.accepted_address = Some(address);
@@ -299,7 +293,7 @@ impl PeerServer {
         }
     }
 
-    pub fn handshake(&mut self) -> &mut handshake::N2NServer {
+    pub fn handshake(&mut self) -> &mut PlexerAdapter<handshake::N2NServer> {
         &mut self.handshake
     }
 
@@ -315,7 +309,7 @@ impl PeerServer {
         &mut self.txsubmission
     }
 
-    pub fn keepalive(&mut self) -> &mut keepalive::Server {
+    pub fn keepalive(&mut self) -> &mut PlexerAdapter<keepalive::Server> {
         &mut self.keepalive
     }
 
@@ -339,7 +333,7 @@ impl PeerServer {
 /// Client of N2C Ouroboros
 pub struct NodeClient {
     plexer: RunningPlexer,
-    handshake: handshake::N2CClient,
+    handshake: PlexerAdapter<handshake::N2CClient>,
     chainsync: chainsync::N2CClient,
     statequery: localstate::Client,
     submission: localtxsubmission::Client,
@@ -360,7 +354,7 @@ impl NodeClient {
 
         Self {
             plexer,
-            handshake: handshake::Client::new(hs_channel),
+            handshake: PlexerAdapter::new(handshake::Client::default(), hs_channel),
             chainsync: chainsync::Client::new(cs_channel),
             statequery: localstate::Client::new(sq_channel),
             submission: localtxsubmission::Client::new(tx_channel),
@@ -382,9 +376,9 @@ impl NodeClient {
             .handshake()
             .handshake(versions)
             .await
-            .map_err(Error::HandshakeProtocol)?;
+            .map_err(Error::AgentError)?;
 
-        if let handshake::Confirmation::Rejected(reason) = handshake {
+        if let handshake::DoneState::Rejected(reason) = handshake {
             error!(?reason, "handshake refused");
             return Err(Error::IncompatibleVersion);
         }
@@ -427,6 +421,8 @@ impl NodeClient {
         bearer: Bearer,
         magic: u64,
     ) -> Result<handshake::n2c::VersionTable, Error> {
+        use crate::miniprotocols::{self, PlexerAdapter};
+
         let mut plexer = multiplexer::Plexer::new(bearer);
 
         let hs_channel = plexer.subscribe_client(PROTOCOL_N2C_HANDSHAKE);
@@ -434,30 +430,30 @@ impl NodeClient {
         let plexer = plexer.spawn();
 
         let versions = handshake::n2c::VersionTable::v15_with_query(magic);
-        let mut client = handshake::Client::new(hs_channel);
+        let mut client = PlexerAdapter::new(handshake::Client::default(), hs_channel);
 
         let handshake = client
             .handshake(versions)
             .await
-            .map_err(Error::HandshakeProtocol)?;
+            .map_err(Error::AgentError)?;
 
         match handshake {
-            Confirmation::Accepted(_, _) => {
+            handshake::DoneState::Accepted(_, _) => {
                 error!("handshake accepted when we expected query reply");
-                Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
+                Err(Error::AgentError(miniprotocols::Error::InvalidInbound))
             }
-            Confirmation::Rejected(reason) => {
+            handshake::DoneState::Rejected(reason) => {
                 error!(?reason, "handshake refused");
                 Err(Error::IncompatibleVersion)
             }
-            Confirmation::QueryReply(version_table) => {
+            handshake::DoneState::QueryReply(version_table) => {
                 plexer.abort().await;
                 Ok(version_table)
             }
         }
     }
 
-    pub fn handshake(&mut self) -> &mut handshake::N2CClient {
+    pub fn handshake(&mut self) -> &mut PlexerAdapter<handshake::N2CClient> {
         &mut self.handshake
     }
 
@@ -486,7 +482,7 @@ impl NodeClient {
 #[cfg(unix)]
 pub struct NodeServer {
     pub plexer: RunningPlexer,
-    pub handshake: handshake::N2CServer,
+    pub handshake: PlexerAdapter<handshake::N2CServer>,
     pub chainsync: chainsync::N2CServer,
     pub statequery: localstate::Server,
     accepted_address: Option<UnixSocketAddr>,
@@ -502,7 +498,7 @@ impl NodeServer {
         let cs_channel = plexer.subscribe_server(PROTOCOL_N2C_CHAIN_SYNC);
         let sq_channel = plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
 
-        let server_hs = handshake::Server::<n2c::VersionData>::new(hs_channel);
+        let server_hs = PlexerAdapter::new(handshake::Server::default(), hs_channel);
         let server_cs = chainsync::N2CServer::new(cs_channel);
         let server_sq = localstate::Server::new(sq_channel);
 
@@ -529,7 +525,7 @@ impl NodeServer {
             .handshake()
             .handshake(n2c::VersionTable::v10_and_above(magic))
             .await
-            .map_err(Error::HandshakeProtocol)?;
+            .map_err(Error::AgentError)?;
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);
@@ -541,7 +537,7 @@ impl NodeServer {
         }
     }
 
-    pub fn handshake(&mut self) -> &mut handshake::N2CServer {
+    pub fn handshake(&mut self) -> &mut PlexerAdapter<handshake::N2CServer> {
         &mut self.handshake
     }
 

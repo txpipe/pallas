@@ -8,7 +8,7 @@ pub enum State {
     Done,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     RequestRange { range: (Point, Point) },
     ClientDone,

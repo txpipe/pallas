@@ -6,6 +6,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     RationalNumber, Relay, StakeAddr, StakeSnapshots, Stakes, SystemStart, UnitInterval, Value,
 };
 use pallas_network::miniprotocols::localtxsubmission::SMaybe;
+use pallas_network::miniprotocols::PlexerAdapter;
 use pallas_network::{
     facades::{NodeClient, PeerClient, PeerServer},
     miniprotocols::{
@@ -292,8 +293,8 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 
             let mut server_plexer = Plexer::new(bearer);
 
-            let mut server_hs: handshake::Server<VersionData> =
-                handshake::Server::new(server_plexer.subscribe_server(0));
+            let server_hs = handshake::Server::<VersionData>::default();
+            let mut server_hs = PlexerAdapter::new(server_hs, server_plexer.subscribe_server(0));
             let mut server_cs = chainsync::N2NServer::new(server_plexer.subscribe_server(2));
 
             let server_plexer = server_plexer.spawn();
@@ -618,8 +619,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let transaction_id = Hash::from(txbytes);
             let index = AnyUInt::MajorByte(2);
             let lovelace = AnyUInt::MajorByte(2);
-            //let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
-            //let datum = hex::decode(hex_datum).unwrap().into();
+            //let hex_datum =
+            // "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+            // let datum = hex::decode(hex_datum).unwrap().into();
             //let tag = TagWrap::<_, 24>::new(datum);
             let inline_datum = None;
             let values =
@@ -1058,8 +1060,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let transaction_id = Hash::from(txbytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
-        //let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
-        //let datum = hex::decode(hex_datum).unwrap().into();
+        //let hex_datum =
+        // "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+        // let datum = hex::decode(hex_datum).unwrap().into();
         //let tag = TagWrap::<_, 24>::new(datum);
         let inline_datum = None;
         let values =
@@ -1773,7 +1776,10 @@ pub async fn peer_sharing_server_and_client_happy_path() {
 
             server_ps.send_peer_addresses(addresses).await.unwrap();
 
-            assert_eq!(*server_ps.state(), peersharing::State::Idle);
+            assert_eq!(
+                *server_ps.state(),
+                peersharing::State::Idle(peersharing::IdleState::Empty)
+            );
 
             // Server receives Done message from client
 

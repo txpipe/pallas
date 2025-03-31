@@ -2,7 +2,7 @@ use pallas::{
     ledger::traverse::MultiEraHeader,
     network::{
         facades::PeerClient,
-        miniprotocols::{blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
+        miniprotocols::{self, blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
     },
 };
 
@@ -21,7 +21,7 @@ pub enum Error {
     ChainSyncError(#[from] chainsync::ClientError),
 
     #[error("keepalive error")]
-    KeepAliveError(#[from] keepalive::ClientError),
+    ClientError(#[from] miniprotocols::Error),
 
     #[error("pallas_traverse error")]
     PallasTraverseError(#[from] pallas::ledger::traverse::Error),

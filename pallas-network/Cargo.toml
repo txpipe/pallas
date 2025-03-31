@@ -12,10 +12,14 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>", "Pi Lanningham <pi.lannin
 
 [dependencies]
 byteorder = "1.4.3"
+dashmap = "6.1.0"
+futures = "0.3.31"
 hex = "0.4.3"
 itertools = "0.13.0"
 pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
 pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
+papaya = "0.2.1"
+paste = "1.0.14"
 rand = "0.8.5"
 socket2 = "0.5.5"
 thiserror = "1.0.31"
@@ -25,4 +29,3 @@ tracing = "0.1.37"
 [dev-dependencies]
 tracing-subscriber = "0.3.16"
 tokio = { version = "1", features = ["full"] }
-

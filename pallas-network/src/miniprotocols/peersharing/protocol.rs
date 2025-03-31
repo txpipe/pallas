@@ -7,19 +7,26 @@ use crate::miniprotocols::localstate::queries_v16::primitives::Port;
 pub type Amount = u8;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub enum IdleState {
+    Empty,
+
+    Response(Vec<PeerAddress>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
-    Idle,
+    Idle(IdleState),
     Busy(Amount),
     Done,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PeerAddress {
     V4(Ipv4Addr, Port),
     V6(Ipv6Addr, Port),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     ShareRequest(Amount),
     SharePeers(Vec<PeerAddress>),

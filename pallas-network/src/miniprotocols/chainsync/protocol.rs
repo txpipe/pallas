@@ -17,7 +17,7 @@ pub enum State {
 }
 
 /// A generic chain-sync message for either header or block content
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message<C> {
     RequestNext,
     AwaitReply,
@@ -29,7 +29,7 @@ pub enum Message<C> {
     Done,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HeaderContent {
     pub variant: u8,
     pub byron_prefix: Option<(u8, u64)>,
