@@ -153,10 +153,7 @@ pub mod tests {
         ];
         // TODO: DRY with other decode/encode roundtrips
         for (idx, message_str) in examples.iter().enumerate() {
-            println!(
-                "Decoding test message {idx}: {message_str} {}",
-                message_str.len()
-            );
+            println!("Decoding test message {idx}");
             let bytes = hex::decode(message_str)
                 .unwrap_or_else(|e| panic!("bad message file {idx}: {e:?}"));
 

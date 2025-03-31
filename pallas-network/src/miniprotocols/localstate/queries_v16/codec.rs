@@ -794,3 +794,55 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
         })
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::Request;
+    use crate::miniprotocols::localstate::Message;
+    use pallas_codec::minicbor;
+    use pallas_codec::utils::AnyCbor;
+
+    /// Decode/encode roundtrip tests for the localstate example queries/results.
+    #[test]
+    #[cfg(feature = "blueprint")]
+    fn test_api_example_roundtrip() {
+        // TODO: scan for examples
+        let examples = [(
+            include_str!(
+                "../../../../../cardano-blueprint/src/api/examples/getSystemStart/query.cbor"
+            ),
+            include_str!(
+                "../../../../../cardano-blueprint/src/api/examples/getSystemStart/result.cbor"
+            ),
+        )];
+        // TODO: DRY with other decode/encode roundtrips
+        for (idx, (query_str, result_str)) in examples.iter().enumerate() {
+            println!("Decoding query message {idx}");
+            let bytes =
+                hex::decode(query_str).unwrap_or_else(|e| panic!("bad message file {idx}: {e:?}"));
+
+            let message: Message = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
+            println!("Decoded message: {:#?}", message);
+
+            let request: Request;
+            match message {
+                Message::Query(cbor) => {
+                    request = minicbor::decode(&cbor[..]).unwrap_or_else(|e| {
+                        panic!("error decoding cbor from query message: {e:?}")
+                    });
+                    println!("Decoded request: {:#?}", request);
+                }
+                _ => panic!("unexpected message type"),
+            }
+
+            let bytes2 = minicbor::to_vec(Message::Query(AnyCbor::from_encode(request)))
+                .unwrap_or_else(|e| panic!("error encoding cbor for file {idx}: {e:?}"));
+
+            assert!(
+                bytes.eq(&bytes2),
+                "re-encoded bytes didn't match original file {idx}"
+            );
+        }
+    }
+}
