@@ -11,13 +11,12 @@ use pallas_codec::{
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
-    alonzo::{Tx as AlonzoTx, Multiasset, NativeScript, VKeyWitness, Value},
+    alonzo::{Multiasset, NativeScript, Tx as AlonzoTx, VKeyWitness, Value},
     babbage::MintedTx as BabbageMintedTx,
     conway::{MintedTx as ConwayMintedTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, Hash, NetworkId,
-    NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata,
-    PositiveCoin, Relay, RewardAccount, StakeCredential, TransactionIndex, UnitInterval,
-    VrfKeyhash,
+    NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PositiveCoin, Relay,
+    RewardAccount, StakeCredential, TransactionIndex, UnitInterval, VrfKeyhash,
 };
 
 use pallas_traverse::{time::Slot, Era, MultiEraInput, MultiEraOutput, MultiEraUpdate};
@@ -404,10 +403,7 @@ fn conway_coerce_to_coin(
         for (asset_name, amount) in assets.iter() {
             aa.push((asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()));
         }
-        res.push((
-            *policy,
-            aa.into_iter().collect(),
-        ));
+        res.push((*policy, aa.into_iter().collect()));
     }
     Ok(res.into_iter().collect())
 }
@@ -425,10 +421,7 @@ fn conway_coerce_to_non_zero_coin(
                 PositiveCoin::try_from(i64::from(amount) as u64).unwrap(),
             ));
         }
-        res.push((
-            *policy,
-            aa.into_iter().collect(),
-        ));
+        res.push((*policy, aa.into_iter().collect()));
     }
     Ok(res.into_iter().collect())
 }
@@ -561,12 +554,7 @@ fn conway_add_same_non_zero_policy_assets(
 fn wrap_multiasset(input: HashMap<PolicyId, HashMap<AssetName, i64>>) -> Multiasset<i64> {
     input
         .into_iter()
-        .map(|(policy, assets)| {
-            (
-                policy,
-                assets.into_iter().collect(),
-            )
-        })
+        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
         .collect()
 }
 
@@ -575,12 +563,7 @@ fn conway_wrap_multiasset(
 ) -> ConwayMultiasset<u64> {
     input
         .into_iter()
-        .map(|(policy, assets)| {
-            (
-                policy,
-                assets.into_iter().collect(),
-            )
-        })
+        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
         .collect()
 }
 
@@ -637,7 +620,10 @@ fn conway_find_policy(
     None
 }
 
-fn find_assets(assets: &std::collections::BTreeMap<AssetName, Coin>, asset_name: &AssetName) -> Option<Coin> {
+fn find_assets(
+    assets: &std::collections::BTreeMap<AssetName, Coin>,
+    asset_name: &AssetName,
+) -> Option<Coin> {
     for (an, amount) in assets.iter() {
         if an == asset_name {
             return Some(*amount);
