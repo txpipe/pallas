@@ -20,15 +20,15 @@ use pallas_primitives::{
         Coin, Epoch, GenesisDelegateHash, Genesishash,
         InstantaneousRewardSource::*,
         InstantaneousRewardTarget::*,
-        Tx, WitnessSet, MoveInstantaneousReward, NativeScript, PolicyId, PoolKeyhash,
+        MoveInstantaneousReward, NativeScript, PolicyId, PoolKeyhash,
         StakeCredential::{self},
-        TransactionBody, TransactionIndex, TransactionOutput, VKeyWitness, Value, VrfKeyhash,
+        TransactionBody, TransactionIndex, TransactionOutput, Tx, VKeyWitness, Value, VrfKeyhash,
+        WitnessSet,
     },
     byron::TxOut,
 };
 use pallas_traverse::{
-    time::Slot, wellknown::GenesisValues, Era, MultiEraInput, MultiEraOutput,
-    OriginalHash,
+    time::Slot, wellknown::GenesisValues, Era, MultiEraInput, MultiEraOutput, OriginalHash,
 };
 
 use std::{cmp::max, collections::HashMap, ops::Deref};

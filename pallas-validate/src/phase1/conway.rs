@@ -24,8 +24,7 @@ use pallas_primitives::{
         NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemers,
         RedeemersKey, RequiredSigners, VKeyWitness, Value,
     },
-    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin,
-    TransactionInput,
+    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
@@ -331,8 +330,7 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
                             conway_value
                                 .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                         }
-                        conway_assets
-                            .push((key, conway_value.into_iter().collect()));
+                        conway_assets.push((key, conway_value.into_iter().collect()));
                     }
                     let conway_assets = conway_assets.into_iter().collect();
                     Value::Multiasset(coin, conway_assets)
@@ -400,8 +398,7 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                             conway_value
                                 .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                         }
-                        conway_assets
-                            .push((key, conway_value.into_iter().collect()));
+                        conway_assets.push((key, conway_value.into_iter().collect()));
                     }
                     let conway_assets = conway_assets.into_iter().collect();
                     Value::Multiasset(coin, conway_assets)
@@ -427,10 +424,7 @@ fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationErro
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
-                            conway_assets.push((
-                                key,
-                                conway_value.into_iter().collect(),
-                            ));
+                            conway_assets.push((key, conway_value.into_iter().collect()));
                         }
                         let conway_assets = conway_assets.into_iter().collect();
                         res = conway_add_values(
@@ -467,10 +461,7 @@ fn check_min_lovelace(
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
-                            conway_assets.push((
-                                key,
-                                conway_value.into_iter().collect(),
-                            ));
+                            conway_assets.push((key, conway_value.into_iter().collect()));
                         }
                         let conway_assets = conway_assets.into_iter().collect();
                         &Value::Multiasset(coin, conway_assets)
@@ -510,10 +501,7 @@ fn check_output_val_size(
                                 conway_value
                                     .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
                             }
-                            conway_assets.push((
-                                key,
-                                conway_value.into_iter().collect(),
-                            ));
+                            conway_assets.push((key, conway_value.into_iter().collect()));
                         }
                         let conway_assets = conway_assets.into_iter().collect();
                         &Value::Multiasset(coin, conway_assets)
