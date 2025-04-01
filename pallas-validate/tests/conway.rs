@@ -17,11 +17,8 @@ use pallas_primitives::{
 };
 use pallas_traverse::MultiEraTx;
 
-#[cfg(feature = "phase_two")]
-use pallas_validate::uplc::{script_context::SlotConfig, tx::eval_tx};
-
 use pallas_validate::{
-    phase_one::validate_txs,
+    phase1::validate_txs,
     utils::{
         AccountState, CertState, ConwayProtParams, Environment, MultiEraProtocolParameters,
         PostAlonzoError, UTxOs, ValidationError::*,
@@ -157,12 +154,12 @@ mod conway_tests {
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         };
 
-        #[cfg(feature = "phase_two")]
-        match eval_tx(
+        #[cfg(feature = "phase2")]
+        match pallas_validate::phase2::tx::eval_tx(
             &metx,
             env.prot_params(),
             &mk_utxo_for_eval(utxos.clone()),
-            &SlotConfig::default(),
+            &pallas_validate::phase2::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
@@ -242,12 +239,12 @@ mod conway_tests {
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
         };
 
-        #[cfg(feature = "phase_two")]
-        match eval_tx(
+        #[cfg(feature = "phase2")]
+        match pallas_validate::phase2::tx::eval_tx(
             &metx,
             env.prot_params(),
             &mk_utxo_for_eval(utxos.clone()),
-            &SlotConfig::default(),
+            &pallas_validate::phase2::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),

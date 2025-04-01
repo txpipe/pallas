@@ -14,13 +14,13 @@ mod alonzo_tests {
         utils::{Bytes, KeepRaw},
     };
     use pallas_primitives::alonzo::{
-        AddrKeyhash, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
-        NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer,
-        RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet, NativeScript,
+        NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer, RedeemerTag,
+        TransactionBody, TransactionOutput, VKeyWitness, Value,
     };
     use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
     use pallas_validate::{
-        phase_one::validate_txs,
+        phase1::validate_txs,
         utils::{
             AccountState, AlonzoError, AlonzoProtParams, CertState, Environment,
             MultiEraProtocolParameters, UTxOs, ValidationError::*,
@@ -2606,7 +2606,8 @@ mod alonzo_tests {
                     1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
                     150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
                 ],
-            )].into(),
+            )]
+            .into(),
             execution_costs: ExUnitPrices {
                 mem_price: RationalNumber {
                     numerator: 577,
@@ -2684,7 +2685,8 @@ mod alonzo_tests {
                     1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
                     150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
                 ],
-            )].into(),
+            )]
+            .into(),
             execution_costs: ExUnitPrices {
                 mem_price: RationalNumber {
                     numerator: 577,

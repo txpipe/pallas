@@ -20,7 +20,7 @@ mod shelley_ma_tests {
     use pallas_traverse::{Era, MultiEraTx};
     use pallas_validate::utils::PoolParam;
     use pallas_validate::{
-        phase_one::validate_txs,
+        phase1::validate_txs,
         utils::{
             AccountState, CertState, Environment, MultiEraProtocolParameters, ShelleyMAError,
             ShelleyProtParams, UTxOs, ValidationError::*,

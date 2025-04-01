@@ -6,13 +6,11 @@ mod babbage_tests {
     use pallas_primitives::MaybeIndefArray;
 
     use pallas_addresses::{Address, Network, ShelleyAddress, ShelleyPaymentPart};
-    use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
-    use pallas_codec::{
-        minicbor::{
-            decode::{Decode, Decoder},
-            encode,
-        },
+    use pallas_codec::minicbor::{
+        decode::{Decode, Decoder},
+        encode,
     };
+    use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
     use pallas_primitives::babbage::{
         CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
         MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx,
@@ -22,7 +20,7 @@ mod babbage_tests {
     };
     use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
     use pallas_validate::{
-        phase_one::validate_txs,
+        phase1::validate_txs,
         utils::{
             AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
             PostAlonzoError, UTxOs, ValidationError::*,
@@ -266,8 +264,10 @@ mod babbage_tests {
                                 .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 Some(PseudoDatumOption::Hash(
                     hex::decode("923918E403BF43C34B4EF6B48EB2EE04BABED17320D8D1B9FF9AD086E86F44EC")
