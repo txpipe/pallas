@@ -797,10 +797,11 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
 
 #[cfg(test)]
 pub mod tests {
-    use super::Request;
-    use crate::miniprotocols::localstate::Message;
-    use pallas_codec::minicbor;
-    use pallas_codec::utils::AnyCbor;
+    use crate::miniprotocols::localstate::{
+        queries_v16::{Request, SystemStart},
+        Message,
+    };
+    use pallas_codec::{minicbor, utils::AnyCbor};
 
     /// Decode/encode roundtrip tests for the localstate example queries/results.
     #[test]
@@ -816,32 +817,58 @@ pub mod tests {
         )];
         // TODO: DRY with other decode/encode roundtrips
         for (idx, (query_str, result_str)) in examples.iter().enumerate() {
-            println!("Decoding query message {idx}");
-            let bytes =
-                hex::decode(query_str).unwrap_or_else(|e| panic!("bad message file {idx}: {e:?}"));
-
-            let message: Message = minicbor::decode(&bytes[..])
-                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
-            println!("Decoded message: {:#?}", message);
-
-            let request: Request;
-            match message {
+            println!("Roundtrip query {idx}");
+            roundtrips_with(query_str, |q| match q {
                 Message::Query(cbor) => {
-                    request = minicbor::decode(&cbor[..]).unwrap_or_else(|e| {
+                    let request = minicbor::decode(&cbor[..]).unwrap_or_else(|e| {
                         panic!("error decoding cbor from query message: {e:?}")
                     });
-                    println!("Decoded request: {:#?}", request);
+                    match request {
+                        Request::GetSystemStart => {
+                            return Message::Query(AnyCbor::from_encode(request))
+                        }
+                        _ => panic!("unexpected query type"),
+                    }
                 }
                 _ => panic!("unexpected message type"),
-            }
+            });
 
-            let bytes2 = minicbor::to_vec(Message::Query(AnyCbor::from_encode(request)))
-                .unwrap_or_else(|e| panic!("error encoding cbor for file {idx}: {e:?}"));
-
-            assert!(
-                bytes.eq(&bytes2),
-                "re-encoded bytes didn't match original file {idx}"
-            );
+            println!("Roundtrip result {idx}");
+            roundtrips_with(result_str, |q| match q {
+                Message::Result(cbor) => {
+                    return minicbor::decode::<SystemStart>(&cbor[..]).unwrap_or_else(|e| {
+                        panic!("error decoding cbor from query message: {e:?}")
+                    });
+                }
+                _ => panic!("unexpected message type"),
+            });
         }
+    }
+
+    // TODO: DRY with other decode/encode roundtripss
+    /// Decode a value of type T, transform it to U and encode that again to form a roundtrip.
+    fn roundtrips_with<T, U>(message_str: &str, transform: fn(T) -> U)
+    where
+        T: for<'b> minicbor::Decode<'b, ()> + std::fmt::Debug,
+        U: std::fmt::Debug + minicbor::Encode<()>,
+    {
+        use pallas_codec::minicbor;
+
+        let bytes = hex::decode(message_str).unwrap_or_else(|e| panic!("bad message file: {e:?}"));
+
+        let value: T =
+            minicbor::decode(&bytes[..]).unwrap_or_else(|e| panic!("error decoding cbor: {e:?}"));
+        println!("Decoded value: {:#?}", value);
+
+        let result: U = transform(value);
+        println!("Transformed to: {:#?}", result);
+
+        let bytes2 =
+            minicbor::to_vec(result).unwrap_or_else(|e| panic!("error encoding cbor: {e:?}"));
+
+        assert!(
+            bytes.eq(&bytes2),
+            "re-encoded bytes didn't match original file"
+        );
     }
 }
