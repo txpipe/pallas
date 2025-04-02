@@ -9,15 +9,17 @@ mod babbage_tests {
     use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
     use pallas_codec::{
         minicbor::{
+            decode,
             decode::{Decode, Decoder},
             encode,
+            to_vec,
         },
     };
     use pallas_primitives::babbage::{
-        CostModels, ExUnitPrices, ExUnits, MintedDatumOption, MintedPostAlonzoTransactionOutput,
-        MintedScriptRef, MintedTransactionBody, MintedTransactionOutput, MintedTx,
+        CostModels, ExUnitPrices, ExUnits, DatumOption, MintedPostAlonzoTransactionOutput,
+        MintedTransactionBody, MintedTransactionOutput, MintedTx,
         MintedWitnessSet, NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript,
-        PseudoDatumOption, PseudoScript, PseudoTransactionOutput, RationalNumber, Redeemer,
+        ScriptRef, TransactionOutput, RationalNumber, Redeemer,
         RedeemerTag, Value,
     };
     use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
@@ -30,6 +32,8 @@ mod babbage_tests {
     };
     use std::borrow::Cow;
 
+    use std::ops::Deref;
+
     #[test]
     // Transaction hash:
     // b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d
@@ -40,8 +44,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -78,13 +82,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
                         .unwrap()
                         .as_slice()
@@ -117,8 +121,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -155,8 +159,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("119068A7A3F008803EDAC87AF1619860F2CDCDE40C26987325ACE138AD81728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
@@ -172,7 +176,7 @@ mod babbage_tests {
                         )].into(),
                     )].into(),
                 ),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("d75ad82787a8d45b85c156c97736d2c6525d6b3a09b5d6297d1b45c6a63bccd3")
                         .unwrap()
                         .as_slice()
@@ -191,8 +195,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01a7d37f1d43d1197a994d95b3ce15d9af3b4697cc7cdf9bcd1f81688d3499ac08066b36bc6c2d86a21243b940e84dbe5cac3fab5f76ab9229"),
             Value::Coin(5000000),
@@ -203,13 +207,13 @@ mod babbage_tests {
         let ref_input_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("119068a7a3f008803edac87af1619860f2cdcde40c26987325ace138ad81728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
             Value::Coin(40000000),
             None,
-            Some(CborWrap(PseudoScript::PlutusV2Script(PlutusScript::<2>(Bytes::from(hex::decode("5909fe010000323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232222323232533535533357346064606a0062646464642466002008004a666ae68c0d8c0e00044c848c004008c078d5d0981b8008191baa357426ae88c0d80154ccd5cd1819981b0008991919191919191919191919191919191919191919190919999999999980080b80a8098088078068058048038028018011aba135744004666068eb88004d5d08009aba2002357420026ae88008cc0c9d71aba1001357440046ae84004d5d10011aba1001357440046ae84004d5d10011aba1001357440046ae84004d5d10011981300f1aba1001357440046ae84004d5d1181b001198111192999ab9a30353038001132321233001003002301d357426ae88c0e0008c078d5d0981b8008191baa00135742606a0020606ea8d5d0981a001817911a8011111111111111a80691919299aa99a998149aa99a80109815a481035054380022100203d00303903a03a1533501213302549101350033302330340362350012232333027303803a235001223500122533533302b0440040062153353333026303e040223500222533500321533533303104a0030062153353302b0010031303f3305722533500104c221350022253353305100200a100313304d33047002001300600300215335330370010031303f333302d04b0043370200200600409209008e60720020044266060920102313000333573466e20ccd54c0fc104c0a8cc0f1c024000400266aa608008246a00209600200809208e266ae712410231310004813357389201023132000470023335530360393501b0403501b04233355303603922533535002222253353302200800413038003042213303d001002100103f010333301c303403622350022253353303c00b002100313333020303803a235001222533533302a0210030012133330260220043355303e03f235001223303d002333500120012235002223500322330433370000800466aa608e09046a002446608c004666a0024002e008004ccc0c013400c0048004ccc09c11000c0040084cccc09408400c00800400c0040f140044cc0952410134003330233034036235001223303b00a0025001153353355303403523500122350012222302c533350021303104821001213304e2253350011303404a221350022253353304800200710011300600300c0011302a49010136002213355303603723500122350012222302e533350021303304a2100121330502253350011303604c221350022253353304a00200710011300600300e0033335530310342253353353530283500203f03d203f253353303c001330482253350011302e044221350022253353303000200a135302f001223350022303504b20011300600301003b1302c4901013300133037002001100103a00d1120011533573892010350543500165333573460640020502a666ae68c0c400409c0b8c0ccdd50019baa00133019223355301f020235001223301e002335530220232350012233021002333500137009000380233700002900000099aa980f81011a800911980f001199a800919aa981181211a8009119811001180880080091199806815001000919aa981181211a80091198110011809000800999804012801000812111919807198021a8018139a801013a99a9a80181490a99a8011099a801119a80111980400100091101711119a80210171112999ab9a3370e00c0062a666ae68cdc38028010998068020008158158120a99a80090120121a8008141119a801119a8011198128010009014119a801101411981280100091199ab9a3370e00400204604a44446666aa00866032444600660040024002006002004444466aa603803a46a0024466036004666a0024002052400266600a0080026603c66030006004046444666aa603003603866aa603403646a00244660320046010002666aa6030036446a00444a66a666aa603a03e60106603444a66a00404a200204e46a002446601400400a00c200626604000800604200266aa603403646a00244660320046605e44a66a002260160064426a00444a66a6601800401022444660040140082600c00600800446602644666a0060420040026a00204242444600600842444600200844604e44a66a0020364426a00444a66a6601000400e2602a0022600c0064466aa0046602000603600244a66a004200202e44a66a00202e266ae7000806c8c94ccd5cd180f9811000899190919800801801198079192999ab9a3022302500113232123300100300233301075c464a666ae68c094c0a00044c8cc0514cd4cc028005200110011300e4901022d330033301375c464a66a660180029000080089808249022d3200375a0026ae84d5d118140011bad35742604e0020446ea8004d5d09aba23025002300c35742604800203e6ea8004d5d09aba23022002375c6ae84c084004070dd500091199ab9a3371200400203202e46a002444400844a666ae68cdc79a80100b1a80080b0999ab9a3370e6a0040306a00203002a02e024464a666ae68c06cc0780044c8c8c8c8c8c8c8c848cccc00402401c00c008d5d09aba20045333573466e1d2004001132122230020043574260460042a666ae68c0880044c84888c004010dd71aba1302300215333573460420022244400603c60460026ea8d5d08009aba200233300a75c66014eb9d69aba100135744603c004600a6ae84c074004060dd50009299ab9c001162325333573460326038002264646424660020060046eb4d5d09aba2301d003533357346034603a00226eb8d5d0980e00080b9baa35742603600202c6ea80048c94ccd5cd180c180d80089919191909198008028012999ab9a301b00113232300953335734603c00226464646424466600200c0080066eb4d5d09aba2002375a6ae84004d5d118100019bad35742603e0042a666ae68c0740044c8488c00800cc020d5d0980f80100d180f8009baa35742603a0042a666ae68c070004044060c074004dd51aba135744603600460066ae84c068004054dd5000919192999ab9a30190011321223001003375c6ae84c06800854ccd5cd180c00089909118010019bae35742603400402a60340026ea80048488c00800c888cc06888cccd55cf800900911919807198041803980e8009803180e00098021aba2003357420040166eac0048848cc00400c00888cc05c88cccd55cf800900791980518029aba10023003357440040106eb0004c05088448894cd40044008884cc014008ccd54c01c028014010004c04c88448894cd40044d400c040884ccd4014040c010008ccd54c01c024014010004c0488844894cd4004024884cc020c010008cd54c01801c0100044800488488cc00401000cc03c8894cd40080108854cd4cc02000800c01c4cc01400400c4014400888ccd5cd19b8f0020010030051001220021001220011533573892010350543100164901022d31004901013700370e90001b874800955cf2ab9d2323001001223300330020020011").unwrap()))))),
+            Some(CborWrap(ScriptRef::PlutusV2Script(PlutusScript::<2>(Bytes::from(hex::decode("5909fe010000323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232222323232533535533357346064606a0062646464642466002008004a666ae68c0d8c0e00044c848c004008c078d5d0981b8008191baa357426ae88c0d80154ccd5cd1819981b0008991919191919191919191919191919191919191919190919999999999980080b80a8098088078068058048038028018011aba135744004666068eb88004d5d08009aba2002357420026ae88008cc0c9d71aba1001357440046ae84004d5d10011aba1001357440046ae84004d5d10011aba1001357440046ae84004d5d10011981300f1aba1001357440046ae84004d5d1181b001198111192999ab9a30353038001132321233001003002301d357426ae88c0e0008c078d5d0981b8008191baa00135742606a0020606ea8d5d0981a001817911a8011111111111111a80691919299aa99a998149aa99a80109815a481035054380022100203d00303903a03a1533501213302549101350033302330340362350012232333027303803a235001223500122533533302b0440040062153353333026303e040223500222533500321533533303104a0030062153353302b0010031303f3305722533500104c221350022253353305100200a100313304d33047002001300600300215335330370010031303f333302d04b0043370200200600409209008e60720020044266060920102313000333573466e20ccd54c0fc104c0a8cc0f1c024000400266aa608008246a00209600200809208e266ae712410231310004813357389201023132000470023335530360393501b0403501b04233355303603922533535002222253353302200800413038003042213303d001002100103f010333301c303403622350022253353303c00b002100313333020303803a235001222533533302a0210030012133330260220043355303e03f235001223303d002333500120012235002223500322330433370000800466aa608e09046a002446608c004666a0024002e008004ccc0c013400c0048004ccc09c11000c0040084cccc09408400c00800400c0040f140044cc0952410134003330233034036235001223303b00a0025001153353355303403523500122350012222302c533350021303104821001213304e2253350011303404a221350022253353304800200710011300600300c0011302a49010136002213355303603723500122350012222302e533350021303304a2100121330502253350011303604c221350022253353304a00200710011300600300e0033335530310342253353353530283500203f03d203f253353303c001330482253350011302e044221350022253353303000200a135302f001223350022303504b20011300600301003b1302c4901013300133037002001100103a00d1120011533573892010350543500165333573460640020502a666ae68c0c400409c0b8c0ccdd50019baa00133019223355301f020235001223301e002335530220232350012233021002333500137009000380233700002900000099aa980f81011a800911980f001199a800919aa981181211a8009119811001180880080091199806815001000919aa981181211a80091198110011809000800999804012801000812111919807198021a8018139a801013a99a9a80181490a99a8011099a801119a80111980400100091101711119a80210171112999ab9a3370e00c0062a666ae68cdc38028010998068020008158158120a99a80090120121a8008141119a801119a8011198128010009014119a801101411981280100091199ab9a3370e00400204604a44446666aa00866032444600660040024002006002004444466aa603803a46a0024466036004666a0024002052400266600a0080026603c66030006004046444666aa603003603866aa603403646a00244660320046010002666aa6030036446a00444a66a666aa603a03e60106603444a66a00404a200204e46a002446601400400a00c200626604000800604200266aa603403646a00244660320046605e44a66a002260160064426a00444a66a6601800401022444660040140082600c00600800446602644666a0060420040026a00204242444600600842444600200844604e44a66a0020364426a00444a66a6601000400e2602a0022600c0064466aa0046602000603600244a66a004200202e44a66a00202e266ae7000806c8c94ccd5cd180f9811000899190919800801801198079192999ab9a3022302500113232123300100300233301075c464a666ae68c094c0a00044c8cc0514cd4cc028005200110011300e4901022d330033301375c464a66a660180029000080089808249022d3200375a0026ae84d5d118140011bad35742604e0020446ea8004d5d09aba23025002300c35742604800203e6ea8004d5d09aba23022002375c6ae84c084004070dd500091199ab9a3371200400203202e46a002444400844a666ae68cdc79a80100b1a80080b0999ab9a3370e6a0040306a00203002a02e024464a666ae68c06cc0780044c8c8c8c8c8c8c8c848cccc00402401c00c008d5d09aba20045333573466e1d2004001132122230020043574260460042a666ae68c0880044c84888c004010dd71aba1302300215333573460420022244400603c60460026ea8d5d08009aba200233300a75c66014eb9d69aba100135744603c004600a6ae84c074004060dd50009299ab9c001162325333573460326038002264646424660020060046eb4d5d09aba2301d003533357346034603a00226eb8d5d0980e00080b9baa35742603600202c6ea80048c94ccd5cd180c180d80089919191909198008028012999ab9a301b00113232300953335734603c00226464646424466600200c0080066eb4d5d09aba2002375a6ae84004d5d118100019bad35742603e0042a666ae68c0740044c8488c00800cc020d5d0980f80100d180f8009baa35742603a0042a666ae68c070004044060c074004dd51aba135744603600460066ae84c068004054dd5000919192999ab9a30190011321223001003375c6ae84c06800854ccd5cd180c00089909118010019bae35742603400402a60340026ea80048488c00800c888cc06888cccd55cf800900911919807198041803980e8009803180e00098021aba2003357420040166eac0048848cc00400c00888cc05c88cccd55cf800900791980518029aba10023003357440040106eb0004c05088448894cd40044008884cc014008ccd54c01c028014010004c04c88448894cd40044d400c040884ccd4014040c010008ccd54c01c024014010004c0488844894cd4004024884cc020c010008cd54c01801c0100044800488488cc00401000cc03c8894cd40080108854cd4cc02000800c01c4cc01400400c4014400888ccd5cd19b8f0020010030051001220021001220011533573892010350543100164901022d31004901013700370e90001b874800955cf2ab9d2323001001223300330020020011").unwrap()))))),
         )];
         add_ref_input_babbage(&mtx.transaction_body, &mut utxos, ref_input_info);
         let acnt = AccountState {
@@ -241,8 +245,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("60b5f82aaebdc942bb0c8774dc712338b82e5133fe69ebbc3b6312098e"),
@@ -269,7 +273,7 @@ mod babbage_tests {
                         )].into(),
                     )].into(),
                 ),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("923918E403BF43C34B4EF6B48EB2EE04BABED17320D8D1B9FF9AD086E86F44EC")
                         .unwrap()
                         .as_slice()
@@ -282,8 +286,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("60b5f82aaebdc942bb0c8774dc712338b82e5133fe69ebbc3b6312098e"),
             Value::Coin(20000000),
@@ -323,8 +327,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("30DAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5EDAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5E"),
@@ -345,7 +349,7 @@ mod babbage_tests {
                         )].into(),
                     )].into(),
                 ),
-                Some(PseudoDatumOption::Data(
+                Some(DatumOption::Data(
                     CborWrap(
                         KeepRaw::<PlutusData>::decode(
                             &mut Decoder::new(&plutus_data_cbor),
@@ -366,8 +370,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567"),
             Value::Coin(70884589),
@@ -404,8 +408,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("719b85d5e8611945505f078aeededcbed1d6ca11053f61e3f9d999fe44"),
@@ -438,7 +442,7 @@ mod babbage_tests {
                         ),
                     ].into(),
                 ),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("BB6F798DF7709327DB5BEB6C7A20BA5F170DE1841DDC38F98E192CD36E857B22")
                         .unwrap()
                         .as_slice()
@@ -471,8 +475,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e"),
             Value::Coin(5000000),
@@ -509,8 +513,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
@@ -526,7 +530,7 @@ mod babbage_tests {
                         )].into(),
                     )].into(),
                 ),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
                         .unwrap()
                         .as_slice()
@@ -545,8 +549,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01eda33318624ade03d53b7e954713d9e69440891f0d02e823267b610d6018dc6c7989a46ec26822425a3d2bac60eec2682a022740361ed957"),
             Value::Coin(5000000),
@@ -581,8 +585,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -658,8 +662,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -708,8 +712,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -759,8 +763,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -801,13 +805,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -840,8 +844,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -889,13 +893,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -928,8 +932,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -970,13 +974,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1029,12 +1033,12 @@ mod babbage_tests {
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
         let multi_era_out: MultiEraOutput = MultiEraOutput::Babbage(Box::new(Cow::Owned(
-            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+            MintedTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
                 address: Bytes::try_from(altered_address.to_hex()).unwrap(),
                 value: Value::Coin(5000000),
                 datum_option: None,
                 script_ref: None,
-            }),
+            }.into()),
         )));
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
@@ -1071,13 +1075,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1108,7 +1112,7 @@ mod babbage_tests {
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1119,7 +1123,7 @@ mod babbage_tests {
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1132,8 +1136,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Multiasset(
@@ -1184,13 +1188,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1223,8 +1227,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -1269,13 +1273,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1308,8 +1312,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -1355,8 +1359,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -1403,8 +1407,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -1446,8 +1450,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -1488,8 +1492,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -1498,13 +1502,13 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
-        let (first_output, rest): (&MintedTransactionOutput, &[MintedTransactionOutput]) =
+        let (first_output, rest): (&KeepRaw<'_, TransactionOutput>, &[KeepRaw<'_, TransactionOutput>]) =
             tx_body.outputs.split_first().unwrap();
-        let (address_bytes, val): (Bytes, Value) = match first_output {
-            PseudoTransactionOutput::Legacy(output) => {
+        let (address_bytes, val): (Bytes, Value) = match first_output.deref() {
+            MintedTransactionOutput::Legacy(output) => {
                 (output.address.clone(), output.amount.clone())
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
+            MintedTransactionOutput::PostAlonzo(output) => {
                 (output.address.clone(), output.value.clone())
             }
         };
@@ -1517,18 +1521,33 @@ mod babbage_tests {
             address.payment().clone(),
             address.delegation().clone(),
         );
-        let altered_output: MintedTransactionOutput =
-            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+        let altered_output =
+            pallas_primitives::babbage::MintedPostAlonzoTransactionOutput {
                 address: Bytes::from(altered_address.to_vec()),
                 value: val,
                 datum_option: None,
                 script_ref: None,
-            });
+            };
+        // Need to decode the `KeepRaw` values instead of using `into()`...
+        let altered_output = &to_vec(altered_output).unwrap();
+        let altered_output = decode::<
+                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::MintedPostAlonzoTransactionOutput
+                                             >>(
+            altered_output
+        ).unwrap();
+        let altered_output = pallas_primitives::babbage::MintedTransactionOutput::PostAlonzo(altered_output);
+        let altered_output = &to_vec(altered_output).unwrap();
+        let altered_output = decode::<
+                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::MintedTransactionOutput
+                                             >>(
+            altered_output
+        ).unwrap();
         let mut new_outputs = Vec::from(rest);
         new_outputs.insert(0, altered_output);
         tx_body.outputs = new_outputs;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
+        // ... since we have to decode correctly here.
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
@@ -1566,8 +1585,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -1618,13 +1637,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
                         .unwrap()
                         .as_slice()
@@ -1657,8 +1676,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -1702,8 +1721,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
             Value::Coin(103324335),
@@ -1747,8 +1766,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("719b85d5e8611945505f078aeededcbed1d6ca11053f61e3f9d999fe44"),
@@ -1781,7 +1800,7 @@ mod babbage_tests {
                         ),
                     ].into(),
                 ),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("BB6F798DF7709327DB5BEB6C7A20BA5F170DE1841DDC38F98E192CD36E857B22")
                         .unwrap()
                         .as_slice()
@@ -1814,8 +1833,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e"),
             Value::Coin(5000000),
@@ -1866,8 +1885,8 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
@@ -1883,7 +1902,7 @@ mod babbage_tests {
                         )].into(),
                     )].into(),
                 ),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
                         .unwrap()
                         .as_slice()
@@ -1902,8 +1921,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01eda33318624ade03d53b7e954713d9e69440891f0d02e823267b610d6018dc6c7989a46ec26822425a3d2bac60eec2682a022740361ed957"),
             Value::Coin(5000000),
@@ -1943,13 +1962,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
                         .unwrap()
                         .as_slice()
@@ -1982,8 +2001,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -2032,13 +2051,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
                         .unwrap()
                         .as_slice()
@@ -2071,8 +2090,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -2121,13 +2140,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
                         .unwrap()
                         .as_slice()
@@ -2160,8 +2179,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -2213,13 +2232,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
                         .unwrap()
                         .as_slice()
@@ -2252,8 +2271,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),
@@ -2308,13 +2327,13 @@ mod babbage_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
                 Value::Coin(25000000),
-                Some(PseudoDatumOption::Hash(
+                Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
                         .unwrap()
                         .as_slice()
@@ -2347,8 +2366,8 @@ mod babbage_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Coin(5000000),

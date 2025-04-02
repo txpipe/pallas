@@ -1122,6 +1122,17 @@ impl<T> Deref for KeepRaw<'_, T> {
     }
 }
 
+impl<T> From<T> for KeepRaw<'static, T> {
+    /// Note that the `KeepRaw` value obtained from this implementation does
+    /// **not** include a valid CBOR representation.
+    fn from(val: T) -> Self {
+        Self {
+            raw: Cow::from(vec![]),
+            inner: val,
+        }
+    }
+}
+
 impl<'b, T, C> minicbor::Decode<'b, C> for KeepRaw<'b, T>
 where
     T: minicbor::Decode<'b, C>,
@@ -1161,6 +1172,8 @@ impl<T: Serialize> Serialize for KeepRaw<'_, T> {
 }
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for KeepRaw<'_, T> {
+    /// Note that the `KeepRaw` value obtained from this implementation does
+    /// **not** include a valid CBOR representation.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

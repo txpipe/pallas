@@ -8,11 +8,11 @@ use pallas_codec::minicbor::{
 };
 use pallas_codec::utils::{Bytes, CborWrap};
 use pallas_primitives::conway::{
-    CostModels, ExUnits, MintedDatumOption, MintedScriptRef, MintedTransactionBody, MintedTx,
-    NetworkId, PlutusScript, PseudoDatumOption, PseudoScript, RationalNumber, Value,
+    CostModels, ExUnits, DatumOption, ScriptRef, MintedTransactionBody, MintedTx,
+    NetworkId, PlutusScript, RationalNumber, Value,
 };
 use pallas_primitives::{
-    conway::{DRepVotingThresholds, PoolVotingThresholds},
+    conway::{DRepVotingThresholds, PoolVotingThresholds, TransactionOutput},
     Set,
 };
 use pallas_traverse::MultiEraTx;
@@ -34,7 +34,7 @@ mod conway_tests {
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
     use pallas_primitives::{
-        conway::{MintedPostAlonzoTransactionOutput, PseudoTransactionOutput},
+        conway::{MintedPostAlonzoTransactionOutput},
         PositiveCoin,
     };
     use pallas_traverse::{MultiEraInput, MultiEraOutput};
@@ -51,8 +51,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -91,8 +91,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
@@ -103,7 +103,7 @@ mod conway_tests {
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(100270605),
-                Some(PseudoDatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()))),
+                Some(DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()))),
                 None,
             ),
         ];
@@ -113,14 +113,14 @@ mod conway_tests {
         let ref_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
                 None,
-                Some(CborWrap(PseudoScript::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
+                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
             ),
         ];
 
@@ -129,8 +129,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(2554439518),
@@ -181,12 +181,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -197,14 +197,14 @@ mod conway_tests {
         let ref_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[
             (
                 String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
                 None,
-                Some(CborWrap(PseudoScript::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
+                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
             ),
         ];
 
@@ -213,8 +213,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
@@ -262,8 +262,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -339,8 +339,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -389,8 +389,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -440,8 +440,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -482,8 +482,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -530,8 +530,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -573,8 +573,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -615,8 +615,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -667,12 +667,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -683,8 +683,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
@@ -736,12 +736,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -752,8 +752,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
@@ -799,12 +799,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -848,12 +848,12 @@ mod conway_tests {
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
         let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(
-            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+            TransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
                 address: Bytes::try_from(altered_address.to_hex()).unwrap(),
                 value: Value::Coin(5000000),
                 datum_option: None,
                 script_ref: None,
-            }),
+            }.into()),
         )));
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
@@ -881,12 +881,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -909,8 +909,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Multiasset(
@@ -955,12 +955,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -971,8 +971,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(88118796),
@@ -1020,12 +1020,12 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -1036,8 +1036,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(100118796),
@@ -1088,8 +1088,8 @@ mod conway_tests {
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
