@@ -1,8 +1,5 @@
-pub mod phase_one;
+pub mod phase1;
 pub mod utils;
 
-#[cfg(feature = "phase_two")]
-pub mod phase_two;
-
-#[cfg(feature = "phase_two")]
-pub mod uplc;
+#[cfg(feature = "phase2")]
+pub mod phase2;

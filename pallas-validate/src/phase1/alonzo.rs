@@ -19,9 +19,9 @@ use pallas_codec::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     alonzo::{
-        AddrKeyhash, Mint, Tx, WitnessSet, Multiasset, NativeScript, PlutusData,
-        PlutusScript, PolicyId, Redeemer, RedeemerPointer, RedeemerTag, RequiredSigners,
-        TransactionBody, TransactionInput, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, Mint, Multiasset, NativeScript, PlutusData, PlutusScript, PolicyId, Redeemer,
+        RedeemerPointer, RedeemerTag, RequiredSigners, TransactionBody, TransactionInput,
+        TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
     byron::TxOut,
 };
@@ -111,11 +111,7 @@ fn check_lower_bound(tx_body: &TransactionBody, block_slot: &u64) -> ValidationR
 
 // If defined, the upper bound of the validity time interval is not exceeded by
 // the block slot, and it is translatable to UTC time.
-fn check_upper_bound(
-    tx_body: &TransactionBody,
-    _mtx: &Tx,
-    block_slot: &u64,
-) -> ValidationResult {
+fn check_upper_bound(tx_body: &TransactionBody, _mtx: &Tx, block_slot: &u64) -> ValidationResult {
     match tx_body.ttl {
         Some(upper_bound) => {
             if upper_bound < *block_slot {

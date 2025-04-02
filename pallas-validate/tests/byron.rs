@@ -4,7 +4,7 @@ mod byron_tests {
 
     use crate::common::{cbor_to_bytes, minted_tx_payload_from_cbor, mk_utxo_for_byron_tx};
     use pallas_validate::{
-        phase_one::validate_txs,
+        phase1::validate_txs,
         utils::{
             ByronError, ByronProtParams, CertState, Environment, MultiEraProtocolParameters, UTxOs,
             ValidationError::*,

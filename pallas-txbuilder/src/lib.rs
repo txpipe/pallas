@@ -3,8 +3,9 @@ mod scriptdata;
 mod transaction;
 
 pub use conway::BuildConway;
-pub use transaction::model::{
-    BuiltTransaction, ExUnits, Input, Output, ScriptKind, StagingTransaction,
+pub use transaction::{
+    model::{BuiltTransaction, ExUnits, Input, Output, ScriptKind, StagingTransaction},
+    Bytes, Bytes32,
 };
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
