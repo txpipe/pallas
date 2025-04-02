@@ -5,7 +5,7 @@ use minicbor::{
 };
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, str::FromStr};
-use std::{collections::HashMap, fmt, hash::Hash as StdHash, ops::Deref};
+use std::{collections::HashMap, fmt, hash::Hash as StdHash, ops::{Deref, DerefMut}};
 
 static TAG_SET: u64 = 258;
 
@@ -1119,6 +1119,12 @@ impl<T> Deref for KeepRaw<'_, T> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<T> DerefMut for KeepRaw<'_, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 

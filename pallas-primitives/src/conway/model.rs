@@ -682,6 +682,7 @@ pub struct Block<'b>
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
+// TODO: To be deprecated.
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
@@ -700,6 +701,7 @@ pub struct Tx<'b>
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
+// TODO: To be deprecated.
 pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]
