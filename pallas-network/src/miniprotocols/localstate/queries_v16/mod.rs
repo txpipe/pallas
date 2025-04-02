@@ -211,13 +211,13 @@ pub enum Value {
 #[derive(Debug, Encode, Decode, PartialEq)]
 pub struct SystemStart {
     #[n(0)]
-    pub year: u32,
+    pub year: BigInt,
 
     #[n(1)]
-    pub day_of_year: u32,
+    pub day_of_year: i64,
 
     #[n(2)]
-    pub picoseconds_of_day: u64,
+    pub picoseconds_of_day: BigInt,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]

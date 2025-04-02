@@ -815,7 +815,6 @@ pub mod tests {
                 "../../../../../cardano-blueprint/src/api/examples/getSystemStart/result.cbor"
             ),
         )];
-        // TODO: DRY with other decode/encode roundtrips
         for (idx, (query_str, result_str)) in examples.iter().enumerate() {
             println!("Roundtrip query {idx}");
             roundtrips_with(query_str, |q| match q {
@@ -836,9 +835,10 @@ pub mod tests {
             println!("Roundtrip result {idx}");
             roundtrips_with(result_str, |q| match q {
                 Message::Result(cbor) => {
-                    return minicbor::decode::<SystemStart>(&cbor[..]).unwrap_or_else(|e| {
+                    let result = minicbor::decode::<SystemStart>(&cbor[..]).unwrap_or_else(|e| {
                         panic!("error decoding cbor from query message: {e:?}")
                     });
+                    return Message::Result(AnyCbor::from_encode(result));
                 }
                 _ => panic!("unexpected message type"),
             });
@@ -866,9 +866,6 @@ pub mod tests {
         let bytes2 =
             minicbor::to_vec(result).unwrap_or_else(|e| panic!("error encoding cbor: {e:?}"));
 
-        assert!(
-            bytes.eq(&bytes2),
-            "re-encoded bytes didn't match original file"
-        );
+        assert_eq!(hex::encode(bytes), hex::encode(bytes2));
     }
 }
