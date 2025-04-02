@@ -127,8 +127,8 @@ mod tests {
         let witness = conway::WitnessSet::from(tx.transaction_witness_set.clone().unwrap());
 
         let script_data = ScriptData {
-            redeemers: witness.redeemer.unwrap(),
-            datums: witness.plutus_data.map(|x| x.iter().cloned().collect()),
+            redeemers: witness.redeemer.unwrap().unwrap(),
+            datums: witness.plutus_data.map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
             language_view: language_view.clone(),
         };
 

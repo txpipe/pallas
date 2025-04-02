@@ -150,19 +150,19 @@ impl<C: LedgerContext> Mapper<C> {
     ) -> u5c::Datum {
         u5c::Datum {
             hash: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::PseudoDatumOption::Hash(x)) => x.to_vec().into(),
+                Some(babbage::DatumOption::Data(x)) => x.original_hash().to_vec().into(),
+                Some(babbage::DatumOption::Hash(x)) => x.to_vec().into(),
                 _ => vec![].into(),
             },
             payload: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
-                Some(babbage::PseudoDatumOption::Hash(x)) => tx
+                Some(babbage::DatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
+                Some(babbage::DatumOption::Hash(x)) => tx
                     .and_then(|tx| tx.find_plutus_data(&x))
                     .map(|d| self.map_plutus_datum(d)),
                 _ => None,
             },
             original_cbor: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => x.raw_cbor().to_vec().into(),
+                Some(babbage::DatumOption::Data(x)) => x.raw_cbor().to_vec().into(),
                 _ => vec![].into(),
             },
         }
@@ -170,16 +170,16 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_any_script(&self, x: &conway::MintedScriptRef) -> u5c::Script {
         match x {
-            conway::PseudoScript::NativeScript(x) => u5c::Script {
+            conway::ScriptRef::NativeScript(x) => u5c::Script {
                 script: u5c::script::Script::Native(Self::map_native_script(x)).into(),
             },
-            conway::PseudoScript::PlutusV1Script(x) => u5c::Script {
+            conway::ScriptRef::PlutusV1Script(x) => u5c::Script {
                 script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
             },
-            conway::PseudoScript::PlutusV2Script(x) => u5c::Script {
+            conway::ScriptRef::PlutusV2Script(x) => u5c::Script {
                 script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
             },
-            conway::PseudoScript::PlutusV3Script(x) => u5c::Script {
+            conway::ScriptRef::PlutusV3Script(x) => u5c::Script {
                 script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
             },
         }
