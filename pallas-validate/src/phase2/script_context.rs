@@ -10,7 +10,7 @@ use pallas_primitives::{
         AddrKeyhash, Certificate, Coin, DatumHash, DatumOption, GovAction, GovActionId, Mint,
         MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript,
         PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput, ProposalProcedure,
-        PseudoDatumOption, PseudoScript, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners,
+        ScriptRef, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners,
         RewardAccount, ScriptHash, StakeCredential, TransactionInput, TransactionOutput, Value,
         Voter, VotingProcedure,
     },
@@ -20,15 +20,15 @@ use std::collections::BTreeMap;
 use std::{cmp::Ordering, collections::HashMap, ops::Deref};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ResolvedInput {
+pub struct ResolvedInput<'a> {
     pub input: TransactionInput,
-    pub output: TransactionOutput,
+    pub output: TransactionOutput<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInInfo {
+pub struct TxInInfo<'a> {
     pub out_ref: TransactionInput,
-    pub resolved: TransactionOutput,
+    pub resolved: TransactionOutput<'a>,
 }
 
 pub fn output_address(output: &TransactionOutput) -> Address {
@@ -38,10 +38,10 @@ pub fn output_address(output: &TransactionOutput) -> Address {
     }
 }
 
-pub fn output_datum(output: &TransactionOutput) -> Option<DatumOption> {
+pub fn output_datum<'a>(output: &'a TransactionOutput<'a>) -> Option<DatumOption<'a>> {
     match output {
         TransactionOutput::Legacy(x) => x.datum_hash.map(DatumOption::Hash),
-        TransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+        TransactionOutput::PostAlonzo(x) => x.datum_option.clone().map(|x| x.unwrap()),
     }
 }
 
@@ -125,17 +125,17 @@ impl DataLookupTable {
                 TransactionOutput::PostAlonzo(output) => {
                     if let Some(script) = &output.script_ref {
                         match &script.0 {
-                            PseudoScript::NativeScript(ns) => {
+                            ScriptRef::NativeScript(ns) => {
                                 scripts
-                                    .insert(ns.compute_hash(), ScriptVersion::Native(ns.clone()));
+                                    .insert(ns.compute_hash(), ScriptVersion::Native(ns.clone().unwrap()));
                             }
-                            PseudoScript::PlutusV1Script(v1) => {
+                            ScriptRef::PlutusV1Script(v1) => {
                                 scripts.insert(v1.compute_hash(), ScriptVersion::V1(v1.clone()));
                             }
-                            PseudoScript::PlutusV2Script(v2) => {
+                            ScriptRef::PlutusV2Script(v2) => {
                                 scripts.insert(v2.compute_hash(), ScriptVersion::V2(v2.clone()));
                             }
-                            PseudoScript::PlutusV3Script(v3) => {
+                            ScriptRef::PlutusV3Script(v3) => {
                                 scripts.insert(v3.compute_hash(), ScriptVersion::V3(v3.clone()));
                             }
                         }
@@ -155,9 +155,9 @@ impl DataLookupTable {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV1 {
-    pub inputs: Vec<TxInInfo>,
-    pub outputs: Vec<TransactionOutput>,
+pub struct TxInfoV1<'a> {
+    pub inputs: Vec<TxInInfo<'a>>,
+    pub outputs: Vec<TransactionOutput<'a>>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -169,12 +169,12 @@ pub struct TxInfoV1 {
     pub id: Hash<32>,
 }
 
-impl TxInfoV1 {
-    pub fn from_transaction(
-        tx: &MintedTx,
-        utxos: &[ResolvedInput],
+impl TxInfoV1<'_> {
+    pub fn from_transaction<'a>(
+        tx: &'a MintedTx<'a>,
+        utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
-    ) -> Result<TxInfo, Error> {
+    ) -> Result<TxInfo<'a>, Error> {
         if tx.transaction_body.reference_inputs.is_some() {
             return Err(Error::ScriptAndInputRefNotAllowed);
         }
@@ -207,10 +207,10 @@ impl TxInfoV1 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV2 {
-    pub inputs: Vec<TxInInfo>,
-    pub reference_inputs: Vec<TxInInfo>,
-    pub outputs: Vec<TransactionOutput>,
+pub struct TxInfoV2<'a> {
+    pub inputs: Vec<TxInInfo<'a>>,
+    pub reference_inputs: Vec<TxInInfo<'a>>,
+    pub outputs: Vec<TransactionOutput<'a>>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -222,12 +222,12 @@ pub struct TxInfoV2 {
     pub id: Hash<32>,
 }
 
-impl TxInfoV2 {
-    pub fn from_transaction(
-        tx: &MintedTx,
-        utxos: &[ResolvedInput],
+impl TxInfoV2<'_> {
+    pub fn from_transaction<'a>(
+        tx: &'a MintedTx<'a>,
+        utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
-    ) -> Result<TxInfo, Error> {
+    ) -> Result<TxInfo<'a>, Error> {
         let inputs = get_tx_in_info_v2(&tx.transaction_body.inputs, utxos)?;
         let certificates = get_certificates_info(&tx.transaction_body.certificates);
         let withdrawals =
@@ -265,10 +265,10 @@ impl TxInfoV2 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV3 {
-    pub inputs: Vec<TxInInfo>,
-    pub reference_inputs: Vec<TxInInfo>,
-    pub outputs: Vec<TransactionOutput>,
+pub struct TxInfoV3<'a> {
+    pub inputs: Vec<TxInInfo<'a>>,
+    pub reference_inputs: Vec<TxInInfo<'a>>,
+    pub outputs: Vec<TransactionOutput<'a>>,
     pub fee: Coin,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -284,12 +284,12 @@ pub struct TxInfoV3 {
     pub treasury_donation: Option<PositiveCoin>,
 }
 
-impl TxInfoV3 {
-    pub fn from_transaction(
-        tx: &MintedTx,
-        utxos: &[ResolvedInput],
+impl TxInfoV3<'_> {
+    pub fn from_transaction<'a>(
+        tx: &'a MintedTx<'a>,
+        utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
-    ) -> Result<TxInfo, Error> {
+    ) -> Result<TxInfo<'a>, Error> {
         let inputs = get_tx_in_info_v2(&tx.transaction_body.inputs, utxos)?;
 
         let certificates = get_certificates_info(&tx.transaction_body.certificates);
@@ -348,18 +348,18 @@ impl TxInfoV3 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TxInfo {
-    V1(TxInfoV1),
-    V2(TxInfoV2),
-    V3(TxInfoV3),
+pub enum TxInfo<'a> {
+    V1(TxInfoV1<'a>),
+    V2(TxInfoV2<'a>),
+    V3(TxInfoV3<'a>),
 }
 
-impl TxInfo {
+impl<'a> TxInfo<'a> {
     pub fn into_script_context(
         self,
         redeemer: &Redeemer,
         datum: Option<&PlutusData>,
-    ) -> Option<ScriptContext> {
+    ) -> Option<ScriptContext<'a>> {
         match self {
             TxInfo::V1(TxInfoV1 { ref redeemers, .. })
             | TxInfo::V2(TxInfoV2 { ref redeemers, .. }) => redeemers
@@ -427,13 +427,13 @@ impl TxInfo {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ScriptContext {
+pub enum ScriptContext<'a> {
     V1V2 {
-        tx_info: Box<TxInfo>,
+        tx_info: Box<TxInfo<'a>>,
         purpose: Box<ScriptPurpose>,
     },
     V3 {
-        tx_info: Box<TxInfo>,
+        tx_info: Box<TxInfo<'a>>,
         redeemer: PlutusData,
         purpose: Box<ScriptInfo<Option<PlutusData>>>,
     },
@@ -465,10 +465,10 @@ impl Default for SlotConfig {
 
 // --------------------- Translations
 
-pub fn get_tx_in_info_v1(
+pub fn get_tx_in_info_v1<'a>(
     inputs: &[TransactionInput],
-    utxos: &[ResolvedInput],
-) -> Result<Vec<TxInInfo>, Error> {
+    utxos: &'a [ResolvedInput<'a>],
+) -> Result<Vec<TxInInfo<'a>>, Error> {
     inputs
         .iter()
         .sorted()
@@ -496,7 +496,7 @@ pub fn get_tx_in_info_v1(
             match &utxo.output {
                 TransactionOutput::Legacy(_) => {}
                 TransactionOutput::PostAlonzo(output) => {
-                    if let Some(DatumOption::Data(_)) = output.datum_option {
+                    if let Some(DatumOption::Data(_)) = output.datum_option.clone().map(|x| x.unwrap()) {
                         return Err(Error::InlineDatumNotAllowed);
                     }
 
@@ -514,10 +514,10 @@ pub fn get_tx_in_info_v1(
         .collect()
 }
 
-pub fn get_tx_in_info_v2(
+pub fn get_tx_in_info_v2<'a>(
     inputs: &[TransactionInput],
-    utxos: &[ResolvedInput],
-) -> Result<Vec<TxInInfo>, Error> {
+    utxos: &'a [ResolvedInput<'a>],
+) -> Result<Vec<TxInInfo<'a>>, Error> {
     inputs
         .iter()
         .sorted()
@@ -556,11 +556,10 @@ pub fn get_mint_info(mint: &Option<Mint>) -> MintValue {
     }
 }
 
-pub fn get_outputs_info(outputs: &[MintedTransactionOutput]) -> Vec<TransactionOutput> {
+pub fn get_outputs_info<'a>(outputs: &'a [MintedTransactionOutput]) -> Vec<TransactionOutput<'a>> {
     outputs
         .iter()
-        .cloned()
-        .map(|output| sort_tx_out_value(&output.into()))
+        .map(|output| sort_tx_out_value(output.into()))
         .collect()
 }
 
@@ -823,7 +822,7 @@ pub fn find_script(
                 hash: hash.to_string(),
             }),
         },
-        Some(DatumOption::Data(data)) => Ok(Some(data.0.clone())),
+        Some(DatumOption::Data(data)) => Ok(Some(data.0.clone().unwrap())),
         None => Ok(None),
     };
 
@@ -969,23 +968,23 @@ pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutp
     TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
         address: output.address.clone(),
         value: from_alonzo_value(&output.amount),
-        datum_option: output.datum_hash.map(DatumOption::Hash),
+        datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
         script_ref: None,
-    })
+    }.into())
 }
 
 // --------------------- Sorting
 
-fn sort_tx_out_value(tx_output: &TransactionOutput) -> TransactionOutput {
+fn sort_tx_out_value<'a>(tx_output: &'a TransactionOutput<'a>) -> TransactionOutput<'a> {
     match tx_output {
         TransactionOutput::Legacy(output) => {
             let new_output = PostAlonzoTransactionOutput {
                 address: output.address.clone(),
                 value: sort_value(&from_alonzo_value(&output.amount)),
-                datum_option: output.datum_hash.map(PseudoDatumOption::Hash),
+                datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
                 script_ref: None,
             };
-            TransactionOutput::PostAlonzo(new_output)
+            TransactionOutput::PostAlonzo(new_output.into())
         }
         TransactionOutput::PostAlonzo(output) => {
             let mut new_output = output.clone();
