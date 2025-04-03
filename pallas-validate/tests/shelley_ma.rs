@@ -13,7 +13,7 @@ mod shelley_ma_tests {
     };
     use pallas_crypto::hash::Hash;
     use pallas_primitives::alonzo::{
-        Certificate, MintedTx, MintedWitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
+        Certificate, Tx, WitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
         RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness,
         Value,
     };
@@ -96,7 +96,7 @@ mod shelley_ma_tests {
     // 50eba65e73c8c5f7b09f4ea28cf15dce169f3d1c322ca3deff03725f51518bb2
     fn successful_mainnet_shelley_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -120,7 +120,7 @@ mod shelley_ma_tests {
     // 4a3f86762383f1d228542d383ae7ac89cf75cf7ff84dec8148558ea92b0b92d0
     fn successful_mainnet_shelley_tx_with_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -144,9 +144,9 @@ mod shelley_ma_tests {
     // "any" and deleting one key-witness pair
     fn successful_mainnet_shelley_tx_with_changed_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley4.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Delete one VKey witness.
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let wit: VKeyWitness = tx_wits.vkeywitness.unwrap().remove(1);
         tx_wits.vkeywitness = Some(Vec::from([wit]));
         let mut tx_buf: Vec<u8> = Vec::new();
@@ -179,7 +179,7 @@ mod shelley_ma_tests {
     // c220e20cc480df9ce7cd871df491d7390c6a004b9252cf20f45fc3c968535b4a
     fn successful_mainnet_shelley_tx_with_metadata() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -203,7 +203,7 @@ mod shelley_ma_tests {
     // b7b1046d1787ac6917f5bb5841e73b3f4bef8f0a6bf692d05ef18e1db9c3f519
     fn successful_mainnet_mary_tx_with_minting() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -227,7 +227,7 @@ mod shelley_ma_tests {
     // ce8ba608357e31695ce7be1a4a9875f43b3fd264f106e455e870714f149af925
     fn successful_mainnet_mary_tx_with_pool_reg() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -268,7 +268,7 @@ mod shelley_ma_tests {
     // cc6a92cc0f4ea326439bac6b18bc7b424470c508a99b9aebc8fafc027d906465
     fn successful_mainnet_mary_tx_with_stk_deleg() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -385,7 +385,7 @@ mod shelley_ma_tests {
     // A total of 10_797_095_002 lovelace is drawn from the Treasury.
     fn successful_mainnet_allegra_tx_with_mir() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -410,7 +410,7 @@ mod shelley_ma_tests {
     // All inputs are removed.
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -446,7 +446,7 @@ mod shelley_ma_tests {
     // The UTxO set is empty.
     fn unfound_utxo() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = UTxOs::new();
 
@@ -465,7 +465,7 @@ mod shelley_ma_tests {
     // Time-to-live is missing.
     fn missing_ttl() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -500,7 +500,7 @@ mod shelley_ma_tests {
     // Transaction's time-to-live is before block slot.
     fn ttl_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -528,7 +528,7 @@ mod shelley_ma_tests {
     // Transaction size exceeds max limit (namely, 0).
     fn max_tx_size_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -556,7 +556,7 @@ mod shelley_ma_tests {
     // 2332262258756 lovelace in transaction output).
     fn output_below_min_lovelace() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -583,7 +583,7 @@ mod shelley_ma_tests {
     // exactly 1.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         tx_body.fee -= 1;
         let mut tx_buf: Vec<u8> = Vec::new();
@@ -618,7 +618,7 @@ mod shelley_ma_tests {
     // Fee policy imposes higher fees on the transaction.
     fn fee_below_minimum() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -645,7 +645,7 @@ mod shelley_ma_tests {
     // the testnet one.
     fn wrong_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
         let mut tx_body: TransactionBody = mtx.transaction_body.unwrap().clone();
         let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
@@ -703,7 +703,7 @@ mod shelley_ma_tests {
     // that the AuxiliaryData is removed.
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley3.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Shelley);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
@@ -732,9 +732,9 @@ mod shelley_ma_tests {
     // verification-key witness is removed.
     fn missing_vk_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.vkeywitness = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
@@ -770,9 +770,9 @@ mod shelley_ma_tests {
     // signature inside the verification-key witness is changed.
     fn vk_witness_changed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let mut wit: VKeyWitness = tx_wits.vkeywitness.clone().unwrap().pop().unwrap();
         let mut sig_as_vec: Vec<u8> = wit.signature.to_vec();
         sig_as_vec.pop();
@@ -813,9 +813,9 @@ mod shelley_ma_tests {
     // native-script witness is removed.
     fn missing_native_script_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Modify the first output address.
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.native_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
@@ -852,9 +852,9 @@ mod shelley_ma_tests {
     // (the same one of successful_mainnet_shelley_tx_with_changed_script).
     fn missing_signature_native_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/shelley2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Delete one VKey witness.
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let wit: VKeyWitness = tx_wits.vkeywitness.unwrap().remove(1);
         tx_wits.vkeywitness = Some(Vec::from([wit]));
         let mut tx_buf: Vec<u8> = Vec::new();
@@ -890,7 +890,7 @@ mod shelley_ma_tests {
     // but the pool to which the delegation occurs is not registered.
     fn unregistered_pool() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -913,7 +913,7 @@ mod shelley_ma_tests {
     // is flipped.
     fn delegation_before_registration() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/mary3.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         // Permute certificates
         let old_certs: Vec<Certificate> =
             mtx.transaction_body.certificates.as_ref().unwrap().clone();
@@ -954,7 +954,7 @@ mod shelley_ma_tests {
     // but the the slot is advanced to a later moment.
     fn too_late_for_mir() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/allegra1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Mary);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,

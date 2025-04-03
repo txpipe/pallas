@@ -351,7 +351,7 @@ pub struct TransactionBody<'a> {
     pub donation: Option<PositiveCoin>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `TransactionBody` instead")]
 pub type MintedTransactionBody<'a> = TransactionBody<'a>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -463,7 +463,7 @@ pub struct GovActionId {
 pub type PostAlonzoTransactionOutput<'b> =
     babbage::GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `PostAlonzoTransactionOutput` instead")]
 pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>;
 
 pub type TransactionOutput<'b> =
@@ -477,7 +477,7 @@ codec_by_datatype! {
     ()
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `TransactionOutput` instead")]
 pub type MintedTransactionOutput<'b> = TransactionOutput<'b>;
 
 pub use crate::alonzo::VKeyWitness;
@@ -593,7 +593,7 @@ pub struct WitnessSet<'b> {
 }
 
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -653,7 +653,7 @@ impl<'b> From<babbage::ScriptRef<'b>> for ScriptRef<'b> {
     }
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `ScriptRef` instead")]
 pub type MintedScriptRef<'b> = ScriptRef<'b>;
 
 pub use crate::alonzo::AuxiliaryData;
@@ -682,7 +682,7 @@ pub struct Block<'b>
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
@@ -701,7 +701,7 @@ pub struct Tx<'b>
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]

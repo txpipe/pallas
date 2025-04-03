@@ -168,7 +168,7 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_any_script(&self, x: &conway::MintedScriptRef) -> u5c::Script {
+    pub fn map_any_script(&self, x: &conway::ScriptRef) -> u5c::Script {
         match x {
             conway::ScriptRef::NativeScript(x) => u5c::Script {
                 script: u5c::script::Script::Native(Self::map_native_script(x)).into(),

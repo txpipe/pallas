@@ -697,17 +697,8 @@ pub struct BlockHead {
 
 pub type Witnesses = MaybeIndefArray<Twit>;
 
-#[derive(Debug, Encode, Decode)]
-pub struct TxPayload {
-    #[n(0)]
-    pub transaction: Tx,
-
-    #[n(1)]
-    pub witness: Witnesses,
-}
-
 #[derive(Debug, Encode, Decode, Clone)]
-pub struct MintedTxPayload<'b> {
+pub struct TxPayload<'b> {
     #[b(0)]
     pub transaction: KeepRaw<'b, Tx>,
 
@@ -715,25 +706,13 @@ pub struct MintedTxPayload<'b> {
     pub witness: KeepRaw<'b, Witnesses>,
 }
 
-#[derive(Encode, Decode, Debug)]
-pub struct BlockBody {
-    #[n(0)]
-    pub tx_payload: MaybeIndefArray<TxPayload>,
-
-    #[n(1)]
-    pub ssc_payload: Ssc,
-
-    #[n(2)]
-    pub dlg_payload: MaybeIndefArray<Dlg>,
-
-    #[n(3)]
-    pub upd_payload: Up,
-}
-
+#[deprecated(since = "1.0.0-alpha", note = "use `TxPayload` instead")]
+pub type MintedTxPayload<'b> = TxPayload<'b>;
+    
 #[derive(Encode, Decode, Debug, Clone)]
-pub struct MintedBlockBody<'b> {
+pub struct BlockBody<'b> {
     #[b(0)]
-    pub tx_payload: MaybeIndefArray<MintedTxPayload<'b>>,
+    pub tx_payload: MaybeIndefArray<TxPayload<'b>>,
 
     #[b(1)]
     pub ssc_payload: Ssc,
@@ -744,6 +723,9 @@ pub struct MintedBlockBody<'b> {
     #[b(3)]
     pub upd_payload: Up,
 }
+
+#[deprecated(since = "1.0.0-alpha", note = "use `BlockBody` instead")]
+pub type MintedBlockBody<'b> = BlockBody<'b>;
 
 // Epoch Boundary Blocks
 
@@ -774,44 +756,23 @@ pub struct EbbHead {
     pub extra_data: (Attributes,),
 }
 
-#[derive(Encode, Decode, Debug)]
-pub struct Block {
-    #[n(0)]
-    pub header: BlockHead,
-
-    #[n(1)]
-    pub body: BlockBody,
-
-    #[n(2)]
-    pub extra: MaybeIndefArray<Attributes>,
-}
-
 #[derive(Encode, Decode, Debug, Clone)]
-pub struct MintedBlock<'b> {
+pub struct Block<'b> {
     #[b(0)]
     pub header: KeepRaw<'b, BlockHead>,
 
     #[b(1)]
-    pub body: MintedBlockBody<'b>,
+    pub body: BlockBody<'b>,
 
     #[n(2)]
     pub extra: MaybeIndefArray<Attributes>,
 }
 
-#[derive(Encode, Decode, Debug, Clone)]
-pub struct EbBlock {
-    #[n(0)]
-    pub header: EbbHead,
-
-    #[n(1)]
-    pub body: MaybeIndefArray<StakeholderId>,
-
-    #[n(2)]
-    pub extra: MaybeIndefArray<Attributes>,
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
+pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Encode, Decode, Debug, Clone)]
-pub struct MintedEbBlock<'b> {
+pub struct EbBlock<'b> {
     #[b(0)]
     pub header: KeepRaw<'b, EbbHead>,
 
@@ -822,14 +783,17 @@ pub struct MintedEbBlock<'b> {
     pub extra: MaybeIndefArray<Attributes>,
 }
 
+#[deprecated(since = "1.0.0-alpha", note = "use `EbBlock` instead")]
+pub type MintedEbBlock<'b> = EbBlock<'b>;
+
 #[cfg(test)]
 mod tests {
-    use super::{BlockHead, EbBlock, MintedBlock};
+    use super::{BlockHead, EbBlock, Block};
     use pallas_codec::minicbor::{self, to_vec};
 
     #[test]
     fn boundary_block_isomorphic_decoding_encoding() {
-        type BlockWrapper = (u16, EbBlock);
+        type BlockWrapper<'b> = (u16, EbBlock<'b>);
 
         let test_blocks = [include_str!("../../../test_data/genesis.block")];
 
@@ -849,7 +813,7 @@ mod tests {
 
     #[test]
     fn main_block_isomorphic_decoding_encoding() {
-        type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+        type BlockWrapper<'b> = (u16, Block<'b>);
 
         let test_blocks = [
             //include_str!("../../../test_data/genesis.block"),

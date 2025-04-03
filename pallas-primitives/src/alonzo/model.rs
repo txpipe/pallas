@@ -76,7 +76,7 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `KeepRaw<'_, Header>` instead")]
 pub type MintedHeader<'a> = KeepRaw<'a, Header>;
 
 pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
@@ -421,7 +421,7 @@ pub struct WitnessSet<'b> {
     pub redeemer: Option<Vec<Redeemer>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -484,7 +484,7 @@ pub struct Block<'b> {
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Encode, Decode, Debug, Clone)]
@@ -502,7 +502,7 @@ pub struct Tx<'b> {
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]

@@ -79,7 +79,7 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
-// TODO: To be deprecated
+#[deprecated(since = "1.0.0-alpha", note = "use `KeepRaw<'_, Header>` instead")]
 pub type MintedHeader<'a> = KeepRaw<'a, Header>;
 
 pub use crate::alonzo::Multiasset;
@@ -245,7 +245,7 @@ pub struct TransactionBody<'b> {
     pub reference_inputs: Option<Vec<TransactionInput>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `TransactionBody` instead")]
 pub type MintedTransactionBody<'a> = TransactionBody<'a>;
 
 pub enum VrfDerivation {
@@ -292,7 +292,7 @@ codec_by_datatype! {
 
 pub type TransactionOutput<'b> = GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `TransactionOutput` instead")]
 pub type MintedTransactionOutput<'b> = TransactionOutput<'b>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -313,7 +313,7 @@ pub struct GenPostAlonzoTransactionOutput<'b, V, S> {
 
 pub type PostAlonzoTransactionOutput<'b> = GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `PostAlonzoTransactionOutput` instead")]
 pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>;
 
 pub use crate::alonzo::VKeyWitness;
@@ -351,7 +351,7 @@ pub struct WitnessSet<'b> {
     pub plutus_v2_script: Option<Vec<PlutusScript<2>>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -380,7 +380,7 @@ pub enum DatumOption<'b> {
     Data(#[b(0)] CborWrap<KeepRaw<'b, PlutusData>>),
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `DatumOption` instead")]
 pub type MintedDatumOption<'b> = DatumOption<'b>;
 
 #[deprecated(since = "0.31.0", note = "use `PlutusScript<1>` instead")]
@@ -401,7 +401,7 @@ pub enum ScriptRef<'b> {
     PlutusV2Script(#[n(0)] PlutusScript<2>),
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `ScriptRef` instead")]
 pub type MintedScriptRef<'b> = ScriptRef<'b>;
 
 pub use crate::alonzo::AuxiliaryData;
@@ -430,16 +430,16 @@ pub struct Block<'b> {
 }
 
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
 pub struct Tx<'b> {
     #[b(0)]
-    pub transaction_body: KeepRaw<'b, MintedTransactionBody<'b>>,
+    pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
 
     #[n(1)]
-    pub transaction_witness_set: KeepRaw<'b, MintedWitnessSet<'b>>,
+    pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
     pub success: bool,
@@ -448,17 +448,17 @@ pub struct Tx<'b> {
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::{MintedBlock, TransactionOutput};
+    use super::{Block, TransactionOutput};
     use crate::Fragment;
 
-    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    type BlockWrapper<'b> = (u16, Block<'b>);
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

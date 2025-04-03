@@ -8,7 +8,7 @@ use pallas_primitives::{
     alonzo,
     conway::{
         AddrKeyhash, Certificate, Coin, DatumHash, DatumOption, GovAction, GovActionId, Mint,
-        MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript,
+        TransactionBody, Tx, WitnessSet, NativeScript,
         PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput, ProposalProcedure,
         ScriptRef, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners,
         RewardAccount, ScriptHash, StakeCredential, TransactionInput, TransactionOutput, Value,
@@ -171,7 +171,7 @@ pub struct TxInfoV1<'a> {
 
 impl TxInfoV1<'_> {
     pub fn from_transaction<'a>(
-        tx: &'a MintedTx<'a>,
+        tx: &'a Tx<'a>,
         utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
     ) -> Result<TxInfo<'a>, Error> {
@@ -224,7 +224,7 @@ pub struct TxInfoV2<'a> {
 
 impl TxInfoV2<'_> {
     pub fn from_transaction<'a>(
-        tx: &'a MintedTx<'a>,
+        tx: &'a Tx<'a>,
         utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
     ) -> Result<TxInfo<'a>, Error> {
@@ -286,7 +286,7 @@ pub struct TxInfoV3<'a> {
 
 impl TxInfoV3<'_> {
     pub fn from_transaction<'a>(
-        tx: &'a MintedTx<'a>,
+        tx: &'a Tx<'a>,
         utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
     ) -> Result<TxInfo<'a>, Error> {
@@ -556,7 +556,7 @@ pub fn get_mint_info(mint: &Option<Mint>) -> MintValue {
     }
 }
 
-pub fn get_outputs_info<'a>(outputs: &'a [MintedTransactionOutput]) -> Vec<TransactionOutput<'a>> {
+pub fn get_outputs_info<'a>(outputs: &'a [TransactionOutput]) -> Vec<TransactionOutput<'a>> {
     outputs
         .iter()
         .map(|output| sort_tx_out_value(output.into()))
@@ -603,7 +603,7 @@ pub fn get_withdrawals_info(
 }
 
 pub fn get_validity_range_info(
-    body: &MintedTransactionBody,
+    body: &TransactionBody,
     slot_config: &SlotConfig,
 ) -> Result<TimeRange, Error> {
     fn slot_to_begin_posix_time(slot: u64, sc: &SlotConfig) -> Result<u64, Error> {
@@ -648,7 +648,7 @@ pub fn get_signatories_info(signers: &Option<RequiredSigners>) -> Vec<AddrKeyhas
         .unwrap_or_default()
 }
 
-pub fn get_data_info(witness_set: &MintedWitnessSet) -> Vec<(DatumHash, PlutusData)> {
+pub fn get_data_info(witness_set: &WitnessSet) -> Vec<(DatumHash, PlutusData)> {
     witness_set
         .plutus_data
         .as_deref()
@@ -663,7 +663,7 @@ pub fn get_data_info(witness_set: &MintedWitnessSet) -> Vec<(DatumHash, PlutusDa
 }
 
 pub fn get_redeemers_info<'a>(
-    witness_set: &'a MintedWitnessSet,
+    witness_set: &'a WitnessSet,
     to_script_purpose: impl for<'b> Fn(&'b RedeemersKey) -> Result<ScriptPurpose, Error>,
 ) -> Result<KeyValuePairs<ScriptPurpose, Redeemer>, Error> {
     Ok(KeyValuePairs::from(
@@ -804,7 +804,7 @@ fn script_purpose_builder<'a>(
 
 pub fn find_script(
     redeemer: &Redeemer,
-    tx: &MintedTx,
+    tx: &Tx,
     utxos: &[ResolvedInput],
     lookup_table: &DataLookupTable,
 ) -> Result<(ScriptVersion, Option<PlutusData>), Error> {

@@ -14,9 +14,9 @@ mod babbage_tests {
     };
     use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
     use pallas_primitives::babbage::{
-        CostModels, ExUnitPrices, ExUnits, DatumOption, MintedPostAlonzoTransactionOutput,
-        MintedTransactionBody, MintedTransactionOutput, MintedTx,
-        MintedWitnessSet, NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript,
+        CostModels, ExUnitPrices, ExUnits, DatumOption, PostAlonzoTransactionOutput,
+        TransactionBody, Tx,
+        WitnessSet, NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript,
         ScriptRef, TransactionOutput, RationalNumber, Redeemer,
         RedeemerTag, Value,
     };
@@ -37,7 +37,7 @@ mod babbage_tests {
     // b17d685c42e714238c1fb3abcd40e5c6291ebbb420c9c69b641209607bd00c7d
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -75,7 +75,7 @@ mod babbage_tests {
     // f33d6f7eb877132af7307e385bb24a7d2c12298c8ac0b1460296748810925ccc
     fn successful_mainnet_tx_with_plutus_v1_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -152,7 +152,7 @@ mod babbage_tests {
     // ac96a0a2dfdb876b237a8ae674eadab453fd146fb97b221cfd29a1812046fa36
     fn successful_mainnet_tx_with_plutus_v2_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage7.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -238,7 +238,7 @@ mod babbage_tests {
     // 69d925ee5327bf98cbea8cb3aee3274abb5053d10bf2c51a4fd018f15904ec8e
     fn successful_preview_tx_with_plutus_v2_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage12.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -319,7 +319,7 @@ mod babbage_tests {
     // 1825d08e4496cca673fd9e47898b92cf97fdc293a40cf5cff99c5b123b364384
     fn successful_preprod_tx_with_plutus_v2_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage13.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let plutus_data_cbor: Vec<u8> = hex::decode(
             "D8799FD8799F1A1DCD650019300BFF1B0000018B2B449D97581C28B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85FF"
@@ -403,7 +403,7 @@ mod babbage_tests {
     // 8702b0a5835c16663101f68295e33e3b3868c487f736d3c8a0a4246242675a15
     fn successful_mainnet_tx_with_minting() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage5.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -508,7 +508,7 @@ mod babbage_tests {
     // 7ae8cbe887d5d4cdaa51bce93d296206d4fcc77963e65fad3a64d0e6df672260
     fn successful_mainnet_tx_with_metadata() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage6.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -581,7 +581,7 @@ mod babbage_tests {
     // Same as successful_mainnet_tx, except that all inputs are removed.
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -594,7 +594,7 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.inputs = Vec::new();
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -628,7 +628,7 @@ mod babbage_tests {
     // set.
     fn unfound_utxo_input() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let utxos: UTxOs = UTxOs::new();
         let acnt = AccountState {
@@ -658,7 +658,7 @@ mod babbage_tests {
     // interval is greater than the block slot.
     fn validity_interval_lower_bound_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -671,7 +671,7 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.validity_interval_start = Some(72316897); // One slot after the block.
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -708,7 +708,7 @@ mod babbage_tests {
     // interval is lower than the block slot.
     fn validity_interval_upper_bound_surpassed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -721,7 +721,7 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.ttl = Some(72316895); // One slot before the block.
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -758,7 +758,7 @@ mod babbage_tests {
     // Environment requesting fees that exceed those paid by the transaction.
     fn min_fee_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -801,7 +801,7 @@ mod babbage_tests {
     // collaterals are removed before calling validation.
     fn no_collateral_inputs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -853,7 +853,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.collateral = None;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -888,7 +888,7 @@ mod babbage_tests {
     // for the transaction to be valid.
     fn too_many_collateral_inputs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -970,7 +970,7 @@ mod babbage_tests {
     // of a collateral inputs is altered into a script-locked one.
     fn collateral_is_not_verification_key_locked() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -1033,7 +1033,7 @@ mod babbage_tests {
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
         let multi_era_out: MultiEraOutput = MultiEraOutput::Babbage(Box::new(Cow::Owned(
-            MintedTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
+            TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
                 address: Bytes::try_from(altered_address.to_hex()).unwrap(),
                 value: Value::Coin(5000000),
                 datum_option: None,
@@ -1070,7 +1070,7 @@ mod babbage_tests {
     // contains assets other than lovelace.
     fn collateral_with_other_assets() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1183,7 +1183,7 @@ mod babbage_tests {
     // of lovelace in the total collateral balance is insufficient.
     fn collateral_min_lovelace() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1269,7 +1269,7 @@ mod babbage_tests {
     // annotated collateral is wrong.
     fn collateral_annotation() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -1321,7 +1321,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.total_collateral = Some(5000001); // This is 1 more than the actual paid collateral
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -1355,7 +1355,7 @@ mod babbage_tests {
     // and so the "preservation of value" property doesn't hold.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -1368,7 +1368,7 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.fee -= 1;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -1402,7 +1402,7 @@ mod babbage_tests {
     // is unreached.
     fn min_lovelace_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1445,7 +1445,7 @@ mod babbage_tests {
     // environment parameter.
     fn max_val_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1488,7 +1488,7 @@ mod babbage_tests {
     // network ID is altered.
     fn output_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -1501,14 +1501,14 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         let (first_output, rest): (&KeepRaw<'_, TransactionOutput>, &[KeepRaw<'_, TransactionOutput>]) =
             tx_body.outputs.split_first().unwrap();
         let (address_bytes, val): (Bytes, Value) = match first_output.deref() {
-            MintedTransactionOutput::Legacy(output) => {
+            TransactionOutput::Legacy(output) => {
                 (output.address.clone(), output.amount.clone())
             }
-            MintedTransactionOutput::PostAlonzo(output) => {
+            TransactionOutput::PostAlonzo(output) => {
                 (output.address.clone(), output.value.clone())
             }
         };
@@ -1522,7 +1522,7 @@ mod babbage_tests {
             address.delegation().clone(),
         );
         let altered_output =
-            pallas_primitives::babbage::MintedPostAlonzoTransactionOutput {
+            pallas_primitives::babbage::PostAlonzoTransactionOutput {
                 address: Bytes::from(altered_address.to_vec()),
                 value: val,
                 datum_option: None,
@@ -1531,14 +1531,14 @@ mod babbage_tests {
         // Need to decode the `KeepRaw` values instead of using `into()`...
         let altered_output = &to_vec(altered_output).unwrap();
         let altered_output = decode::<
-                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::MintedPostAlonzoTransactionOutput
+                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::PostAlonzoTransactionOutput
                                              >>(
             altered_output
         ).unwrap();
-        let altered_output = pallas_primitives::babbage::MintedTransactionOutput::PostAlonzo(altered_output);
+        let altered_output = pallas_primitives::babbage::TransactionOutput::PostAlonzo(altered_output);
         let altered_output = &to_vec(altered_output).unwrap();
         let altered_output = decode::<
-                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::MintedTransactionOutput
+                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::TransactionOutput
                                              >>(
             altered_output
         ).unwrap();
@@ -1581,7 +1581,7 @@ mod babbage_tests {
     // altered.
     fn tx_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -1594,7 +1594,7 @@ mod babbage_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.network_id = Some(NetworkId::Testnet);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -1632,7 +1632,7 @@ mod babbage_tests {
     // transaction.
     fn tx_ex_units_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1716,7 +1716,7 @@ mod babbage_tests {
     // actually is.
     fn max_tx_size_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
-        let mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
             String,
@@ -1762,7 +1762,7 @@ mod babbage_tests {
     // supported by the corresponding native script.
     fn minting_lacks_policy() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage5.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -1842,7 +1842,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.native_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -1879,7 +1879,7 @@ mod babbage_tests {
     // removed.
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage6.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[(
@@ -1958,7 +1958,7 @@ mod babbage_tests {
     // set.
     fn script_input_lacks_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -2010,7 +2010,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.plutus_v1_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -2044,10 +2044,10 @@ mod babbage_tests {
 
     #[test]
     // Same as successful_mainnet_tx_with_plutus_v1_script, except that the datum of
-    // the input script UTxO is removed from the MintedWitnessSet.
+    // the input script UTxO is removed from the WitnessSet.
     fn missing_input_datum() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -2099,7 +2099,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.plutus_data = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -2136,7 +2136,7 @@ mod babbage_tests {
     // PlutusData is extended with an unnecessary new element.
     fn extra_input_datum() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -2188,7 +2188,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let old_datum: KeepRaw<PlutusData> = tx_wits.plutus_data.unwrap().pop().unwrap();
         let new_datum: PlutusData = PlutusData::Array(MaybeIndefArray::Def(Vec::new()));
         let mut new_datum_buf: Vec<u8> = Vec::new();
@@ -2228,7 +2228,7 @@ mod babbage_tests {
     // Redeemers is extended with an unnecessary new element.
     fn extra_redeemer() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -2280,7 +2280,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let old_redeemer: Redeemer = tx_wits.redeemer.unwrap().pop().unwrap();
         let new_redeemer: Redeemer = Redeemer {
             tag: RedeemerTag::Spend,
@@ -2323,7 +2323,7 @@ mod babbage_tests {
     // contained in the TransactionBody.
     fn script_integrity_hash() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage4.tx"));
-        let mut mtx: MintedTx = babbage_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
@@ -2375,7 +2375,7 @@ mod babbage_tests {
             None,
         )];
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
-        let mut tx_witness_set: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut tx_witness_set: WitnessSet = (*mtx.transaction_witness_set).clone();
         let mut redeemer: Redeemer = tx_witness_set.redeemer.unwrap().pop().unwrap();
         redeemer.ex_units = ExUnits { mem: 0, steps: 0 };
         tx_witness_set.redeemer = Some(vec![redeemer]);

@@ -18,12 +18,12 @@ use pallas_crypto::{
     key::ed25519::{PublicKey, Signature},
 };
 use pallas_primitives::byron::{
-    Address, MintedTxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
+    Address, TxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 
 pub fn validate_byron_tx(
-    mtxp: &MintedTxPayload,
+    mtxp: &TxPayload,
     utxos: &UTxOs,
     prot_pps: &ByronProtParams,
     prot_magic: &u32,
@@ -123,7 +123,7 @@ fn check_size(size: &u64, prot_pps: &ByronProtParams) -> ValidationResult {
     Ok(())
 }
 
-fn get_tx_size(mtxp: &MintedTxPayload) -> u64 {
+fn get_tx_size(mtxp: &TxPayload) -> u64 {
     (mtxp.transaction.raw_cbor().len() + mtxp.witness.raw_cbor().len()) as u64
 }
 
@@ -132,7 +132,7 @@ pub enum TaggedSignature<'a> {
     RedeemWitness(&'a ByronSignature),
 }
 
-fn check_witnesses(mtxp: &MintedTxPayload, utxos: &UTxOs, prot_magic: &u32) -> ValidationResult {
+fn check_witnesses(mtxp: &TxPayload, utxos: &UTxOs, prot_magic: &u32) -> ValidationResult {
     let tx: &Tx = &mtxp.transaction;
     let tx_hash: Hash<32> = mtxp.transaction.original_hash();
     let witnesses: Vec<(&PubKey, TaggedSignature)> = tag_witnesses(&mtxp.witness)?;

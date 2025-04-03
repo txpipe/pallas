@@ -6,7 +6,7 @@ use pallas_primitives::{
     conway::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
         PlutusScript, PostAlonzoTransactionOutput, ScriptRef as PallasScript,
-        MintedTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx,
+        TransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx,
         Value, WitnessSet,
     },
     Fragment, NonEmptySet, PositiveCoin,
@@ -299,7 +299,7 @@ impl BuildConway for StagingTransaction {
 impl Output {
     pub fn build_babbage_raw(
         &self,
-    ) -> Result<MintedTransactionOutput, TxBuilderError> {
+    ) -> Result<TransactionOutput, TxBuilderError> {
         let assets = self
             .assets
             .iter()
@@ -367,7 +367,7 @@ impl Output {
             None
         };
 
-        Ok(MintedTransactionOutput::PostAlonzo(
+        Ok(TransactionOutput::PostAlonzo(
             PostAlonzoTransactionOutput {
                 address: self.address.to_vec().into(),
                 value,
