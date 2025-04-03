@@ -1,7 +1,7 @@
 //! Utilities required for Conway-era transaction validation.
 
 use crate::utils::{
-    aux_data_from_conway_minted_tx, compute_native_script_hash, compute_plutus_v1_script_hash,
+    aux_data_from_conway_tx, compute_native_script_hash, compute_plutus_v1_script_hash,
     compute_plutus_v2_script_hash, compute_plutus_v3_script_hash, conway_add_minted_non_zero,
     conway_add_values, conway_get_val_size_in_words, conway_lovelace_diff_or_fail,
     conway_values_are_equal, get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part,
@@ -1584,7 +1584,7 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
 fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
     match (
         &tx_body.auxiliary_data_hash,
-        aux_data_from_conway_minted_tx(mtx),
+        aux_data_from_conway_tx(mtx),
     ) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()

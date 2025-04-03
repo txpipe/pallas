@@ -700,15 +700,15 @@ pub fn is_byron_address(address: &[u8]) -> bool {
     matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
 }
 
-pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_alonzo_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
-pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_babbage_tx<'a>(mtx: &'a BabbageTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
-pub fn aux_data_from_conway_minted_tx<'a>(mtx: &'a ConwayTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_conway_tx<'a>(mtx: &'a ConwayTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
