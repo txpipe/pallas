@@ -1328,10 +1328,7 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
 
 // The metadata of the transaction is valid.
 fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
-    match (
-        &tx_body.auxiliary_data_hash,
-        aux_data_from_babbage_tx(mtx),
-    ) {
+    match (&tx_body.auxiliary_data_hash, aux_data_from_babbage_tx(mtx)) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
