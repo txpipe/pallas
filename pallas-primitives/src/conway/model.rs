@@ -536,7 +536,23 @@ where
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(PseudoTransactionOutput::Legacy(d.decode_with(ctx)?))
+                let output: LegacyTransactionOutput = d.decode_with(ctx)?;
+
+                // this workaround is done to match the behavior of the Cardano node decoding
+                // https://github.com/IntersectMBO/cardano-ledger/blob/957370a635805005252f905a9e36fbd53a5e39a8/eras/mary/impl/src/Cardano/Ledger/Mary/Value.hs#L329
+                if let babbage::Value::Multiasset(_, kv) = &output.amount {
+                    for (_, assets) in kv.iter() {
+                        for (_, amount) in assets.iter() {
+                            if *amount == 0 {
+                                return Err(minicbor::decode::Error::message(
+                                    "MultiAsset cannot contain zeros",
+                                ));
+                            }
+                        }
+                    }
+                }
+
+                Ok(PseudoTransactionOutput::Legacy(output))
             }
             minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
                 Ok(PseudoTransactionOutput::PostAlonzo(d.decode_with(ctx)?))
