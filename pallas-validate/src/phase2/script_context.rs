@@ -8,11 +8,10 @@ use pallas_primitives::{
     alonzo,
     conway::{
         AddrKeyhash, Certificate, Coin, DatumHash, DatumOption, GovAction, GovActionId, Mint,
-        TransactionBody, Tx, WitnessSet, NativeScript,
-        PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput, ProposalProcedure,
-        ScriptRef, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners,
-        RewardAccount, ScriptHash, StakeCredential, TransactionInput, TransactionOutput, Value,
-        Voter, VotingProcedure,
+        NativeScript, PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput,
+        ProposalProcedure, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners, RewardAccount,
+        ScriptHash, ScriptRef, StakeCredential, TransactionBody, TransactionInput,
+        TransactionOutput, Tx, Value, Voter, VotingProcedure, WitnessSet,
     },
 };
 use pallas_traverse::{ComputeHash, MultiEraTx, OriginalHash};
@@ -126,8 +125,10 @@ impl DataLookupTable {
                     if let Some(script) = &output.script_ref {
                         match &script.0 {
                             ScriptRef::NativeScript(ns) => {
-                                scripts
-                                    .insert(ns.compute_hash(), ScriptVersion::Native(ns.clone().unwrap()));
+                                scripts.insert(
+                                    ns.compute_hash(),
+                                    ScriptVersion::Native(ns.clone().unwrap()),
+                                );
                             }
                             ScriptRef::PlutusV1Script(v1) => {
                                 scripts.insert(v1.compute_hash(), ScriptVersion::V1(v1.clone()));
@@ -496,7 +497,9 @@ pub fn get_tx_in_info_v1<'a>(
             match &utxo.output {
                 TransactionOutput::Legacy(_) => {}
                 TransactionOutput::PostAlonzo(output) => {
-                    if let Some(DatumOption::Data(_)) = output.datum_option.clone().map(|x| x.unwrap()) {
+                    if let Some(DatumOption::Data(_)) =
+                        output.datum_option.clone().map(|x| x.unwrap())
+                    {
                         return Err(Error::InlineDatumNotAllowed);
                     }
 
@@ -965,12 +968,15 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
 }
 
 pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutput {
-    TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
-        address: output.address.clone(),
-        value: from_alonzo_value(&output.amount),
-        datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
-        script_ref: None,
-    }.into())
+    TransactionOutput::PostAlonzo(
+        PostAlonzoTransactionOutput {
+            address: output.address.clone(),
+            value: from_alonzo_value(&output.amount),
+            datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
+            script_ref: None,
+        }
+        .into(),
+    )
 }
 
 // --------------------- Sorting

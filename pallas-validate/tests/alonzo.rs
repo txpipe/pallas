@@ -14,9 +14,9 @@ mod alonzo_tests {
         utils::{Bytes, KeepRaw},
     };
     use pallas_primitives::alonzo::{
-        AddrKeyhash, ExUnitPrices, ExUnits, Language, Tx, WitnessSet, NativeScript,
-        NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer, RedeemerTag,
-        TransactionBody, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, ExUnitPrices, ExUnits, Language, NativeScript, NetworkId, Nonce, NonceVariant,
+        PlutusData, RationalNumber, Redeemer, RedeemerTag, TransactionBody, TransactionOutput, Tx,
+        VKeyWitness, Value, WitnessSet,
     };
     use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
     use pallas_validate::{

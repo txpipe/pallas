@@ -5,7 +5,12 @@ use minicbor::{
 };
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, str::FromStr};
-use std::{collections::HashMap, fmt, hash::Hash as StdHash, ops::{Deref, DerefMut}};
+use std::{
+    collections::HashMap,
+    fmt,
+    hash::Hash as StdHash,
+    ops::{Deref, DerefMut},
+};
 
 static TAG_SET: u64 = 258;
 
@@ -992,8 +997,11 @@ impl From<&AnyUInt> for u64 {
 
 /// Introduced in Conway
 /// positive_coin = 1 .. 18446744073709551615
-#[derive(Encode, Decode, Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)] #[cbor(transparent)]
+#[derive(
+    Encode, Decode, Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+#[cbor(transparent)]
 pub struct PositiveCoin(u64);
 
 impl TryFrom<u64> for PositiveCoin {

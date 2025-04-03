@@ -419,12 +419,10 @@ impl<C: LedgerContext> Mapper<C> {
         &self,
         x: &Option<conway::GovActionId>,
     ) -> Option<u5c::GovernanceActionId> {
-        x.as_ref().map(|inner|
-              u5c::GovernanceActionId {
-                  transaction_id: inner.transaction_id.to_vec().into(),
-                  governance_action_index: inner.action_index,
-              }
-        )
+        x.as_ref().map(|inner| u5c::GovernanceActionId {
+            transaction_id: inner.transaction_id.to_vec().into(),
+            governance_action_index: inner.action_index,
+        })
     }
 
     pub fn map_conway_gov_action(&self, x: &conway::GovAction) -> u5c::GovernanceAction {

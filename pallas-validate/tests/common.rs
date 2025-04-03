@@ -1,8 +1,11 @@
-use pallas_codec::{minicbor::{self, bytes::ByteVec}, utils::TagWrap};
+use pallas_codec::{
+    minicbor::{self, bytes::ByteVec},
+    utils::TagWrap,
+};
 use pallas_primitives::{
-    alonzo::{Tx as AlonzoTx, TransactionBody, TransactionOutput, Value},
+    alonzo::{TransactionBody, TransactionOutput, Tx as AlonzoTx, Value},
     babbage::Tx as BabbageTx,
-    byron::{Address, TxPayload, Tx, TxOut},
+    byron::{Address, Tx, TxOut, TxPayload},
     conway::Tx as ConwayTx,
 };
 use pallas_traverse::{Era, MultiEraInput, MultiEraOutput};
@@ -106,7 +109,8 @@ pub fn mk_utxo_for_babbage_tx<'a>(
                     value: val.clone(),
                     datum_option: datum_opt.clone().map(|x| x.into()),
                     script_ref: script_ref.clone(),
-                }.into(),
+                }
+                .into(),
             );
         let multi_era_out: MultiEraOutput = MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
         utxos.insert(multi_era_in, multi_era_out);
@@ -141,7 +145,8 @@ pub fn mk_utxo_for_conway_tx<'a>(
                     value: val.clone(),
                     datum_option: datum_opt.clone().map(|x| x.into()),
                     script_ref: script_ref.clone(),
-                }.into(),
+                }
+                .into(),
             );
         let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
         utxos.insert(multi_era_in, multi_era_out);
@@ -170,19 +175,20 @@ pub fn mk_codec_safe_utxo_for_conway_tx<'a>(
             Ok(bytes_vec) => Bytes::from(bytes_vec),
             _ => panic!("Unable to decode input address"),
         };
-        let post_alonzo =
-            pallas_primitives::conway::PostAlonzoTransactionOutput {
-                address: address_bytes,
-                value: val.clone(),
-                datum_option: datum_opt.clone(),
-                script_ref: script_ref.clone(),
-            };
+        let post_alonzo = pallas_primitives::conway::PostAlonzoTransactionOutput {
+            address: address_bytes,
+            value: val.clone(),
+            datum_option: datum_opt.clone(),
+            script_ref: script_ref.clone(),
+        };
         *cbor = minicbor::to_vec(post_alonzo).unwrap();
         let post_alonzo = minicbor::decode::<
-                pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::PostAlonzoTransactionOutput
-                                             >>(
-            cbor
-        ).unwrap();
+            pallas_codec::utils::KeepRaw<
+                'a,
+                pallas_primitives::conway::PostAlonzoTransactionOutput,
+            >,
+        >(cbor)
+        .unwrap();
         let tx_out = pallas_primitives::conway::TransactionOutput::PostAlonzo(post_alonzo);
         let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
         utxos.insert(multi_era_in, multi_era_out);
@@ -262,7 +268,8 @@ pub fn add_collateral_babbage<'a>(
                                 value: val.clone(),
                                 datum_option: datum_opt.clone().map(|x| x.into()),
                                 script_ref: script_ref.clone(),
-                            }.into(),
+                            }
+                            .into(),
                         );
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
@@ -305,7 +312,8 @@ pub fn add_collateral_conway<'a>(
                                 value: val.clone(),
                                 datum_option: datum_opt.clone().map(|x| x.into()),
                                 script_ref: script_ref.clone(),
-                            }.into(),
+                            }
+                            .into(),
                         );
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
@@ -342,20 +350,22 @@ pub fn add_codec_safe_collateral_conway<'a>(
                         Ok(bytes_vec) => Bytes::from(bytes_vec),
                         _ => panic!("Unable to decode input address"),
                     };
-                    let post_alonzo =
-                        pallas_primitives::conway::PostAlonzoTransactionOutput {
-                            address: address_bytes,
-                            value: val.clone(),
-                            datum_option: datum_opt.clone(),
-                            script_ref: script_ref.clone(),
-                        };
+                    let post_alonzo = pallas_primitives::conway::PostAlonzoTransactionOutput {
+                        address: address_bytes,
+                        value: val.clone(),
+                        datum_option: datum_opt.clone(),
+                        script_ref: script_ref.clone(),
+                    };
                     *cbor = minicbor::to_vec(post_alonzo).unwrap();
                     let post_alonzo = minicbor::decode::<
-                            pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::PostAlonzoTransactionOutput
-                                                         >>(
-                        cbor
-                    ).unwrap();
-                    let tx_out = pallas_primitives::conway::TransactionOutput::PostAlonzo(post_alonzo);
+                        pallas_codec::utils::KeepRaw<
+                            'a,
+                            pallas_primitives::conway::PostAlonzoTransactionOutput,
+                        >,
+                    >(cbor)
+                    .unwrap();
+                    let tx_out =
+                        pallas_primitives::conway::TransactionOutput::PostAlonzo(post_alonzo);
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
                     utxos.insert(multi_era_in, multi_era_out);
@@ -397,7 +407,8 @@ pub fn add_ref_input_babbage<'a>(
                                 value: val.clone(),
                                 datum_option: datum_opt.clone().map(|x| x.into()),
                                 script_ref: script_ref.clone(),
-                            }.into(),
+                            }
+                            .into(),
                         );
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Babbage(Box::new(Cow::Owned(tx_out)));
@@ -440,7 +451,8 @@ pub fn add_ref_input_conway<'a>(
                                 value: val.clone(),
                                 datum_option: datum_opt.clone().map(|x| x.into()),
                                 script_ref: script_ref.clone(),
-                            }.into(),
+                            }
+                            .into(),
                         );
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
@@ -477,20 +489,22 @@ pub fn add_codec_safe_ref_input_conway<'a>(
                         Ok(bytes_vec) => Bytes::from(bytes_vec),
                         _ => panic!("Unable to decode input address"),
                     };
-                    let post_alonzo =
-                        pallas_primitives::conway::PostAlonzoTransactionOutput {
-                            address: address_bytes,
-                            value: val.clone(),
-                            datum_option: datum_opt.clone(),
-                            script_ref: script_ref.clone(),
-                        };
+                    let post_alonzo = pallas_primitives::conway::PostAlonzoTransactionOutput {
+                        address: address_bytes,
+                        value: val.clone(),
+                        datum_option: datum_opt.clone(),
+                        script_ref: script_ref.clone(),
+                    };
                     *cbor = minicbor::to_vec(post_alonzo).unwrap();
                     let post_alonzo = minicbor::decode::<
-                            pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::PostAlonzoTransactionOutput
-                                                         >>(
-                        cbor
-                    ).unwrap();
-                    let tx_out = pallas_primitives::conway::TransactionOutput::PostAlonzo(post_alonzo);
+                        pallas_codec::utils::KeepRaw<
+                            'a,
+                            pallas_primitives::conway::PostAlonzoTransactionOutput,
+                        >,
+                    >(cbor)
+                    .unwrap();
+                    let tx_out =
+                        pallas_primitives::conway::TransactionOutput::PostAlonzo(post_alonzo);
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
                     utxos.insert(multi_era_in, multi_era_out);

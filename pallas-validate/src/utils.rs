@@ -13,7 +13,7 @@ use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{Multiasset, NativeScript, Tx as AlonzoTx, VKeyWitness, Value},
     babbage::Tx as BabbageTx,
-    conway::{Tx as ConwayTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
+    conway::{Multiasset as ConwayMultiasset, Tx as ConwayTx, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, Hash, NetworkId,
     NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PositiveCoin, Relay,
     RewardAccount, StakeCredential, TransactionIndex, UnitInterval, VrfKeyhash,

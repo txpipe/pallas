@@ -8,8 +8,8 @@ use pallas_codec::minicbor::{
 };
 use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
 use pallas_primitives::conway::{
-    CostModels, ExUnits, DatumOption, ScriptRef, TransactionBody, Tx,
-    NetworkId, PlutusScript, RationalNumber, Value,
+    CostModels, DatumOption, ExUnits, NetworkId, PlutusScript, RationalNumber, ScriptRef,
+    TransactionBody, Tx, Value,
 };
 use pallas_primitives::{
     conway::{DRepVotingThresholds, PoolVotingThresholds, TransactionOutput},
@@ -30,10 +30,7 @@ mod conway_tests {
     use std::{borrow::Cow, collections::BTreeMap};
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-    use pallas_primitives::{
-        conway::{PostAlonzoTransactionOutput},
-        PositiveCoin,
-    };
+    use pallas_primitives::{conway::PostAlonzoTransactionOutput, PositiveCoin};
     use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
     use super::*;
@@ -86,9 +83,7 @@ mod conway_tests {
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
         let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
         let datum_option = minicbor::to_vec(datum_option).unwrap();
-        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(
-            &datum_option
-        ).unwrap();
+        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(&datum_option).unwrap();
 
         let mut tx_outs_info: Vec<(
             String,
@@ -113,7 +108,8 @@ mod conway_tests {
             ),
         ];
 
-        let mut utxos: UTxOs = mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
+        let mut utxos: UTxOs =
+            mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
         let mut ref_info: Vec<(
             String,
@@ -188,16 +184,14 @@ mod conway_tests {
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
         let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
         let datum_option = minicbor::to_vec(datum_option).unwrap();
-        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(
-            &datum_option
-        ).unwrap();
+        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(&datum_option).unwrap();
 
         let mut tx_outs_info: Vec<(
             String,
             Value,
             Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-          Vec<u8>,
+            Vec<u8>,
         )> = vec![(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
@@ -206,7 +200,8 @@ mod conway_tests {
             Vec::new(),
         )];
 
-        let mut utxos: UTxOs = mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
+        let mut utxos: UTxOs =
+            mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
         let mut ref_info: Vec<(
             String,
@@ -865,14 +860,16 @@ mod conway_tests {
             .unwrap();
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
-        let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(
-            TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
-                address: Bytes::try_from(altered_address.to_hex()).unwrap(),
-                value: Value::Coin(5000000),
-                datum_option: None,
-                script_ref: None,
-            }.into()),
-        )));
+        let multi_era_out: MultiEraOutput =
+            MultiEraOutput::Conway(Box::new(Cow::Owned(TransactionOutput::PostAlonzo(
+                PostAlonzoTransactionOutput {
+                    address: Bytes::try_from(altered_address.to_hex()).unwrap(),
+                    value: Value::Coin(5000000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            ))));
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
 

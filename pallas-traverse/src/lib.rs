@@ -145,14 +145,8 @@ pub enum MultiEraMeta<'b> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraPolicyAssets<'b> {
-    AlonzoCompatibleMint(
-        &'b alonzo::PolicyId,
-        &'b BTreeMap<alonzo::AssetName, i64>,
-    ),
-    AlonzoCompatibleOutput(
-        &'b alonzo::PolicyId,
-        &'b BTreeMap<alonzo::AssetName, u64>,
-    ),
+    AlonzoCompatibleMint(&'b alonzo::PolicyId, &'b BTreeMap<alonzo::AssetName, i64>),
+    AlonzoCompatibleOutput(&'b alonzo::PolicyId, &'b BTreeMap<alonzo::AssetName, u64>),
     ConwayMint(
         &'b alonzo::PolicyId,
         &'b BTreeMap<alonzo::AssetName, NonZeroInt>,

@@ -18,7 +18,7 @@ use pallas_crypto::{
     key::ed25519::{PublicKey, Signature},
 };
 use pallas_primitives::byron::{
-    Address, TxPayload, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut,
+    Address, PubKey, Signature as ByronSignature, Twit, Tx, TxIn, TxOut, TxPayload,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 

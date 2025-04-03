@@ -9,16 +9,13 @@ mod babbage_tests {
     use pallas_codec::minicbor::{
         decode,
         decode::{Decode, Decoder},
-        encode,
-        to_vec,
+        encode, to_vec,
     };
     use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
     use pallas_primitives::babbage::{
-        CostModels, ExUnitPrices, ExUnits, DatumOption, PostAlonzoTransactionOutput,
-        TransactionBody, Tx,
-        WitnessSet, NetworkId, Nonce, NonceVariant, PlutusData, PlutusScript,
-        ScriptRef, TransactionOutput, RationalNumber, Redeemer,
-        RedeemerTag, Value,
+        CostModels, DatumOption, ExUnitPrices, ExUnits, NetworkId, Nonce, NonceVariant, PlutusData,
+        PlutusScript, PostAlonzoTransactionOutput, RationalNumber, Redeemer, RedeemerTag,
+        ScriptRef, TransactionBody, TransactionOutput, Tx, Value, WitnessSet,
     };
     use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraTx};
     use pallas_validate::{
@@ -1032,14 +1029,16 @@ mod babbage_tests {
             .unwrap();
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
-        let multi_era_out: MultiEraOutput = MultiEraOutput::Babbage(Box::new(Cow::Owned(
-            TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
-                address: Bytes::try_from(altered_address.to_hex()).unwrap(),
-                value: Value::Coin(5000000),
-                datum_option: None,
-                script_ref: None,
-            }.into()),
-        )));
+        let multi_era_out: MultiEraOutput =
+            MultiEraOutput::Babbage(Box::new(Cow::Owned(TransactionOutput::PostAlonzo(
+                PostAlonzoTransactionOutput {
+                    address: Bytes::try_from(altered_address.to_hex()).unwrap(),
+                    value: Value::Coin(5000000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            ))));
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let acnt = AccountState {
@@ -1502,15 +1501,13 @@ mod babbage_tests {
         )];
         let utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
-        let (first_output, rest): (&KeepRaw<'_, TransactionOutput>, &[KeepRaw<'_, TransactionOutput>]) =
-            tx_body.outputs.split_first().unwrap();
+        let (first_output, rest): (
+            &KeepRaw<'_, TransactionOutput>,
+            &[KeepRaw<'_, TransactionOutput>],
+        ) = tx_body.outputs.split_first().unwrap();
         let (address_bytes, val): (Bytes, Value) = match first_output.deref() {
-            TransactionOutput::Legacy(output) => {
-                (output.address.clone(), output.amount.clone())
-            }
-            TransactionOutput::PostAlonzo(output) => {
-                (output.address.clone(), output.value.clone())
-            }
+            TransactionOutput::Legacy(output) => (output.address.clone(), output.amount.clone()),
+            TransactionOutput::PostAlonzo(output) => (output.address.clone(), output.value.clone()),
         };
         let address: ShelleyAddress = match Address::from_bytes(&address_bytes) {
             Ok(Address::Shelley(sa)) => sa,
@@ -1521,27 +1518,28 @@ mod babbage_tests {
             address.payment().clone(),
             address.delegation().clone(),
         );
-        let altered_output =
-            pallas_primitives::babbage::PostAlonzoTransactionOutput {
-                address: Bytes::from(altered_address.to_vec()),
-                value: val,
-                datum_option: None,
-                script_ref: None,
-            };
+        let altered_output = pallas_primitives::babbage::PostAlonzoTransactionOutput {
+            address: Bytes::from(altered_address.to_vec()),
+            value: val,
+            datum_option: None,
+            script_ref: None,
+        };
         // Need to decode the `KeepRaw` values instead of using `into()`...
         let altered_output = &to_vec(altered_output).unwrap();
         let altered_output = decode::<
-                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::PostAlonzoTransactionOutput
-                                             >>(
-            altered_output
-        ).unwrap();
-        let altered_output = pallas_primitives::babbage::TransactionOutput::PostAlonzo(altered_output);
+            pallas_codec::utils::KeepRaw<
+                '_,
+                pallas_primitives::babbage::PostAlonzoTransactionOutput,
+            >,
+        >(altered_output)
+        .unwrap();
+        let altered_output =
+            pallas_primitives::babbage::TransactionOutput::PostAlonzo(altered_output);
         let altered_output = &to_vec(altered_output).unwrap();
         let altered_output = decode::<
-                pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::TransactionOutput
-                                             >>(
-            altered_output
-        ).unwrap();
+            pallas_codec::utils::KeepRaw<'_, pallas_primitives::babbage::TransactionOutput>,
+        >(altered_output)
+        .unwrap();
         let mut new_outputs = Vec::from(rest);
         new_outputs.insert(0, altered_output);
         tx_body.outputs = new_outputs;

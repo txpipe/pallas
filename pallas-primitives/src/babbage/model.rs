@@ -313,7 +313,10 @@ pub struct GenPostAlonzoTransactionOutput<'b, V, S> {
 
 pub type PostAlonzoTransactionOutput<'b> = GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
 
-#[deprecated(since = "1.0.0-alpha", note = "use `PostAlonzoTransactionOutput` instead")]
+#[deprecated(
+    since = "1.0.0-alpha",
+    note = "use `PostAlonzoTransactionOutput` instead"
+)]
 pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>;
 
 pub use crate::alonzo::VKeyWitness;
@@ -428,7 +431,6 @@ pub struct Block<'b> {
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
-
 
 #[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;

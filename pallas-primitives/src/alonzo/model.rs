@@ -11,8 +11,8 @@ pub use pallas_codec::codec_by_datatype;
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch,
     ExUnitPrices, ExUnits, GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, Int, KeepRaw,
-    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript, PolicyId,
-    PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion,
+    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript,
+    PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion,
     RationalNumber, Relay, RewardAccount, ScriptHash, StakeCredential, TransactionIndex,
     TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
 };
@@ -511,7 +511,7 @@ mod tests {
 
     use crate::{alonzo::PlutusData, Fragment};
 
-    use super::{Header, Block};
+    use super::{Block, Header};
 
     type BlockWrapper<'b> = (u16, Block<'b>);
 

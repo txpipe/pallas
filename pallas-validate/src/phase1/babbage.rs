@@ -19,8 +19,8 @@ use pallas_codec::{
 use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
-        DatumOption, Language, Mint, TransactionBody, TransactionOutput, Tx, WitnessSet,
-        NativeScript, Redeemer, RequiredSigners, ScriptRef, VKeyWitness, Value,
+        DatumOption, Language, Mint, NativeScript, Redeemer, RequiredSigners, ScriptRef,
+        TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput,
 };
@@ -96,10 +96,7 @@ fn check_all_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> Validatio
 
 // The block slot is contained in the transaction validity interval, and the
 // upper bound is translatable to UTC time.
-fn check_tx_validity_interval(
-    tx_body: &TransactionBody,
-    block_slot: &u64,
-) -> ValidationResult {
+fn check_tx_validity_interval(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     check_lower_bound(tx_body, *block_slot)?;
     check_upper_bound(tx_body, *block_slot)
 }
@@ -340,10 +337,7 @@ fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
     Ok(res)
 }
 
-fn check_min_lovelace(
-    tx_body: &TransactionBody,
-    prot_pps: &BabbageProtParams,
-) -> ValidationResult {
+fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &BabbageProtParams) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output.deref() {
             TransactionOutput::Legacy(output) => &output.amount,
@@ -682,12 +676,10 @@ fn get_script_hash_from_input(input: &TransactionInput, utxos: &UTxOs) -> Option
             Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
             _ => None,
         },
-        Some(TransactionOutput::PostAlonzo(output)) => {
-            match get_payment_part(&output.address) {
-                Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
-                _ => None,
-            }
-        }
+        Some(TransactionOutput::PostAlonzo(output)) => match get_payment_part(&output.address) {
+            Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
+            _ => None,
+        },
         None => None,
     }
 }
@@ -830,11 +822,12 @@ fn check_input_datum_hash_in_witness_set(
 fn get_datum_hash(output: &TransactionOutput) -> Option<Hash<32>> {
     match output {
         TransactionOutput::Legacy(output) => output.datum_hash,
-        TransactionOutput::PostAlonzo(output) =>
+        TransactionOutput::PostAlonzo(output) => {
             match output.datum_option.as_ref().map(|k| k.deref()) {
                 Some(DatumOption::Hash(hash)) => Some(*hash),
                 _ => None,
-            },
+            }
+        }
     }
 }
 
@@ -887,7 +880,9 @@ fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
                 }
             }
             TransactionOutput::PostAlonzo(output) => {
-                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_ref().map(|k| k.deref()) {
+                if let Some(DatumOption::Hash(datum_hash)) =
+                    &output.datum_option.as_ref().map(|k| k.deref())
+                {
                     if *hash == *datum_hash {
                         return Ok(());
                     }
@@ -910,7 +905,9 @@ fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
                     }
                 }
                 Some(TransactionOutput::PostAlonzo(output)) => {
-                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_ref().map(|k| k.deref()) {
+                    if let Some(DatumOption::Hash(datum_hash)) =
+                        &output.datum_option.as_ref().map(|k| k.deref())
+                    {
                         if *hash == *datum_hash {
                             return Ok(());
                         }
@@ -1220,10 +1217,7 @@ fn allowed_langs(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
     }
 }
 
-fn compute_all_outputs<'a>(
-    mtx: &'a Tx,
-    utxos: &'a UTxOs,
-) -> Vec<&'a TransactionOutput<'a>> {
+fn compute_all_outputs<'a>(mtx: &'a Tx, utxos: &'a UTxOs) -> Vec<&'a TransactionOutput<'a>> {
     let mut res: Vec<&TransactionOutput> = Vec::new();
     for input in mtx.transaction_body.inputs.iter() {
         if let Some(output) = utxos
@@ -1274,7 +1268,9 @@ fn any_datums_or_script_refs(all_outputs: &[&TransactionOutput]) -> bool {
             TransactionOutput::PostAlonzo(output) => {
                 if output.script_ref.is_some() {
                     return true;
-                } else if let Some(DatumOption::Data(_)) = &output.datum_option.as_ref().map(|k| k.deref()) {
+                } else if let Some(DatumOption::Data(_)) =
+                    &output.datum_option.as_ref().map(|k| k.deref())
+                {
                     return true;
                 }
             }

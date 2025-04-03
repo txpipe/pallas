@@ -13,9 +13,8 @@ mod shelley_ma_tests {
     };
     use pallas_crypto::hash::Hash;
     use pallas_primitives::alonzo::{
-        Certificate, Tx, WitnessSet, Nonce, NonceVariant, PoolKeyhash, PoolMetadata,
-        RationalNumber, Relay, StakeCredential, TransactionBody, TransactionOutput, VKeyWitness,
-        Value,
+        Certificate, Nonce, NonceVariant, PoolKeyhash, PoolMetadata, RationalNumber, Relay,
+        StakeCredential, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     };
     use pallas_traverse::{Era, MultiEraTx};
     use pallas_validate::utils::PoolParam;

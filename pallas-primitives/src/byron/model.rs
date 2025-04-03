@@ -708,7 +708,7 @@ pub struct TxPayload<'b> {
 
 #[deprecated(since = "1.0.0-alpha", note = "use `TxPayload` instead")]
 pub type MintedTxPayload<'b> = TxPayload<'b>;
-    
+
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct BlockBody<'b> {
     #[b(0)]
@@ -788,7 +788,7 @@ pub type MintedEbBlock<'b> = EbBlock<'b>;
 
 #[cfg(test)]
 mod tests {
-    use super::{BlockHead, EbBlock, Block};
+    use super::{Block, BlockHead, EbBlock};
     use pallas_codec::minicbor::{self, to_vec};
 
     #[test]

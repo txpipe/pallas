@@ -69,7 +69,9 @@ async fn do_localstate_query(client: &mut NodeClient) {
     //     .unwrap();
     // info!("result: {:02x?}", result);
 
-    let tx_id = Hash::<32>::from_str("be1640dd2b3485e94703be5683c804d5051d96c12e1eaacc17c30e74de580ce5").unwrap();
+    let tx_id =
+        Hash::<32>::from_str("be1640dd2b3485e94703be5683c804d5051d96c12e1eaacc17c30e74de580ce5")
+            .unwrap();
     let gov_id = GovActionId {
         tx_id,
         gov_action_ix: 0,

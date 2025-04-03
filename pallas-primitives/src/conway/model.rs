@@ -11,10 +11,10 @@ pub use pallas_codec::codec_by_datatype;
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
     GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, Metadata, Metadatum,
-    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, Nullable, PlutusScript,
-    PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin, PositiveInterval,
-    ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set, StakeCredential,
-    TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, Nullable,
+    PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin,
+    PositiveInterval, ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set,
+    StakeCredential, TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
 };
 
 use crate::BTreeMap;
@@ -95,10 +95,18 @@ pub enum Certificate {
     #[n(12)]
     VoteRegDeleg(#[n(0)] StakeCredential, #[n(1)] DRep, #[n(2)] Coin),
     #[n(13)]
-    StakeVoteRegDeleg(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash, #[n(2)] DRep, #[n(3)] Coin),
+    StakeVoteRegDeleg(
+        #[n(0)] StakeCredential,
+        #[n(1)] PoolKeyhash,
+        #[n(2)] DRep,
+        #[n(3)] Coin,
+    ),
 
     #[n(14)]
-    AuthCommitteeHot(#[n(0)] CommitteeColdCredential, #[n(1)] CommitteeHotCredential),
+    AuthCommitteeHot(
+        #[n(0)] CommitteeColdCredential,
+        #[n(1)] CommitteeHotCredential,
+    ),
     #[n(15)]
     ResignCommitteeCold(#[n(0)] CommitteeColdCredential, #[n(1)] Option<Anchor>),
     #[n(16)]
@@ -265,25 +273,40 @@ pub struct Update {
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PoolVotingThresholds {
-    #[n(0)] pub motion_no_confidence: UnitInterval,
-    #[n(1)] pub committee_normal: UnitInterval,
-    #[n(2)] pub committee_no_confidence: UnitInterval,
-    #[n(3)] pub hard_fork_initiation: UnitInterval,
-    #[n(4)] pub security_voting_threshold: UnitInterval,
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(4)]
+    pub security_voting_threshold: UnitInterval,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct DRepVotingThresholds {
-    #[n(0)] pub motion_no_confidence: UnitInterval,
-    #[n(1)] pub committee_normal: UnitInterval,
-    #[n(2)] pub committee_no_confidence: UnitInterval,
-    #[n(3)] pub update_constitution: UnitInterval,
-    #[n(4)] pub hard_fork_initiation: UnitInterval,
-    #[n(5)] pub pp_network_group: UnitInterval,
-    #[n(6)] pub pp_economic_group: UnitInterval,
-    #[n(7)] pub pp_technical_group: UnitInterval,
-    #[n(8)] pub pp_governance_group: UnitInterval,
-    #[n(9)] pub treasury_withdrawal: UnitInterval,
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub update_constitution: UnitInterval,
+    #[n(4)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(5)]
+    pub pp_network_group: UnitInterval,
+    #[n(6)]
+    pub pp_economic_group: UnitInterval,
+    #[n(7)]
+    pub pp_technical_group: UnitInterval,
+    #[n(8)]
+    pub pp_governance_group: UnitInterval,
+    #[n(9)]
+    pub treasury_withdrawal: UnitInterval,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -357,17 +380,22 @@ pub type MintedTransactionBody<'a> = TransactionBody<'a>;
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum Vote {
-    #[n(0)] No,
-    #[n(1)] Yes,
-    #[n(2)] Abstain,
+    #[n(0)]
+    No,
+    #[n(1)]
+    Yes,
+    #[n(2)]
+    Abstain,
 }
 
 pub type VotingProcedures = BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
-    #[n(0)] pub vote: Vote,
-    #[n(1)] pub anchor: Option<Anchor>,
+    #[n(0)]
+    pub vote: Vote,
+    #[n(1)]
+    pub anchor: Option<Anchor>,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -392,19 +420,14 @@ pub enum GovAction {
         #[n(2)] Option<ScriptHash>,
     ),
     #[n(1)]
-    HardForkInitiation(
-        #[n(0)] Option<GovActionId>,
-        #[n(1)] ProtocolVersion,
-    ),
+    HardForkInitiation(#[n(0)] Option<GovActionId>, #[n(1)] ProtocolVersion),
     #[n(2)]
     TreasuryWithdrawals(
         #[n(0)] BTreeMap<RewardAccount, Coin>,
         #[n(1)] Option<ScriptHash>,
     ),
     #[n(3)]
-    NoConfidence(
-        #[n(0)] Option<GovActionId>,
-    ),
+    NoConfidence(#[n(0)] Option<GovActionId>),
     #[n(4)]
     UpdateCommittee(
         #[n(0)] Option<GovActionId>,
@@ -413,10 +436,7 @@ pub enum GovAction {
         #[n(3)] UnitInterval,
     ),
     #[n(5)]
-    NewConstitution(
-        #[n(0)] Option<GovActionId>,
-        #[n(1)] Constitution,
-    ),
+    NewConstitution(#[n(0)] Option<GovActionId>, #[n(1)] Constitution),
     #[n(6)]
     Information,
 }
@@ -463,11 +483,13 @@ pub struct GovActionId {
 pub type PostAlonzoTransactionOutput<'b> =
     babbage::GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
 
-#[deprecated(since = "1.0.0-alpha", note = "use `PostAlonzoTransactionOutput` instead")]
+#[deprecated(
+    since = "1.0.0-alpha",
+    note = "use `PostAlonzoTransactionOutput` instead"
+)]
 pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>;
 
-pub type TransactionOutput<'b> =
-    babbage::GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
+pub type TransactionOutput<'b> = babbage::GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
 
 // FIXME: Repeated since macro does not handle type generics yet.
 codec_by_datatype! {
@@ -592,7 +614,6 @@ pub struct WitnessSet<'b> {
     pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
 }
 
-
 #[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
@@ -664,8 +685,7 @@ pub use crate::alonzo::AuxiliaryData;
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-pub struct Block<'b>
-{
+pub struct Block<'b> {
     #[n(0)]
     pub header: KeepRaw<'b, Header>,
 
@@ -686,8 +706,7 @@ pub struct Block<'b>
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
-pub struct Tx<'b>
-{
+pub struct Tx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
 

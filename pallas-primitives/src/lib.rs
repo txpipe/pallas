@@ -14,8 +14,8 @@ pub use framework::*;
 pub use pallas_codec::codec_by_datatype;
 
 pub use pallas_codec::utils::{
-    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet,
-    NonZeroInt, Nullable, PositiveCoin, Set,
+    Bytes, Int, KeepRaw, KeyValuePairs, MaybeIndefArray, NonEmptySet, NonZeroInt, Nullable,
+    PositiveCoin, Set,
 };
 pub use pallas_crypto::hash::Hash;
 

@@ -14,8 +14,8 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::conway::{
     AssetName, BigInt, Certificate, Coin, Constitution, Constr, DRep, DRepVotingThresholds,
     DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint, PlutusData, PolicyId,
-    PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate, RationalNumber,
-    Redeemer, ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
+    PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate, RationalNumber, Redeemer,
+    ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
     VotingProcedure,
 };
 use pallas_primitives::NonZeroInt;
@@ -520,9 +520,7 @@ fn coin_to_plutus_data(coin: &Coin) -> (PlutusData, PlutusData) {
 impl ToPlutusData for ScriptRef<'_> {
     fn to_plutus_data(&self) -> PlutusData {
         match &self {
-            ScriptRef::NativeScript(native_script) => {
-                native_script.compute_hash().to_plutus_data()
-            }
+            ScriptRef::NativeScript(native_script) => native_script.compute_hash().to_plutus_data(),
             ScriptRef::PlutusV1Script(plutus_v1) => plutus_v1.compute_hash().to_plutus_data(),
             ScriptRef::PlutusV2Script(plutus_v2) => plutus_v2.compute_hash().to_plutus_data(),
             ScriptRef::PlutusV3Script(plutus_v3) => plutus_v3.compute_hash().to_plutus_data(),
@@ -591,7 +589,11 @@ impl ToPlutusData for WithZeroAdaAsset<'_, TransactionOutput<'_>> {
                         .unwrap()
                         .to_plutus_data(),
                     WithZeroAdaAsset(&post_alonzo_output.value).to_plutus_data(),
-                    post_alonzo_output.datum_option.clone().map(|x| x.unwrap()).to_plutus_data(),
+                    post_alonzo_output
+                        .datum_option
+                        .clone()
+                        .map(|x| x.unwrap())
+                        .to_plutus_data(),
                     post_alonzo_output
                         .script_ref
                         .as_ref()

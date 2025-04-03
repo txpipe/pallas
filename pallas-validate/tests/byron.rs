@@ -18,7 +18,7 @@ mod byron_tests {
         },
         utils::{CborWrap, MaybeIndefArray},
     };
-    use pallas_primitives::byron::{TxPayload, Twit, Tx, TxOut, Witnesses};
+    use pallas_primitives::byron::{Twit, Tx, TxOut, TxPayload, Witnesses};
     use pallas_traverse::MultiEraTx;
     use std::vec::Vec;
 

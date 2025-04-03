@@ -128,7 +128,9 @@ mod tests {
 
         let script_data = ScriptData {
             redeemers: witness.redeemer.unwrap().unwrap(),
-            datums: witness.plutus_data.map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
+            datums: witness
+                .plutus_data
+                .map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
             language_view: language_view.clone(),
         };
 
