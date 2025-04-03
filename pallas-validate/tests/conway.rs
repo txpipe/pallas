@@ -6,7 +6,7 @@ use pallas_codec::minicbor::{
     decode::{Decode, Decoder},
     encode,
 };
-use pallas_codec::utils::{Bytes, CborWrap};
+use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
 use pallas_primitives::conway::{
     CostModels, ExUnits, DatumOption, ScriptRef, MintedTransactionBody, MintedTx,
     NetworkId, PlutusScript, RationalNumber, Value,
@@ -84,57 +84,69 @@ mod conway_tests {
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+        let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
+        let datum_option = minicbor::to_vec(datum_option).unwrap();
+        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(
+            &datum_option
+        ).unwrap();
 
-        let tx_outs_info: &[(
+        let mut tx_outs_info: Vec<(
             String,
             Value,
-            Option<DatumOption>,
+            Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-        )] = &[
+            Vec<u8>,
+        )> = vec![
             (
                 String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
                 Value::Coin(2554710123),
                 None,
                 None,
+                Vec::new(),
             ),
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(100270605),
-                Some(DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()))),
+                Some(datum_option),
                 None,
+                Vec::new(),
             ),
         ];
 
-        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+        let mut utxos: UTxOs = mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
-        let ref_info: &[(
+        let mut ref_info: Vec<(
             String,
             Value,
-            Option<DatumOption>,
+            Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-        )] = &[
+            Vec<u8>,
+        )> = vec![
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
                 None,
-                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
+                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap()))))),
+            Vec::new(),
             ),
         ];
 
-        add_ref_input_conway(&mtx.transaction_body, &mut utxos, ref_info);
+        add_codec_safe_ref_input_conway(&mtx.transaction_body, &mut utxos, &mut ref_info);
 
-        let collateral_info: &[(
+        let mut collateral_info: Vec<(
             String,
             Value,
-            Option<DatumOption>,
+            Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-        )] = &[(
+          Vec<u8>,
+        )> = vec![(
             String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(2554439518),
             None,
             None,
+            Vec::new(),
         )];
-        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+        add_codec_safe_collateral_conway(&mtx.transaction_body, &mut utxos, &mut collateral_info);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
             reserves: 0,
@@ -174,51 +186,60 @@ mod conway_tests {
         let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+        let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
+        let datum_option = minicbor::to_vec(datum_option).unwrap();
+        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(
+            &datum_option
+        ).unwrap();
 
-        let tx_outs_info: &[(
+        let mut tx_outs_info: Vec<(
             String,
             Value,
-            Option<DatumOption>,
+            Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-        )] = &[(
+          Vec<u8>,
+        )> = vec![(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(DatumOption::Data(CborWrap(
-                minicbor::decode(&datum_bytes).unwrap(),
-            ))),
+            Some(datum_option),
             None,
+            Vec::new(),
         )];
 
-        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+        let mut utxos: UTxOs = mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
-        let ref_info: &[(
+        let mut ref_info: Vec<(
             String,
             Value,
-            Option<DatumOption>,
+            Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-        )] = &[
+            Vec<u8>,
+        )> = vec![
             (
                 String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
                 None,
-                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
+                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap()))))),
+                Vec::new(),
             ),
         ];
 
-        add_ref_input_conway(&mtx.transaction_body, &mut utxos, ref_info);
+        add_codec_safe_ref_input_conway(&mtx.transaction_body, &mut utxos, &mut ref_info);
 
-        let collateral_info: &[(
+        let mut collateral_info: Vec<(
             String,
             Value,
-            Option<DatumOption>,
+            Option<KeepRaw<'_, DatumOption>>,
             Option<CborWrap<ScriptRef>>,
-        )] = &[(
+            Vec<u8>,
+        )> = vec![(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
             None,
             None,
+            Vec::new(),
         )];
-        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+        add_codec_safe_collateral_conway(&mtx.transaction_body, &mut utxos, &mut collateral_info);
 
         let acnt = AccountState {
             treasury: 261_254_564_000_000,

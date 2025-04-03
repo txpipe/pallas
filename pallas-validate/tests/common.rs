@@ -1,4 +1,4 @@
-use pallas_codec::{minicbor::bytes::ByteVec, utils::TagWrap};
+use pallas_codec::{minicbor::{self, bytes::ByteVec}, utils::TagWrap};
 use pallas_primitives::{
     alonzo::{MintedTx, TransactionBody, TransactionOutput, Value},
     babbage::MintedTx as BabbageMintedTx,
@@ -149,6 +149,47 @@ pub fn mk_utxo_for_conway_tx<'a>(
     utxos
 }
 
+pub fn mk_codec_safe_utxo_for_conway_tx<'a>(
+    tx_body: &pallas_primitives::conway::MintedTransactionBody,
+    tx_outs_info: &'a mut Vec<(
+        String, // address in string format
+        pallas_primitives::conway::Value,
+        Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption>>,
+        Option<CborWrap<pallas_primitives::conway::MintedScriptRef>>,
+        Vec<u8>, // Placeholder for CBOR data.
+    )>,
+) -> UTxOs<'a> {
+    let mut utxos: UTxOs = UTxOs::new();
+
+    for (tx_in, (addr, val, datum_opt, script_ref, cbor)) in
+        zip(tx_body.inputs.clone().to_vec(), tx_outs_info)
+    {
+        let multi_era_in: MultiEraInput =
+            MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+        let address_bytes: Bytes = match hex::decode(addr) {
+            Ok(bytes_vec) => Bytes::from(bytes_vec),
+            _ => panic!("Unable to decode input address"),
+        };
+        let post_alonzo =
+            pallas_primitives::conway::MintedPostAlonzoTransactionOutput {
+                address: address_bytes,
+                value: val.clone(),
+                datum_option: datum_opt.clone(),
+                script_ref: script_ref.clone(),
+            };
+        *cbor = minicbor::to_vec(post_alonzo).unwrap();
+        let post_alonzo = minicbor::decode::<
+                pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::MintedPostAlonzoTransactionOutput
+                                             >>(
+            cbor
+        ).unwrap();
+        let tx_out = pallas_primitives::conway::MintedTransactionOutput::PostAlonzo(post_alonzo);
+        let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
+        utxos.insert(multi_era_in, multi_era_out);
+    }
+    utxos
+}
+
 pub fn mk_utxo_for_eval<'a>(utxos: UTxOs) -> UtxoMap {
     let mut eval_utxos: UtxoMap = UtxoMap::new();
 
@@ -276,6 +317,55 @@ pub fn add_collateral_conway<'a>(
     }
 }
 
+pub fn add_codec_safe_collateral_conway<'a>(
+    tx_body: &pallas_primitives::conway::MintedTransactionBody,
+    utxos: &mut UTxOs<'a>,
+    collateral_info: &'a mut Vec<(
+        String, // address in string format
+        pallas_primitives::conway::Value,
+        Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption>>,
+        Option<CborWrap<pallas_primitives::conway::MintedScriptRef>>,
+        Vec<u8>, // Placeholder for CBOR data.
+    )>,
+) {
+    match &tx_body.collateral {
+        Some(collaterals) => {
+            if collaterals.is_empty() {
+                panic!("UTxO addition error - collateral input missing")
+            } else {
+                for (tx_in, (addr, val, datum_opt, script_ref, cbor)) in
+                    zip(collaterals.clone().to_vec(), collateral_info)
+                {
+                    let multi_era_in: MultiEraInput =
+                        MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+                    let address_bytes: Bytes = match hex::decode(addr) {
+                        Ok(bytes_vec) => Bytes::from(bytes_vec),
+                        _ => panic!("Unable to decode input address"),
+                    };
+                    let post_alonzo =
+                        pallas_primitives::conway::MintedPostAlonzoTransactionOutput {
+                            address: address_bytes,
+                            value: val.clone(),
+                            datum_option: datum_opt.clone(),
+                            script_ref: script_ref.clone(),
+                        };
+                    *cbor = minicbor::to_vec(post_alonzo).unwrap();
+                    let post_alonzo = minicbor::decode::<
+                            pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::MintedPostAlonzoTransactionOutput
+                                                         >>(
+                        cbor
+                    ).unwrap();
+                    let tx_out = pallas_primitives::conway::MintedTransactionOutput::PostAlonzo(post_alonzo);
+                    let multi_era_out: MultiEraOutput =
+                        MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
+                    utxos.insert(multi_era_in, multi_era_out);
+                }
+            }
+        }
+        None => panic!("UTxO addition error - collateral input missing"),
+    }
+}
+
 pub fn add_ref_input_babbage<'a>(
     tx_body: &pallas_primitives::babbage::MintedTransactionBody,
     utxos: &mut UTxOs<'a>,
@@ -352,6 +442,55 @@ pub fn add_ref_input_conway<'a>(
                                 script_ref: script_ref.clone(),
                             }.into(),
                         );
+                    let multi_era_out: MultiEraOutput =
+                        MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
+                    utxos.insert(multi_era_in, multi_era_out);
+                }
+            }
+        }
+        None => panic!("UTxO addition error - reference input missing"),
+    }
+}
+
+pub fn add_codec_safe_ref_input_conway<'a>(
+    tx_body: &pallas_primitives::conway::MintedTransactionBody,
+    utxos: &mut UTxOs<'a>,
+    ref_input_info: &'a mut Vec<(
+        String, // address in string format
+        pallas_primitives::conway::Value,
+        Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption>>,
+        Option<CborWrap<pallas_primitives::conway::MintedScriptRef>>,
+        Vec<u8>, // Placeholder for CBOR data.
+    )>,
+) {
+    match &tx_body.reference_inputs {
+        Some(ref_inputs) => {
+            if ref_inputs.is_empty() {
+                panic!("UTxO addition error - reference input missing")
+            } else {
+                for (tx_in, (addr, val, datum_opt, script_ref, cbor)) in
+                    zip(ref_inputs.clone().to_vec(), ref_input_info)
+                {
+                    let multi_era_in: MultiEraInput =
+                        MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in)));
+                    let address_bytes: Bytes = match hex::decode(addr) {
+                        Ok(bytes_vec) => Bytes::from(bytes_vec),
+                        _ => panic!("Unable to decode input address"),
+                    };
+                    let post_alonzo =
+                        pallas_primitives::conway::MintedPostAlonzoTransactionOutput {
+                            address: address_bytes,
+                            value: val.clone(),
+                            datum_option: datum_opt.clone(),
+                            script_ref: script_ref.clone(),
+                        };
+                    *cbor = minicbor::to_vec(post_alonzo).unwrap();
+                    let post_alonzo = minicbor::decode::<
+                            pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::MintedPostAlonzoTransactionOutput
+                                                         >>(
+                        cbor
+                    ).unwrap();
+                    let tx_out = pallas_primitives::conway::MintedTransactionOutput::PostAlonzo(post_alonzo);
                     let multi_era_out: MultiEraOutput =
                         MultiEraOutput::Conway(Box::new(Cow::Owned(tx_out)));
                     utxos.insert(multi_era_in, multi_era_out);
