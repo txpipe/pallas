@@ -6,13 +6,13 @@ use pallas_codec::minicbor::{
     decode::{Decode, Decoder},
     encode,
 };
-use pallas_codec::utils::{Bytes, CborWrap};
+use pallas_codec::utils::{Bytes, CborWrap, KeepRaw};
 use pallas_primitives::conway::{
-    CostModels, ExUnits, MintedDatumOption, MintedScriptRef, MintedTransactionBody, MintedTx,
-    NetworkId, PlutusScript, PseudoDatumOption, PseudoScript, RationalNumber, Value,
+    CostModels, DatumOption, ExUnits, NetworkId, PlutusScript, RationalNumber, ScriptRef,
+    TransactionBody, Tx, Value,
 };
 use pallas_primitives::{
-    conway::{DRepVotingThresholds, PoolVotingThresholds},
+    conway::{DRepVotingThresholds, PoolVotingThresholds, TransactionOutput},
     Set,
 };
 use pallas_traverse::MultiEraTx;
@@ -30,10 +30,7 @@ mod conway_tests {
     use std::{borrow::Cow, collections::BTreeMap};
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-    use pallas_primitives::{
-        conway::{MintedPostAlonzoTransactionOutput, PseudoTransactionOutput},
-        PositiveCoin,
-    };
+    use pallas_primitives::{conway::PostAlonzoTransactionOutput, PositiveCoin};
     use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
     use super::*;
@@ -43,13 +40,13 @@ mod conway_tests {
     // 90bd64b133e327daecfa0cc60c26f3b96fc6f0285a6d96cc122819908b3aaf93
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -81,60 +78,71 @@ mod conway_tests {
     // b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f
     fn successful_preview_tx_with_plutus_v3_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway4.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+        let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
+        let datum_option = minicbor::to_vec(datum_option).unwrap();
+        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(&datum_option).unwrap();
 
-        let tx_outs_info: &[(
+        let mut tx_outs_info: Vec<(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
-        )] = &[
+            Option<KeepRaw<'_, DatumOption>>,
+            Option<CborWrap<ScriptRef>>,
+            Vec<u8>,
+        )> = vec![
             (
                 String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
                 Value::Coin(2554710123),
                 None,
                 None,
+                Vec::new(),
             ),
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(100270605),
-                Some(PseudoDatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()))),
+                Some(datum_option),
                 None,
+                Vec::new(),
             ),
         ];
 
-        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+        let mut utxos: UTxOs =
+            mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
-        let ref_info: &[(
+        let mut ref_info: Vec<(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
-        )] = &[
+            Option<KeepRaw<'_, DatumOption>>,
+            Option<CborWrap<ScriptRef>>,
+            Vec<u8>,
+        )> = vec![
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
                 None,
-                Some(CborWrap(PseudoScript::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
+                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap()))))),
+            Vec::new(),
             ),
         ];
 
-        add_ref_input_conway(&mtx.transaction_body, &mut utxos, ref_info);
+        add_codec_safe_ref_input_conway(&mtx.transaction_body, &mut utxos, &mut ref_info);
 
-        let collateral_info: &[(
+        let mut collateral_info: Vec<(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
-        )] = &[(
+            Option<KeepRaw<'_, DatumOption>>,
+            Option<CborWrap<ScriptRef>>,
+          Vec<u8>,
+        )> = vec![(
             String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(2554439518),
             None,
             None,
+            Vec::new(),
         )];
-        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+        add_codec_safe_collateral_conway(&mtx.transaction_body, &mut utxos, &mut collateral_info);
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
             reserves: 0,
@@ -171,54 +179,62 @@ mod conway_tests {
     // 3e1ae85c08b610d5d03e67cf90e78980d1d2f54ffc50c21672e24180b450d354
     fn successful_mainnet_tx_with_plutus_v3_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway5.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
+        let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
+        let datum_option = minicbor::to_vec(datum_option).unwrap();
+        let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(&datum_option).unwrap();
 
-        let tx_outs_info: &[(
+        let mut tx_outs_info: Vec<(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
-        )] = &[(
+            Option<KeepRaw<'_, DatumOption>>,
+            Option<CborWrap<ScriptRef>>,
+            Vec<u8>,
+        )> = vec![(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
-                minicbor::decode(&datum_bytes).unwrap(),
-            ))),
+            Some(datum_option),
             None,
+            Vec::new(),
         )];
 
-        let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
+        let mut utxos: UTxOs =
+            mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
-        let ref_info: &[(
+        let mut ref_info: Vec<(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
-        )] = &[
+            Option<KeepRaw<'_, DatumOption>>,
+            Option<CborWrap<ScriptRef>>,
+            Vec<u8>,
+        )> = vec![
             (
                 String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
                 None,
-                Some(CborWrap(PseudoScript::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap())))))
+                Some(CborWrap(ScriptRef::PlutusV3Script(PlutusScript::<3>(Bytes::from(hex::decode("58a701010032323232323225333002323232323253330073370e900118041baa0011323322533300a3370e900018059baa00513232533300f30110021533300c3370e900018069baa00313371e6eb8c040c038dd50039bae3010300e37546020601c6ea800c5858dd7180780098061baa00516300c001300c300d001300937540022c6014601600660120046010004601000260086ea8004526136565734aae7555cf2ab9f5742ae89").unwrap()))))),
+                Vec::new(),
             ),
         ];
 
-        add_ref_input_conway(&mtx.transaction_body, &mut utxos, ref_info);
+        add_codec_safe_ref_input_conway(&mtx.transaction_body, &mut utxos, &mut ref_info);
 
-        let collateral_info: &[(
+        let mut collateral_info: Vec<(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
-        )] = &[(
+            Option<KeepRaw<'_, DatumOption>>,
+            Option<CborWrap<ScriptRef>>,
+            Vec<u8>,
+        )> = vec![(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
             None,
             None,
+            Vec::new(),
         )];
-        add_collateral_conway(&mtx.transaction_body, &mut utxos, collateral_info);
+        add_codec_safe_collateral_conway(&mtx.transaction_body, &mut utxos, &mut collateral_info);
 
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
@@ -255,12 +271,12 @@ mod conway_tests {
     // Same as successful_mainnet_tx, except that all inputs are removed.
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -268,7 +284,7 @@ mod conway_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.inputs = Set::from(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -302,7 +318,7 @@ mod conway_tests {
     // set.
     fn unfound_utxo_input() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let utxos: UTxOs = UTxOs::new();
         let acnt = AccountState {
@@ -332,12 +348,12 @@ mod conway_tests {
     // interval is greater than the block slot.
     fn validity_interval_lower_bound_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -345,7 +361,7 @@ mod conway_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.validity_interval_start = Some(72316897); // One slot after the block.
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -382,12 +398,12 @@ mod conway_tests {
     // interval is lower than the block slot.
     fn validity_interval_upper_bound_surpassed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -395,7 +411,7 @@ mod conway_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.ttl = Some(72316895); // One slot before the block.
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -432,13 +448,13 @@ mod conway_tests {
     // Environment requesting fees that exceed those paid by the transaction.
     fn min_fee_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -475,12 +491,12 @@ mod conway_tests {
     // and so the "preservation of value" property doesn't hold.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -488,7 +504,7 @@ mod conway_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.fee -= 1;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -522,13 +538,13 @@ mod conway_tests {
     // is unreached.
     fn min_lovelace_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -565,13 +581,13 @@ mod conway_tests {
     // environment parameter.
     fn max_val_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -608,12 +624,12 @@ mod conway_tests {
     // altered.
     fn tx_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),
@@ -621,7 +637,7 @@ mod conway_tests {
             None,
         )];
         let utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.network_id = Some(NetworkId::Testnet);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -658,18 +674,18 @@ mod conway_tests {
     // collaterals are removed before calling validation.
     fn no_collateral_inputs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -680,8 +696,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
@@ -702,7 +718,7 @@ mod conway_tests {
             network_id: 1,
             acnt: Some(acnt),
         };
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.collateral = None;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -726,19 +742,19 @@ mod conway_tests {
     // for the transaction to be valid.
     fn too_many_collateral_inputs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -749,8 +765,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(49731771),
@@ -790,18 +806,18 @@ mod conway_tests {
     // of a collateral inputs is altered into a script-locked one.
     fn collateral_is_not_verification_key_locked() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -844,14 +860,16 @@ mod conway_tests {
             .unwrap();
         let multi_era_in: MultiEraInput =
             MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(tx_in.clone())));
-        let multi_era_out: MultiEraOutput = MultiEraOutput::Conway(Box::new(Cow::Owned(
-            PseudoTransactionOutput::PostAlonzo(MintedPostAlonzoTransactionOutput {
-                address: Bytes::try_from(altered_address.to_hex()).unwrap(),
-                value: Value::Coin(5000000),
-                datum_option: None,
-                script_ref: None,
-            }),
-        )));
+        let multi_era_out: MultiEraOutput =
+            MultiEraOutput::Conway(Box::new(Cow::Owned(TransactionOutput::PostAlonzo(
+                PostAlonzoTransactionOutput {
+                    address: Bytes::try_from(altered_address.to_hex()).unwrap(),
+                    value: Value::Coin(5000000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            ))));
         utxos.insert(multi_era_in, multi_era_out);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
 
@@ -871,19 +889,19 @@ mod conway_tests {
     // contains assets other than lovelace.
     fn collateral_with_other_assets() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -906,8 +924,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
             Value::Multiasset(
@@ -945,19 +963,19 @@ mod conway_tests {
     // of lovelace in the total collateral balance is insufficient.
     fn collateral_min_lovelace() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -968,8 +986,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(88118796),
@@ -1011,18 +1029,18 @@ mod conway_tests {
     // annotated collateral is wrong.
     fn collateral_annotation() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway6.tx"));
-        let mut mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
-            Some(PseudoDatumOption::Data(CborWrap(
+            Some(DatumOption::Data(CborWrap(
                 minicbor::decode(&datum_bytes).unwrap(),
             ))),
             None,
@@ -1033,8 +1051,8 @@ mod conway_tests {
         let collateral_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(100118796),
@@ -1056,7 +1074,7 @@ mod conway_tests {
             acnt: Some(acnt),
         };
 
-        let mut tx_body: MintedTransactionBody = (*mtx.transaction_body).clone();
+        let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.total_collateral = Some(5000001); // This is 1 more than the actual paid collateral
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_body, &mut tx_buf);
@@ -1080,13 +1098,13 @@ mod conway_tests {
     // actually is.
     fn max_tx_size_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
-        let mtx: MintedTx = conway_minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let tx_outs_info: &[(
             String,
             Value,
-            Option<MintedDatumOption>,
-            Option<CborWrap<MintedScriptRef>>,
+            Option<DatumOption>,
+            Option<CborWrap<ScriptRef>>,
         )] = &[(
             String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
             Value::Coin(20000000),

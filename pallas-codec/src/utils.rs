@@ -5,7 +5,12 @@ use minicbor::{
 };
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, str::FromStr};
-use std::{collections::HashMap, fmt, hash::Hash as StdHash, ops::Deref};
+use std::{
+    collections::HashMap,
+    fmt,
+    hash::Hash as StdHash,
+    ops::{Deref, DerefMut},
+};
 
 static TAG_SET: u64 = 258;
 
@@ -992,8 +997,11 @@ impl From<&AnyUInt> for u64 {
 
 /// Introduced in Conway
 /// positive_coin = 1 .. 18446744073709551615
-#[derive(Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Encode, Decode, Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(transparent)]
+#[cbor(transparent)]
 pub struct PositiveCoin(u64);
 
 impl TryFrom<u64> for PositiveCoin {
@@ -1017,30 +1025,6 @@ impl From<PositiveCoin> for u64 {
 impl From<&PositiveCoin> for u64 {
     fn from(x: &PositiveCoin) -> Self {
         u64::from(*x)
-    }
-}
-
-impl<'b, C> minicbor::decode::Decode<'b, C> for PositiveCoin {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let n = d.decode_with(ctx)?;
-
-        if n == 0 {
-            return Err(Error::message("decoding 0 as PositiveCoin"));
-        }
-
-        Ok(Self(n))
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for PositiveCoin {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.encode(self.0)?;
-
-        Ok(())
     }
 }
 
@@ -1146,6 +1130,23 @@ impl<T> Deref for KeepRaw<'_, T> {
     }
 }
 
+impl<T> DerefMut for KeepRaw<'_, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl<T> From<T> for KeepRaw<'static, T> {
+    /// Note that the `KeepRaw` value obtained from this implementation does
+    /// **not** include a valid CBOR representation.
+    fn from(val: T) -> Self {
+        Self {
+            raw: Cow::from(vec![]),
+            inner: val,
+        }
+    }
+}
+
 impl<'b, T, C> minicbor::Decode<'b, C> for KeepRaw<'b, T>
 where
     T: minicbor::Decode<'b, C>,
@@ -1185,6 +1186,8 @@ impl<T: Serialize> Serialize for KeepRaw<'_, T> {
 }
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for KeepRaw<'_, T> {
+    /// Note that the `KeepRaw` value obtained from this implementation does
+    /// **not** include a valid CBOR representation.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

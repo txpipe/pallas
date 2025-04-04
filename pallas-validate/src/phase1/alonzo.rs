@@ -1,7 +1,7 @@
 //! Utilities required for Alonzo-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, aux_data_from_alonzo_minted_tx, compute_native_script_hash,
+    add_minted_value, add_values, aux_data_from_alonzo_tx, compute_native_script_hash,
     compute_plutus_v1_script_hash, empty_value, get_alonzo_comp_tx_size,
     get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
     mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
@@ -824,10 +824,7 @@ fn check_languages(_mtx: &Tx, _prot_pps: &AlonzoProtParams) -> ValidationResult 
 
 // The metadata of the transaction is valid.
 fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
-    match (
-        &tx_body.auxiliary_data_hash,
-        aux_data_from_alonzo_minted_tx(mtx),
-    ) {
+    match (&tx_body.auxiliary_data_hash, aux_data_from_alonzo_tx(mtx)) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()

@@ -68,27 +68,27 @@ pub enum Feature {
 pub enum MultiEraHeader<'b> {
     EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
     ShelleyCompatible(Cow<'b, KeepRaw<'b, alonzo::Header>>),
-    BabbageCompatible(Cow<'b, KeepRaw<'b, babbage::MintedHeader<'b>>>),
+    BabbageCompatible(Cow<'b, KeepRaw<'b, babbage::Header>>),
     Byron(Cow<'b, KeepRaw<'b, byron::BlockHead>>),
 }
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraBlock<'b> {
-    EpochBoundary(Box<byron::MintedEbBlock<'b>>),
+    EpochBoundary(Box<byron::EbBlock<'b>>),
     AlonzoCompatible(Box<alonzo::Block<'b>>, Era),
-    Babbage(Box<babbage::MintedBlock<'b>>),
-    Byron(Box<byron::MintedBlock<'b>>),
-    Conway(Box<conway::MintedBlock<'b>>),
+    Babbage(Box<babbage::Block<'b>>),
+    Byron(Box<byron::Block<'b>>),
+    Conway(Box<conway::Block<'b>>),
 }
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraTx<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::Tx<'b>>>, Era),
-    Babbage(Box<Cow<'b, babbage::MintedTx<'b>>>),
-    Byron(Box<Cow<'b, byron::MintedTxPayload<'b>>>),
-    Conway(Box<Cow<'b, conway::MintedTx<'b>>>),
+    Babbage(Box<Cow<'b, babbage::Tx<'b>>>),
+    Byron(Box<Cow<'b, byron::TxPayload<'b>>>),
+    Conway(Box<Cow<'b, conway::Tx<'b>>>),
 }
 
 #[derive(Debug, Clone)]
@@ -103,8 +103,8 @@ pub enum MultiEraValue<'b> {
 #[non_exhaustive]
 pub enum MultiEraOutput<'b> {
     AlonzoCompatible(Box<Cow<'b, alonzo::TransactionOutput>>, Era),
-    Babbage(Box<Cow<'b, babbage::MintedTransactionOutput<'b>>>),
-    Conway(Box<Cow<'b, conway::MintedTransactionOutput<'b>>>),
+    Babbage(Box<Cow<'b, babbage::TransactionOutput<'b>>>),
+    Conway(Box<Cow<'b, conway::TransactionOutput<'b>>>),
     Byron(Box<Cow<'b, byron::TxOut>>),
 }
 
@@ -145,14 +145,8 @@ pub enum MultiEraMeta<'b> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum MultiEraPolicyAssets<'b> {
-    AlonzoCompatibleMint(
-        &'b alonzo::PolicyId,
-        &'b BTreeMap<alonzo::AssetName, i64>,
-    ),
-    AlonzoCompatibleOutput(
-        &'b alonzo::PolicyId,
-        &'b BTreeMap<alonzo::AssetName, u64>,
-    ),
+    AlonzoCompatibleMint(&'b alonzo::PolicyId, &'b BTreeMap<alonzo::AssetName, i64>),
+    AlonzoCompatibleOutput(&'b alonzo::PolicyId, &'b BTreeMap<alonzo::AssetName, u64>),
     ConwayMint(
         &'b alonzo::PolicyId,
         &'b BTreeMap<alonzo::AssetName, NonZeroInt>,

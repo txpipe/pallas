@@ -5,9 +5,9 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     conway::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
-        PlutusScript, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
-        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx,
-        Value, WitnessSet,
+        PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
+        ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
+        WitnessSet,
     },
     Fragment, NonEmptySet, PositiveCoin,
 };
@@ -46,14 +46,16 @@ impl BuildConway for StagingTransaction {
 
         inputs.sort_unstable_by_key(|x| (x.transaction_id, x.index));
 
-        let outputs = self
-            .outputs
-            .unwrap_or_default()
+        let outputs = self.outputs.unwrap_or_default();
+        let outputs = outputs
             .iter()
             .map(Output::build_babbage_raw)
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mint: Vec<(Hash<28>, std::collections::BTreeMap<pallas_primitives::Bytes, _>)> = self
+        let mint: Vec<(
+            Hash<28>,
+            std::collections::BTreeMap<pallas_primitives::Bytes, _>,
+        )> = self
             .mint
             .iter()
             .flat_map(|x| x.deref().iter())
@@ -232,7 +234,7 @@ impl BuildConway for StagingTransaction {
             dta.hash()
         });
 
-        let mut pallas_tx = Tx {
+        let mut pallas_tx: Tx = Tx {
             transaction_body: TransactionBody {
                 inputs: pallas_primitives::Set::from(inputs),
                 outputs,
@@ -254,24 +256,31 @@ impl BuildConway for StagingTransaction {
                 proposal_procedures: None, // TODO
                 treasury_value: None,      // TODO
                 donation: None,            // TODO
-            },
+            }
+            .into(),
             transaction_witness_set: WitnessSet {
                 vkeywitness: None,
-                native_script: NonEmptySet::from_vec(native_script),
+                native_script: NonEmptySet::from_vec(
+                    native_script.into_iter().map(|x| x.into()).collect(),
+                ),
                 bootstrap_witness: None,
                 plutus_v1_script: NonEmptySet::from_vec(plutus_v1_script),
                 plutus_v2_script: NonEmptySet::from_vec(plutus_v2_script),
                 plutus_v3_script: NonEmptySet::from_vec(plutus_v3_script),
-                plutus_data: NonEmptySet::from_vec(plutus_data),
+                plutus_data: NonEmptySet::from_vec(
+                    plutus_data.into_iter().map(|x| x.into()).collect(),
+                ),
                 redeemer: if redeemers.is_empty() {
                     None
                 } else {
-                    Some(witness_set_redeemers)
+                    Some(witness_set_redeemers.into())
                 },
-            },
+            }
+            .into(),
             success: true,               // TODO
             auxiliary_data: None.into(), // TODO
-        };
+        }
+        .into();
 
         // TODO: pallas auxiliary_data_hash should be Hash<32> not Bytes
         pallas_tx.transaction_body.auxiliary_data_hash = pallas_tx
@@ -296,9 +305,7 @@ impl BuildConway for StagingTransaction {
 }
 
 impl Output {
-    pub fn build_babbage_raw(
-        &self,
-    ) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
+    pub fn build_babbage_raw(&self) -> Result<TransactionOutput, TxBuilderError> {
         let assets = self
             .assets
             .iter()
@@ -337,7 +344,7 @@ impl Output {
                 DatumKind::Inline => {
                     let pd = PlutusData::decode_fragment(d.bytes.as_ref())
                         .map_err(|_| TxBuilderError::MalformedDatum)?;
-                    Some(DatumOption::Data(CborWrap(pd)))
+                    Some(DatumOption::Data(CborWrap(pd.into())))
                 }
             }
         } else {
@@ -348,7 +355,8 @@ impl Output {
             let script = match s.kind {
                 ScriptKind::Native => PallasScript::NativeScript(
                     NativeScript::decode_fragment(s.bytes.as_ref())
-                        .map_err(|_| TxBuilderError::MalformedScript)?,
+                        .map_err(|_| TxBuilderError::MalformedScript)?
+                        .into(),
                 ),
                 ScriptKind::PlutusV1 => PallasScript::PlutusV1Script(PlutusScript::<1>(
                     s.bytes.as_ref().to_vec().into(),
@@ -366,13 +374,14 @@ impl Output {
             None
         };
 
-        Ok(PseudoTransactionOutput::PostAlonzo(
+        Ok(TransactionOutput::PostAlonzo(
             PostAlonzoTransactionOutput {
                 address: self.address.to_vec().into(),
                 value,
-                datum_option,
+                datum_option: datum_option.map(|x| x.into()),
                 script_ref,
-            },
+            }
+            .into(),
         ))
     }
 }

@@ -12,8 +12,8 @@ use pallas_codec::{
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
     alonzo::{Multiasset, NativeScript, Tx as AlonzoTx, VKeyWitness, Value},
-    babbage::MintedTx as BabbageMintedTx,
-    conway::{MintedTx as ConwayMintedTx, Multiasset as ConwayMultiasset, Value as ConwayValue},
+    babbage::Tx as BabbageTx,
+    conway::{Multiasset as ConwayMultiasset, Tx as ConwayTx, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, Hash, NetworkId,
     NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PositiveCoin, Relay,
     RewardAccount, StakeCredential, TransactionIndex, UnitInterval, VrfKeyhash,
@@ -108,7 +108,7 @@ pub fn get_alonzo_comp_tx_size(mtx: &AlonzoTx) -> u32 {
     }
 }
 
-pub fn get_babbage_tx_size(mtx: &BabbageMintedTx) -> Option<u32> {
+pub fn get_babbage_tx_size(mtx: &BabbageTx) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(mtx, &mut buff) {
         Ok(()) => Some(buff.len() as u32),
@@ -116,7 +116,7 @@ pub fn get_babbage_tx_size(mtx: &BabbageMintedTx) -> Option<u32> {
     }
 }
 
-pub fn get_conway_tx_size(mtx: &ConwayMintedTx) -> Option<u32> {
+pub fn get_conway_tx_size(mtx: &ConwayTx) -> Option<u32> {
     let mut buff: Vec<u8> = Vec::new();
     match encode(mtx, &mut buff) {
         Ok(()) => Some(buff.len() as u32),
@@ -700,15 +700,15 @@ pub fn is_byron_address(address: &[u8]) -> bool {
     matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
 }
 
-pub fn aux_data_from_alonzo_minted_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_alonzo_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
-pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageMintedTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_babbage_tx<'a>(mtx: &'a BabbageTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 
-pub fn aux_data_from_conway_minted_tx<'a>(mtx: &'a ConwayMintedTx) -> Option<&'a [u8]> {
+pub fn aux_data_from_conway_tx<'a>(mtx: &'a ConwayTx) -> Option<&'a [u8]> {
     mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
 }
 

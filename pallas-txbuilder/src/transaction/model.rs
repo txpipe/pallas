@@ -641,7 +641,8 @@ impl BuiltTransaction {
                 let mut vkey_witnesses = tx
                     .transaction_witness_set
                     .vkeywitness
-                    .map(|x| x.to_vec())
+                    .as_ref()
+                    .map(|x| x.clone().to_vec())
                     .unwrap_or_default();
 
                 vkey_witnesses.push(conway::VKeyWitness {
@@ -688,7 +689,8 @@ impl BuiltTransaction {
                 let mut vkey_witnesses = tx
                     .transaction_witness_set
                     .vkeywitness
-                    .map(|x| x.to_vec())
+                    .as_ref()
+                    .map(|x| x.clone().to_vec())
                     .unwrap_or_default();
 
                 vkey_witnesses.push(conway::VKeyWitness {
@@ -730,7 +732,8 @@ impl BuiltTransaction {
                 let mut vkey_witnesses = tx
                     .transaction_witness_set
                     .vkeywitness
-                    .map(|x| x.to_vec())
+                    .as_ref()
+                    .map(|x| x.clone().to_vec())
                     .unwrap_or_default();
 
                 vkey_witnesses.retain(|x| *x.vkey != pk.0.to_vec());

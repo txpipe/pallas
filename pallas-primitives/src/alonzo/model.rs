@@ -11,8 +11,8 @@ pub use pallas_codec::codec_by_datatype;
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch,
     ExUnitPrices, ExUnits, GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, Int, KeepRaw,
-    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript, PolicyId,
-    PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion,
+    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript,
+    PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion,
     RationalNumber, Relay, RewardAccount, ScriptHash, StakeCredential, TransactionIndex,
     TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
 };
@@ -76,7 +76,7 @@ pub struct Header {
     pub body_signature: Bytes,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `KeepRaw<'_, Header>` instead")]
 pub type MintedHeader<'a> = KeepRaw<'a, Header>;
 
 pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
@@ -92,7 +92,7 @@ pub enum Value {
 codec_by_datatype! {
     Value,
     U8 | U16 | U32 | U64 => Coin,
-    (coin | U8 | U16 | U32 | U64, multi | Map | MapIndef => Multiasset)
+    (coin, multi => Multiasset)
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -421,7 +421,7 @@ pub struct WitnessSet<'b> {
     pub redeemer: Option<Vec<Redeemer>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
@@ -484,7 +484,7 @@ pub struct Block<'b> {
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Encode, Decode, Debug, Clone)]
@@ -502,7 +502,7 @@ pub struct Tx<'b> {
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
-// TODO: To be deprecated.
+#[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]
@@ -511,7 +511,7 @@ mod tests {
 
     use crate::{alonzo::PlutusData, Fragment};
 
-    use super::{Header, Block};
+    use super::{Block, Header};
 
     type BlockWrapper<'b> = (u16, Block<'b>);
 

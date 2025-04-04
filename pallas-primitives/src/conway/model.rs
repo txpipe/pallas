@@ -5,15 +5,16 @@
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{self, Decode, Encode};
-use pallas_codec::utils::CborWrap;
+
+pub use pallas_codec::codec_by_datatype;
 
 pub use crate::{
     plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits,
     GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, KeepRaw, Metadata, Metadatum,
-    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, Nullable, PlutusScript,
-    PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin, PositiveInterval,
-    ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set, StakeCredential,
-    TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+    MetadatumLabel, NetworkId, NonEmptySet, NonZeroInt, Nonce, NonceVariant, Nullable,
+    PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin,
+    PositiveInterval, ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set,
+    StakeCredential, TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
 };
 
 use crate::BTreeMap;
@@ -36,46 +37,10 @@ pub enum Value {
     Multiasset(Coin, Multiasset<PositiveCoin>),
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for Value {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::U8 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U16 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U32 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::U64 => Ok(Value::Coin(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array => {
-                d.array()?;
-                let coin = d.decode_with(ctx)?;
-                let multiasset = d.decode_with(ctx)?;
-                Ok(Value::Multiasset(coin, multiasset))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "unknown cbor data type for Alonzo Value enum",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::encode::Encode<C> for Value {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        // TODO: check how to deal with uint variants (u32 vs u64)
-        match self {
-            Value::Coin(coin) => {
-                e.encode_with(coin, ctx)?;
-            }
-            Value::Multiasset(coin, other) => {
-                e.array(2)?;
-                e.encode_with(coin, ctx)?;
-                e.encode_with(other, ctx)?;
-            }
-        };
-
-        Ok(())
-    }
+codec_by_datatype! {
+    Value,
+    U8 | U16 | U32 | U64 => Coin,
+    (coin, multi => Multiasset)
 }
 
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
@@ -130,10 +95,18 @@ pub enum Certificate {
     #[n(12)]
     VoteRegDeleg(#[n(0)] StakeCredential, #[n(1)] DRep, #[n(2)] Coin),
     #[n(13)]
-    StakeVoteRegDeleg(#[n(0)] StakeCredential, #[n(1)] PoolKeyhash, #[n(2)] DRep, #[n(3)] Coin),
+    StakeVoteRegDeleg(
+        #[n(0)] StakeCredential,
+        #[n(1)] PoolKeyhash,
+        #[n(2)] DRep,
+        #[n(3)] Coin,
+    ),
 
     #[n(14)]
-    AuthCommitteeHot(#[n(0)] CommitteeColdCredential, #[n(1)] CommitteeHotCredential),
+    AuthCommitteeHot(
+        #[n(0)] CommitteeColdCredential,
+        #[n(1)] CommitteeHotCredential,
+    ),
     #[n(15)]
     ResignCommitteeCold(#[n(0)] CommitteeColdCredential, #[n(1)] Option<Anchor>),
     #[n(16)]
@@ -300,35 +273,50 @@ pub struct Update {
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PoolVotingThresholds {
-    #[n(0)] pub motion_no_confidence: UnitInterval,
-    #[n(1)] pub committee_normal: UnitInterval,
-    #[n(2)] pub committee_no_confidence: UnitInterval,
-    #[n(3)] pub hard_fork_initiation: UnitInterval,
-    #[n(4)] pub security_voting_threshold: UnitInterval,
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(4)]
+    pub security_voting_threshold: UnitInterval,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct DRepVotingThresholds {
-    #[n(0)] pub motion_no_confidence: UnitInterval,
-    #[n(1)] pub committee_normal: UnitInterval,
-    #[n(2)] pub committee_no_confidence: UnitInterval,
-    #[n(3)] pub update_constitution: UnitInterval,
-    #[n(4)] pub hard_fork_initiation: UnitInterval,
-    #[n(5)] pub pp_network_group: UnitInterval,
-    #[n(6)] pub pp_economic_group: UnitInterval,
-    #[n(7)] pub pp_technical_group: UnitInterval,
-    #[n(8)] pub pp_governance_group: UnitInterval,
-    #[n(9)] pub treasury_withdrawal: UnitInterval,
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub update_constitution: UnitInterval,
+    #[n(4)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(5)]
+    pub pp_network_group: UnitInterval,
+    #[n(6)]
+    pub pp_economic_group: UnitInterval,
+    #[n(7)]
+    pub pp_technical_group: UnitInterval,
+    #[n(8)]
+    pub pp_governance_group: UnitInterval,
+    #[n(9)]
+    pub treasury_withdrawal: UnitInterval,
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct PseudoTransactionBody<T1> {
+pub struct TransactionBody<'a> {
     #[n(0)]
     pub inputs: Set<TransactionInput>,
 
-    #[n(1)]
-    pub outputs: Vec<T1>,
+    #[b(1)]
+    pub outputs: Vec<TransactionOutput<'a>>,
 
     #[n(2)]
     pub fee: Coin,
@@ -364,7 +352,7 @@ pub struct PseudoTransactionBody<T1> {
     pub network_id: Option<NetworkId>,
 
     #[n(16)]
-    pub collateral_return: Option<T1>,
+    pub collateral_return: Option<TransactionOutput<'a>>,
 
     #[n(17)]
     pub total_collateral: Option<Coin>,
@@ -386,51 +374,28 @@ pub struct PseudoTransactionBody<T1> {
     pub donation: Option<PositiveCoin>,
 }
 
-pub type TransactionBody = PseudoTransactionBody<TransactionOutput>;
-
-pub type MintedTransactionBody<'a> = PseudoTransactionBody<MintedTransactionOutput<'a>>;
-
-impl<'a> From<MintedTransactionBody<'a>> for TransactionBody {
-    fn from(value: MintedTransactionBody<'a>) -> Self {
-        Self {
-            inputs: value.inputs,
-            outputs: value.outputs.into_iter().map(|x| x.into()).collect(),
-            fee: value.fee,
-            ttl: value.ttl,
-            certificates: value.certificates,
-            withdrawals: value.withdrawals,
-            auxiliary_data_hash: value.auxiliary_data_hash,
-            validity_interval_start: value.validity_interval_start,
-            mint: value.mint,
-            script_data_hash: value.script_data_hash,
-            collateral: value.collateral,
-            required_signers: value.required_signers,
-            network_id: value.network_id,
-            collateral_return: value.collateral_return.map(|x| x.into()),
-            total_collateral: value.total_collateral,
-            reference_inputs: value.reference_inputs,
-            voting_procedures: value.voting_procedures,
-            proposal_procedures: value.proposal_procedures,
-            treasury_value: value.treasury_value,
-            donation: value.donation,
-        }
-    }
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `TransactionBody` instead")]
+pub type MintedTransactionBody<'a> = TransactionBody<'a>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum Vote {
-    #[n(0)] No,
-    #[n(1)] Yes,
-    #[n(2)] Abstain,
+    #[n(0)]
+    No,
+    #[n(1)]
+    Yes,
+    #[n(2)]
+    Abstain,
 }
 
 pub type VotingProcedures = BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
-    #[n(0)] pub vote: Vote,
-    #[n(1)] pub anchor: Option<Anchor>,
+    #[n(0)]
+    pub vote: Vote,
+    #[n(1)]
+    pub anchor: Option<Anchor>,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
@@ -455,19 +420,14 @@ pub enum GovAction {
         #[n(2)] Option<ScriptHash>,
     ),
     #[n(1)]
-    HardForkInitiation(
-        #[n(0)] Option<GovActionId>,
-        #[n(1)] ProtocolVersion,
-    ),
+    HardForkInitiation(#[n(0)] Option<GovActionId>, #[n(1)] ProtocolVersion),
     #[n(2)]
     TreasuryWithdrawals(
         #[n(0)] BTreeMap<RewardAccount, Coin>,
         #[n(1)] Option<ScriptHash>,
     ),
     #[n(3)]
-    NoConfidence(
-        #[n(0)] Option<GovActionId>,
-    ),
+    NoConfidence(#[n(0)] Option<GovActionId>),
     #[n(4)]
     UpdateCommittee(
         #[n(0)] Option<GovActionId>,
@@ -476,10 +436,7 @@ pub enum GovAction {
         #[n(3)] UnitInterval,
     ),
     #[n(5)]
-    NewConstitution(
-        #[n(0)] Option<GovActionId>,
-        #[n(1)] Constitution,
-    ),
+    NewConstitution(#[n(0)] Option<GovActionId>, #[n(1)] Constitution),
     #[n(6)]
     Information,
 }
@@ -523,80 +480,27 @@ pub struct GovActionId {
     pub action_index: u32,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum PseudoTransactionOutput<T> {
-    Legacy(LegacyTransactionOutput),
-    PostAlonzo(T),
+pub type PostAlonzoTransactionOutput<'b> =
+    babbage::GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
+
+#[deprecated(
+    since = "1.0.0-alpha",
+    note = "use `PostAlonzoTransactionOutput` instead"
+)]
+pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>;
+
+pub type TransactionOutput<'b> = babbage::GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
+
+// FIXME: Repeated since macro does not handle type generics yet.
+codec_by_datatype! {
+    TransactionOutput<'b>,
+    Array | ArrayIndef => Legacy,
+    Map | MapIndef => PostAlonzo,
+    ()
 }
 
-impl<'b, C, T> minicbor::Decode<'b, C> for PseudoTransactionOutput<T>
-where
-    T: minicbor::Decode<'b, C>,
-{
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(PseudoTransactionOutput::Legacy(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(PseudoTransactionOutput::PostAlonzo(d.decode_with(ctx)?))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "invalid type for transaction output struct",
-            )),
-        }
-    }
-}
-
-impl<C, T> minicbor::Encode<C> for PseudoTransactionOutput<T>
-where
-    T: minicbor::Encode<C>,
-{
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            PseudoTransactionOutput::Legacy(x) => x.encode(e, ctx),
-            PseudoTransactionOutput::PostAlonzo(x) => x.encode(e, ctx),
-        }
-    }
-}
-
-pub type PostAlonzoTransactionOutput =
-    crate::babbage::PseudoPostAlonzoTransactionOutput<Value, DatumOption, ScriptRef>;
-
-pub type TransactionOutput = PseudoTransactionOutput<PostAlonzoTransactionOutput>;
-
-pub type MintedTransactionOutput<'b> =
-    PseudoTransactionOutput<MintedPostAlonzoTransactionOutput<'b>>;
-
-impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
-    fn from(value: MintedTransactionOutput<'b>) -> Self {
-        match value {
-            PseudoTransactionOutput::Legacy(x) => Self::Legacy(x),
-            PseudoTransactionOutput::PostAlonzo(x) => Self::PostAlonzo(x.into()),
-        }
-    }
-}
-
-pub type MintedPostAlonzoTransactionOutput<'b> = crate::babbage::PseudoPostAlonzoTransactionOutput<
-    Value,
-    MintedDatumOption<'b>,
-    MintedScriptRef<'b>,
->;
-
-impl<'b> From<MintedPostAlonzoTransactionOutput<'b>> for PostAlonzoTransactionOutput {
-    fn from(value: MintedPostAlonzoTransactionOutput<'b>) -> Self {
-        Self {
-            address: value.address,
-            value: value.value,
-            datum_option: value.datum_option.map(|x| x.into()),
-            script_ref: value.script_ref.map(|x| CborWrap(x.unwrap().into())),
-        }
-    }
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `TransactionOutput` instead")]
+pub type MintedTransactionOutput<'b> = TransactionOutput<'b>;
 
 pub use crate::alonzo::VKeyWitness;
 
@@ -667,40 +571,16 @@ pub enum Redeemers {
     Map(BTreeMap<RedeemersKey, RedeemersValue>),
 }
 
+codec_by_datatype! {
+    Redeemers,
+    Array | ArrayIndef => List,
+    Map | MapIndef => Map,
+    ()
+}
+
 impl From<BTreeMap<RedeemersKey, RedeemersValue>> for Redeemers {
     fn from(value: BTreeMap<RedeemersKey, RedeemersValue>) -> Self {
         Redeemers::Map(value)
-    }
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for Redeemers {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(Self::List(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Self::Map(d.decode_with(ctx)?))
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "invalid type for redeemers struct",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::Encode<C> for Redeemers {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Self::List(x) => e.encode_with(x, ctx)?,
-            Self::Map(x) => e.encode_with(x, ctx)?,
-        };
-
-        Ok(())
     }
 }
 
@@ -708,35 +588,7 @@ pub use crate::alonzo::BootstrapWitness;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
-pub struct WitnessSet {
-    #[n(0)]
-    pub vkeywitness: Option<NonEmptySet<VKeyWitness>>,
-
-    #[n(1)]
-    pub native_script: Option<NonEmptySet<NativeScript>>,
-
-    #[n(2)]
-    pub bootstrap_witness: Option<NonEmptySet<BootstrapWitness>>,
-
-    #[n(3)]
-    pub plutus_v1_script: Option<NonEmptySet<PlutusScript<1>>>,
-
-    #[n(4)]
-    pub plutus_data: Option<NonEmptySet<PlutusData>>,
-
-    #[n(5)]
-    pub redeemer: Option<Redeemers>,
-
-    #[n(6)]
-    pub plutus_v2_script: Option<NonEmptySet<PlutusScript<2>>>,
-
-    #[n(7)]
-    pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
-}
-
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
-#[cbor(map)]
-pub struct MintedWitnessSet<'b> {
+pub struct WitnessSet<'b> {
     #[n(0)]
     pub vkeywitness: Option<NonEmptySet<VKeyWitness>>,
 
@@ -762,20 +614,8 @@ pub struct MintedWitnessSet<'b> {
     pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
 }
 
-impl<'b> From<MintedWitnessSet<'b>> for WitnessSet {
-    fn from(x: MintedWitnessSet<'b>) -> Self {
-        WitnessSet {
-            vkeywitness: x.vkeywitness,
-            native_script: x.native_script.map(Into::into),
-            bootstrap_witness: x.bootstrap_witness,
-            plutus_v1_script: x.plutus_v1_script,
-            plutus_data: x.plutus_data.map(Into::into),
-            redeemer: x.redeemer.map(|x| x.unwrap()),
-            plutus_v2_script: x.plutus_v2_script,
-            plutus_v3_script: x.plutus_v3_script,
-        }
-    }
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
+pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
@@ -796,13 +636,9 @@ pub struct PostAlonzoAuxiliaryData {
     pub plutus_v3_scripts: Option<Vec<PlutusScript<3>>>,
 }
 
-pub use crate::babbage::DatumHash;
+pub use babbage::DatumHash;
 
-pub use crate::babbage::PseudoDatumOption;
-
-pub use crate::babbage::DatumOption;
-
-pub use crate::babbage::MintedDatumOption;
+pub use babbage::DatumOption;
 
 #[deprecated(since = "0.31.0", note = "use `PlutusScript<1>` instead")]
 pub type PlutusV1Script = PlutusScript<1>;
@@ -813,198 +649,87 @@ pub type PlutusV2Script = PlutusScript<2>;
 #[deprecated(since = "0.31.0", note = "use `PlutusScript<3>` instead")]
 pub type PlutusV3Script = PlutusScript<3>;
 
-// script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum PseudoScript<T1> {
-    NativeScript(T1),
-    PlutusV1Script(PlutusScript<1>),
-    PlutusV2Script(PlutusScript<2>),
-    PlutusV3Script(PlutusScript<3>),
-}
-
-// script_ref = #6.24(bytes .cbor script)
-pub type ScriptRef = PseudoScript<NativeScript>;
-
-pub type MintedScriptRef<'b> = PseudoScript<KeepRaw<'b, NativeScript>>;
-
-impl<'b> From<MintedScriptRef<'b>> for ScriptRef {
-    fn from(value: MintedScriptRef<'b>) -> Self {
-        match value {
-            PseudoScript::NativeScript(x) => Self::NativeScript(x.unwrap()),
-            PseudoScript::PlutusV1Script(x) => Self::PlutusV1Script(x),
-            PseudoScript::PlutusV2Script(x) => Self::PlutusV2Script(x),
-            PseudoScript::PlutusV3Script(x) => Self::PlutusV3Script(x),
-        }
-    }
+// script = [0, native_script // 1, plutus_v1_script // 2, plutus_v2_script // 3, plutus_v3_script]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cbor(flat)]
+pub enum ScriptRef<'b> {
+    #[n(0)]
+    NativeScript(#[b(0)] KeepRaw<'b, NativeScript>),
+    #[n(1)]
+    PlutusV1Script(#[n(0)] PlutusScript<1>),
+    #[n(2)]
+    PlutusV2Script(#[n(0)] PlutusScript<2>),
+    #[n(3)]
+    PlutusV3Script(#[n(0)] PlutusScript<3>),
 }
 
 // TODO: Remove in favour of multierascriptref
-impl<'b> From<babbage::MintedScriptRef<'b>> for MintedScriptRef<'b> {
-    fn from(value: babbage::MintedScriptRef<'b>) -> Self {
+impl<'b> From<babbage::ScriptRef<'b>> for ScriptRef<'b> {
+    fn from(value: babbage::ScriptRef<'b>) -> Self {
         match value {
-            babbage::MintedScriptRef::NativeScript(x) => Self::NativeScript(x),
-            babbage::MintedScriptRef::PlutusV1Script(x) => Self::PlutusV1Script(x),
-            babbage::MintedScriptRef::PlutusV2Script(x) => Self::PlutusV2Script(x),
+            babbage::ScriptRef::NativeScript(x) => Self::NativeScript(x),
+            babbage::ScriptRef::PlutusV1Script(x) => Self::PlutusV1Script(x),
+            babbage::ScriptRef::PlutusV2Script(x) => Self::PlutusV2Script(x),
         }
     }
 }
 
-impl<'b, C, T> minicbor::Decode<'b, C> for PseudoScript<T>
-where
-    T: minicbor::Decode<'b, ()>,
-{
-    fn decode(
-        d: &mut minicbor::Decoder<'b>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-
-        match d.u8()? {
-            0 => Ok(Self::NativeScript(d.decode()?)),
-            1 => Ok(Self::PlutusV1Script(d.decode()?)),
-            2 => Ok(Self::PlutusV2Script(d.decode()?)),
-            3 => Ok(Self::PlutusV3Script(d.decode()?)),
-            x => Err(minicbor::decode::Error::message(format!(
-                "invalid variant for script enum: {}",
-                x
-            ))),
-        }
-    }
-}
-
-impl<C, T> minicbor::Encode<C> for PseudoScript<T>
-where
-    T: minicbor::Encode<C>,
-{
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self {
-            Self::NativeScript(x) => e.encode_with((0, x), ctx)?,
-            Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
-            Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
-            Self::PlutusV3Script(x) => e.encode_with((3, x), ctx)?,
-        };
-
-        Ok(())
-    }
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `ScriptRef` instead")]
+pub type MintedScriptRef<'b> = ScriptRef<'b>;
 
 pub use crate::alonzo::AuxiliaryData;
 
-use crate::babbage::MintedHeader;
-
+/// A memory representation of an already minted block
+///
+/// This structure allows to retrieve the
+/// original CBOR bytes for each structure that might require hashing. In this
+/// way, we make sure that the resulting hash matches what exists on-chain.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
-pub struct PseudoBlock<T1, T2, T3, T4>
-where
-    T4: std::clone::Clone,
-{
+pub struct Block<'b> {
     #[n(0)]
-    pub header: T1,
+    pub header: KeepRaw<'b, Header>,
 
     #[b(1)]
-    pub transaction_bodies: Vec<T2>,
+    pub transaction_bodies: Vec<KeepRaw<'b, TransactionBody<'b>>>,
 
     #[n(2)]
-    pub transaction_witness_sets: Vec<T3>,
+    pub transaction_witness_sets: Vec<KeepRaw<'b, WitnessSet<'b>>>,
 
     #[n(3)]
-    pub auxiliary_data_set: BTreeMap<TransactionIndex, T4>,
+    pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
 
     #[n(4)]
     pub invalid_transactions: Option<Vec<TransactionIndex>>,
 }
 
-pub type Block = PseudoBlock<Header, TransactionBody, WitnessSet, AuxiliaryData>;
-
-/// A memory representation of an already minted block
-///
-/// This structure is analogous to [Block], but it allows to retrieve the
-/// original CBOR bytes for each structure that might require hashing. In this
-/// way, we make sure that the resulting hash matches what exists on-chain.
-pub type MintedBlock<'b> = PseudoBlock<
-    KeepRaw<'b, MintedHeader<'b>>,
-    KeepRaw<'b, MintedTransactionBody<'b>>,
-    KeepRaw<'b, MintedWitnessSet<'b>>,
-    KeepRaw<'b, AuxiliaryData>,
->;
-
-impl<'b> From<MintedBlock<'b>> for Block {
-    fn from(x: MintedBlock<'b>) -> Self {
-        Block {
-            header: x.header.unwrap().into(),
-            transaction_bodies: x
-                .transaction_bodies
-                .iter()
-                .cloned()
-                .map(|x| x.unwrap())
-                .map(TransactionBody::from)
-                .collect(),
-            transaction_witness_sets: x
-                .transaction_witness_sets
-                .iter()
-                .cloned()
-                .map(|x| x.unwrap())
-                .map(WitnessSet::from)
-                .collect(),
-            auxiliary_data_set: x
-                .auxiliary_data_set
-                .into_iter()
-                .map(|(k, v)| (k, v.unwrap()))
-                .collect(),
-            invalid_transactions: x.invalid_transactions,
-        }
-    }
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
+pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
-pub struct PseudoTx<T1, T2, T3>
-where
-    T1: std::clone::Clone,
-    T2: std::clone::Clone,
-    T3: std::clone::Clone,
-{
-    #[n(0)]
-    pub transaction_body: T1,
+pub struct Tx<'b> {
+    #[b(0)]
+    pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
 
     #[n(1)]
-    pub transaction_witness_set: T2,
+    pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
     pub success: bool,
 
     #[n(3)]
-    pub auxiliary_data: T3,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
-pub type Tx = PseudoTx<TransactionBody, WitnessSet, Nullable<AuxiliaryData>>;
-
-pub type MintedTx<'b> = PseudoTx<
-    KeepRaw<'b, MintedTransactionBody<'b>>,
-    KeepRaw<'b, MintedWitnessSet<'b>>,
-    Nullable<KeepRaw<'b, AuxiliaryData>>,
->;
-
-impl<'b> From<MintedTx<'b>> for Tx {
-    fn from(x: MintedTx<'b>) -> Self {
-        Tx {
-            transaction_body: x.transaction_body.unwrap().into(),
-            transaction_witness_set: x.transaction_witness_set.unwrap().into(),
-            success: x.success,
-            auxiliary_data: x.auxiliary_data.map(|x| x.unwrap()),
-        }
-    }
-}
+#[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
+pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::MintedBlock;
+    use super::Block;
 
-    type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+    type BlockWrapper<'b> = (u16, Block<'b>);
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

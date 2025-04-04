@@ -16,19 +16,19 @@ use crate::{
 };
 
 impl<'b> MultiEraTx<'b> {
-    pub fn from_byron(tx: &'b byron::MintedTxPayload<'b>) -> Self {
+    pub fn from_byron(tx: &'b byron::TxPayload<'b>) -> Self {
         Self::Byron(Box::new(Cow::Borrowed(tx)))
     }
 
-    pub fn from_alonzo_compatible(tx: &'b alonzo::MintedTx<'b>, era: Era) -> Self {
+    pub fn from_alonzo_compatible(tx: &'b alonzo::Tx<'b>, era: Era) -> Self {
         Self::AlonzoCompatible(Box::new(Cow::Borrowed(tx)), era)
     }
 
-    pub fn from_babbage(tx: &'b babbage::MintedTx<'b>) -> Self {
+    pub fn from_babbage(tx: &'b babbage::Tx<'b>) -> Self {
         Self::Babbage(Box::new(Cow::Borrowed(tx)))
     }
 
-    pub fn from_conway(tx: &'b conway::MintedTx<'b>) -> Self {
+    pub fn from_conway(tx: &'b conway::Tx<'b>) -> Self {
         Self::Conway(Box::new(Cow::Borrowed(tx)))
     }
 
@@ -45,7 +45,7 @@ impl<'b> MultiEraTx<'b> {
     pub fn decode_for_era(era: Era, cbor: &'b [u8]) -> Result<Self, minicbor::decode::Error> {
         match era {
             Era::Byron => {
-                let tx = minicbor::decode(cbor)?;
+                let tx: byron::TxPayload = minicbor::decode(cbor)?;
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(MultiEraTx::Byron(tx))
             }
@@ -128,6 +128,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .iter()
+                .map(|keep| keep.deref())
                 .map(MultiEraOutput::from_babbage)
                 .collect(),
             MultiEraTx::Byron(x) => x
@@ -156,6 +157,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .outputs
                 .get(index)
+                .map(|keep| keep.deref())
                 .map(MultiEraOutput::from_babbage),
             MultiEraTx::Byron(x) => x
                 .transaction
@@ -373,6 +375,7 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .collateral_return
                 .as_ref()
+                .map(|keep| keep.deref())
                 .map(MultiEraOutput::from_babbage),
             MultiEraTx::Conway(x) => x
                 .transaction_body
@@ -615,28 +618,28 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::MintedTx> {
+    pub fn as_babbage(&self) -> Option<&babbage::Tx> {
         match self {
             MultiEraTx::Babbage(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_alonzo(&self) -> Option<&alonzo::MintedTx> {
+    pub fn as_alonzo(&self) -> Option<&alonzo::Tx> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_byron(&self) -> Option<&byron::MintedTxPayload> {
+    pub fn as_byron(&self) -> Option<&byron::TxPayload> {
         match self {
             MultiEraTx::Byron(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_conway(&self) -> Option<&conway::MintedTx> {
+    pub fn as_conway(&self) -> Option<&conway::Tx> {
         match self {
             MultiEraTx::Conway(x) => Some(x),
             _ => None,
