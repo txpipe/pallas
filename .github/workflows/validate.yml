@@ -26,7 +26,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Run cargo check
-        run: cargo check
+        run: cargo check --all-features
 
   test:
     name: Test Suite
@@ -48,7 +48,7 @@ jobs:
           toolchain: stable
 
       - name: Run cargo test
-        run: cargo test --release
+        run: cargo test --release --all-features
 
   lints:
     name: Lints
