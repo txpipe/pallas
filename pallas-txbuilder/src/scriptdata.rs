@@ -124,7 +124,7 @@ mod tests {
         let tx = MultiEraTx::decode(bytes).unwrap();
         let tx = tx.as_conway().unwrap();
 
-        let witness = conway::WitnessSet::from(tx.transaction_witness_set.clone().unwrap());
+        let witness = tx.transaction_witness_set.clone().unwrap();
 
         let script_data = ScriptData {
             redeemers: witness.redeemer.unwrap().unwrap(),

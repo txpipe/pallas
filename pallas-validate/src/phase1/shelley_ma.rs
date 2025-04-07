@@ -659,7 +659,7 @@ fn check_mir(
         let mut combined: HashMap<StakeCredential, Coin> = HashMap::new();
         if let StakeCredentials(kvp) = &mir.target {
             let mut kvv: Vec<(StakeCredential, u64)> = // TODO: Err if the value is negative
-                kvp.iter().map(|kv| (kv.0.clone(), *kv.clone().1 as u64)).collect();
+                kvp.iter().map(|kv| (kv.0.clone(), *kv.1 as u64)).collect();
             kvv.extend(ir_pot);
             for (key, value) in kvv {
                 combined.insert(key, value);

@@ -279,8 +279,7 @@ impl BuildConway for StagingTransaction {
             .into(),
             success: true,               // TODO
             auxiliary_data: None.into(), // TODO
-        }
-        .into();
+        };
 
         // TODO: pallas auxiliary_data_hash should be Hash<32> not Bytes
         pallas_tx.transaction_body.auxiliary_data_hash = pallas_tx

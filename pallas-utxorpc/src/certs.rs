@@ -47,13 +47,10 @@ impl<C: LedgerContext> Mapper<C> {
                 reward_account: reward_account.to_vec().into(),
                 pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
                 relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                pool_metadata: pool_metadata
-                    .clone()
-                    .map(|x| u5c::PoolMetadata {
-                        url: x.url.clone(),
-                        hash: x.hash.to_vec().into(),
-                    })
-                    .into(),
+                pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
+                    url: x.url.clone(),
+                    hash: x.hash.to_vec().into(),
+                }),
             }),
             alonzo::Certificate::PoolRetirement(a, b) => {
                 u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
@@ -157,13 +154,10 @@ impl<C: LedgerContext> Mapper<C> {
                 reward_account: reward_account.to_vec().into(),
                 pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
                 relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                pool_metadata: pool_metadata
-                    .clone()
-                    .map(|x| u5c::PoolMetadata {
-                        url: x.url.clone(),
-                        hash: x.hash.to_vec().into(),
-                    })
-                    .into(),
+                pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
+                    url: x.url.clone(),
+                    hash: x.hash.to_vec().into(),
+                }),
             }),
             conway::Certificate::PoolRetirement(a, b) => {
                 u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
@@ -228,13 +222,10 @@ impl<C: LedgerContext> Mapper<C> {
                 u5c::certificate::Certificate::ResignCommitteeColdCert(
                     u5c::ResignCommitteeColdCert {
                         committee_cold_credential: self.map_stake_credential(cold_cred).into(),
-                        anchor: anchor
-                            .clone()
-                            .map(|a| u5c::Anchor {
-                                url: a.url,
-                                content_hash: a.content_hash.to_vec().into(),
-                            })
-                            .into(),
+                        anchor: anchor.clone().map(|a| u5c::Anchor {
+                            url: a.url,
+                            content_hash: a.content_hash.to_vec().into(),
+                        }),
                     },
                 )
             }
@@ -242,13 +233,10 @@ impl<C: LedgerContext> Mapper<C> {
                 u5c::certificate::Certificate::RegDrepCert(u5c::RegDRepCert {
                     drep_credential: self.map_stake_credential(cred).into(),
                     coin: *coin,
-                    anchor: anchor
-                        .clone()
-                        .map(|a| u5c::Anchor {
-                            url: a.url,
-                            content_hash: a.content_hash.to_vec().into(),
-                        })
-                        .into(),
+                    anchor: anchor.clone().map(|a| u5c::Anchor {
+                        url: a.url,
+                        content_hash: a.content_hash.to_vec().into(),
+                    }),
                 })
             }
             conway::Certificate::UnRegDRepCert(cred, coin) => {
@@ -260,13 +248,10 @@ impl<C: LedgerContext> Mapper<C> {
             conway::Certificate::UpdateDRepCert(cred, anchor) => {
                 u5c::certificate::Certificate::UpdateDrepCert(u5c::UpdateDRepCert {
                     drep_credential: self.map_stake_credential(cred).into(),
-                    anchor: anchor
-                        .clone()
-                        .map(|a| u5c::Anchor {
-                            url: a.url,
-                            content_hash: a.content_hash.to_vec().into(),
-                        })
-                        .into(),
+                    anchor: anchor.clone().map(|a| u5c::Anchor {
+                        url: a.url,
+                        content_hash: a.content_hash.to_vec().into(),
+                    }),
                 })
             }
         };
