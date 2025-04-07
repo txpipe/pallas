@@ -66,7 +66,6 @@ impl ScriptData {
 mod tests {
     use std::sync::LazyLock;
 
-    use pallas_primitives::conway;
     use pallas_traverse::MultiEraTx;
 
     use super::*;
