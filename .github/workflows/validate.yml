@@ -7,11 +7,11 @@ name: Validate
 
 jobs:
   check:
-    name: Check
+    name: Check All Features
     strategy:
       fail-fast: false
       matrix:
-        os: [ windows-latest, ubuntu-latest, macOS-latest ]
+        os: [ ubuntu-latest, macOS-latest ]
         rust: [ stable ]
 
     runs-on: ${{ matrix.os }}
@@ -29,11 +29,11 @@ jobs:
         run: cargo check --all-features
 
   test:
-    name: Test Suite
+    name: Test Suite All Features
     strategy:
       fail-fast: false
       matrix:
-        os: [ windows-latest, ubuntu-latest, macOS-latest ]
+        os: [ ubuntu-latest, macOS-latest ]
         rust: [ stable ]
 
     runs-on: ${{ matrix.os }}
@@ -49,6 +49,50 @@ jobs:
 
       - name: Run cargo test
         run: cargo test --release --all-features
+
+  check-win:
+    name: Check Windows
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest ]
+        rust: [ stable ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Run cargo check
+        run: cargo check
+
+  test-win:
+    name: Test Suite Windows
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest ]
+        rust: [ stable ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Run cargo test
+        run: cargo test --release
 
   lints:
     name: Lints
