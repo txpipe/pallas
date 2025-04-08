@@ -18,7 +18,7 @@ pub type EvalReport = Vec<(Redeemer, EvalResult)>;
 
 pub fn evaluate_tx(
     tx: &MultiEraTx,
-    pparams: &MultiEraProtocolParameters,
+    _pparams: &MultiEraProtocolParameters,
     utxos: &UtxoMap,
     slot_config: &SlotConfig,
 ) -> Result<EvalReport, Error> {
