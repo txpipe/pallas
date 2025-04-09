@@ -2,7 +2,6 @@ use crate::uplc::ast::{Constant, NamedDeBruijn, Term};
 
 use super::{cost_model::ExBudget, error::Error, Trace};
 
-
 #[derive(Debug)]
 pub struct EvalResult {
     pub result: Result<Term<NamedDeBruijn>, Error>,
