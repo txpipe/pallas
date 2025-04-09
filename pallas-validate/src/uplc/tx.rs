@@ -3,6 +3,7 @@ use pallas_primitives::{
     conway::{CostModels, Redeemer, Redeemers, RedeemersKey, Tx},
     ExUnits, PlutusData,
 };
+pub use phase_one::{eval_phase_one, redeemer_tag_to_string};
 use script_context::{DataLookupTable, ResolvedInput, SlotConfig};
 
 use super::machine::{cost_model::ExBudget, eval_result::EvalResult};
@@ -11,6 +12,7 @@ pub mod error;
 pub mod eval;
 mod phase_one;
 pub mod script_context;
+pub mod to_plutus_data;
 
 /// Evaluate the scripts in a transaction using
 /// the UPLC Cek Machine. This function collects
@@ -30,10 +32,10 @@ pub fn eval_phase_two(
 
     let lookup_table = DataLookupTable::from_transaction(tx, utxos);
 
-    // if run_phase_one {
-    //     // subset of phase 1 check on redeemers and scripts
-    //     eval_phase_one(tx, utxos, &lookup_table)?;
-    // }
+    if run_phase_one {
+        // subset of phase 1 check on redeemers and scripts
+        eval_phase_one(tx, utxos, &lookup_table)?;
+    }
 
     match redeemers {
         Some(rs) => {

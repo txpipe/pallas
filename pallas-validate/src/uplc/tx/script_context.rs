@@ -1,12 +1,22 @@
-use std::{cmp::Ordering, collections::{BTreeMap, HashMap}};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
+};
 
 use itertools::Itertools;
 use pallas_addresses::{Address, Network, StakePayload};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
-    alonzo, conway::{
-        Certificate, DatumOption, GovAction, GovActionId, Mint, NativeScript, PostAlonzoTransactionOutput, ProposalProcedure, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners, ScriptRef, TransactionBody, TransactionOutput, Tx, Value, Voter, VotingProcedure, WitnessSet
-    }, AddrKeyhash, Bytes, Coin, DatumHash, KeepRaw, KeyValuePairs, NonEmptySet, PlutusData, PlutusScript, PolicyId, PositiveCoin, RewardAccount, ScriptHash, StakeCredential, TransactionInput
+    alonzo,
+    conway::{
+        Certificate, DatumOption, GovAction, GovActionId, Mint, NativeScript,
+        PostAlonzoTransactionOutput, ProposalProcedure, Redeemer, RedeemerTag, RedeemersKey,
+        RequiredSigners, ScriptRef, TransactionBody, TransactionOutput, Tx, Value, Voter,
+        VotingProcedure, WitnessSet,
+    },
+    AddrKeyhash, Bytes, Coin, DatumHash, KeepRaw, KeyValuePairs, NonEmptySet, PlutusData,
+    PlutusScript, PolicyId, PositiveCoin, RewardAccount, ScriptHash, StakeCredential,
+    TransactionInput,
 };
 use pallas_traverse::{ComputeHash, OriginalHash};
 
@@ -987,11 +997,11 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
                                         .expect("0 Ada in output value?"),
                                 )
                             })
-                            .collect::<BTreeMap<_, _>>()
+                            .collect::<BTreeMap<_, _>>(),
                     )
                 })
-                .collect::<BTreeMap<_, _>>()
-            )
+                .collect::<BTreeMap<_, _>>(),
+        ),
     }
 }
 

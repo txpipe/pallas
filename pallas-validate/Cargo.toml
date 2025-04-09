@@ -24,6 +24,8 @@ num-bigint = "0.4.6"
 blst = "0.3.14"
 strum = { version = "0.27.1", features = ["derive"] }
 miette = "7.5.0"
+num-integer = "0.1.46"
+num-traits = "0.2.19"
 
 [features]
 phase2 = ["rug", "uplc", "pallas"]
