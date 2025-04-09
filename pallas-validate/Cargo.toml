@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 pallas-addresses = { version = "=0.32.0", path = "../pallas-addresses" }
-pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
+pallas-codec = { version = "=0.32.0", path = "../pallas-codec", features = ["num-bigint"] }
 pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
 pallas-primitives = { version = "=0.32.0", path = "../pallas-primitives" }
 pallas-traverse = { version = "=0.32.0", path = "../pallas-traverse" }
@@ -26,6 +26,22 @@ strum = { version = "0.27.1", features = ["derive"] }
 miette = "7.5.0"
 num-integer = "0.1.46"
 num-traits = "0.2.19"
+once_cell = "1.21.3"
+bitvec = "1.0.1"
+cryptoxide = "0.5.0"
+hamming = "0.1.3"
+pretty = "0.12.4"
+indexmap = "2.9.0"
+peg = "0.8.5"
+
+[target.'cfg(not(target_family="wasm"))'.dependencies]
+secp256k1 = { version = "0.30.0" }
+[target.'cfg(target_family="wasm")'.dependencies]
+k256 = { version = "0.13.0" }
+
+[dev-dependencies]
+pretty_assertions = "1.3.0"
+indoc = "2.0.6"
 
 [features]
 phase2 = ["rug", "uplc", "pallas"]
