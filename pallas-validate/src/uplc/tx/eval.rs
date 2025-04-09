@@ -1,8 +1,24 @@
-use pallas_primitives::{conway::{CostModels, Language, Redeemer, Tx}, CostModel, PlutusData};
+use pallas_primitives::{
+    conway::{CostModels, Language, Redeemer, Tx},
+    Bytes, CostModel, ExUnits, PlutusData,
+};
 
-use crate::uplc::machine::{cost_model::ExBudget, eval_result::EvalResult};
+use crate::uplc::{
+    ast::{FakeNamedDeBruijn, NamedDeBruijn, Program},
+    machine::{cost_model::ExBudget, eval_result::EvalResult},
+    tx::{
+        phase_one::redeemer_tag_to_string,
+        script_context::{
+            find_script, ScriptContext, ScriptVersion, TxInfo, TxInfoV1, TxInfoV2, TxInfoV3,
+        },
+        to_plutus_data::ToPlutusData,
+    },
+};
 
-use super::{error::Error, script_context::{DataLookupTable, ResolvedInput, SlotConfig}};
+use super::{
+    error::Error,
+    script_context::{DataLookupTable, ResolvedInput, SlotConfig},
+};
 
 pub fn eval_redeemer(
     tx: &Tx,
@@ -27,8 +43,8 @@ pub fn eval_redeemer(
             .expect("couldn't create script context from transaction?");
 
         let program = match script_context {
-            ScriptContext::V1V2 { .. } => if let Some(datum) = datum {
-                program.apply_data(datum)
+            ScriptContext::V1V2 { .. } => if let Some(datum_value) = datum.as_ref() {
+                program.apply_data(datum_value.clone())
             } else {
                 program
             }

@@ -1,12 +1,19 @@
+use crate::uplc::{
+    ast::{DeBruijn, Program},
+    machine::{cost_model::ExBudget, eval_result::EvalResult},
+    PlutusData,
+};
 use error::Error;
 use pallas_primitives::{
-    conway::{CostModels, Redeemer, Redeemers, RedeemersKey, Tx},
-    ExUnits, PlutusData,
+    conway::{
+        CostModels, ExUnits, Redeemer, Redeemers, RedeemersKey, TransactionInput,
+        TransactionOutput, Tx,
+    },
+    Fragment,
 };
+use pallas_traverse::{Era, MultiEraTx};
 pub use phase_one::{eval_phase_one, redeemer_tag_to_string};
-use script_context::{DataLookupTable, ResolvedInput, SlotConfig};
-
-use super::machine::{cost_model::ExBudget, eval_result::EvalResult};
+pub use script_context::{DataLookupTable, ResolvedInput, SlotConfig};
 
 pub mod error;
 pub mod eval;
@@ -77,91 +84,91 @@ pub fn eval_phase_two(
     }
 }
 
-// pub fn eval_phase_two_raw(
-//     tx_bytes: &[u8],
-//     utxos_bytes: &[(Vec<u8>, Vec<u8>)],
-//     cost_mdls_bytes: Option<&[u8]>,
-//     initial_budget: (u64, u64),
-//     slot_config: (u64, u64, u32),
-//     run_phase_one: bool,
-//     with_redeemer: fn(&Redeemer) -> (),
-// ) -> Result<Vec<(Vec<u8>, EvalResult)>, Error> {
-//     let multi_era_tx = MultiEraTx::decode_for_era(Era::Conway, tx_bytes)
-//         .or_else(|e| MultiEraTx::decode_for_era(Era::Babbage, tx_bytes).map_err(|_| e))
-//         .or_else(|e| MultiEraTx::decode_for_era(Era::Alonzo, tx_bytes).map_err(|_| e))?;
+pub fn eval_phase_two_raw(
+    tx_bytes: &[u8],
+    utxos_bytes: &[(Vec<u8>, Vec<u8>)],
+    cost_mdls_bytes: Option<&[u8]>,
+    initial_budget: (u64, u64),
+    slot_config: (u64, u64, u32),
+    run_phase_one: bool,
+    with_redeemer: fn(&Redeemer) -> (),
+) -> Result<Vec<(Vec<u8>, EvalResult)>, Error> {
+    let multi_era_tx = MultiEraTx::decode_for_era(Era::Conway, tx_bytes)
+        .or_else(|e| MultiEraTx::decode_for_era(Era::Babbage, tx_bytes).map_err(|_| e))
+        .or_else(|e| MultiEraTx::decode_for_era(Era::Alonzo, tx_bytes).map_err(|_| e))?;
 
-//     let cost_mdls = cost_mdls_bytes
-//         .map(CostModels::decode_fragment)
-//         .transpose()?;
+    let cost_mdls = cost_mdls_bytes
+        .map(CostModels::decode_fragment)
+        .transpose()?;
 
-//     let budget = ExBudget {
-//         cpu: initial_budget.0 as i64,
-//         mem: initial_budget.1 as i64,
-//     };
+    let budget = ExBudget {
+        cpu: initial_budget.0 as i64,
+        mem: initial_budget.1 as i64,
+    };
 
-//     let mut utxos = Vec::new();
+    let mut utxos = Vec::new();
 
-//     for (input, output) in utxos_bytes {
-//         utxos.push(ResolvedInput {
-//             input: TransactionInput::decode_fragment(input)?,
-//             output: TransactionOutput::decode_fragment(output)?,
-//         });
-//     }
+    for (input, output) in utxos_bytes {
+        utxos.push(ResolvedInput {
+            input: TransactionInput::decode_fragment(input)?,
+            output: TransactionOutput::decode_fragment(output)?,
+        });
+    }
 
-//     let sc = SlotConfig {
-//         zero_time: slot_config.0,
-//         zero_slot: slot_config.1,
-//         slot_length: slot_config.2,
-//     };
+    let sc = SlotConfig {
+        zero_time: slot_config.0,
+        zero_slot: slot_config.1,
+        slot_length: slot_config.2,
+    };
 
-//     match multi_era_tx {
-//         MultiEraTx::Conway(tx) => {
-//             match eval_phase_two(
-//                 &tx,
-//                 &utxos,
-//                 cost_mdls.as_ref(),
-//                 Some(&budget),
-//                 &sc,
-//                 run_phase_one,
-//                 with_redeemer,
-//             ) {
-//                 Ok(redeemers) => Ok(redeemers
-//                     .into_iter()
-//                     .map(|(r, e)| (r.encode_fragment().unwrap(), e))
-//                     .collect()),
-//                 Err(err) => Err(err),
-//             }
-//         }
-//         _ => unimplemented!(
-//             r#"The transaction is serialized in an old era format. Because we're slightly lazy to
-// maintain backward compatibility with every possible transaction format AND, because
-// those formats are mostly forward-compatible, you are kindly expected to provide a
-// transaction in a format suitable for the Conway era."#
-//         ),
-//     }
-// }
+    match multi_era_tx {
+        MultiEraTx::Conway(tx) => {
+            match eval_phase_two(
+                &tx,
+                &utxos,
+                cost_mdls.as_ref(),
+                Some(&budget),
+                &sc,
+                run_phase_one,
+                with_redeemer,
+            ) {
+                Ok(redeemers) => Ok(redeemers
+                    .into_iter()
+                    .map(|(r, e)| (r.encode_fragment().unwrap(), e))
+                    .collect()),
+                Err(err) => Err(err),
+            }
+        }
+        _ => unimplemented!(
+            r#"The transaction is serialized in an old era format. Because we're slightly lazy to
+maintain backward compatibility with every possible transaction format AND, because
+those formats are mostly forward-compatible, you are kindly expected to provide a
+transaction in a format suitable for the Conway era."#
+        ),
+    }
+}
 
-// pub fn apply_params_to_script(
-//     params_bytes: &[u8], // PlutusData array
-//     plutus_script_bytes: &[u8],
-// ) -> Result<Vec<u8>, Error> {
-//     let params = match PlutusData::decode_fragment(params_bytes).unwrap() {
-//         PlutusData::Array(res) => res,
-//         _ => unreachable!(),
-//     };
+pub fn apply_params_to_script(
+    params_bytes: &[u8], // PlutusData array
+    plutus_script_bytes: &[u8],
+) -> Result<Vec<u8>, Error> {
+    let params = match PlutusData::decode_fragment(params_bytes).unwrap() {
+        PlutusData::Array(res) => res,
+        _ => unreachable!(),
+    };
 
-//     let mut buffer = Vec::new();
-//     let mut program = Program::<DeBruijn>::from_cbor(plutus_script_bytes, &mut buffer)?;
+    let mut buffer = Vec::new();
+    let mut program = Program::<DeBruijn>::from_cbor(plutus_script_bytes, &mut buffer)?;
 
-//     for param in params.to_vec() {
-//         program = program.apply_data(param);
-//     }
+    for param in params.to_vec() {
+        program = program.apply_data(param);
+    }
 
-//     match program.to_cbor() {
-//         Ok(res) => Ok(res),
-//         Err(_) => Err(Error::ApplyParamsError),
-//     }
-// }
+    match program.to_cbor() {
+        Ok(res) => Ok(res),
+        Err(_) => Err(Error::ApplyParamsError),
+    }
+}
 
 pub fn iter_redeemers(
     redeemers: &Redeemers,

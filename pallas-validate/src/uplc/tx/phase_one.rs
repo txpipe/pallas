@@ -237,8 +237,8 @@ pub fn has_exact_set_of_redeemers(
                 })
                 .collect(),
             Redeemers::Map(kv) => kv
-                .iter()
-                .map(|(k, _)| RedeemersKey {
+                .keys()
+                .map(|k| RedeemersKey {
                     index: k.index,
                     tag: k.tag,
                 })
