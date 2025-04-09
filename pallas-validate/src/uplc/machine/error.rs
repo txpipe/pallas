@@ -2,7 +2,7 @@ use std::string::FromUtf8Error;
 
 use num_bigint::BigInt;
 
-use crate::uplc::ast::Type;
+use crate::uplc::ast::{NamedDeBruijn, Term, Type};
 
 use super::{cost_model::ExBudget, value::Value};
 
@@ -12,12 +12,12 @@ pub enum Error {
     OutOfExError(ExBudget),
     #[error("invalid step kind: {0}")]
     InvalidStepKind(u8),
-    // #[error(
-    //     "cannot evaluate an open term:\n{:>13} {}",
-    //     "Term",
-    //     indent(redacted(.0.to_pretty(), 10)),
-    // )]
-    // OpenTermEvaluated(Term<NamedDeBruijn>),
+    #[error(
+        "cannot evaluate an open term:\n{:>13} {}",
+        "Term",
+        indent(redacted(.0.to_pretty(), 10)),
+    )]
+    OpenTermEvaluated(Term<NamedDeBruijn>),
     #[error("the validator crashed / exited prematurely")]
     EvaluationFailure,
     #[error(
@@ -40,8 +40,8 @@ pub enum Error {
         indent(redacted(format!("{:#?}", .0), 10)),
     )]
     NonConstrScrutinized(Value),
-    // #[error("Cases: {0:#?}\n\n are missing branch for constr:\n\n{1:#?}")]
-    // MissingCaseBranch(Vec<Term<NamedDeBruijn>>, Value),
+    #[error("Cases: {0:#?}\n\n are missing branch for constr:\n\n{1:#?}")]
+    MissingCaseBranch(Vec<Term<NamedDeBruijn>>, Value),
     #[error("type mismatch\n{:>13} {0}\n{:>13} {1}", "Expected", "Got")]
     TypeMismatch(Type, Type),
     #[error("type mismatch\n{:>13} (list a)\n{:>13} {0}", "Expected", "Got")]
@@ -54,20 +54,20 @@ pub enum Error {
         indent(redacted(format!("{:#?}", .0), 10)),
     )]
     EmptyList(Value),
-    // #[error(
-    //     "a builtin received a term argument when something else was expected\n{:>13} {}\n{:>13} You probably forgot to wrap the builtin with a force.",
-    //     "Term",
-    //     indent(redacted(format!("{:#?}", .0), 10)),
-    //     "Hint"
-    // )]
-    // UnexpectedBuiltinTermArgument(Term<NamedDeBruijn>),
-    // #[error(
-    //     "a builtin expected a term argument, but something else was received:\n{:>13} {}\n{:>13} You probably have an extra force wrapped around a builtin",
-    //     "Term",
-    //     indent(redacted(format!("{:#?}", .0), 10)),
-    //     "Hint"
-    // )]
-    // BuiltinTermArgumentExpected(Term<NamedDeBruijn>),
+    #[error(
+        "a builtin received a term argument when something else was expected\n{:>13} {}\n{:>13} You probably forgot to wrap the builtin with a force.",
+        "Term",
+        indent(redacted(format!("{:#?}", .0), 10)),
+        "Hint"
+    )]
+    UnexpectedBuiltinTermArgument(Term<NamedDeBruijn>),
+    #[error(
+        "a builtin expected a term argument, but something else was received:\n{:>13} {}\n{:>13} You probably have an extra force wrapped around a builtin",
+        "Term",
+        indent(redacted(format!("{:#?}", .0), 10)),
+        "Hint"
+    )]
+    BuiltinTermArgumentExpected(Term<NamedDeBruijn>),
     #[error(
         "Unable to unlift value because it is not a constant\n{:>13} {}",
         "Value",
