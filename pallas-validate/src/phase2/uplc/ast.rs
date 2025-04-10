@@ -1,4 +1,4 @@
-use crate::uplc::{
+use crate::phase2::uplc::{
     builtins::DefaultFunction,
     debruijn::{self, Converter},
     flat::Binder,

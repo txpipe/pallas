@@ -1,4 +1,4 @@
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{Constant, Name, Term, Type},
     builtins::DefaultFunction,
 };
@@ -796,7 +796,7 @@ impl Term<Name> {
 
 #[cfg(test)]
 mod tests {
-    use crate::uplc::{
+    use crate::phase2::uplc::{
         ast::{Data, Name, NamedDeBruijn, Program, Term},
         builder::Constant,
         machine::{cost_model::ExBudget, Error},

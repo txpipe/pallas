@@ -5,7 +5,7 @@ use super::{
     value::{from_pallas_bigint, to_pallas_bigint},
     Trace,
 };
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{Constant, Data, Type},
     builtins::DefaultFunction,
     machine::value::integer_log2,

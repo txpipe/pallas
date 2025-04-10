@@ -1,7 +1,7 @@
 use pallas_primitives::conway::Language;
 use std::collections::HashMap;
 
-use crate::uplc::builtins::DefaultFunction;
+use crate::phase2::uplc::builtins::DefaultFunction;
 use num_traits::Signed;
 use strum::{Display, EnumIter};
 

@@ -1,4 +1,4 @@
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{Constant, Program, Term, Type},
     flat::Binder,
     machine::{
@@ -401,7 +401,9 @@ mod tests {
         let uplc = "(program 0.0.0 (con (pair bool (pair integer bytestring)) (True, (14, #42))))";
 
         assert_eq!(
-            crate::uplc::parser::program(uplc).unwrap().to_pretty(),
+            crate::phase2::uplc::parser::program(uplc)
+                .unwrap()
+                .to_pretty(),
             indoc! {
                 r#"
                 (program

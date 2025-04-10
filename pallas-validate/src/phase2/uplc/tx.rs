@@ -1,4 +1,4 @@
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{DeBruijn, Program},
     machine::{cost_model::ExBudget, eval_result::EvalResult},
     PlutusData,

@@ -1,29 +1,21 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::uplc::ast::{Name, Program, Term, Unique};
+use crate::phase2::uplc::ast::{Name, Program, Term, Unique};
 
-#[derive(Eq, Hash, PartialEq, Clone)]
-pub struct InternKey {
-    name: String,
-    previous_unique: Unique,
-}
-
-pub struct CodeGenInterner {
-    identifiers: HashMap<InternKey, Unique>,
+pub struct Interner {
+    identifiers: HashMap<String, Unique>,
     current: Unique,
 }
 
-impl Default for CodeGenInterner {
+impl Default for Interner {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Interner that uses previous uniques to prevent future unique collisions
-/// when performing optimizations
-impl CodeGenInterner {
+impl Interner {
     pub fn new() -> Self {
-        Self {
+        Interner {
             identifiers: HashMap::new(),
             current: Unique::new(0),
         }
@@ -37,7 +29,7 @@ impl CodeGenInterner {
         match term {
             Term::Var(name) => {
                 let name = Rc::make_mut(name);
-                name.unique = self.intern(name.text.clone(), name.unique);
+                name.unique = self.intern(&name.text)
             }
             Term::Delay(term) => self.term(Rc::make_mut(term)),
             Term::Lambda {
@@ -45,8 +37,7 @@ impl CodeGenInterner {
                 body,
             } => {
                 let parameter_name = Rc::make_mut(parameter_name);
-                parameter_name.unique =
-                    self.intern(parameter_name.text.clone(), parameter_name.unique);
+                parameter_name.unique = self.intern(&parameter_name.text);
                 self.term(Rc::make_mut(body));
             }
             Term::Apply { function, argument } => {
@@ -72,18 +63,13 @@ impl CodeGenInterner {
         }
     }
 
-    pub fn intern(&mut self, text: String, previous_unique: Unique) -> Unique {
-        let key = InternKey {
-            name: text,
-            previous_unique,
-        };
-
-        if let Some(u) = self.identifiers.get(&key) {
+    pub fn intern(&mut self, text: &str) -> Unique {
+        if let Some(u) = self.identifiers.get(text) {
             *u
         } else {
             let unique = self.current;
 
-            self.identifiers.insert(key, self.current_unique());
+            self.identifiers.insert(text.to_string(), unique);
 
             self.current.increment();
 

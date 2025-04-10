@@ -1,5 +1,5 @@
 use super::interner::CodeGenInterner;
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{Constant, Data, Name, NamedDeBruijn, Program, Term, Type},
     builder::{CONSTR_FIELDS_EXPOSER, CONSTR_INDEX_EXPOSER, INDICES_CONVERTER},
     builtins::DefaultFunction,
@@ -2717,7 +2717,7 @@ fn id_vec_function_to_var(func_name: &str, id_vec: &[usize]) -> String {
 #[cfg(test)]
 mod tests {
     use super::NO_INLINE;
-    use crate::uplc::{
+    use crate::phase2::uplc::{
         ast::{Constant, Data, Name, NamedDeBruijn, Program, Term},
         builder::{CONSTR_FIELDS_EXPOSER, CONSTR_INDEX_EXPOSER},
         builtins::DefaultFunction,

@@ -2,7 +2,7 @@ use super::{
     error::Error,
     runtime::{self, BuiltinRuntime},
 };
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{Constant, NamedDeBruijn, Term, Type},
     builtins::DefaultFunction,
 };
@@ -478,7 +478,7 @@ pub fn to_pallas_bigint(n: &BigInt) -> conway::BigInt {
 
 #[cfg(test)]
 mod tests {
-    use crate::uplc::{
+    use crate::phase2::uplc::{
         ast::Constant,
         machine::value::{integer_log2, Value},
     };

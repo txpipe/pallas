@@ -1,4 +1,4 @@
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{
         Constant, DeBruijn, FakeNamedDeBruijn, Name, NamedDeBruijn, Program, Term, Type, Unique,
     },
@@ -1001,7 +1001,7 @@ pub fn decode_constant_tag(d: &mut Decoder) -> Result<u8, de::Error> {
 #[cfg(test)]
 mod tests {
     use super::{Constant, Program, Term};
-    use crate::uplc::{
+    use crate::phase2::uplc::{
         ast::{DeBruijn, Name, Type},
         parser,
     };

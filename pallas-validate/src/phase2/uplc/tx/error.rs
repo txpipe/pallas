@@ -1,6 +1,6 @@
 use pallas_primitives::{conway::Language, TransactionInput};
 
-use crate::uplc::machine::{self, cost_model::ExBudget, Trace};
+use crate::phase2::uplc::machine::{self, cost_model::ExBudget, Trace};
 
 #[derive(thiserror::Error, Debug, miette::Diagnostic)]
 pub enum Error {

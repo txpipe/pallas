@@ -474,7 +474,7 @@ mod tests {
     use num_bigint::BigInt;
 
     use super::{cost_model::ExBudget, runtime::Compressable};
-    use crate::uplc::{
+    use crate::phase2::uplc::{
         ast::{Constant, NamedDeBruijn, Program, Term},
         builtins::DefaultFunction,
     };

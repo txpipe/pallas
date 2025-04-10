@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::uplc::ast::Unique;
+use crate::phase2::uplc::ast::Unique;
 
 use super::Level;
 

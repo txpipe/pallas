@@ -1,10 +1,7 @@
-use pallas::{
-    codec::minicbor,
-    crypto::hash::Hash,
-    ledger::primitives::{
-        conway::{MintedTx, Redeemer},
-        TransactionInput,
-    },
+use pallas_codec::minicbor;
+use pallas_primitives::{
+    conway::{Redeemer, Tx},
+    Hash, TransactionInput,
 };
 use pallas_traverse::MultiEraTx;
 use uplc::{
@@ -13,6 +10,8 @@ use uplc::{
 };
 
 use crate::utils::{MultiEraProtocolParameters, UtxoMap};
+
+pub mod uplc;
 
 pub type EvalReport = Vec<(Redeemer, EvalResult)>;
 
@@ -23,7 +22,7 @@ pub fn evaluate_tx(
     slot_config: &SlotConfig,
 ) -> Result<EvalReport, Error> {
     let cbor = tx.encode();
-    let mtx: MintedTx = minicbor::decode(&cbor).unwrap();
+    let mtx: Tx = minicbor::decode(&cbor).unwrap();
     let utxos = utxos
         .iter()
         .map(|(txoref, eracbor)| {
@@ -33,7 +32,7 @@ pub fn evaluate_tx(
                     transaction_id: txhash,
                     index: txoref.1.into(),
                 },
-                output: pallas::codec::minicbor::decode(&eracbor.1).unwrap(),
+                output: minicbor::decode(&eracbor.1).unwrap(),
             })
         })
         .collect::<Result<Vec<_>, pallas_codec::minicbor::decode::Error>>()

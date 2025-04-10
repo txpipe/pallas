@@ -2,7 +2,7 @@ use std::string::FromUtf8Error;
 
 use num_bigint::BigInt;
 
-use crate::uplc::ast::{NamedDeBruijn, Term, Type};
+use crate::phase2::uplc::ast::{NamedDeBruijn, Term, Type};
 
 use super::{cost_model::ExBudget, value::Value};
 

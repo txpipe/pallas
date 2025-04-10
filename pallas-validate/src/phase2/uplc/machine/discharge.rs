@@ -1,4 +1,4 @@
-use crate::uplc::ast::{NamedDeBruijn, Term};
+use crate::phase2::uplc::ast::{NamedDeBruijn, Term};
 
 use super::value::{Env, Value};
 

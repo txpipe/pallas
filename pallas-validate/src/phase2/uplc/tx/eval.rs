@@ -3,7 +3,7 @@ use pallas_primitives::{
     Bytes, CostModel, ExUnits, PlutusData,
 };
 
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{FakeNamedDeBruijn, NamedDeBruijn, Program},
     machine::{cost_model::ExBudget, eval_result::EvalResult},
     tx::{

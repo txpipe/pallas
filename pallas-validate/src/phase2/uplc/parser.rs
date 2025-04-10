@@ -1,4 +1,4 @@
-use crate::uplc::{
+use crate::phase2::uplc::{
     ast::{Constant, Data, Name, Program, Term, Type},
     builtins::DefaultFunction,
     machine::{runtime::Compressable, value::to_pallas_bigint},
@@ -372,7 +372,7 @@ peg::parser! {
 
 #[cfg(test)]
 mod tests {
-    use crate::uplc::{
+    use crate::phase2::uplc::{
         ast::{Constant, Name, Program, Term, Type, Unique},
         builtins::DefaultFunction,
     };

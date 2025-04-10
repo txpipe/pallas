@@ -17,7 +17,7 @@ use pallas_primitives::{
 };
 use pallas_traverse::ComputeHash;
 
-use crate::uplc::ast::Data;
+use crate::phase2::uplc::ast::Data;
 
 use super::script_context::{
     from_alonzo_output, ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo,

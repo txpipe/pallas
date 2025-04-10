@@ -1,4 +1,4 @@
-use crate::uplc::ast::{Constant, NamedDeBruijn, Term};
+use crate::phase2::uplc::ast::{Constant, NamedDeBruijn, Term};
 
 use super::{cost_model::ExBudget, error::Error, Trace};
 

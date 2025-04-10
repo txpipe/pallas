@@ -1,4 +1,4 @@
-use crate::uplc::ast::{Name, Program};
+use crate::phase2::uplc::ast::{Name, Program};
 
 pub mod interner;
 pub mod shrinker;
