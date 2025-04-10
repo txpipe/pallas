@@ -66,7 +66,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use uplc::ast::{Program, Name, Term};
+    /// use crate::pallas_validate::phase2::uplc::ast::{Program, Name, Term};
     ///
     /// let term = Term::var("x").lambda("x");
     /// let program = Program { version: (1, 0, 0), term };
@@ -101,7 +101,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use uplc::ast::{Program, Name, Term};
+    /// use crate::pallas_validate::phase2::uplc::ast::{Program, Name, Term};
     ///
     /// let term = Term::var("x").lambda("x");
     /// let program = Program { version: (1, 0, 0), term };
@@ -127,7 +127,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use uplc::ast::{Program, Name, Term};
+    /// use crate::pallas_validate::phase2::uplc::ast::{Program, Name, Term};
     ///
     /// let term = Term::var("x").lambda("x");
     /// let program = Program { version: (1, 0, 0), term };

@@ -163,11 +163,11 @@ mod conway_tests {
         };
 
         #[cfg(feature = "phase2")]
-        match pallas_validate::phase2::tx::eval_tx(
+        match pallas_validate::phase2::evaluate_tx(
             &metx,
             env.prot_params(),
             &mk_utxo_for_eval(utxos.clone()),
-            &pallas_validate::phase2::script_context::SlotConfig::default(),
+            &pallas_validate::phase2::uplc::tx::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
@@ -256,11 +256,11 @@ mod conway_tests {
         };
 
         #[cfg(feature = "phase2")]
-        match pallas_validate::phase2::tx::eval_tx(
+        match pallas_validate::phase2::evaluate_tx(
             &metx,
             env.prot_params(),
             &mk_utxo_for_eval(utxos.clone()),
-            &pallas_validate::phase2::script_context::SlotConfig::default(),
+            &pallas_validate::phase2::uplc::tx::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
             Err(err) => assert!(false, "Unexpected error ({:?})", err),
