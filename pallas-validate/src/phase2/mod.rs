@@ -17,12 +17,13 @@ pub type EvalReport = Vec<(Redeemer, EvalResult)>;
 
 pub fn evaluate_tx(
     tx: &MultiEraTx,
-    _pparams: &MultiEraProtocolParameters,
+    pparams: &MultiEraProtocolParameters,
     utxos: &UtxoMap,
     slot_config: &SlotConfig,
 ) -> Result<EvalReport, Error> {
     let cbor = tx.encode();
-    let mtx: Tx = minicbor::decode(&cbor).unwrap();
+    let tx: Tx = minicbor::decode(&cbor)?;
+
     let utxos = utxos
         .iter()
         .map(|(txoref, eracbor)| {
@@ -32,16 +33,22 @@ pub fn evaluate_tx(
                     transaction_id: txhash,
                     index: txoref.1.into(),
                 },
-                output: minicbor::decode(&eracbor.1).unwrap(),
+                output: minicbor::decode(&eracbor.1)?,
             })
         })
-        .collect::<Result<Vec<_>, pallas_codec::minicbor::decode::Error>>()
-        .unwrap();
+        .collect::<Result<Vec<_>, pallas_codec::minicbor::decode::Error>>()?;
+
+    let cost_model = match pparams {
+        MultiEraProtocolParameters::Conway(params) => {
+            Some(&params.cost_models_for_script_languages)
+        }
+        _ => None,
+    };
 
     eval_phase_two(
-        &mtx,
+        &tx,
         &utxos,
-        None,
+        cost_model,
         Some(&ExBudget::default()),
         slot_config,
         false,
