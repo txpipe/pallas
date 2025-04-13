@@ -313,8 +313,30 @@ fn check_collaterals_assets(
 }
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
-    match multi_era_output.as_conway() {
-        Some(TransactionOutput::Legacy(output)) => {
+    match multi_era_output {
+        MultiEraOutput::Conway(x) => match x.clone().into_owned() {
+            TransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => Value::Coin(coin),
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.into_iter() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.into_iter() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets.push((key, conway_value.into_iter().collect()));
+                        }
+                        let conway_assets = conway_assets.into_iter().collect();
+                        Value::Multiasset(coin, conway_assets)
+                    }
+                }
+            }
+            TransactionOutput::PostAlonzo(output) => output.value.clone(),
+        },
+        MultiEraOutput::AlonzoCompatible(output, _) => {
             let amount = output.amount.clone();
             match amount {
                 babbage::Value::Coin(coin) => Value::Coin(coin),
@@ -333,9 +355,7 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
                 }
             }
         }
-        Some(TransactionOutput::PostAlonzo(output)) => output.value.clone(),
-        None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
-                                   * type MultiEraOutput was extended with another variant */
+        _ => unimplemented!(),
     }
 }
 
