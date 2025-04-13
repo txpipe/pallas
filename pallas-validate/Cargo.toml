@@ -1,14 +1,14 @@
 [package]
 name = "pallas-validate"
-version = "0.32.0"
+version = "1.0.0-alpha.0"
 edition = "2021"
 
 [dependencies]
-pallas-addresses = { version = "=0.32.0", path = "../pallas-addresses" }
-pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
-pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
-pallas-primitives = { version = "=0.32.0", path = "../pallas-primitives" }
-pallas-traverse = { version = "=0.32.0", path = "../pallas-traverse" }
+pallas-addresses = { version = "=1.0.0-alpha.0", path = "../pallas-addresses" }
+pallas-codec = { version = "=1.0.0-alpha.0", path = "../pallas-codec" }
+pallas-crypto = { version = "=1.0.0-alpha.0", path = "../pallas-crypto" }
+pallas-primitives = { version = "=1.0.0-alpha.0", path = "../pallas-primitives" }
+pallas-traverse = { version = "=1.0.0-alpha.0", path = "../pallas-traverse" }
 hex = "0.4"
 chrono = "0.4.39"
 thiserror = "1.0.49"
