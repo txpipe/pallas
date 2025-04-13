@@ -1,22 +1,26 @@
-use super::{error::Error, to_plutus_data::MintValue};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
+};
+
 use itertools::Itertools;
 use pallas_addresses::{Address, Network, StakePayload};
-use pallas_codec::utils::{Bytes, KeyValuePairs, NonEmptySet, PositiveCoin};
 use pallas_crypto::hash::Hash;
-use pallas_primitives::conway::RedeemersValue;
 use pallas_primitives::{
     alonzo,
     conway::{
-        AddrKeyhash, Certificate, Coin, DatumHash, DatumOption, GovAction, GovActionId, Mint,
-        NativeScript, PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput,
-        ProposalProcedure, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners, RewardAccount,
-        ScriptHash, ScriptRef, StakeCredential, TransactionBody, TransactionInput,
-        TransactionOutput, Tx, Value, Voter, VotingProcedure, WitnessSet,
+        Certificate, DatumOption, GovAction, GovActionId, Mint, NativeScript,
+        PostAlonzoTransactionOutput, ProposalProcedure, Redeemer, RedeemerTag, RedeemersKey,
+        RequiredSigners, ScriptRef, TransactionBody, TransactionOutput, Tx, Value, Voter,
+        VotingProcedure, WitnessSet,
     },
+    AddrKeyhash, Bytes, Coin, DatumHash, KeepRaw, KeyValuePairs, NonEmptySet, PlutusData,
+    PlutusScript, PolicyId, PositiveCoin, RewardAccount, ScriptHash, StakeCredential,
+    TransactionInput,
 };
-use pallas_traverse::{ComputeHash, MultiEraTx, OriginalHash};
-use std::collections::BTreeMap;
-use std::{cmp::Ordering, collections::HashMap, ops::Deref};
+use pallas_traverse::{ComputeHash, OriginalHash};
+
+use super::{error::Error, iter_redeemers, to_plutus_data::MintValue};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ResolvedInput<'a> {
@@ -39,13 +43,17 @@ pub fn output_address(output: &TransactionOutput) -> Address {
 
 pub fn output_datum<'a>(output: &'a TransactionOutput<'a>) -> Option<DatumOption<'a>> {
     match output {
-        TransactionOutput::Legacy(x) => x.datum_hash.map(DatumOption::Hash),
-        TransactionOutput::PostAlonzo(x) => x.datum_option.clone().map(|x| x.unwrap()),
+        pallas_primitives::babbage::GenTransactionOutput::Legacy(x) => {
+            x.datum_hash.map(DatumOption::Hash)
+        }
+        pallas_primitives::babbage::GenTransactionOutput::PostAlonzo(x) => {
+            x.datum_option.clone().map(|raw| raw.unwrap())
+        }
     }
 }
 
-/// The ScriptPurpose is part of the ScriptContext is the case of Plutus V1 and
-/// V2. It is superseded by the ScriptInfo in PlutusV3.
+// /// The ScriptPurpose is part of the ScriptContext is the case of Plutus V1 and V2.
+/// It is superseded by the ScriptInfo in PlutusV3.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ScriptInfo<T> {
     Minting(PolicyId),
@@ -87,32 +95,67 @@ pub struct DataLookupTable {
 }
 
 impl DataLookupTable {
-    pub fn from_transaction(tx: &MultiEraTx, utxos: &[ResolvedInput]) -> DataLookupTable {
+    pub fn from_transaction(tx: &Tx, utxos: &[ResolvedInput]) -> DataLookupTable {
         let mut datum = HashMap::new();
         let mut scripts = HashMap::new();
 
         // discovery in witness set
 
-        for plutus_data in tx.plutus_data() {
+        let plutus_data_witnesses = tx
+            .transaction_witness_set
+            .plutus_data
+            .clone()
+            .map(|s| s.to_vec())
+            .unwrap_or_default();
+
+        let scripts_native_witnesses = tx
+            .transaction_witness_set
+            .native_script
+            .clone()
+            .map(|s| s.to_vec())
+            .unwrap_or_default();
+
+        let scripts_v1_witnesses = tx
+            .transaction_witness_set
+            .plutus_v1_script
+            .clone()
+            .map(|s| s.to_vec())
+            .unwrap_or_default();
+
+        let scripts_v2_witnesses = tx
+            .transaction_witness_set
+            .plutus_v2_script
+            .clone()
+            .map(|s| s.to_vec())
+            .unwrap_or_default();
+
+        let scripts_v3_witnesses = tx
+            .transaction_witness_set
+            .plutus_v3_script
+            .clone()
+            .map(|s| s.to_vec())
+            .unwrap_or_default();
+
+        for plutus_data in plutus_data_witnesses.iter() {
             datum.insert(plutus_data.original_hash(), plutus_data.clone().unwrap());
         }
 
-        for script in tx.native_scripts() {
+        for script in scripts_native_witnesses.iter() {
             scripts.insert(
                 script.compute_hash(),
                 ScriptVersion::Native(script.clone().unwrap()),
             );
         }
 
-        for script in tx.plutus_v1_scripts() {
+        for script in scripts_v1_witnesses.iter() {
             scripts.insert(script.compute_hash(), ScriptVersion::V1(script.clone()));
         }
 
-        for script in tx.plutus_v2_scripts() {
+        for script in scripts_v2_witnesses.iter() {
             scripts.insert(script.compute_hash(), ScriptVersion::V2(script.clone()));
         }
 
-        for script in tx.plutus_v3_scripts() {
+        for script in scripts_v3_witnesses.iter() {
             scripts.insert(script.compute_hash(), ScriptVersion::V3(script.clone()));
         }
 
@@ -174,7 +217,7 @@ impl TxInfoV1<'_> {
     pub fn from_transaction<'a>(
         tx: &'a Tx<'a>,
         utxos: &'a [ResolvedInput<'a>],
-        slot_config: &SlotConfig,
+        slot_config: &'a SlotConfig,
     ) -> Result<TxInfo<'a>, Error> {
         if tx.transaction_body.reference_inputs.is_some() {
             return Err(Error::ScriptAndInputRefNotAllowed);
@@ -227,7 +270,7 @@ impl TxInfoV2<'_> {
     pub fn from_transaction<'a>(
         tx: &'a Tx<'a>,
         utxos: &'a [ResolvedInput<'a>],
-        slot_config: &SlotConfig,
+        slot_config: &'a SlotConfig,
     ) -> Result<TxInfo<'a>, Error> {
         let inputs = get_tx_in_info_v2(&tx.transaction_body.inputs, utxos)?;
         let certificates = get_certificates_info(&tx.transaction_body.certificates);
@@ -240,13 +283,11 @@ impl TxInfoV2<'_> {
             script_purpose_builder(&inputs[..], &mint, &certificates, &withdrawals, &[], &[]),
         )?;
 
-        let reference_inputs = tx
-            .transaction_body
-            .reference_inputs
-            .clone()
-            .map(|refs| get_tx_in_info_v2(&refs[..], utxos))
-            .transpose()?
-            .unwrap_or_default();
+        let reference_inputs = if let Some(refs) = tx.transaction_body.reference_inputs.as_ref() {
+            get_tx_in_info_v2(refs, utxos)?
+        } else {
+            Vec::new()
+        };
 
         Ok(TxInfo::V2(TxInfoV2 {
             inputs,
@@ -289,7 +330,7 @@ impl TxInfoV3<'_> {
     pub fn from_transaction<'a>(
         tx: &'a Tx<'a>,
         utxos: &'a [ResolvedInput<'a>],
-        slot_config: &SlotConfig,
+        slot_config: &'a SlotConfig,
     ) -> Result<TxInfo<'a>, Error> {
         let inputs = get_tx_in_info_v2(&tx.transaction_body.inputs, utxos)?;
 
@@ -317,13 +358,11 @@ impl TxInfoV3<'_> {
             ),
         )?;
 
-        let reference_inputs = tx
-            .transaction_body
-            .reference_inputs
-            .clone()
-            .map(|refs| get_tx_in_info_v2(&refs[..], utxos))
-            .transpose()?
-            .unwrap_or_default();
+        let reference_inputs = if let Some(refs) = tx.transaction_body.reference_inputs.as_ref() {
+            get_tx_in_info_v2(refs, utxos)?
+        } else {
+            Vec::new()
+        };
 
         Ok(TxInfo::V3(TxInfoV3 {
             inputs,
@@ -355,18 +394,21 @@ pub enum TxInfo<'a> {
     V3(TxInfoV3<'a>),
 }
 
-impl<'a> TxInfo<'a> {
-    pub fn into_script_context(
+impl<'txinfo> TxInfo<'txinfo> {
+    pub fn into_script_context<'a>(
         self,
-        redeemer: &Redeemer,
-        datum: Option<&PlutusData>,
-    ) -> Option<ScriptContext<'a>> {
+        redeemer: &'a Redeemer,
+        datum: Option<&'a PlutusData>,
+    ) -> Option<ScriptContext<'a>>
+    where
+        'txinfo: 'a,
+    {
         match self {
             TxInfo::V1(TxInfoV1 { ref redeemers, .. })
             | TxInfo::V2(TxInfoV2 { ref redeemers, .. }) => redeemers
                 .iter()
                 .find_map(move |(purpose, some_redeemer)| {
-                    if redeemer == some_redeemer {
+                    if redeemer.tag == some_redeemer.tag && redeemer.index == some_redeemer.index {
                         Some(purpose.clone())
                     } else {
                         None
@@ -380,7 +422,7 @@ impl<'a> TxInfo<'a> {
             TxInfo::V3(TxInfoV3 { ref redeemers, .. }) => redeemers
                 .iter()
                 .find_map(move |(purpose, some_redeemer)| {
-                    if redeemer == some_redeemer {
+                    if redeemer.tag == some_redeemer.tag && redeemer.index == some_redeemer.index {
                         Some(purpose.clone())
                     } else {
                         None
@@ -447,9 +489,8 @@ pub struct TimeRange {
     pub upper_bound: Option<u64>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SlotConfig {
-    pub slot_length: u64,
+    pub slot_length: u32,
     pub zero_slot: u64,
     pub zero_time: u64,
 }
@@ -467,7 +508,7 @@ impl Default for SlotConfig {
 // --------------------- Translations
 
 pub fn get_tx_in_info_v1<'a>(
-    inputs: &[TransactionInput],
+    inputs: &'a [TransactionInput],
     utxos: &'a [ResolvedInput<'a>],
 ) -> Result<Vec<TxInInfo<'a>>, Error> {
     inputs
@@ -497,10 +538,11 @@ pub fn get_tx_in_info_v1<'a>(
             match &utxo.output {
                 TransactionOutput::Legacy(_) => {}
                 TransactionOutput::PostAlonzo(output) => {
-                    if let Some(DatumOption::Data(_)) =
-                        output.datum_option.clone().map(|x| x.unwrap())
+                    if let Some(datum_option) = output.datum_option.clone().map(|raw| raw.unwrap())
                     {
-                        return Err(Error::InlineDatumNotAllowed);
+                        if matches!(datum_option, DatumOption::Data(_)) {
+                            return Err(Error::InlineDatumNotAllowed);
+                        }
                     }
 
                     if output.script_ref.is_some() {
@@ -511,14 +553,14 @@ pub fn get_tx_in_info_v1<'a>(
 
             Ok(TxInInfo {
                 out_ref: utxo.input.clone(),
-                resolved: sort_tx_out_value(&utxo.output),
+                resolved: sort_tx_out_value(utxo.output.clone()),
             })
         })
         .collect()
 }
 
 pub fn get_tx_in_info_v2<'a>(
-    inputs: &[TransactionInput],
+    inputs: &'a [TransactionInput],
     utxos: &'a [ResolvedInput<'a>],
 ) -> Result<Vec<TxInInfo<'a>>, Error> {
     inputs
@@ -547,7 +589,7 @@ pub fn get_tx_in_info_v2<'a>(
 
             Ok(TxInInfo {
                 out_ref: utxo.input.clone(),
-                resolved: sort_tx_out_value(&utxo.output),
+                resolved: sort_tx_out_value(utxo.output.clone()),
             })
         })
         .collect()
@@ -555,15 +597,12 @@ pub fn get_tx_in_info_v2<'a>(
 
 pub fn get_mint_info(mint: &Option<Mint>) -> MintValue {
     MintValue {
-        mint_value: mint.as_ref().map(sort_mint).unwrap_or_else(BTreeMap::new),
+        mint_value: mint.as_ref().map(sort_mint).unwrap_or_default(),
     }
 }
 
-pub fn get_outputs_info<'a>(outputs: &'a [TransactionOutput]) -> Vec<TransactionOutput<'a>> {
-    outputs
-        .iter()
-        .map(|output| sort_tx_out_value(output.into()))
-        .collect()
+pub fn get_outputs_info<'a>(outputs: &'a [TransactionOutput<'a>]) -> Vec<TransactionOutput<'a>> {
+    outputs.iter().cloned().map(sort_tx_out_value).collect()
 }
 
 pub fn get_fee_info(fee: &Coin) -> Coin {
@@ -595,11 +634,11 @@ pub fn get_withdrawals_info(
     withdrawals: &Option<BTreeMap<RewardAccount, Coin>>,
 ) -> Vec<(Address, Coin)> {
     withdrawals
-        .as_ref()
+        .clone()
         .map(|w| {
-            w.iter()
+            w.into_iter()
                 .sorted_by(|(accnt_a, _), (accnt_b, _)| sort_reward_accounts(accnt_a, accnt_b))
-                .map(|(reward_account, coin)| (Address::from_bytes(reward_account).unwrap(), *coin))
+                .map(|(reward_account, coin)| (Address::from_bytes(&reward_account).unwrap(), coin))
                 .collect()
         })
         .unwrap_or_default()
@@ -615,7 +654,7 @@ pub fn get_validity_range_info(
                 oldest_allowed: sc.zero_slot,
             });
         }
-        let ms_after_begin = (slot - sc.zero_slot) * sc.slot_length;
+        let ms_after_begin = (slot - sc.zero_slot) * sc.slot_length as u64;
         Ok(sc.zero_time + ms_after_begin)
     }
 
@@ -667,48 +706,24 @@ pub fn get_data_info(witness_set: &WitnessSet) -> Vec<(DatumHash, PlutusData)> {
 
 pub fn get_redeemers_info<'a>(
     witness_set: &'a WitnessSet,
-    to_script_purpose: impl for<'b> Fn(&'b RedeemersKey) -> Result<ScriptPurpose, Error>,
+    to_script_purpose: impl Fn(RedeemersKey) -> Result<ScriptPurpose, Error> + 'a,
 ) -> Result<KeyValuePairs<ScriptPurpose, Redeemer>, Error> {
     Ok(KeyValuePairs::from(
         witness_set
             .redeemer
             .as_deref()
             .map(|m| {
-                let redeemers = match m {
-                    pallas_primitives::conway::Redeemers::List(arr) => arr
-                        .deref()
-                        .iter()
-                        .map(|r| {
-                            (
-                                RedeemersKey {
-                                    tag: r.tag,
-                                    index: r.index,
-                                },
-                                RedeemersValue {
-                                    data: r.data.clone(),
-                                    ex_units: r.ex_units,
-                                },
-                            )
-                        })
-                        .collect::<Vec<_>>(),
-                    pallas_primitives::conway::Redeemers::Map(arr) => arr
-                        .iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect::<Vec<_>>(),
-                };
-
-                redeemers
-                    .iter()
-                    .sorted_by(|a, b| sort_redeemers(&a.0, &b.0))
-                    .map(|(redeemer_key, redeemer_value)| {
+                iter_redeemers(m)
+                    .sorted_by(|(a, _, _), (b, _, _)| sort_redeemers(a, b))
+                    .map(|(key, data, ex_units)| {
                         let redeemer = Redeemer {
-                            tag: redeemer_key.tag,
-                            index: redeemer_key.index,
-                            data: redeemer_value.data.clone(),
-                            ex_units: redeemer_value.ex_units,
+                            tag: key.tag,
+                            index: key.index,
+                            data: data.clone(),
+                            ex_units,
                         };
 
-                        to_script_purpose(redeemer_key).map(|purpose| (purpose, redeemer))
+                        to_script_purpose(key).map(|purpose| (purpose, redeemer))
                     })
                     .collect::<Result<Vec<_>, _>>()
             })
@@ -729,14 +744,12 @@ pub fn get_votes_info(
                     .sorted_by(|(a, _), (b, _)| sort_voters(a, b))
                     .map(|(voter, actions)| {
                         (
-                            voter.clone(),
+                            (*voter).clone(),
                             KeyValuePairs::from(
                                 actions
                                     .iter()
                                     .sorted_by(|(a, _), (b, _)| sort_gov_action_id(a, b))
-                                    .map(|(action_id, procedure)| {
-                                        (action_id.clone(), procedure.clone())
-                                    })
+                                    .map(|(a, b)| ((*a).clone(), (*b).clone()))
                                     .collect::<Vec<_>>(),
                             ),
                         )
@@ -754,8 +767,8 @@ fn script_purpose_builder<'a>(
     withdrawals: &'a KeyValuePairs<Address, Coin>,
     proposal_procedures: &'a [ProposalProcedure],
     votes: &'a [&'a Voter],
-) -> impl for<'b> Fn(&'b RedeemersKey) -> Result<ScriptPurpose, Error> + 'a {
-    move |redeemer: &RedeemersKey| {
+) -> impl Fn(RedeemersKey) -> Result<ScriptPurpose, Error> + 'a {
+    move |redeemer: RedeemersKey| {
         let tag = redeemer.tag;
         let index = redeemer.index as usize;
 
@@ -863,6 +876,7 @@ pub fn find_script(
             .ok_or(Error::MissingScriptForRedeemer)
             .and_then(|cert| match cert {
                 Certificate::StakeDeregistration(stake_credential)
+                | Certificate::Reg(stake_credential, _)
                 | Certificate::UnReg(stake_credential, _)
                 | Certificate::VoteDeleg(stake_credential, _)
                 | Certificate::VoteRegDeleg(stake_credential, _, _)
@@ -880,7 +894,6 @@ pub fn find_script(
                 },
                 Certificate::StakeRegistration { .. }
                 | Certificate::PoolRetirement { .. }
-                | Certificate::Reg { .. }
                 | Certificate::PoolRegistration { .. } => Err(Error::UnsupportedCertificateType),
             })
             .and_then(lookup_script),
@@ -948,22 +961,28 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
     match value {
         alonzo::Value::Coin(coin) => Value::Coin(*coin),
         alonzo::Value::Multiasset(coin, assets) if assets.is_empty() => Value::Coin(*coin),
-        alonzo::Value::Multiasset(coin, assets) => {
-            let mut ma_btree = BTreeMap::new();
-
-            for (policy_id, tokens) in assets.iter() {
-                let mut inner_btree = BTreeMap::new();
-                for (asset_name, quantity) in tokens.iter() {
-                    inner_btree.insert(
-                        asset_name.clone(),
-                        (*quantity).try_into().expect("0 Ada in output value?"),
-                    );
-                }
-                ma_btree.insert(policy_id.clone(), inner_btree);
-            }
-
-            Value::Multiasset(*coin, ma_btree)
-        }
+        alonzo::Value::Multiasset(coin, assets) => Value::Multiasset(
+            *coin,
+            assets
+                .iter()
+                .map(|(policy_id, tokens)| {
+                    (
+                        *policy_id,
+                        tokens
+                            .iter()
+                            .sorted_by(|(a, _), (b, _)| a.cmp(b))
+                            .map(|(asset_name, quantity)| {
+                                (
+                                    asset_name.clone(),
+                                    PositiveCoin::try_from(*quantity)
+                                        .expect("0 Ada in output value?"),
+                                )
+                            })
+                            .collect::<BTreeMap<_, _>>(),
+                    )
+                })
+                .collect::<BTreeMap<_, _>>(),
+        ),
     }
 }
 
@@ -972,7 +991,9 @@ pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutp
         PostAlonzoTransactionOutput {
             address: output.address.clone(),
             value: from_alonzo_value(&output.amount),
-            datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
+            datum_option: output
+                .datum_hash
+                .map(|hash| KeepRaw::from(DatumOption::Hash(hash))),
             script_ref: None,
         }
         .into(),
@@ -981,16 +1002,18 @@ pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutp
 
 // --------------------- Sorting
 
-fn sort_tx_out_value<'a>(tx_output: &'a TransactionOutput<'a>) -> TransactionOutput<'a> {
+fn sort_tx_out_value(tx_output: TransactionOutput<'_>) -> TransactionOutput<'_> {
     match tx_output {
         TransactionOutput::Legacy(output) => {
             let new_output = PostAlonzoTransactionOutput {
                 address: output.address.clone(),
                 value: sort_value(&from_alonzo_value(&output.amount)),
-                datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
+                datum_option: output
+                    .datum_hash
+                    .map(|hash| KeepRaw::from(DatumOption::Hash(hash))),
                 script_ref: None,
             };
-            TransactionOutput::PostAlonzo(new_output.into())
+            TransactionOutput::PostAlonzo(KeepRaw::from(new_output))
         }
         TransactionOutput::PostAlonzo(output) => {
             let mut new_output = output.clone();
@@ -1006,9 +1029,9 @@ fn sort_mint(mint: &Mint) -> Mint {
     for m in mint.iter().sorted() {
         let mut inner_btree = BTreeMap::new();
         for (policy_id, tokens) in m.1.iter().sorted() {
-            inner_btree.insert(policy_id.clone(), tokens.clone());
+            inner_btree.insert(policy_id.clone(), *tokens);
         }
-        mint_btree.insert(m.0.clone(), inner_btree);
+        mint_btree.insert(*m.0, inner_btree);
     }
 
     mint_btree
@@ -1022,9 +1045,9 @@ fn sort_value(value: &Value) -> Value {
             for (policy_id, tokens) in ma.iter().sorted() {
                 let mut inner_btree = BTreeMap::new();
                 for (asset_name, quantity) in tokens.iter().sorted() {
-                    inner_btree.insert(asset_name.clone(), quantity.clone());
+                    inner_btree.insert(asset_name.clone(), *quantity);
                 }
-                ma_btree.insert(policy_id.clone(), inner_btree);
+                ma_btree.insert(*policy_id, inner_btree);
             }
             Value::Multiasset(*coin, ma_btree)
         }
@@ -1104,5 +1127,471 @@ pub fn sort_reward_accounts(a: &Bytes, b: &Bytes) -> Ordering {
         }
     } else {
         unreachable!("invalid reward address in withdrawals.");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::phase2::uplc::{
+        ast::Data,
+        tx::{
+            script_context::{TxInfo, TxInfoV3},
+            to_plutus_data::ToPlutusData,
+            ResolvedInput, SlotConfig,
+        },
+    };
+    use pallas_primitives::{
+        conway::{ExUnits, PlutusData, Redeemer, RedeemerTag, TransactionInput, TransactionOutput},
+        Fragment,
+    };
+    use pallas_traverse::{Era, MultiEraTx};
+
+    fn fixture_tx_info<'a>(
+        transaction: &'a str,
+        inputs: &'a str,
+        outputs: &'a str,
+    ) -> TxInfo<'static> {
+        let transaction_bytes = Box::leak(hex::decode(transaction).unwrap().into_boxed_slice());
+        let inputs_bytes = Box::leak(hex::decode(inputs).unwrap().into_boxed_slice());
+        let outputs_bytes = Box::leak(hex::decode(outputs).unwrap().into_boxed_slice());
+
+        let inputs = Box::leak(Box::new(
+            Vec::<TransactionInput>::decode_fragment(inputs_bytes).unwrap(),
+        ));
+        let outputs = Box::leak(Box::new(
+            Vec::<TransactionOutput>::decode_fragment(outputs_bytes).unwrap(),
+        ));
+
+        let resolved_inputs = Box::leak(Box::new(
+            inputs
+                .iter()
+                .zip(outputs.iter())
+                .map(|(input, output)| ResolvedInput {
+                    input: input.clone(),
+                    output: output.clone(),
+                })
+                .collect::<Vec<_>>(),
+        ));
+
+        let binding = Box::leak(Box::new(
+            MultiEraTx::decode_for_era(Era::Conway, transaction_bytes).unwrap(),
+        ));
+        let tx = Box::leak(Box::new(binding.as_conway().unwrap()));
+
+        TxInfoV3::from_transaction(
+            tx,
+            resolved_inputs,
+            Box::leak(Box::new(SlotConfig::default())),
+        )
+        .unwrap()
+    }
+
+    #[allow(dead_code)]
+    fn from_haskell(data: &str) -> PlutusData {
+        PlutusData::decode_fragment(hex::decode(data).unwrap().as_slice()).unwrap()
+    }
+
+    #[test]
+    fn script_context_simple_send() {
+        let datum = Some(Data::constr(0, Vec::new()));
+
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Spend,
+            index: 0,
+            data: Data::constr(0, Vec::new()),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        let script_context = fixture_tx_info(
+            "84a7008182582000000000000000000000000000000000000000000000000000\
+             0000000000000000018182581d60111111111111111111111111111111111111\
+             111111111111111111111a3b9aca0002182a0b5820ffffffffffffffffffffff\
+             ffffffffffffffffffffffffffffffffffffffffff0d81825820000000000000\
+             0000000000000000000000000000000000000000000000000000001082581d60\
+             000000000000000000000000000000000000000000000000000000001a3b9aca\
+             001101a20581840000d87980821a000f42401a05f5e100078152510101003222\
+             253330044a229309b2b2b9a1f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a300581d7039f47fd3b388ef53c48f08de24766d3e55dade6cae908cc24e0f\
+             4f3e011a3b9aca00028201d81843d87980",
+        )
+        .into_script_context(&redeemer, datum.as_ref())
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data())
+    }
+
+    #[test]
+    fn script_context_mint() {
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Mint,
+            index: 1,
+            data: Data::integer(42.into()),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        let script_context = fixture_tx_info(
+            "84a9008182582000000000000000000000000000000000000000000000000000\
+             00000000000000000183a300581d600000000000000000000000000000000000\
+             0000000000000000000000011a000f42400282005820923918e403bf43c34b4e\
+             f6b48eb2ee04babed17320d8d1b9ff9ad086e86f44eca2005839000000000000\
+             0000000000000000000000000000000000000000000000000000000000000000\
+             0000000000000000000000000000000000000001821a000f4240a2581c12593b\
+             4cbf7fdfd8636db99fe356437cd6af8539aadaa0a401964874a14474756e611b\
+             00005af3107a4000581c0c8eaf490c53afbf27e3d84a3b57da51fbafe5aa7844\
+             3fcec2dc262ea14561696b656e182aa300583910000000000000000000000000\
+             0000000000000000000000000000000000000000000000000000000000000000\
+             00000000000000000000000001821a000f4240a1581c0c8eaf490c53afbf27e3\
+             d84a3b57da51fbafe5aa78443fcec2dc262ea14763617264616e6f0103d81847\
+             82034463666f6f02182a09a2581c12593b4cbf7fdfd8636db99fe356437cd6af\
+             8539aadaa0a401964874a14474756e611b00005af3107a4000581c0c8eaf490c\
+             53afbf27e3d84a3b57da51fbafe5aa78443fcec2dc262ea24763617264616e6f\
+             014561696b656e2d0b5820ffffffffffffffffffffffffffffffffffffffffff\
+             ffffffffffffffffffffff0d8182582000000000000000000000000000000000\
+             00000000000000000000000000000000001082581d6000000000000000000000\
+             0000000000000000000000000000000000001a3b9aca00110112818258200000\
+             00000000000000000000000000000000000000000000000000000000000000a3\
+             0582840100d87980821a000f42401a05f5e100840101182a821a000f42401a05\
+             f5e1000481d879800782587d587b010100323232323232322533333300800115\
+             3330033370e900018029baa001153330073006375400224a6660089445261533\
+             0054911856616c696461746f722072657475726e65642066616c736500136560\
+             02002002002002002153300249010b5f746d70323a20566f696400165734ae71\
+             55ceaab9e5573eae915895589301010032323232323232253333330080011533\
+             30033370e900018029baa001153330073006375400224a666008a6600a920110\
+             5f5f5f5f5f6d696e745f325f5f5f5f5f0014a22930a99802a4811856616c6964\
+             61746f722072657475726e65642066616c736500136560020020020020020021\
+             53300249010b5f746d70323a20566f696400165734ae7155ceaab9e5573eae91\
+             f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a200581d600000000000000000000000000000000000000000000000000000\
+             0000011a000f4240",
+        )
+        .into_script_context(&redeemer, None)
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data());
+    }
+
+    #[test]
+    fn script_context_propose_all_but_pparams() {
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Propose,
+            index: 3,
+            data: Data::constr(0, vec![]),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        let script_context = fixture_tx_info(
+            "84a4008182582000000000000000000000000000000000000000000000000000\
+             0000000000000000018002182a14d9010289841a001e8480581df00000000000\
+             00000000000000000000000000000000000000000000008301f6820a00827668\
+             747470733a2f2f61696b656e2d6c616e672e6f72675820000000000000000000\
+             0000000000000000000000000000000000000000000000841a001e8480581df0\
+             0000000000000000000000000000000000000000000000000000000083018258\
+             2000000000000000000000000000000000000000000000000000000000000000\
+             0000820b00827668747470733a2f2f61696b656e2d6c616e672e6f7267582000\
+             0000000000000000000000000000000000000000000000000000000000000084\
+             1a001e8480581df0000000000000000000000000000000000000000000000000\
+             000000008302a1581de011111111111111111111111111111111111111111111\
+             1111111111111a000f4240f6827668747470733a2f2f61696b656e2d6c616e67\
+             2e6f726758200000000000000000000000000000000000000000000000000000\
+             000000000000841a001e8480581df00000000000000000000000000000000000\
+             00000000000000000000008302a1581de0222222222222222222222222222222\
+             222222222222222222222222221a000f4240581c9b24324046544393443e1fb3\
+             5c8b72c3c39e18a516a95df5f6654101827668747470733a2f2f61696b656e2d\
+             6c616e672e6f7267582000000000000000000000000000000000000000000000\
+             00000000000000000000841a001e8480581df000000000000000000000000000\
+             0000000000000000000000000000008203f6827668747470733a2f2f61696b65\
+             6e2d6c616e672e6f726758200000000000000000000000000000000000000000\
+             000000000000000000000000841a001e8480581df00000000000000000000000\
+             00000000000000000000000000000000008504f6818200581c00000000000000\
+             000000000000000000000000000000000000000000a18200581c000000000000\
+             000000000000000000000000000000000000000000001901f4d81e8201028276\
+             68747470733a2f2f61696b656e2d6c616e672e6f726758200000000000000000\
+             000000000000000000000000000000000000000000000000841a001e8480581d\
+             f0000000000000000000000000000000000000000000000000000000008305f6\
+             8282782068747470733a2f2f636f6e737469747574696f6e2e63617264616e6f\
+             2e6f726758200000000000000000000000000000000000000000000000000000\
+             000000000000f6827668747470733a2f2f61696b656e2d6c616e672e6f726758\
+             2000000000000000000000000000000000000000000000000000000000000000\
+             00841a001e8480581df000000000000000000000000000000000000000000000\
+             0000000000008305f68282782068747470733a2f2f636f6e737469747574696f\
+             6e2e63617264616e6f2e6f726758200000000000000000000000000000000000\
+             000000000000000000000000000000581c000000000000000000000000000000\
+             00000000000000000000000000827668747470733a2f2f61696b656e2d6c616e\
+             672e6f7267582000000000000000000000000000000000000000000000000000\
+             00000000000000841a001e8480581de000000000000000000000000000000000\
+             0000000000000000000000008106827668747470733a2f2f61696b656e2d6c61\
+             6e672e6f72675820000000000000000000000000000000000000000000000000\
+             0000000000000000a20581840503d87980821a000f42401a05f5e1000781587d\
+             587b0101003232323232323225333333008001153330033370e900018029baa0\
+             01153330073006375400224a66600894452615330054911856616c696461746f\
+             722072657475726e65642066616c736500136560020020020020020021533002\
+             49010b5f746d70313a20566f696400165734ae7155ceaab9e5573eae91f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a200581d600000000000000000000000000000000000000000000000000000\
+             0000011a000f4240",
+        )
+        .into_script_context(&redeemer, None)
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data());
+    }
+
+    #[test]
+    fn script_context_propose_pparams_no_cost_models() {
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Propose,
+            index: 0,
+            data: Data::constr(0, vec![]),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        let script_context = fixture_tx_info(
+            "84a4008182582000000000000000000000000000000000000000000000000000\
+             0000000000000000018002182a14d9010281841a001e8480581df00000000000\
+             00000000000000000000000000000000000000000000008400f6b81d00182c01\
+             1a00025ef50712081901f409d81e82030a0ad81e82031903e80bd81e82020a02\
+             1a00016000031940000419044c051a001e8480061a1dcd650010190154111910\
+             d61382d81e821902411903e8d81e821902d11a000f424014821a00d59f801b00\
+             000002540be40015821a03b20b801b00000004a817c800161913881718961818\
+             03181985d81e8218331864d81e8218341864d81e8218351864d81e8218361864\
+             d81e8218371864181a8ad81e8218431864d81e8218431864d81e82183c1864d8\
+             1e82184b1864d81e82183c1864d81e8218431864d81e8218431864d81e821843\
+             1864d81e82184b1864d81e8218431864181b07181c1892181d06181e1b000000\
+             174876e800181f1a1dcd65001820141821d81e820f01581c9b24324046544393\
+             443e1fb35c8b72c3c39e18a516a95df5f6654101827668747470733a2f2f6169\
+             6b656e2d6c616e672e6f72675820000000000000000000000000000000000000\
+             0000000000000000000000000000a20581840500d87980821a000f42401a05f5\
+             e1000781587d587b0101003232323232323225333333008001153330033370e9\
+             00018029baa001153330073006375400224a6660089445261533005491185661\
+             6c696461746f722072657475726e65642066616c736500136560020020020020\
+             02002153300249010b5f746d70313a20566f696400165734ae7155ceaab9e557\
+             3eae91f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a200581d600000000000000000000000000000000000000000000000000000\
+             0000011a000f4240",
+        )
+        .into_script_context(&redeemer, None)
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data());
+    }
+
+    #[test]
+    fn script_context_certificates() {
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Cert,
+            index: 20,
+            data: Data::constr(0, vec![]),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        // NOTE: The transaction also contains treasury donation and current treasury amount
+        let script_context = fixture_tx_info(
+            "84a6008182582000000000000000000000000000000000000000000000000000\
+             00000000000000000180049582008201581c2222222222222222222222222222\
+             222222222222222222222222222282008200581c000000000000000000000000\
+             0000000000000000000000000000000082018200581c00000000000000000000\
+             0000000000000000000000000000000000008a03581c11111111111111111111\
+             1111111111111111111111111111111111115820999999999999999999999999\
+             99999999999999999999999999999999999999991a000f4240190154d81e8201\
+             1864581de0000000000000000000000000000000000000000000000000000000\
+             00d901028080f68304581c111111111111111111111111111111111111111111\
+             1111111111111119053983078200581c00000000000000000000000000000000\
+             0000000000000000000000001a002dc6c083088200581c000000000000000000\
+             000000000000000000000000000000000000001a002dc6c083098200581c0000\
+             00000000000000000000000000000000000000000000000000008200581c0000\
+             000000000000000000000000000000000000000000000000000083098200581c\
+             000000000000000000000000000000000000000000000000000000008201581c\
+             0000000000000000000000000000000000000000000000000000000083098200\
+             581c000000000000000000000000000000000000000000000000000000008102\
+             83098200581c0000000000000000000000000000000000000000000000000000\
+             00008103840a8200581c00000000000000000000000000000000000000000000\
+             000000000000581c111111111111111111111111111111111111111111111111\
+             111111118103840b8200581c0000000000000000000000000000000000000000\
+             0000000000000000581c11111111111111111111111111111111111111111111\
+             1111111111111a002dc6c0840c8200581c000000000000000000000000000000\
+             0000000000000000000000000081031a002dc6c0850d8200581c000000000000\
+             00000000000000000000000000000000000000000000581c1111111111111111\
+             111111111111111111111111111111111111111181031a002dc6c0830e820058\
+             1c00000000000000000000000000000000000000000000000000000000820058\
+             1c22222222222222222222222222222222222222222222222222222222830f82\
+             00581c00000000000000000000000000000000000000000000000000000000f6\
+             84108200581c0000000000000000000000000000000000000000000000000000\
+             00001a002dc6c0f683118200581c000000000000000000000000000000000000\
+             000000000000000000001a002dc6c083128200581c0000000000000000000000\
+             0000000000000000000000000000000000f683028201581c9b24324046544393\
+             443e1fb35c8b72c3c39e18a516a95df5f6654101581c11111111111111111111\
+             11111111111111111111111111111111111102182a151a00989680160ea20581\
+             840214d87980821a000f42401a05f5e1000781587d587b010100323232323232\
+             3225333333008001153330033370e900018029baa00115333007300637540022\
+             4a66600894452615330054911856616c696461746f722072657475726e656420\
+             66616c73650013656002002002002002002153300249010b5f746d70313a2056\
+             6f696400165734ae7155ceaab9e5573eae91f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a200581d600000000000000000000000000000000000000000000000000000\
+             0000011a000f4240",
+        )
+        .into_script_context(&redeemer, None)
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data());
+    }
+
+    #[test]
+    fn script_context_voting() {
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Vote,
+            index: 0,
+            data: Data::constr(0, vec![Data::integer(42.into())]),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        // NOTE: The transaction also contains treasury donation and current treasury amount
+        let script_context = fixture_tx_info(
+            "84a4008182582000000000000000000000000000000000000000000000000000\
+             0000000000000000018002182a13a58200581c00000000000000000000000000\
+             000000000000000000000000000000a182582099999999999999999999999999\
+             9999999999999999999999999999999999999918988200827668747470733a2f\
+             2f61696b656e2d6c616e672e6f72675820000000000000000000000000000000\
+             00000000000000000000000000000000008202581c0000000000000000000000\
+             0000000000000000000000000000000000a38258209999999999999999999999\
+             999999999999999999999999999999999999999999008202f682582088888888\
+             88888888888888888888888888888888888888888888888888888888018202f6\
+             8258207777777777777777777777777777777777777777777777777777777777\
+             777777028202f68203581c43fa47afc68a7913fbe2f400e3849cb492d9a2610c\
+             85966de0f2ba1ea1825820999999999999999999999999999999999999999999\
+             9999999999999999999999038200f68204581c00000000000000000000000000\
+             000000000000000000000000000000a182582099999999999999999999999999\
+             99999999999999999999999999999999999999048201f68201581c43fa47afc6\
+             8a7913fbe2f400e3849cb492d9a2610c85966de0f2ba1ea18258209999999999\
+             999999999999999999999999999999999999999999999999999999018201f6a2\
+             0582840402d87980821a000f42401a05f5e100840400d87981182a821a000f42\
+             401a05f5e1000781587d587b0101003232323232323225333333008001153330\
+             033370e900018029baa001153330073006375400224a66600894452615330054\
+             911856616c696461746f722072657475726e65642066616c7365001365600200\
+             2002002002002153300249010b5f746d70303a20566f696400165734ae7155ce\
+             aab9e5573eae91f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a200581d600000000000000000000000000000000000000000000000000000\
+             0000011a000f4240",
+        )
+        .into_script_context(&redeemer, None)
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data());
+    }
+
+    #[test]
+    fn script_context_withdraw() {
+        let redeemer = Redeemer {
+            tag: RedeemerTag::Reward,
+            index: 0,
+            data: Data::constr(0, vec![]),
+            ex_units: ExUnits {
+                mem: 1000000,
+                steps: 100000000,
+            },
+        };
+
+        // NOTE: The transaction also contains treasury donation and current treasury amount
+        let script_context = fixture_tx_info(
+            "84a7008182582000000000000000000000000000000000000000000000000000\
+             00000000000000000183a2005839200000000000000000000000000000000000\
+             0000000000000000000000111111111111111111111111111111111111111111\
+             11111111111111011a000f4240a2005823400000000000000000000000000000\
+             00000000000000000000000000008198bd431b03011a000f4240a20058235011\
+             1111111111111111111111111111111111111111111111111111118198bd431b\
+             03011a000f424002182a031a00448e0105a1581df004036eecadc2f19e95f831\
+             b4bc08919cde1d1088d74602bd3dcd78a2000e81581c00000000000000000000\
+             0000000000000000000000000000000000001601a10582840000d87a81d87980\
+             821a000f42401a05f5e100840300d87980821a000f42401a05f5e100f5f6",
+            "8182582000000000000000000000000000000000000000000000000000000000\
+             0000000000",
+            "81a40058393004036eecadc2f19e95f831b4bc08919cde1d1088d74602bd3dcd\
+             78a204036eecadc2f19e95f831b4bc08919cde1d1088d74602bd3dcd78a2011a\
+             000f4240028201d81843d8798003d818590221820359021c5902190101003232\
+             323232323232322232533333300c00215323330073001300937540062a660109\
+             211c52756e6e696e672032206172672076616c696461746f72206d696e740013\
+             533333300d004153330073001300937540082a66601660146ea8010494ccc021\
+             288a4c2a660129211856616c696461746f722072657475726e65642066616c73\
+             65001365600600600600600600600315330084911d52756e6e696e6720332061\
+             72672076616c696461746f72207370656e640013533333300d00415333007300\
+             1300937540082a66601660146ea8010494cccccc03800454ccc020c008c028dd\
+             50008a99980618059baa0011253330094a22930a998052491856616c69646174\
+             6f722072657475726e65642066616c7365001365600600600600600600600600\
+             6006006006006300c300a37540066e1d20001533007001161533007001161533\
+             00700116153300700116490191496e636f72726563742072656465656d657220\
+             7479706520666f722076616c696461746f72207370656e642e0a202020202020\
+             2020202020202020202020202020446f75626c6520636865636b20796f752068\
+             6176652077726170706564207468652072656465656d65722074797065206173\
+             2073706563696669656420696e20796f757220706c757475732e6a736f6e0015\
+             330034910b5f746d70313a20566f6964001615330024910b5f746d70303a2056\
+             6f696400165734ae7155ceaab9e5573eae855d21",
+        )
+        .into_script_context(&redeemer, None)
+        .unwrap();
+
+        // NOTE: The initial snapshot has been generated using the Haskell
+        // implementation of the ledger library for that same serialized
+        // transactions. It is meant to control that our construction of the
+        // script context and its serialization matches exactly those
+        // from the Haskell ledger / cardano node.
+        insta::assert_debug_snapshot!(script_context.to_plutus_data());
     }
 }

@@ -1,25 +1,27 @@
-use std::{collections::BTreeMap, ops::Deref};
+use std::collections::BTreeMap;
 
-use super::data::Data;
-use super::script_context::{
-    from_alonzo_output, ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo,
-};
+use num_integer::Integer;
 use pallas_addresses::{
     Address, ShelleyDelegationPart, ShelleyPaymentPart, StakeAddress, StakePayload,
 };
-use pallas_codec::utils::{
-    AnyUInt, Bytes, Int, KeepRaw, KeyValuePairs, NonEmptyKeyValuePairs, Nullable, PositiveCoin,
+use pallas_codec::utils::AnyUInt;
+use pallas_primitives::{
+    conway::{
+        Certificate, Constitution, DRep, DRepVotingThresholds, DatumOption, ExUnitPrices,
+        GovAction, GovActionId, Mint, PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate,
+        Redeemer, ScriptRef, TransactionOutput, Value, Vote, Voter, VotingProcedure,
+    },
+    AssetName, BigInt, Bytes, Coin, Constr, ExUnits, Hash, Int, KeyValuePairs, MaybeIndefArray,
+    NonZeroInt, Nullable, PlutusData, PolicyId, PositiveCoin, RationalNumber, StakeCredential,
+    TransactionInput,
 };
-use pallas_crypto::hash::Hash;
-use pallas_primitives::conway::{
-    AssetName, BigInt, Certificate, Coin, Constitution, Constr, DRep, DRepVotingThresholds,
-    DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint, PlutusData, PolicyId,
-    PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate, RationalNumber, Redeemer,
-    ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
-    VotingProcedure,
-};
-use pallas_primitives::NonZeroInt;
 use pallas_traverse::ComputeHash;
+
+use crate::phase2::uplc::ast::Data;
+
+use super::script_context::{
+    from_alonzo_output, ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo,
+};
 
 pub fn convert_tag_to_constr(tag: u64) -> Option<u64> {
     if (121..=127).contains(&tag) {
@@ -48,7 +50,11 @@ fn wrap_multiple_with_constr(index: u64, data: Vec<PlutusData>) -> PlutusData {
     PlutusData::Constr(Constr {
         tag: converted.unwrap_or(ANY_TAG),
         any_constructor: converted.map_or(Some(index), |_| None),
-        fields: pallas_codec::utils::MaybeIndefArray::Indef(data),
+        fields: if data.is_empty() {
+            MaybeIndefArray::Def(data)
+        } else {
+            MaybeIndefArray::Indef(data)
+        },
     })
 }
 
@@ -194,9 +200,7 @@ where
     A: ToPlutusData,
 {
     fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.iter().map(|p| p.to_plutus_data()).collect(),
-        ))
+        Data::list(self.iter().map(|p| p.to_plutus_data()).collect())
     }
 }
 
@@ -264,25 +268,12 @@ impl ToPlutusData for WithNeverRegistrationDeposit<'_, KeyValuePairs<ScriptPurpo
     }
 }
 
-impl<T: ToPlutusData> ToPlutusData for KeepRaw<'_, T> {
-    fn to_plutus_data(&self) -> PlutusData {
-        self.deref().to_plutus_data()
-    }
-}
-
 impl<A: ToPlutusData> ToPlutusData for Option<A> {
     fn to_plutus_data(&self) -> PlutusData {
         match self {
             None => empty_constr(1),
             Some(data) => wrap_with_constr(0, data.to_plutus_data()),
         }
-    }
-}
-
-impl ToPlutusData for Option<KeepRaw<'_, DatumOption<'_>>> {
-    // NoOutputDatum = 0 | OutputDatumHash = 1 | OutputDatum = 2
-    fn to_plutus_data(&self) -> PlutusData {
-        self.clone().map(|x| x.unwrap()).to_plutus_data()
     }
 }
 
@@ -306,7 +297,7 @@ impl ToPlutusData for AnyUInt {
             AnyUInt::U16(n) => PlutusData::BigInt(BigInt::Int(Int::from(*n as i64))),
             AnyUInt::U32(n) => PlutusData::BigInt(BigInt::Int(Int::from(*n as i64))),
             AnyUInt::U64(n) => PlutusData::BigInt(BigInt::Int(Int::try_from(*n as i128).unwrap())),
-            AnyUInt::MajorByte(n) => PlutusData::BigInt(BigInt::Int(Int::from(*n as i64))), /* is this correct? I don't know exactly what is does */
+            AnyUInt::MajorByte(n) => PlutusData::BigInt(BigInt::Int(Int::from(*n as i64))), // is this correct? I don't know exactly what is does
         }
     }
 }
@@ -360,22 +351,10 @@ impl ToPlutusData for WithZeroAdaAsset<'_, Value> {
                 PlutusData::Map(KeyValuePairs::Def(vec![coin_to_plutus_data(coin)]))
             }
             Value::Multiasset(coin, multiassets) => {
-                let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> =
-                    multiassets
-                        .iter()
-                        .map(|(policy_id, tokens)| {
-                            let kvp = NonEmptyKeyValuePairs::try_from(
-                                tokens
-                                    .iter()
-                                    .map(|(asset_name, amount)| {
-                                        (asset_name.clone(), amount.clone())
-                                    })
-                                    .collect::<Vec<_>>(),
-                            )
-                            .expect("Empty tokens map");
-                            (*policy_id, kvp)
-                        })
-                        .collect();
+                let transformed: Vec<(PolicyId, BTreeMap<AssetName, PositiveCoin>)> = multiassets
+                    .iter()
+                    .map(|(policy_id, tokens)| (*policy_id, tokens.clone()))
+                    .collect();
 
                 value_to_plutus_data(
                     transformed.iter(),
@@ -396,22 +375,10 @@ impl ToPlutusData for Value {
                 vec![]
             })),
             Value::Multiasset(coin, multiassets) => {
-                let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, PositiveCoin>)> =
-                    multiassets
-                        .iter()
-                        .map(|(policy_id, tokens)| {
-                            let kvp = NonEmptyKeyValuePairs::try_from(
-                                tokens
-                                    .iter()
-                                    .map(|(asset_name, amount)| {
-                                        (asset_name.clone(), amount.clone())
-                                    })
-                                    .collect::<Vec<_>>(),
-                            )
-                            .expect("Empty tokens map");
-                            (*policy_id, kvp)
-                        })
-                        .collect();
+                let transformed: Vec<(PolicyId, BTreeMap<AssetName, PositiveCoin>)> = multiassets
+                    .iter()
+                    .map(|(policy_id, tokens)| (*policy_id, tokens.clone()))
+                    .collect();
 
                 value_to_plutus_data(
                     transformed.iter(),
@@ -429,20 +396,11 @@ impl ToPlutusData for Value {
 
 impl ToPlutusData for WithZeroAdaAsset<'_, MintValue> {
     fn to_plutus_data(&self) -> PlutusData {
-        let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, NonZeroInt>)> = self
+        let transformed: Vec<(PolicyId, BTreeMap<Bytes, NonZeroInt>)> = self
             .0
             .mint_value
             .iter()
-            .map(|(policy_id, tokens)| {
-                let kvp = NonEmptyKeyValuePairs::try_from(
-                    tokens
-                        .iter()
-                        .map(|(asset_name, amount)| (asset_name.clone(), amount.clone()))
-                        .collect::<Vec<_>>(),
-                )
-                .expect("Empty tokens map");
-                (*policy_id, kvp)
-            })
+            .map(|(policy_id, tokens)| (*policy_id, tokens.clone()))
             .collect();
 
         value_to_plutus_data(
@@ -461,19 +419,10 @@ impl ToPlutusData for WithZeroAdaAsset<'_, MintValue> {
 
 impl ToPlutusData for MintValue {
     fn to_plutus_data(&self) -> PlutusData {
-        let transformed: Vec<(PolicyId, NonEmptyKeyValuePairs<AssetName, NonZeroInt>)> = self
+        let transformed: Vec<(PolicyId, BTreeMap<Bytes, NonZeroInt>)> = self
             .mint_value
             .iter()
-            .map(|(policy_id, tokens)| {
-                let kvp = NonEmptyKeyValuePairs::try_from(
-                    tokens
-                        .iter()
-                        .map(|(asset_name, amount)| (asset_name.clone(), amount.clone()))
-                        .collect::<Vec<_>>(),
-                )
-                .expect("Empty tokens map");
-                (*policy_id, kvp)
-            })
+            .map(|(policy_id, tokens)| (*policy_id, tokens.clone()))
             .collect();
 
         value_to_plutus_data(
@@ -490,7 +439,7 @@ fn value_to_plutus_data<'a, I, Q>(
     mut data_vec: Vec<(PlutusData, PlutusData)>,
 ) -> PlutusData
 where
-    I: Iterator<Item = &'a (PolicyId, NonEmptyKeyValuePairs<AssetName, Q>)>,
+    I: Iterator<Item = &'a (PolicyId, BTreeMap<AssetName, Q>)>,
     Q: Clone,
 {
     for (policy_id, assets) in mint {
@@ -530,24 +479,24 @@ impl ToPlutusData for ScriptRef<'_> {
 
 impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, Vec<TransactionOutput<'_>>>> {
     fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
+        Data::list(
             self.0
                  .0
                 .iter()
                 .map(|p| WithOptionDatum(&WithZeroAdaAsset(p)).to_plutus_data())
                 .collect(),
-        ))
+        )
     }
 }
 
 impl ToPlutusData for WithZeroAdaAsset<'_, Vec<TransactionOutput<'_>>> {
     fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
+        Data::list(
             self.0
                 .iter()
                 .map(|p| WithZeroAdaAsset(p).to_plutus_data())
                 .collect(),
-        ))
+        )
     }
 }
 
@@ -566,8 +515,14 @@ impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, TransactionOu
                         .unwrap()
                         .to_plutus_data(),
                     WithZeroAdaAsset(&post_alonzo_output.value).to_plutus_data(),
-                    match post_alonzo_output.datum_option.clone().map(|x| x.unwrap()) {
-                        Some(DatumOption::Hash(hash)) => Some(hash).to_plutus_data(),
+                    match &post_alonzo_output.datum_option {
+                        Some(keepraw_datum) => {
+                            if let DatumOption::Hash(hash) = keepraw_datum.clone().unwrap() {
+                                Some(hash).to_plutus_data()
+                            } else {
+                                None::<Hash<32>>.to_plutus_data()
+                            }
+                        }
                         _ => None::<Hash<32>>.to_plutus_data(),
                     },
                 ],
@@ -591,8 +546,8 @@ impl ToPlutusData for WithZeroAdaAsset<'_, TransactionOutput<'_>> {
                     WithZeroAdaAsset(&post_alonzo_output.value).to_plutus_data(),
                     post_alonzo_output
                         .datum_option
-                        .clone()
-                        .map(|x| x.unwrap())
+                        .as_ref()
+                        .map(|datum_opt| datum_opt.clone().unwrap())
                         .to_plutus_data(),
                     post_alonzo_output
                         .script_ref
@@ -618,7 +573,11 @@ impl ToPlutusData for TransactionOutput<'_> {
                         .unwrap()
                         .to_plutus_data(),
                     post_alonzo_output.value.to_plutus_data(),
-                    post_alonzo_output.datum_option.to_plutus_data(),
+                    post_alonzo_output
+                        .datum_option
+                        .as_ref()
+                        .map(|datum_opt| datum_opt.clone().unwrap())
+                        .to_plutus_data(),
                     post_alonzo_output
                         .script_ref
                         .as_ref()
@@ -918,7 +877,7 @@ impl<'a> ToPlutusData
     for WithOptionDatum<'a, WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<TxInInfo<'_>>>>>
 {
     fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
+        Data::list(
             self.0
                  .0
                  .0
@@ -928,21 +887,19 @@ impl<'a> ToPlutusData
                         .to_plutus_data()
                 })
                 .collect(),
-        ))
+        )
     }
 }
 
 impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<TxInInfo<'_>>>> {
     fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array({
-            pallas_codec::utils::MaybeIndefArray::Def(
-                self.0
-                     .0
-                    .iter()
-                    .map(|p| WithZeroAdaAsset(&WithWrappedTransactionId(p)).to_plutus_data())
-                    .collect(),
-            )
-        })
+        Data::list(
+            self.0
+                 .0
+                .iter()
+                .map(|p| WithZeroAdaAsset(&WithWrappedTransactionId(p)).to_plutus_data())
+                .collect(),
+        )
     }
 }
 
@@ -984,10 +941,9 @@ impl ToPlutusData for TxInInfo<'_> {
     }
 }
 
-// NOTE: This is a _small_ abuse of the 'WithWrappedTransactionId'. We know the
-// wrapped is needed for V1 and V2, and it also appears that for V1 and V2, the
-// certifying purpose mustn't include the certificate index. So, we also
-// short-circuit it here.
+// NOTE: This is a _small_ abuse of the 'WithWrappedTransactionId'. We know the wrapped
+// is needed for V1 and V2, and it also appears that for V1 and V2, the certifying
+// purpose mustn't include the certificate index. So, we also short-circuit it here.
 impl ToPlutusData for WithWrappedTransactionId<'_, ScriptPurpose> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0 {
@@ -1323,13 +1279,15 @@ impl ToPlutusData for Constitution {
 
 impl ToPlutusData for RationalNumber {
     fn to_plutus_data(&self) -> PlutusData {
-        (self.numerator, self.denominator).to_plutus_data()
+        let gcd = self.numerator.gcd(&self.denominator);
+        (self.numerator / gcd, self.denominator / gcd).to_plutus_data()
     }
 }
 
 impl ToPlutusData for WithArrayRational<'_, RationalNumber> {
     fn to_plutus_data(&self) -> PlutusData {
-        vec![self.0.numerator, self.0.denominator].to_plutus_data()
+        let gcd = self.0.numerator.gcd(&self.0.denominator);
+        vec![self.0.numerator / gcd, self.0.denominator / gcd].to_plutus_data()
     }
 }
 
