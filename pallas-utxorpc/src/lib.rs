@@ -226,16 +226,16 @@ impl<C: LedgerContext> Mapper<C> {
         match x {
             babbage::Relay::SingleHostAddr(port, v4, v6) => u5c::Relay {
                 // ip_v4: v4.map(|x| x.to_vec().into()).into().unwrap_or_default(),
-                ip_v4: Option::from(v4.clone().map(|x| x.to_vec().into())).unwrap_or_default(),
-                ip_v6: Option::from(v6.clone().map(|x| x.to_vec().into())).unwrap_or_default(),
+                ip_v4: v4.clone().map(|x| x.to_vec().into()).unwrap_or_default(),
+                ip_v6: v6.clone().map(|x| x.to_vec().into()).unwrap_or_default(),
                 dns_name: String::default(),
-                port: Option::from(port.clone()).unwrap_or_default(),
+                port: (*port).unwrap_or_default(),
             },
             babbage::Relay::SingleHostName(port, name) => u5c::Relay {
                 ip_v4: Default::default(),
                 ip_v6: Default::default(),
                 dns_name: name.clone(),
-                port: Option::from(port.clone()).unwrap_or_default(),
+                port: (*port).unwrap_or_default(),
             },
             babbage::Relay::MultiHostName(name) => u5c::Relay {
                 ip_v4: Default::default(),

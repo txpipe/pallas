@@ -374,8 +374,7 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x
                 .transaction_body
                 .collateral_return
-                .as_ref()
-                .map(|keep| keep.deref())
+                .as_deref()
                 .map(MultiEraOutput::from_babbage),
             MultiEraTx::Conway(x) => x
                 .transaction_body

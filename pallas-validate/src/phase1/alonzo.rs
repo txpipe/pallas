@@ -593,11 +593,7 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
 
 // Lexicographical sorting for PolicyID's.
 fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
-    let mut res: Vec<PolicyId> = mint
-        .clone()
-        .iter()
-        .map(|(policy_id, _)| *policy_id)
-        .collect();
+    let mut res: Vec<PolicyId> = mint.clone().keys().copied().collect();
     res.sort();
     res
 }

@@ -1064,12 +1064,10 @@ fn check_input_datum_hash_in_witness_set(
 fn get_datum_hash(output: &TransactionOutput) -> Option<Hash<32>> {
     match output {
         TransactionOutput::Legacy(output) => output.datum_hash,
-        TransactionOutput::PostAlonzo(output) => {
-            match output.datum_option.as_ref().map(|k| k.deref()) {
-                Some(DatumOption::Hash(hash)) => Some(*hash),
-                _ => None,
-            }
-        }
+        TransactionOutput::PostAlonzo(output) => match output.datum_option.as_deref() {
+            Some(DatumOption::Hash(hash)) => Some(*hash),
+            _ => None,
+        },
     }
 }
 
@@ -1122,9 +1120,7 @@ fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
                 }
             }
             TransactionOutput::PostAlonzo(output) => {
-                if let Some(DatumOption::Hash(datum_hash)) =
-                    &output.datum_option.as_ref().map(|k| k.deref())
-                {
+                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
                     if *hash == *datum_hash {
                         return Ok(());
                     }
@@ -1147,9 +1143,7 @@ fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
                     }
                 }
                 Some(TransactionOutput::PostAlonzo(output)) => {
-                    if let Some(DatumOption::Hash(datum_hash)) =
-                        &output.datum_option.as_ref().map(|k| k.deref())
-                    {
+                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
                         if *hash == *datum_hash {
                             return Ok(());
                         }
@@ -1248,11 +1242,7 @@ fn mk_plutus_script_redeemer_pointers(
 
 // Lexicographical sorting for PolicyID's.
 fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
-    let mut res: Vec<PolicyId> = mint
-        .clone()
-        .iter()
-        .map(|(policy_id, _)| *policy_id)
-        .collect();
+    let mut res: Vec<PolicyId> = mint.clone().keys().copied().collect();
     res.sort();
     res
 }
@@ -1533,9 +1523,7 @@ fn any_datums_or_script_refs(all_outputs: &[&TransactionOutput]) -> bool {
             TransactionOutput::PostAlonzo(output) => {
                 if output.script_ref.is_some() {
                     return true;
-                } else if let Some(DatumOption::Data(_)) =
-                    &output.datum_option.as_ref().map(|k| k.deref())
-                {
+                } else if let Some(DatumOption::Data(_)) = &output.datum_option.as_deref() {
                     return true;
                 }
             }
