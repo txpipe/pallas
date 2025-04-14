@@ -1,7 +1,7 @@
 [package]
 name = "pallas-utxorpc"
 description = "Pallas interoperability with the UTxORPC spec"
-version = "0.32.0"
+version = "1.0.0-alpha.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -14,12 +14,12 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }
 utxorpc-spec = { version = "0.16.0" }
 
-pallas-traverse = { version = "=0.32.0", path = "../pallas-traverse" }
-pallas-primitives = { version = "=0.32.0", path = "../pallas-primitives" }
-pallas-codec = { version = "=0.32.0", path = "../pallas-codec" }
-pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
+pallas-traverse = { version = "=1.0.0-alpha.0", path = "../pallas-traverse" }
+pallas-primitives = { version = "=1.0.0-alpha.0", path = "../pallas-primitives" }
+pallas-codec = { version = "=1.0.0-alpha.0", path = "../pallas-codec" }
+pallas-crypto = { version = "=1.0.0-alpha.0", path = "../pallas-crypto" }
 prost-types = "0.13.1"
-pallas-validate = { version = "=0.32.0", path = "../pallas-validate" }
+pallas-validate = { version = "=1.0.0-alpha.0", path = "../pallas-validate" }
 
 [dev-dependencies]
 hex = "0.4.3"

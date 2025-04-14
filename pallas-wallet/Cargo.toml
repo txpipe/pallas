@@ -1,7 +1,7 @@
 [package]
 name = "pallas-wallet"
 description = "Cardano wallet utilities such as key generation"
-version = "0.32.0"
+version = "1.0.0-alpha.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -12,7 +12,7 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 thiserror = "1.0.49"
-pallas-crypto = { version = "=0.32.0", path = "../pallas-crypto" }
+pallas-crypto = { version = "=1.0.0-alpha.0", path = "../pallas-crypto" }
 ed25519-bip32 = "0.4.1"
 bip39 = { version = "2.0.0", features = ["rand_core"] }
 cryptoxide = "0.4.4"
