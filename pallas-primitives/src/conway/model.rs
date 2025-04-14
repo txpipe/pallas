@@ -15,6 +15,7 @@ pub use crate::{
     PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin,
     PositiveInterval, ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set,
     StakeCredential, TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+    BusinessInvariants,
 };
 
 use crate::BTreeMap;
@@ -377,6 +378,17 @@ pub struct TransactionBody<'a> {
 #[deprecated(since = "1.0.0-alpha", note = "use `TransactionBody` instead")]
 pub type MintedTransactionBody<'a> = TransactionBody<'a>;
 
+impl BusinessInvariants for TransactionBody<'_> {
+    fn validate_data(&self) -> bool
+    {
+        self.certificates.validate_data() &&
+            self.collateral.validate_data() &&
+            self.required_signers.validate_data() &&
+            self.reference_inputs.validate_data() &&
+            self.proposal_procedures.validate_data()
+    }
+}
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum Vote {
@@ -617,6 +629,19 @@ pub struct WitnessSet<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
+impl BusinessInvariants for WitnessSet<'_> {
+    fn validate_data(&self) -> bool
+    {
+        self.vkeywitness.validate_data() &&
+            self.native_script.validate_data() &&
+            self.bootstrap_witness.validate_data() &&
+            self.plutus_v1_script.validate_data() &&
+            self.plutus_data.validate_data() &&
+            self.plutus_v2_script.validate_data() &&
+            self.plutus_v3_script.validate_data()
+    }
+}
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct PostAlonzoAuxiliaryData {
@@ -718,6 +743,14 @@ pub struct Tx<'b> {
 
     #[n(3)]
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+}
+
+impl BusinessInvariants for Tx<'_> {
+    fn validate_data(&self) -> bool
+    {
+        self.transaction_body.validate_data() &&
+            self.transaction_witness_set.validate_data()
+    }
 }
 
 #[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]

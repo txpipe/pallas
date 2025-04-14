@@ -804,15 +804,34 @@ impl<T> NonEmptySet<T> {
             Some(Self(x))
         }
     }
+}
 
+pub trait BusinessInvariants {
     /// Checks that the business invariants for this type hold.
-    /// In this casem that means the the inner vec is nonempty and contains no duplicates.
-    pub fn validate_data(&self) -> bool
-    where
-        T: Ord,
+    fn validate_data(&self) -> bool;
+}
+
+impl<T: BusinessInvariants> BusinessInvariants for Option<T> {
+    fn validate_data(&self) -> bool
+    {
+        self.as_ref().is_none_or(|x| x.validate_data())
+    }
+}
+
+impl<T: Ord> BusinessInvariants for &NonEmptySet<T> {
+    /// The inner vec is nonempty and contains no duplicates.
+    fn validate_data(&self) -> bool
     {
         let mut seen = BTreeSet::new();
         !self.0.is_empty() && self.0.iter().all(|item| seen.insert(item))
+    }
+}
+
+impl<T: Ord> BusinessInvariants for NonEmptySet<T> {
+    /// The inner vec is nonempty and contains no duplicates.
+    fn validate_data(&self) -> bool
+    {
+        (&self).validate_data()
     }
 }
 
