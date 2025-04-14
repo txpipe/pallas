@@ -1164,15 +1164,23 @@ where
     }
 }
 
-impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
+impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T>
+where
+    T: minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.writer_mut()
-            .write_all(self.raw_cbor())
-            .map_err(minicbor::encode::Error::write)
+        if self.raw_cbor().is_empty() {
+            e.encode_with(&self.inner, ctx)?;
+            Ok(())
+        } else {
+            e.writer_mut()
+                .write_all(self.raw_cbor())
+                .map_err(minicbor::encode::Error::write)
+        }
     }
 }
 
