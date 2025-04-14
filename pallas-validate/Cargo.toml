@@ -17,8 +17,8 @@ itertools = "0.14.0"
 tracing = "0.1.41"
 
 # phase2 dependencies
-uplc = { git = "https://github.com/pragma-org/uplc.git", optional = true }
+uplc-turbo = { version = "0.1.0", optional = true }
 rug = { version = "1.26.1", optional = true }
 
 [features]
-phase2 = ["uplc", "rug"]
+phase2 = ["rug", "uplc-turbo"]

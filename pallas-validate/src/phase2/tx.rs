@@ -20,7 +20,9 @@ use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
 use rug::{ops::NegAssign, Complete, Integer};
 use tracing::{debug, instrument};
-use uplc::{binder::DeBruijn, bumpalo::Bump, data::PlutusData as PragmaPlutusData, term::Term};
+use uplc_turbo::{
+    binder::DeBruijn, bumpalo::Bump, data::PlutusData as PragmaPlutusData, term::Term,
+};
 
 pub struct TxEvalResult {
     pub tag: RedeemerTag,
@@ -150,7 +152,7 @@ fn execute_script(
         .as_ref()
         .map(|d| plutus_data_to_pragma_term(&arena, d));
 
-    let program = uplc::flat::decode(&arena, &script_bytes[2..])?;
+    let program = uplc_turbo::flat::decode(&arena, &script_bytes[2..])?;
 
     let program = match script_context {
         ScriptContext::V1V2 { .. } => if let Some(datum_term) = datum_term {
