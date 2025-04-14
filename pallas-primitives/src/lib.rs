@@ -40,7 +40,7 @@ pub type DnsName = String;
 
 pub type Epoch = u64;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct ExUnits {
     #[n(0)]
     pub mem: u64,
@@ -139,7 +139,7 @@ pub enum NonceVariant {
     Nonce,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(transparent)]
 pub struct PlutusScript<const VERSION: usize>(pub Bytes);
 
@@ -153,7 +153,7 @@ pub type PolicyId = Hash<28>;
 
 pub type PoolKeyhash = Hash<28>;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct PoolMetadata {
     #[n(0)]
     pub url: String,
@@ -170,7 +170,7 @@ pub type PositiveInterval = RationalNumber;
 
 pub type ProtocolVersion = (u64, u64);
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct RationalNumber {
     pub numerator: u64,
     pub denominator: u64,
@@ -202,7 +202,7 @@ impl<C> minicbor::encode::Encode<C> for RationalNumber {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub enum Relay {
     SingleHostAddr(Option<Port>, Option<IPv4>, Option<IPv6>),
     SingleHostName(Option<Port>, DnsName),

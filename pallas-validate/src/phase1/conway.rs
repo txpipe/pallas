@@ -38,6 +38,7 @@ pub fn validate_conway_tx(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body.clone();
     let size: u32 = get_conway_tx_size(mtx).ok_or(PostAlonzo(UnknownTxSize))?;
+    check_data_business_invariants(mtx, tx_body)?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
@@ -54,6 +55,29 @@ pub fn validate_conway_tx(
     check_languages(mtx, utxos, network_magic, network_id, block_slot)?;
     check_auxiliary_data(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx, utxos, network_magic, network_id, block_slot)
+}
+
+fn check_data_business_invariants(mtx: &Tx, tx_body: &TransactionBody) -> ValidationResult {
+    let witness_set: &WitnessSet = &mtx.transaction_witness_set;
+    let body_invariants: bool =
+        tx_body.certificates.as_ref().is_none_or(|x| x.validate_data()) &&
+        tx_body.collateral.as_ref().is_none_or(|x| x.validate_data()) &&
+        tx_body.required_signers.as_ref().is_none_or(|x| x.validate_data()) &&
+        tx_body.reference_inputs.as_ref().is_none_or(|x| x.validate_data()) &&
+        tx_body.proposal_procedures.as_ref().is_none_or(|x| x.validate_data());
+    let witness_invariants: bool =
+        witness_set.vkeywitness.as_ref().is_none_or(|x| x.validate_data()) &&
+        witness_set.native_script.as_ref().is_none_or(|x| x.validate_data()) &&
+        witness_set.bootstrap_witness.as_ref().is_none_or(|x| x.validate_data()) &&
+        witness_set.plutus_v1_script.as_ref().is_none_or(|x| x.validate_data()) &&
+        witness_set.plutus_data.as_ref().is_none_or(|x| x.validate_data()) &&
+        witness_set.plutus_v2_script.as_ref().is_none_or(|x| x.validate_data()) &&
+        witness_set.plutus_v3_script.as_ref().is_none_or(|x| x.validate_data());
+    if body_invariants && witness_invariants {
+        Ok(())
+    } else {
+        Err(PostAlonzo(BrokenBusinessInvariant))
+    }
 }
 
 // The set of transaction inputs is not empty.

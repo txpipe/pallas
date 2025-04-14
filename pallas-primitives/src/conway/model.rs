@@ -49,7 +49,7 @@ pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(flat)]
 pub enum Certificate {
     #[n(0)]
@@ -152,7 +152,7 @@ pub enum Language {
 #[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
 pub type CostMdls = CostModels;
 
-#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(map)]
 pub struct CostModels {
     #[n(0)]
@@ -195,7 +195,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -271,7 +271,7 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct PoolVotingThresholds {
     #[n(0)]
     pub motion_no_confidence: UnitInterval,
@@ -285,7 +285,7 @@ pub struct PoolVotingThresholds {
     pub security_voting_threshold: UnitInterval,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct DRepVotingThresholds {
     #[n(0)]
     pub motion_no_confidence: UnitInterval,
@@ -398,7 +398,7 @@ pub struct VotingProcedure {
     pub anchor: Option<Anchor>,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct ProposalProcedure {
     #[n(0)]
     pub deposit: Coin,
@@ -410,7 +410,7 @@ pub struct ProposalProcedure {
     pub anchor: Anchor,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(flat)]
 pub enum GovAction {
     #[n(0)]
@@ -441,7 +441,7 @@ pub enum GovAction {
     Information,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
@@ -506,7 +506,7 @@ pub use crate::alonzo::VKeyWitness;
 
 pub use crate::alonzo::NativeScript;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct ExUnitPrices {
     #[n(0)]
     pub mem_price: RationalNumber,

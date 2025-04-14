@@ -6,7 +6,7 @@ use minicbor::{
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, str::FromStr};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, BTreeSet},
     fmt,
     hash::Hash as StdHash,
     ops::{Deref, DerefMut},
@@ -712,7 +712,7 @@ where
 ///
 /// Optional 258 tag (until era after Conway, at which point is it required)
 /// with a vec of items which should contain no duplicates
-#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize, Ord)]
 pub struct Set<T>(Vec<T>);
 
 impl<T> Set<T> {
@@ -803,6 +803,16 @@ impl<T> NonEmptySet<T> {
         } else {
             Some(Self(x))
         }
+    }
+
+    /// Checks that the business invariants for this type hold.
+    /// In this casem that means the the inner vec is nonempty and contains no duplicates.
+    pub fn validate_data(&self) -> bool
+    where
+        T: Ord,
+    {
+        let mut seen = BTreeSet::new();
+        !self.0.is_empty() && self.0.iter().all(|item| seen.insert(item))
     }
 }
 
