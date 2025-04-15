@@ -77,7 +77,75 @@ pub type Credential = StakeAddr;
 
 /// Updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L151)
 /// (via [`EraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L255-L258)).
-pub type PParamsUpdate = ProtocolParam;
+/// Conway era protocol parameters, corresponding to [`ConwayPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L512-L579)
+/// in the Haskell sources.
+/// @todo: Encoding should be handled manually, Encode derive won't be correct.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(map)]
+pub struct PParamsUpdate {
+    #[n(0)]
+    pub minfee_a: Option<u64>,
+    #[n(1)]
+    pub minfee_b: Option<u64>,
+    #[n(2)]
+    pub max_block_body_size: Option<u64>,
+    #[n(3)]
+    pub max_transaction_size: Option<u64>,
+    #[n(4)]
+    pub max_block_header_size: Option<u64>,
+    #[n(5)]
+    pub key_deposit: Option<Coin>,
+    #[n(6)]
+    pub pool_deposit: Option<Coin>,
+    #[n(7)]
+    pub maximum_epoch: Option<Epoch>,
+    #[n(8)]
+    pub desired_number_of_stake_pools: Option<u64>,
+    #[n(9)]
+    pub pool_pledge_influence: Option<RationalNumber>,
+    #[n(10)]
+    pub expansion_rate: Option<UnitInterval>,
+    #[n(11)]
+    pub treasury_growth_rate: Option<UnitInterval>,
+
+    #[n(16)]
+    pub min_pool_cost: Option<Coin>,
+    #[n(17)]
+    pub ada_per_utxo_byte: Option<Coin>,
+    #[n(18)]
+    pub cost_models_for_script_languages: Option<CostModels>,
+    #[n(19)]
+    pub execution_costs: Option<ExUnitPrices>,
+    #[n(20)]
+    pub max_tx_ex_units: Option<ExUnits>,
+    #[n(21)]
+    pub max_block_ex_units: Option<ExUnits>,
+    #[n(22)]
+    pub max_value_size: Option<u64>,
+    #[n(23)]
+    pub collateral_percentage: Option<u64>,
+    #[n(24)]
+    pub max_collateral_inputs: Option<u64>,
+
+    #[n(25)]
+    pub pool_voting_thresholds: Option<PoolVotingThresholds>,
+    #[n(26)]
+    pub drep_voting_thresholds: Option<DRepVotingThresholds>,
+    #[n(27)]
+    pub min_committee_size: Option<u64>,
+    #[n(28)]
+    pub committee_term_limit: Option<Epoch>,
+    #[n(29)]
+    pub governance_action_validity_period: Option<Epoch>,
+    #[n(30)]
+    pub governance_action_deposit: Option<Coin>,
+    #[n(31)]
+    pub drep_deposit: Option<Coin>,
+    #[n(32)]
+    pub drep_inactivity_period: Option<Epoch>,
+    #[n(33)]
+    pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
+}
 
 /// Propoped updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/shelley/impl/src/Cardano/Ledger/Shelley/PParams.hs#L510-L511).
 pub type ProposedPPUpdates = BTreeMap<Bytes, PParamsUpdate>;
@@ -323,7 +391,6 @@ pub struct DRepVotingThresholds {
 /// in the Haskell sources.
 /// @todo: Encoding should be handled manually, Encode derive won't be correct.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
-#[cbor(map)]
 pub struct ProtocolParam {
     #[n(0)]
     pub minfee_a: Option<u64>,
@@ -349,43 +416,43 @@ pub struct ProtocolParam {
     pub expansion_rate: Option<UnitInterval>,
     #[n(11)]
     pub treasury_growth_rate: Option<UnitInterval>,
-
-    #[n(16)]
+    #[n(12)]
+    pub protocol_version: Option<ProtocolVersion>,
+    #[n(13)]
     pub min_pool_cost: Option<Coin>,
-    #[n(17)]
+    #[n(14)]
     pub ada_per_utxo_byte: Option<Coin>,
-    #[n(18)]
+    #[n(15)]
     pub cost_models_for_script_languages: Option<CostModels>,
-    #[n(19)]
+    #[n(16)]
     pub execution_costs: Option<ExUnitPrices>,
-    #[n(20)]
+    #[n(17)]
     pub max_tx_ex_units: Option<ExUnits>,
-    #[n(21)]
+    #[n(18)]
     pub max_block_ex_units: Option<ExUnits>,
-    #[n(22)]
+    #[n(19)]
     pub max_value_size: Option<u64>,
-    #[n(23)]
+    #[n(20)]
     pub collateral_percentage: Option<u64>,
-    #[n(24)]
+    #[n(21)]
     pub max_collateral_inputs: Option<u64>,
-
-    #[n(25)]
+    #[n(22)]
     pub pool_voting_thresholds: Option<PoolVotingThresholds>,
-    #[n(26)]
+    #[n(23)]
     pub drep_voting_thresholds: Option<DRepVotingThresholds>,
-    #[n(27)]
+    #[n(24)]
     pub min_committee_size: Option<u64>,
-    #[n(28)]
+    #[n(25)]
     pub committee_term_limit: Option<Epoch>,
-    #[n(29)]
+    #[n(26)]
     pub governance_action_validity_period: Option<Epoch>,
-    #[n(30)]
+    #[n(27)]
     pub governance_action_deposit: Option<Coin>,
-    #[n(31)]
+    #[n(28)]
     pub drep_deposit: Option<Coin>,
-    #[n(32)]
+    #[n(29)]
     pub drep_inactivity_period: Option<Epoch>,
-    #[n(33)]
+    #[n(30)]
     pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
 }
 
@@ -575,9 +642,9 @@ pub struct EnactState {
     #[n(1)]
     pub constitution: Constitution,
     #[n(2)]
-    pub cur_pparams: ProtocolParam,
+    pub cur_pparams: PParamsUpdate,
     #[n(3)]
-    pub prev_pparams: ProtocolParam,
+    pub prev_pparams: PParamsUpdate,
     #[n(4)]
     pub treasury: Coin,
     #[n(5)]
@@ -606,8 +673,8 @@ pub type DRepPulsingState = AnyCbor;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FuturePParams {
     NoPParamsUpdate,
-    DefinitePParamsUpdate(ProtocolParam),
-    PotentialPParamsUpdate(SMaybe<ProtocolParam>),
+    DefinitePParamsUpdate(PParamsUpdate),
+    PotentialPParamsUpdate(SMaybe<PParamsUpdate>),
 }
 
 /// Governance state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance.hs#L241-L256)
@@ -622,9 +689,9 @@ pub struct GovState {
     #[n(2)]
     pub constitution: Constitution,
     #[n(3)]
-    pub cur_pparams: ProtocolParam,
+    pub cur_pparams: PParamsUpdate,
     #[n(4)]
-    pub prev_pparams: ProtocolParam,
+    pub prev_pparams: PParamsUpdate,
     #[n(5)]
     pub future_pparams: FuturePParams,
     #[n(6)]
