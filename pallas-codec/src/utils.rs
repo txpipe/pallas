@@ -1143,6 +1143,10 @@ impl<T> KeepRaw<'_, T> {
         self.inner
     }
 
+    pub fn clear_raw(&mut self) {
+        self.raw = Cow::from(vec![]);
+    }
+
     pub fn to_owned(self) -> KeepRaw<'static, T> {
         KeepRaw {
             raw: Cow::Owned(self.raw.into_owned()),
@@ -1161,6 +1165,10 @@ impl<T> Deref for KeepRaw<'_, T> {
 
 impl<T> DerefMut for KeepRaw<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        // If the inner value is mutated, we need to clear the raw bytes to
+        // avoid returning stale data.
+        self.clear_raw();
+
         &mut self.inner
     }
 }
@@ -1193,15 +1201,23 @@ where
     }
 }
 
-impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T> {
+impl<C, T> minicbor::Encode<C> for KeepRaw<'_, T>
+where
+    T: minicbor::Encode<C>,
+{
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
+        ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.writer_mut()
-            .write_all(self.raw_cbor())
-            .map_err(minicbor::encode::Error::write)
+        if self.raw_cbor().is_empty() {
+            e.encode_with(&self.inner, ctx)?;
+            Ok(())
+        } else {
+            e.writer_mut()
+                .write_all(self.raw_cbor())
+                .map_err(minicbor::encode::Error::write)
+        }
     }
 }
 
@@ -1521,5 +1537,53 @@ impl TryFrom<i128> for Int {
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         let inner = minicbor::data::Int::try_from(value)?;
         Ok(Self(inner))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keep_raw_retains_original() {
+        // Indef array info is lost when decoded. By using KeepRaw, we can retain the
+        // original bytes. This test makes sure KeepRaw is working by making use of this
+        // well-known CBOR nuance.
+
+        let raw = hex::decode("9F0102FF").unwrap();
+        let subject: KeepRaw<'_, Vec<u32>> = minicbor::decode(&raw).unwrap();
+        assert_eq!(subject.inner, vec![1, 2]);
+        assert_eq!(subject.raw_cbor(), raw);
+    }
+
+    #[test]
+    fn keep_raw_fallbacks_to_encode() {
+        // By using the From trait we can encode the inner value directly without any
+        // information about the original cbor bytes. By attempting to encode this
+        // structure we ensure that KeepRaw is falling back to the expected encode
+        // behavior.
+
+        let subject = KeepRaw::from(vec![1, 2]);
+        let encoded = minicbor::to_vec(&subject).unwrap();
+
+        assert_eq!(encoded, hex::decode("820102").unwrap());
+    }
+
+    #[test]
+    fn keep_raw_clears_original_when_mutated() {
+        // If the inner value is mutated, we need to clear the raw bytes to
+        // avoid returning stale data. This test starts from raw bytes, mutates the
+        // value and then asserts that the returned cbor matches the updates.
+
+        let raw = hex::decode("9F0102FF").unwrap();
+        let mut subject: KeepRaw<'_, Vec<u32>> = minicbor::decode(&raw).unwrap();
+
+        let inner = subject.deref_mut();
+        inner.push(3);
+
+        let encoded = minicbor::to_vec(&subject).unwrap();
+
+        assert_eq!(subject.inner, vec![1, 2, 3]);
+        assert_eq!(encoded, hex::decode("83010203").unwrap());
     }
 }
