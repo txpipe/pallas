@@ -4,7 +4,6 @@ use pallas_crypto::{
     key::ed25519,
 };
 use pallas_primitives::{conway, Fragment, NonEmptySet};
-use pallas_wallet::PrivateKey;
 
 use std::{collections::HashMap, ops::Deref};
 
@@ -602,6 +601,31 @@ pub enum BuilderEra {
     Conway,
 }
 
+pub trait Ed25519Signer {
+    fn public_key(&self) -> ed25519::PublicKey;
+    fn sign<T: AsRef<[u8]>>(&self, msg: T) -> ed25519::Signature;
+}
+
+impl Ed25519Signer for ed25519::SecretKey {
+    fn public_key(&self) -> ed25519::PublicKey {
+        self.public_key()
+    }
+
+    fn sign<T: AsRef<[u8]>>(&self, msg: T) -> ed25519::Signature {
+        self.sign(msg)
+    }
+}
+
+impl Ed25519Signer for ed25519::SecretKeyExtended {
+    fn public_key(&self) -> ed25519::PublicKey {
+        self.public_key()
+    }
+
+    fn sign<T: AsRef<[u8]>>(&self, msg: T) -> ed25519::Signature {
+        self.sign(msg)
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct BuiltTransaction {
     pub version: String,
@@ -613,7 +637,7 @@ pub struct BuiltTransaction {
 }
 
 impl BuiltTransaction {
-    pub fn sign(mut self, private_key: PrivateKey) -> Result<Self, TxBuilderError> {
+    pub fn sign<K: Ed25519Signer>(mut self, private_key: &K) -> Result<Self, TxBuilderError> {
         let pubkey: [u8; 32] = private_key
             .public_key()
             .as_ref()
