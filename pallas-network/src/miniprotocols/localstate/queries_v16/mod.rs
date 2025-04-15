@@ -642,9 +642,9 @@ pub struct EnactState {
     #[n(1)]
     pub constitution: Constitution,
     #[n(2)]
-    pub cur_pparams: PParamsUpdate,
+    pub cur_pparams: ProtocolParam,
     #[n(3)]
-    pub prev_pparams: PParamsUpdate,
+    pub prev_pparams: ProtocolParam,
     #[n(4)]
     pub treasury: Coin,
     #[n(5)]
@@ -689,9 +689,9 @@ pub struct GovState {
     #[n(2)]
     pub constitution: Constitution,
     #[n(3)]
-    pub cur_pparams: PParamsUpdate,
+    pub cur_pparams: ProtocolParam,
     #[n(4)]
-    pub prev_pparams: PParamsUpdate,
+    pub prev_pparams: ProtocolParam,
     #[n(5)]
     pub future_pparams: FuturePParams,
     #[n(6)]
