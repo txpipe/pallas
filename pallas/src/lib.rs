@@ -74,6 +74,13 @@ pub mod storage {
     pub use pallas_hardano::storage as hardano;
 }
 
+pub mod wallet {
+    //! Utilities for wallet implementations
+
+    #[doc(inline)]
+    pub use pallas_txbuilder as txbuilder;
+}
+
 #[doc(inline)]
 // WARNING: this is deprecated, use `pallas::wallet::txbuilder` instead.
 // Since deprecation notices don't work for re-exports we don't have a way to notify users.
