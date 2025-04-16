@@ -63,11 +63,10 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_account_state(client, era).await.unwrap();
     info!("result: {:02x?}", result);
 
-    // Not yet available in the Cardano node to test.
-    // let result = queries_v16::get_big_ledger_snapshot(client, era)
-    //     .await
-    //     .unwrap();
-    // info!("result: {:02x?}", result);
+    let result = queries_v16::get_big_ledger_snapshot(client, era)
+        .await
+        .unwrap();
+    info!("result: {:02x?}", result);
 
     let tx_id =
         Hash::<32>::from_str("be1640dd2b3485e94703be5683c804d5051d96c12e1eaacc17c30e74de580ce5")
@@ -88,9 +87,8 @@ async fn do_localstate_query(client: &mut NodeClient) {
         .unwrap();
     info!("result: {:02x?}", result);
 
-    // This one is large (~120MB in preprod).
-    // let result = queries_v16::get_gov_state(client, era).await.unwrap();
-    // info!("result: {:02x?}", result);
+    let result = queries_v16::get_gov_state(client, era).await.unwrap();
+    info!("result: {:02x?}", result);
 
     // CC Member cc_cold1zwn2tcqxl48g75gx9hzrzd3rdxe2gv2q408d32307gjk67cp3tktt
     let cold_bytes =
