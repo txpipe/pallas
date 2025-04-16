@@ -314,7 +314,7 @@ pub struct TransactionBody {
     pub network_id: Option<NetworkId>,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct VKeyWitness {
     #[n(0)]
     pub vkey: Bytes,
@@ -323,7 +323,7 @@ pub struct VKeyWitness {
     pub signature: Bytes,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(flat)]
 pub enum NativeScript {
     #[n(0)]
@@ -384,7 +384,7 @@ pub struct RedeemerPointer {
 , attributes : bytes
 ] */
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct BootstrapWitness {
     #[n(0)]
     pub public_key: Bytes,
