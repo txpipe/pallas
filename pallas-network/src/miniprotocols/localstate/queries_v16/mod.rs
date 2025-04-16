@@ -384,7 +384,8 @@ pub struct DRepVotingThresholds {
     pub treasury_withdrawal: UnitInterval,
 }
 
-/// Conway era protocol parameters.
+/// Conway era protocol parameters, corresponding to [`ConwayPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L512-L579)
+/// in the Haskell sources.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ProtocolParam {
     #[n(0)]
