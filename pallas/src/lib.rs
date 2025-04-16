@@ -74,13 +74,8 @@ pub mod storage {
     pub use pallas_hardano::storage as hardano;
 }
 
-#[cfg(feature = "wallet")]
 pub mod wallet {
     //! Utilities for wallet implementations
-
-    #[doc(inline)]
-    #[cfg(feature = "pallas-wallet")]
-    pub use pallas_wallet as keystore;
 
     #[doc(inline)]
     pub use pallas_txbuilder as txbuilder;

@@ -16,7 +16,6 @@ pallas-crypto = { path = "../pallas-crypto", version = "=1.0.0-alpha.1" }
 pallas-primitives = { path = "../pallas-primitives", version = "=1.0.0-alpha.1" }
 pallas-traverse = { path = "../pallas-traverse", version = "=1.0.0-alpha.1" }
 pallas-addresses = { path = "../pallas-addresses", version = "=1.0.0-alpha.1" }
-pallas-wallet = { path = "../pallas-wallet", version = "=1.0.0-alpha.1" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 thiserror = "1.0.44"

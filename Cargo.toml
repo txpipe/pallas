@@ -11,7 +11,6 @@ members = [
   "pallas-txbuilder",
   "pallas-utxorpc",
   "pallas-hardano",
-  "pallas-wallet",
   "pallas-math",
   "pallas-validate",
   "pallas",
