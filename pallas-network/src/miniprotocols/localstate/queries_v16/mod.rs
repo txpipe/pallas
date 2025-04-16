@@ -77,9 +77,6 @@ pub type Credential = StakeAddr;
 
 /// Updates to the protocol params as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L151)
 /// (via [`EraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L255-L258)).
-/// Conway era protocol parameters, corresponding to [`ConwayPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/PParams.hs#L512-L579)
-/// in the Haskell sources.
-/// @todo: Encoding should be handled manually, Encode derive won't be correct.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct PParamsUpdate {
@@ -388,7 +385,6 @@ pub struct DRepVotingThresholds {
 }
 
 /// Conway era protocol parameters.
-/// @todo: Encoding should be handled manually, Encode derive won't be correct.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct ProtocolParam {
     #[n(0)]
