@@ -74,18 +74,6 @@ pub mod storage {
     pub use pallas_hardano::storage as hardano;
 }
 
-#[cfg(feature = "wallet")]
-pub mod wallet {
-    //! Utilities for wallet implementations
-
-    #[doc(inline)]
-    #[cfg(feature = "pallas-wallet")]
-    pub use pallas_wallet as keystore;
-
-    #[doc(inline)]
-    pub use pallas_txbuilder as txbuilder;
-}
-
 #[doc(inline)]
 // WARNING: this is deprecated, use `pallas::wallet::txbuilder` instead.
 // Since deprecation notices don't work for re-exports we don't have a way to notify users.
