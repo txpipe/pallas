@@ -132,3 +132,51 @@ impl<'b> Decode<'b, ()> for Message {
         }
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use pallas_codec::minicbor;
+
+    /// Decode/encode roundtrip tests for the localstate example queries/results.
+    #[test]
+    #[cfg(feature = "blueprint")]
+    fn test_api_example_roundtrip() {
+        use super::Message;
+
+        // TODO: scan for examples
+        let examples = [
+            include_str!(
+                "../../../../cardano-blueprint/src/api/examples/getSystemStart/query.cbor"
+            ),
+            include_str!(
+                "../../../../cardano-blueprint/src/api/examples/getSystemStart/result.cbor"
+            ),
+        ];
+        for (idx, message_str) in examples.iter().enumerate() {
+            println!("Roundtrip test {idx}");
+            roundtrips::<Message>(message_str);
+        }
+    }
+
+    // TODO: DRY with other decode/encode roundtripss
+    fn roundtrips<T>(message_str: &str)
+    where
+        T: for<'b> minicbor::Decode<'b, ()> + minicbor::Encode<()> + std::fmt::Debug,
+    {
+        use pallas_codec::minicbor;
+
+        let bytes = hex::decode(message_str).unwrap_or_else(|e| panic!("bad message file: {e:?}"));
+
+        let value: T =
+            minicbor::decode(&bytes[..]).unwrap_or_else(|e| panic!("error decoding cbor: {e:?}"));
+        println!("Decoded value: {:#?}", value);
+
+        let bytes2 =
+            minicbor::to_vec(value).unwrap_or_else(|e| panic!("error encoding cbor: {e:?}"));
+
+        assert!(
+            bytes.eq(&bytes2),
+            "re-encoded bytes didn't match original file"
+        );
+    }
+}

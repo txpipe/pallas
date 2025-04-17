@@ -513,9 +513,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
             let result = AnyCbor::from_encode(SystemStart {
-                year: 2020,
+                year: 2020.into(),
                 day_of_year: 1,
-                picoseconds_of_day: 999999999,
+                picoseconds_of_day: 999999999.into(),
             });
 
             server.statequery().send_result(result).await.unwrap();
@@ -848,9 +848,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let genesis = vec![GenesisConfig {
                 system_start: SystemStart {
-                    year: 2021,
+                    year: 2021.into(),
                     day_of_year: 150,
-                    picoseconds_of_day: 0,
+                    picoseconds_of_day: 0.into(),
                 },
                 network_magic: 42,
                 network_id: 42,
@@ -970,9 +970,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
         assert_eq!(
             result,
             queries_v16::SystemStart {
-                year: 2020,
+                year: 2020.into(),
                 day_of_year: 1,
-                picoseconds_of_day: 999999999,
+                picoseconds_of_day: 999999999.into(),
             }
         );
 
@@ -1224,9 +1224,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         let genesis = vec![GenesisConfig {
             system_start: SystemStart {
-                year: 2021,
+                year: 2021.into(),
                 day_of_year: 150,
-                picoseconds_of_day: 0,
+                picoseconds_of_day: 0.into(),
             },
             network_magic: 42,
             network_id: 42,
