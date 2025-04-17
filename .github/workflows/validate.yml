@@ -1,7 +1,8 @@
 # Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
 
 on:
-  push: { }
+  push:
+  pull_request:
 
 name: Validate
 
