@@ -26,3 +26,5 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 tokio = { version = "1", features = ["full"] }
 
+[features]
+blueprint = []
