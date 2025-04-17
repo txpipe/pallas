@@ -233,11 +233,12 @@ impl<'b> Decode<'b, ()> for RefuseReason {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "blueprint")]
     #[test]
     fn message_roundtrip() {
+        use super::Message;
         use pallas_codec::minicbor;
         use pallas_codec::utils;
-        use super::{Message};
 
         // XXX: Can we avoid repeating the test-data path?
         let test_messages = [
