@@ -625,12 +625,12 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 fields: MaybeIndefArray::Indef(vec![
                     PlutusData::Constr(Constr {
                         fields: MaybeIndefArray::Indef(vec![PlutusData::BigInt(
-                            queries_v16::BigInt::Int(3764868539.into()),
+                            queries_v16::BigInt::Int(3764868539i64.into()),
                         )]),
                         tag: 121,
                         any_constructor: None,
                     }),
-                    PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000.into())),
+                    PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000i64.into())),
                 ]),
                 tag: 121,
                 any_constructor: None,
@@ -697,12 +697,12 @@ pub async fn local_state_query_server_and_client_happy_path() {
                 fields: MaybeIndefArray::Indef(vec![
                     PlutusData::Constr(Constr {
                         fields: MaybeIndefArray::Indef(vec![PlutusData::BigInt(
-                            queries_v16::BigInt::Int(3764868539.into()),
+                            queries_v16::BigInt::Int(3764868539i64.into()),
                         )]),
                         tag: 121,
                         any_constructor: None,
                     }),
-                    PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000.into())),
+                    PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000i64.into())),
                 ]),
                 tag: 121,
                 any_constructor: None,
@@ -1086,12 +1086,12 @@ pub async fn local_state_query_server_and_client_happy_path() {
             fields: MaybeIndefArray::Indef(vec![
                 PlutusData::Constr(Constr {
                     fields: MaybeIndefArray::Indef(vec![PlutusData::BigInt(
-                        queries_v16::BigInt::Int(3764868539.into()),
+                        queries_v16::BigInt::Int(3764868539i64.into()),
                     )]),
                     tag: 121,
                     any_constructor: None,
                 }),
-                PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000.into())),
+                PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000i64.into())),
             ]),
             tag: 121,
             any_constructor: None,
