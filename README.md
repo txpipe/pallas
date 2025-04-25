@@ -46,11 +46,10 @@ The repository is organized as a Cargo workspace. Each _Pallas_ "building block"
 | [pallas-traverse](/pallas-traverse)     | Utilities to traverse over multi-era block data                 |
 | [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                   |
 
-### Wallet
+### Tx Builder
 
 | Crates                                | Description                                |
 | ------------------------------------- | ------------------------------------------ |
-| [pallas-wallet](/pallas-wallet)       | Wallet utilities for secure key management |
 | [pallas-txbuilder](/pallas-txbuilder) | Ergonomic transaction builder              |
 
 ## Interop
