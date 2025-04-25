@@ -279,13 +279,13 @@ pub enum Value {
 #[derive(Debug, Encode, Decode, PartialEq)]
 pub struct SystemStart {
     #[n(0)]
-    pub year: u32,
+    pub year: BigInt,
 
     #[n(1)]
-    pub day_of_year: u32,
+    pub day_of_year: i64,
 
     #[n(2)]
-    pub picoseconds_of_day: u64,
+    pub picoseconds_of_day: BigInt,
 }
 
 #[derive(Debug, Encode, Decode, PartialEq)]
@@ -803,6 +803,24 @@ pub enum BigInt {
     Int(Int),
     BigUInt(BoundedBytes),
     BigNInt(BoundedBytes),
+}
+
+impl From<Int> for BigInt {
+    fn from(value: Int) -> Self {
+        Self::Int(value)
+    }
+}
+
+impl From<i32> for BigInt {
+    fn from(x: i32) -> Self {
+        Self::Int(Int::from(x))
+    }
+}
+
+impl From<i64> for BigInt {
+    fn from(x: i64) -> Self {
+        Self::Int(Int::from(x))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
