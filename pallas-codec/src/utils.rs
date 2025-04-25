@@ -1524,6 +1524,13 @@ impl From<Int> for i128 {
     }
 }
 
+impl From<i32> for Int {
+    fn from(x: i32) -> Self {
+        let inner = minicbor::data::Int::from(x);
+        Self(inner)
+    }
+}
+
 impl From<i64> for Int {
     fn from(x: i64) -> Self {
         let inner = minicbor::data::Int::from(x);

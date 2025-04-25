@@ -135,8 +135,7 @@ impl SecretKey {
     /// This function is marked unsafe because we wished to highlight the
     /// importance of keeping the content of the secret key private.
     /// However there are reasons that may be valid to _leak_ the private
-    /// key: to encrypt it and store securely (as used in `pallas-wallet`'s
-    /// wrapping method for safely storing the private keys).
+    /// key: to encrypt it and store securely.
     ///
     /// This function is on purpose an associated function in order to
     /// force the explicite use of the type name (`SecretKey`) and the
@@ -283,8 +282,7 @@ impl SecretKeyExtended {
     /// This function is marked unsafe because we wished to highlight the
     /// importance of keeping the content of the secret key private.
     /// However there are reasons that may be valid to _leak_ the private
-    /// key: to encrypt it and store securely (as used in `pallas-wallet`'s
-    /// wrapping method for safely storing the private keys).
+    /// key: to encrypt it and store securely.
     ///
     /// This function is on purpose an associated function in order to
     /// force the explicite use of the type name (`SecretKeyExtended`) and the
