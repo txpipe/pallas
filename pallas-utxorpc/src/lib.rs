@@ -150,36 +150,36 @@ impl<C: LedgerContext> Mapper<C> {
     ) -> u5c::Datum {
         u5c::Datum {
             hash: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::PseudoDatumOption::Hash(x)) => x.to_vec().into(),
+                Some(babbage::DatumOption::Data(x)) => x.original_hash().to_vec().into(),
+                Some(babbage::DatumOption::Hash(x)) => x.to_vec().into(),
                 _ => vec![].into(),
             },
             payload: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
-                Some(babbage::PseudoDatumOption::Hash(x)) => tx
+                Some(babbage::DatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
+                Some(babbage::DatumOption::Hash(x)) => tx
                     .and_then(|tx| tx.find_plutus_data(&x))
                     .map(|d| self.map_plutus_datum(d)),
                 _ => None,
             },
             original_cbor: match x.datum() {
-                Some(babbage::PseudoDatumOption::Data(x)) => x.raw_cbor().to_vec().into(),
+                Some(babbage::DatumOption::Data(x)) => x.raw_cbor().to_vec().into(),
                 _ => vec![].into(),
             },
         }
     }
 
-    pub fn map_any_script(&self, x: &conway::MintedScriptRef) -> u5c::Script {
+    pub fn map_any_script(&self, x: &conway::ScriptRef) -> u5c::Script {
         match x {
-            conway::PseudoScript::NativeScript(x) => u5c::Script {
+            conway::ScriptRef::NativeScript(x) => u5c::Script {
                 script: u5c::script::Script::Native(Self::map_native_script(x)).into(),
             },
-            conway::PseudoScript::PlutusV1Script(x) => u5c::Script {
+            conway::ScriptRef::PlutusV1Script(x) => u5c::Script {
                 script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
             },
-            conway::PseudoScript::PlutusV2Script(x) => u5c::Script {
+            conway::ScriptRef::PlutusV2Script(x) => u5c::Script {
                 script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
             },
-            conway::PseudoScript::PlutusV3Script(x) => u5c::Script {
+            conway::ScriptRef::PlutusV3Script(x) => u5c::Script {
                 script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
             },
         }
@@ -226,16 +226,16 @@ impl<C: LedgerContext> Mapper<C> {
         match x {
             babbage::Relay::SingleHostAddr(port, v4, v6) => u5c::Relay {
                 // ip_v4: v4.map(|x| x.to_vec().into()).into().unwrap_or_default(),
-                ip_v4: Option::from(v4.clone().map(|x| x.to_vec().into())).unwrap_or_default(),
-                ip_v6: Option::from(v6.clone().map(|x| x.to_vec().into())).unwrap_or_default(),
+                ip_v4: v4.clone().map(|x| x.to_vec().into()).unwrap_or_default(),
+                ip_v6: v6.clone().map(|x| x.to_vec().into()).unwrap_or_default(),
                 dns_name: String::default(),
-                port: Option::from(port.clone()).unwrap_or_default(),
+                port: (*port).unwrap_or_default(),
             },
             babbage::Relay::SingleHostName(port, name) => u5c::Relay {
                 ip_v4: Default::default(),
                 ip_v6: Default::default(),
                 dns_name: name.clone(),
-                port: Option::from(port.clone()).unwrap_or_default(),
+                port: (*port).unwrap_or_default(),
             },
             babbage::Relay::MultiHostName(name) => u5c::Relay {
                 ip_v4: Default::default(),
@@ -417,15 +417,12 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_gov_action_id(
         &self,
-        x: &conway::Nullable<conway::GovActionId>,
+        x: &Option<conway::GovActionId>,
     ) -> Option<u5c::GovernanceActionId> {
-        match x {
-            conway::Nullable::Some(x) => Some(u5c::GovernanceActionId {
-                transaction_id: x.transaction_id.to_vec().into(),
-                governance_action_index: x.action_index,
-            }),
-            _ => None,
-        }
+        x.as_ref().map(|inner| u5c::GovernanceActionId {
+            transaction_id: inner.transaction_id.to_vec().into(),
+            governance_action_index: inner.action_index,
+        })
     }
 
     pub fn map_conway_gov_action(&self, x: &conway::GovAction) -> u5c::GovernanceAction {
@@ -436,7 +433,7 @@ impl<C: LedgerContext> Mapper<C> {
                         gov_action_id: self.map_gov_action_id(gov_id),
                         protocol_param_update: Some(self.map_conway_pparams_update(params)),
                         policy_hash: match script {
-                            conway::Nullable::Some(x) => x.to_vec().into(),
+                            Some(x) => x.to_vec().into(),
                             _ => Default::default(),
                         },
                     },
@@ -464,7 +461,7 @@ impl<C: LedgerContext> Mapper<C> {
                             })
                             .collect(),
                         policy_hash: match script {
-                            conway::Nullable::Some(x) => x.to_vec().into(),
+                            Some(x) => x.to_vec().into(),
                             _ => Default::default(),
                         },
                     },
@@ -506,7 +503,7 @@ impl<C: LedgerContext> Mapper<C> {
                                 content_hash: constitution.anchor.content_hash.to_vec().into(),
                             }),
                             hash: match constitution.guardrail_script {
-                                conway::Nullable::Some(x) => x.to_vec().into(),
+                                Some(x) => x.to_vec().into(),
                                 _ => Default::default(),
                             },
                         }),

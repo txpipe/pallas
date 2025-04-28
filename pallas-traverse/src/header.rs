@@ -87,15 +87,6 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    pub fn header_body_cbor(&self) -> Option<&[u8]> {
-        match self {
-            MultiEraHeader::ShelleyCompatible(x) => Some(x.header_body.raw_cbor()),
-            MultiEraHeader::BabbageCompatible(x) => Some(x.header_body.raw_cbor()),
-            MultiEraHeader::EpochBoundary(_) => None,
-            MultiEraHeader::Byron(_) => None,
-        }
-    }
-
     pub fn vrf_vkey(&self) -> Option<&[u8]> {
         match self {
             MultiEraHeader::ShelleyCompatible(x) => Some(x.header_body.vrf_vkey.as_ref()),
@@ -146,16 +137,16 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    pub fn as_alonzo(&self) -> Option<&alonzo::MintedHeader> {
+    pub fn as_alonzo(&self) -> Option<&alonzo::Header> {
         match self {
             MultiEraHeader::ShelleyCompatible(x) => Some(x.deref().deref()),
             _ => None,
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::MintedHeader> {
+    pub fn as_babbage(&self) -> Option<&babbage::Header> {
         match self {
-            MultiEraHeader::BabbageCompatible(x) => Some(x.deref().deref()),
+            MultiEraHeader::BabbageCompatible(x) => Some(x.deref()),
             _ => None,
         }
     }

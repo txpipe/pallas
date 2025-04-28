@@ -1,9 +1,12 @@
 use hex::FromHex;
-use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable};
+use pallas_codec::utils::{
+    AnyCbor, AnyUInt, Bytes, CborWrap, KeyValuePairs, MaybeIndefArray, Nullable,
+};
 use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localstate::queries_v16::{
-    self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
-    RationalNumber, Relay, StakeAddr, StakeSnapshots, Stakes, SystemStart, UnitInterval, Value,
+    self, Addr, Addrs, ChainBlockNumber, Constr, DatumOption, Fraction, GenesisConfig, PlutusData,
+    PoolMetadata, PoolParams, RationalNumber, Relay, StakeAddr, StakeSnapshots, Stakes,
+    SystemStart, UnitInterval, Value,
 };
 use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::miniprotocols::PlexerAdapter;
@@ -514,9 +517,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
             assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
             let result = AnyCbor::from_encode(SystemStart {
-                year: 2020,
+                year: 2020.into(),
                 day_of_year: 1,
-                picoseconds_of_day: 999999999,
+                picoseconds_of_day: 999999999.into(),
             });
 
             server.statequery().send_result(result).await.unwrap();
@@ -619,11 +622,21 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let transaction_id = Hash::from(txbytes);
             let index = AnyUInt::MajorByte(2);
             let lovelace = AnyUInt::MajorByte(2);
-            //let hex_datum =
-            // "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
-            // let datum = hex::decode(hex_datum).unwrap().into();
-            //let tag = TagWrap::<_, 24>::new(datum);
-            let inline_datum = None;
+            let datum_cbor = PlutusData::Constr(Constr {
+                fields: MaybeIndefArray::Indef(vec![
+                    PlutusData::Constr(Constr {
+                        fields: MaybeIndefArray::Indef(vec![PlutusData::BigInt(
+                            queries_v16::BigInt::Int(3764868539i64.into()),
+                        )]),
+                        tag: 121,
+                        any_constructor: None,
+                    }),
+                    PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000i64.into())),
+                ]),
+                tag: 121,
+                any_constructor: None,
+            });
+            let inline_datum = Some(DatumOption::Data(CborWrap(datum_cbor)));
             let values =
                 queries_v16::TransactionOutput::Current(queries_v16::PostAlonsoTransactionOutput {
                     address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
@@ -646,7 +659,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
             server.statequery().send_result(result).await.unwrap();
 
             // server receives query from client
-            /* commented out temporarily
             let query: Vec<u8> = match server.statequery().recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::Query(q) => q.unwrap(),
                 x => panic!(
@@ -682,10 +694,21 @@ pub async fn local_state_query_server_and_client_happy_path() {
             let transaction_id_2 = Hash::from(txbytes);
             let index_2 = AnyUInt::MajorByte(0);
             let lovelace = AnyUInt::U32(1_792_960);
-            //let hex_datum = "D8799FD8799F1AE06755BBFF1B00000193B36BC9F0FF";
-            //let datum = hex::decode(hex_datum).unwrap().into();
-            //let tag = TagWrap::<_, 24>::new(datum);
-            let inline_datum = None;
+            let datum_cbor = PlutusData::Constr(Constr {
+                fields: MaybeIndefArray::Indef(vec![
+                    PlutusData::Constr(Constr {
+                        fields: MaybeIndefArray::Indef(vec![PlutusData::BigInt(
+                            queries_v16::BigInt::Int(3764868539i64.into()),
+                        )]),
+                        tag: 121,
+                        any_constructor: None,
+                    }),
+                    PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000i64.into())),
+                ]),
+                tag: 121,
+                any_constructor: None,
+            });
+            let inline_datum = Some(DatumOption::Data(CborWrap(datum_cbor)));
             let values_2 = localstate::queries_v16::TransactionOutput::Current(
                 localstate::queries_v16::PostAlonsoTransactionOutput {
                     address: Bytes::from(
@@ -717,7 +740,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let result = AnyCbor::from_encode(utxos);
             server.statequery().send_result(result).await.unwrap();
-            */
             // server receives query from client
 
             let query: queries_v16::Request =
@@ -759,6 +781,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     numerator: 3,
                     denominator: 1000000,
                 }),
+                protocol_version: Some((10, 0)),
                 min_pool_cost: Some(AnyUInt::U32(340000000)),
                 ada_per_utxo_byte: Some(AnyUInt::U16(44)),
                 cost_models_for_script_languages: None,
@@ -850,9 +873,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
             let genesis = vec![GenesisConfig {
                 system_start: SystemStart {
-                    year: 2021,
+                    year: 2021.into(),
                     day_of_year: 150,
-                    picoseconds_of_day: 0,
+                    picoseconds_of_day: 0.into(),
                 },
                 network_magic: 42,
                 network_id: 42,
@@ -972,9 +995,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
         assert_eq!(
             result,
             queries_v16::SystemStart {
-                year: 2020,
+                year: 2020.into(),
                 day_of_year: 1,
-                picoseconds_of_day: 999999999,
+                picoseconds_of_day: 999999999.into(),
             }
         );
 
@@ -1060,11 +1083,21 @@ pub async fn local_state_query_server_and_client_happy_path() {
         let transaction_id = Hash::from(txbytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
-        //let hex_datum =
-        // "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
-        // let datum = hex::decode(hex_datum).unwrap().into();
-        //let tag = TagWrap::<_, 24>::new(datum);
-        let inline_datum = None;
+        let datum_cbor = PlutusData::Constr(Constr {
+            fields: MaybeIndefArray::Indef(vec![
+                PlutusData::Constr(Constr {
+                    fields: MaybeIndefArray::Indef(vec![PlutusData::BigInt(
+                        queries_v16::BigInt::Int(3764868539i64.into()),
+                    )]),
+                    tag: 121,
+                    any_constructor: None,
+                }),
+                PlutusData::BigInt(queries_v16::BigInt::Int(1733882006000i64.into())),
+            ]),
+            tag: 121,
+            any_constructor: None,
+        });
+        let inline_datum = Some(DatumOption::Data(CborWrap(datum_cbor)));
         let values =
             queries_v16::TransactionOutput::Current(queries_v16::PostAlonsoTransactionOutput {
                 address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
@@ -1084,7 +1117,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
         )]);
 
         assert_eq!(result, utxo);
-        /* commented out temporarily
         let request = AnyCbor::from_encode(localstate::queries_v16::Request::LedgerQuery(
             localstate::queries_v16::LedgerQuery::BlockQuery(
                 6,
@@ -1111,7 +1143,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
         .unwrap();
 
         assert_eq!(result, utxo);
-        */
         let request = AnyCbor::from_encode(queries_v16::Request::LedgerQuery(
             queries_v16::LedgerQuery::BlockQuery(5, queries_v16::BlockQuery::GetCurrentPParams),
         ));
@@ -1150,6 +1181,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     numerator: 3,
                     denominator: 1000000,
                 }),
+                protocol_version: Some((10, 0)),
                 min_pool_cost: Some(AnyUInt::U32(340000000)),
                 ada_per_utxo_byte: Some(AnyUInt::U16(44)),
                 cost_models_for_script_languages: None,
@@ -1227,9 +1259,9 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         let genesis = vec![GenesisConfig {
             system_start: SystemStart {
-                year: 2021,
+                year: 2021.into(),
                 day_of_year: 150,
-                picoseconds_of_day: 0,
+                picoseconds_of_day: 0.into(),
             },
             network_magic: 42,
             network_id: 42,

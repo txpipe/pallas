@@ -1,10 +1,10 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, aux_data_from_alonzo_minted_tx, empty_value,
-    get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
-    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
-    AccountState, CertPointer, CertState, DState, PState, PoolParam,
+    add_minted_value, add_values, aux_data_from_alonzo_tx, empty_value, get_alonzo_comp_tx_size,
+    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
+    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature, AccountState, CertPointer,
+    CertState, DState, PState, PoolParam,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
@@ -12,6 +12,7 @@ use crate::utils::{
 };
 use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::minicbor::encode;
+use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hasher as PallasHasher;
 use pallas_primitives::{
     alonzo::{
@@ -19,14 +20,15 @@ use pallas_primitives::{
         Coin, Epoch, GenesisDelegateHash, Genesishash,
         InstantaneousRewardSource::*,
         InstantaneousRewardTarget::*,
-        MintedTx, MintedWitnessSet, MoveInstantaneousReward, NativeScript, PolicyId, PoolKeyhash,
+        MoveInstantaneousReward, NativeScript, PolicyId, PoolKeyhash,
         StakeCredential::{self},
-        TransactionBody, TransactionIndex, TransactionOutput, VKeyWitness, Value, VrfKeyhash,
+        TransactionBody, TransactionIndex, TransactionOutput, Tx, VKeyWitness, Value, VrfKeyhash,
+        WitnessSet,
     },
     byron::TxOut,
 };
 use pallas_traverse::{
-    time::Slot, wellknown::GenesisValues, ComputeHash, Era, MultiEraInput, MultiEraOutput,
+    time::Slot, wellknown::GenesisValues, Era, MultiEraInput, MultiEraOutput, OriginalHash,
 };
 
 use std::{cmp::max, collections::HashMap, ops::Deref};
@@ -34,7 +36,7 @@ use std::{cmp::max, collections::HashMap, ops::Deref};
 
 #[allow(clippy::too_many_arguments)]
 pub fn validate_shelley_ma_tx(
-    mtx: &MintedTx,
+    mtx: &Tx,
     txix: TransactionIndex,
     utxos: &UTxOs,
     cert_state: &mut CertState,
@@ -45,7 +47,8 @@ pub fn validate_shelley_ma_tx(
     era: &Era,
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body;
-    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+    let minted_tx_body: &KeepRaw<'_, TransactionBody> = &mtx.transaction_body;
+    let tx_wits: &WitnessSet = &mtx.transaction_witness_set;
     let size: u32 = get_alonzo_comp_tx_size(mtx);
     let stk_dep_count: &mut u64 = &mut 0; // count of key registrations (for deposits)
     let stk_refund_count: &mut u64 = &mut 0; // count of key deregs (for refunds)
@@ -82,7 +85,7 @@ pub fn validate_shelley_ma_tx(
     check_fees(tx_body, &size, prot_pps)?;
     check_network_id(tx_body, network_id)?;
     check_metadata(tx_body, mtx)?;
-    check_witnesses(tx_body, tx_wits, utxos)?;
+    check_witnesses(minted_tx_body, tx_wits, utxos)?;
     check_minting(tx_body, mtx)
 }
 
@@ -259,11 +262,8 @@ fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationRes
     Ok(())
 }
 
-fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
-    match (
-        &tx_body.auxiliary_data_hash,
-        aux_data_from_alonzo_minted_tx(mtx),
-    ) {
+fn check_metadata(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
+    match (&tx_body.auxiliary_data_hash, aux_data_from_alonzo_tx(mtx)) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
@@ -279,13 +279,13 @@ fn check_metadata(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult
 }
 
 fn check_witnesses(
-    tx_body: &TransactionBody,
-    tx_wits: &MintedWitnessSet,
+    tx_body: &KeepRaw<'_, TransactionBody>,
+    tx_wits: &WitnessSet,
     utxos: &UTxOs,
 ) -> ValidationResult {
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
         &mut mk_alonzo_vk_wits_check_list(&tx_wits.vkeywitness, ShelleyMA(MissingVKWitness))?;
-    let tx_hash: &Vec<u8> = &Vec::from(tx_body.compute_hash().as_ref());
+    let tx_hash: &Vec<u8> = &Vec::from(tx_body.original_hash().as_ref());
     let native_scripts: Vec<NativeScript> = match &tx_wits.native_script {
         Some(scripts) => scripts.iter().map(|x| x.clone().unwrap()).collect(),
         None => Vec::new(),
@@ -376,7 +376,7 @@ fn check_remaining_vk_wits(
     Ok(())
 }
 
-fn check_minting(tx_body: &TransactionBody, mtx: &MintedTx) -> ValidationResult {
+fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
             let native_script_wits: Vec<NativeScript> =
@@ -659,7 +659,7 @@ fn check_mir(
         let mut combined: HashMap<StakeCredential, Coin> = HashMap::new();
         if let StakeCredentials(kvp) = &mir.target {
             let mut kvv: Vec<(StakeCredential, u64)> = // TODO: Err if the value is negative
-                kvp.iter().map(|kv| (kv.clone().0, kv.clone().1 as u64)).collect();
+                kvp.iter().map(|kv| (kv.0.clone(), *kv.1 as u64)).collect();
             kvv.extend(ir_pot);
             for (key, value) in kvv {
                 combined.insert(key, value);

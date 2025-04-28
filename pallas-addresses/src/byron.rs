@@ -149,58 +149,15 @@ impl<C> minicbor::Encode<C> for AddrAttrProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[cbor(flat)]
 pub enum SpendingData {
-    PubKey(ByteVec),
-    Script(ByteVec),
-    Redeem(ByteVec),
-}
-
-impl<'b, C> minicbor::Decode<'b, C> for SpendingData {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let key = d.u8()?;
-
-        match key {
-            0 => Ok(Self::PubKey(d.decode_with(ctx)?)),
-            1 => Ok(Self::Script(d.decode_with(ctx)?)),
-            2 => Ok(Self::Redeem(d.decode_with(ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown tag for spending data",
-            )),
-        }
-    }
-}
-
-impl<C> minicbor::Encode<C> for SpendingData {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
-        match self {
-            Self::PubKey(x) => {
-                e.u8(0)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            Self::Script(x) => {
-                e.u8(1)?;
-                e.encode(x)?;
-
-                Ok(())
-            }
-            Self::Redeem(b) => {
-                e.u8(2)?;
-                e.encode(b)?;
-
-                Ok(())
-            }
-        }
-    }
+    #[n(0)]
+    PubKey(#[n(0)] ByteVec),
+    #[n(1)]
+    Script(#[n(0)] ByteVec),
+    #[n(2)]
+    Redeem(#[n(0)] ByteVec),
 }
 
 pub type AddrAttrs = OrderPreservingProperties<AddrAttrProperty>;

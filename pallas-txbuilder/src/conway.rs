@@ -5,11 +5,11 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     conway::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
-        PlutusScript, PostAlonzoTransactionOutput, PseudoScript as PallasScript,
-        PseudoTransactionOutput, Redeemer, RedeemerTag, TransactionBody, TransactionInput, Tx,
-        Value, WitnessSet,
+        PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
+        ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
+        WitnessSet,
     },
-    Fragment, NonEmptyKeyValuePairs, NonEmptySet, PositiveCoin,
+    Fragment, NonEmptySet, PositiveCoin,
 };
 use pallas_traverse::ComputeHash;
 
@@ -46,31 +46,34 @@ impl BuildConway for StagingTransaction {
 
         inputs.sort_unstable_by_key(|x| (x.transaction_id, x.index));
 
-        let outputs = self
-            .outputs
-            .unwrap_or_default()
+        let outputs = self.outputs.unwrap_or_default();
+        let outputs = outputs
             .iter()
             .map(Output::build_babbage_raw)
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mint = NonEmptyKeyValuePairs::from_vec(
-            self.mint
-                .iter()
-                .flat_map(|x| x.deref().iter())
-                .map(|(pid, assets)| {
-                    (
-                        Hash::<28>::from(pid.0),
-                        NonEmptyKeyValuePairs::from_vec(
-                            assets
-                                .iter()
-                                .map(|(n, x)| (n.clone().into(), NonZeroInt::try_from(*x).unwrap()))
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
+        let mint: Vec<(
+            Hash<28>,
+            std::collections::BTreeMap<pallas_primitives::Bytes, _>,
+        )> = self
+            .mint
+            .iter()
+            .flat_map(|x| x.deref().iter())
+            .map(|(pid, assets)| {
+                (
+                    Hash::<28>::from(pid.0),
+                    assets
+                        .iter()
+                        .map(|(n, x)| (n.clone().into(), NonZeroInt::try_from(*x).unwrap()))
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let mint = if mint.is_empty() {
+            None
+        } else {
+            Some(mint.into_iter().collect())
+        };
 
         let collateral = NonEmptySet::from_vec(
             self.collateral_inputs
@@ -158,7 +161,7 @@ impl BuildConway for StagingTransaction {
 
         let mut mint_policies = mint
             .iter()
-            .flat_map(|x| x.deref().iter())
+            .flat_map(|x: &pallas_primitives::conway::Multiasset<NonZeroInt>| x.iter())
             .map(|(p, _)| *p)
             .collect::<Vec<_>>();
 
@@ -215,9 +218,7 @@ impl BuildConway for StagingTransaction {
             }
         };
 
-        let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(
-            pallas_codec::utils::MaybeIndefArray::Def(redeemers.clone()),
-        );
+        let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(redeemers.clone());
 
         let script_data_hash = self.language_view.map(|language_view| {
             let dta = scriptdata::ScriptData {
@@ -233,7 +234,7 @@ impl BuildConway for StagingTransaction {
             dta.hash()
         });
 
-        let mut pallas_tx = Tx {
+        let mut pallas_tx: Tx = Tx {
             transaction_body: TransactionBody {
                 inputs: pallas_primitives::Set::from(inputs),
                 outputs,
@@ -255,21 +256,27 @@ impl BuildConway for StagingTransaction {
                 proposal_procedures: None, // TODO
                 treasury_value: None,      // TODO
                 donation: None,            // TODO
-            },
+            }
+            .into(),
             transaction_witness_set: WitnessSet {
                 vkeywitness: None,
-                native_script: NonEmptySet::from_vec(native_script),
+                native_script: NonEmptySet::from_vec(
+                    native_script.into_iter().map(|x| x.into()).collect(),
+                ),
                 bootstrap_witness: None,
                 plutus_v1_script: NonEmptySet::from_vec(plutus_v1_script),
                 plutus_v2_script: NonEmptySet::from_vec(plutus_v2_script),
                 plutus_v3_script: NonEmptySet::from_vec(plutus_v3_script),
-                plutus_data: NonEmptySet::from_vec(plutus_data),
+                plutus_data: NonEmptySet::from_vec(
+                    plutus_data.into_iter().map(|x| x.into()).collect(),
+                ),
                 redeemer: if redeemers.is_empty() {
                     None
                 } else {
-                    Some(witness_set_redeemers)
+                    Some(witness_set_redeemers.into())
                 },
-            },
+            }
+            .into(),
             success: true,               // TODO
             auxiliary_data: None.into(), // TODO
         };
@@ -297,26 +304,26 @@ impl BuildConway for StagingTransaction {
 }
 
 impl Output {
-    pub fn build_babbage_raw(
-        &self,
-    ) -> Result<PseudoTransactionOutput<PostAlonzoTransactionOutput>, TxBuilderError> {
-        let assets = NonEmptyKeyValuePairs::from_vec(
-            self.assets
-                .iter()
-                .flat_map(|x| x.deref().iter())
-                .map(|(pid, assets)| {
-                    (
-                        pid.0.into(),
-                        assets
-                            .iter()
-                            .map(|(n, x)| (n.clone().into(), PositiveCoin::try_from(*x).unwrap()))
-                            .collect::<Vec<_>>()
-                            .try_into()
-                            .unwrap(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
+    pub fn build_babbage_raw(&self) -> Result<TransactionOutput, TxBuilderError> {
+        let assets = self
+            .assets
+            .iter()
+            .flat_map(|x| x.deref().iter())
+            .map(|(pid, assets)| {
+                (
+                    pid.0.into(),
+                    assets
+                        .iter()
+                        .map(|(n, x)| (n.clone().into(), PositiveCoin::try_from(*x).unwrap()))
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let assets = if assets.is_empty() {
+            None
+        } else {
+            Some(assets.into_iter().collect())
+        };
 
         let value = match assets {
             Some(assets) => Value::Multiasset(self.lovelace, assets),
@@ -336,7 +343,7 @@ impl Output {
                 DatumKind::Inline => {
                     let pd = PlutusData::decode_fragment(d.bytes.as_ref())
                         .map_err(|_| TxBuilderError::MalformedDatum)?;
-                    Some(DatumOption::Data(CborWrap(pd)))
+                    Some(DatumOption::Data(CborWrap(pd.into())))
                 }
             }
         } else {
@@ -347,7 +354,8 @@ impl Output {
             let script = match s.kind {
                 ScriptKind::Native => PallasScript::NativeScript(
                     NativeScript::decode_fragment(s.bytes.as_ref())
-                        .map_err(|_| TxBuilderError::MalformedScript)?,
+                        .map_err(|_| TxBuilderError::MalformedScript)?
+                        .into(),
                 ),
                 ScriptKind::PlutusV1 => PallasScript::PlutusV1Script(PlutusScript::<1>(
                     s.bytes.as_ref().to_vec().into(),
@@ -365,13 +373,14 @@ impl Output {
             None
         };
 
-        Ok(PseudoTransactionOutput::PostAlonzo(
+        Ok(TransactionOutput::PostAlonzo(
             PostAlonzoTransactionOutput {
                 address: self.address.to_vec().into(),
                 value,
-                datum_option,
+                datum_option: datum_option.map(|x| x.into()),
                 script_ref,
-            },
+            }
+            .into(),
         ))
     }
 }

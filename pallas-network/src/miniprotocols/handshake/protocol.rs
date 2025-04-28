@@ -58,3 +58,51 @@ pub enum RefuseReason {
     HandshakeDecodeError(VersionNumber, String),
     Refused(VersionNumber, String),
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "blueprint")]
+    #[test]
+    fn message_roundtrip() {
+        use super::Message;
+        use pallas_codec::minicbor;
+        use pallas_codec::utils;
+
+        // XXX: Can we avoid repeating the test-data path?
+        let test_messages = [
+            include_str!(
+                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-0"
+            ),
+            include_str!(
+                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-1"
+            ),
+            include_str!(
+                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-2"
+            ),
+            include_str!(
+                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-3"
+            ),
+            include_str!(
+                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-4"
+            ),
+        ];
+
+        for (idx, message_str) in test_messages.iter().enumerate() {
+            println!("Decoding test message {}", idx + 1);
+            let bytes =
+                hex::decode(message_str).unwrap_or_else(|_| panic!("bad message file {idx}"));
+
+            let message: Message<utils::AnyCbor> = minicbor::decode(&bytes[..])
+                .unwrap_or_else(|e| panic!("error decoding cbor for file {idx}: {e:?}"));
+            println!("Decoded message: {:#?}", message);
+
+            let bytes2 = minicbor::to_vec(message)
+                .unwrap_or_else(|e| panic!("error encoding cbor for file {idx}: {e:?}"));
+
+            assert!(
+                bytes.eq(&bytes2),
+                "re-encoded bytes didn't match original file {idx}"
+            );
+        }
+    }
+}

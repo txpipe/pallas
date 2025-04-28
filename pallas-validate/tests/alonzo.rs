@@ -11,16 +11,16 @@ mod alonzo_tests {
             decode::{Decode, Decoder},
             encode,
         },
-        utils::{Bytes, KeepRaw, KeyValuePairs, Nullable},
+        utils::{Bytes, KeepRaw},
     };
     use pallas_primitives::alonzo::{
-        AddrKeyhash, CostModel, ExUnitPrices, ExUnits, Language, MintedTx, MintedWitnessSet,
-        NativeScript, NetworkId, Nonce, NonceVariant, PlutusData, RationalNumber, Redeemer,
-        RedeemerTag, TransactionBody, TransactionOutput, VKeyWitness, Value,
+        AddrKeyhash, ExUnitPrices, ExUnits, Language, NativeScript, NetworkId, Nonce, NonceVariant,
+        PlutusData, RationalNumber, Redeemer, RedeemerTag, TransactionBody, TransactionOutput, Tx,
+        VKeyWitness, Value, WitnessSet,
     };
     use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
     use pallas_validate::{
-        phase_one::validate_txs,
+        phase1::validate_txs,
         utils::{
             AccountState, AlonzoError, AlonzoProtParams, CertState, Environment,
             MultiEraProtocolParameters, UTxOs, ValidationError::*,
@@ -33,7 +33,7 @@ mod alonzo_tests {
     // 704b3b9c96f44cd5676e5dcb5dc0bb2555c66427625ccefe620101665da86868
     fn successful_mainnet_tx() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -68,7 +68,7 @@ mod alonzo_tests {
     // 65160f403d2c7419784ae997d32b93a6679d81468af8173ccd7949df6704f7ba
     fn successful_mainnet_tx_with_plutus_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -79,15 +79,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -176,7 +176,7 @@ mod alonzo_tests {
     // e55dd217f14615f91b1ac5a31ee75ef1b7397cd5ded298fa38b38e0915dd77a2
     fn successful_mainnet_tx_with_minting() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo3.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -211,7 +211,7 @@ mod alonzo_tests {
     // 8b6debb3340e5dac098ddb25fa647a99de12a6c1987c98b17ae074d6917dba16
     fn successful_mainnet_tx_with_metadata() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo4.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -245,7 +245,7 @@ mod alonzo_tests {
     // Same as succesful_mainnet_tx, except that all inputs are removed.
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -289,7 +289,7 @@ mod alonzo_tests {
     // UTxO set.
     fn unfound_utxo_input() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = UTxOs::new();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
 
@@ -320,7 +320,7 @@ mod alonzo_tests {
     // interval is greater than the block slot.
     fn validity_interval_lower_bound_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -364,7 +364,7 @@ mod alonzo_tests {
     // interval is lower than the block slot.
     fn validity_interval_upper_bound_surpassed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -408,7 +408,7 @@ mod alonzo_tests {
     // Environment requesting fees that exceed those paid by the transaction.
     fn min_fee_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -448,7 +448,7 @@ mod alonzo_tests {
     // are removed before calling validation.
     fn no_collateral_inputs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -458,15 +458,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -566,7 +566,7 @@ mod alonzo_tests {
     // for the transaction to be valid.
     fn too_many_collateral_inputs() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -577,15 +577,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -678,7 +678,7 @@ mod alonzo_tests {
     // a collateral inputs is altered into a script-locked one.
     fn collateral_is_not_verification_key_locked() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -688,15 +688,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -810,7 +810,7 @@ mod alonzo_tests {
     // associated to the collateral input contains assets other than lovelace.
     fn collateral_with_other_assets() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -821,15 +821,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -891,15 +891,15 @@ mod alonzo_tests {
                 String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
                 Value::Multiasset(
                     5000000,
-                    KeyValuePairs::from(Vec::from([(
+                    [(
                         "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                             .parse()
                             .unwrap(),
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                             1000,
-                        )])),
-                    )])),
+                        )].into(),
+                    )].into(),
                 ),
                 None,
             )],
@@ -931,7 +931,7 @@ mod alonzo_tests {
     // the collateral input is insufficient.
     fn collateral_without_min_lovelace() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -942,15 +942,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1043,7 +1043,7 @@ mod alonzo_tests {
     // and so the "preservation of value" property does not hold.
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1086,7 +1086,7 @@ mod alonzo_tests {
     // network ID is altered.
     fn output_network_ids() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         let (first_output, rest): (&TransactionOutput, &[TransactionOutput]) =
             tx_body.outputs.split_first().unwrap();
@@ -1149,7 +1149,7 @@ mod alonzo_tests {
     // altered.
     fn tx_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut tx_body: TransactionBody = (*mtx.transaction_body).clone();
         tx_body.network_id = Some(NetworkId::Testnet);
         let mut tx_buf: Vec<u8> = Vec::new();
@@ -1192,7 +1192,7 @@ mod alonzo_tests {
     // execution values are below the ones associated with the transaction.
     fn tx_ex_units_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1203,15 +1203,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1306,7 +1306,7 @@ mod alonzo_tests {
     // actually is.
     fn max_tx_size_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -1348,7 +1348,7 @@ mod alonzo_tests {
     // for which there exists no matching VKeyWitness.
     fn missing_required_signer() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -1358,15 +1358,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1469,7 +1469,7 @@ mod alonzo_tests {
     // empty.
     fn missing_vk_witness() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1478,7 +1478,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.vkeywitness = Some(vec![]);
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -1512,7 +1512,7 @@ mod alonzo_tests {
     // of the transaction is modified.
     fn wrong_signature() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1521,7 +1521,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let mut wit: VKeyWitness = tx_wits.vkeywitness.clone().unwrap().pop().unwrap();
         // "c50047bafa1adfbfd588d7c8be89f7ab17aecd47c4cc0ed5c1318caca57c8215d77d6878f0eb2bd2620b4ea552415a3028f98102275c9a564278d0f4e6425d02"
         // is replaced with
@@ -1562,7 +1562,7 @@ mod alonzo_tests {
     // plutus scripts is empty.
     fn missing_plutus_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -1572,15 +1572,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1644,7 +1644,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.plutus_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -1678,7 +1678,7 @@ mod alonzo_tests {
     // plutus scripts contains an extra script.
     fn extra_plutus_script() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -1688,15 +1688,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1760,7 +1760,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let native_script: NativeScript = NativeScript::InvalidBefore(0u64);
         let mut encode_native_script_buf: Vec<u8> = Vec::new();
         let _ = encode(native_script, &mut encode_native_script_buf);
@@ -1802,7 +1802,7 @@ mod alonzo_tests {
     // supported by the corresponding native script.
     fn minting_lacks_policy() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo3.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
@@ -1811,7 +1811,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.native_script = Some(Vec::new());
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -1842,10 +1842,10 @@ mod alonzo_tests {
 
     #[test]
     // Same as successful_mainnet_tx_with_plutus_script, except that the datum of
-    // the input script UTxO is removed from the MintedWitnessSet.
+    // the input script UTxO is removed from the WitnessSet.
     fn missing_input_datum() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -1855,15 +1855,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -1927,7 +1927,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.plutus_data = None;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -1961,7 +1961,7 @@ mod alonzo_tests {
     // PlutusData is extended with an unnecessary new element.
     fn extra_input_datum() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -1971,15 +1971,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2043,7 +2043,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let old_datum: KeepRaw<PlutusData> = tx_wits.plutus_data.unwrap().pop().unwrap();
         let new_datum: PlutusData = PlutusData::Array(MaybeIndefArray::Def(Vec::new()));
         let mut new_datum_buf: Vec<u8> = Vec::new();
@@ -2083,7 +2083,7 @@ mod alonzo_tests {
     // Redeemers is extended with an unnecessary new element.
     fn extra_redeemer() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -2093,15 +2093,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2165,7 +2165,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         let old_redeemer: Redeemer = tx_wits.redeemer.unwrap().pop().unwrap();
         let new_redeemer: Redeemer = Redeemer {
             tag: RedeemerTag::Spend,
@@ -2206,7 +2206,7 @@ mod alonzo_tests {
     // Redeemers is empty.
     fn missing_redeemer() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -2216,15 +2216,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2288,7 +2288,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_wits: MintedWitnessSet = mtx.transaction_witness_set.unwrap().clone();
+        let mut tx_wits: WitnessSet = mtx.transaction_witness_set.unwrap().clone();
         tx_wits.redeemer = None;
         let mut tx_buf: Vec<u8> = Vec::new();
         let _ = encode(tx_wits, &mut tx_buf);
@@ -2322,8 +2322,8 @@ mod alonzo_tests {
     // removed.
     fn auxiliary_data_removed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo4.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
-        mtx.auxiliary_data = Nullable::Null;
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
+        mtx.auxiliary_data = None.into();
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -2360,7 +2360,7 @@ mod alonzo_tests {
     // is unreached.
     fn min_lovelace_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -2399,7 +2399,7 @@ mod alonzo_tests {
     // environment parameter.
     fn max_val_exceeded() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo1.tx"));
-        let mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_alonzo_compatible(&mtx, Era::Alonzo);
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
@@ -2440,7 +2440,7 @@ mod alonzo_tests {
     // contained in the TransactionBody.
     fn script_integrity_hash() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/alonzo2.tx"));
-        let mut mtx: MintedTx = minted_tx_from_cbor(&cbor_bytes);
+        let mut mtx: Tx = minted_tx_from_cbor(&cbor_bytes);
         let mut utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[
@@ -2450,15 +2450,15 @@ mod alonzo_tests {
                     String::from("714a59ebd93ea53d1bbf7f82232c7b012700a0cf4bb78d879dabb1a20a"),
                     Value::Multiasset(
                         1724100,
-                        KeyValuePairs::from(Vec::from([(
+                        [(
                             "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
                                 .parse()
                                 .unwrap(),
-                            KeyValuePairs::from(Vec::from([(
+                            [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )])),
-                        )])),
+                            )].into(),
+                        )].into(),
                     ),
                     Some(
                         hex::decode(
@@ -2522,7 +2522,7 @@ mod alonzo_tests {
                 None,
             )],
         );
-        let mut tx_witness_set: MintedWitnessSet = (*mtx.transaction_witness_set).clone();
+        let mut tx_witness_set: WitnessSet = (*mtx.transaction_witness_set).clone();
         let mut redeemer: Redeemer = tx_witness_set.redeemer.unwrap().pop().unwrap();
         redeemer.ex_units = ExUnits { mem: 0, steps: 0 };
         tx_witness_set.redeemer = Some(vec![redeemer]);
@@ -2590,7 +2590,7 @@ mod alonzo_tests {
             protocol_version: (6, 0),
             min_pool_cost: 340000000,
             ada_per_utxo_byte: 34482,
-            cost_models_for_script_languages: KeyValuePairs::<Language, CostModel>::from(vec![(
+            cost_models_for_script_languages: [(
                 Language::PlutusV1,
                 vec![
                     197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
@@ -2606,7 +2606,8 @@ mod alonzo_tests {
                     1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
                     150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
                 ],
-            )]),
+            )]
+            .into(),
             execution_costs: ExUnitPrices {
                 mem_price: RationalNumber {
                     numerator: 577,
@@ -2668,7 +2669,7 @@ mod alonzo_tests {
             protocol_version: (6, 0),
             min_pool_cost: 340000000,
             ada_per_utxo_byte: 34482,
-            cost_models_for_script_languages: KeyValuePairs::<Language, CostModel>::from(vec![(
+            cost_models_for_script_languages: [(
                 Language::PlutusV1,
                 vec![
                     197209, 0, 1, 1, 396231, 621, 0, 1, 150000, 1000, 0, 1, 150000, 32, 2477736,
@@ -2684,7 +2685,8 @@ mod alonzo_tests {
                     1, 150000, 32, 197209, 0, 1, 1, 150000, 32, 150000, 32, 150000, 32, 150000, 32,
                     150000, 32, 150000, 32, 150000, 32, 3345831, 1, 1,
                 ],
-            )]),
+            )]
+            .into(),
             execution_costs: ExUnitPrices {
                 mem_price: RationalNumber {
                     numerator: 577,

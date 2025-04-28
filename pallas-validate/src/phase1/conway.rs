@@ -1,11 +1,12 @@
-//! Utilities required for Babbage-era transaction validation.
+//! Utilities required for Conway-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, aux_data_from_babbage_minted_tx, compute_native_script_hash,
-    compute_plutus_v1_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
-    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
-    is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list, values_are_equal,
-    verify_signature, BabbageProtParams,
+    aux_data_from_conway_tx, compute_native_script_hash, compute_plutus_v1_script_hash,
+    compute_plutus_v2_script_hash, compute_plutus_v3_script_hash, conway_add_minted_non_zero,
+    conway_add_values, conway_get_val_size_in_words, conway_lovelace_diff_or_fail,
+    conway_values_are_equal, get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part,
+    get_shelley_address, is_byron_address, mk_alonzo_vk_wits_check_list, verify_signature,
+    ConwayProtParams,
     PostAlonzoError::*,
     UTxOs,
     ValidationError::{self, *},
@@ -17,27 +18,26 @@ use pallas_codec::{
     utils::{Bytes, KeepRaw},
 };
 use pallas_primitives::{
-    alonzo::{RedeemerPointer, RedeemerTag},
-    babbage::{
-        Language, Mint, MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet,
-        NativeScript, PseudoDatumOption, PseudoScript, PseudoTransactionOutput, Redeemer,
-        RequiredSigners, VKeyWitness, Value,
+    babbage,
+    conway::{
+        DatumOption, Language, Mint, NativeScript, Redeemers, RedeemersKey, RequiredSigners,
+        ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
-    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput,
+    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
 
-pub fn validate_babbage_tx(
-    mtx: &MintedTx,
+pub fn validate_conway_tx(
+    mtx: &Tx,
     utxos: &UTxOs,
-    prot_pps: &BabbageProtParams,
+    prot_pps: &ConwayProtParams,
     block_slot: &u64,
     network_magic: &u32,
     network_id: &u8,
 ) -> ValidationResult {
-    let tx_body: &MintedTransactionBody = &mtx.transaction_body.clone();
-    let size: u32 = get_babbage_tx_size(mtx).ok_or(PostAlonzo(UnknownTxSize))?;
+    let tx_body: &TransactionBody = &mtx.transaction_body.clone();
+    let size: u32 = get_conway_tx_size(mtx).ok_or(PostAlonzo(UnknownTxSize))?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
@@ -57,7 +57,7 @@ pub fn validate_babbage_tx(
 }
 
 // The set of transaction inputs is not empty.
-fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
+fn check_ins_not_empty(tx_body: &TransactionBody) -> ValidationResult {
     if tx_body.inputs.is_empty() {
         return Err(PostAlonzo(TxInsEmpty));
     }
@@ -66,7 +66,7 @@ fn check_ins_not_empty(tx_body: &MintedTransactionBody) -> ValidationResult {
 
 // All transaction inputs, collateral inputs and reference inputs are in the
 // UTxO set.
-fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
+fn check_all_ins_in_utxos(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     for input in tx_body.inputs.iter() {
         if !(utxos.contains_key(&MultiEraInput::from_alonzo_compatible(input))) {
             return Err(PostAlonzo(InputNotInUTxO));
@@ -97,17 +97,14 @@ fn check_all_ins_in_utxos(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Val
 
 // The block slot is contained in the transaction validity interval, and the
 // upper bound is translatable to UTC time.
-fn check_tx_validity_interval(
-    tx_body: &MintedTransactionBody,
-    block_slot: &u64,
-) -> ValidationResult {
+fn check_tx_validity_interval(tx_body: &TransactionBody, block_slot: &u64) -> ValidationResult {
     check_lower_bound(tx_body, *block_slot)?;
     check_upper_bound(tx_body, *block_slot)
 }
 
 // If defined, the lower bound of the validity time interval does not exceed the
 // block slot.
-fn check_lower_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> ValidationResult {
+fn check_lower_bound(tx_body: &TransactionBody, block_slot: u64) -> ValidationResult {
     match tx_body.validity_interval_start {
         Some(lower_bound) => {
             if block_slot < lower_bound {
@@ -122,7 +119,7 @@ fn check_lower_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
 
 // If defined, the upper bound of the validity time interval is not exceeded by
 // the block slot, and it is translatable to UTC time.
-fn check_upper_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> ValidationResult {
+fn check_upper_bound(tx_body: &TransactionBody, block_slot: u64) -> ValidationResult {
     match tx_body.ttl {
         Some(upper_bound) => {
             if upper_bound < block_slot {
@@ -137,11 +134,11 @@ fn check_upper_bound(tx_body: &MintedTransactionBody, block_slot: u64) -> Valida
 }
 
 fn check_fee(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     size: &u32,
-    mtx: &MintedTx,
+    mtx: &Tx,
     utxos: &UTxOs,
-    prot_pps: &BabbageProtParams,
+    prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     check_min_fee(tx_body, size, prot_pps)?;
     if presence_of_plutus_scripts(mtx) {
@@ -153,9 +150,9 @@ fn check_fee(
 // The fee paid by the transaction should be greater than or equal to the
 // minimum fee.
 fn check_min_fee(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     size: &u32,
-    prot_pps: &BabbageProtParams,
+    prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
         return Err(PostAlonzo(FeeBelowMin));
@@ -163,23 +160,30 @@ fn check_min_fee(
     Ok(())
 }
 
-fn presence_of_plutus_scripts(mtx: &MintedTx) -> bool {
-    let minted_witness_set: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let plutus_v1_scripts: &[PlutusScript<1>] = &minted_witness_set
+fn presence_of_plutus_scripts(mtx: &Tx) -> bool {
+    let minted_witness_set: &WitnessSet = &mtx.transaction_witness_set;
+    let plutus_v1_scripts: &[PlutusScript<1>] = minted_witness_set
         .plutus_v1_script
-        .clone()
-        .unwrap_or_default();
-    let plutus_v2_scripts: &[PlutusScript<2>] = &minted_witness_set
+        .as_ref()
+        .map(|x| x.as_slice())
+        .unwrap_or(&[]);
+    let plutus_v2_scripts: &[PlutusScript<2>] = minted_witness_set
         .plutus_v2_script
-        .clone()
-        .unwrap_or_default();
-    !plutus_v1_scripts.is_empty() || !plutus_v2_scripts.is_empty()
+        .as_ref()
+        .map(|x| x.as_slice())
+        .unwrap_or(&[]);
+    let plutus_v3_scripts: &[PlutusScript<3>] = minted_witness_set
+        .plutus_v3_script
+        .as_ref()
+        .map(|x| x.as_slice())
+        .unwrap_or(&[]);
+    !plutus_v1_scripts.is_empty() || !plutus_v2_scripts.is_empty() || !plutus_v3_scripts.is_empty()
 }
 
 fn check_collaterals(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
-    prot_pps: &BabbageProtParams,
+    prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     let collaterals: &[TransactionInput] = &tx_body
         .collateral
@@ -194,7 +198,7 @@ fn check_collaterals(
 // The number of collateral inputs is below maximum allowed by protocol.
 fn check_collaterals_number(
     collaterals: &[TransactionInput],
-    prot_pps: &BabbageProtParams,
+    prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     if collaterals.is_empty() {
         Err(PostAlonzo(CollateralMissing))
@@ -210,10 +214,10 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
     for collateral in collaterals {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
             Some(multi_era_output) => {
-                if let Some(babbage_output) = MultiEraOutput::as_babbage(multi_era_output) {
-                    let address: &Bytes = match babbage_output {
-                        PseudoTransactionOutput::Legacy(inner) => &inner.address,
-                        PseudoTransactionOutput::PostAlonzo(inner) => &inner.address,
+                if let Some(conway_output) = MultiEraOutput::as_conway(multi_era_output) {
+                    let address: &Bytes = match conway_output {
+                        TransactionOutput::Legacy(inner) => &inner.address,
+                        TransactionOutput::PostAlonzo(inner) => &inner.address,
                     };
                     if let ShelleyPaymentPart::Script(_) =
                         get_payment_part(address).ok_or(PostAlonzo(InputDecoding))?
@@ -234,17 +238,22 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
 // The balance is not lower than the minimum allowed.
 // The balance matches exactly the collateral annotated in the transaction body.
 fn check_collaterals_assets(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
-    prot_pps: &BabbageProtParams,
+    prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     match &tx_body.collateral {
         Some(collaterals) => {
-            let mut coll_input: Value = empty_value();
-            for collateral in collaterals {
+            let first_collateral = collaterals.first().unwrap();
+            let mut coll_input =
+                match utxos.get(&MultiEraInput::from_alonzo_compatible(first_collateral)) {
+                    Some(multi_era_output) => val_from_multi_era_output(multi_era_output),
+                    None => return Err(PostAlonzo(CollateralNotInUTxO)),
+                };
+            for collateral in collaterals.iter().skip(1) {
                 match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
                     Some(multi_era_output) => {
-                        coll_input = add_values(
+                        coll_input = conway_add_values(
                             &coll_input,
                             &val_from_multi_era_output(multi_era_output),
                             &PostAlonzo(NegativeValue),
@@ -256,12 +265,32 @@ fn check_collaterals_assets(
                 }
             }
             let coll_return: Value = match &tx_body.collateral_return {
-                Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
-                Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
+                Some(TransactionOutput::Legacy(output)) => {
+                    let amount = output.amount.clone();
+                    match amount {
+                        babbage::Value::Coin(coin) => Value::Coin(coin),
+                        babbage::Value::Multiasset(coin, assets) => {
+                            let mut conway_assets = Vec::new();
+                            for (key, val) in assets.into_iter() {
+                                let mut conway_value = Vec::new();
+                                for (inner_key, inner_val) in val.into_iter() {
+                                    conway_value.push((
+                                        inner_key,
+                                        PositiveCoin::try_from(inner_val).unwrap(),
+                                    ));
+                                }
+                                conway_assets.push((key, conway_value.into_iter().collect()));
+                            }
+                            let conway_assets = conway_assets.into_iter().collect();
+                            Value::Multiasset(coin, conway_assets)
+                        }
+                    }
+                }
+                Some(TransactionOutput::PostAlonzo(output)) => output.value.clone(),
                 None => Value::Coin(0),
             };
             // The balance between collateral inputs and output contains only lovelace.
-            let paid_collateral: u64 = lovelace_diff_or_fail(
+            let paid_collateral: u64 = conway_lovelace_diff_or_fail(
                 &coll_input,
                 &coll_return,
                 &PostAlonzo(NonLovelaceCollateral),
@@ -285,110 +314,232 @@ fn check_collaterals_assets(
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
     match multi_era_output {
-        MultiEraOutput::Byron(output) => Value::Coin(output.amount),
-        MultiEraOutput::AlonzoCompatible(output, _) => output.amount.clone(),
-        babbage_output => match babbage_output.as_babbage() {
-            Some(PseudoTransactionOutput::Legacy(output)) => output.amount.clone(),
-            Some(PseudoTransactionOutput::PostAlonzo(output)) => output.value.clone(),
-            None => unimplemented!(), /* If this is the case, then it must be that non-exhaustive
-                                       * type MultiEraOutput was extended with another variant */
+        MultiEraOutput::Conway(x) => match x.clone().into_owned() {
+            TransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => Value::Coin(coin),
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.into_iter() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.into_iter() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets.push((key, conway_value.into_iter().collect()));
+                        }
+                        let conway_assets = conway_assets.into_iter().collect();
+                        Value::Multiasset(coin, conway_assets)
+                    }
+                }
+            }
+            TransactionOutput::PostAlonzo(output) => output.value.clone(),
         },
+        MultiEraOutput::AlonzoCompatible(output, _) => {
+            let amount = output.amount.clone();
+            match amount {
+                babbage::Value::Coin(coin) => Value::Coin(coin),
+                babbage::Value::Multiasset(coin, assets) => {
+                    let mut conway_assets = Vec::new();
+                    for (key, val) in assets.into_iter() {
+                        let mut conway_value = Vec::new();
+                        for (inner_key, inner_val) in val.into_iter() {
+                            conway_value
+                                .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                        }
+                        conway_assets.push((key, conway_value.into_iter().collect()));
+                    }
+                    let conway_assets = conway_assets.into_iter().collect();
+                    Value::Multiasset(coin, conway_assets)
+                }
+            }
+        }
+        _ => unimplemented!(),
     }
 }
 
 // The preservation of value property holds.
-fn check_preservation_of_value(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
+fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     let mut input: Value = get_consumed(tx_body, utxos)?;
     let produced: Value = get_produced(tx_body)?;
-    let output: Value = add_values(
+    let output: Value = conway_add_values(
         &produced,
         &Value::Coin(tx_body.fee),
         &PostAlonzo(NegativeValue),
     )?;
     if let Some(m) = &tx_body.mint {
-        input = add_minted_value(&input, m, &PostAlonzo(NegativeValue))?;
+        input = conway_add_minted_non_zero(&input, m, &PostAlonzo(NegativeValue))?;
     }
-    if !values_are_equal(&input, &output) {
+    if !conway_values_are_equal(&input, &output) {
         return Err(PostAlonzo(PreservationOfValue));
     }
     Ok(())
 }
 
-fn get_consumed(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
-    let mut res: Value = empty_value();
-    for input in tx_body.inputs.iter() {
+fn get_consumed(tx_body: &TransactionBody, utxos: &UTxOs) -> Result<Value, ValidationError> {
+    let mut inputs_iter = tx_body.inputs.iter();
+    let Some(first_input) = inputs_iter.next() else {
+        return Err(PostAlonzo(TxInsEmpty));
+    };
+    let multi_era_output: &MultiEraOutput = utxos
+        .get(&MultiEraInput::from_alonzo_compatible(first_input))
+        .ok_or(PostAlonzo(InputNotInUTxO))?;
+    let mut res: Value = val_from_multi_era_output(multi_era_output);
+    for input in inputs_iter {
         let multi_era_output: &MultiEraOutput = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(InputNotInUTxO))?;
         let val: Value = val_from_multi_era_output(multi_era_output);
-        res = add_values(&res, &val, &PostAlonzo(NegativeValue))?;
+        res = conway_add_values(&res, &val, &PostAlonzo(NegativeValue))?;
     }
     Ok(res)
 }
 
-fn get_produced(tx_body: &MintedTransactionBody) -> Result<Value, ValidationError> {
-    let mut res: Value = empty_value();
-    for output in tx_body.outputs.iter() {
-        match output {
-            PseudoTransactionOutput::Legacy(output) => {
-                res = add_values(&res, &output.amount, &PostAlonzo(NegativeValue))?
+fn get_produced(tx_body: &TransactionBody) -> Result<Value, ValidationError> {
+    let mut outputs_iter = tx_body.outputs.iter();
+    let Some(first_output) = outputs_iter.next() else {
+        return Err(PostAlonzo(TxInsEmpty));
+    };
+    let mut res: Value = match first_output {
+        TransactionOutput::Legacy(output) => {
+            let amount = output.amount.clone();
+            match amount {
+                babbage::Value::Coin(coin) => Value::Coin(coin),
+                babbage::Value::Multiasset(coin, assets) => {
+                    let mut conway_assets = Vec::new();
+                    for (key, val) in assets.into_iter() {
+                        let mut conway_value = Vec::new();
+                        for (inner_key, inner_val) in val.into_iter() {
+                            conway_value
+                                .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                        }
+                        conway_assets.push((key, conway_value.into_iter().collect()));
+                    }
+                    let conway_assets = conway_assets.into_iter().collect();
+                    Value::Multiasset(coin, conway_assets)
+                }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
-                res = add_values(&res, &output.value, &PostAlonzo(NegativeValue))?
+        }
+        TransactionOutput::PostAlonzo(output) => output.value.clone(),
+    };
+    for output in outputs_iter {
+        match output {
+            TransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => {
+                        res =
+                            conway_add_values(&res, &Value::Coin(coin), &PostAlonzo(NegativeValue))?
+                    }
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.into_iter() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.into_iter() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets.push((key, conway_value.into_iter().collect()));
+                        }
+                        let conway_assets = conway_assets.into_iter().collect();
+                        res = conway_add_values(
+                            &res,
+                            &Value::Multiasset(coin, conway_assets),
+                            &PostAlonzo(NegativeValue),
+                        )?
+                    }
+                }
+            }
+            TransactionOutput::PostAlonzo(output) => {
+                res = conway_add_values(&res, &output.value, &PostAlonzo(NegativeValue))?
             }
         }
     }
     Ok(res)
 }
 
-fn check_min_lovelace(
-    tx_body: &MintedTransactionBody,
-    prot_pps: &BabbageProtParams,
-) -> ValidationResult {
+fn check_min_lovelace(tx_body: &TransactionBody, prot_pps: &ConwayProtParams) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output {
-            PseudoTransactionOutput::Legacy(output) => &output.amount,
-            PseudoTransactionOutput::PostAlonzo(output) => &output.value,
+            TransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => &Value::Coin(coin),
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.into_iter() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.into_iter() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets.push((key, conway_value.into_iter().collect()));
+                        }
+                        let conway_assets = conway_assets.into_iter().collect();
+                        &Value::Multiasset(coin, conway_assets)
+                    }
+                }
+            }
+            TransactionOutput::PostAlonzo(output) => &output.value,
         };
-        if get_lovelace_from_alonzo_val(val) < compute_min_lovelace(val, prot_pps) {
+        if get_lovelace_from_conway_val(val) < compute_min_lovelace(val, prot_pps) {
             return Err(PostAlonzo(MinLovelaceUnreached));
         }
     }
     Ok(())
 }
 
-fn compute_min_lovelace(val: &Value, prot_pps: &BabbageProtParams) -> u64 {
-    prot_pps.ada_per_utxo_byte * (get_val_size_in_words(val) + 160)
+fn compute_min_lovelace(val: &Value, prot_pps: &ConwayProtParams) -> u64 {
+    prot_pps.ada_per_utxo_byte * (conway_get_val_size_in_words(val) + 160)
 }
 
 // The size of the value in each of the outputs should not be greater than the
 // maximum allowed.
 fn check_output_val_size(
-    tx_body: &MintedTransactionBody,
-    prot_pps: &BabbageProtParams,
+    tx_body: &TransactionBody,
+    prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let val: &Value = match output {
-            PseudoTransactionOutput::Legacy(output) => &output.amount,
-            PseudoTransactionOutput::PostAlonzo(output) => &output.value,
+            TransactionOutput::Legacy(output) => {
+                let amount = output.amount.clone();
+                match amount {
+                    babbage::Value::Coin(coin) => &Value::Coin(coin),
+                    babbage::Value::Multiasset(coin, assets) => {
+                        let mut conway_assets = Vec::new();
+                        for (key, val) in assets.into_iter() {
+                            let mut conway_value = Vec::new();
+                            for (inner_key, inner_val) in val.into_iter() {
+                                conway_value
+                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                            }
+                            conway_assets.push((key, conway_value.into_iter().collect()));
+                        }
+                        let conway_assets = conway_assets.into_iter().collect();
+                        &Value::Multiasset(coin, conway_assets)
+                    }
+                }
+            }
+            TransactionOutput::PostAlonzo(output) => &output.value,
         };
-        if get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
+        if conway_get_val_size_in_words(val) > prot_pps.max_value_size as u64 {
             return Err(PostAlonzo(MaxValSizeExceeded));
         }
     }
     Ok(())
 }
 
-fn check_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
+fn check_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     check_tx_outs_network_id(tx_body, network_id)?;
     check_tx_network_id(tx_body, network_id)
 }
 
-fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
+fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     for output in tx_body.outputs.iter() {
         let addr_bytes: &Bytes = match output {
-            PseudoTransactionOutput::Legacy(output) => &output.address,
-            PseudoTransactionOutput::PostAlonzo(output) => &output.address,
+            TransactionOutput::Legacy(output) => &output.address,
+            TransactionOutput::PostAlonzo(output) => &output.address,
         };
         let addr: ShelleyAddress =
             get_shelley_address(Bytes::deref(addr_bytes)).ok_or(PostAlonzo(AddressDecoding))?;
@@ -401,7 +552,7 @@ fn check_tx_outs_network_id(tx_body: &MintedTransactionBody, network_id: &u8) ->
 
 // The network ID of the transaction body is either undefined or equal to the
 // global network ID.
-fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> ValidationResult {
+fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     if let Some(tx_network_id) = tx_body.network_id {
         if u8::from(tx_network_id) != *network_id {
             return Err(PostAlonzo(TxWrongNetworkID));
@@ -410,24 +561,35 @@ fn check_tx_network_id(tx_body: &MintedTransactionBody, network_id: &u8) -> Vali
     Ok(())
 }
 
-fn check_tx_size(size: &u32, prot_pps: &BabbageProtParams) -> ValidationResult {
+fn check_tx_size(size: &u32, prot_pps: &ConwayProtParams) -> ValidationResult {
     if *size > prot_pps.max_transaction_size {
         return Err(PostAlonzo(MaxTxSizeExceeded));
     }
     Ok(())
 }
 
-fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> ValidationResult {
-    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
+fn check_tx_ex_units(mtx: &Tx, prot_pps: &ConwayProtParams) -> ValidationResult {
+    let tx_wits: &WitnessSet = &mtx.transaction_witness_set;
     if presence_of_plutus_scripts(mtx) {
         match &tx_wits.redeemer {
             Some(redeemers_vec) => {
                 let mut steps: u64 = 0;
                 let mut mem: u64 = 0;
-                for Redeemer { ex_units, .. } in redeemers_vec {
-                    mem += ex_units.mem;
-                    steps += ex_units.steps;
+                match redeemers_vec.clone().unwrap() {
+                    Redeemers::List(r) => {
+                        let _ = r.iter().map(|x| {
+                            mem += x.ex_units.mem;
+                            steps += x.ex_units.steps;
+                        });
+                    }
+                    Redeemers::Map(r) => {
+                        let _ = r.iter().map(|x| {
+                            mem += x.1.ex_units.mem;
+                            steps += x.1.ex_units.steps;
+                        });
+                    }
                 }
+
                 if mem > prot_pps.max_tx_ex_units.mem || steps > prot_pps.max_tx_ex_units.steps {
                     return Err(PostAlonzo(TxExUnitsExceeded));
                 }
@@ -440,7 +602,7 @@ fn check_tx_ex_units(mtx: &MintedTx, prot_pps: &BabbageProtParams) -> Validation
 
 // Each minted / burned asset is paired with an appropriate native script or
 // Plutus script.
-fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationResult {
+fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
             let native_script_wits: Vec<NativeScript> =
@@ -454,12 +616,17 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
             let v1_script_wits: Vec<PlutusScript<1>> =
                 match &mtx.transaction_witness_set.plutus_v1_script {
                     None => Vec::new(),
-                    Some(v1_script_wits) => v1_script_wits.clone(),
+                    Some(v1_script_wits) => v1_script_wits.clone().to_vec(),
                 };
             let v2_script_wits: Vec<PlutusScript<2>> =
                 match &mtx.transaction_witness_set.plutus_v2_script {
                     None => Vec::new(),
-                    Some(v2_script_wits) => v2_script_wits.clone(),
+                    Some(v2_script_wits) => v2_script_wits.clone().to_vec(),
+                };
+            let v3_script_wits: Vec<PlutusScript<3>> =
+                match &mtx.transaction_witness_set.plutus_v3_script {
+                    None => Vec::new(),
+                    Some(v3_script_wits) => v3_script_wits.clone().to_vec(),
                 };
             for (policy, _) in minted_value.iter() {
                 if native_script_wits
@@ -471,6 +638,9 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
                     && v2_script_wits
                         .iter()
                         .all(|script| compute_plutus_v2_script_hash(script) != *policy)
+                    && v3_script_wits
+                        .iter()
+                        .all(|script| compute_plutus_v3_script_hash(script) != *policy)
                 {
                     return Err(PostAlonzo(MintingLacksPolicy));
                 }
@@ -481,15 +651,21 @@ fn check_minting(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationR
     }
 }
 
-fn check_well_formedness(_tx_body: &MintedTransactionBody, _mtx: &MintedTx) -> ValidationResult {
+fn check_well_formedness(_tx_body: &TransactionBody, _mtx: &Tx) -> ValidationResult {
     Ok(())
 }
 
-fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
+fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
-    let tx_body: &MintedTransactionBody = &mtx.transaction_body;
-    let tx_wits: &MintedWitnessSet = &mtx.transaction_witness_set;
-    let vkey_wits: &Option<Vec<VKeyWitness>> = &tx_wits.vkeywitness;
+    let tx_body: &TransactionBody = &mtx.transaction_body;
+    let tx_wits: &WitnessSet = &mtx.transaction_witness_set;
+    let vkey_wits: &Option<Vec<VKeyWitness>> = &Some(
+        tx_wits
+            .vkeywitness
+            .clone()
+            .map(|wits| wits.to_vec())
+            .unwrap_or_default(),
+    );
     let native_scripts: Vec<PolicyId> = match &tx_wits.native_script {
         Some(scripts) => scripts
             .clone()
@@ -514,6 +690,14 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
             .collect(),
         None => Vec::new(),
     };
+    let plutus_v3_scripts: Vec<PolicyId> = match &tx_wits.plutus_v3_script {
+        Some(scripts) => scripts
+            .clone()
+            .iter()
+            .map(compute_plutus_v3_script_hash)
+            .collect(),
+        None => Vec::new(),
+    };
     let reference_scripts: Vec<PolicyId> = get_reference_script_hashes(tx_body, utxos);
     check_needed_scripts(
         tx_body,
@@ -521,30 +705,44 @@ fn check_witness_set(mtx: &MintedTx, utxos: &UTxOs) -> ValidationResult {
         &native_scripts,
         &plutus_v1_scripts,
         &plutus_v2_scripts,
+        &plutus_v3_scripts,
         &reference_scripts,
     )?;
-    check_datums(tx_body, utxos, &tx_wits.plutus_data)?;
+    let plutus_data = tx_wits.plutus_data.clone().map(|data| data.to_vec());
+    check_datums(tx_body, utxos, &plutus_data)?;
     check_redeemers(
         &plutus_v1_scripts,
         &plutus_v2_scripts,
+        &plutus_v3_scripts,
         &reference_scripts,
         tx_body,
         tx_wits,
         utxos,
     )?;
     check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
-    check_vkey_input_wits(mtx, &tx_wits.vkeywitness, utxos)
+    check_vkey_input_wits(
+        mtx,
+        &Some(
+            tx_wits
+                .vkeywitness
+                .clone()
+                .map(|wits| wits.to_vec())
+                .unwrap_or_default(),
+        ),
+        utxos,
+    )
 }
 
 // Each minting policy or script hash in a script input address can be matched
 // to a script in the transaction witness set, except when it can be found in a
 // reference input
 fn check_needed_scripts(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
     native_scripts: &[PolicyId],
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
+    plutus_v3_scripts: &[PolicyId],
     reference_scripts: &[PolicyId],
 ) -> ValidationResult {
     let mut filtered_native_scripts: Vec<(bool, PolicyId)> = native_scripts
@@ -574,11 +772,21 @@ fn check_needed_scripts(
             .iter()
             .any(|&reference_script_hash| reference_script_hash == plutus_v2_script_hash)
     });
+    let mut filtered_plutus_v3_scripts: Vec<(bool, PolicyId)> = plutus_v3_scripts
+        .iter()
+        .map(|&script_hash| (false, script_hash))
+        .collect();
+    filtered_plutus_v3_scripts.retain(|&(_, plutus_v3_script_hash)| {
+        !reference_scripts
+            .iter()
+            .any(|&reference_script_hash| reference_script_hash == plutus_v3_script_hash)
+    });
     check_input_scripts(
         tx_body,
         &mut filtered_native_scripts,
         &mut filtered_plutus_v1_scripts,
         &mut filtered_plutus_v2_scripts,
+        &mut filtered_plutus_v3_scripts,
         reference_scripts,
         utxos,
     )?;
@@ -587,6 +795,7 @@ fn check_needed_scripts(
         &mut filtered_native_scripts,
         &mut filtered_plutus_v1_scripts,
         &mut filtered_plutus_v2_scripts,
+        &mut filtered_plutus_v3_scripts,
         reference_scripts,
     )?;
     for (covered, _) in filtered_native_scripts.iter() {
@@ -604,10 +813,15 @@ fn check_needed_scripts(
             return Err(PostAlonzo(UnneededPlutusV2Script));
         }
     }
+    for (covered, _) in filtered_plutus_v3_scripts.iter() {
+        if !covered {
+            return Err(PostAlonzo(UnneededPlutusV2Script));
+        }
+    }
     Ok(())
 }
 
-fn get_reference_script_hashes(tx_body: &MintedTransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
+fn get_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
     let mut res: Vec<PolicyId> = Vec::new();
     if let Some(reference_inputs) = &tx_body.reference_inputs {
         for input in reference_inputs.iter() {
@@ -620,10 +834,11 @@ fn get_reference_script_hashes(tx_body: &MintedTransactionBody, utxos: &UTxOs) -
 }
 
 fn check_input_scripts(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     native_scripts: &mut [(bool, PolicyId)],
     plutus_v1_scripts: &mut [(bool, PolicyId)],
     plutus_v2_scripts: &mut [(bool, PolicyId)],
+    pluts_v3_scripts: &mut [(bool, PolicyId)],
     reference_scripts: &[PolicyId],
     utxos: &UTxOs,
 ) -> ValidationResult {
@@ -648,6 +863,12 @@ fn check_input_scripts(
                 *plutus_v2_script_covered = true;
             }
         }
+        for (plutus_v3_script_covered, plutus_v3_script_hash) in pluts_v3_scripts.iter_mut() {
+            if *hash == *plutus_v3_script_hash {
+                *covered = true;
+                *plutus_v3_script_covered = true;
+            }
+        }
     }
     for (covered, hash) in needed_input_scripts {
         if !covered
@@ -662,7 +883,7 @@ fn check_input_scripts(
 }
 
 fn get_script_hashes_from_inputs(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
 ) -> Vec<(bool, ScriptHash)> {
     let mut res: Vec<(bool, ScriptHash)> = Vec::new();
@@ -677,18 +898,16 @@ fn get_script_hashes_from_inputs(
 fn get_script_hash_from_input(input: &TransactionInput, utxos: &UTxOs) -> Option<ScriptHash> {
     match utxos
         .get(&MultiEraInput::from_alonzo_compatible(input))
-        .and_then(MultiEraOutput::as_babbage)
+        .and_then(MultiEraOutput::as_conway)
     {
-        Some(PseudoTransactionOutput::Legacy(output)) => match get_payment_part(&output.address) {
+        Some(TransactionOutput::Legacy(output)) => match get_payment_part(&output.address) {
             Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
             _ => None,
         },
-        Some(PseudoTransactionOutput::PostAlonzo(output)) => {
-            match get_payment_part(&output.address) {
-                Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
-                _ => None,
-            }
-        }
+        Some(TransactionOutput::PostAlonzo(output)) => match get_payment_part(&output.address) {
+            Some(ShelleyPaymentPart::Script(script_hash)) => Some(script_hash),
+            _ => None,
+        },
         None => None,
     }
 }
@@ -699,31 +918,38 @@ fn get_script_hash_from_reference_input(
 ) -> Option<PolicyId> {
     match utxos
         .get(&MultiEraInput::from_alonzo_compatible(ref_input))
-        .and_then(MultiEraOutput::as_babbage)
+        .and_then(MultiEraOutput::as_conway)
     {
-        Some(PseudoTransactionOutput::Legacy(_)) => None,
-        Some(PseudoTransactionOutput::PostAlonzo(output)) => {
+        Some(TransactionOutput::Legacy(_)) => None,
+        Some(TransactionOutput::PostAlonzo(output)) => {
             if let Some(script_ref_cborwrap) = &output.script_ref {
                 match script_ref_cborwrap.clone().unwrap() {
-                    PseudoScript::NativeScript(native_script) => {
+                    ScriptRef::NativeScript(native_script) => {
                         // First, the NativeScript header.
                         let mut val_to_hash: Vec<u8> = vec![0];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(native_script.raw_cbor());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
-                    PseudoScript::PlutusV1Script(plutus_v1_script) => {
+                    ScriptRef::PlutusV1Script(plutus_v1_script) => {
                         // First, the PlutusV1Script header.
                         let mut val_to_hash: Vec<u8> = vec![1];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(plutus_v1_script.as_ref());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
-                    PseudoScript::PlutusV2Script(plutus_v2_script) => {
+                    ScriptRef::PlutusV2Script(plutus_v2_script) => {
                         // First, the PlutusV2Script header.
                         let mut val_to_hash: Vec<u8> = vec![2];
                         // Then, the CBOR content.
                         val_to_hash.extend_from_slice(plutus_v2_script.as_ref());
+                        return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
+                    }
+                    ScriptRef::PlutusV3Script(plutus_v3_script) => {
+                        // First, the PlutusV2Script header.
+                        let mut val_to_hash: Vec<u8> = vec![3];
+                        // Then, the CBOR content.
+                        val_to_hash.extend_from_slice(plutus_v3_script.as_ref());
                         return Some(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash));
                     }
                 }
@@ -735,10 +961,11 @@ fn get_script_hash_from_reference_input(
 }
 
 fn check_minting_policies(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     native_scripts: &mut [(bool, PolicyId)],
     plutus_v1_scripts: &mut [(bool, PolicyId)],
     plutus_v2_scripts: &mut [(bool, PolicyId)],
+    plutus_v3_scripts: &mut [(bool, PolicyId)],
     reference_scripts: &[PolicyId],
 ) -> ValidationResult {
     match &tx_body.mint {
@@ -765,6 +992,12 @@ fn check_minting_policies(
                         *plutus_script_covered = true;
                     }
                 }
+                for (plutus_script_covered, plutus_v3_script_hash) in plutus_v3_scripts.iter_mut() {
+                    if *policy == *plutus_v3_script_hash {
+                        *policy_covered = true;
+                        *plutus_script_covered = true;
+                    }
+                }
                 for reference_script_hash in reference_scripts.iter() {
                     if *policy == *reference_script_hash {
                         *policy_covered = true;
@@ -784,7 +1017,7 @@ fn check_minting_policies(
 // Each datum hash in a Plutus script input matches the hash of a datum in the
 // transaction witness set
 fn check_datums(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
     option_plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
 ) -> ValidationResult {
@@ -807,14 +1040,14 @@ fn check_datums(
 // Each datum hash in a Plutus script input matches the hash of a datum in the
 // transaction witness set.
 fn check_input_datum_hash_in_witness_set(
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
     plutus_data_hash: &mut [(bool, Hash<32>)],
 ) -> ValidationResult {
     for input in &tx_body.inputs {
         match utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
-            .and_then(MultiEraOutput::as_babbage)
+            .and_then(MultiEraOutput::as_conway)
         {
             Some(output) => {
                 if let Some(datum_hash) = get_datum_hash(output) {
@@ -828,11 +1061,11 @@ fn check_input_datum_hash_in_witness_set(
 }
 
 // Extract datum hash if one is contained.
-fn get_datum_hash(output: &MintedTransactionOutput) -> Option<Hash<32>> {
+fn get_datum_hash(output: &TransactionOutput) -> Option<Hash<32>> {
     match output {
-        PseudoTransactionOutput::Legacy(output) => output.datum_hash,
-        PseudoTransactionOutput::PostAlonzo(output) => match output.datum_option {
-            Some(PseudoDatumOption::Hash(hash)) => Some(hash),
+        TransactionOutput::Legacy(output) => output.datum_hash,
+        TransactionOutput::PostAlonzo(output) => match output.datum_option.as_deref() {
+            Some(DatumOption::Hash(hash)) => Some(*hash),
             _ => None,
         },
     }
@@ -856,7 +1089,7 @@ fn find_plutus_datum_in_witness_set(
 // the collateral return output
 fn check_remaining_datums(
     plutus_data_hash: &[(bool, Hash<32>)],
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
 ) -> ValidationResult {
     for (found, plutus_datum_hash) in plutus_data_hash {
@@ -867,7 +1100,7 @@ fn check_remaining_datums(
     Ok(())
 }
 
-fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -> ValidationResult {
+fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     // Look for hash in transaction (regular) outputs
     for output in tx_body.outputs.iter() {
         if let Some(datum_hash) = get_datum_hash(output) {
@@ -879,15 +1112,15 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
     // Look for hash in collateral return output
     if let Some(babbage_output) = &tx_body.collateral_return {
         match babbage_output {
-            PseudoTransactionOutput::Legacy(output) => {
+            TransactionOutput::Legacy(output) => {
                 if let Some(datum_hash) = &output.datum_hash {
                     if *hash == *datum_hash {
                         return Ok(());
                     }
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
-                if let Some(PseudoDatumOption::Hash(datum_hash)) = &output.datum_option {
+            TransactionOutput::PostAlonzo(output) => {
+                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
                     if *hash == *datum_hash {
                         return Ok(());
                     }
@@ -900,17 +1133,17 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
         for reference_input in reference_inputs.iter() {
             match utxos
                 .get(&MultiEraInput::from_alonzo_compatible(reference_input))
-                .and_then(MultiEraOutput::as_babbage)
+                .and_then(MultiEraOutput::as_conway)
             {
-                Some(PseudoTransactionOutput::Legacy(output)) => {
+                Some(TransactionOutput::Legacy(output)) => {
                     if let Some(datum_hash) = &output.datum_hash {
                         if *hash == *datum_hash {
                             return Ok(());
                         }
                     }
                 }
-                Some(PseudoTransactionOutput::PostAlonzo(output)) => {
-                    if let Some(PseudoDatumOption::Hash(datum_hash)) = &output.datum_option {
+                Some(TransactionOutput::PostAlonzo(output)) => {
+                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
                         if *hash == *datum_hash {
                             return Ok(());
                         }
@@ -926,29 +1159,41 @@ fn find_datum(hash: &Hash<32>, tx_body: &MintedTransactionBody, utxos: &UTxOs) -
 fn check_redeemers(
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
+    plutus_v3_scripts: &[PolicyId],
     reference_scripts: &[PolicyId],
-    tx_body: &MintedTransactionBody,
-    tx_wits: &MintedWitnessSet,
+    tx_body: &TransactionBody,
+    tx_wits: &WitnessSet,
     utxos: &UTxOs,
 ) -> ValidationResult {
-    let redeemer_pointers: Vec<RedeemerPointer> = match &tx_wits.redeemer {
-        Some(redeemers) => redeemers
-            .iter()
-            .map(|x| RedeemerPointer {
-                tag: x.tag,
-                index: x.index,
-            })
-            .collect(),
+    let redeemer_key: Vec<RedeemersKey> = match &tx_wits.redeemer {
+        Some(redeemers) => match redeemers.clone().unwrap() {
+            Redeemers::List(redeemers) => redeemers
+                .iter()
+                .map(|x| RedeemersKey {
+                    tag: x.tag,
+                    index: x.index,
+                })
+                .collect(),
+            Redeemers::Map(redeemers) => redeemers
+                .iter()
+                .map(|x| RedeemersKey {
+                    tag: x.0.tag,
+                    index: x.0.index,
+                })
+                .collect(),
+        },
+
         None => Vec::new(),
     };
-    let plutus_scripts: Vec<RedeemerPointer> = mk_plutus_script_redeemer_pointers(
+    let plutus_scripts: Vec<RedeemersKey> = mk_plutus_script_redeemer_pointers(
         plutus_v1_scripts,
         plutus_v2_scripts,
+        plutus_v3_scripts,
         reference_scripts,
         tx_body,
         utxos,
     );
-    redeemer_pointers_coincide(&redeemer_pointers, &plutus_scripts)
+    redeemer_key_coincide(&redeemer_key, &plutus_scripts)
 }
 
 // Lexicographical sorting for inputs.
@@ -961,16 +1206,17 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
 fn mk_plutus_script_redeemer_pointers(
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
+    plutus_v3_scripts: &[PolicyId],
     reference_scripts: &[PolicyId],
-    tx_body: &MintedTransactionBody,
+    tx_body: &TransactionBody,
     utxos: &UTxOs,
-) -> Vec<RedeemerPointer> {
-    let mut res: Vec<RedeemerPointer> = Vec::new();
+) -> Vec<RedeemersKey> {
+    let mut res: Vec<RedeemersKey> = Vec::new();
     let sorted_inputs: &Vec<TransactionInput> = &sort_inputs(&tx_body.inputs);
     for (index, input) in sorted_inputs.iter().enumerate() {
         if get_script_hash_from_input(input, utxos).is_some() {
-            res.push(RedeemerPointer {
-                tag: RedeemerTag::Spend,
+            res.push(RedeemersKey {
+                tag: pallas_primitives::conway::RedeemerTag::Spend,
                 index: index as u32,
             })
         }
@@ -981,10 +1227,11 @@ fn mk_plutus_script_redeemer_pointers(
                 policy,
                 plutus_v1_scripts,
                 plutus_v2_scripts,
+                plutus_v3_scripts,
                 reference_scripts,
             ) {
-                res.push(RedeemerPointer {
-                    tag: RedeemerTag::Mint,
+                res.push(RedeemersKey {
+                    tag: pallas_primitives::conway::RedeemerTag::Mint,
                     index: index as u32,
                 })
             }
@@ -995,12 +1242,7 @@ fn mk_plutus_script_redeemer_pointers(
 
 // Lexicographical sorting for PolicyID's.
 fn sort_policies(mint: &Mint) -> Vec<PolicyId> {
-    let mut res: Vec<PolicyId> = mint
-        .clone()
-        .to_vec()
-        .iter()
-        .map(|(policy_id, _)| *policy_id)
-        .collect();
+    let mut res: Vec<PolicyId> = mint.clone().keys().copied().collect();
     res.sort();
     res
 }
@@ -1009,6 +1251,7 @@ fn is_phase_2_script(
     policy: &PolicyId,
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
+    plutus_v3_scripts: &[PolicyId],
     reference_scripts: &[PolicyId],
 ) -> bool {
     plutus_v1_scripts
@@ -1017,14 +1260,17 @@ fn is_phase_2_script(
         || plutus_v2_scripts
             .iter()
             .any(|v2_script| policy == v2_script)
+        || plutus_v3_scripts
+            .iter()
+            .any(|v3_script| policy == v3_script)
         || reference_scripts
             .iter()
             .any(|ref_script| policy == ref_script)
 }
 
-fn redeemer_pointers_coincide(
-    redeemers: &[RedeemerPointer],
-    plutus_scripts: &[RedeemerPointer],
+fn redeemer_key_coincide(
+    redeemers: &[RedeemersKey],
+    plutus_scripts: &[RedeemersKey],
 ) -> ValidationResult {
     for redeemer_pointer in redeemers {
         if !plutus_scripts.iter().any(|x| x == redeemer_pointer) {
@@ -1078,26 +1324,26 @@ fn find_and_check_req_signer(
 }
 
 fn check_vkey_input_wits(
-    mtx: &MintedTx,
+    mtx: &Tx,
     vkey_wits: &Option<Vec<VKeyWitness>>,
     utxos: &UTxOs,
 ) -> ValidationResult {
-    let tx_body: &MintedTransactionBody = &mtx.transaction_body;
+    let tx_body: &TransactionBody = &mtx.transaction_body;
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
         &mut mk_alonzo_vk_wits_check_list(vkey_wits, PostAlonzo(VKWitnessMissing))?;
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
-    inputs_and_collaterals.extend(tx_body.inputs.clone());
+    inputs_and_collaterals.extend(tx_body.inputs.clone().to_vec());
     if let Some(collaterals) = &tx_body.collateral {
-        inputs_and_collaterals.extend(collaterals.clone())
+        inputs_and_collaterals.extend(collaterals.clone().to_vec())
     }
     for input in inputs_and_collaterals.iter() {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
-                if let Some(babbage_output) = MultiEraOutput::as_babbage(multi_era_output) {
+                if let Some(babbage_output) = MultiEraOutput::as_conway(multi_era_output) {
                     let address: &Bytes = match babbage_output {
-                        PseudoTransactionOutput::Legacy(output) => &output.address,
-                        PseudoTransactionOutput::PostAlonzo(output) => &output.address,
+                        TransactionOutput::Legacy(output) => &output.address,
+                        TransactionOutput::PostAlonzo(output) => &output.address,
                     };
                     match get_payment_part(address).ok_or(PostAlonzo(InputDecoding))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
@@ -1148,7 +1394,7 @@ fn check_remaining_vk_wits(
 }
 
 fn check_languages(
-    mtx: &MintedTx,
+    mtx: &Tx,
     utxos: &UTxOs,
     network_magic: &u32,
     network_id: &u8,
@@ -1168,7 +1414,7 @@ fn check_languages(
 }
 
 fn available_langs(
-    mtx: &MintedTx,
+    mtx: &Tx,
     utxos: &UTxOs,
     network_magic: &u32,
     network_id: &u8,
@@ -1187,49 +1433,51 @@ fn block_langs(network_magic: u32, network_id: u8, block_slot: u64) -> Vec<Langu
     if network_magic == 1 && network_id == 0 {
         //Preprod - 3,974,409 is the slot of the first block in epoch 13
         if block_slot >= 3974409 {
-            vec![Language::PlutusV1, Language::PlutusV2]
+            vec![Language::PlutusV1, Language::PlutusV2, Language::PlutusV3]
         } else {
             vec![Language::PlutusV1]
         }
     } else if network_magic == 2 && network_id == 0 {
         // Preview - 777,610 is the slot of the first block in epoch 9
         if block_slot >= 777610 {
-            vec![Language::PlutusV1, Language::PlutusV2]
+            vec![Language::PlutusV1, Language::PlutusV2, Language::PlutusV3]
         } else {
             vec![Language::PlutusV1]
         }
     } else {
         // Mainnet - 72,748,820 is the slot of the first block in epoch 366
         if block_slot >= 72748820 {
-            vec![Language::PlutusV1, Language::PlutusV2]
+            vec![Language::PlutusV1, Language::PlutusV2, Language::PlutusV3]
         } else {
             vec![Language::PlutusV1]
         }
     }
 }
 
-fn allowed_langs(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
-    let all_outputs: Vec<&MintedTransactionOutput> = compute_all_outputs(mtx, utxos);
+fn allowed_langs(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
+    let all_outputs: Vec<&TransactionOutput> = compute_all_outputs(mtx, utxos);
     if any_byron_addresses(&all_outputs) {
         vec![]
     } else if any_datums_or_script_refs(&all_outputs)
-        || any_reference_inputs(&mtx.transaction_body.reference_inputs)
+        || any_reference_inputs(
+            &mtx.transaction_body
+                .reference_inputs
+                .clone()
+                .map(|x| x.to_vec()),
+        )
     {
-        vec![Language::PlutusV2]
+        vec![Language::PlutusV2, Language::PlutusV3]
     } else {
         vec![Language::PlutusV1, Language::PlutusV2]
     }
 }
 
-fn compute_all_outputs<'a>(
-    mtx: &'a MintedTx,
-    utxos: &'a UTxOs,
-) -> Vec<&'a MintedTransactionOutput<'a>> {
-    let mut res: Vec<&MintedTransactionOutput> = Vec::new();
+fn compute_all_outputs<'a>(mtx: &'a Tx, utxos: &'a UTxOs) -> Vec<&'a TransactionOutput<'a>> {
+    let mut res: Vec<&TransactionOutput> = Vec::new();
     for input in mtx.transaction_body.inputs.iter() {
         if let Some(output) = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
-            .and_then(MultiEraOutput::as_babbage)
+            .and_then(MultiEraOutput::as_conway)
         {
             res.push(output)
         }
@@ -1238,7 +1486,7 @@ fn compute_all_outputs<'a>(
         for ref_input in reference_inputs.iter() {
             if let Some(output) = utxos
                 .get(&MultiEraInput::from_alonzo_compatible(ref_input))
-                .and_then(MultiEraOutput::as_babbage)
+                .and_then(MultiEraOutput::as_conway)
             {
                 res.push(output)
             }
@@ -1250,15 +1498,15 @@ fn compute_all_outputs<'a>(
     res
 }
 
-fn any_byron_addresses(all_outputs: &[&MintedTransactionOutput]) -> bool {
+fn any_byron_addresses(all_outputs: &[&TransactionOutput]) -> bool {
     for output in all_outputs.iter() {
         match output {
-            PseudoTransactionOutput::Legacy(output) => {
+            TransactionOutput::Legacy(output) => {
                 if is_byron_address(&output.address) {
                     return true;
                 }
             }
-            PseudoTransactionOutput::PostAlonzo(output) => {
+            TransactionOutput::PostAlonzo(output) => {
                 if is_byron_address(&output.address) {
                     return true;
                 }
@@ -1268,14 +1516,14 @@ fn any_byron_addresses(all_outputs: &[&MintedTransactionOutput]) -> bool {
     false
 }
 
-fn any_datums_or_script_refs(all_outputs: &[&MintedTransactionOutput]) -> bool {
+fn any_datums_or_script_refs(all_outputs: &[&TransactionOutput]) -> bool {
     for output in all_outputs.iter() {
         match output {
-            PseudoTransactionOutput::Legacy(_) => (),
-            PseudoTransactionOutput::PostAlonzo(output) => {
+            TransactionOutput::Legacy(_) => (),
+            TransactionOutput::PostAlonzo(output) => {
                 if output.script_ref.is_some() {
                     return true;
-                } else if let Some(PseudoDatumOption::Data(_)) = &output.datum_option {
+                } else if let Some(DatumOption::Data(_)) = &output.datum_option.as_deref() {
                     return true;
                 }
             }
@@ -1291,9 +1539,10 @@ fn any_reference_inputs(reference_inputs: &Option<Vec<TransactionInput>>) -> boo
     }
 }
 
-fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
+fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
     let mut v1_scripts: bool = false;
     let mut v2_scripts: bool = false;
+    let mut v3_scripts: bool = false;
     if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script {
         if !v1_scripts_vec.is_empty() {
             v1_scripts = true
@@ -1304,39 +1553,44 @@ fn tx_languages(mtx: &MintedTx, utxos: &UTxOs) -> Vec<Language> {
             v2_scripts = true;
         }
     }
+    if let Some(v3_scripts_vec) = &mtx.transaction_witness_set.plutus_v3_script {
+        if !v3_scripts_vec.is_empty() {
+            v3_scripts = true;
+        }
+    }
     if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
         for ref_input in reference_inputs.iter() {
-            if let Some(PseudoTransactionOutput::PostAlonzo(output)) = utxos
+            if let Some(TransactionOutput::PostAlonzo(output)) = utxos
                 .get(&MultiEraInput::from_alonzo_compatible(ref_input))
-                .and_then(MultiEraOutput::as_babbage)
+                .and_then(MultiEraOutput::as_conway)
             {
                 if let Some(script_ref_cborwrap) = &output.script_ref {
                     match script_ref_cborwrap.clone().unwrap() {
-                        PseudoScript::PlutusV1Script(_) => v1_scripts = true,
-                        PseudoScript::PlutusV2Script(_) => v2_scripts = true,
+                        ScriptRef::PlutusV1Script(_) => v1_scripts = true,
+                        ScriptRef::PlutusV2Script(_) => v2_scripts = true,
+                        ScriptRef::PlutusV3Script(_) => v3_scripts = true,
                         _ => (),
                     }
                 }
             }
         }
     }
-    if !v1_scripts && !v2_scripts {
+    if !v1_scripts && !v2_scripts && !v3_scripts {
         vec![]
-    } else if v1_scripts && !v2_scripts {
+    } else if v1_scripts && !v2_scripts && !v3_scripts {
         vec![Language::PlutusV1]
-    } else if !v1_scripts && v2_scripts {
+    } else if !v1_scripts && v2_scripts && !v3_scripts {
         vec![Language::PlutusV2]
+    } else if !v1_scripts && !v2_scripts && v3_scripts {
+        vec![Language::PlutusV3]
     } else {
         vec![Language::PlutusV1, Language::PlutusV2]
     }
 }
 
 // The metadata of the transaction is valid.
-fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> ValidationResult {
-    match (
-        &tx_body.auxiliary_data_hash,
-        aux_data_from_babbage_minted_tx(mtx),
-    ) {
+fn check_auxiliary_data(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
+    match (&tx_body.auxiliary_data_hash, aux_data_from_conway_tx(mtx)) {
         (Some(metadata_hash), Some(metadata)) => {
             if metadata_hash.as_slice()
                 == pallas_crypto::hash::Hasher::<256>::hash(metadata).as_ref()
@@ -1352,8 +1606,8 @@ fn check_auxiliary_data(tx_body: &MintedTransactionBody, mtx: &MintedTx) -> Vali
 }
 
 fn check_script_data_hash(
-    tx_body: &MintedTransactionBody,
-    mtx: &MintedTx,
+    tx_body: &TransactionBody,
+    mtx: &Tx,
     utxos: &UTxOs,
     network_magic: &u32,
     network_id: &u8,
@@ -1375,26 +1629,75 @@ fn check_script_data_hash(
                 let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
                     &tx_languages(mtx, utxos),
                     &plutus_data,
-                    redeemer,
+                    &redeemer.clone().unwrap(),
                     network_magic,
                     network_id,
                     block_slot,
                 );
+
                 if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
                     Ok(())
                 } else {
                     Err(PostAlonzo(ScriptIntegrityHash))
                 }
             }
-            (_, _) => Err(PostAlonzo(ScriptIntegrityHash)),
+            (None, Some(redeemer)) => {
+                let plutus_data: Vec<PlutusData> = vec![];
+                // The Plutus data part of the script integrity hash may either need to be
+                // serialized as a indefinite-length array, or a definite-length one.
+                // TODO: compute only the correct hash, not both of them.
+                let (indefinite_hash, definite_hash) = compute_script_integrity_hash(
+                    &tx_languages(mtx, utxos),
+                    &plutus_data,
+                    &redeemer.clone().unwrap(),
+                    network_magic,
+                    network_id,
+                    block_slot,
+                );
+
+                if script_data_hash == indefinite_hash || script_data_hash == definite_hash {
+                    Ok(())
+                } else {
+                    Err(PostAlonzo(ScriptIntegrityHash))
+                }
+            }
+            (None, None) => Err(PostAlonzo(ScriptIntegrityHash)),
+            (Some(_), None) => Err(PostAlonzo(ScriptIntegrityHash)),
         },
         None => {
-            if option_vec_is_empty(&mtx.transaction_witness_set.plutus_data)
-                && option_vec_is_empty(&mtx.transaction_witness_set.redeemer)
-            {
-                Ok(())
+            let plutus_data = mtx
+                .transaction_witness_set
+                .plutus_data
+                .clone()
+                .map(|x| x.to_vec());
+            let redeemer_is_empty = mtx.transaction_witness_set.redeemer.is_none();
+
+            if !redeemer_is_empty {
+                if option_vec_is_empty(&plutus_data) {
+                    match &mtx
+                        .transaction_witness_set
+                        .redeemer
+                        .clone()
+                        .unwrap()
+                        .unwrap()
+                    {
+                        Redeemers::List(redeemers) => {
+                            if !option_vec_is_empty(&Some(redeemers.clone().to_vec())) {
+                                return Err(PostAlonzo(ScriptIntegrityHash));
+                            }
+                        }
+                        Redeemers::Map(redeemers) => {
+                            if !option_vec_is_empty(&Some(redeemers.clone().iter().collect())) {
+                                return Err(PostAlonzo(ScriptIntegrityHash));
+                            }
+                        }
+                    }
+                    Ok(())
+                } else {
+                    Err(PostAlonzo(ScriptIntegrityHash))
+                }
             } else {
-                Err(PostAlonzo(ScriptIntegrityHash))
+                Ok(())
             }
         }
     }
@@ -1407,7 +1710,7 @@ fn check_script_data_hash(
 fn compute_script_integrity_hash(
     tx_languages: &[Language],
     plutus_data: &[PlutusData],
-    redeemer: &[Redeemer],
+    redeemer: &Redeemers,
     network_magic: &u32,
     network_id: &u8,
     block_slot: &u64,
@@ -1481,15 +1784,24 @@ fn cost_model_cbor(
             // From start of epoch 51 onwards
             if tx_languages.contains(&Language::PlutusV1)
                 && !tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
                 ).unwrap()
             } else if !tx_languages.contains(&Language::PlutusV1)
                 && tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
+                ).unwrap()
+            } else if !tx_languages.contains(&Language::PlutusV1)
+                && !tx_languages.contains(&Language::PlutusV2)
+                && tx_languages.contains(&Language::PlutusV3)
+            {
+                hex::decode(
+                    "a1029901291a000189b41901a401011903e818ad00011903e819ea350401192baf18201a000312591920a404193e801864193e801864193e801864193e801864193e801864193e80186418641864193e8018641a000170a718201a00020782182019f016041a0001194a18b2000119568718201a0001643519030104021a00014f581a0001e143191c893903831906b419022518391a00014f580001011903e819a7a90402195fe419733a1826011a000db464196a8f0119ca3f19022e011999101903e819ecb2011a00022a4718201a000144ce1820193bc318201a0001291101193371041956540a197147184a01197147184a0119a9151902280119aecd19021d0119843c18201a00010a9618201a00011aaa1820191c4b1820191cdf1820192d1a18201a00014f581a0001e143191c893903831906b419022518391a00014f5800011a0001614219020700011a000122c118201a00014f581a0001e143191c893903831906b419022518391a00014f580001011a00014f581a0001e143191c893903831906b419022518391a00014f5800011a000e94721a0003414000021a0004213c19583c041a00163cad19fc3604194ff30104001a00022aa818201a000189b41901a401011a00013eff182019e86a1820194eae182019600c1820195108182019654d182019602f18201a0290f1e70a1a032e93af1937fd0a1a0298e40b1966c40a193e801864193e8018641a000eaf1f121a002a6e06061a0006be98011a0321aac7190eac121a00041699121a048e466e1922a4121a0327ec9a121a001e743c18241a0031410f0c1a000dbf9e011a09f2f6d31910d318241a0004578218241a096e44021967b518241a0473cee818241a13e62472011a0f23d40118481a00212c5618481a0022814619fc3b041a00032b00192076041a0013be0419702c183f00011a000f59d919aa6718fb00011a000187551902d61902cf00011a000187551902d61902cf00011a000187551902d61902cf00011a0001a5661902a800011a00017468011a00044a391949a000011a0002bfe2189f01011a00026b371922ee00011a00026e9219226d00011a0001a3e2190ce2011a00019e4919028f011a001df8bb195fc803"
                 ).unwrap()
             } else {
                 hex::decode(
@@ -1546,15 +1858,24 @@ fn cost_model_cbor(
             // From start of epoch 107 onwards
             if tx_languages.contains(&Language::PlutusV1)
                 && !tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
                 ).unwrap()
             } else if !tx_languages.contains(&Language::PlutusV1)
                 && tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
+                ).unwrap()
+            } else if !tx_languages.contains(&Language::PlutusV1)
+                && !tx_languages.contains(&Language::PlutusV2)
+                && tx_languages.contains(&Language::PlutusV3)
+            {
+                hex::decode(
+                    "a1029901291a000189b41901a401011903e818ad00011903e819ea350401192baf18201a000312591920a404193e801864193e801864193e801864193e801864193e801864193e80186418641864193e8018641a000170a718201a00020782182019f016041a0001194a18b2000119568718201a0001643519030104021a00014f581a0001e143191c893903831906b419022518391a00014f580001011903e819a7a90402195fe419733a1826011a000db464196a8f0119ca3f19022e011999101903e819ecb2011a00022a4718201a000144ce1820193bc318201a0001291101193371041956540a197147184a01197147184a0119a9151902280119aecd19021d0119843c18201a00010a9618201a00011aaa1820191c4b1820191cdf1820192d1a18201a00014f581a0001e143191c893903831906b419022518391a00014f5800011a0001614219020700011a000122c118201a00014f581a0001e143191c893903831906b419022518391a00014f580001011a00014f581a0001e143191c893903831906b419022518391a00014f5800011a000e94721a0003414000021a0004213c19583c041a00163cad19fc3604194ff30104001a00022aa818201a000189b41901a401011a00013eff182019e86a1820194eae182019600c1820195108182019654d182019602f18201a0290f1e70a1a032e93af1937fd0a1a0298e40b1966c40a193e801864193e8018641a000eaf1f121a002a6e06061a0006be98011a0321aac7190eac121a00041699121a048e466e1922a4121a0327ec9a121a001e743c18241a0031410f0c1a000dbf9e011a09f2f6d31910d318241a0004578218241a096e44021967b518241a0473cee818241a13e62472011a0f23d40118481a00212c5618481a0022814619fc3b041a00032b00192076041a0013be0419702c183f00011a000f59d919aa6718fb00011a000187551902d61902cf00011a000187551902d61902cf00011a000187551902d61902cf00011a0001a5661902a800011a00017468011a00044a391949a000011a0002bfe2189f01011a00026b371922ee00011a00026e9219226d00011a0001a3e2190ce2011a00019e4919028f011a001df8bb195fc803"
                 ).unwrap()
             } else {
                 hex::decode(
@@ -1593,15 +1914,24 @@ fn cost_model_cbor(
             // Starting from epoch 394
             if tx_languages.contains(&Language::PlutusV1)
                 && !tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a141005901b69f1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0374f693194a1f0aff"
                 ).unwrap()
             } else if !tx_languages.contains(&Language::PlutusV1)
                 && tx_languages.contains(&Language::PlutusV2)
+                && !tx_languages.contains(&Language::PlutusV3)
             {
                 hex::decode(
                     "a10198af1a0003236119032c01011903e819023b00011903e8195e7104011903e818201a0001ca761928eb041959d818641959d818641959d818641959d818641959d818641959d81864186418641959d81864194c5118201a0002acfa182019b551041a000363151901ff00011a00015c3518201a000797751936f404021a0002ff941a0006ea7818dc0001011903e8196ff604021a0003bd081a00034ec5183e011a00102e0f19312a011a00032e801901a5011a0002da781903e819cf06011a00013a34182019a8f118201903e818201a00013aac0119e143041903e80a1a00030219189c011a00030219189c011a0003207c1901d9011a000330001901ff0119ccf3182019fd40182019ffd5182019581e18201940b318201a00012adf18201a0002ff941a0006ea7818dc0001011a00010f92192da7000119eabb18201a0002ff941a0006ea7818dc0001011a0002ff941a0006ea7818dc0001011a0011b22c1a0005fdde00021a000c504e197712041a001d6af61a0001425b041a00040c660004001a00014fab18201a0003236119032c010119a0de18201a00033d7618201979f41820197fb8182019a95d1820197df718201995aa18201a0223accc0a1a0374f693194a1f0a1a02515e841980b30a"
+                ).unwrap()
+            } else if !tx_languages.contains(&Language::PlutusV1)
+                && !tx_languages.contains(&Language::PlutusV2)
+                && tx_languages.contains(&Language::PlutusV3)
+            {
+                hex::decode(
+                    "a1029901291a000189b41901a401011903e818ad00011903e819ea350401192baf18201a000312591920a404193e801864193e801864193e801864193e801864193e801864193e80186418641864193e8018641a000170a718201a00020782182019f016041a0001194a18b2000119568718201a0001643519030104021a00014f581a0001e143191c893903831906b419022518391a00014f580001011903e819a7a90402195fe419733a1826011a000db464196a8f0119ca3f19022e011999101903e819ecb2011a00022a4718201a000144ce1820193bc318201a0001291101193371041956540a197147184a01197147184a0119a9151902280119aecd19021d0119843c18201a00010a9618201a00011aaa1820191c4b1820191cdf1820192d1a18201a00014f581a0001e143191c893903831906b419022518391a00014f5800011a0001614219020700011a000122c118201a00014f581a0001e143191c893903831906b419022518391a00014f580001011a00014f581a0001e143191c893903831906b419022518391a00014f5800011a000e94721a0003414000021a0004213c19583c041a00163cad19fc3604194ff30104001a00022aa818201a000189b41901a401011a00013eff182019e86a1820194eae182019600c1820195108182019654d182019602f18201a0290f1e70a1a032e93af1937fd0a1a0298e40b1966c40a193e801864193e8018641a000eaf1f121a002a6e06061a0006be98011a0321aac7190eac121a00041699121a048e466e1922a4121a0327ec9a121a001e743c18241a0031410f0c1a000dbf9e011a09f2f6d31910d318241a0004578218241a096e44021967b518241a0473cee818241a13e62472011a0f23d40118481a00212c5618481a0022814619fc3b041a00032b00192076041a0013be0419702c183f00011a000f59d919aa6718fb00011a000187551902d61902cf00011a000187551902d61902cf00011a000187551902d61902cf00011a0001a5661902a800011a00017468011a00044a391949a000011a0002bfe2189f01011a00026b371922ee00011a00026e9219226d00011a0001a3e2190ce2011a00019e4919028f011a001df8bb195fc803"
                 ).unwrap()
             } else {
                 hex::decode(

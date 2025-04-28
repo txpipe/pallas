@@ -1,35 +1,33 @@
 use super::{error::Error, to_plutus_data::MintValue};
 use itertools::Itertools;
 use pallas_addresses::{Address, Network, StakePayload};
-use pallas_codec::utils::{
-    Bytes, KeyValuePairs, NonEmptyKeyValuePairs, NonEmptySet, Nullable, PositiveCoin,
-};
+use pallas_codec::utils::{Bytes, KeyValuePairs, NonEmptySet, PositiveCoin};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::conway::RedeemersValue;
 use pallas_primitives::{
     alonzo,
     conway::{
         AddrKeyhash, Certificate, Coin, DatumHash, DatumOption, GovAction, GovActionId, Mint,
-        MintedTransactionBody, MintedTransactionOutput, MintedTx, MintedWitnessSet, NativeScript,
-        PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput, ProposalProcedure,
-        PseudoDatumOption, PseudoScript, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners,
-        RewardAccount, ScriptHash, StakeCredential, TransactionInput, TransactionOutput, Value,
-        Voter, VotingProcedure,
+        NativeScript, PlutusData, PlutusScript, PolicyId, PostAlonzoTransactionOutput,
+        ProposalProcedure, Redeemer, RedeemerTag, RedeemersKey, RequiredSigners, RewardAccount,
+        ScriptHash, ScriptRef, StakeCredential, TransactionBody, TransactionInput,
+        TransactionOutput, Tx, Value, Voter, VotingProcedure, WitnessSet,
     },
 };
 use pallas_traverse::{ComputeHash, MultiEraTx, OriginalHash};
+use std::collections::BTreeMap;
 use std::{cmp::Ordering, collections::HashMap, ops::Deref};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ResolvedInput {
+pub struct ResolvedInput<'a> {
     pub input: TransactionInput,
-    pub output: TransactionOutput,
+    pub output: TransactionOutput<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInInfo {
+pub struct TxInInfo<'a> {
     pub out_ref: TransactionInput,
-    pub resolved: TransactionOutput,
+    pub resolved: TransactionOutput<'a>,
 }
 
 pub fn output_address(output: &TransactionOutput) -> Address {
@@ -39,10 +37,10 @@ pub fn output_address(output: &TransactionOutput) -> Address {
     }
 }
 
-pub fn output_datum(output: &TransactionOutput) -> Option<DatumOption> {
+pub fn output_datum<'a>(output: &'a TransactionOutput<'a>) -> Option<DatumOption<'a>> {
     match output {
         TransactionOutput::Legacy(x) => x.datum_hash.map(DatumOption::Hash),
-        TransactionOutput::PostAlonzo(x) => x.datum_option.clone(),
+        TransactionOutput::PostAlonzo(x) => x.datum_option.clone().map(|x| x.unwrap()),
     }
 }
 
@@ -126,17 +124,19 @@ impl DataLookupTable {
                 TransactionOutput::PostAlonzo(output) => {
                     if let Some(script) = &output.script_ref {
                         match &script.0 {
-                            PseudoScript::NativeScript(ns) => {
-                                scripts
-                                    .insert(ns.compute_hash(), ScriptVersion::Native(ns.clone()));
+                            ScriptRef::NativeScript(ns) => {
+                                scripts.insert(
+                                    ns.compute_hash(),
+                                    ScriptVersion::Native(ns.clone().unwrap()),
+                                );
                             }
-                            PseudoScript::PlutusV1Script(v1) => {
+                            ScriptRef::PlutusV1Script(v1) => {
                                 scripts.insert(v1.compute_hash(), ScriptVersion::V1(v1.clone()));
                             }
-                            PseudoScript::PlutusV2Script(v2) => {
+                            ScriptRef::PlutusV2Script(v2) => {
                                 scripts.insert(v2.compute_hash(), ScriptVersion::V2(v2.clone()));
                             }
-                            PseudoScript::PlutusV3Script(v3) => {
+                            ScriptRef::PlutusV3Script(v3) => {
                                 scripts.insert(v3.compute_hash(), ScriptVersion::V3(v3.clone()));
                             }
                         }
@@ -156,9 +156,9 @@ impl DataLookupTable {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV1 {
-    pub inputs: Vec<TxInInfo>,
-    pub outputs: Vec<TransactionOutput>,
+pub struct TxInfoV1<'a> {
+    pub inputs: Vec<TxInInfo<'a>>,
+    pub outputs: Vec<TransactionOutput<'a>>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -170,12 +170,12 @@ pub struct TxInfoV1 {
     pub id: Hash<32>,
 }
 
-impl TxInfoV1 {
-    pub fn from_transaction(
-        tx: &MintedTx,
-        utxos: &[ResolvedInput],
+impl TxInfoV1<'_> {
+    pub fn from_transaction<'a>(
+        tx: &'a Tx<'a>,
+        utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
-    ) -> Result<TxInfo, Error> {
+    ) -> Result<TxInfo<'a>, Error> {
         if tx.transaction_body.reference_inputs.is_some() {
             return Err(Error::ScriptAndInputRefNotAllowed);
         }
@@ -208,10 +208,10 @@ impl TxInfoV1 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV2 {
-    pub inputs: Vec<TxInInfo>,
-    pub reference_inputs: Vec<TxInInfo>,
-    pub outputs: Vec<TransactionOutput>,
+pub struct TxInfoV2<'a> {
+    pub inputs: Vec<TxInInfo<'a>>,
+    pub reference_inputs: Vec<TxInInfo<'a>>,
+    pub outputs: Vec<TransactionOutput<'a>>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -223,12 +223,12 @@ pub struct TxInfoV2 {
     pub id: Hash<32>,
 }
 
-impl TxInfoV2 {
-    pub fn from_transaction(
-        tx: &MintedTx,
-        utxos: &[ResolvedInput],
+impl TxInfoV2<'_> {
+    pub fn from_transaction<'a>(
+        tx: &'a Tx<'a>,
+        utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
-    ) -> Result<TxInfo, Error> {
+    ) -> Result<TxInfo<'a>, Error> {
         let inputs = get_tx_in_info_v2(&tx.transaction_body.inputs, utxos)?;
         let certificates = get_certificates_info(&tx.transaction_body.certificates);
         let withdrawals =
@@ -266,10 +266,10 @@ impl TxInfoV2 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV3 {
-    pub inputs: Vec<TxInInfo>,
-    pub reference_inputs: Vec<TxInInfo>,
-    pub outputs: Vec<TransactionOutput>,
+pub struct TxInfoV3<'a> {
+    pub inputs: Vec<TxInInfo<'a>>,
+    pub reference_inputs: Vec<TxInInfo<'a>>,
+    pub outputs: Vec<TransactionOutput<'a>>,
     pub fee: Coin,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -285,12 +285,12 @@ pub struct TxInfoV3 {
     pub treasury_donation: Option<PositiveCoin>,
 }
 
-impl TxInfoV3 {
-    pub fn from_transaction(
-        tx: &MintedTx,
-        utxos: &[ResolvedInput],
+impl TxInfoV3<'_> {
+    pub fn from_transaction<'a>(
+        tx: &'a Tx<'a>,
+        utxos: &'a [ResolvedInput<'a>],
         slot_config: &SlotConfig,
-    ) -> Result<TxInfo, Error> {
+    ) -> Result<TxInfo<'a>, Error> {
         let inputs = get_tx_in_info_v2(&tx.transaction_body.inputs, utxos)?;
 
         let certificates = get_certificates_info(&tx.transaction_body.certificates);
@@ -349,18 +349,18 @@ impl TxInfoV3 {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TxInfo {
-    V1(TxInfoV1),
-    V2(TxInfoV2),
-    V3(TxInfoV3),
+pub enum TxInfo<'a> {
+    V1(TxInfoV1<'a>),
+    V2(TxInfoV2<'a>),
+    V3(TxInfoV3<'a>),
 }
 
-impl TxInfo {
+impl<'a> TxInfo<'a> {
     pub fn into_script_context(
         self,
         redeemer: &Redeemer,
         datum: Option<&PlutusData>,
-    ) -> Option<ScriptContext> {
+    ) -> Option<ScriptContext<'a>> {
         match self {
             TxInfo::V1(TxInfoV1 { ref redeemers, .. })
             | TxInfo::V2(TxInfoV2 { ref redeemers, .. }) => redeemers
@@ -428,13 +428,13 @@ impl TxInfo {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ScriptContext {
+pub enum ScriptContext<'a> {
     V1V2 {
-        tx_info: Box<TxInfo>,
+        tx_info: Box<TxInfo<'a>>,
         purpose: Box<ScriptPurpose>,
     },
     V3 {
-        tx_info: Box<TxInfo>,
+        tx_info: Box<TxInfo<'a>>,
         redeemer: PlutusData,
         purpose: Box<ScriptInfo<Option<PlutusData>>>,
     },
@@ -466,10 +466,10 @@ impl Default for SlotConfig {
 
 // --------------------- Translations
 
-pub fn get_tx_in_info_v1(
+pub fn get_tx_in_info_v1<'a>(
     inputs: &[TransactionInput],
-    utxos: &[ResolvedInput],
-) -> Result<Vec<TxInInfo>, Error> {
+    utxos: &'a [ResolvedInput<'a>],
+) -> Result<Vec<TxInInfo<'a>>, Error> {
     inputs
         .iter()
         .sorted()
@@ -497,7 +497,9 @@ pub fn get_tx_in_info_v1(
             match &utxo.output {
                 TransactionOutput::Legacy(_) => {}
                 TransactionOutput::PostAlonzo(output) => {
-                    if let Some(DatumOption::Data(_)) = output.datum_option {
+                    if let Some(DatumOption::Data(_)) =
+                        output.datum_option.clone().map(|x| x.unwrap())
+                    {
                         return Err(Error::InlineDatumNotAllowed);
                     }
 
@@ -515,10 +517,10 @@ pub fn get_tx_in_info_v1(
         .collect()
 }
 
-pub fn get_tx_in_info_v2(
+pub fn get_tx_in_info_v2<'a>(
     inputs: &[TransactionInput],
-    utxos: &[ResolvedInput],
-) -> Result<Vec<TxInInfo>, Error> {
+    utxos: &'a [ResolvedInput<'a>],
+) -> Result<Vec<TxInInfo<'a>>, Error> {
     inputs
         .iter()
         .sorted()
@@ -553,18 +555,14 @@ pub fn get_tx_in_info_v2(
 
 pub fn get_mint_info(mint: &Option<Mint>) -> MintValue {
     MintValue {
-        mint_value: mint
-            .as_ref()
-            .map(sort_mint)
-            .unwrap_or(NonEmptyKeyValuePairs::Indef(vec![])),
+        mint_value: mint.as_ref().map(sort_mint).unwrap_or_else(BTreeMap::new),
     }
 }
 
-pub fn get_outputs_info(outputs: &[MintedTransactionOutput]) -> Vec<TransactionOutput> {
+pub fn get_outputs_info<'a>(outputs: &'a [TransactionOutput]) -> Vec<TransactionOutput<'a>> {
     outputs
         .iter()
-        .cloned()
-        .map(|output| sort_tx_out_value(&output.into()))
+        .map(|output| sort_tx_out_value(output.into()))
         .collect()
 }
 
@@ -594,21 +592,21 @@ pub fn get_proposal_procedures_info(
 }
 
 pub fn get_withdrawals_info(
-    withdrawals: &Option<NonEmptyKeyValuePairs<RewardAccount, Coin>>,
+    withdrawals: &Option<BTreeMap<RewardAccount, Coin>>,
 ) -> Vec<(Address, Coin)> {
     withdrawals
-        .clone()
+        .as_ref()
         .map(|w| {
-            w.into_iter()
+            w.iter()
                 .sorted_by(|(accnt_a, _), (accnt_b, _)| sort_reward_accounts(accnt_a, accnt_b))
-                .map(|(reward_account, coin)| (Address::from_bytes(&reward_account).unwrap(), coin))
+                .map(|(reward_account, coin)| (Address::from_bytes(reward_account).unwrap(), *coin))
                 .collect()
         })
         .unwrap_or_default()
 }
 
 pub fn get_validity_range_info(
-    body: &MintedTransactionBody,
+    body: &TransactionBody,
     slot_config: &SlotConfig,
 ) -> Result<TimeRange, Error> {
     fn slot_to_begin_posix_time(slot: u64, sc: &SlotConfig) -> Result<u64, Error> {
@@ -653,7 +651,7 @@ pub fn get_signatories_info(signers: &Option<RequiredSigners>) -> Vec<AddrKeyhas
         .unwrap_or_default()
 }
 
-pub fn get_data_info(witness_set: &MintedWitnessSet) -> Vec<(DatumHash, PlutusData)> {
+pub fn get_data_info(witness_set: &WitnessSet) -> Vec<(DatumHash, PlutusData)> {
     witness_set
         .plutus_data
         .as_deref()
@@ -668,7 +666,7 @@ pub fn get_data_info(witness_set: &MintedWitnessSet) -> Vec<(DatumHash, PlutusDa
 }
 
 pub fn get_redeemers_info<'a>(
-    witness_set: &'a MintedWitnessSet,
+    witness_set: &'a WitnessSet,
     to_script_purpose: impl for<'b> Fn(&'b RedeemersKey) -> Result<ScriptPurpose, Error>,
 ) -> Result<KeyValuePairs<ScriptPurpose, Redeemer>, Error> {
     Ok(KeyValuePairs::from(
@@ -693,7 +691,10 @@ pub fn get_redeemers_info<'a>(
                             )
                         })
                         .collect::<Vec<_>>(),
-                    pallas_primitives::conway::Redeemers::Map(arr) => arr.deref().clone(),
+                    pallas_primitives::conway::Redeemers::Map(arr) => arr
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<Vec<_>>(),
                 };
 
                 redeemers
@@ -717,26 +718,25 @@ pub fn get_redeemers_info<'a>(
 }
 
 pub fn get_votes_info(
-    votes: &Option<
-        NonEmptyKeyValuePairs<Voter, NonEmptyKeyValuePairs<GovActionId, VotingProcedure>>,
-    >,
+    votes: &Option<BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>>,
 ) -> KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>> {
     KeyValuePairs::from(
         votes
-            .as_deref()
+            .as_ref()
             .map(|votes| {
                 votes
                     .iter()
                     .sorted_by(|(a, _), (b, _)| sort_voters(a, b))
-                    .cloned()
                     .map(|(voter, actions)| {
                         (
-                            voter,
+                            voter.clone(),
                             KeyValuePairs::from(
                                 actions
                                     .iter()
                                     .sorted_by(|(a, _), (b, _)| sort_gov_action_id(a, b))
-                                    .cloned()
+                                    .map(|(action_id, procedure)| {
+                                        (action_id.clone(), procedure.clone())
+                                    })
                                     .collect::<Vec<_>>(),
                             ),
                         )
@@ -762,7 +762,8 @@ fn script_purpose_builder<'a>(
         match tag {
             RedeemerTag::Mint => mint
                 .mint_value
-                .get(index)
+                .iter()
+                .nth(index)
                 .map(|(policy_id, _)| ScriptPurpose::Minting(*policy_id)),
 
             RedeemerTag::Spend => inputs
@@ -806,7 +807,7 @@ fn script_purpose_builder<'a>(
 
 pub fn find_script(
     redeemer: &Redeemer,
-    tx: &MintedTx,
+    tx: &Tx,
     utxos: &[ResolvedInput],
     lookup_table: &DataLookupTable,
 ) -> Result<(ScriptVersion, Option<PlutusData>), Error> {
@@ -824,14 +825,15 @@ pub fn find_script(
                 hash: hash.to_string(),
             }),
         },
-        Some(DatumOption::Data(data)) => Ok(Some(data.0.clone())),
+        Some(DatumOption::Data(data)) => Ok(Some(data.0.clone().unwrap())),
         None => Ok(None),
     };
 
     match redeemer.tag {
         RedeemerTag::Mint => get_mint_info(&tx.transaction_body.mint)
             .mint_value
-            .get(redeemer.index as usize)
+            .iter()
+            .nth(redeemer.index as usize)
             .ok_or(Error::MissingScriptForRedeemer)
             .and_then(|(policy_id, _)| {
                 let policy_id_array: [u8; 28] = policy_id.to_vec().try_into().unwrap();
@@ -927,8 +929,8 @@ pub fn find_script(
                 .get(redeemer.index as usize)
                 .ok_or(Error::MissingScriptForRedeemer)
                 .and_then(|procedure| match procedure.gov_action {
-                    GovAction::ParameterChange(_, _, Nullable::Some(ref hash)) => Ok(hash),
-                    GovAction::TreasuryWithdrawals(_, Nullable::Some(ref hash)) => Ok(hash),
+                    GovAction::ParameterChange(_, _, Some(ref hash)) => Ok(hash),
+                    GovAction::TreasuryWithdrawals(_, Some(ref hash)) => Ok(hash),
                     GovAction::HardForkInitiation(..)
                     | GovAction::Information
                     | GovAction::NewConstitution(..)
@@ -946,58 +948,49 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
     match value {
         alonzo::Value::Coin(coin) => Value::Coin(*coin),
         alonzo::Value::Multiasset(coin, assets) if assets.is_empty() => Value::Coin(*coin),
-        alonzo::Value::Multiasset(coin, assets) => Value::Multiasset(
-            *coin,
-            NonEmptyKeyValuePairs::try_from(
-                assets
-                    .iter()
-                    .cloned()
-                    .map(|(policy_id, tokens)| {
-                        (
-                            policy_id,
-                            NonEmptyKeyValuePairs::try_from(
-                                tokens
-                                    .iter()
-                                    .cloned()
-                                    .map(|(asset_name, quantity)| {
-                                        (
-                                            asset_name,
-                                            quantity.try_into().expect("0 Ada in output value?"),
-                                        )
-                                    })
-                                    .collect_vec(),
-                            )
-                            .expect("empty tokens under a policy?"),
-                        )
-                    })
-                    .collect_vec(),
-            )
-            .expect("assets cannot be empty due to pattern-guard"),
-        ),
+        alonzo::Value::Multiasset(coin, assets) => {
+            let mut ma_btree = BTreeMap::new();
+
+            for (policy_id, tokens) in assets.iter() {
+                let mut inner_btree = BTreeMap::new();
+                for (asset_name, quantity) in tokens.iter() {
+                    inner_btree.insert(
+                        asset_name.clone(),
+                        (*quantity).try_into().expect("0 Ada in output value?"),
+                    );
+                }
+                ma_btree.insert(policy_id.clone(), inner_btree);
+            }
+
+            Value::Multiasset(*coin, ma_btree)
+        }
     }
 }
 
 pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutput {
-    TransactionOutput::PostAlonzo(PostAlonzoTransactionOutput {
-        address: output.address.clone(),
-        value: from_alonzo_value(&output.amount),
-        datum_option: output.datum_hash.map(DatumOption::Hash),
-        script_ref: None,
-    })
+    TransactionOutput::PostAlonzo(
+        PostAlonzoTransactionOutput {
+            address: output.address.clone(),
+            value: from_alonzo_value(&output.amount),
+            datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
+            script_ref: None,
+        }
+        .into(),
+    )
 }
 
 // --------------------- Sorting
 
-fn sort_tx_out_value(tx_output: &TransactionOutput) -> TransactionOutput {
+fn sort_tx_out_value<'a>(tx_output: &'a TransactionOutput<'a>) -> TransactionOutput<'a> {
     match tx_output {
         TransactionOutput::Legacy(output) => {
             let new_output = PostAlonzoTransactionOutput {
                 address: output.address.clone(),
                 value: sort_value(&from_alonzo_value(&output.amount)),
-                datum_option: output.datum_hash.map(PseudoDatumOption::Hash),
+                datum_option: output.datum_hash.map(DatumOption::Hash).map(|x| x.into()),
                 script_ref: None,
             };
-            TransactionOutput::PostAlonzo(new_output)
+            TransactionOutput::PostAlonzo(new_output.into())
         }
         TransactionOutput::PostAlonzo(output) => {
             let mut new_output = output.clone();
@@ -1008,34 +1001,32 @@ fn sort_tx_out_value(tx_output: &TransactionOutput) -> TransactionOutput {
 }
 
 fn sort_mint(mint: &Mint) -> Mint {
-    let mut mint_vec = vec![];
+    let mut mint_btree = BTreeMap::new();
 
-    for m in mint.deref().iter().sorted() {
-        mint_vec.push((
-            m.0,
-            NonEmptyKeyValuePairs::Indef(
-                m.1.deref().clone().into_iter().sorted().clone().collect(),
-            ),
-        ));
+    for m in mint.iter().sorted() {
+        let mut inner_btree = BTreeMap::new();
+        for (policy_id, tokens) in m.1.iter().sorted() {
+            inner_btree.insert(policy_id.clone(), tokens.clone());
+        }
+        mint_btree.insert(m.0.clone(), inner_btree);
     }
 
-    NonEmptyKeyValuePairs::Indef(mint_vec)
+    mint_btree
 }
 
 fn sort_value(value: &Value) -> Value {
     match value {
         Value::Coin(_) => value.clone(),
         Value::Multiasset(coin, ma) => {
-            let mut ma_vec = vec![];
-            for m in ma.deref().iter().sorted() {
-                ma_vec.push((
-                    m.0,
-                    NonEmptyKeyValuePairs::Indef(
-                        m.1.deref().clone().into_iter().sorted().clone().collect(),
-                    ),
-                ));
+            let mut ma_btree = BTreeMap::new();
+            for (policy_id, tokens) in ma.iter().sorted() {
+                let mut inner_btree = BTreeMap::new();
+                for (asset_name, quantity) in tokens.iter().sorted() {
+                    inner_btree.insert(asset_name.clone(), quantity.clone());
+                }
+                ma_btree.insert(policy_id.clone(), inner_btree);
             }
-            Value::Multiasset(*coin, NonEmptyKeyValuePairs::Indef(ma_vec))
+            Value::Multiasset(*coin, ma_btree)
         }
     }
 }

@@ -50,11 +50,11 @@ impl<'b> MultiEraGovAction<'b> {
     pub fn id(&self) -> Option<GovActionId> {
         match self {
             MultiEraGovAction::Conway(x) => match x.deref().deref().clone() {
-                conway::GovAction::ParameterChange(id, ..) => id.into(),
-                conway::GovAction::HardForkInitiation(id, ..) => id.into(),
-                conway::GovAction::NoConfidence(id) => id.into(),
-                conway::GovAction::UpdateCommittee(id, ..) => id.into(),
-                conway::GovAction::NewConstitution(id, ..) => id.into(),
+                conway::GovAction::ParameterChange(id, ..) => id,
+                conway::GovAction::HardForkInitiation(id, ..) => id,
+                conway::GovAction::NoConfidence(id) => id,
+                conway::GovAction::UpdateCommittee(id, ..) => id,
+                conway::GovAction::NewConstitution(id, ..) => id,
                 _ => None,
             },
         }

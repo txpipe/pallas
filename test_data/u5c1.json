@@ -1269,16 +1269,16 @@
               {
                 "assets": [
                   {
-                    "name": "U1BBQ0U=",
-                    "outputCoin": "3"
-                  },
-                  {
                     "name": "R1JBVklUWQ==",
                     "outputCoin": "2"
                   },
                   {
                     "name": "U0FURUxMSVRF",
                     "outputCoin": "5"
+                  },
+                  {
+                    "name": "U1BBQ0U=",
+                    "outputCoin": "3"
                   }
                 ],
                 "policyId": "J+7hlYjJl8pU0xN/ZK/lWhjfz5Bi+oOnJL8jVw=="
