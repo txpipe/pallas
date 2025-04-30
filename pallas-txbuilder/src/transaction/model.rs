@@ -9,7 +9,7 @@ use std::{collections::HashMap, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{scriptdata, TxBuilderError};
+use crate::TxBuilderError;
 
 use super::{
     AssetName, Bytes, Bytes32, Bytes64, DatumBytes, DatumHash, Hash28, PolicyId, PubKeyHash,
@@ -38,7 +38,7 @@ pub struct StagingTransaction {
     pub script_data_hash: Option<Bytes32>,
     pub signature_amount_override: Option<u8>,
     pub change_address: Option<Address>,
-    pub language_view: Option<scriptdata::LanguageView>,
+    pub language_view: Option<pallas_primitives::conway::LanguageView>,
     // pub certificates: TODO
     // pub withdrawals: TODO
     // pub updates: TODO
@@ -287,9 +287,9 @@ impl StagingTransaction {
 
     pub fn language_view(mut self, plutus_version: ScriptKind, cost_model: Vec<i64>) -> Self {
         self.language_view = match plutus_version {
-            ScriptKind::PlutusV1 => Some(scriptdata::LanguageView(0, cost_model)),
-            ScriptKind::PlutusV2 => Some(scriptdata::LanguageView(1, cost_model)),
-            ScriptKind::PlutusV3 => Some(scriptdata::LanguageView(2, cost_model)),
+            ScriptKind::PlutusV1 => Some(pallas_primitives::conway::LanguageView(0, cost_model)),
+            ScriptKind::PlutusV2 => Some(pallas_primitives::conway::LanguageView(1, cost_model)),
+            ScriptKind::PlutusV3 => Some(pallas_primitives::conway::LanguageView(2, cost_model)),
             ScriptKind::Native => None,
         };
 
