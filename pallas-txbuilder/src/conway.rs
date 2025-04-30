@@ -14,7 +14,6 @@ use pallas_primitives::{
 use pallas_traverse::ComputeHash;
 
 use crate::{
-    scriptdata,
     transaction::{
         model::{
             BuilderEra, BuiltTransaction, DatumKind, ExUnits, Output, RedeemerPurpose, ScriptKind,
@@ -221,7 +220,7 @@ impl BuildConway for StagingTransaction {
         let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(redeemers.clone());
 
         let script_data_hash = self.language_view.map(|language_view| {
-            let dta = scriptdata::ScriptData {
+            let dta = pallas_primitives::conway::ScriptData {
                 redeemers: witness_set_redeemers.clone(),
                 datums: if !plutus_data.is_empty() {
                     Some(plutus_data.clone())

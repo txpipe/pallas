@@ -1,5 +1,7 @@
+use std::ops::Deref;
+
+use super::{CostModel, PlutusData, Redeemers, Tx, WitnessSet};
 use pallas_codec::minicbor::{self, Encode};
-use pallas_primitives::conway::{CostModel, PlutusData, Redeemers};
 use serde::{Deserialize, Serialize};
 
 pub type PlutusVersion = u8;
@@ -62,11 +64,28 @@ impl ScriptData {
     }
 }
 
+impl ScriptData {
+    pub fn build_for(witness: &WitnessSet, language_view: LanguageView) -> Option<Self> {
+        let redeemer = witness.redeemer.as_ref();
+        let plutus_data = witness.plutus_data.as_ref();
+
+        if let Some(redeemer) = redeemer {
+            Some(ScriptData {
+                redeemers: redeemer.to_owned().unwrap(),
+                datums: plutus_data.map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
+                language_view,
+            })
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::LazyLock;
 
-    use pallas_traverse::MultiEraTx;
+    use crate::conway::Tx;
 
     use super::*;
 
@@ -105,23 +124,22 @@ mod tests {
     const TEST_VECTORS: LazyLock<Vec<(Vec<u8>, LanguageView)>> = LazyLock::new(|| {
         vec![
             (
-                hex::decode(include_str!("../../test_data/conway1.tx")).unwrap(),
+                hex::decode(include_str!("../../../test_data/conway1.tx")).unwrap(),
                 LanguageView(1, COST_MODEL_PLUTUS_V2.clone()),
             ),
             (
-                hex::decode(include_str!("../../test_data/conway2.tx")).unwrap(),
+                hex::decode(include_str!("../../../test_data/conway2.tx")).unwrap(),
                 LanguageView(0, COST_MODEL_PLUTUS_V1.clone()),
             ),
             (
-                hex::decode(include_str!("../../test_data/hydra-init.tx")).unwrap(),
+                hex::decode(include_str!("../../../test_data/hydra-init.tx")).unwrap(),
                 LanguageView(1, COST_MODEL_PLUTUS_V2.clone()),
             ),
         ]
     });
 
     fn assert_script_data_hash_matches(bytes: &[u8], language_view: &LanguageView) {
-        let tx = MultiEraTx::decode(bytes).unwrap();
-        let tx = tx.as_conway().unwrap();
+        let tx: Tx = pallas_codec::minicbor::decode(bytes).unwrap();
 
         let witness = tx.transaction_witness_set.clone().unwrap();
 
