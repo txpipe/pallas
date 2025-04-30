@@ -1,6 +1,4 @@
-use std::ops::Deref;
-
-use super::{CostModel, PlutusData, Redeemers, Tx, WitnessSet};
+use super::{CostModel, PlutusData, Redeemers, WitnessSet};
 use pallas_codec::minicbor::{self, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -69,15 +67,11 @@ impl ScriptData {
         let redeemer = witness.redeemer.as_ref();
         let plutus_data = witness.plutus_data.as_ref();
 
-        if let Some(redeemer) = redeemer {
-            Some(ScriptData {
-                redeemers: redeemer.to_owned().unwrap(),
-                datums: plutus_data.map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
-                language_view,
-            })
-        } else {
-            None
-        }
+        redeemer.map(|x| x.to_owned().unwrap()).map(|x| ScriptData {
+            redeemers: x,
+            datums: plutus_data.map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
+            language_view,
+        })
     }
 }
 
