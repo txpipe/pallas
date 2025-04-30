@@ -38,11 +38,13 @@ impl PeerPromotionBehavior {
     }
 
     fn missing_trusted(&self, state: &State) -> Vec<IntrinsicCommand> {
+        let peers = state.peers.pin();
+
         let missing = self
             .config
             .trusted_peers
             .iter()
-            .filter(|pid| !state.peers.contains_key(pid))
+            .filter(|pid| !peers.contains_key(*pid))
             .collect::<Vec<_>>();
 
         missing
@@ -61,8 +63,9 @@ impl PeerPromotionBehavior {
 
         let current = state
             .peers
+            .pin()
             .iter()
-            .filter(|p| p.has_tag(PeerTag::Hot))
+            .filter(|(_, p)| p.has_tag(PeerTag::Hot))
             .count();
 
         if current >= desired {
@@ -73,17 +76,18 @@ impl PeerPromotionBehavior {
 
         let required = desired - current;
 
-        let warm = state
-            .peers
+        let peers = state.peers.pin();
+
+        let warm = peers
             .iter()
-            .filter(|p| p.has_tag(PeerTag::Warm))
-            .filter(|p| p.is_connected());
+            .filter(|(_, p)| p.has_tag(PeerTag::Warm))
+            .filter(|(_, p)| p.is_connected());
 
         let candidates: Vec<_> = warm
             .take(required)
-            .map(|pid| {
+            .map(|(pid, _)| {
                 IntrinsicCommand::SwitchPeerTag(
-                    pid.key().clone(),
+                    pid.clone(),
                     PeerTag::Warm.into(),
                     PeerTag::Hot.into(),
                 )
@@ -100,8 +104,9 @@ impl PeerPromotionBehavior {
 
         let current = state
             .peers
+            .pin()
             .iter()
-            .filter(|p| p.has_tag(PeerTag::Warm))
+            .filter(|(_, p)| p.has_tag(PeerTag::Warm))
             .count();
 
         if current >= desired {
@@ -112,13 +117,15 @@ impl PeerPromotionBehavior {
 
         let required = desired - current;
 
-        let cold = state.peers.iter().filter(|p| p.has_tag(PeerTag::Cold));
+        let peers = state.peers.pin();
+
+        let cold = peers.iter().filter(|(_, p)| p.has_tag(PeerTag::Cold));
 
         let candidates: Vec<_> = cold
             .take(required)
-            .map(|pid| {
+            .map(|(pid, _)| {
                 IntrinsicCommand::SwitchPeerTag(
-                    pid.key().clone(),
+                    pid.clone(),
                     PeerTag::Cold.into(),
                     PeerTag::Warm.into(),
                 )
@@ -179,6 +186,7 @@ pub struct ConnectPeersConfig {}
 
 pub struct ConnectPeersBehavior {
     backoff: Option<Duration>,
+    failed: HashSet<PeerId>,
     span: tracing::Span,
 }
 
@@ -186,6 +194,7 @@ impl ConnectPeersBehavior {
     pub fn new(_: ConnectPeersConfig) -> Self {
         Self {
             backoff: None,
+            failed: HashSet::new(),
             span: tracing::info_span!("connect_peers"),
         }
     }
@@ -199,18 +208,28 @@ impl Behavior for ConnectPeersBehavior {
     fn next(&mut self, state: &State) -> impl Iterator<Item = IntrinsicCommand> {
         let _span = self.span.enter();
 
-        let commands = state
+        let mut commands = state
             .peers
+            .pin()
             .iter()
-            .filter(|p| !p.is_connected())
-            .filter(|p| p.has_tag(PeerTag::Warm) || p.has_tag(PeerTag::Hot))
-            .map(|p| IntrinsicCommand::ConnectPeer(p.id.clone()))
+            .filter(|(_, p)| !p.is_connected())
+            .filter(|(_, p)| p.has_tag(PeerTag::Warm) || p.has_tag(PeerTag::Hot))
+            .filter(|(_, p)| !self.failed.contains(&p.id))
+            .map(|(pid, _)| IntrinsicCommand::ConnectPeer(pid.clone()))
             .collect::<Vec<_>>();
 
         info!(
             disconnected = commands.len(),
             "found disconnected warm peers"
         );
+
+        for failed in self.failed.drain() {
+            commands.push(IntrinsicCommand::SwitchPeerTag(
+                failed,
+                PeerTag::Warm.into(),
+                PeerTag::Banned.into(),
+            ));
+        }
 
         if commands.is_empty() {
             self.backoff = Some(Duration::from_secs(10));
@@ -224,6 +243,11 @@ impl Behavior for ConnectPeersBehavior {
 
         match event {
             NetworkEvent::PeerTagged(_, _) => {
+                self.backoff = None;
+            }
+            NetworkEvent::PeerConnectFailed(pid) => {
+                debug!(%pid, "tracking failed peer");
+                self.failed.insert(pid.clone());
                 self.backoff = None;
             }
             _ => (),
@@ -373,18 +397,18 @@ impl Behavior for HandshakeBehavior {
 }
 
 #[derive(Debug)]
-pub struct PeerSharingConfig {
+pub struct PeerDiscoveryConfig {
     pub desired_peers: usize,
 }
 
-pub struct PeerSharingBehavior {
+pub struct PeerDiscoveryBehavior {
     buffer: CommandBuffer,
-    config: PeerSharingConfig,
+    config: PeerDiscoveryConfig,
     span: tracing::Span,
 }
 
-impl PeerSharingBehavior {
-    pub fn new(config: PeerSharingConfig) -> Self {
+impl PeerDiscoveryBehavior {
+    pub fn new(config: PeerDiscoveryConfig) -> Self {
         Self {
             config,
             buffer: CommandBuffer::default(),
@@ -422,6 +446,9 @@ impl PeerSharingBehavior {
 
             self.buffer.track_peer(&pid, vec![PeerTag::Cold.into()]);
         }
+
+        self.buffer
+            .tag_peer(pid, PeerTag::SharedPeers(response.len()));
     }
 
     fn handle_state_change(
@@ -437,27 +464,56 @@ impl PeerSharingBehavior {
         }
     }
 
-    fn handle_tagged(&mut self, pid: &PeerId) {
-        debug!(%pid, "peer accepted, requesting known peers");
+    fn count_not_banned_peers(&self, state: &State) -> usize {
+        let peers = state.peers.pin();
 
-        self.request(pid);
+        peers
+            .iter()
+            .filter(|(_, p)| !p.has_tag(PeerTag::Banned))
+            .count()
+    }
+
+    fn filter_sharing_peers(&self, state: &State) -> Vec<PeerId> {
+        let peers = state.peers.pin();
+
+        peers
+            .iter()
+            .filter(|(_, p)| p.has_tag(PeerTag::Hot) && p.has_tag(PeerTag::PeerSharing))
+            .filter(|(_, p)| !p.has_tag(PeerTag::SharedPeers(0)))
+            .map(|(pid, _)| pid.clone())
+            .collect()
     }
 }
 
-impl Behavior for PeerSharingBehavior {
+impl Behavior for PeerDiscoveryBehavior {
     fn backoff(&self) -> Option<Duration> {
         self.buffer.backoff()
     }
 
     fn next(&mut self, state: &State) -> impl Iterator<Item = IntrinsicCommand> {
+        let not_banned = self.count_not_banned_peers(&state);
+
+        if not_banned < self.config.desired_peers {
+            info!(
+                not_banned = not_banned,
+                desired = self.config.desired_peers,
+                "need more peers, requesting"
+            );
+
+            let to_ask = self.filter_sharing_peers(&state);
+
+            info!(to_ask = to_ask.len(), "found peers with peer sharing");
+
+            for pid in to_ask {
+                self.request(&pid);
+            }
+        }
+
         self.buffer.drain().into_iter()
     }
 
     fn handle(&mut self, event: &NetworkEvent) {
         match event {
-            NetworkEvent::PeerTagged(pid, PeerTag::PeerSharing) => {
-                self.handle_tagged(pid);
-            }
             NetworkEvent::InitiatorStateChange(pid, InitiatorState::PeerSharing(state)) => {
                 self.handle_state_change(pid, state);
             }
@@ -532,13 +588,14 @@ impl Behavior for KeepAliveBehavior {
         let _span = self.span.clone();
         let _span = _span.enter();
 
+        let peers = state.peers.pin();
+
         let max_interval = self.config.interval;
-        let aging_peers: Vec<_> = state
-            .peers
+        let aging_peers: Vec<_> = peers
             .iter()
-            .filter(|p| p.is_connected())
-            .filter(|p| p.has_tag(PeerTag::Warm) || p.has_tag(PeerTag::Hot))
-            .filter(|p| {
+            .filter(|(_, p)| p.is_connected())
+            .filter(|(_, p)| p.has_tag(PeerTag::Warm) || p.has_tag(PeerTag::Hot))
+            .filter(|(_, p)| {
                 p.tags.iter().any(|t| match t {
                     PeerTag::SeenAlive(instant) => instant.elapsed() >= max_interval,
                     _ => false,
@@ -546,8 +603,8 @@ impl Behavior for KeepAliveBehavior {
             })
             .collect();
 
-        for peer in aging_peers {
-            self.request(&peer.id);
+        for (pid, _) in aging_peers {
+            self.request(pid);
         }
 
         self.buffer.drain().into_iter()

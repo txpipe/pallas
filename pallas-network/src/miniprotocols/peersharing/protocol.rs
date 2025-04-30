@@ -9,7 +9,6 @@ pub type Amount = u8;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum IdleState {
     Empty,
-
     Response(Vec<PeerAddress>),
 }
 

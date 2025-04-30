@@ -1,11 +1,10 @@
-use dashmap::DashMap;
 use std::sync::Arc;
 use std::{fmt::Debug, time::Duration};
 use tracing::{debug, info, instrument, trace, warn};
 
 use crate::{
     miniprotocols::{handshake, keepalive, peersharing, Agent, PlexerAdapter},
-    multiplexer::{AgentChannel, Plexer, RunningPlexer},
+    multiplexer::{Plexer, RunningPlexer},
 };
 
 use super::{AnyMessage, Error, InboxSend, InitiatorState, NetworkEvent, PeerId};
@@ -172,8 +171,6 @@ async fn connect_peer(pid: PeerId, inbox: &InboxSend) -> Result<PeerIO, Error> {
     let bearer =
         crate::multiplexer::Bearer::connect_tcp_timeout(address, Duration::from_secs(10)).await?;
 
-    dbg!("bearer");
-
     info!("tcp bearer connected");
 
     let plexer = crate::multiplexer::Plexer::new(bearer);
@@ -187,63 +184,62 @@ async fn connect_peer(pid: PeerId, inbox: &InboxSend) -> Result<PeerIO, Error> {
 
 #[derive(Clone)]
 pub struct MegaPlexer {
-    peers: DashMap<PeerId, Arc<PeerIO>>,
+    peers: papaya::HashMap<PeerId, Arc<PeerIO>>,
     inbox: InboxSend,
 }
 
 impl MegaPlexer {
     pub fn new(inbox: InboxSend) -> Self {
         Self {
-            peers: DashMap::new(),
+            peers: papaya::HashMap::new(),
             inbox,
         }
     }
 
     pub async fn connect_peer(&self, pid: &PeerId) -> Result<(), Error> {
-        if self.peers.contains_key(&pid) {
-            info!(pid = %pid, "peer already connected");
-            Ok(())
-        } else {
-            info!(pid = %pid, "connecting peer");
-            let peer_io = connect_peer(pid.clone(), &self.inbox).await?;
-            self.peers.insert(pid.clone(), Arc::new(peer_io));
+        let peers = self.peers.pin();
 
-            Ok(())
+        if peers.contains_key(pid) {
+            info!(pid = %pid, "peer already connected");
+            return Ok(());
         }
+
+        info!(pid = %pid, "connecting peer");
+        let peer_io = connect_peer(pid.clone(), &self.inbox).await?;
+        peers.insert(pid.clone(), Arc::new(peer_io));
+
+        Ok(())
     }
 
     pub async fn disconnect_peer(&self, pid: &PeerId) -> Result<(), Error> {
-        if let Some((_, peer_io)) = self.peers.remove(pid) {
-            match Arc::try_unwrap(peer_io) {
-                Ok(peer_io) => {
-                    peer_io.plexer.abort().await;
-                    Ok(())
-                }
-                Err(_) => Err(Error::PeerInUse),
-            }
-        } else {
-            Err(Error::PeerNotFound)
-        }
+        let peers = self.peers.pin();
+
+        let peer_io = peers.remove(pid).ok_or(Error::PeerNotFound)?;
+
+        todo!("abort peer io");
+        //peer_io.plexer.abort().await;
+
+        Ok(())
     }
 
     pub async fn send_message(&self, pid: &PeerId, msg: AnyMessage) -> Result<(), Error> {
-        if let Some(peer_io) = self.peers.get(pid) {
-            match msg {
-                AnyMessage::Handshake(msg) => {
-                    peer_io.hs_io.outbox.send(msg).await.unwrap();
-                }
-                AnyMessage::PeerSharing(msg) => {
-                    peer_io.ps_io.outbox.send(msg).await.unwrap();
-                }
-                AnyMessage::KeepAlive(msg) => {
-                    peer_io.ka_io.outbox.send(msg).await.unwrap();
-                }
-                _ => todo!(),
-            }
+        let peers = self.peers.pin();
 
-            Ok(())
-        } else {
-            Err(Error::PeerNotFound)
+        let peer_io = peers.get(pid).ok_or(Error::PeerNotFound)?;
+
+        match msg {
+            AnyMessage::Handshake(msg) => {
+                peer_io.hs_io.outbox.send(msg).await.unwrap();
+            }
+            AnyMessage::PeerSharing(msg) => {
+                peer_io.ps_io.outbox.send(msg).await.unwrap();
+            }
+            AnyMessage::KeepAlive(msg) => {
+                peer_io.ka_io.outbox.send(msg).await.unwrap();
+            }
+            _ => todo!(),
         }
+
+        Ok(())
     }
 }

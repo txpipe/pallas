@@ -6,8 +6,8 @@ use pallas::{
         manager::{
             behaviors::{
                 ConnectPeersBehavior, ConnectPeersConfig, HandshakeBehavior, HandshakeConfig,
-                InterleaveBehavior, KeepAliveBehavior, KeepAliveConfig, PeerPromotionBehavior,
-                PeerPromotionConfig, PeerSharingBehavior, PeerSharingConfig,
+                InterleaveBehavior, KeepAliveBehavior, KeepAliveConfig, PeerDiscoveryBehavior,
+                PeerDiscoveryConfig, PeerPromotionBehavior, PeerPromotionConfig,
             },
             IntrinsicCommand, Manager, PeerId,
         },
@@ -21,7 +21,7 @@ use tokio_stream::{self, StreamExt as TokioStreamExt};
 async fn main() {
     tracing::subscriber::set_global_default(
         tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level(tracing::Level::TRACE)
+            .with_max_level(tracing::Level::INFO)
             .finish(),
     )
     .unwrap();
@@ -31,13 +31,15 @@ async fn main() {
         desired_warm_peers: (10, 10),
         desired_cold_peers: (10, 10),
         trusted_peers: vec![
-            //PeerId::from_str("backbone.mainnet.cardanofoundation.org:3001").unwrap(),
+            PeerId::from_str("backbone.mainnet.cardanofoundation.org:3001").unwrap(),
             //PeerId::from_str("backbone.cardano.iog.io:3001").unwrap(),
-            //PeerId::from_str("relay.cnode-m1.demeter.run:3000").unwrap(),
-            PeerId::from_str("105.251.38.46:6000").unwrap(),
+            PeerId::from_str("relay.cnode-m1.demeter.run:3000").unwrap(),
+            PeerId::from_str("r1.1percentpool.eu:19001").unwrap(),
+            //PeerId::from_str("105.251.38.46:6000").unwrap(),
             //PeerId::from_str("preview.adastack.net:3001").unwrap(),
             //PeerId::from_str("preview-node.play.dev.cardano.org:3001").unwrap(),
             //PeerId::from_str("relay.cnode-m1.demeter.run:3002").unwrap(),
+            //PeerId::from_str("84.67.210.50:3001").unwrap(),
         ],
     });
 
@@ -66,7 +68,7 @@ async fn main() {
 
     let behavior = InterleaveBehavior::new(behavior, next);
 
-    let next = PeerSharingBehavior::new(PeerSharingConfig { desired_peers: 2 });
+    let next = PeerDiscoveryBehavior::new(PeerDiscoveryConfig { desired_peers: 10 });
 
     let behavior = InterleaveBehavior::new(behavior, next);
 

@@ -1,12 +1,14 @@
 use futures::{Stream, StreamExt};
 use std::{
+    cmp::Ordering,
     collections::HashSet,
+    hash::Hash,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
     time::{Duration, Instant},
 };
 
-use tracing::{debug, info, instrument, trace};
+use tracing::{debug, error, info, instrument, trace};
 
 use crate::miniprotocols::{
     blockfetch,
@@ -117,6 +119,7 @@ impl From<keepalive::State> for InitiatorState {
 pub enum NetworkEvent {
     PeerDiscovered(PeerId),
     PeerConnected(PeerId),
+    PeerConnectFailed(PeerId),
     PeerDisconnected(PeerId),
     PeerTagged(PeerId, PeerTag),
     InitiatorStateChange(PeerId, InitiatorState),
@@ -126,13 +129,13 @@ pub enum NetworkEvent {
 
 #[derive(Debug)]
 pub struct State {
-    pub peers: dashmap::DashMap<PeerId, PeerHandle>,
+    pub peers: papaya::HashMap<PeerId, PeerHandle>,
 }
 
 impl State {
     fn new() -> Self {
         Self {
-            peers: dashmap::DashMap::new(),
+            peers: papaya::HashMap::new(),
         }
     }
 }
@@ -166,7 +169,7 @@ pub enum AnyMessage {
 
 pub type PeerVersion = u32;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub enum PeerTag {
     /// Peer is connected and actively exchanging messages
     Hot,
@@ -176,6 +179,9 @@ pub enum PeerTag {
 
     /// Peer has no connections at all
     Cold,
+
+    /// Peer is banned due to failed connections
+    Banned,
 
     /// Peer is trusted
     Trusted,
@@ -191,6 +197,38 @@ pub enum PeerTag {
 
     /// Peer seen alive at
     SeenAlive(Instant),
+
+    /// Peer has shared peers
+    SharedPeers(usize),
+}
+
+impl From<&PeerTag> for u8 {
+    fn from(tag: &PeerTag) -> Self {
+        match tag {
+            PeerTag::Hot => 0,
+            PeerTag::Warm => 1,
+            PeerTag::Cold => 2,
+            PeerTag::Banned => 3,
+            PeerTag::Trusted => 4,
+            PeerTag::Accepted(_) => 5,
+            PeerTag::Rejected => 6,
+            PeerTag::PeerSharing => 7,
+            PeerTag::SeenAlive(_) => 8,
+            PeerTag::SharedPeers(_) => 9,
+        }
+    }
+}
+
+impl std::hash::Hash for PeerTag {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u8(self.into());
+    }
+}
+
+impl PartialEq for PeerTag {
+    fn eq(&self, other: &Self) -> bool {
+        u8::from(self) == u8::from(other)
+    }
 }
 
 impl std::fmt::Display for PeerTag {
@@ -199,11 +237,13 @@ impl std::fmt::Display for PeerTag {
             PeerTag::Hot => write!(f, "hot"),
             PeerTag::Warm => write!(f, "warm"),
             PeerTag::Cold => write!(f, "cold"),
+            PeerTag::Banned => write!(f, "banned"),
             PeerTag::Trusted => write!(f, "trusted"),
             PeerTag::Accepted(version) => write!(f, "accepted({})", version),
             PeerTag::Rejected => write!(f, "rejected"),
             PeerTag::PeerSharing => write!(f, "peer-sharing"),
-            PeerTag::SeenAlive(instant) => write!(f, "seen-alive"),
+            PeerTag::SeenAlive(_) => write!(f, "seen-alive"),
+            PeerTag::SharedPeers(count) => write!(f, "shared-peers({})", count),
         }
     }
 }
@@ -304,14 +344,14 @@ impl Actuator {
             IntrinsicCommand::TrackNewPeer(pid, tags) => {
                 info!(pid = %pid, "tracking new peer");
 
-                if self.state.peers.contains_key(&pid) {
+                let peers = self.state.peers.pin();
+
+                if peers.contains_key(pid) {
                     info!(pid = %pid, "peer already tracked");
                     return Ok(());
                 }
 
-                self.state
-                    .peers
-                    .insert(pid.clone(), PeerHandle::new(pid.clone(), tags.clone()));
+                peers.insert(pid.clone(), PeerHandle::new(pid.clone(), tags.clone()));
 
                 self.notify(NetworkEvent::PeerDiscovered(pid.clone())).await;
 
@@ -320,9 +360,17 @@ impl Actuator {
             IntrinsicCommand::SwitchPeerTag(pid, from, to) => {
                 info!(%pid, from = %from, to = %to, "switching tag");
 
-                let mut peer = self.state.peers.get_mut(&pid).ok_or(Error::PeerNotFound)?;
+                let peers = self.state.peers.pin();
 
-                peer.switch_tag(*from, *to);
+                if !peers.contains_key(pid) {
+                    return Err(Error::PeerNotFound);
+                }
+
+                peers.update(pid.clone(), |peer| {
+                    let mut peer = peer.clone();
+                    peer.switch_tag(*from, *to);
+                    peer
+                });
 
                 self.notify(NetworkEvent::PeerTagged(pid.clone(), *to))
                     .await;
@@ -332,14 +380,17 @@ impl Actuator {
             IntrinsicCommand::AddPeerTag(pid, tag) => {
                 info!(%pid, %tag, "adding tag to peer");
 
-                let mut peer = self.state.peers.get_mut(&pid).ok_or(Error::PeerNotFound)?;
+                let peers = self.state.peers.pin();
 
-                if peer.has_tag(*tag) {
-                    info!(%pid, %tag, "peer already has tag");
-                    return Ok(());
+                if !peers.contains_key(pid) {
+                    return Err(Error::PeerNotFound);
                 }
 
-                peer.add_tag(*tag);
+                peers.update(pid.clone(), |peer| {
+                    let mut peer = peer.clone();
+                    peer.add_tag(*tag);
+                    peer
+                });
 
                 self.notify(NetworkEvent::PeerTagged(pid.clone(), *tag))
                     .await;
@@ -350,18 +401,33 @@ impl Actuator {
             IntrinsicCommand::ConnectPeer(pid) => {
                 info!(%pid, "connecting peer");
 
-                let mut peer = self.state.peers.get_mut(&pid).ok_or(Error::PeerNotFound)?;
+                let peers = self.state.peers.pin();
+
+                let peer = peers.get(pid).ok_or(Error::PeerNotFound)?;
 
                 if peer.is_connected() {
                     info!(%pid, "peer already connected");
                     return Ok(());
                 }
 
-                self.plexer.connect_peer(&pid).await?;
+                let result = self.plexer.connect_peer(&pid).await;
 
-                peer.is_connected = true;
+                match result {
+                    Ok(()) => {
+                        peers.update(pid.clone(), |peer| {
+                            let mut peer = peer.clone();
+                            peer.is_connected = true;
+                            peer
+                        });
 
-                self.notify(NetworkEvent::PeerConnected(pid.clone())).await;
+                        self.notify(NetworkEvent::PeerConnected(pid.clone())).await;
+                    }
+                    Err(err) => {
+                        error!(%pid,"failed to connect to peer: {}", err);
+                        self.notify(NetworkEvent::PeerConnectFailed(pid.clone()))
+                            .await;
+                    }
+                }
 
                 Ok(())
             }
