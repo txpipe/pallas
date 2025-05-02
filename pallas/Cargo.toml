@@ -1,7 +1,7 @@
 [package]
 name = "pallas"
 description = "Rust-native building blocks for the Cardano blockchain ecosystem."
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -11,17 +11,17 @@ readme = "../README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-network = { version = "=1.0.0-alpha.1", path = "../pallas-network/" }
-pallas-primitives = { version = "=1.0.0-alpha.1", path = "../pallas-primitives/" }
-pallas-traverse = { version = "=1.0.0-alpha.1", path = "../pallas-traverse/" }
-pallas-addresses = { version = "=1.0.0-alpha.1", path = "../pallas-addresses/" }
-pallas-crypto = { version = "=1.0.0-alpha.1", path = "../pallas-crypto/" }
-pallas-codec = { version = "=1.0.0-alpha.1", path = "../pallas-codec/" }
-pallas-utxorpc = { version = "=1.0.0-alpha.1", path = "../pallas-utxorpc/" }
-pallas-configs = { version = "=1.0.0-alpha.1", path = "../pallas-configs/" }
-pallas-txbuilder = { version = "=1.0.0-alpha.1", path = "../pallas-txbuilder/" }
-pallas-validate = { version = "=1.0.0-alpha.1", path = "../pallas-validate/" }
-pallas-hardano = { version = "=1.0.0-alpha.1", path = "../pallas-hardano/", optional = true }
+pallas-network = { version = "=1.0.0-alpha.2", path = "../pallas-network/" }
+pallas-primitives = { version = "=1.0.0-alpha.2", path = "../pallas-primitives/" }
+pallas-traverse = { version = "=1.0.0-alpha.2", path = "../pallas-traverse/" }
+pallas-addresses = { version = "=1.0.0-alpha.2", path = "../pallas-addresses/" }
+pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto/" }
+pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec/" }
+pallas-utxorpc = { version = "=1.0.0-alpha.2", path = "../pallas-utxorpc/" }
+pallas-configs = { version = "=1.0.0-alpha.2", path = "../pallas-configs/" }
+pallas-txbuilder = { version = "=1.0.0-alpha.2", path = "../pallas-txbuilder/" }
+pallas-validate = { version = "=1.0.0-alpha.2", path = "../pallas-validate/" }
+pallas-hardano = { version = "=1.0.0-alpha.2", path = "../pallas-hardano/", optional = true }
 
 [features]
 hardano = ["pallas-hardano"]
