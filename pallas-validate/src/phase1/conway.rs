@@ -15,7 +15,7 @@ use crate::utils::{
 use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor::{encode, Encoder},
-    utils::{Bytes, KeepRaw},
+    utils::{BusinessInvariants, Bytes, KeepRaw},
 };
 use pallas_primitives::{
     babbage,
@@ -38,6 +38,7 @@ pub fn validate_conway_tx(
 ) -> ValidationResult {
     let tx_body: &TransactionBody = &mtx.transaction_body.clone();
     let size: u32 = get_conway_tx_size(mtx).ok_or(PostAlonzo(UnknownTxSize))?;
+    check_data_business_invariants(mtx)?;
     check_ins_not_empty(tx_body)?;
     check_all_ins_in_utxos(tx_body, utxos)?;
     check_tx_validity_interval(tx_body, block_slot)?;
@@ -54,6 +55,14 @@ pub fn validate_conway_tx(
     check_languages(mtx, utxos, network_magic, network_id, block_slot)?;
     check_auxiliary_data(tx_body, mtx)?;
     check_script_data_hash(tx_body, mtx, utxos, network_magic, network_id, block_slot)
+}
+
+fn check_data_business_invariants(mtx: &Tx) -> ValidationResult {
+    if mtx.validate_data() {
+        Ok(())
+    } else {
+        Err(PostAlonzo(BrokenBusinessInvariant))
+    }
 }
 
 // The set of transaction inputs is not empty.
