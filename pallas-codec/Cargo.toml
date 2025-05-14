@@ -8,20 +8,18 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-codec"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-  "Santiago Carmuega <santiago@carmuega.me>",
-  "Lucas Rosa <x@rvcas.dev>",
-  "Kasey White <kwhitemsg@gmail.com>",
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>", "Lucas Rosa <x@rvcas.dev>", "Kasey White <kwhitemsg@gmail.com>"]
 
 [features]
 default = []
 
 [dependencies]
+arrayvec = "0.7.6"
 hex = "0.4.3"
 minicbor = { version = "0.26.0", features = ["std", "half", "derive"] }
 num-bigint = { version = "0.4.4", optional = true }
 serde = { version = "1.0.143", features = ["derive"] }
+slotmap = "1.0.7"
 thiserror = "1.0.39"
 
 [dev-dependencies]
