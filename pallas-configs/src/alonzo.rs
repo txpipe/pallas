@@ -97,10 +97,9 @@ impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostModels {
         value
             .0
             .into_iter()
-            .map(|(k, v)| {
+            .filter_map(|(k, v)| {
                 Option::<pallas_primitives::alonzo::Language>::from(k).map(|x| (x, v.into()))
             })
-            .flatten()
             .collect()
     }
 }
@@ -108,14 +107,8 @@ impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostModels {
 impl From<CostModelPerLanguage> for pallas_primitives::babbage::CostModels {
     fn from(mut value: CostModelPerLanguage) -> Self {
         pallas_primitives::babbage::CostModels {
-            plutus_v1: value
-                .0
-                .remove(&Language::PlutusV1)
-                .map(|v| Vec::<i64>::from(v)),
-            plutus_v2: value
-                .0
-                .remove(&Language::PlutusV2)
-                .map(|v| Vec::<i64>::from(v)),
+            plutus_v1: value.0.remove(&Language::PlutusV1).map(Vec::<i64>::from),
+            plutus_v2: value.0.remove(&Language::PlutusV2).map(Vec::<i64>::from),
         }
     }
 }
