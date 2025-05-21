@@ -13,11 +13,12 @@ use crate::miniprotocols::handshake::n2n::VersionData;
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localstate, localtxsubmission, peersharing,
-    txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE,
-    PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
-    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
-    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
+    blockfetch, chainsync, handshake, keepalive, localmsgsubmission, localstate, localtxsubmission,
+    peersharing, txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE,
+    PROTOCOL_N2C_MSG_SUBMISSION, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR,
+    PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
+    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING,
+    PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
@@ -344,6 +345,7 @@ pub struct NodeClient {
     statequery: localstate::Client,
     submission: localtxsubmission::Client,
     monitor: txmonitor::Client,
+    msg_submission: localmsgsubmission::Client,
 }
 
 impl NodeClient {
@@ -355,6 +357,7 @@ impl NodeClient {
         let sq_channel = plexer.subscribe_client(PROTOCOL_N2C_STATE_QUERY);
         let tx_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_SUBMISSION);
         let mo_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_MONITOR);
+        let msg_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_SUBMISSION);
 
         let plexer = plexer.spawn();
 
@@ -365,6 +368,7 @@ impl NodeClient {
             statequery: localstate::Client::new(sq_channel),
             submission: localtxsubmission::Client::new(tx_channel),
             monitor: txmonitor::Client::new(mo_channel),
+            msg_submission: localmsgsubmission::Client::new(msg_channel),
         }
     }
 
@@ -475,6 +479,10 @@ impl NodeClient {
 
     pub fn monitor(&mut self) -> &mut txmonitor::Client {
         &mut self.monitor
+    }
+
+    pub fn msg_submission(&mut self) -> &mut localmsgsubmission::Client {
+        &mut self.msg_submission
     }
 
     pub async fn abort(self) {
