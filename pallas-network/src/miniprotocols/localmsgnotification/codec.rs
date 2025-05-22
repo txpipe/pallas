@@ -10,7 +10,8 @@ impl Encode<()> for Message {
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
             Message::RequestMessagesNonBlocking => {
-                e.array(1)?.u16(0)?;
+                let is_blocking = false;
+                e.array(2)?.u16(0)?.bool(is_blocking)?;
                 Ok(())
             }
             Message::ReplyMessagesNonBlocking(msgs, has_more) => {
@@ -24,11 +25,12 @@ impl Encode<()> for Message {
                 Ok(())
             }
             Message::RequestMessagesBlocking => {
-                e.array(1)?.u16(2)?;
+                let is_blocking = true;
+                e.array(2)?.u16(0)?.bool(is_blocking)?;
                 Ok(())
             }
             Message::ReplyMessagesBlocking(msgs) => {
-                e.array(3)?.u16(3)?;
+                e.array(3)?.u16(2)?;
                 e.begin_array()?;
                 for msg in msgs {
                     e.encode(msg)?;
@@ -37,11 +39,11 @@ impl Encode<()> for Message {
                 Ok(())
             }
             Message::ClientDone => {
-                e.array(1)?.u16(4)?;
+                e.array(1)?.u16(3)?;
                 Ok(())
             }
             Message::ServerDone => {
-                e.array(1)?.u16(5)?;
+                e.array(1)?.u16(4)?;
                 Ok(())
             }
         }
@@ -54,19 +56,24 @@ impl<'b> Decode<'b, ()> for Message {
         let label = d.u16()?;
 
         match label {
-            0 => Ok(Message::RequestMessagesNonBlocking),
+            0 => {
+                let is_blocking = d.bool()?;
+                match is_blocking {
+                    true => Ok(Message::RequestMessagesBlocking),
+                    false => Ok(Message::RequestMessagesNonBlocking),
+                }
+            }
             1 => {
                 let msgs = d.decode()?;
                 let has_more = d.bool()?;
                 Ok(Message::ReplyMessagesNonBlocking(msgs, has_more))
             }
-            2 => Ok(Message::RequestMessagesBlocking),
-            3 => {
+            2 => {
                 let msgs = d.decode()?;
                 Ok(Message::ReplyMessagesBlocking(msgs))
             }
-            4 => Ok(Message::ClientDone),
-            5 => Ok(Message::ServerDone),
+            3 => Ok(Message::ClientDone),
+            4 => Ok(Message::ServerDone),
             _ => Err(decode::Error::message(
                 "unknown variant for localmsgsubmission message",
             )),
