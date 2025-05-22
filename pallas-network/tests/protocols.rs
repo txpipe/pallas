@@ -1847,8 +1847,8 @@ pub async fn peer_sharing_server_and_client_happy_path() {
 
 #[cfg(unix)]
 #[tokio::test]
-pub async fn local_message_notification_query_server_and_client_happy_path() {
-    use pallas_network::miniprotocols::localmsgsubmission::DmqMsg;
+pub async fn local_message_notification_server_and_client_happy_path() {
+    use pallas_network::{facades::DmqClient, miniprotocols::localmsgsubmission::DmqMsg};
 
     fn fake_msgs() -> Vec<DmqMsg> {
         vec![
@@ -1879,7 +1879,7 @@ pub async fn local_message_notification_query_server_and_client_happy_path() {
                 fs::remove_file(socket_path).unwrap();
             }
             let listener = UnixListener::bind(socket_path).unwrap();
-            let mut server = pallas_network::facades::NodeServer::accept(&listener, 0)
+            let mut server = pallas_network::facades::DmqServer::accept(&listener, 0)
                 .await
                 .unwrap();
 
@@ -1926,7 +1926,7 @@ pub async fn local_message_notification_query_server_and_client_happy_path() {
 
         // client setup
         let socket_path = "node3.socket";
-        let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
+        let mut client = DmqClient::connect(socket_path, 0).await.unwrap();
 
         // init local msg notification client
         let client_msg = client.msg_notification();
