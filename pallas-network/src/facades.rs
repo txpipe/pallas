@@ -13,12 +13,12 @@ use crate::miniprotocols::handshake::n2n::VersionData;
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localmsgsubmission, localstate, localtxsubmission,
-    peersharing, txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE,
-    PROTOCOL_N2C_MSG_SUBMISSION, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR,
-    PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
-    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING,
-    PROTOCOL_N2N_TX_SUBMISSION,
+    blockfetch, chainsync, handshake, keepalive, localmsgnotification, localmsgsubmission,
+    localstate, localtxsubmission, peersharing, txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC,
+    PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION, PROTOCOL_N2C_MSG_SUBMISSION,
+    PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
+    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
+    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
@@ -346,6 +346,7 @@ pub struct NodeClient {
     submission: localtxsubmission::Client,
     monitor: txmonitor::Client,
     msg_submission: localmsgsubmission::Client,
+    msg_notification: localmsgnotification::Client,
 }
 
 impl NodeClient {
@@ -357,7 +358,8 @@ impl NodeClient {
         let sq_channel = plexer.subscribe_client(PROTOCOL_N2C_STATE_QUERY);
         let tx_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_SUBMISSION);
         let mo_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_MONITOR);
-        let msg_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_SUBMISSION);
+        let msg_submission_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_SUBMISSION);
+        let msg_notification_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_NOTIFICATION);
 
         let plexer = plexer.spawn();
 
@@ -368,7 +370,8 @@ impl NodeClient {
             statequery: localstate::Client::new(sq_channel),
             submission: localtxsubmission::Client::new(tx_channel),
             monitor: txmonitor::Client::new(mo_channel),
-            msg_submission: localmsgsubmission::Client::new(msg_channel),
+            msg_submission: localmsgsubmission::Client::new(msg_submission_channel),
+            msg_notification: localmsgnotification::Client::new(msg_notification_channel),
         }
     }
 
@@ -485,6 +488,10 @@ impl NodeClient {
         &mut self.msg_submission
     }
 
+    pub fn msg_notification(&mut self) -> &mut localmsgnotification::Client {
+        &mut self.msg_notification
+    }
+
     pub async fn abort(self) {
         self.plexer.abort().await
     }
@@ -497,6 +504,7 @@ pub struct NodeServer {
     pub handshake: handshake::N2CServer,
     pub chainsync: chainsync::N2CServer,
     pub statequery: localstate::Server,
+    pub msg_notification: localmsgnotification::Server,
     accepted_address: Option<UnixSocketAddr>,
     accpeted_version: Option<(VersionNumber, n2c::VersionData)>,
 }
@@ -509,10 +517,12 @@ impl NodeServer {
         let hs_channel = plexer.subscribe_server(PROTOCOL_N2C_HANDSHAKE);
         let cs_channel = plexer.subscribe_server(PROTOCOL_N2C_CHAIN_SYNC);
         let sq_channel = plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
+        let msg_notification_channel = plexer.subscribe_server(PROTOCOL_N2C_MSG_NOTIFICATION);
 
         let server_hs = handshake::Server::<n2c::VersionData>::new(hs_channel);
         let server_cs = chainsync::N2CServer::new(cs_channel);
         let server_sq = localstate::Server::new(sq_channel);
+        let server_msg_notification = localmsgnotification::Server::new(msg_notification_channel);
 
         let plexer = plexer.spawn();
 
@@ -521,6 +531,7 @@ impl NodeServer {
             handshake: server_hs,
             chainsync: server_cs,
             statequery: server_sq,
+            msg_notification: server_msg_notification,
             accepted_address: None,
             accpeted_version: None,
         }
@@ -559,6 +570,10 @@ impl NodeServer {
 
     pub fn statequery(&mut self) -> &mut localstate::Server {
         &mut self.statequery
+    }
+
+    pub fn msg_notification(&mut self) -> &mut localmsgnotification::Server {
+        &mut self.msg_notification
     }
 
     pub fn accepted_address(&self) -> Option<&UnixSocketAddr> {
