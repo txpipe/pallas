@@ -22,6 +22,7 @@ The following architectural decisions were made for this particular Rust impleme
 | local tx monitor                            | done      | planned   |
 | local-tx-submission                         | done      | planned   |
 | local-msg-submission                        | done      | planned   |
+| local-msg-notification                      | done      | done      |
 
 ## Implementation Details
 
