@@ -717,6 +717,7 @@ pub struct DmqServer {
     pub plexer: RunningPlexer,
     pub handshake: handshake::N2CServer,
     pub msg_notification: localmsgnotification::Server,
+    pub msg_submission: localmsgsubmission::Server,
     accepted_address: Option<UnixSocketAddr>,
     accpeted_version: Option<(VersionNumber, n2c::VersionData)>,
 }
@@ -728,9 +729,11 @@ impl DmqServer {
 
         let hs_channel = plexer.subscribe_server(PROTOCOL_N2C_HANDSHAKE);
         let msg_notification_channel = plexer.subscribe_server(PROTOCOL_N2C_MSG_NOTIFICATION);
+        let msg_submission_channel = plexer.subscribe_server(PROTOCOL_N2C_MSG_SUBMISSION);
 
         let server_hs = handshake::Server::<n2c::VersionData>::new(hs_channel);
         let server_msg_notification = localmsgnotification::Server::new(msg_notification_channel);
+        let server_msg_submission = localmsgsubmission::Server::new(msg_submission_channel);
 
         let plexer = plexer.spawn();
 
@@ -738,6 +741,7 @@ impl DmqServer {
             plexer,
             handshake: server_hs,
             msg_notification: server_msg_notification,
+            msg_submission: server_msg_submission,
             accepted_address: None,
             accpeted_version: None,
         }
@@ -772,6 +776,10 @@ impl DmqServer {
 
     pub fn msg_notification(&mut self) -> &mut localmsgnotification::Server {
         &mut self.msg_notification
+    }
+
+    pub fn msg_submission(&mut self) -> &mut localmsgsubmission::Server {
+        &mut self.msg_submission
     }
 
     pub fn accepted_address(&self) -> Option<&UnixSocketAddr> {
