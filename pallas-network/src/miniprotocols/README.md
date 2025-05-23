@@ -20,8 +20,8 @@ The following architectural decisions were made for this particular Rust impleme
 | local-state                                 | done      | planned   |
 | [tx-submission](src/txsubmission/README.md) | done      | done      |
 | local tx monitor                            | done      | planned   |
-| local-tx-submission                         | done      | planned   |
-| local-msg-submission                        | done      | planned   |
+| local-tx-submission                         | done      | done      |
+| local-msg-submission                        | done      | done      |
 | local-msg-notification                      | done      | done      |
 
 ## Implementation Details
