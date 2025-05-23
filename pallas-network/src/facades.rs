@@ -569,7 +569,7 @@ impl NodeServer {
 
 /// Client of N2C DMQ (Decentralized Message Queue)
 ///
-/// Described in [CIP-0137](https://github.com/cardano-scaling/CIPs/tree/master/CIP-0137)
+/// Described in [CIP-0137](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137)
 pub struct DmqClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
@@ -703,7 +703,7 @@ impl DmqClient {
 
 /// Server of N2C DMQ (Decentralized Message Queue)
 ///
-/// Described in [CIP-0137](https://github.com/cardano-scaling/CIPs/tree/master/CIP-0137)
+/// Described in [CIP-0137](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137)
 #[cfg(unix)]
 pub struct DmqServer {
     pub plexer: RunningPlexer,
