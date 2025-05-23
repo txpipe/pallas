@@ -6,5 +6,3 @@ mod client;
 mod codec;
 mod protocol;
 mod server;
-
-pub mod primitives;

@@ -13,14 +13,16 @@ The following architectural decisions were made for this particular Rust impleme
 ## Development Status
 
 | mini-protocol                               | initiator | responder |
-| ------------------------------------------- |-----------| --------- |
+| ------------------------------------------- | --------- | --------- |
 | block-fetch                                 | done      | planned   |
 | chain-sync                                  | done      | planned   |
 | [handshake](src/handshake/README.md)        | done      | done      |
 | local-state                                 | done      | planned   |
 | [tx-submission](src/txsubmission/README.md) | done      | done      |
 | local tx monitor                            | done      | planned   |
-| local-tx-submission                         | done      | planned   |
+| local-tx-submission                         | done      | done      |
+| local-msg-submission                        | done      | done      |
+| local-msg-notification                      | done      | done      |
 
 ## Implementation Details
 
@@ -73,7 +75,7 @@ let mut muxer = Multiplexer::setup(bearer, &[0]).unwrap();
 // get a handle for the (client-side) handhsake mini-protocol handle
 let mut channel = muxer.use_client_channel(pallas_miniprotocols::PROTOCOL_N2N_HANDSHAKE);
 
-// create a handshake client agent with an initial state 
+// create a handshake client agent with an initial state
 let agent = handshake::Client::initial(VersionTable::v4_and_above(MAINNET_MAGIC));
 
 // run the agent, which internally executes all the transitions
