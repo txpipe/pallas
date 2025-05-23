@@ -454,6 +454,72 @@ pub struct ProtocolParam {
     pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
 }
 
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct CurrentProtocolParam {
+    #[n(0)]
+    pub minfee_a: Option<u64>,
+    #[n(1)]
+    pub minfee_b: Option<u64>,
+    #[n(2)]
+    pub max_block_body_size: Option<u64>,
+    #[n(3)]
+    pub max_transaction_size: Option<u64>,
+    #[n(4)]
+    pub max_block_header_size: Option<u64>,
+    #[n(5)]
+    pub key_deposit: Option<Coin>,
+    #[n(6)]
+    pub pool_deposit: Option<Coin>,
+    #[n(7)]
+    pub maximum_epoch: Option<Epoch>,
+    #[n(8)]
+    pub desired_number_of_stake_pools: Option<u64>,
+    #[n(9)]
+    pub pool_pledge_influence: Option<RationalNumber>,
+    #[n(10)]
+    pub expansion_rate: Option<UnitInterval>,
+    #[n(11)]
+    pub treasury_growth_rate: Option<UnitInterval>,
+    #[n(12)]
+    pub protocol_version: Option<ProtocolVersion>,
+    #[n(13)]
+    pub min_pool_cost: Option<Coin>,
+    #[n(14)]
+    pub ada_per_utxo_byte: Option<Coin>,
+    #[n(15)]
+    pub cost_models_for_script_languages: Option<CostModels>,
+    #[n(16)]
+    pub execution_costs: Option<ExUnitPrices>,
+    #[n(17)]
+    pub max_tx_ex_units: Option<ExUnits>,
+    #[n(18)]
+    pub max_block_ex_units: Option<ExUnits>,
+    #[n(19)]
+    pub max_value_size: Option<u64>,
+    #[n(20)]
+    pub collateral_percentage: Option<u64>,
+    #[n(21)]
+    pub max_collateral_inputs: Option<u64>,
+    #[n(22)]
+    pub pool_voting_thresholds: Option<PoolVotingThresholds>,
+    #[n(23)]
+    pub drep_voting_thresholds: Option<DRepVotingThresholds>,
+    #[n(24)]
+    pub min_committee_size: Option<u64>,
+    #[n(25)]
+    pub committee_term_limit: Option<Epoch>,
+    #[n(26)]
+    pub governance_action_validity_period: Option<Epoch>,
+    #[n(27)]
+    pub governance_action_deposit: Option<Coin>,
+    #[n(28)]
+    pub drep_deposit: Option<Coin>,
+    #[n(29)]
+    pub drep_inactivity_period: Option<Epoch>,
+    #[n(30)]
+    pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
+}
+
 pub type StakeDistribution = KeyValuePairs<Bytes, Pool>;
 
 /// Tuple struct based on `BTreeSet` which uses the "Set" CBOR tag.
@@ -1230,7 +1296,7 @@ block_query_no_args! {
     #[doc = "Get the current protocol parameters"]
     get_current_pparams,
     GetCurrentPParams,
-    ProtocolParam,
+    CurrentProtocolParam,
 }
 
 block_query_no_args! {
