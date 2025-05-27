@@ -74,18 +74,10 @@ impl HaskellDisplay for ConwayLedgerFailure {
                 format!("ConwayWdrlNotDelegatedToDRep {}", v.to_haskell_str_p())
             }
             TreasuryValueMismatch(c1, c2) => {
-                format!(
-                    "ConwayTreasuryValueMismatch {} {}",
-                    c1.to_haskell_str_p(),
-                    c2.to_haskell_str_p()
-                )
+                format!("ConwayTreasuryValueMismatch ({})", as_mismatch(c1, c2),)
             }
             TxRefScriptsSizeTooBig(s1, s2) => {
-                format!(
-                    "ConwayTxRefScriptsSizeTooBig {} {}",
-                    s1.to_haskell_str_p(),
-                    s2.to_haskell_str_p()
-                )
+                format!("ConwayTxRefScriptsSizeTooBig ({})", as_mismatch(s2, s1))
             }
             MempoolFailure(e) => format!("ConwayMempoolFailure {}", e.to_haskell_str()),
             U8(v) => format!("U8 {v}"),
@@ -104,22 +96,18 @@ impl HaskellDisplay for ConwayGovCertPredFailure {
             DRepNotRegistered(cred) => {
                 format!("ConwayDRepNotRegistered {}", cred.to_haskell_str_p())
             }
-            DRepIncorrectDeposit(expected, actual) => format!(
-                "ConwayDRepIncorrectDeposit {} {}",
-                expected.to_haskell_str_p(),
-                actual.to_haskell_str_p()
-            ),
+            DRepIncorrectDeposit(c1, c2) => {
+                format!("ConwayDRepIncorrectDeposit ({})", as_mismatch(c2, c1))
+            }
             CommitteeHasPreviouslyResigned(cred) => {
                 format!(
                     "ConwayCommitteeHasPreviouslyResigned {}",
                     cred.to_haskell_str_p()
                 )
             }
-            DRepIncorrectRefund(expected, actual) => format!(
-                "ConwayDRepIncorrectRefund {} {}",
-                expected.to_haskell_str_p(),
-                actual.to_haskell_str_p()
-            ),
+            DRepIncorrectRefund(v1, v2) => {
+                format!("ConwayDRepIncorrectRefund ({})", as_mismatch(v2, v1))
+            }
             CommitteeIsUnknown(cred) => {
                 format!("ConwayCommitteeIsUnknown {}", cred.to_haskell_str_p())
             }
@@ -203,13 +191,15 @@ impl HaskellDisplay for ConwayUtxoWPredFailure {
                 format!("(ScriptWitnessNotValidatingUTXOW {})", e.to_haskell_str_p())
             }
             MissingTxBodyMetadataHash(b) => {
-                format!("(MissingTxBodyMetadataHash ({}))", b.as_aux_data_hash())
+                format!("(MissingTxBodyMetadataHash ({}))", b.as_tx_aux_data_hash())
             }
-            MissingTxMetadata(e) => format!("(MissingTxMetadata ({}))", e.as_aux_data_hash()),
+            MissingTxMetadata(e) => format!("(MissingTxMetadata ({}))", e.as_tx_aux_data_hash()),
             ConflictingMetadataHash(e1, e2) => format!(
-                "(ConflictingMetadataHash ({}) ({}))",
-                e1.as_aux_data_hash(),
-                e2.as_aux_data_hash()
+                "(ConflictingMetadataHash ({}))",
+                as_mismatch(
+                    &e2.as_tx_aux_data_hash().as_is(),
+                    &e1.as_tx_aux_data_hash().as_is()
+                )
             ),
             InvalidMetadata() => "InvalidMetadata".to_string(),
             ExtraneousScriptWitnessesUTXOW(vec) => {
@@ -229,11 +219,9 @@ impl HaskellDisplay for ConwayUtxoWPredFailure {
                 e1.to_haskell_str_p(),
                 e2.to_haskell_str_p()
             ),
-            PPViewHashesDontMatch(h1, h2) => format!(
-                "(PPViewHashesDontMatch {} {})",
-                h1.to_haskell_str_p(),
-                h2.to_haskell_str_p()
-            ),
+            PPViewHashesDontMatch(h1, h2) => {
+                format!("(PPViewHashesDontMatch ({}))", as_mismatch(h2, h1))
+            }
             UnspendableUTxONoDatumHash(e) => {
                 format!("(UnspendableUTxONoDatumHash {})", e.to_haskell_str_p())
             }
@@ -273,11 +261,7 @@ impl HaskellDisplay for ConwayGovPredFailure {
                 )
             }
             ProposalDepositIncorrect(c1, c2) => {
-                format!(
-                    "ProposalDepositIncorrect {} {}",
-                    c1.to_haskell_str_p(),
-                    c2.to_haskell_str_p()
-                )
+                format!("ProposalDepositIncorrect ({})", as_mismatch(c2, c1))
             }
             DisallowedVoters(v) => {
                 format!("DisallowedVoters {}", v.to_haskell_str_p())
@@ -296,10 +280,12 @@ impl HaskellDisplay for ConwayGovPredFailure {
             }
             ProposalCantFollow(a, p1, p2) => {
                 format!(
-                    "ProposalCantFollow {} ({}) ({})",
+                    "ProposalCantFollow {} ({})",
                     a.to_haskell_str_p(),
-                    p1.as_protocol_version(),
-                    p2.as_protocol_version()
+                    as_mismatch(
+                        &p2.as_protocol_version().as_is(),
+                        &p1.as_protocol_version().as_is()
+                    )
                 )
             }
             InvalidPolicyHash(maybe1, maybe2) => {
@@ -348,17 +334,9 @@ impl HaskellDisplay for UtxoFailure {
                 interval.to_haskell_str(),
                 slot.as_slot_no()
             ),
-            MaxTxSizeUTxO(actual, max) => format!(
-                "(MaxTxSizeUTxO {} {})",
-                actual.to_haskell_str(),
-                max.to_haskell_str()
-            ),
+            MaxTxSizeUTxO(s1, s2) => format!("(MaxTxSizeUTxO ({}))", as_mismatch(s2, s1)),
             InputSetEmptyUTxO => "InputSetEmptyUTxO".to_string(),
-            FeeTooSmallUTxO(required, provided) => format!(
-                "(FeeTooSmallUTxO {} {})",
-                required.to_haskell_str_p(),
-                provided.to_haskell_str_p()
-            ),
+            FeeTooSmallUTxO(c1, c2) => format!("(FeeTooSmallUTxO ({}))", as_mismatch(c1, c2)),
             ValueNotConservedUTxO(required, provided) => format!(
                 "(ValueNotConservedUTxO {})",
                 Mismatch(required.to_owned(), provided.to_owned()).to_haskell_str_p()
@@ -375,11 +353,7 @@ impl HaskellDisplay for UtxoFailure {
                 required.to_haskell_str_p()
             ),
             ScriptsNotPaidUTxO(utxo) => format!("(ScriptsNotPaidUTxO {})", utxo.to_haskell_str_p()),
-            ExUnitsTooBigUTxO(provided, max) => format!(
-                "(ExUnitsTooBigUTxO {} {})",
-                provided.to_haskell_str_p(),
-                max.to_haskell_str_p()
-            ),
+            ExUnitsTooBigUTxO(u1, u2) => format!("(ExUnitsTooBigUTxO ({}))", as_mismatch(u1, u2)),
             WrongNetwork(network, addrs) => format!(
                 "(WrongNetwork {} {})",
                 network.to_haskell_str(),
@@ -396,13 +370,11 @@ impl HaskellDisplay for UtxoFailure {
             }
             NoCollateralInputs => "NoCollateralInputs".to_string(),
             TooManyCollateralInputs(actual, max) => {
-                format!("(TooManyCollateralInputs {actual} {max})")
+                format!("(TooManyCollateralInputs ({}))", as_mismatch(actual, max))
             }
-            WrongNetworkInTxBody(expected, actual) => format!(
-                "(WrongNetworkInTxBody {} {})",
-                expected.to_haskell_str(),
-                actual.to_haskell_str()
-            ),
+            WrongNetworkInTxBody(n1, n2) => {
+                format!("(WrongNetworkInTxBody ({}))", as_mismatch(n1, n2))
+            }
             IncorrectTotalCollateralField(actual, provided) => format!(
                 "(IncorrectTotalCollateralField {} {})",
                 actual.to_haskell_str_p(),
@@ -641,12 +613,30 @@ where
     T: HaskellDisplay,
 {
     fn to_haskell_str(&self) -> String {
-        format!(
-            "Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}",
-            self.0.to_haskell_str(),
-            self.1.to_haskell_str()
-        )
+        as_mismatch(&self.1, &self.0)
     }
+}
+
+pub fn as_mismatch<T>(expected: &T, supplied: &T) -> String
+where
+    T: HaskellDisplay,
+{
+    format!(
+        "Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}",
+        supplied.to_haskell_str(),
+        expected.to_haskell_str()
+    )
+}
+
+pub fn as_mismatch_p<T>(expected: &T, supplied: &T) -> String
+where
+    T: HaskellDisplay,
+{
+    format!(
+        "Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}",
+        supplied.to_haskell_str_p(),
+        expected.to_haskell_str_p()
+    )
 }
 
 impl HaskellDisplay for FieldedRewardAccount {
@@ -1237,6 +1227,10 @@ trait AsVKey {
     fn as_vkey(&self) -> String;
 }
 
+trait AsVrfKeyHash {
+    fn as_vrf_key_hash(&self) -> String;
+}
+
 trait AsScriptHashObject {
     fn as_script_hash_obj(&self) -> String;
 }
@@ -1334,6 +1328,13 @@ where
             Nullable::Some(v) => v.as_safe_hash(),
             _ => "SNothing".to_string(),
         }
+    }
+}
+
+impl AsVrfKeyHash for [u8] {
+    fn as_vrf_key_hash(&self) -> String {
+        let hex = hex::encode(self);
+        format!("VRFVerKeyHash {{unVRFVerKeyHash = \"{}\"}}", hex)
     }
 }
 
@@ -1553,8 +1554,25 @@ impl HaskellDisplay for BigInt {
         match self {
             Int(i) => {
                 let value: i128 = i.0.into();
+                value.to_haskell_str()
+            }
+            BigNInt(bb) => {
+                format!("BigNInt {}", bb.to_haskell_str())
+            }
+            BigUInt(bb) => {
+                format!("BigUInt {}", bb.to_haskell_str())
+            }
+        }
+    }
+
+    fn to_haskell_str_p(&self) -> String {
+        use BigInt::*;
+
+        match self {
+            Int(i) => {
+                let value: i128 = i.0.into();
                 value.to_haskell_str_p()
-            },
+            }
             BigNInt(bb) => {
                 format!("BigNInt {}", bb.to_haskell_str_p())
             }
@@ -2052,7 +2070,7 @@ impl HaskellDisplay for Pointer {
     fn to_haskell_str(&self) -> String {
         format!(
             "Ptr ({}) ({}) ({})",
-            self.slot().as_slot_no(),
+            self.slot().as_slot_no32(),
             self.tx_idx().as_tx_ix(),
             self.cert_idx().as_cert_ix()
         )
@@ -2175,11 +2193,15 @@ impl HaskellDisplay for SlotNo {
 
 trait AsSlotNo {
     fn as_slot_no(&self) -> String;
+    fn as_slot_no32(&self) -> String;
 }
 
 impl AsSlotNo for u64 {
     fn as_slot_no(&self) -> String {
         format!("SlotNo {self}")
+    }
+    fn as_slot_no32(&self) -> String {
+        format!("SlotNo32 {}", self)
     }
 }
 
@@ -2187,6 +2209,13 @@ impl AsSlotNo for SMaybe<u64> {
     fn as_slot_no(&self) -> String {
         match self {
             SMaybe::Some(v) => format!("SJust (SlotNo {v})"),
+            _ => "SNothing".to_string(),
+        }
+    }
+
+    fn as_slot_no32(&self) -> String {
+        match self {
+            SMaybe::Some(v) => format!("SJust (SlotNo32 {})", v),
             _ => "SNothing".to_string(),
         }
     }
@@ -2328,7 +2357,7 @@ impl HaskellDisplay for Certificate {
             } => format!(
                 "RegPool (PoolParams {{ppId = {}, ppVrf = {}, ppPledge = {}, ppCost = {}, ppMargin = {}, ppRewardAccount = {}, ppOwners = {}, ppRelays = {}, ppMetadata = {}}})",
                 operator.as_key_hash(),
-                vrf_keyhash.to_string().to_haskell_str(),
+                vrf_keyhash.as_vrf_key_hash(),
                 pledge.as_display_coin(),
                 cost.as_display_coin(),
                 margin.to_haskell_str(),
@@ -2483,7 +2512,7 @@ where
 
 impl HaskellDisplay for DeltaCoin {
     fn to_haskell_str(&self) -> String {
-        format!("DeltaCoin {}", self.0.to_haskell_str())
+        format!("DeltaCoin {}", self.0.to_haskell_str_p())
     }
 }
 
@@ -2525,13 +2554,14 @@ impl AsAddress for Bytes {
             .to_haskell_str()
     }
 }
-trait AsAuxDataHash {
-    fn as_aux_data_hash(&self) -> String;
+
+trait AsTxAuxDataHash {
+    fn as_tx_aux_data_hash(&self) -> String;
 }
 
-impl AsAuxDataHash for Bytes {
-    fn as_aux_data_hash(&self) -> String {
-        format!("AuxiliaryDataHash {{unsafeAuxiliaryDataHash = SafeHash \"{self}\"}}")
+impl AsTxAuxDataHash for Bytes {
+    fn as_tx_aux_data_hash(&self) -> String {
+        format!("TxAuxDataHash {{unTxAuxDataHash = SafeHash \"{self}\"}}")
     }
 }
 
