@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -51,12 +51,23 @@ impl From<Fraction> for pallas_primitives::alonzo::RationalNumber {
 #[derive(Deserialize, PartialEq, Eq, Hash, Clone)]
 pub enum Language {
     PlutusV1,
+    PlutusV2,
 }
 
-impl From<Language> for pallas_primitives::alonzo::Language {
+impl From<Language> for Option<pallas_primitives::alonzo::Language> {
     fn from(value: Language) -> Self {
         match value {
-            Language::PlutusV1 => Self::PlutusV1,
+            Language::PlutusV1 => Some(pallas_primitives::alonzo::Language::PlutusV1),
+            _ => None,
+        }
+    }
+}
+
+impl From<Language> for pallas_primitives::babbage::Language {
+    fn from(value: Language) -> Self {
+        match value {
+            Language::PlutusV1 => pallas_primitives::babbage::Language::PlutusV1,
+            Language::PlutusV2 => pallas_primitives::babbage::Language::PlutusV2,
         }
     }
 }
@@ -64,7 +75,7 @@ impl From<Language> for pallas_primitives::alonzo::Language {
 #[derive(Deserialize, Clone)]
 pub struct CostModel(HashMap<String, i64>);
 
-impl From<CostModel> for pallas_primitives::alonzo::CostModel {
+impl From<CostModel> for Vec<i64> {
     fn from(value: CostModel) -> Self {
         value.0.into_values().collect()
     }
@@ -73,13 +84,32 @@ impl From<CostModel> for pallas_primitives::alonzo::CostModel {
 #[derive(Deserialize, Clone)]
 pub struct CostModelPerLanguage(HashMap<Language, CostModel>);
 
+impl Deref for CostModelPerLanguage {
+    type Target = HashMap<Language, CostModel>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl From<CostModelPerLanguage> for pallas_primitives::alonzo::CostModels {
     fn from(value: CostModelPerLanguage) -> Self {
         value
             .0
             .into_iter()
-            .map(|(k, v)| (k.into(), v.into()))
+            .filter_map(|(k, v)| {
+                Option::<pallas_primitives::alonzo::Language>::from(k).map(|x| (x, v.into()))
+            })
             .collect()
+    }
+}
+
+impl From<CostModelPerLanguage> for pallas_primitives::babbage::CostModels {
+    fn from(mut value: CostModelPerLanguage) -> Self {
+        pallas_primitives::babbage::CostModels {
+            plutus_v1: value.0.remove(&Language::PlutusV1).map(Vec::<i64>::from),
+            plutus_v2: value.0.remove(&Language::PlutusV2).map(Vec::<i64>::from),
+        }
     }
 }
 
