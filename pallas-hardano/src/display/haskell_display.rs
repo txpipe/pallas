@@ -360,9 +360,8 @@ impl HaskellDisplay for UtxoFailure {
                 provided.to_haskell_str_p()
             ),
             ValueNotConservedUTxO(required, provided) => format!(
-                "(ValueNotConservedUTxO {} {})",
-                required.to_haskell_str_p(),
-                provided.to_haskell_str_p()
+                "(ValueNotConservedUTxO {})",
+                Mismatch(required.to_owned(), provided.to_owned()).to_haskell_str_p()
             ),
             OutputTooSmallUTxO(outputs) => {
                 format!("(OutputTooSmallUTxO {})", outputs.to_haskell_str_p())
