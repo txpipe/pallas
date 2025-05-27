@@ -2501,7 +2501,6 @@ mod tests {
                 buffer.drain(0..pos);
                 Ok(Some(msg))
             }
-            Err(err) if err.is_end_of_input() => Ok(None),
             Err(err) => Err(Error::Decoding(err.to_string())),
         }
     }
