@@ -2,8 +2,9 @@ use thiserror::Error;
 
 use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, BigInt, FieldedRewardAccount, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash,
-    TransactionInput, TransactionOutput, Value, Vote, };
+    Anchor, BigInt, FieldedRewardAccount, GovAction, GovActionId, PolicyId, ProposalProcedure,
+    ProtocolVersion, ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
+};
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use crate::multiplexer;
 use pallas_codec::minicbor::{self, Decode, Encode};
@@ -461,7 +462,7 @@ pub enum ConwayLedgerFailure {
 #[cbor(flat)]
 pub enum ConwayCertsPredFailure {
     #[n(0)]
-    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),  
+    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),
     #[n(1)]
     CertFailure(#[n(0)] ConwayCertPredFailure),
 }
