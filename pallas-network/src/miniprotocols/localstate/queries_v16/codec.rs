@@ -795,7 +795,6 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-
 impl<C> minicbor::Encode<C> for FieldedRewardAccount {
     fn encode<W: minicbor::encode::Write>(
         &self,

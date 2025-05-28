@@ -1,8 +1,8 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, AssetName, Coin, DRep, Epoch, PolicyId, PoolMetadata, Relay, FieldedRewardAccount, ScriptHash,
-    UnitInterval,
+    Anchor, AssetName, Coin, DRep, Epoch, FieldedRewardAccount, PolicyId, PoolMetadata, Relay,
+    ScriptHash, UnitInterval,
 };
 pub use pallas_codec::utils::KeyValuePairs;
 pub use pallas_crypto::hash::Hash;

@@ -18,7 +18,7 @@ pub mod primitives;
 pub use primitives::{PoolMetadata, Relay};
 
 use crate::miniprotocols::localtxsubmission::primitives::{
-    CommitteeColdCredential, CommitteeHotCredential, ScriptRef, StakeCredential
+    CommitteeColdCredential, CommitteeHotCredential, ScriptRef, StakeCredential,
 };
 use crate::miniprotocols::Point;
 
@@ -625,13 +625,14 @@ pub enum Vote {
     Abstain,
 }
 
-#[derive(Debug,  Clone, Eq, PartialEq, PartialOrd, Ord)]
-pub struct FieldedRewardAccount{
-    pub network: Network, pub stake_credential: StakeCredential}
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub struct FieldedRewardAccount {
+    pub network: Network,
+    pub stake_credential: StakeCredential,
+}
 
 impl From<&[u8]> for FieldedRewardAccount {
     fn from(bytes: &[u8]) -> Self {
-
         let network = if bytes[0] & 0b00000001 != 0 {
             Network::Mainnet
         } else {
@@ -646,8 +647,10 @@ impl From<&[u8]> for FieldedRewardAccount {
             StakeCredential::AddrKeyhash(hash.into())
         };
 
-
-        FieldedRewardAccount{network, stake_credential}
+        FieldedRewardAccount {
+            network,
+            stake_credential,
+        }
     }
 }
 
@@ -659,7 +662,10 @@ pub type ScriptHash = Hash<28>;
 pub enum GovAction {
     ParameterChange(Option<GovPurposeId>, PParamsUpdate, Option<ScriptHash>),
     HardForkInitiation(Option<GovPurposeId>, ProtocolVersion),
-    TreasuryWithdrawals(KeyValuePairs<FieldedRewardAccount, Coin>, Option<ScriptHash>),
+    TreasuryWithdrawals(
+        KeyValuePairs<FieldedRewardAccount, Coin>,
+        Option<ScriptHash>,
+    ),
     NoConfidence(Option<GovPurposeId>),
     UpdateCommittee(
         Option<GovPurposeId>,
