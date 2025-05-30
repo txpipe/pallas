@@ -240,23 +240,21 @@ mod tests {
         use pallas_codec::minicbor;
         use pallas_codec::utils;
 
-        // XXX: Can we avoid repeating the test-data path?
+        macro_rules! include_test_msg {
+            ($path:literal) => {
+                include_str!(concat!(
+                    "../../../../cardano-blueprint/src/network/node-to-node/handshake/test-data/",
+                    $path
+                ))
+            };
+        }
+
         let test_messages = [
-            include_str!(
-                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-0"
-            ),
-            include_str!(
-                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-1"
-            ),
-            include_str!(
-                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-2"
-            ),
-            include_str!(
-                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-3"
-            ),
-            include_str!(
-                "../../../../cardano-blueprint/src/network/test-data/handshake-n2n/test-4"
-            ),
+            include_test_msg!("test-0"),
+            include_test_msg!("test-1"),
+            include_test_msg!("test-2"),
+            include_test_msg!("test-3"),
+            include_test_msg!("test-4"),
         ];
 
         for (idx, message_str) in test_messages.iter().enumerate() {

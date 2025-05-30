@@ -143,14 +143,19 @@ pub mod tests {
     fn test_api_example_roundtrip() {
         use super::Message;
 
+        macro_rules! include_example {
+            ($path:literal) => {
+                include_str!(concat!(
+                    "../../../../cardano-blueprint/src/client/node-to-client/state-query/examples/",
+                    $path
+                ))
+            };
+        }
+
         // TODO: scan for examples
         let examples = [
-            include_str!(
-                "../../../../cardano-blueprint/src/api/examples/getSystemStart/query.cbor"
-            ),
-            include_str!(
-                "../../../../cardano-blueprint/src/api/examples/getSystemStart/result.cbor"
-            ),
+            include_example!("getSystemStart/query.cbor"),
+            include_example!("getSystemStart/result.cbor"),
         ];
         for (idx, message_str) in examples.iter().enumerate() {
             println!("Roundtrip test {idx}");
