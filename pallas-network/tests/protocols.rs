@@ -6,7 +6,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
 };
 use pallas_network::{
-    facades::{NodeClient, PeerClient, PeerServer},
+    facades::{DmqClient, NodeClient, PeerClient, PeerServer},
     miniprotocols::{
         blockfetch,
         blockfetch::BlockRequest,
@@ -14,6 +14,8 @@ use pallas_network::{
         chainsync::{ClientRequest, HeaderContent, Tip},
         handshake,
         handshake::n2n::VersionData,
+        localmsgnotification,
+        localmsgsubmission::DmqMsg,
         localstate,
         localstate::ClientQueryRequest,
         txsubmission,

@@ -1,7 +1,7 @@
-pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits};
-use crate::multiplexer;
-pub use pallas_crypto::hash::Hash;
 use thiserror::Error;
+
+use crate::miniprotocols::localmsgsubmission::DmqMsg;
+use crate::multiplexer;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -17,29 +17,27 @@ pub enum Error {
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    #[error("protocol is already initialized, no need to wait for init message")]
+    AlreadyInitialized,
+
     #[error("error while sending or receiving data through the channel")]
-    ChannelError(multiplexer::Error),
+    Plexer(multiplexer::Error),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     Idle,
-    Busy,
+    BusyBlocking,
+    BusyNonBlocking,
     Done,
 }
 
 #[derive(Debug)]
-pub enum Message<Tx, Reject> {
-    SubmitTx(Tx),
-    AcceptTx,
-    RejectTx(Reject),
-    Done,
+pub enum Message {
+    RequestMessagesNonBlocking,
+    ReplyMessagesNonBlocking(Vec<DmqMsg>, bool),
+    RequestMessagesBlocking,
+    ReplyMessagesBlocking(Vec<DmqMsg>),
+    ClientDone,
+    ServerDone,
 }
-
-// The bytes of a transaction with an era number.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct EraTx(pub u16, pub Vec<u8>);
-
-// Raw reject reason.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RejectReason(pub Vec<u8>);
