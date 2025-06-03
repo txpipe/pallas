@@ -69,6 +69,16 @@ pub const PROTOCOL_N2C_STATE_QUERY: u16 = 7;
 // Protocol channel number for node-to-client mempool monitor
 pub const PROTOCOL_N2C_TX_MONITOR: u16 = 9;
 
+/// Protocol channel number for node-to-client local message submission
+/// This protocol is available only on the DMQ node.
+// TODO: use the final mini-protocol number once available
+pub const PROTOCOL_N2C_MSG_SUBMISSION: u16 = 1;
+
+/// Protocol channel number for node-to-client local message notification
+/// This protocol is available only on the DMQ node.
+// TODO: use the final mini-protocol number once available
+pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 = 2;
+
 /// A point within a chain
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Point {
