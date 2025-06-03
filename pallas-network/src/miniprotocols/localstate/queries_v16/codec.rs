@@ -809,15 +809,23 @@ pub mod tests {
         };
         use pallas_codec::utils::AnyCbor;
 
-        // TODO: scan for examples
-        let examples = [(
-            include_str!(
-                "../../../../../cardano-blueprint/src/api/examples/getSystemStart/query.cbor"
-            ),
-            include_str!(
-                "../../../../../cardano-blueprint/src/api/examples/getSystemStart/result.cbor"
-            ),
-        )];
+        macro_rules! include_example_pair {
+            ($path:literal) => {
+                (include_str!(concat!(
+                    "../../../../../cardano-blueprint/src/client/node-to-client/state-query/examples/",
+                    $path,
+                    "/query.cbor"
+                ))
+                , include_str!(concat!(
+                    "../../../../../cardano-blueprint/src/client/node-to-client/state-query/examples/",
+                    $path,
+                    "/result.cbor"
+                ))
+                 )
+            };
+        }
+
+        let examples = [include_example_pair!("getSystemStart")];
         for (idx, (query_str, result_str)) in examples.iter().enumerate() {
             println!("Roundtrip query {idx}");
             roundtrips_with(query_str, |q| match q {
