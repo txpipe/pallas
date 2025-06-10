@@ -6,9 +6,8 @@ use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul, Neg, Sub};
 use std::sync::LazyLock;
 use thiserror::Error;
-use crate::math_bigint::Decimal;
 
-pub type FixedDecimal = Decimal;
+pub type FixedDecimal = crate::math_bigint::Decimal;
 
 pub static ZERO: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(0u64));
 pub static MINUS_ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(-1i64));
