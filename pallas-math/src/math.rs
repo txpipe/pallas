@@ -5,11 +5,10 @@
 use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul, Neg, Sub};
 use std::sync::LazyLock;
-use num_bigint::BigInt;
 use thiserror::Error;
-use crate::math_dashu::{Abs, BigDecimal};
+use crate::math_bigint::Decimal;
 
-pub type FixedDecimal = BigDecimal;
+pub type FixedDecimal = Decimal;
 
 pub static ZERO: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(0u64));
 pub static MINUS_ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(-1i64));
@@ -27,7 +26,7 @@ pub enum Error {
 pub const DEFAULT_PRECISION: u64 = 34;
 
 pub trait FixedPrecision:
-    Neg + Mul + Div + Sub + Display + Clone + PartialEq + PartialOrd + Debug + From<u64> + From<i64> + Abs
+    Neg + Mul + Div + Sub + Display + Clone + PartialEq + PartialOrd + Debug + From<u64> + From<i64>
 {
     /// Creates a new fixed point number with the given precision
     fn new(precision: u64) -> Self;
@@ -97,7 +96,6 @@ pub struct ExpCmpOrdering {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_traits::Signed;
     use proptest::prelude::Strategy;
     use proptest::proptest;
     use std::fs::File;
