@@ -3,7 +3,7 @@
  */
 
 use crate::math::{Error, ExpCmpOrdering, ExpOrdering, FixedPrecision, DEFAULT_PRECISION};
-use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_bigint::{BigInt, BigUint};
 use num_integer::Integer;
 use num_traits::{One, Signed, Zero};
 use regex::Regex;
@@ -88,7 +88,7 @@ impl From<&BigInt> for Decimal {
 impl From<BigUint> for Decimal {
     fn from(n: BigUint) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = n.to_bigint().unwrap() * &result.precision_multiplier;
+        result.data = BigInt::from(n) * &result.precision_multiplier;
         result
     }
 }
@@ -96,7 +96,7 @@ impl From<BigUint> for Decimal {
 impl From<&BigUint> for Decimal {
     fn from(n: &BigUint) -> Self {
         let mut result = Decimal::new(DEFAULT_PRECISION);
-        result.data = n.to_bigint().unwrap() * &result.precision_multiplier;
+        result.data = BigInt::from(n.clone()) * &result.precision_multiplier;
         result
     }
 }
@@ -131,7 +131,7 @@ impl Neg for &Decimal {
 impl Decimal {
     pub fn abs(&self) -> Decimal {
         let mut result = Decimal::new(self.precision);
-        result.data = if self.data.is_negative() { -&self.data } else { self.data.clone() };
+        result.data = self.data.abs();
         result
     }
 }
@@ -357,7 +357,7 @@ impl FixedPrecision for Decimal {
     fn floor(&self) -> Self {
         let mut result = self.clone();
         let remainder = &self.data % &self.precision_multiplier;
-        if self.data.is_negative() && remainder != BigInt::from(0) {
+        if self.data.is_negative() && !remainder.is_zero() {
             result.data -= &self.precision_multiplier;
         }
         result.data -= remainder;
@@ -447,13 +447,8 @@ fn div_round_ceil(x: &BigInt, y: &BigInt) -> BigInt {
         return BigInt::zero();
     }
     let (q, r) = x.div_rem(y);
-    if !r.is_zero() {
-        // If remainder, ceil means increment quotient by 1 (for positive)
-        if x.is_positive() {
-            q + BigInt::one()
-        } else {
-            q // For negative numerator, division rounds towards zero, so no increment
-        }
+    if !r.is_zero() && x.is_positive() {
+        q + BigInt::one()
     } else {
         q
     }
@@ -477,7 +472,6 @@ fn ref_exp(rop: &mut BigInt, x: &BigInt) -> i32 {
         }
         Ordering::Greater => {
             let n_exponent = div_round_ceil(x, &PRECISION.value);
-
             let x_ = x / &n_exponent;
             iterations = mp_exp_taylor(rop, 1000, &x_, &EPS.value);
 
@@ -719,15 +713,15 @@ fn ref_pow(rop: &mut BigInt, base: &BigInt, exponent: &BigInt) {
         *rop = base.clone();
         return;
     }
-    if base.is_zero() && exponent > &&BigInt::from(0) {
+    if base.is_zero() && exponent.is_positive() {
         // zero to any positive power is zero
         *rop = &BigInt::zero() * &PRECISION.value;
         return;
     }
-    if base == &BigInt::zero() && exponent < &BigInt::zero() {
+    if base.is_zero() && exponent.is_negative() {
         panic!("zero to a negative power is undefined");
     }
-    if base < &BigInt::zero() {
+    if base.is_negative() {
         // negate the base and calculate the power
         let neg_base = base.neg();
         let ref_ln = ref_ln(&mut tmp, &neg_base);
