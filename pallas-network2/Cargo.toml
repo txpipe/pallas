@@ -1,0 +1,19 @@
+[package]
+name = "pallas-network2"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+futures = "0.3.31"
+trait-variant = "0.1.2"
+rand = { version = "0.9.1", optional = true }
+tokio = { version = "1.45.1", optional = true, features = ["full"] }
+pallas-network = { path = "../pallas-network" }
+pallas-codec = { path = "../pallas-codec" }
+chrono = "0.4.41"
+
+[features]
+emulation = ["tokio", "rand"]
+default = ["emulation"]
+
+[dev-dependencies]
