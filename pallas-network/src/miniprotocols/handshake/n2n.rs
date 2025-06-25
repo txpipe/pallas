@@ -11,6 +11,7 @@ const PROTOCOL_V10: u64 = 10;
 const PROTOCOL_V11: u64 = 11;
 const PROTOCOL_V12: u64 = 12;
 const PROTOCOL_V13: u64 = 13;
+const PROTOCOL_V14: u64 = 14;
 
 const PEER_SHARING_DISABLED: u8 = 0;
 
@@ -103,6 +104,15 @@ impl VersionTable {
                     Some(query),
                 ),
             ),
+            (
+                PROTOCOL_V14,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                ),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -136,6 +146,15 @@ impl VersionTable {
             ),
             (
                 PROTOCOL_V13,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                ),
+            ),
+            (
+                PROTOCOL_V14,
                 VersionData::new(
                     network_magic,
                     true,
