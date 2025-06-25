@@ -1,11 +1,14 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    pin::{Pin, pin},
+};
+
+use futures::{FutureExt, future::FusedFuture, select, stream::FuturesUnordered};
 
 #[cfg(feature = "emulation")]
 pub mod emulation;
 
 pub mod standard;
-
-mod example;
 
 /// A unique identifier for a peer in the network
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -26,12 +29,13 @@ pub type Channel = u16;
 pub type Payload = Vec<u8>;
 
 /// Describes a message that can be sent over the network
-pub trait Message {
+pub trait Message: Send + 'static {
     fn channel(&self) -> Channel;
     fn payload(&self) -> Payload;
 }
 
 /// A low-level command to interact with the network interface
+#[derive(Debug)]
 pub enum InterfaceCommand<M: Message> {
     Connect(PeerId),
     Send(PeerId, M),
@@ -39,6 +43,7 @@ pub enum InterfaceCommand<M: Message> {
 }
 
 /// A low-level event from the network interface
+#[derive(Debug)]
 pub enum InterfaceEvent<M: Message> {
     Connected(PeerId),
     Disconnected(PeerId),
@@ -72,6 +77,7 @@ pub trait Command {
 }
 
 /// Describes the behavior (business logic) of a network stack
+#[trait_variant::make]
 pub trait Behavior: Sized {
     /// The event type that is raised by the behavior
     type Event;
@@ -85,25 +91,7 @@ pub trait Behavior: Sized {
     /// The message type that is sent over the network
     type Message: Message;
 
-    /// Schedule an IO operation for a peer
-    ///
-    /// This is the hook where a behavior can schedule an IO operation for a
-    /// peer.
-    ///
-    /// The behavior is responsible for checking the state of the peer and
-    /// scheduling an IO operation if necessary. The scheduling happens by
-    /// returning a low-level interface command that will be relayed to the
-    /// network interface.
-    ///
-    /// IMPORTANT: this logic can be called multiple times by the manager before
-    /// any actual extrinsic events. This action should be idempotent. The
-    /// behavior is responsible for updating the state to avoid duplicated
-    /// commands.
-    fn schedule_io(
-        &mut self,
-        pid: &PeerId,
-        state: &mut Self::PeerState,
-    ) -> Option<InterfaceCommand<Self::Message>>;
+    async fn poll_next(&mut self) -> Option<InterfaceCommand<Self::Message>>;
 
     /// Apply an IO event to the behavior
     ///
@@ -169,16 +157,7 @@ where
         }
     }
 
-    fn outbound_io(&mut self) {
-        for peer in self.peers.values_mut() {
-            if let Some(cmd) = self.behavior.schedule_io(&peer.id, &mut peer.state) {
-                self.interface.execute(cmd);
-            }
-        }
-    }
-
-    async fn inbound_io(&mut self) -> Option<B::Event> {
-        let event = self.interface.poll_next().await;
+    async fn inbound_io(&mut self, event: InterfaceEvent<M>) -> Option<B::Event> {
         let pid = event.peer_id().cloned()?;
 
         let peer = self
@@ -190,7 +169,7 @@ where
         self.behavior.apply_io(&pid, state, event)
     }
 
-    pub async fn poll_next(&mut self) -> Option<B::Event> {
+    fn apply_cmds(&mut self) {
         for cmd in self.backlog.drain(..) {
             let pid = cmd.peer_id().clone();
 
@@ -202,9 +181,29 @@ where
             let state = peer.get_state_mut();
             self.behavior.apply_cmd(&pid, state, cmd);
         }
+    }
 
-        self.outbound_io();
-        self.inbound_io().await
+    pub async fn poll_next(&mut self) -> Option<B::Event> {
+        self.apply_cmds();
+
+        let Self {
+            behavior,
+            interface,
+            ..
+        } = self;
+
+        select! {
+            cmd = behavior.poll_next().fuse() => {
+                if let Some(cmd) = cmd {
+                    self.interface.execute(cmd);
+                }
+
+                None
+            },
+            event = interface.poll_next().fuse() => {
+                self.inbound_io(event).await
+            }
+        }
     }
 
     pub fn enqueue(&mut self, cmd: B::Command) {
@@ -212,8 +211,37 @@ where
     }
 }
 
+pub struct OutboundQueue<M: Message> {
+    futures: FuturesUnordered<Pin<Box<dyn Future<Output = InterfaceCommand<M>> + Send + Unpin>>>,
+}
+
+impl<M: Message + Send + 'static> OutboundQueue<M> {
+    pub fn new() -> Self {
+        Self {
+            futures: FuturesUnordered::new(),
+        }
+    }
+
+    pub fn push_ready(&mut self, command: InterfaceCommand<M>) {
+        self.futures.push(Box::pin(futures::future::ready(command)));
+    }
+
+    pub async fn poll_next(&mut self) -> Option<InterfaceCommand<M>> {
+        futures::stream::StreamExt::next(&mut self.futures).await
+    }
+}
+
+impl<M: Message + Send + 'static> Default for OutboundQueue<M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::pin::Pin;
+
+    use futures::stream::{FuturesUnordered, StreamExt};
     use pallas_network::miniprotocols::Agent;
 
     use super::*;
@@ -312,10 +340,10 @@ mod tests {
         should_intersect: Option<u64>,
         intersected: Option<u64>,
         handshake: pallas_network::miniprotocols::handshake::N2NClient,
-        handshake_inflight: bool,
     }
 
     struct MyBehavior {
+        outbound: OutboundQueue<MyMessage>,
         desired_peers: usize,
         connected_count: usize,
         connecting_count: usize,
@@ -327,38 +355,8 @@ mod tests {
         type PeerState = MyPeerState;
         type Message = MyMessage;
 
-        fn schedule_io(
-            &mut self,
-            pid: &PeerId,
-            peer: &mut Self::PeerState,
-        ) -> Option<InterfaceCommand<Self::Message>> {
-            if !peer.is_connected && !peer.is_connecting {
-                if (self.connected_count + self.connecting_count) < self.desired_peers {
-                    println!("requesting connection to {}", pid);
-                    self.connecting_count += 1;
-                    return Some(InterfaceCommand::Connect(pid.clone()));
-                }
-            }
-
-            if !peer.is_connected {
-                return None;
-            }
-
-            if peer.handshake.has_agency() && !peer.handshake_inflight && !peer.handshake.is_done()
-            {
-                println!("sending handshake propose for {}", pid);
-                let versions =
-                    pallas_network::miniprotocols::handshake::n2n::VersionTable::v11_and_above(0);
-                let msg = pallas_network::miniprotocols::handshake::Message::Propose(versions);
-                peer.handshake_inflight = true;
-
-                return Some(InterfaceCommand::Send(
-                    pid.clone(),
-                    MyMessage::Handshake(msg),
-                ));
-            }
-
-            None
+        async fn poll_next(&mut self) -> Option<InterfaceCommand<Self::Message>> {
+            self.outbound.poll_next().await
         }
 
         fn apply_io(
@@ -394,6 +392,20 @@ mod tests {
                             state.handshake =
                                 pallas_network::miniprotocols::handshake::N2NClient::new(new_state);
                             println!("new handshake state {:?}", state.handshake.state());
+
+                            if matches!(
+                                state.handshake.state(),
+                                pallas_network::miniprotocols::handshake::State::Propose
+                            ) {
+                                let msg = pallas_network::miniprotocols::handshake::Message::Propose(
+                                    pallas_network::miniprotocols::handshake::n2n::VersionTable::v11_and_above(0),
+                                );
+
+                                self.outbound.push_ready(InterfaceCommand::Send(
+                                    pid.clone(),
+                                    MyMessage::Handshake(msg),
+                                ));
+                            }
                         }
                     }
 
@@ -404,8 +416,6 @@ mod tests {
 
                     match msg {
                         MyMessage::Handshake(msg) => {
-                            state.handshake_inflight = false;
-
                             let new_state = state.handshake.apply(&msg).unwrap();
                             state.handshake =
                                 pallas_network::miniprotocols::handshake::N2NClient::new(new_state);
@@ -420,6 +430,22 @@ mod tests {
 
         fn apply_cmd(&mut self, pid: &PeerId, state: &mut Self::PeerState, cmd: Self::Command) {
             match cmd {
+                MyCommand::IncludePeer(_) => {
+                    println!("including peer {pid}");
+
+                    if state.is_connected && state.is_connecting {
+                        return;
+                    }
+
+                    if (self.connected_count + self.connecting_count) >= self.desired_peers {
+                        return;
+                    }
+
+                    println!("requesting connection to {}", pid);
+                    self.connecting_count += 1;
+                    self.outbound
+                        .push_ready(InterfaceCommand::Connect(pid.clone()));
+                }
                 MyCommand::IntersectOrigin(peer_id) => {
                     println!("requesting origin intersection for {pid}");
                     state.should_intersect = Some(0);
@@ -482,6 +508,7 @@ mod tests {
             desired_peers: 3,
             connected_count: 0,
             connecting_count: 0,
+            outbound: OutboundQueue::new(),
         };
 
         let mut node = MyNode {

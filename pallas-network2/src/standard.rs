@@ -1,12 +1,15 @@
 //! Opinionated standard behavior for Cardano networks
 
+use std::pin::Pin;
+
+use futures::{FutureExt, select, stream::FuturesUnordered};
 use pallas_network::miniprotocols::{
     Agent, Point,
     blockfetch::{self, Body},
     chainsync, handshake, keepalive, peersharing, txsubmission,
 };
 
-use crate::{Behavior, Command, InterfaceEvent, Message, PeerId};
+use crate::{Behavior, Command, InterfaceEvent, Message, OutboundQueue, PeerId};
 
 impl Command for () {
     fn peer_id(&self) -> &PeerId {
@@ -52,12 +55,14 @@ impl Message for AnyMessage {
 
 pub struct HandshakeBehavior {
     supported_versions: handshake::n2n::VersionTable,
+    outbound: OutboundQueue<AnyMessage>,
 }
 
 impl Default for HandshakeBehavior {
     fn default() -> Self {
         Self {
             supported_versions: handshake::n2n::VersionTable::v11_and_above(0),
+            outbound: OutboundQueue::new(),
         }
     }
 }
@@ -68,22 +73,8 @@ impl Behavior for HandshakeBehavior {
     type PeerState = handshake::Client<handshake::n2n::VersionData>;
     type Message = AnyMessage;
 
-    fn schedule_io(
-        &mut self,
-        pid: &PeerId,
-        peer: &mut Self::PeerState,
-    ) -> Option<crate::InterfaceCommand<Self::Message>> {
-        match peer.state() {
-            handshake::State::Propose => {
-                let msg = handshake::Message::Propose(self.supported_versions.clone());
-
-                Some(crate::InterfaceCommand::Send(
-                    pid.clone(),
-                    AnyMessage::Handshake(msg),
-                ))
-            }
-            _ => None,
-        }
+    async fn poll_next(&mut self) -> Option<crate::InterfaceCommand<Self::Message>> {
+        self.outbound.poll_next().await
     }
 
     fn apply_io(
@@ -92,6 +83,9 @@ impl Behavior for HandshakeBehavior {
         state: &mut Self::PeerState,
         event: crate::InterfaceEvent<Self::Message>,
     ) -> Option<Self::Event> {
+        println!("handshake apply_io");
+        dbg!(&event);
+
         let InterfaceEvent::Recv(_, AnyMessage::Handshake(msg)) = event else {
             return None;
         };
@@ -99,7 +93,19 @@ impl Behavior for HandshakeBehavior {
         let new_state = state.apply(&msg).unwrap();
         *state = handshake::Client::new(new_state);
 
-        None
+        match state.state() {
+            handshake::State::Propose => {
+                let msg = handshake::Message::Propose(self.supported_versions.clone());
+
+                self.outbound.push_ready(crate::InterfaceCommand::Send(
+                    pid.clone(),
+                    AnyMessage::Handshake(msg),
+                ));
+
+                None
+            }
+            _ => None,
+        }
     }
 
     fn apply_cmd(&mut self, _pid: &PeerId, _state: &mut Self::PeerState, _cmd: Self::Command) {
@@ -108,8 +114,11 @@ impl Behavior for HandshakeBehavior {
 }
 
 pub struct ChainSyncBehavior;
+
 pub struct PeerSharingBehavior;
+
 pub struct BlockFetchBehavior;
+
 pub struct TxSubmissionBehavior;
 
 pub type LastSeen = chrono::DateTime<chrono::Utc>;
@@ -146,23 +155,6 @@ pub struct InitiatorState {
     connection: ConnectionState,
     priority: PeerPriority,
     handshake: handshake::Client<handshake::n2n::VersionData>,
-    handshake_inflight: bool,
-}
-
-impl InitiatorState {
-    fn requires_connection(&self) -> bool {
-        if self.connection == ConnectionState::Disconnected {
-            if self.priority == PeerPriority::Warm || self.priority == PeerPriority::Hot {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    fn requires_handshake(&self) -> bool {
-        !self.handshake.is_done() && !self.handshake_inflight
-    }
 }
 
 pub enum InitiatorCommand {
@@ -220,6 +212,7 @@ pub struct InitiatorBehavior {
     config: DiscoveryConfig,
     stats: DiscoveryStats,
     handshake: HandshakeBehavior,
+    outbound: OutboundQueue<AnyMessage>,
 }
 
 impl Behavior for InitiatorBehavior {
@@ -228,21 +221,14 @@ impl Behavior for InitiatorBehavior {
     type PeerState = InitiatorState;
     type Message = AnyMessage;
 
-    fn schedule_io(
-        &mut self,
-        pid: &PeerId,
-        state: &mut Self::PeerState,
-    ) -> Option<crate::InterfaceCommand<Self::Message>> {
-        if state.requires_connection() {
-            return Some(crate::InterfaceCommand::Connect(pid.clone()));
+    async fn poll_next(&mut self) -> Option<crate::InterfaceCommand<Self::Message>> {
+        let cmd = self.outbound.poll_next().await;
+
+        if let Some(cmd) = cmd {
+            return Some(cmd);
         }
 
-        if state.requires_handshake() {
-            state.handshake_inflight = true;
-            return self.handshake.schedule_io(pid, &mut state.handshake);
-        }
-
-        None
+        self.handshake.poll_next().await
     }
 
     fn apply_io(
@@ -263,15 +249,20 @@ impl Behavior for InitiatorBehavior {
         }
     }
 
-    fn apply_cmd(&mut self, _pid: &PeerId, state: &mut Self::PeerState, cmd: Self::Command) {
+    fn apply_cmd(&mut self, pid: &PeerId, state: &mut Self::PeerState, cmd: Self::Command) {
         match cmd {
             InitiatorCommand::IncludePeer(_) => {
                 if self.stats.peers >= self.config.max_peers {
+                    println!("max peers reached");
                     return;
                 }
 
                 state.priority = PeerPriority::Warm;
                 self.stats.peers += 1;
+
+                println!("requesting connection to {}", pid);
+                self.outbound
+                    .push_ready(crate::InterfaceCommand::Connect(pid.clone()));
             }
             _ => (),
         }
@@ -279,6 +270,7 @@ impl Behavior for InitiatorBehavior {
 }
 
 pub struct ResponderBehavior;
+
 pub struct ResponderState;
 
 pub enum ResponderEvent {}
@@ -297,7 +289,7 @@ mod tests {
         type Message = AnyMessage;
 
         fn reply_to(&self, msg: Self::Message) -> emulation::ReplyAction<Self::Message> {
-            match msg {
+            let reply = match dbg!(msg) {
                 AnyMessage::Handshake(msg) => match msg {
                     pallas_network::miniprotocols::handshake::Message::Propose(version_table) => {
                         let (version, data) = version_table.values.into_iter().next().unwrap();
@@ -320,7 +312,9 @@ mod tests {
                     emulation::ReplyAction::Message(AnyMessage::KeepAlive(msg))
                 }
                 _ => todo!(),
-            }
+            };
+
+            dbg!(reply)
         }
     }
 

@@ -6,6 +6,7 @@ use std::{pin::Pin, time::Duration};
 
 use crate::{Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, PeerId};
 
+#[derive(Debug)]
 pub enum ReplyAction<M> {
     Message(M),
     Disconnect,
@@ -59,6 +60,7 @@ where
 
                 let future = Box::pin(async move {
                     tokio::time::sleep(jitter).await;
+                    println!("emulation: connected to {}", peer_id);
                     InterfaceEvent::Connected(peer_id)
                 });
 
@@ -69,6 +71,7 @@ where
 
                 let future = Box::pin(async move {
                     tokio::time::sleep(jitter).await;
+                    println!("emulation: disconnected to {}", peer_id);
                     InterfaceEvent::Disconnected(peer_id)
                 });
 
@@ -88,6 +91,7 @@ where
                     ReplyAction::Message(msg) => {
                         let future2 = Box::pin(async move {
                             tokio::time::sleep(jitter).await;
+                            println!("emulation: recv from {}", peer_id);
                             InterfaceEvent::Recv(peer_id, msg)
                         });
 
@@ -96,6 +100,7 @@ where
                     ReplyAction::Disconnect => {
                         let future2 = Box::pin(async move {
                             tokio::time::sleep(jitter).await;
+                            println!("emulation: disconnect from {}", peer_id);
                             InterfaceEvent::Disconnected(peer_id)
                         });
 
