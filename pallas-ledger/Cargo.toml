@@ -1,0 +1,15 @@
+[package]
+name = "pallas-ledger"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cddl = "0.9.4"
+
+[build-dependencies]
+cddl = "0.9.4"
+convert_case = "0.6.0"
+prettyplease = "0.2.25"
+proc-macro2 = "1.0.89"
+quote = "1.0.37"
+syn = "2.0.87"
