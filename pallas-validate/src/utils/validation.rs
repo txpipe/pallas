@@ -409,6 +409,9 @@ pub enum PostAlonzoError {
 
     #[error("invalid script integrity hash")]
     ScriptIntegrityHash,
+
+    #[error("transaction data does not satisfy business/CDDL invariant")]
+    BrokenBusinessInvariant,
 }
 
 pub type ValidationResult = Result<(), ValidationError>;

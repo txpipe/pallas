@@ -6,7 +6,7 @@ use minicbor::{
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, str::FromStr};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, BTreeSet},
     fmt,
     hash::Hash as StdHash,
     ops::{Deref, DerefMut},
@@ -712,7 +712,7 @@ where
 ///
 /// Optional 258 tag (until era after Conway, at which point is it required)
 /// with a vec of items which should contain no duplicates
-#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Serialize, Deserialize, Ord)]
 pub struct Set<T>(Vec<T>);
 
 impl<T> Set<T> {
@@ -803,6 +803,35 @@ impl<T> NonEmptySet<T> {
         } else {
             Some(Self(x))
         }
+    }
+}
+
+pub trait BusinessInvariants {
+    /// Checks that the business invariants for this type hold.
+    fn validate_data(&self) -> bool;
+}
+
+impl<T: BusinessInvariants> BusinessInvariants for Option<T> {
+    fn validate_data(&self) -> bool
+    {
+        self.as_ref().is_none_or(|x| x.validate_data())
+    }
+}
+
+impl<T: Ord> BusinessInvariants for &NonEmptySet<T> {
+    /// The inner vec is nonempty and contains no duplicates.
+    fn validate_data(&self) -> bool
+    {
+        let mut seen = BTreeSet::new();
+        !self.0.is_empty() && self.0.iter().all(|item| seen.insert(item))
+    }
+}
+
+impl<T: Ord> BusinessInvariants for NonEmptySet<T> {
+    /// The inner vec is nonempty and contains no duplicates.
+    fn validate_data(&self) -> bool
+    {
+        (&self).validate_data()
     }
 }
 

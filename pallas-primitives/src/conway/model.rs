@@ -15,6 +15,7 @@ pub use crate::{
     PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveCoin,
     PositiveInterval, ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, Set,
     StakeCredential, TransactionIndex, TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+    BusinessInvariants,
 };
 
 use crate::BTreeMap;
@@ -49,7 +50,7 @@ pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(flat)]
 pub enum Certificate {
     #[n(0)]
@@ -152,7 +153,7 @@ pub enum Language {
 #[deprecated(since = "0.31.0", note = "use `CostModels` instead")]
 pub type CostMdls = CostModels;
 
-#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(map)]
 pub struct CostModels {
     #[n(0)]
@@ -195,7 +196,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -271,7 +272,7 @@ pub struct Update {
     pub epoch: Epoch,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct PoolVotingThresholds {
     #[n(0)]
     pub motion_no_confidence: UnitInterval,
@@ -285,7 +286,7 @@ pub struct PoolVotingThresholds {
     pub security_voting_threshold: UnitInterval,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct DRepVotingThresholds {
     #[n(0)]
     pub motion_no_confidence: UnitInterval,
@@ -377,6 +378,17 @@ pub struct TransactionBody<'a> {
 #[deprecated(since = "1.0.0-alpha", note = "use `TransactionBody` instead")]
 pub type MintedTransactionBody<'a> = TransactionBody<'a>;
 
+impl BusinessInvariants for TransactionBody<'_> {
+    fn validate_data(&self) -> bool
+    {
+        self.certificates.validate_data() &&
+            self.collateral.validate_data() &&
+            self.required_signers.validate_data() &&
+            self.reference_inputs.validate_data() &&
+            self.proposal_procedures.validate_data()
+    }
+}
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(index_only)]
 pub enum Vote {
@@ -398,7 +410,7 @@ pub struct VotingProcedure {
     pub anchor: Option<Anchor>,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct ProposalProcedure {
     #[n(0)]
     pub deposit: Coin,
@@ -410,7 +422,7 @@ pub struct ProposalProcedure {
     pub anchor: Anchor,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[cbor(flat)]
 pub enum GovAction {
     #[n(0)]
@@ -441,7 +453,7 @@ pub enum GovAction {
     Information,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
@@ -506,7 +518,7 @@ pub use crate::alonzo::VKeyWitness;
 
 pub use crate::alonzo::NativeScript;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct ExUnitPrices {
     #[n(0)]
     pub mem_price: RationalNumber,
@@ -617,6 +629,19 @@ pub struct WitnessSet<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
+impl BusinessInvariants for WitnessSet<'_> {
+    fn validate_data(&self) -> bool
+    {
+        self.vkeywitness.validate_data() &&
+            self.native_script.validate_data() &&
+            self.bootstrap_witness.validate_data() &&
+            self.plutus_v1_script.validate_data() &&
+            self.plutus_data.validate_data() &&
+            self.plutus_v2_script.validate_data() &&
+            self.plutus_v3_script.validate_data()
+    }
+}
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct PostAlonzoAuxiliaryData {
@@ -718,6 +743,14 @@ pub struct Tx<'b> {
 
     #[n(3)]
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+}
+
+impl BusinessInvariants for Tx<'_> {
+    fn validate_data(&self) -> bool
+    {
+        self.transaction_body.validate_data() &&
+            self.transaction_witness_set.validate_data()
+    }
 }
 
 #[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
