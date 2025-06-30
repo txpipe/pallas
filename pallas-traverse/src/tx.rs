@@ -70,10 +70,6 @@ impl<'b> MultiEraTx<'b> {
     /// Try decode a transaction via every era's encoding format, starting with
     /// the most recent and returning on first success, or None if none are
     /// successful
-    ///
-    /// NOTE: Until Conway is officially released, this method favors Babbage
-    /// decoding over Conway decoding. This means that we'll attempt to
-    /// decode using Babbage first even if Conway is newer.
     pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
         if let Ok(tx) = minicbor::decode(cbor) {
             return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
