@@ -22,6 +22,7 @@ serde_json = { version = "1.0.79", optional = true }
 
 [dev-dependencies]
 proptest = { version = "1.5.0", default-features = false, features = ["alloc"] }
+test-case = "3.3.1"
 
 [features]
 json = ["serde", "serde_json"]
