@@ -84,13 +84,7 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
                 e.encode_with(a, ctx)?;
             }
             Self::Map(a) => {
-                // we use definite array to match the approach used by haskell's plutus
-                // implementation https://github.com/input-output-hk/plutus/blob/9538fc9829426b2ecb0628d352e2d7af96ec8204/plutus-core/plutus-core/src/PlutusCore/Data.hs#L152
-                e.map(a.len().try_into().unwrap())?;
-                for (k, v) in a.iter() {
-                    k.encode(e, ctx)?;
-                    v.encode(e, ctx)?;
-                }
+                e.encode_with(a, ctx)?;
             }
             Self::BigInt(a) => {
                 e.encode_with(a, ctx)?;
@@ -319,5 +313,100 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for BoundedBytes {
             res.extend_from_slice(bs);
         }
         Ok(BoundedBytes::from(res))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{BigInt, BoundedBytes, Constr, KeyValuePairs, MaybeIndefArray};
+    use proptest::{prelude::*, strategy::Just};
+
+    prop_compose! {
+        pub(crate) fn any_bounded_bytes()(
+            bytes in any::<Vec<u8>>(),
+        ) -> BoundedBytes {
+            BoundedBytes::from(bytes)
+        }
+    }
+
+    pub(crate) fn any_bigint() -> impl Strategy<Value = BigInt> {
+        prop_oneof![
+            any::<i64>().prop_map(|i| BigInt::Int(i.into())),
+            any_bounded_bytes().prop_map(BigInt::BigUInt),
+            any_bounded_bytes().prop_map(BigInt::BigNInt),
+        ]
+    }
+
+    fn any_constr(depth: u8) -> impl Strategy<Value = Constr<PlutusData>> {
+        let any_constr_tag = prop_oneof![
+            (Just(102), any::<u64>().prop_map(Some)),
+            (121_u64..=127, Just(None)),
+            (1280_u64..=1400, Just(None))
+        ];
+
+        let any_fields = prop::collection::vec(any_plutus_data(depth - 1), 0..depth as usize);
+
+        (any_constr_tag, any_fields, any::<bool>()).prop_map(
+            |((tag, any_constructor), fields, is_def)| Constr {
+                tag,
+                any_constructor,
+                fields: if is_def {
+                    MaybeIndefArray::Def(fields)
+                } else {
+                    MaybeIndefArray::Indef(fields)
+                },
+            },
+        )
+    }
+
+    fn any_plutus_data(depth: u8) -> BoxedStrategy<PlutusData> {
+        let int = any_bigint().prop_map(PlutusData::BigInt);
+
+        let bytes = any_bounded_bytes().prop_map(PlutusData::BoundedBytes);
+
+        if depth > 0 {
+            let constr = any_constr(depth).prop_map(PlutusData::Constr);
+
+            let array = (
+                any::<bool>(),
+                prop::collection::vec(any_plutus_data(depth - 1), 0..depth as usize),
+            )
+                .prop_map(|(is_def, xs)| {
+                    PlutusData::Array(if is_def {
+                        MaybeIndefArray::Def(xs)
+                    } else {
+                        MaybeIndefArray::Indef(xs)
+                    })
+                });
+
+            let map = (
+                any::<bool>(),
+                prop::collection::vec(
+                    (any_plutus_data(depth - 1), any_plutus_data(depth - 1)),
+                    0..depth as usize,
+                ),
+            )
+                .prop_map(|(is_def, kvs)| {
+                    PlutusData::Map(if is_def {
+                        KeyValuePairs::Def(kvs)
+                    } else {
+                        KeyValuePairs::Indef(kvs)
+                    })
+                });
+
+            prop_oneof![int, bytes, constr, array, map].boxed()
+        } else {
+            prop_oneof![int, bytes].boxed()
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn cbor_roundtrip(original_data in any_plutus_data(3)) {
+            let bytes = minicbor::to_vec(&original_data).unwrap();
+            let data: PlutusData = minicbor::decode(&bytes).unwrap();
+            assert_eq!(data, original_data);
+        }
     }
 }
