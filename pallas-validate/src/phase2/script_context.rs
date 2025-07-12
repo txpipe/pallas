@@ -555,14 +555,14 @@ pub fn get_tx_in_info_v2<'a>(
 
 pub fn get_mint_info(mint: &Option<Mint>) -> MintValue {
     MintValue {
-        mint_value: mint.as_ref().map(sort_mint).unwrap_or_else(BTreeMap::new),
+        mint_value: mint.as_ref().map(sort_mint).unwrap_or_default(),
     }
 }
 
 pub fn get_outputs_info<'a>(outputs: &'a [TransactionOutput]) -> Vec<TransactionOutput<'a>> {
     outputs
         .iter()
-        .map(|output| sort_tx_out_value(output.into()))
+        .map(|output| sort_tx_out_value(output))
         .collect()
 }
 
@@ -959,7 +959,7 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
                         (*quantity).try_into().expect("0 Ada in output value?"),
                     );
                 }
-                ma_btree.insert(policy_id.clone(), inner_btree);
+                ma_btree.insert(*policy_id, inner_btree);
             }
 
             Value::Multiasset(*coin, ma_btree)
@@ -1006,9 +1006,9 @@ fn sort_mint(mint: &Mint) -> Mint {
     for m in mint.iter().sorted() {
         let mut inner_btree = BTreeMap::new();
         for (policy_id, tokens) in m.1.iter().sorted() {
-            inner_btree.insert(policy_id.clone(), tokens.clone());
+            inner_btree.insert(policy_id.clone(), *tokens);
         }
-        mint_btree.insert(m.0.clone(), inner_btree);
+        mint_btree.insert(*m.0, inner_btree);
     }
 
     mint_btree
@@ -1022,9 +1022,9 @@ fn sort_value(value: &Value) -> Value {
             for (policy_id, tokens) in ma.iter().sorted() {
                 let mut inner_btree = BTreeMap::new();
                 for (asset_name, quantity) in tokens.iter().sorted() {
-                    inner_btree.insert(asset_name.clone(), quantity.clone());
+                    inner_btree.insert(asset_name.clone(), *quantity);
                 }
-                ma_btree.insert(policy_id.clone(), inner_btree);
+                ma_btree.insert(*policy_id, inner_btree);
             }
             Value::Multiasset(*coin, ma_btree)
         }

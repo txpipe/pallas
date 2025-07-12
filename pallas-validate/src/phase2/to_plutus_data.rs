@@ -367,9 +367,7 @@ impl ToPlutusData for WithZeroAdaAsset<'_, Value> {
                             let kvp = NonEmptyKeyValuePairs::try_from(
                                 tokens
                                     .iter()
-                                    .map(|(asset_name, amount)| {
-                                        (asset_name.clone(), amount.clone())
-                                    })
+                                    .map(|(asset_name, amount)| (asset_name.clone(), *amount))
                                     .collect::<Vec<_>>(),
                             )
                             .expect("Empty tokens map");
@@ -403,9 +401,7 @@ impl ToPlutusData for Value {
                             let kvp = NonEmptyKeyValuePairs::try_from(
                                 tokens
                                     .iter()
-                                    .map(|(asset_name, amount)| {
-                                        (asset_name.clone(), amount.clone())
-                                    })
+                                    .map(|(asset_name, amount)| (asset_name.clone(), *amount))
                                     .collect::<Vec<_>>(),
                             )
                             .expect("Empty tokens map");
@@ -437,7 +433,7 @@ impl ToPlutusData for WithZeroAdaAsset<'_, MintValue> {
                 let kvp = NonEmptyKeyValuePairs::try_from(
                     tokens
                         .iter()
-                        .map(|(asset_name, amount)| (asset_name.clone(), amount.clone()))
+                        .map(|(asset_name, amount)| (asset_name.clone(), *amount))
                         .collect::<Vec<_>>(),
                 )
                 .expect("Empty tokens map");
@@ -468,7 +464,7 @@ impl ToPlutusData for MintValue {
                 let kvp = NonEmptyKeyValuePairs::try_from(
                     tokens
                         .iter()
-                        .map(|(asset_name, amount)| (asset_name.clone(), amount.clone()))
+                        .map(|(asset_name, amount)| (asset_name.clone(), *amount))
                         .collect::<Vec<_>>(),
                 )
                 .expect("Empty tokens map");

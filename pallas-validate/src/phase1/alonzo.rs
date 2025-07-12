@@ -676,7 +676,7 @@ fn check_minting_policies(
         None => Ok(()),
         Some(minted_value) => {
             let mut minting_policies: Vec<(bool, PolicyId)> =
-                minted_value.iter().map(|(pol, _)| (false, *pol)).collect();
+                minted_value.keys().map(|pol| (false, *pol)).collect();
             for (policy_covered, policy) in &mut minting_policies {
                 for (native_script_covered, native_script) in native_scripts.iter_mut() {
                     let hashed_script: PolicyId = compute_native_script_hash(native_script);

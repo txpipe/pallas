@@ -158,6 +158,7 @@ pub struct VotingProcedure {
     pub anchor: Nullable<Anchor>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
 pub enum ConwayContextError {
@@ -437,6 +438,7 @@ pub struct EpochNo(#[n(0)] pub u64);
 /// in the Haskell sources.
 ///
 /// The `u8` variant appears for backward compatibility.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
 pub enum ConwayLedgerFailure {
@@ -580,7 +582,8 @@ pub enum ConwayGovPredFailure {
     TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<DisplayRewardAccount>),
 }
 
-/// Reject reason. It can be a pair of an era number and a sequence of errors, or else a string.
+/// Reject reason. It can be a pair of an era number and a sequence of errors,
+/// or else a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TxValidationError {
     ByronTxValidationError {

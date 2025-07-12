@@ -292,8 +292,7 @@ impl<'b, C> Decode<'b, C> for ShelleyPoolPredFailure {
                 d.decode_with(ctx)?,
             )),
             _ => Err(decode::Error::message(format!(
-                "unknown error tag while decoding ShelleyPoolPredFailure: {}",
-                tag
+                "unknown error tag while decoding ShelleyPoolPredFailure: {tag}"
             ))),
         }
     }
@@ -375,8 +374,7 @@ impl<'b, C> Decode<'b, C> for ConwayTxCert {
             7..14 => Ok(Deleg(cert)),
             14..19 => Ok(Gov(cert)),
             _ => Err(decode::Error::message(format!(
-                "unknown certificate variant while decoding ConwayTxCert: {}",
-                variant
+                "unknown certificate variant while decoding ConwayTxCert: {variant}"
             ))),
         }
     }
@@ -1086,8 +1084,7 @@ where
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
             3 => Ok(Self::PlutusV3Script(d.decode()?)),
             x => Err(decode::Error::message(format!(
-                "invalid variant for script enum: {}",
-                x
+                "invalid variant for script enum: {x}"
             ))),
         }
     }

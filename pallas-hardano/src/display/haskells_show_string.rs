@@ -66,7 +66,7 @@ pub(crate) fn haskell_show_string(s: &str) -> String {
                 } else if c <= '\x7F' {
                     // Control characters without abbreviation (use octal escape)
                     let code = c as u32 % 256;
-                    let escape_seq = format!("{:o}", code);
+                    let escape_seq = format!("{code:o}");
                     result.push('\\');
                     result.push_str(&escape_seq);
 

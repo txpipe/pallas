@@ -106,7 +106,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     )
     .await
     .unwrap();
-    println!("result: {:02x?}", result);
+    println!("result: {result:02x?}");
 
     let result = queries_v16::get_constitution(client, era).await.unwrap();
     info!("result: {:02x?}", result);
@@ -199,7 +199,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     info!("result: {:?}", result);
 
     let result = queries_v16::get_current_pparams(client, era).await.unwrap();
-    println!("result: {:?}", result);
+    println!("result: {result:?}");
 
     // Stake pool ID/verification key hash (either Bech32-decoded or hex-decoded).
     // Empty Set means all pools.
@@ -207,10 +207,10 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_stake_snapshots(client, era, SMaybe::Some(pools.into()))
         .await
         .unwrap();
-    println!("result: {:?}", result);
+    println!("result: {result:?}");
 
     let result = queries_v16::get_genesis_config(client, era).await.unwrap();
-    println!("result: {:?}", result);
+    println!("result: {result:?}");
 
     // DRep drep1ygpuetneftlmufa97hm5mf3xvqpdkyw656hyg6h20qaewtg3csnkc
     let drep_bytes =
@@ -220,7 +220,7 @@ async fn do_localstate_query(client: &mut NodeClient) {
     let result = queries_v16::get_drep_stake_distr(client, era, dreps.into())
         .await
         .unwrap();
-    println!("result: {:?}", result);
+    println!("result: {result:?}");
 
     let dreps: BTreeSet<_> = [StakeAddr::from((0x00, drep_bytes))].into();
     let result = queries_v16::get_drep_state(client, era, dreps.into())
