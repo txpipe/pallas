@@ -749,30 +749,26 @@ fn check_needed_scripts(
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
-    filtered_native_scripts.retain(|&(_, native_script_hash)| {
-        !reference_scripts.contains(&native_script_hash)
-    });
+    filtered_native_scripts
+        .retain(|&(_, native_script_hash)| !reference_scripts.contains(&native_script_hash));
     let mut filtered_plutus_v1_scripts: Vec<(bool, PolicyId)> = plutus_v1_scripts
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
-    filtered_plutus_v1_scripts.retain(|&(_, plutus_v1_script_hash)| {
-        !reference_scripts.contains(&plutus_v1_script_hash)
-    });
+    filtered_plutus_v1_scripts
+        .retain(|&(_, plutus_v1_script_hash)| !reference_scripts.contains(&plutus_v1_script_hash));
     let mut filtered_plutus_v2_scripts: Vec<(bool, PolicyId)> = plutus_v2_scripts
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
-    filtered_plutus_v2_scripts.retain(|&(_, plutus_v2_script_hash)| {
-        !reference_scripts.contains(&plutus_v2_script_hash)
-    });
+    filtered_plutus_v2_scripts
+        .retain(|&(_, plutus_v2_script_hash)| !reference_scripts.contains(&plutus_v2_script_hash));
     let mut filtered_plutus_v3_scripts: Vec<(bool, PolicyId)> = plutus_v3_scripts
         .iter()
         .map(|&script_hash| (false, script_hash))
         .collect();
-    filtered_plutus_v3_scripts.retain(|&(_, plutus_v3_script_hash)| {
-        !reference_scripts.contains(&plutus_v3_script_hash)
-    });
+    filtered_plutus_v3_scripts
+        .retain(|&(_, plutus_v3_script_hash)| !reference_scripts.contains(&plutus_v3_script_hash));
     check_input_scripts(
         tx_body,
         &mut filtered_native_scripts,
@@ -863,9 +859,7 @@ fn check_input_scripts(
         }
     }
     for (covered, hash) in needed_input_scripts {
-        if !covered
-            && !reference_scripts.contains(&hash)
-        {
+        if !covered && !reference_scripts.contains(&hash) {
             return Err(PostAlonzo(ScriptWitnessMissing));
         }
     }
@@ -1393,8 +1387,7 @@ fn check_languages(
     let available_langs: Vec<Language> =
         available_langs(mtx, utxos, network_magic, network_id, block_slot);
     for tx_lang in tx_languages(mtx, utxos).iter() {
-        if !available_langs.contains(tx_lang)
-        {
+        if !available_langs.contains(tx_lang) {
             return Err(PostAlonzo(UnsupportedPlutusLanguage));
         }
     }

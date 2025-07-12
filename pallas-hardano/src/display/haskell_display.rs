@@ -2512,9 +2512,7 @@ trait AsAuxDataHash {
 
 impl AsAuxDataHash for Bytes {
     fn as_aux_data_hash(&self) -> String {
-        format!(
-            "AuxiliaryDataHash {{unsafeAuxiliaryDataHash = SafeHash \"{self}\"}}"
-        )
+        format!("AuxiliaryDataHash {{unsafeAuxiliaryDataHash = SafeHash \"{self}\"}}")
     }
 }
 
@@ -2624,9 +2622,8 @@ impl HaskellDisplay for CostModels {
                         .collect::<Vec<_>>()
                         .join(",");
 
-                    let str = format!(
-                        "(PlutusV{version},CostModel PlutusV{version} [{model_str}])",
-                    );
+                    let str =
+                        format!("(PlutusV{version},CostModel PlutusV{version} [{model_str}])",);
                     Some(str.as_is())
                 }
                 _ => None,
