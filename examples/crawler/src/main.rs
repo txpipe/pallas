@@ -57,12 +57,12 @@ async fn main() -> Result<()> {
                 let hash = block.hash();
 
                 if height % 10000 == 0 {
-                    println!("Processed block height {}: {}/{}", height, slot, hash);
+                    println!("Processed block height {height}: {slot}/{hash}");
                 }
                 // And check each transaction for the predicate, and save if needed
                 for tx in block.txs() {
                     if tx_matches(&tx).await {
-                        println!("Found matching tx in block {}/{}", slot, hash);
+                        println!("Found matching tx in block {slot}/{hash}");
                         // Make sure we create the out diretory
                         std::fs::create_dir_all(format!("{}/txs", args.out.to_str().unwrap()))
                             .context("couldn't create output directory")?;
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
                 }
                 // Then, we can check the block as a whole
                 if block_matches(&block).await {
-                    println!("Found matching block {}/{}", slot, hash);
+                    println!("Found matching block {slot}/{hash}");
                     // Make sure we create the out diretory
                     std::fs::create_dir_all(format!("{}/blocks", args.out.to_str().unwrap()))
                         .context("couldn't create output directory")?;
