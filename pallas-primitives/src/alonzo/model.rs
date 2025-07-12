@@ -570,23 +570,61 @@ pub enum NativeScript {
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for NativeScript {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
+        let size = d.array()?;
+
+        let assert_size = |expected| {
+            // NOTE: unwrap_or allows for indefinite arrays.
+            if expected != size.unwrap_or(expected) {
+                return Err(minicbor::decode::Error::message(
+                    "unexpected array size in NativeScript",
+                ));
+            }
+            Ok(())
+        };
+
         let variant = d.u32()?;
 
-        match variant {
-            0 => Ok(NativeScript::ScriptPubkey(d.decode_with(ctx)?)),
-            1 => Ok(NativeScript::ScriptAll(d.decode_with(ctx)?)),
-            2 => Ok(NativeScript::ScriptAny(d.decode_with(ctx)?)),
-            3 => Ok(NativeScript::ScriptNOfK(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            4 => Ok(NativeScript::InvalidBefore(d.decode_with(ctx)?)),
-            5 => Ok(NativeScript::InvalidHereafter(d.decode_with(ctx)?)),
+        let script = match variant {
+            0 => {
+                assert_size(2)?;
+                Ok(NativeScript::ScriptPubkey(d.decode_with(ctx)?))
+            }
+            1 => {
+                assert_size(2)?;
+                Ok(NativeScript::ScriptAll(d.decode_with(ctx)?))
+            }
+            2 => {
+                assert_size(2)?;
+                Ok(NativeScript::ScriptAny(d.decode_with(ctx)?))
+            }
+            3 => {
+                assert_size(3)?;
+                Ok(NativeScript::ScriptNOfK(
+                    d.decode_with(ctx)?,
+                    d.decode_with(ctx)?,
+                ))
+            }
+            4 => {
+                assert_size(2)?;
+                Ok(NativeScript::InvalidBefore(d.decode_with(ctx)?))
+            }
+            5 => {
+                assert_size(2)?;
+                Ok(NativeScript::InvalidHereafter(d.decode_with(ctx)?))
+            }
             _ => Err(minicbor::decode::Error::message(
                 "unknown variant id for native script",
             )),
+        }?;
+
+        if size.is_none() {
+            let next = d.datatype()?;
+            if next != minicbor::data::Type::Break {
+                return Err(minicbor::decode::Error::type_mismatch(next));
+            }
         }
+
+        Ok(script)
     }
 }
 
@@ -596,31 +634,35 @@ impl<C> minicbor::encode::Encode<C> for NativeScript {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.array(2)?;
-
         match self {
             NativeScript::ScriptPubkey(v) => {
+                e.array(2)?;
                 e.encode_with(0, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptAll(v) => {
+                e.array(2)?;
                 e.encode_with(1, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptAny(v) => {
+                e.array(2)?;
                 e.encode_with(2, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::ScriptNOfK(a, b) => {
+                e.array(3)?;
                 e.encode_with(3, ctx)?;
                 e.encode_with(a, ctx)?;
                 e.encode_with(b, ctx)?;
             }
             NativeScript::InvalidBefore(v) => {
+                e.array(2)?;
                 e.encode_with(4, ctx)?;
                 e.encode_with(v, ctx)?;
             }
             NativeScript::InvalidHereafter(v) => {
+                e.array(2)?;
                 e.encode_with(5, ctx)?;
                 e.encode_with(v, ctx)?;
             }
@@ -928,9 +970,35 @@ mod tests {
 
     use crate::{alonzo::PlutusData, Fragment};
 
-    use super::{Header, MintedBlock};
+    use super::{Header, MintedBlock, NativeScript};
 
     type BlockWrapper<'b> = (u16, MintedBlock<'b>);
+
+    #[test]
+    fn native_script_encode_n_of_k() {
+        let script = NativeScript::ScriptNOfK(1, vec![]);
+        let bytes = minicbor::to_vec(script).unwrap();
+        assert_eq!(&hex::encode(&bytes), "83030180");
+    }
+
+    #[test]
+    fn native_script_decode_indef() {
+        let mut bytes = vec![0x9f, 0x02, 0x80]; // truncated
+
+        let result: Result<NativeScript, _> = minicbor::decode(&bytes);
+
+        assert!(
+            result.is_err(),
+            "should have failed but yielded: {result:#?}"
+        );
+
+        bytes.push(0xFF);
+
+        assert_eq!(
+            minicbor::decode(&bytes).map_err(|e| e.to_string()),
+            Ok(NativeScript::ScriptAny(vec![]))
+        );
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
