@@ -25,7 +25,7 @@ pallas-hardano = { version = "=1.0.0-alpha.2", path = "../pallas-hardano/", opti
 
 [features]
 hardano = ["pallas-hardano"]
-unstable = ["hardano"]
+unstable = ["hardano", "pallas-traverse/unstable"]
 
 # pallas-validate feature flags
 phase2 = ["pallas-validate/phase2"]
