@@ -18,6 +18,9 @@ pub struct DmqMsg {
 
     /// The operational certificate of the SPO that created the message.
     pub operational_certificate: Vec<u8>,
+
+    /// The KES period at which the KES signature was created.
+    pub kes_period: u32,
 }
 
 /// Reject reason.

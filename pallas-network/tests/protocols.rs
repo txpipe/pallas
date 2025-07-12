@@ -5,6 +5,7 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
     RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
 };
+use pallas_network::miniprotocols::localtxsubmission;
 use pallas_network::{
     facades::{DmqClient, NodeClient, PeerClient, PeerServer},
     miniprotocols::{
@@ -1716,4 +1717,226 @@ pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
 
     // server should acknowledge the one transaction we sent now
     assert_eq!(ack, 1);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+pub async fn local_message_notification_server_and_client_happy_path() {
+    fn fake_msgs() -> Vec<DmqMsg> {
+        vec![
+            DmqMsg {
+                msg_id: vec![0, 1],
+                msg_body: vec![0, 1, 2],
+                block_number: 10,
+                ttl: 100,
+                kes_signature: vec![0, 1, 2, 3],
+                operational_certificate: vec![0, 1, 2, 3, 4],
+                kes_period: 10,
+            },
+            DmqMsg {
+                msg_id: vec![1, 2],
+                msg_body: vec![1, 2, 3],
+                block_number: 11,
+                ttl: 100,
+                kes_signature: vec![1, 2, 3, 4],
+                operational_certificate: vec![1, 2, 3, 4, 5],
+                kes_period: 11,
+            },
+        ]
+    }
+
+    let server = tokio::spawn({
+        async move {
+            // server setup
+            let socket_path = Path::new("node3.socket");
+            if socket_path.exists() {
+                fs::remove_file(socket_path).unwrap();
+            }
+            let listener = UnixListener::bind(socket_path).unwrap();
+            let mut server = pallas_network::facades::DmqServer::accept(&listener, 0)
+                .await
+                .unwrap();
+
+            // init local msg notification server
+            let server_msg = server.msg_notification();
+            assert_eq!(*server_msg.state(), localmsgnotification::State::Idle);
+
+            // server waits for non blocking request from client and replies to it
+            let request = server_msg.recv_next_request().await.unwrap();
+            assert_eq!(request, localmsgnotification::Request::NonBlocking);
+            assert_eq!(
+                *server_msg.state(),
+                localmsgnotification::State::BusyNonBlocking
+            );
+
+            server_msg
+                .send_reply_messages_non_blocking(fake_msgs(), true)
+                .await
+                .unwrap();
+            assert_eq!(*server_msg.state(), localmsgnotification::State::Idle);
+
+            // server waits for blocking request from client and replies to it
+            let request = server_msg.recv_next_request().await.unwrap();
+            assert_eq!(request, localmsgnotification::Request::Blocking);
+            assert_eq!(
+                *server_msg.state(),
+                localmsgnotification::State::BusyBlocking
+            );
+
+            server_msg
+                .send_reply_messages_blocking(fake_msgs())
+                .await
+                .unwrap();
+            assert_eq!(*server_msg.state(), localmsgnotification::State::Idle);
+
+            // server receives done from client
+            server_msg.recv_done().await.unwrap();
+            assert_eq!(*server_msg.state(), localmsgnotification::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+        let socket_path = "node3.socket";
+        let mut client = DmqClient::connect(socket_path, 0).await.unwrap();
+
+        // init local msg notification client
+        let client_msg = client.msg_notification();
+        assert_eq!(*client_msg.state(), localmsgnotification::State::Idle);
+
+        // client sends a non blocking request to server and waits for a reply from the server
+        client_msg
+            .send_request_messages_non_blocking()
+            .await
+            .unwrap();
+        assert_eq!(
+            *client_msg.state(),
+            localmsgnotification::State::BusyNonBlocking
+        );
+
+        let reply = client_msg.recv_next_reply().await.unwrap();
+        assert_eq!(*client_msg.state(), localmsgnotification::State::Idle);
+        assert_eq!(reply, localmsgnotification::Reply(fake_msgs(), true));
+
+        // client sends a blocking request to server and waits for a reply from the server
+        client_msg.send_request_messages_blocking().await.unwrap();
+        assert_eq!(
+            *client_msg.state(),
+            localmsgnotification::State::BusyBlocking
+        );
+
+        let reply = client_msg.recv_next_reply().await.unwrap();
+        assert_eq!(*client_msg.state(), localmsgnotification::State::Idle);
+        assert_eq!(reply, localmsgnotification::Reply(fake_msgs(), false));
+
+        // client sends done to server
+        client_msg.send_done().await.unwrap();
+        assert_eq!(*client_msg.state(), localmsgnotification::State::Done);
+    });
+
+    tokio::try_join!(client, server).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+pub async fn local_message_submission_server_and_client_happy_path() {
+    use pallas_network::miniprotocols::localmsgsubmission::DmqMsgValidationError;
+
+    fn fake_msg() -> DmqMsg {
+        DmqMsg {
+            msg_id: vec![0, 1],
+            msg_body: vec![0, 1, 2],
+            block_number: 10,
+            ttl: 100,
+            kes_signature: vec![0, 1, 2, 3],
+            operational_certificate: vec![0, 1, 2, 3, 4],
+            kes_period: 10,
+        }
+    }
+
+    let server = tokio::spawn({
+        async move {
+            // server setup
+            let socket_path = Path::new("node4.socket");
+            if socket_path.exists() {
+                fs::remove_file(socket_path).unwrap();
+            }
+            let listener = UnixListener::bind(socket_path).unwrap();
+            let mut server = pallas_network::facades::DmqServer::accept(&listener, 0)
+                .await
+                .unwrap();
+
+            // init local msg submission server
+            let server_msg = server.msg_submission();
+            assert_eq!(*server_msg.state(), localtxsubmission::State::Idle);
+
+            // server waits for request from client and replies to it
+            let request = server_msg.recv_next_request().await.unwrap();
+            assert_eq!(request, localtxsubmission::Request::Submit(fake_msg()));
+            assert_eq!(*server_msg.state(), localtxsubmission::State::Busy);
+
+            server_msg
+                .send_submit_tx_response(localtxsubmission::Response::Accepted)
+                .await
+                .unwrap();
+            assert_eq!(*server_msg.state(), localtxsubmission::State::Idle);
+
+            // server waits for request from client and replies to it
+            let request = server_msg.recv_next_request().await.unwrap();
+            assert_eq!(request, localtxsubmission::Request::Submit(fake_msg()));
+            assert_eq!(*server_msg.state(), localtxsubmission::State::Busy);
+
+            server_msg
+                .send_submit_tx_response(localtxsubmission::Response::Rejected(
+                    DmqMsgValidationError("fake error".to_string()),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(*server_msg.state(), localtxsubmission::State::Idle);
+
+            // server receives done from client
+            let request = server_msg.recv_next_request().await.unwrap();
+            assert_eq!(request, localtxsubmission::Request::Done);
+            assert_eq!(*server_msg.state(), localtxsubmission::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+        let socket_path = "node4.socket";
+        let mut client = DmqClient::connect(socket_path, 0).await.unwrap();
+
+        // init local msg submission client
+        let client_msg = client.msg_submission();
+        assert_eq!(*client_msg.state(), localtxsubmission::State::Idle);
+
+        // client sends a request to server and waits for a reply from the server
+        client_msg.send_submit_tx(fake_msg()).await.unwrap();
+        assert_eq!(*client_msg.state(), localtxsubmission::State::Busy);
+
+        let response = client_msg.recv_submit_tx_response().await.unwrap();
+        assert_eq!(*client_msg.state(), localtxsubmission::State::Idle);
+        assert_eq!(response, localtxsubmission::Response::Accepted);
+
+        // client sends a request to server and waits for a reply from the server
+        client_msg.send_submit_tx(fake_msg()).await.unwrap();
+        assert_eq!(*client_msg.state(), localtxsubmission::State::Busy);
+
+        let response = client_msg.recv_submit_tx_response().await.unwrap();
+        assert_eq!(*client_msg.state(), localtxsubmission::State::Idle);
+        assert_eq!(
+            response,
+            localtxsubmission::Response::Rejected(DmqMsgValidationError("fake error".to_string()))
+        );
+
+        // client sends done to server
+        client_msg.terminate_gracefully().await.unwrap();
+        assert_eq!(*client_msg.state(), localtxsubmission::State::Done);
+    });
+
+    tokio::try_join!(client, server).unwrap();
 }
