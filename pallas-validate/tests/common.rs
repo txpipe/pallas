@@ -16,6 +16,79 @@ use std::{borrow::Cow, iter::zip, vec::Vec};
 use pallas_codec::utils::{Bytes, CborWrap};
 use pallas_crypto::hash::Hash;
 
+// Type aliases to reduce complexity
+type BabbageTxOutInfo<'a> = (
+    String, // address in string format
+    Value,
+    Option<pallas_primitives::babbage::DatumOption<'a>>,
+    Option<CborWrap<pallas_primitives::babbage::ScriptRef<'a>>>,
+);
+
+type ConwayTxOutInfo<'a> = (
+    String, // address in string format
+    pallas_primitives::conway::Value,
+    Option<pallas_primitives::conway::DatumOption<'a>>,
+    Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
+);
+
+type ConwayTxOutInfoMut<'a> = (
+    String, // address in string format
+    pallas_primitives::conway::Value,
+    Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption<'a>>>,
+    Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
+    Vec<u8>, // Placeholder for CBOR data.
+);
+
+type AlonzoCollateralInfo = (
+    String, // address in string format
+    Value,
+    Option<Hash<32>>,
+);
+
+type BabbageCollateralInfo<'a> = (
+    String, // address in string format
+    Value,
+    Option<pallas_primitives::babbage::DatumOption<'a>>,
+    Option<CborWrap<pallas_primitives::babbage::ScriptRef<'a>>>,
+);
+
+type ConwayCollateralInfo<'a> = (
+    String, // address in string format
+    pallas_primitives::conway::Value,
+    Option<pallas_primitives::conway::DatumOption<'a>>,
+    Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
+);
+
+type ConwayCollateralInfoMut<'a> = (
+    String, // address in string format
+    pallas_primitives::conway::Value,
+    Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption<'a>>>,
+    Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
+    Vec<u8>, // Placeholder for CBOR data.
+);
+
+type BabbageRefInputInfo<'a> = (
+    String, // address in string format
+    Value,
+    Option<pallas_primitives::babbage::DatumOption<'a>>,
+    Option<CborWrap<pallas_primitives::babbage::ScriptRef<'a>>>,
+);
+
+type ConwayRefInputInfo<'a> = (
+    String, // address in string format
+    pallas_primitives::conway::Value,
+    Option<pallas_primitives::conway::DatumOption<'a>>,
+    Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
+);
+
+type ConwayRefInputInfoMut<'a> = (
+    String, // address in string format
+    pallas_primitives::conway::Value,
+    Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption<'a>>>,
+    Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
+    Vec<u8>, // Placeholder for CBOR data.
+);
+
 pub fn cbor_to_bytes(input: &str) -> Vec<u8> {
     hex::decode(input).unwrap()
 }
@@ -87,12 +160,7 @@ pub fn mk_utxo_for_alonzo_compatible_tx<'a>(
 
 pub fn mk_utxo_for_babbage_tx<'a>(
     tx_body: &pallas_primitives::babbage::TransactionBody,
-    tx_outs_info: &'a [(
-        String, // address in string format
-        Value,
-        Option<pallas_primitives::babbage::DatumOption>,
-        Option<CborWrap<pallas_primitives::babbage::ScriptRef>>,
-    )],
+    tx_outs_info: &'a [BabbageTxOutInfo<'a>],
 ) -> UTxOs<'a> {
     let mut utxos: UTxOs = UTxOs::new();
     for (tx_in, (addr, val, datum_opt, script_ref)) in zip(tx_body.inputs.clone(), tx_outs_info) {
@@ -120,12 +188,7 @@ pub fn mk_utxo_for_babbage_tx<'a>(
 
 pub fn mk_utxo_for_conway_tx<'a>(
     tx_body: &pallas_primitives::conway::TransactionBody,
-    tx_outs_info: &'a [(
-        String, // address in string format
-        pallas_primitives::conway::Value,
-        Option<pallas_primitives::conway::DatumOption>,
-        Option<CborWrap<pallas_primitives::conway::ScriptRef>>,
-    )],
+    tx_outs_info: &'a [ConwayTxOutInfo<'a>],
 ) -> UTxOs<'a> {
     let mut utxos: UTxOs = UTxOs::new();
 
@@ -156,13 +219,7 @@ pub fn mk_utxo_for_conway_tx<'a>(
 
 pub fn mk_codec_safe_utxo_for_conway_tx<'a>(
     tx_body: &pallas_primitives::conway::TransactionBody,
-    tx_outs_info: &'a mut Vec<(
-        String, // address in string format
-        pallas_primitives::conway::Value,
-        Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption>>,
-        Option<CborWrap<pallas_primitives::conway::ScriptRef>>,
-        Vec<u8>, // Placeholder for CBOR data.
-    )>,
+    tx_outs_info: &'a mut Vec<ConwayTxOutInfoMut<'a>>,
 ) -> UTxOs<'a> {
     let mut utxos: UTxOs = UTxOs::new();
 
@@ -196,7 +253,7 @@ pub fn mk_codec_safe_utxo_for_conway_tx<'a>(
     utxos
 }
 
-pub fn mk_utxo_for_eval<'a>(utxos: UTxOs) -> UtxoMap {
+pub fn mk_utxo_for_eval(utxos: UTxOs) -> UtxoMap {
     let mut eval_utxos: UtxoMap = UtxoMap::new();
 
     for (tx_in, tx_out) in utxos {
@@ -205,14 +262,10 @@ pub fn mk_utxo_for_eval<'a>(utxos: UTxOs) -> UtxoMap {
     eval_utxos
 }
 
-pub fn add_collateral_alonzo<'a>(
+pub fn add_collateral_alonzo(
     tx_body: &TransactionBody,
     utxos: &mut UTxOs<'_>,
-    collateral_info: &[(
-        String, // address in string format
-        Value,
-        Option<Hash<32>>,
-    )],
+    collateral_info: &[AlonzoCollateralInfo],
 ) {
     match &tx_body.collateral {
         Some(collaterals) => {
@@ -240,12 +293,7 @@ pub fn add_collateral_alonzo<'a>(
 pub fn add_collateral_babbage<'a>(
     tx_body: &pallas_primitives::babbage::TransactionBody,
     utxos: &mut UTxOs<'a>,
-    collateral_info: &'a [(
-        String, // address in string format
-        Value,
-        Option<pallas_primitives::babbage::DatumOption>,
-        Option<CborWrap<pallas_primitives::babbage::ScriptRef>>,
-    )],
+    collateral_info: &'a [BabbageCollateralInfo<'a>],
 ) {
     match &tx_body.collateral {
         Some(collaterals) => {
@@ -284,12 +332,7 @@ pub fn add_collateral_babbage<'a>(
 pub fn add_collateral_conway<'a>(
     tx_body: &pallas_primitives::conway::TransactionBody,
     utxos: &mut UTxOs<'a>,
-    collateral_info: &'a [(
-        String, // address in string format
-        pallas_primitives::conway::Value,
-        Option<pallas_primitives::conway::DatumOption>,
-        Option<CborWrap<pallas_primitives::conway::ScriptRef>>,
-    )],
+    collateral_info: &'a [ConwayCollateralInfo<'a>],
 ) {
     match &tx_body.collateral {
         Some(collaterals) => {
@@ -328,13 +371,7 @@ pub fn add_collateral_conway<'a>(
 pub fn add_codec_safe_collateral_conway<'a>(
     tx_body: &pallas_primitives::conway::TransactionBody,
     utxos: &mut UTxOs<'a>,
-    collateral_info: &'a mut Vec<(
-        String, // address in string format
-        pallas_primitives::conway::Value,
-        Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption>>,
-        Option<CborWrap<pallas_primitives::conway::ScriptRef>>,
-        Vec<u8>, // Placeholder for CBOR data.
-    )>,
+    collateral_info: &'a mut Vec<ConwayCollateralInfoMut<'a>>,
 ) {
     match &tx_body.collateral {
         Some(collaterals) => {
@@ -379,12 +416,7 @@ pub fn add_codec_safe_collateral_conway<'a>(
 pub fn add_ref_input_babbage<'a>(
     tx_body: &pallas_primitives::babbage::TransactionBody,
     utxos: &mut UTxOs<'a>,
-    ref_input_info: &'a [(
-        String, // address in string format
-        Value,
-        Option<pallas_primitives::babbage::DatumOption>,
-        Option<CborWrap<pallas_primitives::babbage::ScriptRef>>,
-    )],
+    ref_input_info: &'a [BabbageRefInputInfo<'a>],
 ) {
     match &tx_body.reference_inputs {
         Some(ref_inputs) => {
@@ -423,12 +455,7 @@ pub fn add_ref_input_babbage<'a>(
 pub fn add_ref_input_conway<'a>(
     tx_body: &pallas_primitives::conway::TransactionBody,
     utxos: &mut UTxOs<'a>,
-    ref_input_info: &'a [(
-        String, // address in string format
-        pallas_primitives::conway::Value,
-        Option<pallas_primitives::conway::DatumOption>,
-        Option<CborWrap<pallas_primitives::conway::ScriptRef>>,
-    )],
+    ref_input_info: &'a [ConwayRefInputInfo<'a>],
 ) {
     match &tx_body.reference_inputs {
         Some(ref_inputs) => {
@@ -467,13 +494,7 @@ pub fn add_ref_input_conway<'a>(
 pub fn add_codec_safe_ref_input_conway<'a>(
     tx_body: &pallas_primitives::conway::TransactionBody,
     utxos: &mut UTxOs<'a>,
-    ref_input_info: &'a mut Vec<(
-        String, // address in string format
-        pallas_primitives::conway::Value,
-        Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption>>,
-        Option<CborWrap<pallas_primitives::conway::ScriptRef>>,
-        Vec<u8>, // Placeholder for CBOR data.
-    )>,
+    ref_input_info: &'a mut Vec<ConwayRefInputInfoMut<'a>>,
 ) {
     match &tx_body.reference_inputs {
         Some(ref_inputs) => {

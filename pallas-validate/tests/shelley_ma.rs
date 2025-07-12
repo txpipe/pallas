@@ -110,7 +110,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -134,7 +134,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -151,7 +151,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -169,7 +169,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -193,7 +193,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -217,7 +217,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -248,7 +248,7 @@ mod shelley_ma_tests {
 
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         };
 
         if !cert_state
@@ -281,7 +281,7 @@ mod shelley_ma_tests {
             .insert(mary2_pool_operator(), mary2_pool_param());
         match validate_txs(&[metx], &mary3_env(), &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -401,7 +401,7 @@ mod shelley_ma_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -424,7 +424,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -436,7 +436,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TxInsEmpty) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -455,7 +455,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::InputNotInUTxO) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -478,7 +478,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -490,7 +490,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("TTL must always be present in Shelley transactions"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::AlonzoCompNotShelley) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -518,7 +518,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("TTL cannot be exceeded"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::TTLExceeded) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -545,7 +545,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Tx size exceeds max limit"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MaxTxSizeExceeded) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -572,7 +572,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Output amount must be above min lovelace value"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MinLovelaceUnreached) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -588,7 +588,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -608,7 +608,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Preservation of value property doesn't hold"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PreservationOfValue) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -634,7 +634,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::FeesBelowMin) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -653,7 +653,7 @@ mod shelley_ma_tests {
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
                 Ok(_) => panic!("Decoded output address and found the wrong era"),
-                Err(e) => panic!("Unable to parse output address ({:?})", e),
+                Err(e) => panic!("Unable to parse output address ({e:?})"),
             };
         let altered_address: ShelleyAddress = ShelleyAddress::new(
             Network::Testnet,
@@ -671,7 +671,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -691,7 +691,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongNetworkID) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -720,7 +720,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Output with wrong network ID should be rejected"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MetadataHash) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -738,7 +738,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -758,7 +758,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingVKWitness) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -781,7 +781,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -801,7 +801,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::WrongSignature) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -819,7 +819,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -839,7 +839,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Missing native script witness"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MissingScriptWitness) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -859,7 +859,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_wits, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_witness_set =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -879,7 +879,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("The script is not satisfied"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::ScriptDenial) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -901,7 +901,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Pool is not registered"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::PoolNotRegistered) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -923,7 +923,7 @@ mod shelley_ma_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx_body, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtx.transaction_body =
             Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
@@ -943,7 +943,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("Staking key is not registered"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::KeyNotRegistered) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -970,7 +970,7 @@ mod shelley_ma_tests {
             Ok(()) => panic!("MIR after the stability window"),
             Err(err) => match err {
                 ShelleyMA(ShelleyMAError::MIRCertificateTooLateinEpoch) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }

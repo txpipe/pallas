@@ -79,7 +79,7 @@ mod byron_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -101,7 +101,7 @@ mod byron_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -123,7 +123,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -133,7 +133,7 @@ mod byron_tests {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 Byron(ByronError::TxInsEmpty) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -149,7 +149,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -166,7 +166,7 @@ mod byron_tests {
             Ok(()) => panic!("Outputs set should not be empty"),
             Err(err) => match err {
                 Byron(ByronError::TxOutsEmpty) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -184,7 +184,7 @@ mod byron_tests {
             Ok(()) => panic!("All inputs must be within the UTxO set"),
             Err(err) => match err {
                 Byron(ByronError::InputNotInUTxO) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -206,7 +206,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(tx, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtxp.transaction = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -223,7 +223,7 @@ mod byron_tests {
             Ok(()) => panic!("All outputs must contain lovelace"),
             Err(err) => match err {
                 Byron(ByronError::OutputWithoutLovelace) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -248,7 +248,7 @@ mod byron_tests {
             Ok(()) => panic!("Fees should not be below minimum"),
             Err(err) => match err {
                 Byron(ByronError::FeesBelowMin) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -272,7 +272,7 @@ mod byron_tests {
             Ok(()) => panic!("Transaction size cannot exceed protocol limit"),
             Err(err) => match err {
                 Byron(ByronError::MaxTxSizeExceeded) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -287,7 +287,7 @@ mod byron_tests {
         let mut tx_buf: Vec<u8> = Vec::new();
         match encode(new_witnesses, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -304,7 +304,7 @@ mod byron_tests {
             Ok(()) => panic!("All inputs must have a witness signature"),
             Err(err) => match err {
                 Byron(ByronError::MissingWitness) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -328,7 +328,7 @@ mod byron_tests {
 
         match encode(new_witnesses, &mut tx_buf) {
             Ok(_) => (),
-            Err(err) => panic!("Unable to encode Tx ({:?})", err),
+            Err(err) => panic!("Unable to encode Tx ({err:?})"),
         };
         mtxp.witness = Decode::decode(&mut Decoder::new(tx_buf.as_slice()), &mut ()).unwrap();
         let metx: MultiEraTx = MultiEraTx::from_byron(&mtxp);
@@ -345,7 +345,7 @@ mod byron_tests {
             Ok(()) => panic!("Witness signature should verify the transaction"),
             Err(err) => match err {
                 Byron(ByronError::WrongSignature) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
