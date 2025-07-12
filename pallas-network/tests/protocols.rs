@@ -1859,6 +1859,7 @@ pub async fn local_message_notification_server_and_client_happy_path() {
                 ttl: 100,
                 kes_signature: vec![0, 1, 2, 3],
                 operational_certificate: vec![0, 1, 2, 3, 4],
+                kes_period: 10,
             },
             DmqMsg {
                 msg_id: vec![1, 2],
@@ -1867,6 +1868,7 @@ pub async fn local_message_notification_server_and_client_happy_path() {
                 ttl: 100,
                 kes_signature: vec![1, 2, 3, 4],
                 operational_certificate: vec![1, 2, 3, 4, 5],
+                kes_period: 11,
             },
         ]
     }
@@ -1978,6 +1980,7 @@ pub async fn local_message_submission_server_and_client_happy_path() {
             ttl: 100,
             kes_signature: vec![0, 1, 2, 3],
             operational_certificate: vec![0, 1, 2, 3, 4],
+            kes_period: 10,
         }
     }
 
