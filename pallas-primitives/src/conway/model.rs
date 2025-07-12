@@ -1229,7 +1229,9 @@ pub struct ExUnitPrices {
     pub step_price: RationalNumber,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy,
+)]
 #[cbor(index_only)]
 pub enum RedeemerTag {
     #[n(0)]
@@ -1261,7 +1263,7 @@ pub struct Redeemer {
     pub ex_units: ExUnits,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct RedeemersKey {
     #[n(0)]
     pub tag: RedeemerTag,
