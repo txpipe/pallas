@@ -23,7 +23,7 @@ use pallas_primitives::{
 
 use pallas_traverse::{time::Slot, Era, MultiEraInput, MultiEraOutput, MultiEraUpdate};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Deref;
 pub use validation::*;
 
@@ -385,76 +385,83 @@ pub fn conway_add_minted_non_zero(
     }
 }
 
+// Generic coercion functions using functional approach to reduce duplication
 fn coerce_to_i64(value: &Multiasset<Coin>) -> Multiasset<i64> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, i64)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), *amount as i64));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    res.into_iter().collect()
+    value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, i64> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), *amount as i64))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect()
 }
 
 fn coerce_to_u64(value: &ConwayMultiasset<PositiveCoin>) -> ConwayMultiasset<u64> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, u64)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), (*amount).into()));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    res.into_iter().collect()
+    value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, u64> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), (*amount).into()))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect()
 }
 
+// Simplified coercion functions - keeping some duplication for type safety
 fn coerce_to_coin(
     value: &Multiasset<i64>,
     _err: &ValidationError,
 ) -> Result<Multiasset<Coin>, ValidationError> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, Coin)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), *amount as u64));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    Ok(res.into_iter().collect())
+    let result: Vec<(PolicyId, BTreeMap<AssetName, Coin>)> = value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, Coin> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), *amount as u64))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect();
+    Ok(result.into_iter().collect())
 }
 
 fn conway_coerce_to_coin(
     value: &ConwayMultiasset<u64>,
     _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    Ok(res.into_iter().collect())
+    let result: Vec<(PolicyId, BTreeMap<AssetName, PositiveCoin>)> = value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, PositiveCoin> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect();
+    Ok(result.into_iter().collect())
 }
 
 fn conway_coerce_to_non_zero_coin(
     value: &ConwayMultiasset<NonZeroInt>,
     _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((
-                asset_name.clone(),
-                PositiveCoin::try_from(i64::from(amount) as u64).unwrap(),
-            ));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    Ok(res.into_iter().collect())
+    let result: Vec<(PolicyId, BTreeMap<AssetName, PositiveCoin>)> = value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, PositiveCoin> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), PositiveCoin::try_from(i64::from(amount) as u64).unwrap()))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect();
+    Ok(result.into_iter().collect())
 }
 
 fn add_multiasset_values(first: &Multiasset<i64>, second: &Multiasset<i64>) -> Multiasset<i64> {
@@ -538,31 +545,19 @@ fn conway_add_multiasset_non_zero_values(
     conway_wrap_multiasset(res)
 }
 
+// Generic functions using value_ops - replacing era-specific versions
 fn add_same_policy_assets(
     old_assets: &HashMap<AssetName, i64>,
     new_assets: &std::collections::BTreeMap<AssetName, i64>,
 ) -> HashMap<AssetName, i64> {
-    let mut res: HashMap<AssetName, i64> = old_assets.clone();
-    for (asset_name, new_amount) in new_assets.iter() {
-        match res.get(asset_name) {
-            Some(old_amount) => res.insert(asset_name.clone(), old_amount + *new_amount),
-            None => res.insert(asset_name.clone(), *new_amount),
-        };
-    }
-    res
+    value_ops::add_same_policy_assets_generic(old_assets, new_assets)
 }
+
 fn conway_add_same_policy_assets(
     old_assets: &HashMap<AssetName, u64>,
     new_assets: &std::collections::BTreeMap<AssetName, u64>,
 ) -> HashMap<AssetName, u64> {
-    let mut res: HashMap<AssetName, u64> = old_assets.clone();
-    for (asset_name, new_amount) in new_assets.iter() {
-        match res.get(asset_name) {
-            Some(old_amount) => res.insert(asset_name.clone(), old_amount + *new_amount),
-            None => res.insert(asset_name.clone(), *new_amount),
-        };
-    }
-    res
+    value_ops::add_same_policy_assets_generic(old_assets, new_assets)
 }
 
 fn conway_add_same_non_zero_policy_assets(
@@ -583,19 +578,13 @@ fn conway_add_same_non_zero_policy_assets(
 }
 
 fn wrap_multiasset(input: HashMap<PolicyId, HashMap<AssetName, i64>>) -> Multiasset<i64> {
-    input
-        .into_iter()
-        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
-        .collect()
+    value_ops::wrap_multiasset_generic(input)
 }
 
 fn conway_wrap_multiasset(
     input: HashMap<PolicyId, HashMap<AssetName, u64>>,
 ) -> ConwayMultiasset<u64> {
-    input
-        .into_iter()
-        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
-        .collect()
+    value_ops::wrap_multiasset_generic(input)
 }
 
 pub fn values_are_equal(first: &Value, second: &Value) -> bool {

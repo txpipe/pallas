@@ -5,7 +5,7 @@ use pallas_primitives::{
     conway::{Multiasset as ConwayMultiasset, Value as ConwayValue},
     AssetName, Coin, PolicyId, PositiveCoin,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::utils::ValidationError;
 
@@ -144,6 +144,93 @@ pub fn find_assets_generic<T: Copy>(
     asset_name: &AssetName,
 ) -> Option<T> {
     assets.get(asset_name).copied()
+}
+
+/// Generic function to add same policy assets
+pub fn add_same_policy_assets_generic<T>(
+    old_assets: &HashMap<AssetName, T>,
+    new_assets: &BTreeMap<AssetName, T>,
+) -> HashMap<AssetName, T>
+where
+    T: Copy + std::ops::Add<Output = T>,
+{
+    let mut res: HashMap<AssetName, T> = old_assets.clone();
+    for (asset_name, new_amount) in new_assets.iter() {
+        match res.get(asset_name) {
+            Some(old_amount) => res.insert(asset_name.clone(), *old_amount + *new_amount),
+            None => res.insert(asset_name.clone(), *new_amount),
+        };
+    }
+    res
+}
+
+/// Generic function to wrap multiasset from HashMap to BTreeMap structure
+pub fn wrap_multiasset_generic<T>(
+    input: HashMap<PolicyId, HashMap<AssetName, T>>
+) -> BTreeMap<PolicyId, BTreeMap<AssetName, T>>
+where
+    T: Clone
+{
+    input
+        .into_iter()
+        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
+        .collect()
+}
+
+/// Generic function to add two multiassets together
+pub fn add_multiasset_values_generic<T, M>(
+    first: &M,
+    second: &M,
+) -> BTreeMap<PolicyId, BTreeMap<AssetName, T>>
+where
+    T: Copy + std::ops::Add<Output = T> + Default,
+    M: MultiassetOps<CoinType = T>,
+{
+    let mut res: HashMap<PolicyId, HashMap<AssetName, T>> = HashMap::new();
+    
+    // Add assets from first multiasset
+    for (policy, assets) in first.iter() {
+        let assets_map: HashMap<AssetName, T> = assets.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        res.insert(*policy, assets_map);
+    }
+    
+    // Add assets from second multiasset
+    for (policy, new_assets) in second.iter() {
+        match res.get(policy) {
+            Some(old_assets) => {
+                let combined = add_same_policy_assets_generic(old_assets, new_assets);
+                res.insert(*policy, combined);
+            },
+            None => {
+                let assets_map: HashMap<AssetName, T> = new_assets.iter().map(|(k, v)| (k.clone(), *v)).collect();
+                res.insert(*policy, assets_map);
+            },
+        }
+    }
+    
+    wrap_multiasset_generic(res)
+}
+
+/// Generic function to coerce multiasset types
+pub fn coerce_multiasset_generic<TFrom, TTo, MFrom, MTo>(
+    value: &MFrom,
+    converter: impl Fn(&TFrom) -> TTo,
+) -> MTo
+where
+    MFrom: MultiassetOps<CoinType = TFrom>,
+    MTo: FromIterator<(PolicyId, BTreeMap<AssetName, TTo>)>,
+    TFrom: Copy,
+{
+    value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, TTo> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), converter(amount)))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect()
 }
 
 /// Generic function to check if two values are equal
