@@ -20,6 +20,10 @@ pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
 serde = { version = "1.0.136", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.79", optional = true }
 
+[dev-dependencies]
+proptest = { version = "1.5.0", features = ["std", "alloc"] }
+test-case = "3.3.1"
+
 [features]
 json = ["serde", "serde_json"]
 default = ["json"]
