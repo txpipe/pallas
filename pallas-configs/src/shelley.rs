@@ -186,17 +186,21 @@ pub struct GenesisFile {
     pub epoch_length: Option<u32>,
     pub gen_delegs: Option<HashMap<String, GenDelegs>>,
     pub initial_funds: Option<HashMap<String, u64>>,
-    pub max_kes_evolutions: Option<u32>,
     pub max_lovelace_supply: Option<u64>,
     pub network_id: Option<String>,
     pub network_magic: Option<u32>,
     pub protocol_params: ProtocolParams,
     pub security_param: Option<u32>,
     pub slot_length: Option<u32>,
-    pub slots_per_kes_period: Option<u32>,
     pub staking: Option<Staking>,
     pub system_start: Option<String>,
     pub update_quorum: Option<u32>,
+
+    #[serde(rename = "maxKESEvolutions")]
+    pub max_kes_evolutions: Option<u32>,
+
+    #[serde(rename = "slotsPerKESPeriod")]
+    pub slots_per_kes_period: Option<u32>,
 }
 
 pub fn from_file(path: &std::path::Path) -> Result<GenesisFile, std::io::Error> {
