@@ -2,11 +2,13 @@
 
 pub mod environment;
 pub mod validation;
+pub mod value_ops;
 
 pub use environment::*;
+pub use value_ops::{MultiassetOps};
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
-    minicbor::encode,
+    minicbor::{encode, Encode},
     utils::{Bytes, Nullable},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
@@ -94,34 +96,63 @@ pub type UtxoSet = HashSet<TxoRef>;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-pub fn get_alonzo_comp_tx_size(mtx: &AlonzoTx) -> u32 {
-    match &mtx.auxiliary_data {
-        Nullable::Some(aux_data) => {
-            (aux_data.raw_cbor().len()
-                + mtx.transaction_body.raw_cbor().len()
-                + mtx.transaction_witness_set.raw_cbor().len()) as u32
-        }
-        _ => {
-            (mtx.transaction_body.raw_cbor().len() + mtx.transaction_witness_set.raw_cbor().len())
-                as u32
+/// Trait for calculating transaction size
+pub trait TxSizeCalculator {
+    fn calculate_tx_size(&self) -> Option<u32>;
+}
+
+impl<'a> TxSizeCalculator for AlonzoTx<'a> {
+    fn calculate_tx_size(&self) -> Option<u32> {
+        Some(match &self.auxiliary_data {
+            Nullable::Some(aux_data) => {
+                (aux_data.raw_cbor().len()
+                    + self.transaction_body.raw_cbor().len()
+                    + self.transaction_witness_set.raw_cbor().len()) as u32
+            }
+            _ => {
+                (self.transaction_body.raw_cbor().len() + self.transaction_witness_set.raw_cbor().len())
+                    as u32
+            }
+        })
+    }
+}
+
+impl<'a> TxSizeCalculator for BabbageTx<'a> {
+    fn calculate_tx_size(&self) -> Option<u32> {
+        let mut buff: Vec<u8> = Vec::new();
+        match encode(self, &mut buff) {
+            Ok(()) => Some(buff.len() as u32),
+            Err(_) => None,
         }
     }
+}
+
+impl<'a> TxSizeCalculator for ConwayTx<'a> {
+    fn calculate_tx_size(&self) -> Option<u32> {
+        let mut buff: Vec<u8> = Vec::new();
+        match encode(self, &mut buff) {
+            Ok(()) => Some(buff.len() as u32),
+            Err(_) => None,
+        }
+    }
+}
+
+/// Generic function to calculate transaction size
+pub fn get_tx_size<T: TxSizeCalculator>(tx: &T) -> Option<u32> {
+    tx.calculate_tx_size()
+}
+
+// Backward compatibility functions
+pub fn get_alonzo_comp_tx_size(mtx: &AlonzoTx) -> u32 {
+    get_tx_size(mtx).unwrap() // Alonzo always returns Some
 }
 
 pub fn get_babbage_tx_size(mtx: &BabbageTx) -> Option<u32> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(mtx, &mut buff) {
-        Ok(()) => Some(buff.len() as u32),
-        Err(_) => None,
-    }
+    get_tx_size(mtx)
 }
 
 pub fn get_conway_tx_size(mtx: &ConwayTx) -> Option<u32> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(mtx, &mut buff) {
-        Ok(()) => Some(buff.len() as u32),
-        Err(_) => None,
-    }
+    get_tx_size(mtx)
 }
 
 pub fn empty_value() -> Value {
@@ -581,6 +612,7 @@ pub fn values_are_equal(first: &Value, second: &Value) -> bool {
         }
     }
 }
+
 pub fn conway_values_are_equal(first: &ConwayValue, second: &ConwayValue) -> bool {
     match (first, second) {
         (ConwayValue::Coin(f), ConwayValue::Coin(s)) => f == s,
@@ -596,65 +628,47 @@ pub fn conway_values_are_equal(first: &ConwayValue, second: &ConwayValue) -> boo
     }
 }
 
+// Generic functions using value_ops traits - these replace the era-specific versions
 fn find_policy(
     mary_value: &Multiasset<Coin>,
     search_policy: &PolicyId,
 ) -> Option<std::collections::BTreeMap<AssetName, Coin>> {
-    for (policy, assets) in mary_value.iter() {
-        if policy == search_policy {
-            return Some(assets.clone());
-        }
-    }
-    None
+    mary_value.find_policy(search_policy)
 }
 
 fn conway_find_policy(
     mary_value: &ConwayMultiasset<PositiveCoin>,
     search_policy: &PolicyId,
 ) -> Option<std::collections::BTreeMap<AssetName, PositiveCoin>> {
-    for (policy, assets) in mary_value.iter() {
-        if policy == search_policy {
-            return Some(assets.clone());
-        }
-    }
-    None
+    mary_value.find_policy(search_policy)
 }
 
 fn find_assets(
     assets: &std::collections::BTreeMap<AssetName, Coin>,
     asset_name: &AssetName,
 ) -> Option<Coin> {
-    for (an, amount) in assets.iter() {
-        if an == asset_name {
-            return Some(*amount);
-        }
-    }
-    None
+    value_ops::find_assets_generic(assets, asset_name)
 }
+
 fn conway_find_assets(
     assets: &std::collections::BTreeMap<AssetName, PositiveCoin>,
     asset_name: &AssetName,
 ) -> Option<PositiveCoin> {
-    for (an, amount) in assets.iter() {
-        if an == asset_name {
-            return Some(*amount);
-        }
-    }
-    None
+    value_ops::find_assets_generic(assets, asset_name)
 }
 
+/// Generic function to get lovelace from any value using the ValueOps trait
+pub fn get_lovelace_from_value<V: value_ops::ValueOps>(val: &V) -> Coin {
+    val.get_lovelace()
+}
+
+// Backward compatibility functions
 pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
-    match val {
-        Value::Coin(res) => *res,
-        Value::Multiasset(res, _) => *res,
-    }
+    get_lovelace_from_value(val)
 }
 
 pub fn get_lovelace_from_conway_val(val: &ConwayValue) -> Coin {
-    match val {
-        ConwayValue::Coin(res) => *res,
-        ConwayValue::Multiasset(res, _) => *res,
-    }
+    get_lovelace_from_value(val)
 }
 
 #[deprecated(since = "0.31.0", note = "use `u8::from(...)` instead")]
@@ -700,28 +714,64 @@ pub fn is_byron_address(address: &[u8]) -> bool {
     matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
 }
 
+/// Trait for accessing auxiliary data from transactions
+pub trait AuxDataAccess {
+    fn get_aux_data(&self) -> Option<&[u8]>;
+}
+
+impl<'a> AuxDataAccess for AlonzoTx<'a> {
+    fn get_aux_data(&self) -> Option<&[u8]> {
+        self.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    }
+}
+
+impl<'a> AuxDataAccess for BabbageTx<'a> {
+    fn get_aux_data(&self) -> Option<&[u8]> {
+        self.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    }
+}
+
+impl<'a> AuxDataAccess for ConwayTx<'a> {
+    fn get_aux_data(&self) -> Option<&[u8]> {
+        self.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    }
+}
+
+/// Generic function to get auxiliary data from any transaction
+pub fn get_aux_data_from_tx<T: AuxDataAccess>(tx: &T) -> Option<&[u8]> {
+    tx.get_aux_data()
+}
+
+// Backward compatibility functions - can be removed later
 pub fn aux_data_from_alonzo_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    get_aux_data_from_tx(mtx)
 }
 
 pub fn aux_data_from_babbage_tx<'a>(mtx: &'a BabbageTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    get_aux_data_from_tx(mtx)
 }
 
 pub fn aux_data_from_conway_tx<'a>(mtx: &'a ConwayTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    get_aux_data_from_tx(mtx)
 }
 
-pub fn get_val_size_in_words(val: &Value) -> u64 {
+/// Generic function to calculate value size in words
+pub fn get_val_size_in_words_generic<T>(val: &T) -> u64 
+where 
+    T: for<'a> Encode<()>,
+{
     let mut tx_buf: Vec<u8> = Vec::new();
     let _ = encode(val, &mut tx_buf);
     (tx_buf.len() as u64).div_ceil(8) // ceiling of the result of dividing
+}
+
+// Backward compatibility functions
+pub fn get_val_size_in_words(val: &Value) -> u64 {
+    get_val_size_in_words_generic(val)
 }
 
 pub fn conway_get_val_size_in_words(val: &ConwayValue) -> u64 {
-    let mut tx_buf: Vec<u8> = Vec::new();
-    let _ = encode(val, &mut tx_buf);
-    (tx_buf.len() as u64).div_ceil(8) // ceiling of the result of dividing
+    get_val_size_in_words_generic(val)
 }
 
 pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
