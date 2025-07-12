@@ -69,7 +69,7 @@ mod conway_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -159,7 +159,7 @@ mod conway_tests {
 
         match validate_txs(&[metx.clone()], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         };
 
         #[cfg(feature = "phase2")]
@@ -170,7 +170,7 @@ mod conway_tests {
             &pallas_validate::phase2::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -252,7 +252,7 @@ mod conway_tests {
 
         match validate_txs(&[metx.clone()], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         };
 
         #[cfg(feature = "phase2")]
@@ -263,7 +263,7 @@ mod conway_tests {
             &pallas_validate::phase2::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -308,7 +308,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxInsEmpty) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -338,7 +338,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::InputNotInUTxO) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -388,7 +388,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockPrecedesValInt) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -438,7 +438,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockExceedsValInt) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -481,7 +481,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Fee should not be below minimum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::FeeBelowMin) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -528,7 +528,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Preservation of value does not hold"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::PreservationOfValue) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -571,7 +571,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Output minimum lovelace is unreached"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MinLovelaceUnreached) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -614,7 +614,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Max value size exceeded"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxValSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -664,7 +664,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxWrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -731,7 +731,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "No collateral inputs"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -796,7 +796,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TooManyCollaterals) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -878,7 +878,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralNotVKeyLocked) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -953,7 +953,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::NonLovelaceCollateral) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1019,7 +1019,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMinLovelace) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1087,7 +1087,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Collateral annotation"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralAnnotation) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1134,7 +1134,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxTxSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }

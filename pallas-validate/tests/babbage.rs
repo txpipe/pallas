@@ -63,7 +63,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -140,7 +140,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -226,7 +226,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -307,7 +307,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -391,7 +391,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -496,7 +496,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -570,7 +570,7 @@ mod babbage_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({err:?})"),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -615,7 +615,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxInsEmpty) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -645,7 +645,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::InputNotInUTxO) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -695,7 +695,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockPrecedesValInt) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -745,7 +745,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockExceedsValInt) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -788,7 +788,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Fee should not be below minimum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::FeeBelowMin) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -874,7 +874,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "No collateral inputs"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMissing) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -957,7 +957,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TooManyCollaterals) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1058,7 +1058,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralNotVKeyLocked) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1172,7 +1172,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::NonLovelaceCollateral) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1258,7 +1258,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMinLovelace) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1344,7 +1344,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Collateral annotation"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralAnnotation) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1391,7 +1391,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Preservation of value does not hold"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::PreservationOfValue) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1434,7 +1434,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Output minimum lovelace is unreached"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MinLovelaceUnreached) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1477,7 +1477,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Max value size exceeded"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxValSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1569,7 +1569,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::OutputWrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1619,7 +1619,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxWrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1703,7 +1703,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Transaction ex units should be below maximum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxExUnitsExceeded) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1750,7 +1750,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxTxSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1867,7 +1867,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MintingLacksPolicy) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1945,7 +1945,7 @@ mod babbage_tests {
             Ok(()) => assert!(false, "Transaction auxiliary data removed"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MetadataHash) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2035,7 +2035,7 @@ mod babbage_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::ScriptWitnessMissing) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2118,13 +2118,10 @@ mod babbage_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(
-                false,
-                "Datum matching the script input datum hash is missing"
-            ),
+            Ok(()) => panic!("Datum matching the script input datum hash is missing"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::DatumMissing) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2213,10 +2210,10 @@ mod babbage_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Unneeded datum"),
+            Ok(()) => panic!("Unneeded datum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::UnneededDatum) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2306,10 +2303,10 @@ mod babbage_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Unneeded datum"),
+            Ok(()) => panic!("Unneeded datum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::UnneededRedeemer) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2396,10 +2393,10 @@ mod babbage_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Wrong script integrity hash"),
+            Ok(()) => panic!("Wrong script integrity hash"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::ScriptIntegrityHash) => (),
-                _ => assert!(false, "Unexpected error ({err:?})"),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
