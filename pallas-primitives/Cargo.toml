@@ -8,10 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-primitives"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-    "Lucas Rosa <x@rvcas.dev>",
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>", "Lucas Rosa <x@rvcas.dev>"]
 
 [dependencies]
 hex = "0.4.3"
