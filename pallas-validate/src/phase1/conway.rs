@@ -48,9 +48,9 @@ pub fn validate_conway_tx(
     check_minting(tx_body, mtx)?;
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
-    check_languages(mtx, utxos, &prot_pps)?;
+    check_languages(mtx, utxos, prot_pps)?;
     check_auxiliary_data(tx_body, mtx)?;
-    check_script_data_hash(tx_body, mtx, utxos, &prot_pps)
+    check_script_data_hash(tx_body, mtx, utxos, prot_pps)
 }
 
 // The set of transaction inputs is not empty.
