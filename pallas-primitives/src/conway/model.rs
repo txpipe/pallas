@@ -136,7 +136,9 @@ pub type CommitteeColdCredential = StakeCredential;
 
 pub type CommitteeHotCredential = StakeCredential;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord, Hash,
+)]
 #[cbor(index_only)]
 pub enum Language {
     #[n(0)]
