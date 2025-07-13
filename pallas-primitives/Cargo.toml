@@ -8,10 +8,7 @@ homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-byron"
 license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-    "Lucas Rosa <x@rvcas.dev>",
-]
+authors = ["Santiago Carmuega <santiago@carmuega.me>", "Lucas Rosa <x@rvcas.dev>"]
 
 [dependencies]
 hex = "0.4.3"
@@ -30,6 +27,3 @@ test-case = "3.3.1"
 [features]
 json = ["serde", "serde_json"]
 default = ["json"]
-
-[dev-dependencies]
-test-case = "3.3.1"
