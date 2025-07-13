@@ -1,7 +1,7 @@
 [package]
 name = "pallas-hardano"
 description = "Pallas interoperability with the Haskel Cardano node implementation"
-version = "0.32.1"
+version = "0.33.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -15,8 +15,8 @@ thiserror = "1.0.49"
 binary-layout = "3.2.0"
 tap = "1.0.1"
 tracing = "0.1.40"
-pallas-traverse = { version = "=0.32.1", path = "../pallas-traverse" }
-pallas-network = { version = "=0.32.1", path = "../pallas-network" }
+pallas-traverse = { version = "=0.33.0", path = "../pallas-traverse" }
+pallas-network = { version = "=0.33.0", path = "../pallas-network" }
 
 [dev-dependencies]
 tracing-subscriber = "0.3.17"
