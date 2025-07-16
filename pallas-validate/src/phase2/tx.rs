@@ -21,13 +21,16 @@ use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 use rug::{ops::NegAssign, Complete, Integer};
 use tracing::{debug, instrument};
 use uplc_turbo::{
-    binder::DeBruijn, bumpalo::Bump, data::PlutusData as PragmaPlutusData, term::Term,
+    binder::DeBruijn, bumpalo::Bump, constant::Constant, data::PlutusData as PragmaPlutusData,
+    term::Term,
 };
 
+#[derive(Debug)]
 pub struct TxEvalResult {
     pub tag: RedeemerTag,
     pub index: u32,
     pub units: ExUnits,
+    pub success: bool,
 }
 
 pub fn map_pallas_data_to_pragma_data<'a>(
@@ -152,7 +155,11 @@ fn execute_script(
         .as_ref()
         .map(|d| plutus_data_to_pragma_term(&arena, d));
 
-    let program = uplc_turbo::flat::decode(&arena, &script_bytes[2..])?;
+    let flat: pallas_codec::minicbor::bytes::ByteVec =
+        pallas_codec::minicbor::decode(&script_bytes)
+            .map_err(pallas_codec::minicbor::decode::Error::from)?;
+
+    let program = uplc_turbo::flat::decode(&arena, &flat)?;
 
     let program = match script_context {
         ScriptContext::V1V2 { .. } => if let Some(datum_term) = datum_term {
@@ -168,9 +175,26 @@ fn execute_script(
 
     let result = program.eval(&arena);
 
+    let success = match script_context {
+        // a non-error result is enough success criteria for v1v2
+        ScriptContext::V1V2 { .. } => result.term.is_ok(),
+        // v3 requires the result to be ok and the term to be a unit
+        ScriptContext::V3 { .. } => match result.term {
+            Ok(term) => match term {
+                Term::Constant(constant) => match constant {
+                    Constant::Unit => true,
+                    _ => false,
+                },
+                _ => false,
+            },
+            Err(_) => false,
+        },
+    };
+
     Ok(TxEvalResult {
         tag: redeemer.tag,
         index: redeemer.index,
+        success,
         units: ExUnits {
             // @TODO hack until we have cost models
             steps: (result.info.consumed_budget.cpu * 11 / 10) as u64,
