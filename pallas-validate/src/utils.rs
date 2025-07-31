@@ -2,11 +2,13 @@
 
 pub mod environment;
 pub mod validation;
+pub mod value_ops;
 
 pub use environment::*;
+pub use value_ops::{MultiassetOps};
 use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
-    minicbor::encode,
+    minicbor::{encode, Encode},
     utils::{Bytes, Nullable},
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
@@ -21,7 +23,7 @@ use pallas_primitives::{
 
 use pallas_traverse::{time::Slot, Era, MultiEraInput, MultiEraOutput, MultiEraUpdate};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Deref;
 pub use validation::*;
 
@@ -94,34 +96,63 @@ pub type UtxoSet = HashSet<TxoRef>;
 
 pub type UTxOs<'b> = HashMap<MultiEraInput<'b>, MultiEraOutput<'b>>;
 
-pub fn get_alonzo_comp_tx_size(mtx: &AlonzoTx) -> u32 {
-    match &mtx.auxiliary_data {
-        Nullable::Some(aux_data) => {
-            (aux_data.raw_cbor().len()
-                + mtx.transaction_body.raw_cbor().len()
-                + mtx.transaction_witness_set.raw_cbor().len()) as u32
-        }
-        _ => {
-            (mtx.transaction_body.raw_cbor().len() + mtx.transaction_witness_set.raw_cbor().len())
-                as u32
+/// Trait for calculating transaction size
+pub trait TxSizeCalculator {
+    fn calculate_tx_size(&self) -> Option<u32>;
+}
+
+impl<'a> TxSizeCalculator for AlonzoTx<'a> {
+    fn calculate_tx_size(&self) -> Option<u32> {
+        Some(match &self.auxiliary_data {
+            Nullable::Some(aux_data) => {
+                (aux_data.raw_cbor().len()
+                    + self.transaction_body.raw_cbor().len()
+                    + self.transaction_witness_set.raw_cbor().len()) as u32
+            }
+            _ => {
+                (self.transaction_body.raw_cbor().len() + self.transaction_witness_set.raw_cbor().len())
+                    as u32
+            }
+        })
+    }
+}
+
+impl<'a> TxSizeCalculator for BabbageTx<'a> {
+    fn calculate_tx_size(&self) -> Option<u32> {
+        let mut buff: Vec<u8> = Vec::new();
+        match encode(self, &mut buff) {
+            Ok(()) => Some(buff.len() as u32),
+            Err(_) => None,
         }
     }
+}
+
+impl<'a> TxSizeCalculator for ConwayTx<'a> {
+    fn calculate_tx_size(&self) -> Option<u32> {
+        let mut buff: Vec<u8> = Vec::new();
+        match encode(self, &mut buff) {
+            Ok(()) => Some(buff.len() as u32),
+            Err(_) => None,
+        }
+    }
+}
+
+/// Generic function to calculate transaction size
+pub fn get_tx_size<T: TxSizeCalculator>(tx: &T) -> Option<u32> {
+    tx.calculate_tx_size()
+}
+
+// Backward compatibility functions
+pub fn get_alonzo_comp_tx_size(mtx: &AlonzoTx) -> u32 {
+    get_tx_size(mtx).unwrap() // Alonzo always returns Some
 }
 
 pub fn get_babbage_tx_size(mtx: &BabbageTx) -> Option<u32> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(mtx, &mut buff) {
-        Ok(()) => Some(buff.len() as u32),
-        Err(_) => None,
-    }
+    get_tx_size(mtx)
 }
 
 pub fn get_conway_tx_size(mtx: &ConwayTx) -> Option<u32> {
-    let mut buff: Vec<u8> = Vec::new();
-    match encode(mtx, &mut buff) {
-        Ok(()) => Some(buff.len() as u32),
-        Err(_) => None,
-    }
+    get_tx_size(mtx)
 }
 
 pub fn empty_value() -> Value {
@@ -354,76 +385,83 @@ pub fn conway_add_minted_non_zero(
     }
 }
 
+// Generic coercion functions using functional approach to reduce duplication
 fn coerce_to_i64(value: &Multiasset<Coin>) -> Multiasset<i64> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, i64)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), *amount as i64));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    res.into_iter().collect()
+    value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, i64> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), *amount as i64))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect()
 }
 
 fn coerce_to_u64(value: &ConwayMultiasset<PositiveCoin>) -> ConwayMultiasset<u64> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, u64)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), (*amount).into()));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    res.into_iter().collect()
+    value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, u64> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), (*amount).into()))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect()
 }
 
+// Simplified coercion functions - keeping some duplication for type safety
 fn coerce_to_coin(
     value: &Multiasset<i64>,
     _err: &ValidationError,
 ) -> Result<Multiasset<Coin>, ValidationError> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, Coin)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), *amount as u64));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    Ok(res.into_iter().collect())
+    let result: Vec<(PolicyId, BTreeMap<AssetName, Coin>)> = value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, Coin> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), *amount as u64))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect();
+    Ok(result.into_iter().collect())
 }
 
 fn conway_coerce_to_coin(
     value: &ConwayMultiasset<u64>,
     _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    Ok(res.into_iter().collect())
+    let result: Vec<(PolicyId, BTreeMap<AssetName, PositiveCoin>)> = value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, PositiveCoin> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), PositiveCoin::try_from(*amount).unwrap()))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect();
+    Ok(result.into_iter().collect())
 }
 
 fn conway_coerce_to_non_zero_coin(
     value: &ConwayMultiasset<NonZeroInt>,
     _err: &ValidationError,
 ) -> Result<ConwayMultiasset<PositiveCoin>, ValidationError> {
-    let mut res: Vec<(PolicyId, _)> = Vec::new();
-    for (policy, assets) in value.iter() {
-        let mut aa: Vec<(AssetName, PositiveCoin)> = Vec::new();
-        for (asset_name, amount) in assets.iter() {
-            aa.push((
-                asset_name.clone(),
-                PositiveCoin::try_from(i64::from(amount) as u64).unwrap(),
-            ));
-        }
-        res.push((*policy, aa.into_iter().collect()));
-    }
-    Ok(res.into_iter().collect())
+    let result: Vec<(PolicyId, BTreeMap<AssetName, PositiveCoin>)> = value
+        .iter()
+        .map(|(policy, assets)| {
+            let converted_assets: BTreeMap<AssetName, PositiveCoin> = assets
+                .iter()
+                .map(|(asset_name, amount)| (asset_name.clone(), PositiveCoin::try_from(i64::from(amount) as u64).unwrap()))
+                .collect();
+            (*policy, converted_assets)
+        })
+        .collect();
+    Ok(result.into_iter().collect())
 }
 
 fn add_multiasset_values(first: &Multiasset<i64>, second: &Multiasset<i64>) -> Multiasset<i64> {
@@ -507,31 +545,19 @@ fn conway_add_multiasset_non_zero_values(
     conway_wrap_multiasset(res)
 }
 
+// Generic functions using value_ops - replacing era-specific versions
 fn add_same_policy_assets(
     old_assets: &HashMap<AssetName, i64>,
     new_assets: &std::collections::BTreeMap<AssetName, i64>,
 ) -> HashMap<AssetName, i64> {
-    let mut res: HashMap<AssetName, i64> = old_assets.clone();
-    for (asset_name, new_amount) in new_assets.iter() {
-        match res.get(asset_name) {
-            Some(old_amount) => res.insert(asset_name.clone(), old_amount + *new_amount),
-            None => res.insert(asset_name.clone(), *new_amount),
-        };
-    }
-    res
+    value_ops::add_same_policy_assets_generic(old_assets, new_assets)
 }
+
 fn conway_add_same_policy_assets(
     old_assets: &HashMap<AssetName, u64>,
     new_assets: &std::collections::BTreeMap<AssetName, u64>,
 ) -> HashMap<AssetName, u64> {
-    let mut res: HashMap<AssetName, u64> = old_assets.clone();
-    for (asset_name, new_amount) in new_assets.iter() {
-        match res.get(asset_name) {
-            Some(old_amount) => res.insert(asset_name.clone(), old_amount + *new_amount),
-            None => res.insert(asset_name.clone(), *new_amount),
-        };
-    }
-    res
+    value_ops::add_same_policy_assets_generic(old_assets, new_assets)
 }
 
 fn conway_add_same_non_zero_policy_assets(
@@ -552,19 +578,13 @@ fn conway_add_same_non_zero_policy_assets(
 }
 
 fn wrap_multiasset(input: HashMap<PolicyId, HashMap<AssetName, i64>>) -> Multiasset<i64> {
-    input
-        .into_iter()
-        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
-        .collect()
+    value_ops::wrap_multiasset_generic(input)
 }
 
 fn conway_wrap_multiasset(
     input: HashMap<PolicyId, HashMap<AssetName, u64>>,
 ) -> ConwayMultiasset<u64> {
-    input
-        .into_iter()
-        .map(|(policy, assets)| (policy, assets.into_iter().collect()))
-        .collect()
+    value_ops::wrap_multiasset_generic(input)
 }
 
 pub fn values_are_equal(first: &Value, second: &Value) -> bool {
@@ -581,6 +601,7 @@ pub fn values_are_equal(first: &Value, second: &Value) -> bool {
         }
     }
 }
+
 pub fn conway_values_are_equal(first: &ConwayValue, second: &ConwayValue) -> bool {
     match (first, second) {
         (ConwayValue::Coin(f), ConwayValue::Coin(s)) => f == s,
@@ -596,65 +617,47 @@ pub fn conway_values_are_equal(first: &ConwayValue, second: &ConwayValue) -> boo
     }
 }
 
+// Generic functions using value_ops traits - these replace the era-specific versions
 fn find_policy(
     mary_value: &Multiasset<Coin>,
     search_policy: &PolicyId,
 ) -> Option<std::collections::BTreeMap<AssetName, Coin>> {
-    for (policy, assets) in mary_value.iter() {
-        if policy == search_policy {
-            return Some(assets.clone());
-        }
-    }
-    None
+    mary_value.find_policy(search_policy)
 }
 
 fn conway_find_policy(
     mary_value: &ConwayMultiasset<PositiveCoin>,
     search_policy: &PolicyId,
 ) -> Option<std::collections::BTreeMap<AssetName, PositiveCoin>> {
-    for (policy, assets) in mary_value.iter() {
-        if policy == search_policy {
-            return Some(assets.clone());
-        }
-    }
-    None
+    mary_value.find_policy(search_policy)
 }
 
 fn find_assets(
     assets: &std::collections::BTreeMap<AssetName, Coin>,
     asset_name: &AssetName,
 ) -> Option<Coin> {
-    for (an, amount) in assets.iter() {
-        if an == asset_name {
-            return Some(*amount);
-        }
-    }
-    None
+    value_ops::find_assets_generic(assets, asset_name)
 }
+
 fn conway_find_assets(
     assets: &std::collections::BTreeMap<AssetName, PositiveCoin>,
     asset_name: &AssetName,
 ) -> Option<PositiveCoin> {
-    for (an, amount) in assets.iter() {
-        if an == asset_name {
-            return Some(*amount);
-        }
-    }
-    None
+    value_ops::find_assets_generic(assets, asset_name)
 }
 
+/// Generic function to get lovelace from any value using the ValueOps trait
+pub fn get_lovelace_from_value<V: value_ops::ValueOps>(val: &V) -> Coin {
+    val.get_lovelace()
+}
+
+// Backward compatibility functions
 pub fn get_lovelace_from_alonzo_val(val: &Value) -> Coin {
-    match val {
-        Value::Coin(res) => *res,
-        Value::Multiasset(res, _) => *res,
-    }
+    get_lovelace_from_value(val)
 }
 
 pub fn get_lovelace_from_conway_val(val: &ConwayValue) -> Coin {
-    match val {
-        ConwayValue::Coin(res) => *res,
-        ConwayValue::Multiasset(res, _) => *res,
-    }
+    get_lovelace_from_value(val)
 }
 
 #[deprecated(since = "0.31.0", note = "use `u8::from(...)` instead")]
@@ -700,28 +703,64 @@ pub fn is_byron_address(address: &[u8]) -> bool {
     matches!(Address::from_bytes(address), Ok(Address::Byron(_)))
 }
 
+/// Trait for accessing auxiliary data from transactions
+pub trait AuxDataAccess {
+    fn get_aux_data(&self) -> Option<&[u8]>;
+}
+
+impl<'a> AuxDataAccess for AlonzoTx<'a> {
+    fn get_aux_data(&self) -> Option<&[u8]> {
+        self.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    }
+}
+
+impl<'a> AuxDataAccess for BabbageTx<'a> {
+    fn get_aux_data(&self) -> Option<&[u8]> {
+        self.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    }
+}
+
+impl<'a> AuxDataAccess for ConwayTx<'a> {
+    fn get_aux_data(&self) -> Option<&[u8]> {
+        self.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    }
+}
+
+/// Generic function to get auxiliary data from any transaction
+pub fn get_aux_data_from_tx<T: AuxDataAccess>(tx: &T) -> Option<&[u8]> {
+    tx.get_aux_data()
+}
+
+// Backward compatibility functions - can be removed later
 pub fn aux_data_from_alonzo_tx<'a>(mtx: &'a AlonzoTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    get_aux_data_from_tx(mtx)
 }
 
 pub fn aux_data_from_babbage_tx<'a>(mtx: &'a BabbageTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    get_aux_data_from_tx(mtx)
 }
 
 pub fn aux_data_from_conway_tx<'a>(mtx: &'a ConwayTx) -> Option<&'a [u8]> {
-    mtx.auxiliary_data.as_ref().map(|x| x.raw_cbor()).into()
+    get_aux_data_from_tx(mtx)
 }
 
-pub fn get_val_size_in_words(val: &Value) -> u64 {
+/// Generic function to calculate value size in words
+pub fn get_val_size_in_words_generic<T>(val: &T) -> u64 
+where 
+    T: for<'a> Encode<()>,
+{
     let mut tx_buf: Vec<u8> = Vec::new();
     let _ = encode(val, &mut tx_buf);
     (tx_buf.len() as u64).div_ceil(8) // ceiling of the result of dividing
+}
+
+// Backward compatibility functions
+pub fn get_val_size_in_words(val: &Value) -> u64 {
+    get_val_size_in_words_generic(val)
 }
 
 pub fn conway_get_val_size_in_words(val: &ConwayValue) -> u64 {
-    let mut tx_buf: Vec<u8> = Vec::new();
-    let _ = encode(val, &mut tx_buf);
-    (tx_buf.len() as u64).div_ceil(8) // ceiling of the result of dividing
+    get_val_size_in_words_generic(val)
 }
 
 pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {
