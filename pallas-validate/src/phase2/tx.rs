@@ -31,6 +31,7 @@ pub struct TxEvalResult {
     pub index: u32,
     pub units: ExUnits,
     pub success: bool,
+    pub logs: Vec<String>,
 }
 
 pub fn map_pallas_data_to_pragma_data<'a>(
@@ -200,6 +201,7 @@ fn execute_script(
             steps: (result.info.consumed_budget.cpu * 11 / 10) as u64,
             mem: (result.info.consumed_budget.mem * 11 / 10) as u64,
         },
+        logs: result.info.logs,
     })
 }
 
