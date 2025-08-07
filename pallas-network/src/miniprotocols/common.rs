@@ -1,6 +1,3 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
-use std::fmt::Debug;
-
 /// Well-known magic for testnet
 #[deprecated(note = "Use `pallas_primitives::types::network_constant::TESTNET_MAGIC` instead")]
 pub const TESTNET_MAGIC: u64 = pallas_primitives::types::network_constant::TESTNET_MAGIC;
