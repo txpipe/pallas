@@ -1,20 +1,34 @@
 use serde::{Deserialize, Serialize};
 
 /// Well-known params for testnet
-pub const TESTNET_MAGIC: u64 = 1097911063;
-pub const TESTNET_NETWORK_ID: u64 = 0;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::TESTNET_MAGIC` instead")]
+pub const TESTNET_MAGIC: u64 = pallas_primitives::types::network_constant::TESTNET_MAGIC;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::TESTNET_NETWORK_ID` instead")]
+pub const TESTNET_NETWORK_ID: u64 = pallas_primitives::types::network_constant::TESTNET_NETWORK_ID;
 
 /// Well-known params for mainnet
-pub const MAINNET_MAGIC: u64 = 764824073;
-pub const MAINNET_NETWORK_ID: u64 = 1;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::MAINNET_MAGIC` instead")]
+pub const MAINNET_MAGIC: u64 = pallas_primitives::types::network_constant::MAINNET_MAGIC;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::MAINNET_NETWORK_ID` instead")]
+pub const MAINNET_NETWORK_ID: u64 = pallas_primitives::types::network_constant::MAINNET_NETWORK_ID;
 
 /// Well-known params for preview
-pub const PREVIEW_MAGIC: u64 = 2;
-pub const PREVIEW_NETWORK_ID: u64 = 0;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::PREVIEW_MAGIC` instead")]
+pub const PREVIEW_MAGIC: u64 = pallas_primitives::types::network_constant::PREVIEW_MAGIC;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::PREVIEW_NETWORK_ID` instead")]
+pub const PREVIEW_NETWORK_ID: u64 = pallas_primitives::types::network_constant::PREVIEW_NETWORK_ID;
 
 /// Well-known params for pre-production
-pub const PRE_PRODUCTION_MAGIC: u64 = 1;
-pub const PRE_PRODUCTION_NETWORK_ID: u64 = 0;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PRE_PRODUCTION_MAGIC` instead"
+)]
+pub const PRE_PRODUCTION_MAGIC: u64 =
+    pallas_primitives::types::network_constant::PRE_PRODUCTION_MAGIC;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PRE_PRODUCTION_NETWORK_ID` instead"
+)]
+pub const PRE_PRODUCTION_NETWORK_ID: u64 =
+    pallas_primitives::types::network_constant::PRE_PRODUCTION_NETWORK_ID;
 
 /// Well-known information about specific networks
 #[derive(Serialize, Deserialize, Debug, Clone)]

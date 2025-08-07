@@ -20,6 +20,7 @@ pallas-network = { version = "=1.0.0-alpha.2", path = "../pallas-network" }
 pallas-addresses = { version = "=1.0.0-alpha.2", path = "../pallas-addresses" }
 pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto" }
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
+pallas-primitives = { version = "=1.0.0-alpha.2", path = "../pallas-primitives" }
 
 serde = { version = "1.0.218", features = ["derive"] }
 hex = "0.4.3"

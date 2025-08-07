@@ -487,7 +487,11 @@ impl Plexer {
 }
 
 /// Protocol value that defines max segment length
-pub const MAX_SEGMENT_PAYLOAD_LENGTH: usize = 65535;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::MAX_SEGMENT_PAYLOAD_LENGTH` instead"
+)]
+pub const MAX_SEGMENT_PAYLOAD_LENGTH: usize =
+    pallas_primitives::types::network_constant::MAX_SEGMENT_PAYLOAD_LENGTH;
 
 fn try_decode_message<M>(buffer: &mut Vec<u8>) -> Result<Option<M>, Error>
 where

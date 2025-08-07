@@ -16,6 +16,7 @@ hex = "0.4.3"
 itertools = "0.13.0"
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
 pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto" }
+pallas-primitives = { version = "=1.0.0-alpha.2", path = "../pallas-primitives" }
 rand = "0.8.5"
 socket2 = "0.5.5"
 thiserror = "1.0.31"

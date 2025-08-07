@@ -1,24 +1,32 @@
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 use std::fmt::Debug;
 
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
-
 /// Well-known magic for testnet
-pub const TESTNET_MAGIC: u64 = 1097911063;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::TESTNET_MAGIC` instead")]
+pub const TESTNET_MAGIC: u64 = pallas_primitives::types::network_constant::TESTNET_MAGIC;
 
 /// Well-known magic for mainnet
-pub const MAINNET_MAGIC: u64 = 764824073;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::MAINNET_MAGIC` instead")]
+pub const MAINNET_MAGIC: u64 = pallas_primitives::types::network_constant::MAINNET_MAGIC;
 
 /// Well-known magic for preview
-pub const PREVIEW_MAGIC: u64 = 2;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::PREVIEW_MAGIC` instead")]
+pub const PREVIEW_MAGIC: u64 = pallas_primitives::types::network_constant::PREVIEW_MAGIC;
 
 /// Well-known magic for preprod
-pub const PREPROD_MAGIC: u64 = 1;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::PREPROD_MAGIC` instead")]
+pub const PREPROD_MAGIC: u64 = pallas_primitives::types::network_constant::PREPROD_MAGIC;
 
 /// Alias for PREPROD_MAGIC
-pub const PRE_PRODUCTION_MAGIC: u64 = 1;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PRE_PRODUCTION_MAGIC` instead"
+)]
+pub const PRE_PRODUCTION_MAGIC: u64 =
+    pallas_primitives::types::network_constant::PRE_PRODUCTION_MAGIC;
 
 /// Well-known magic for preprod
-pub const SANCHONET_MAGIC: u64 = 4;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::SANCHONET_MAGIC` instead")]
+pub const SANCHONET_MAGIC: u64 = pallas_primitives::types::network_constant::SANCHONET_MAGIC;
 
 /// Bitflag for client-side version of a known protocol
 /// # Example
@@ -26,7 +34,8 @@ pub const SANCHONET_MAGIC: u64 = 4;
 /// use pallas_network::miniprotocols::*;
 /// let channel = PROTOCOL_CLIENT | PROTOCOL_N2N_HANDSHAKE;
 /// ```
-pub const PROTOCOL_CLIENT: u16 = 0x0;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::PROTOCOL_CLIENT` instead")]
+pub const PROTOCOL_CLIENT: u16 = pallas_primitives::types::network_constant::PROTOCOL_CLIENT;
 
 /// Bitflag for server-side version of a known protocol
 /// # Example
@@ -34,111 +43,104 @@ pub const PROTOCOL_CLIENT: u16 = 0x0;
 /// use pallas_network::miniprotocols::*;
 /// let channel = PROTOCOL_SERVER | PROTOCOL_N2N_CHAIN_SYNC;
 /// ```
-pub const PROTOCOL_SERVER: u16 = 0x8000;
+#[deprecated(note = "Use `pallas_primitives::types::network_constant::PROTOCOL_SERVER` instead")]
+pub const PROTOCOL_SERVER: u16 = pallas_primitives::types::network_constant::PROTOCOL_SERVER;
 
 /// Protocol channel number for node-to-node handshakes
-pub const PROTOCOL_N2N_HANDSHAKE: u16 = 0;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2N_HANDSHAKE` instead"
+)]
+pub const PROTOCOL_N2N_HANDSHAKE: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2N_HANDSHAKE;
 
 /// Protocol channel number for node-to-node chain-sync
-pub const PROTOCOL_N2N_CHAIN_SYNC: u16 = 2;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2N_CHAIN_SYNC` instead"
+)]
+pub const PROTOCOL_N2N_CHAIN_SYNC: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2N_CHAIN_SYNC;
 
 /// Protocol channel number for node-to-node block-fetch
-pub const PROTOCOL_N2N_BLOCK_FETCH: u16 = 3;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2N_BLOCK_FETCH` instead"
+)]
+pub const PROTOCOL_N2N_BLOCK_FETCH: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2N_BLOCK_FETCH;
 
 /// Protocol channel number for node-to-node tx-submission
-pub const PROTOCOL_N2N_TX_SUBMISSION: u16 = 4;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2N_TX_SUBMISSION` instead"
+)]
+pub const PROTOCOL_N2N_TX_SUBMISSION: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2N_TX_SUBMISSION;
 
 /// Protocol channel number for node-to-node Keep-alive
-pub const PROTOCOL_N2N_KEEP_ALIVE: u16 = 8;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2N_KEEP_ALIVE` instead"
+)]
+pub const PROTOCOL_N2N_KEEP_ALIVE: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2N_KEEP_ALIVE;
 
 /// Protocol channel number for node-to-node Peer-sharing
-pub const PROTOCOL_N2N_PEER_SHARING: u16 = 10;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2N_PEER_SHARING` instead"
+)]
+pub const PROTOCOL_N2N_PEER_SHARING: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2N_PEER_SHARING;
 
 /// Protocol channel number for node-to-client handshakes
-pub const PROTOCOL_N2C_HANDSHAKE: u16 = 0;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_HANDSHAKE` instead"
+)]
+pub const PROTOCOL_N2C_HANDSHAKE: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_HANDSHAKE;
 
 /// Protocol channel number for node-to-client chain-sync
-pub const PROTOCOL_N2C_CHAIN_SYNC: u16 = 5;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_CHAIN_SYNC` instead"
+)]
+pub const PROTOCOL_N2C_CHAIN_SYNC: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_CHAIN_SYNC;
 
 /// Protocol channel number for node-to-client tx-submission
-pub const PROTOCOL_N2C_TX_SUBMISSION: u16 = 6;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_TX_SUBMISSION` instead"
+)]
+pub const PROTOCOL_N2C_TX_SUBMISSION: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_TX_SUBMISSION;
 
-// Protocol channel number for node-to-client state queries
-pub const PROTOCOL_N2C_STATE_QUERY: u16 = 7;
+/// Protocol channel number for node-to-client state queries
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_STATE_QUERY` instead"
+)]
+pub const PROTOCOL_N2C_STATE_QUERY: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_STATE_QUERY;
 
-// Protocol channel number for node-to-client mempool monitor
-pub const PROTOCOL_N2C_TX_MONITOR: u16 = 9;
+/// Protocol channel number for node-to-client mempool monitor
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_TX_MONITOR` instead"
+)]
+pub const PROTOCOL_N2C_TX_MONITOR: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_TX_MONITOR;
 
 /// Protocol channel number for node-to-client local message submission
 /// This protocol is available only on the DMQ node.
 // TODO: use the final mini-protocol number once available
-pub const PROTOCOL_N2C_MSG_SUBMISSION: u16 = 1;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_MSG_SUBMISSION` instead"
+)]
+pub const PROTOCOL_N2C_MSG_SUBMISSION: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_MSG_SUBMISSION;
 
 /// Protocol channel number for node-to-client local message notification
 /// This protocol is available only on the DMQ node.
 // TODO: use the final mini-protocol number once available
-pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 = 2;
+#[deprecated(
+    note = "Use `pallas_primitives::types::network_constant::PROTOCOL_N2C_MSG_NOTIFICATION` instead"
+)]
+pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 =
+    pallas_primitives::types::network_constant::PROTOCOL_N2C_MSG_NOTIFICATION;
 
 /// A point within a chain
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub enum Point {
-    Origin,
-    Specific(u64, Vec<u8>),
-}
-
-impl Point {
-    pub fn slot_or_default(&self) -> u64 {
-        match self {
-            Point::Origin => 0,
-            Point::Specific(slot, _) => *slot,
-        }
-    }
-}
-
-impl Debug for Point {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Origin => write!(f, "Origin"),
-            Self::Specific(arg0, arg1) => write!(f, "({}, {})", arg0, hex::encode(arg1)),
-        }
-    }
-}
-
-impl Point {
-    pub fn new(slot: u64, hash: Vec<u8>) -> Self {
-        Point::Specific(slot, hash)
-    }
-}
-
-impl Encode<()> for Point {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        _ctx: &mut (),
-    ) -> Result<(), encode::Error<W::Error>> {
-        match self {
-            Point::Origin => e.array(0)?,
-            Point::Specific(slot, hash) => e.array(2)?.u64(*slot)?.bytes(hash)?,
-        };
-
-        Ok(())
-    }
-}
-
-impl<'b> Decode<'b, ()> for Point {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let size = d.array()?;
-
-        match size {
-            Some(0) => Ok(Point::Origin),
-            Some(2) => {
-                let slot = d.u64()?;
-                let hash = d.bytes()?;
-                Ok(Point::Specific(slot, Vec::from(hash)))
-            }
-            _ => Err(decode::Error::message(
-                "can't decode Point from array of size",
-            )),
-        }
-    }
-}
+#[deprecated(note = "Use `pallas_primitives::types::point::Point` instead")]
+pub use pallas_primitives::types::point::Point;
