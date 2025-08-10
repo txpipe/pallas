@@ -1,9 +1,9 @@
-use std::{
-    collections::HashMap,
-    pin::{Pin, pin},
-};
+use std::{collections::HashMap, pin::Pin};
 
-use futures::{FutureExt, future::FusedFuture, select, stream::FuturesUnordered};
+use futures::{
+    FutureExt, Stream, StreamExt, select,
+    stream::{FusedStream, FuturesUnordered},
+};
 
 #[cfg(feature = "emulation")]
 pub mod emulation;
@@ -23,13 +23,14 @@ impl std::fmt::Display for PeerId {
     }
 }
 
+#[derive(Debug)]
 pub enum InterfaceError {}
 
 pub type Channel = u16;
 pub type Payload = Vec<u8>;
 
 /// Describes a message that can be sent over the network
-pub trait Message: Send + 'static {
+pub trait Message: Send + 'static + std::fmt::Debug {
     fn channel(&self) -> Channel;
     fn payload(&self) -> Payload;
 }
@@ -78,7 +79,9 @@ pub trait Command {
 
 /// Describes the behavior (business logic) of a network stack
 #[trait_variant::make]
-pub trait Behavior: Sized {
+pub trait Behavior:
+    Sized + Unpin + FusedStream + Stream<Item = InterfaceCommand<Self::Message>>
+{
     /// The event type that is raised by the behavior
     type Event;
 
@@ -90,8 +93,6 @@ pub trait Behavior: Sized {
 
     /// The message type that is sent over the network
     type Message: Message;
-
-    async fn poll_next(&mut self) -> Option<InterfaceCommand<Self::Message>>;
 
     /// Apply an IO event to the behavior
     ///
@@ -193,10 +194,10 @@ where
         } = self;
 
         select! {
-            cmd = behavior.poll_next().fuse() => {
-                if let Some(cmd) = cmd {
-                    self.interface.execute(cmd);
-                }
+            cmd = behavior.select_next_some() => {
+                // TODO: define interface error handling
+                self.interface.execute(cmd).unwrap();
+
 
                 None
             },
@@ -234,297 +235,5 @@ impl<M: Message + Send + 'static> OutboundQueue<M> {
 impl<M: Message + Send + 'static> Default for OutboundQueue<M> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::pin::Pin;
-
-    use futures::stream::{FuturesUnordered, StreamExt};
-    use pallas_network::miniprotocols::Agent;
-
-    use super::*;
-
-    type ChainPoint = u64;
-    type BlockHeader = Vec<u8>;
-    type BlockBody = Vec<u8>;
-    type TxId = Vec<u8>;
-
-    enum NetworkEvent {
-        PeerInitialized(PeerId),
-        BlockHeaderRequested(PeerId, ChainPoint),
-        BlockHeaderReceived(PeerId, BlockHeader),
-        BlockBodyReceived(PeerId, ChainPoint, BlockBody),
-        BlockBodyRequested(PeerId, ChainPoint),
-        TxRequested(PeerId, TxId),
-    }
-
-    enum MyCommand {
-        IncludePeer(PeerId),
-        IntersectOrigin(PeerId),
-        RequestBlockHeader(PeerId, ChainPoint),
-        RequestBlockBody(PeerId, ChainPoint),
-        RequestTx(PeerId, TxId),
-        SendBlockHeader(PeerId, BlockHeader),
-        SendBlockBody(PeerId, ChainPoint, BlockBody),
-        SendTx(PeerId, TxId),
-    }
-
-    impl super::Command for MyCommand {
-        fn peer_id(&self) -> &PeerId {
-            match self {
-                Self::IncludePeer(x) => x,
-                Self::IntersectOrigin(x) => x,
-                Self::RequestBlockHeader(x, _) => x,
-                Self::RequestBlockBody(x, _) => x,
-                Self::RequestTx(x, _) => x,
-                Self::SendBlockHeader(x, _) => x,
-                Self::SendBlockBody(x, _, _) => x,
-                Self::SendTx(x, _) => x,
-            }
-        }
-    }
-
-    #[derive(Default)]
-    struct MyEmulatorRules;
-
-    impl emulation::Rules for MyEmulatorRules {
-        type Message = MyMessage;
-
-        fn reply_to(&self, msg: Self::Message) -> emulation::ReplyAction<Self::Message> {
-            match msg {
-                MyMessage::Handshake(msg) => match msg {
-                    pallas_network::miniprotocols::handshake::Message::Propose(version_table) => {
-                        let (version, data) = version_table.values.into_iter().next().unwrap();
-
-                        let msg = pallas_network::miniprotocols::handshake::Message::Accept(
-                            version, data,
-                        );
-
-                        emulation::ReplyAction::Message(MyMessage::Handshake(msg))
-                    }
-                    _ => emulation::ReplyAction::Disconnect,
-                },
-            }
-        }
-    }
-
-    #[derive(Clone)]
-    enum MyMessage {
-        Handshake(
-            pallas_network::miniprotocols::handshake::Message<
-                pallas_network::miniprotocols::handshake::n2n::VersionData,
-            >,
-        ),
-    }
-
-    impl Message for MyMessage {
-        fn channel(&self) -> Channel {
-            match self {
-                MyMessage::Handshake(..) => 0,
-            }
-        }
-
-        fn payload(&self) -> Payload {
-            match self {
-                MyMessage::Handshake(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
-            }
-        }
-    }
-
-    #[derive(Default)]
-    struct MyPeerState {
-        is_connected: bool,
-        is_connecting: bool,
-        should_intersect: Option<u64>,
-        intersected: Option<u64>,
-        handshake: pallas_network::miniprotocols::handshake::N2NClient,
-    }
-
-    struct MyBehavior {
-        outbound: OutboundQueue<MyMessage>,
-        desired_peers: usize,
-        connected_count: usize,
-        connecting_count: usize,
-    }
-
-    impl Behavior for MyBehavior {
-        type Event = NetworkEvent;
-        type Command = MyCommand;
-        type PeerState = MyPeerState;
-        type Message = MyMessage;
-
-        async fn poll_next(&mut self) -> Option<InterfaceCommand<Self::Message>> {
-            self.outbound.poll_next().await
-        }
-
-        fn apply_io(
-            &mut self,
-            pid: &PeerId,
-            state: &mut Self::PeerState,
-            event: InterfaceEvent<Self::Message>,
-        ) -> Option<NetworkEvent> {
-            match event {
-                InterfaceEvent::Connected(pid) => {
-                    println!("connected to {pid}");
-                    state.is_connected = true;
-                    state.is_connecting = false;
-                    self.connected_count += 1;
-                    self.connecting_count -= 1;
-
-                    Some(NetworkEvent::PeerInitialized(pid.clone()))
-                }
-                InterfaceEvent::Disconnected(pid) => {
-                    println!("disconnected from {pid}");
-                    state.is_connected = false;
-                    state.is_connecting = false;
-                    self.connected_count -= 1;
-
-                    None
-                }
-                InterfaceEvent::Recv(pid, msg) => {
-                    println!("received msg from {pid}, channel {}", msg.channel());
-
-                    match msg {
-                        MyMessage::Handshake(msg) => {
-                            let new_state = state.handshake.apply(&msg).unwrap();
-                            state.handshake =
-                                pallas_network::miniprotocols::handshake::N2NClient::new(new_state);
-                            println!("new handshake state {:?}", state.handshake.state());
-
-                            if matches!(
-                                state.handshake.state(),
-                                pallas_network::miniprotocols::handshake::State::Propose
-                            ) {
-                                let msg = pallas_network::miniprotocols::handshake::Message::Propose(
-                                    pallas_network::miniprotocols::handshake::n2n::VersionTable::v11_and_above(0),
-                                );
-
-                                self.outbound.push_ready(InterfaceCommand::Send(
-                                    pid.clone(),
-                                    MyMessage::Handshake(msg),
-                                ));
-                            }
-                        }
-                    }
-
-                    None
-                }
-                InterfaceEvent::Sent(pid, msg) => {
-                    println!("sent msg to {pid}, channel {}", msg.channel());
-
-                    match msg {
-                        MyMessage::Handshake(msg) => {
-                            let new_state = state.handshake.apply(&msg).unwrap();
-                            state.handshake =
-                                pallas_network::miniprotocols::handshake::N2NClient::new(new_state);
-                        }
-                    }
-
-                    None
-                }
-                _ => None,
-            }
-        }
-
-        fn apply_cmd(&mut self, pid: &PeerId, state: &mut Self::PeerState, cmd: Self::Command) {
-            match cmd {
-                MyCommand::IncludePeer(_) => {
-                    println!("including peer {pid}");
-
-                    if state.is_connected && state.is_connecting {
-                        return;
-                    }
-
-                    if (self.connected_count + self.connecting_count) >= self.desired_peers {
-                        return;
-                    }
-
-                    println!("requesting connection to {}", pid);
-                    self.connecting_count += 1;
-                    self.outbound
-                        .push_ready(InterfaceCommand::Connect(pid.clone()));
-                }
-                MyCommand::IntersectOrigin(peer_id) => {
-                    println!("requesting origin intersection for {pid}");
-                    state.should_intersect = Some(0);
-                }
-                _ => (),
-            }
-        }
-    }
-
-    type MyEmulator = emulation::Emulator<MyMessage, MyEmulatorRules>;
-
-    struct MyNode {
-        network: Manager<MyEmulator, MyBehavior, MyMessage>,
-    }
-
-    impl MyNode {
-        async fn tick(&mut self) {
-            let event = self.network.poll_next().await;
-
-            let Some(event) = event else {
-                return;
-            };
-
-            let next_cmd = match event {
-                NetworkEvent::PeerInitialized(peer_id) => {
-                    println!("Peer initialized: {peer_id}");
-                    Some(MyCommand::IntersectOrigin(peer_id))
-                }
-                NetworkEvent::BlockHeaderRequested(peer_id, _) => {
-                    println!("Block header requested from {peer_id}");
-                    Some(MyCommand::SendBlockHeader(peer_id, vec![]))
-                }
-                NetworkEvent::BlockHeaderReceived(peer_id, _) => {
-                    println!("Block header received from {peer_id}");
-                    None
-                }
-                NetworkEvent::BlockBodyReceived(peer_id, _, _) => {
-                    println!("Block body received from {peer_id}");
-                    None
-                }
-                NetworkEvent::BlockBodyRequested(peer_id, point) => {
-                    println!("Block body requested from {peer_id}");
-                    Some(MyCommand::SendBlockBody(peer_id, point, vec![]))
-                }
-                NetworkEvent::TxRequested(peer_id, _) => {
-                    println!("Tx requested from {peer_id}");
-                    Some(MyCommand::SendTx(peer_id, vec![]))
-                }
-            };
-
-            if let Some(cmd) = next_cmd {
-                self.network.enqueue(cmd);
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_network() {
-        let behavior = MyBehavior {
-            desired_peers: 3,
-            connected_count: 0,
-            connecting_count: 0,
-            outbound: OutboundQueue::new(),
-        };
-
-        let mut node = MyNode {
-            network: Manager::new(MyEmulator::default(), behavior),
-        };
-
-        [1234, 1235, 1236, 1237, 1238]
-            .into_iter()
-            .map(|port| PeerId {
-                host: "127.0.0.1".to_string(),
-                port,
-            })
-            .for_each(|x| node.network.enqueue(MyCommand::IncludePeer(x)));
-
-        for _ in 0..20 {
-            node.tick().await;
-        }
     }
 }

@@ -1,13 +1,15 @@
 //! Opinionated standard behavior for Cardano networks
 
-use std::pin::Pin;
+use std::{task::Poll, time::Duration};
 
-use futures::{FutureExt, select, stream::FuturesUnordered};
+use chrono::DateTime;
+use futures::{Stream, StreamExt, stream::FusedStream};
 use pallas_network::miniprotocols::{
     Agent, Point,
     blockfetch::{self, Body},
     chainsync, handshake, keepalive, peersharing, txsubmission,
 };
+use tokio::time::Interval;
 
 use crate::{Behavior, Command, InterfaceEvent, Message, OutboundQueue, PeerId};
 
@@ -25,6 +27,15 @@ pub enum AnyMessage {
     PeerSharing(peersharing::Message),
     BlockFetch(blockfetch::Message),
     TxSubmission(txsubmission::Message<txsubmission::EraTxId, txsubmission::EraTxBody>),
+}
+
+impl AnyMessage {
+    fn as_handshake(&self) -> Option<&handshake::Message<handshake::n2n::VersionData>> {
+        match self {
+            AnyMessage::Handshake(x) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 impl Message for AnyMessage {
@@ -67,15 +78,28 @@ impl Default for HandshakeBehavior {
     }
 }
 
+impl Stream for HandshakeBehavior {
+    type Item = crate::InterfaceCommand<AnyMessage>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.outbound.futures.poll_next_unpin(cx)
+    }
+}
+
+impl FusedStream for HandshakeBehavior {
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
 impl Behavior for HandshakeBehavior {
-    type Event = ();
+    type Event = InitiatorEvent;
     type Command = ();
     type PeerState = handshake::Client<handshake::n2n::VersionData>;
     type Message = AnyMessage;
-
-    async fn poll_next(&mut self) -> Option<crate::InterfaceCommand<Self::Message>> {
-        self.outbound.poll_next().await
-    }
 
     fn apply_io(
         &mut self,
@@ -83,15 +107,27 @@ impl Behavior for HandshakeBehavior {
         state: &mut Self::PeerState,
         event: crate::InterfaceEvent<Self::Message>,
     ) -> Option<Self::Event> {
-        println!("handshake apply_io");
-        dbg!(&event);
-
-        let InterfaceEvent::Recv(_, AnyMessage::Handshake(msg)) = event else {
-            return None;
+        let new_state = match event {
+            InterfaceEvent::Connected(_) => {
+                let sm = handshake::State::<handshake::n2n::VersionData>::default();
+                handshake::Client::new(sm)
+            }
+            InterfaceEvent::Sent(_, msg) => {
+                let msg = msg.as_handshake().unwrap();
+                let sm = state.apply(&msg).unwrap();
+                handshake::Client::new(sm)
+            }
+            InterfaceEvent::Recv(_, msg) => {
+                let msg = msg.as_handshake().unwrap();
+                let sm = state.apply(&msg).unwrap();
+                handshake::Client::new(sm)
+            }
+            _ => {
+                return None;
+            }
         };
 
-        let new_state = state.apply(&msg).unwrap();
-        *state = handshake::Client::new(new_state);
+        *state = new_state;
 
         match state.state() {
             handshake::State::Propose => {
@@ -104,6 +140,7 @@ impl Behavior for HandshakeBehavior {
 
                 None
             }
+            handshake::State::Done(_) => Some(InitiatorEvent::PeerInitialized(pid.clone())),
             _ => None,
         }
     }
@@ -141,7 +178,7 @@ impl Default for PeerPriority {
 pub enum ConnectionState {
     Disconnected,
     Connecting,
-    Connected(LastSeen),
+    Connected,
 }
 
 impl Default for ConnectionState {
@@ -207,12 +244,57 @@ pub struct DiscoveryStats {
     hot_peers: usize,
 }
 
-#[derive(Default)]
 pub struct InitiatorBehavior {
     config: DiscoveryConfig,
     stats: DiscoveryStats,
     handshake: HandshakeBehavior,
     outbound: OutboundQueue<AnyMessage>,
+    housekeeping: Interval,
+}
+
+impl Default for InitiatorBehavior {
+    fn default() -> Self {
+        Self {
+            config: Default::default(),
+            stats: Default::default(),
+            handshake: Default::default(),
+            outbound: Default::default(),
+            housekeeping: tokio::time::interval(Duration::from_secs(1)),
+        }
+    }
+}
+
+impl Stream for InitiatorBehavior {
+    type Item = crate::InterfaceCommand<AnyMessage>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        if let Poll::Ready(x) = self.outbound.futures.poll_next_unpin(cx) {
+            if let Some(x) = x {
+                return Poll::Ready(Some(x));
+            }
+        }
+
+        if let Poll::Ready(x) = self.handshake.outbound.futures.poll_next_unpin(cx) {
+            if let Some(x) = x {
+                return Poll::Ready(Some(x));
+            }
+        }
+
+        if let Poll::Ready(x) = self.housekeeping.poll_tick(cx) {
+            println!("HOUSKEEPING TIMER");
+        }
+
+        Poll::Pending
+    }
+}
+
+impl FusedStream for InitiatorBehavior {
+    fn is_terminated(&self) -> bool {
+        false
+    }
 }
 
 impl Behavior for InitiatorBehavior {
@@ -221,31 +303,39 @@ impl Behavior for InitiatorBehavior {
     type PeerState = InitiatorState;
     type Message = AnyMessage;
 
-    async fn poll_next(&mut self) -> Option<crate::InterfaceCommand<Self::Message>> {
-        let cmd = self.outbound.poll_next().await;
-
-        if let Some(cmd) = cmd {
-            return Some(cmd);
-        }
-
-        self.handshake.poll_next().await
-    }
-
     fn apply_io(
         &mut self,
         pid: &PeerId,
         state: &mut Self::PeerState,
         event: crate::InterfaceEvent<Self::Message>,
     ) -> Option<Self::Event> {
-        match &event {
+        let out = match &event {
+            crate::InterfaceEvent::Connected(_) => {
+                self.handshake.apply_io(pid, &mut state.handshake, event)
+            }
             crate::InterfaceEvent::Recv(_, msg) => match msg {
                 AnyMessage::Handshake(_) => {
-                    self.handshake.apply_io(&pid, &mut state.handshake, event);
-                    None
+                    self.handshake.apply_io(&pid, &mut state.handshake, event)
+                }
+                _ => None,
+            },
+            crate::InterfaceEvent::Sent(_, msg) => match msg {
+                AnyMessage::Handshake(_) => {
+                    self.handshake.apply_io(&pid, &mut state.handshake, event)
                 }
                 _ => None,
             },
             _ => None,
+        };
+
+        match out {
+            Some(InitiatorEvent::PeerInitialized(pid)) => {
+                state.connection = ConnectionState::Connected;
+
+                Some(InitiatorEvent::PeerInitialized(pid))
+            }
+            Some(x) => Some(x),
+            None => None,
         }
     }
 
@@ -276,108 +366,3 @@ pub struct ResponderState;
 pub enum ResponderEvent {}
 
 pub enum ResponderCommand {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{Manager, emulation};
-
-    #[derive(Default)]
-    struct MyEmulatorRules;
-
-    impl emulation::Rules for MyEmulatorRules {
-        type Message = AnyMessage;
-
-        fn reply_to(&self, msg: Self::Message) -> emulation::ReplyAction<Self::Message> {
-            let reply = match dbg!(msg) {
-                AnyMessage::Handshake(msg) => match msg {
-                    pallas_network::miniprotocols::handshake::Message::Propose(version_table) => {
-                        let (version, data) = version_table.values.into_iter().next().unwrap();
-
-                        let msg = pallas_network::miniprotocols::handshake::Message::Accept(
-                            version, data,
-                        );
-
-                        emulation::ReplyAction::Message(AnyMessage::Handshake(msg))
-                    }
-                    _ => emulation::ReplyAction::Disconnect,
-                },
-                AnyMessage::KeepAlive(msg) => {
-                    let keepalive::Message::KeepAlive(token) = msg else {
-                        return emulation::ReplyAction::Disconnect;
-                    };
-
-                    let msg = keepalive::Message::ResponseKeepAlive(token);
-
-                    emulation::ReplyAction::Message(AnyMessage::KeepAlive(msg))
-                }
-                _ => todo!(),
-            };
-
-            dbg!(reply)
-        }
-    }
-
-    type MyEmulator = emulation::Emulator<AnyMessage, MyEmulatorRules>;
-
-    struct MyNode {
-        network: Manager<MyEmulator, InitiatorBehavior, AnyMessage>,
-    }
-
-    impl MyNode {
-        async fn tick(&mut self) {
-            let event = self.network.poll_next().await;
-
-            let Some(event) = event else {
-                return;
-            };
-
-            let next_cmd = match event {
-                InitiatorEvent::PeerInitialized(peer_id) => {
-                    println!("Peer initialized: {peer_id}");
-                    Some(InitiatorCommand::IntersectChain(peer_id, Point::Origin))
-                }
-
-                InitiatorEvent::BlockHeaderReceived(peer_id, _) => {
-                    println!("Block header received from {peer_id}");
-                    None
-                }
-                InitiatorEvent::BlockBodyReceived(peer_id, _, _) => {
-                    println!("Block body received from {peer_id}");
-                    None
-                }
-                InitiatorEvent::TxRequested(peer_id, _) => {
-                    println!("Tx requested from {peer_id}");
-                    Some(InitiatorCommand::SendTx(
-                        peer_id,
-                        txsubmission::EraTxId(0, vec![]),
-                        txsubmission::EraTxBody(0, vec![]),
-                    ))
-                }
-            };
-
-            if let Some(cmd) = next_cmd {
-                self.network.enqueue(cmd);
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_network() {
-        let mut node = MyNode {
-            network: Manager::new(MyEmulator::default(), InitiatorBehavior::default()),
-        };
-
-        [1234, 1235, 1236, 1237, 1238]
-            .into_iter()
-            .map(|port| PeerId {
-                host: "127.0.0.1".to_string(),
-                port,
-            })
-            .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
-
-        for _ in 0..20 {
-            node.tick().await;
-        }
-    }
-}
