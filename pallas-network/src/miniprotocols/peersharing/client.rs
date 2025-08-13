@@ -4,6 +4,7 @@ use tracing::debug;
 use super::protocol::*;
 use crate::miniprotocols::{Agent, Error, PlexerAdapter};
 
+#[derive(Debug)]
 pub struct Client(State);
 
 impl Default for Client {

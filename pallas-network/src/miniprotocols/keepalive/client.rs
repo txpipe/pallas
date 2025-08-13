@@ -7,6 +7,7 @@ use crate::{
     multiplexer,
 };
 
+#[derive(Debug)]
 pub struct Client(State);
 
 impl Default for Client {

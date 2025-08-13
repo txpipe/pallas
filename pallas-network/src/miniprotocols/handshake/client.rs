@@ -5,6 +5,7 @@ use tracing::debug;
 use super::{DoneState, Message, State, VersionTable};
 use crate::miniprotocols::Error;
 
+#[derive(Debug)]
 pub struct Client<D>(State<D>)
 where
     D: Debug + Clone;
