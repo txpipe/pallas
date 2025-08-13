@@ -32,14 +32,8 @@ async fn main() {
         desired_cold_peers: (10, 10),
         trusted_peers: vec![
             PeerId::from_str("backbone.mainnet.cardanofoundation.org:3001").unwrap(),
-            //PeerId::from_str("backbone.cardano.iog.io:3001").unwrap(),
             PeerId::from_str("relay.cnode-m1.demeter.run:3000").unwrap(),
             PeerId::from_str("r1.1percentpool.eu:19001").unwrap(),
-            //PeerId::from_str("105.251.38.46:6000").unwrap(),
-            //PeerId::from_str("preview.adastack.net:3001").unwrap(),
-            //PeerId::from_str("preview-node.play.dev.cardano.org:3001").unwrap(),
-            //PeerId::from_str("relay.cnode-m1.demeter.run:3002").unwrap(),
-            //PeerId::from_str("84.67.210.50:3001").unwrap(),
         ],
     });
 
