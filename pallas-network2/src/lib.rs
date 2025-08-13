@@ -1,4 +1,4 @@
-use std::{collections::HashMap, pin::Pin};
+use std::{fmt::Debug, pin::Pin};
 
 use futures::{
     FutureExt, Stream, StreamExt, select,
@@ -53,15 +53,15 @@ pub enum InterfaceEvent<M: Message> {
     Idle,
 }
 
-impl<M: Message> InterfaceEvent<M> {
-    fn peer_id(&self) -> Option<&PeerId> {
-        match self {
-            InterfaceEvent::Connected(x) => Some(x),
-            InterfaceEvent::Sent(x, ..) => Some(x),
-            InterfaceEvent::Recv(x, ..) => Some(x),
-            InterfaceEvent::Disconnected(x) => Some(x),
-            InterfaceEvent::Idle => None,
-        }
+#[derive(Debug)]
+pub enum BehaviorOutput<B: Behavior> {
+    InterfaceCommand(InterfaceCommand<B::Message>),
+    ExternalEvent(B::Event),
+}
+
+impl<B: Behavior> From<InterfaceCommand<B::Message>> for BehaviorOutput<B> {
+    fn from(cmd: InterfaceCommand<B::Message>) -> Self {
+        BehaviorOutput::InterfaceCommand(cmd)
     }
 }
 
@@ -80,10 +80,10 @@ pub trait Command {
 /// Describes the behavior (business logic) of a network stack
 #[trait_variant::make]
 pub trait Behavior:
-    Sized + Unpin + FusedStream + Stream<Item = InterfaceCommand<Self::Message>>
+    Sized + Unpin + FusedStream + Stream<Item = BehaviorOutput<Self>> + Send + 'static
 {
     /// The event type that is raised by the behavior
-    type Event;
+    type Event: Debug + Send + 'static;
 
     /// The command type that can be handled by the behavior
     type Command: Command;
@@ -92,7 +92,7 @@ pub trait Behavior:
     type PeerState: Default;
 
     /// The message type that is sent over the network
-    type Message: Message;
+    type Message: Message + Debug + Send + 'static;
 
     /// Apply an IO event to the behavior
     ///
@@ -101,33 +101,9 @@ pub trait Behavior:
     ///
     /// The behavior is responsible for updating the state of the peer to
     /// reflect the what has been received from the network interface.
-    fn apply_io(
-        &mut self,
-        pid: &PeerId,
-        state: &mut Self::PeerState,
-        event: InterfaceEvent<Self::Message>,
-    ) -> Option<Self::Event>;
+    fn apply_io(&mut self, event: InterfaceEvent<Self::Message>);
 
-    fn apply_cmd(&mut self, pid: &PeerId, state: &mut Self::PeerState, cmd: Self::Command);
-}
-
-/// The state of a peer in the network
-pub struct Peer<B: Behavior> {
-    id: PeerId,
-    state: B::PeerState,
-}
-
-impl<B: Behavior> Peer<B> {
-    fn new(id: PeerId) -> Self {
-        Self {
-            id,
-            state: B::PeerState::default(),
-        }
-    }
-
-    fn get_state_mut(&mut self) -> &mut B::PeerState {
-        &mut self.state
-    }
+    fn apply_cmd(&mut self, cmd: Self::Command);
 }
 
 /// Manager to reconcile state between a network interface and a behavior
@@ -137,7 +113,6 @@ where
     I: Interface<M>,
     B: Behavior<Message = M>,
 {
-    peers: HashMap<PeerId, Peer<B>>,
     backlog: Vec<B::Command>,
     interface: I,
     behavior: B,
@@ -151,36 +126,19 @@ where
 {
     pub fn new(interface: I, behavior: B) -> Self {
         Self {
-            peers: HashMap::new(),
             backlog: Vec::new(),
             interface,
             behavior,
         }
     }
 
-    async fn inbound_io(&mut self, event: InterfaceEvent<M>) -> Option<B::Event> {
-        let pid = event.peer_id().cloned()?;
-
-        let peer = self
-            .peers
-            .entry(pid.clone())
-            .or_insert_with(|| Peer::new(pid.clone()));
-
-        let state = peer.get_state_mut();
-        self.behavior.apply_io(&pid, state, event)
+    pub fn behavior(&self) -> &B {
+        &self.behavior
     }
 
     fn apply_cmds(&mut self) {
         for cmd in self.backlog.drain(..) {
-            let pid = cmd.peer_id().clone();
-
-            let peer = self
-                .peers
-                .entry(pid.clone())
-                .or_insert_with(|| Peer::new(pid.clone()));
-
-            let state = peer.get_state_mut();
-            self.behavior.apply_cmd(&pid, state, cmd);
+            self.behavior.apply_cmd(cmd);
         }
     }
 
@@ -194,15 +152,21 @@ where
         } = self;
 
         select! {
-            cmd = behavior.select_next_some() => {
-                // TODO: define interface error handling
-                self.interface.execute(cmd).unwrap();
-
-
-                None
+            output = behavior.select_next_some() => {
+                match output {
+                    BehaviorOutput::InterfaceCommand(cmd) => {
+                        // TODO: define interface error handling
+                        self.interface.execute(cmd).unwrap();
+                        None
+                    }
+                    BehaviorOutput::ExternalEvent(event) => {
+                        Some(event)
+                    }
+                }
             },
             event = interface.poll_next().fuse() => {
-                self.inbound_io(event).await
+                self.behavior.apply_io(event);
+                None
             }
         }
     }
@@ -212,27 +176,28 @@ where
     }
 }
 
-pub struct OutboundQueue<M: Message> {
-    futures: FuturesUnordered<Pin<Box<dyn Future<Output = InterfaceCommand<M>> + Send + Unpin>>>,
+pub struct OutboundQueue<B: Behavior> {
+    futures: FuturesUnordered<Pin<Box<dyn Future<Output = BehaviorOutput<B>> + Send + Unpin>>>,
 }
 
-impl<M: Message + Send + 'static> OutboundQueue<M> {
+impl<B: Behavior> OutboundQueue<B> {
     pub fn new() -> Self {
         Self {
             futures: FuturesUnordered::new(),
         }
     }
 
-    pub fn push_ready(&mut self, command: InterfaceCommand<M>) {
-        self.futures.push(Box::pin(futures::future::ready(command)));
+    pub fn push_ready(&mut self, output: impl Into<BehaviorOutput<B>>) {
+        self.futures
+            .push(Box::pin(futures::future::ready(output.into())));
     }
 
-    pub async fn poll_next(&mut self) -> Option<InterfaceCommand<M>> {
+    pub async fn poll_next(&mut self) -> Option<BehaviorOutput<B>> {
         futures::stream::StreamExt::next(&mut self.futures).await
     }
 }
 
-impl<M: Message + Send + 'static> Default for OutboundQueue<M> {
+impl<B: Behavior> Default for OutboundQueue<B> {
     fn default() -> Self {
         Self::new()
     }

@@ -1,0 +1,345 @@
+//! Opinionated standard behavior for Cardano networks
+
+use std::{
+    collections::{HashMap, HashSet},
+    task::Poll,
+    time::Duration,
+};
+
+use futures::{Stream, StreamExt, stream::FusedStream};
+use pallas_network::miniprotocols::{
+    Agent, Point,
+    blockfetch::{self, Body},
+    chainsync, handshake as handshake_proto, keepalive as keepalive_proto,
+    peersharing as peersharing_proto, txsubmission,
+};
+use tokio::time::Interval;
+
+use crate::{Behavior, BehaviorOutput, Command, Message, OutboundQueue, PeerId};
+
+mod discovery;
+mod handshake;
+mod keepalive;
+mod promotion;
+
+impl Command for () {
+    fn peer_id(&self) -> &PeerId {
+        unreachable!()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AnyMessage {
+    Handshake(handshake_proto::Message<handshake_proto::n2n::VersionData>),
+    KeepAlive(keepalive_proto::Message),
+    ChainSync(chainsync::Message<chainsync::HeaderContent>),
+    PeerSharing(peersharing_proto::Message),
+    BlockFetch(blockfetch::Message),
+    TxSubmission(txsubmission::Message<txsubmission::EraTxId, txsubmission::EraTxBody>),
+}
+
+impl Message for AnyMessage {
+    fn channel(&self) -> u16 {
+        match self {
+            AnyMessage::Handshake(_) => pallas_network::miniprotocols::PROTOCOL_N2N_HANDSHAKE,
+            AnyMessage::KeepAlive(_) => pallas_network::miniprotocols::PROTOCOL_N2N_KEEP_ALIVE,
+            AnyMessage::ChainSync(_) => pallas_network::miniprotocols::PROTOCOL_N2N_CHAIN_SYNC,
+            AnyMessage::PeerSharing(_) => pallas_network::miniprotocols::PROTOCOL_N2N_PEER_SHARING,
+            AnyMessage::BlockFetch(_) => pallas_network::miniprotocols::PROTOCOL_N2N_BLOCK_FETCH,
+            AnyMessage::TxSubmission(_) => {
+                pallas_network::miniprotocols::PROTOCOL_N2N_TX_SUBMISSION
+            }
+        }
+    }
+
+    fn payload(&self) -> Vec<u8> {
+        match self {
+            AnyMessage::Handshake(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::KeepAlive(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::ChainSync(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::PeerSharing(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::BlockFetch(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::TxSubmission(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+        }
+    }
+}
+
+pub struct ChainSyncBehavior;
+
+pub struct PeerSharingBehavior;
+
+pub struct BlockFetchBehavior;
+
+pub struct TxSubmissionBehavior;
+
+pub type LastSeen = chrono::DateTime<chrono::Utc>;
+
+#[derive(PartialEq, Debug)]
+pub enum ConnectionState {
+    Disconnected,
+    Connecting,
+    Connected,
+    Banned,
+}
+
+impl Default for ConnectionState {
+    fn default() -> Self {
+        Self::Disconnected
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct InitiatorState {
+    connection: ConnectionState,
+    handshake: handshake_proto::Client<handshake_proto::n2n::VersionData>,
+    keepalive: keepalive_proto::Client,
+    peersharing: peersharing_proto::Client,
+    violation: bool,
+}
+
+impl InitiatorState {
+    pub fn new() -> Self {
+        InitiatorState {
+            connection: ConnectionState::Disconnected,
+            handshake: handshake_proto::Client::default(),
+            keepalive: keepalive_proto::Client::default(),
+            peersharing: peersharing_proto::Client::default(),
+            violation: false,
+        }
+    }
+
+    pub fn needs_connection(&self) -> bool {
+        match self.connection {
+            ConnectionState::Disconnected => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        // TODO: handle rejected
+        matches!(self.handshake.state(), handshake_proto::State::Done(_))
+    }
+
+    pub fn version(&self) -> Option<handshake_proto::n2n::VersionData> {
+        match self.handshake.state() {
+            handshake_proto::State::Done(handshake_proto::DoneState::Accepted(_, data)) => {
+                Some(data.clone())
+            }
+            _ => None,
+        }
+    }
+
+    pub fn supports_peer_sharing(&self) -> bool {
+        self.version()
+            .map(|v| v.peer_sharing.is_some())
+            .unwrap_or(false)
+    }
+
+    pub fn apply_msg(&mut self, msg: &AnyMessage) {
+        match msg {
+            AnyMessage::Handshake(msg) => match self.handshake.apply(msg) {
+                Ok(sm) => {
+                    self.handshake = handshake_proto::Client::new(sm);
+                }
+                Err(_) => {
+                    self.violation = true;
+                }
+            },
+            AnyMessage::KeepAlive(msg) => match self.keepalive.apply(msg) {
+                Ok(sm) => {
+                    self.keepalive = keepalive_proto::Client::new(sm);
+                }
+                Err(_) => {
+                    self.violation = true;
+                }
+            },
+            AnyMessage::PeerSharing(msg) => match self.peersharing.apply(msg) {
+                Ok(sm) => {
+                    self.peersharing = peersharing_proto::Client::new(sm);
+                }
+                Err(_) => {
+                    self.violation = true;
+                }
+            },
+            _ => (),
+        }
+    }
+}
+
+pub enum InitiatorCommand {
+    IncludePeer(PeerId),
+    IntersectChain(PeerId, Point),
+    RequestNextHeader(PeerId, Point),
+    RequestBlockBody(PeerId, Point),
+    SendTx(PeerId, txsubmission::EraTxId, txsubmission::EraTxBody),
+}
+
+impl Command for InitiatorCommand {
+    fn peer_id(&self) -> &PeerId {
+        match self {
+            Self::IncludePeer(pid) => pid,
+            Self::IntersectChain(pid, _) => pid,
+            Self::RequestNextHeader(pid, _) => pid,
+            Self::RequestBlockBody(pid, _) => pid,
+            Self::SendTx(pid, _, _) => pid,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum InitiatorEvent {
+    PeerInitialized(PeerId, handshake_proto::n2n::VersionData),
+    BlockHeaderReceived(PeerId, chainsync::HeaderContent),
+    BlockBodyReceived(PeerId, Point, Body),
+    TxRequested(PeerId, txsubmission::EraTxId),
+}
+
+pub struct InitiatorBehavior {
+    peers: HashMap<PeerId, InitiatorState>,
+    promotion: promotion::PromotionBehavior,
+    handshake: handshake::HandshakeBehavior,
+    keepalive: keepalive::KeepaliveBehavior,
+    discovery: discovery::DiscoveryBehavior,
+    outbound: OutboundQueue<Self>,
+    housekeeping: Interval,
+}
+
+impl InitiatorBehavior {
+    pub fn visit_updated_peer(&mut self, pid: &PeerId, state: &mut InitiatorState) {
+        self.handshake
+            .visit_updated_peer(pid, state, &mut self.outbound);
+
+        self.discovery
+            .visit_updated_peer(pid, state, &mut self.outbound);
+
+        self.promotion
+            .visit_updated_peer(pid, state, &mut self.outbound);
+    }
+
+    pub fn on_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
+        let entry = self.peers.remove(pid);
+
+        if let Some(mut state) = entry {
+            state.apply_msg(msg);
+
+            self.visit_updated_peer(pid, &mut state);
+
+            self.peers.insert(pid.clone(), state);
+        }
+    }
+
+    fn on_connected(&mut self, pid: &PeerId) {
+        let entry = self.peers.remove(pid);
+
+        if let Some(mut state) = entry {
+            state.connection = ConnectionState::Connected;
+
+            self.visit_updated_peer(pid, &mut state);
+
+            self.peers.insert(pid.clone(), state);
+        }
+    }
+
+    fn on_discovered(&mut self, pid: &PeerId) {
+        self.promotion.on_peer_discovered(pid);
+
+        self.peers.insert(pid.clone(), InitiatorState::new());
+    }
+
+    fn housekeeping(&mut self) {
+        for (pid, peer) in self.peers.iter_mut() {
+            self.promotion
+                .on_peer_housekeeping(pid, peer, &mut self.outbound);
+
+            self.keepalive
+                .on_peer_housekeeping(pid, peer, &mut self.outbound);
+        }
+
+        for pid in self.discovery.take_peers() {
+            self.on_discovered(&pid);
+        }
+    }
+}
+
+impl Default for InitiatorBehavior {
+    fn default() -> Self {
+        Self {
+            peers: Default::default(),
+            promotion: promotion::PromotionBehavior::default(),
+            handshake: handshake::HandshakeBehavior::default(),
+            keepalive: keepalive::KeepaliveBehavior::default(),
+            discovery: discovery::DiscoveryBehavior::default(),
+            outbound: Default::default(),
+            housekeeping: tokio::time::interval(Duration::from_millis(10_000)),
+        }
+    }
+}
+
+impl Stream for InitiatorBehavior {
+    type Item = BehaviorOutput<Self>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        if let Poll::Ready(_) = self.housekeeping.poll_tick(cx) {
+            self.housekeeping();
+        }
+
+        if let Poll::Ready(x) = self.outbound.futures.poll_next_unpin(cx) {
+            if let Some(x) = x {
+                return Poll::Ready(Some(x));
+            }
+        }
+
+        Poll::Pending
+    }
+}
+
+impl FusedStream for InitiatorBehavior {
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
+impl Behavior for InitiatorBehavior {
+    type Event = InitiatorEvent;
+    type Command = InitiatorCommand;
+    type PeerState = InitiatorState;
+    type Message = AnyMessage;
+
+    fn apply_io(&mut self, event: crate::InterfaceEvent<Self::Message>) {
+        match &event {
+            crate::InterfaceEvent::Connected(pid) => {
+                self.on_connected(pid);
+            }
+            crate::InterfaceEvent::Recv(pid, msg) => {
+                self.on_msg(pid, msg);
+            }
+            crate::InterfaceEvent::Sent(pid, msg) => {
+                self.on_msg(pid, msg);
+            }
+            _ => (),
+        }
+    }
+
+    fn apply_cmd(&mut self, cmd: Self::Command) {
+        match cmd {
+            InitiatorCommand::IncludePeer(pid) => {
+                self.on_discovered(&pid);
+            }
+            InitiatorCommand::IntersectChain(pid, point) => {
+                dbg!("intersect chain", pid, point);
+            }
+            _ => (),
+        }
+    }
+}
+
+pub struct ResponderBehavior;
+
+pub struct ResponderState;
+
+pub enum ResponderEvent {}
+
+pub enum ResponderCommand {}

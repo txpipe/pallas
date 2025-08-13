@@ -1,8 +1,12 @@
 //! Artifacts to emulate a network interface without any actual IO
 
-use futures::{StreamExt as _, stream::FuturesUnordered};
+use futures::{
+    Stream, StreamExt as _,
+    stream::{FusedStream, FuturesUnordered},
+};
 use rand::Rng as _;
 use std::{pin::Pin, time::Duration};
+use tokio::select;
 
 use crate::{Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, PeerId};
 
@@ -17,12 +21,54 @@ pub trait Rules {
 
     fn reply_to(&self, msg: Self::Message) -> ReplyAction<Self::Message>;
 
-    fn should_connect(&self, pid: PeerId) -> bool {
+    fn should_connect(&self, _pid: PeerId) -> bool {
         true
     }
 
     fn jitter(&self) -> Duration {
         Duration::from_secs(rand::rng().random_range(0..3))
+    }
+}
+
+type ReplyFuture<M> = Pin<Box<dyn Future<Output = InterfaceEvent<M>> + Send>>;
+
+struct ReplyQueue<M>(FuturesUnordered<ReplyFuture<M>>)
+where
+    M: Message;
+
+impl<M> ReplyQueue<M>
+where
+    M: Message,
+{
+    fn new() -> Self {
+        Self(FuturesUnordered::new())
+    }
+
+    fn push(&mut self, future: ReplyFuture<M>) {
+        self.0.push(future);
+    }
+}
+
+impl<M> Stream for ReplyQueue<M>
+where
+    M: Message,
+{
+    type Item = InterfaceEvent<M>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.0.poll_next_unpin(cx)
+    }
+}
+
+impl<M> FusedStream for ReplyQueue<M>
+where
+    M: Message,
+{
+    fn is_terminated(&self) -> bool {
+        false
     }
 }
 
@@ -32,7 +78,7 @@ where
     R: Rules<Message = M>,
 {
     rules: R,
-    pending: FuturesUnordered<Pin<Box<dyn Future<Output = InterfaceEvent<M>> + Send>>>,
+    pending: ReplyQueue<M>,
 }
 
 impl<M, R> Default for Emulator<M, R>
@@ -43,7 +89,7 @@ where
     fn default() -> Self {
         Self {
             rules: R::default(),
-            pending: FuturesUnordered::new(),
+            pending: ReplyQueue::new(),
         }
     }
 }
@@ -115,7 +161,13 @@ where
     }
 
     async fn poll_next(&mut self) -> InterfaceEvent<M> {
-        let next = self.pending.next().await;
-        next.unwrap_or(InterfaceEvent::Idle)
+        select! {
+            Some(next) = self.pending.next() => {
+                next
+            }
+            _ = tokio::time::sleep(Duration::from_millis(2000)) => {
+                InterfaceEvent::Idle
+            }
+        }
     }
 }

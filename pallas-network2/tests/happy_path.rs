@@ -52,8 +52,8 @@ impl MyNode {
         };
 
         let next_cmd = match event {
-            InitiatorEvent::PeerInitialized(peer_id) => {
-                println!("Peer initialized: {peer_id}");
+            InitiatorEvent::PeerInitialized(peer_id, version) => {
+                println!("Peer initialized: {peer_id} with version {version:?}");
                 Some(InitiatorCommand::IntersectChain(peer_id, Point::Origin))
             }
 
@@ -95,7 +95,7 @@ async fn test_network() {
         })
         .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
 
-    for _ in 0..2000 {
+    for _ in 0..20 {
         node.tick().await;
     }
 }
