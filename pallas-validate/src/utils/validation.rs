@@ -365,8 +365,8 @@ pub enum PostAlonzoError {
     #[error("transaction size exceeds the maximum allowed")]
     MaxTxSizeExceeded,
 
-    #[error("minting lacks the required policy")]
-    MintingLacksPolicy,
+    #[error("minting lacks the required policy: {0}")]
+    MintingLacksPolicy(pallas_crypto::hash::Hash<28>),
 
     #[error("metadata hash is invalid")]
     MetadataHash,
