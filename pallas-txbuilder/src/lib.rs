@@ -1,5 +1,4 @@
 mod conway;
-mod scriptdata;
 mod transaction;
 
 pub use conway::BuildConway;

@@ -69,7 +69,7 @@ mod conway_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -80,6 +80,7 @@ mod conway_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway4.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
+        dbg!(&metx.hash());
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
         let datum_option = DatumOption::Data(CborWrap(minicbor::decode(&datum_bytes).unwrap()));
         let datum_option = minicbor::to_vec(datum_option).unwrap();
@@ -159,7 +160,7 @@ mod conway_tests {
 
         match validate_txs(&[metx.clone()], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         };
 
         #[cfg(feature = "phase2")]
@@ -170,7 +171,7 @@ mod conway_tests {
             &pallas_validate::phase2::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -252,7 +253,7 @@ mod conway_tests {
 
         match validate_txs(&[metx.clone()], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         };
 
         #[cfg(feature = "phase2")]
@@ -263,7 +264,7 @@ mod conway_tests {
             &pallas_validate::phase2::script_context::SlotConfig::default(),
         ) {
             Ok(_) => (),
-            Err(err) => assert!(false, "Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -308,7 +309,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Inputs set should not be empty"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxInsEmpty) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -338,7 +339,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::InputNotInUTxO) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -388,7 +389,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockPrecedesValInt) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -438,7 +439,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockExceedsValInt) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -481,7 +482,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Fee should not be below minimum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::FeeBelowMin) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -528,7 +529,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Preservation of value does not hold"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::PreservationOfValue) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -571,7 +572,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Output minimum lovelace is unreached"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MinLovelaceUnreached) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -614,7 +615,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Max value size exceeded"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxValSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -664,7 +665,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxWrongNetworkID) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -731,7 +732,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "No collateral inputs"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMissing) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -796,7 +797,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TooManyCollaterals) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -878,7 +879,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralNotVKeyLocked) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -953,7 +954,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::NonLovelaceCollateral) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1019,7 +1020,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMinLovelace) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1087,7 +1088,7 @@ mod conway_tests {
             Ok(()) => assert!(false, "Collateral annotation"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralAnnotation) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1134,7 +1135,7 @@ mod conway_tests {
             ),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxTxSizeExceeded) => (),
-                _ => assert!(false, "Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1691,7 +1692,29 @@ mod conway_tests {
                     43357, 32, 32247, 32, 38314, 32, 35892428, 10, 9462713, 1021, 10, 38887044,
                     32947, 10,
                 ]),
-                plutus_v3: None,
+                plutus_v3: Some(vec![
+                    100788, 420, 1, 1, 1000, 173, 0, 1, 1000, 59957, 4, 1, 11183, 32, 201305, 8356,
+                    4, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 100,
+                    100, 16000, 100, 94375, 32, 132994, 32, 61462, 4, 72010, 178, 0, 1, 22151, 32,
+                    91189, 769, 4, 2, 85848, 123203, 7305, -900, 1716, 549, 57, 85848, 0, 1, 1,
+                    1000, 42921, 4, 2, 24548, 29498, 38, 1, 898148, 27279, 1, 51775, 558, 1, 39184,
+                    1000, 60594, 1, 141895, 32, 83150, 32, 15299, 32, 76049, 1, 13169, 4, 22100,
+                    10, 28999, 74, 1, 28999, 74, 1, 43285, 552, 1, 44749, 541, 1, 33852, 32, 68246,
+                    32, 72362, 32, 7243, 32, 7391, 32, 11546, 32, 85848, 123203, 7305, -900, 1716,
+                    549, 57, 85848, 0, 1, 90434, 519, 0, 1, 74433, 32, 85848, 123203, 7305, -900,
+                    1716, 549, 57, 85848, 0, 1, 1, 85848, 123203, 7305, -900, 1716, 549, 57, 85848,
+                    0, 1, 955506, 213312, 0, 2, 270652, 22588, 4, 1457325, 64566, 4, 20467, 1, 4,
+                    0, 141992, 32, 100788, 420, 1, 1, 81663, 32, 59498, 32, 20142, 32, 24588, 32,
+                    20744, 32, 25933, 32, 24623, 32, 43053543, 10, 53384111, 14333, 10, 43574283,
+                    26308, 10, 16000, 100, 16000, 100, 962335, 18, 2780678, 6, 442008, 1, 52538055,
+                    3756, 18, 267929, 18, 76433006, 8868, 18, 52948122, 18, 1995836, 36, 3227919,
+                    12, 901022, 1, 166917843, 4307, 36, 284546, 36, 158221314, 26549, 36, 74698472,
+                    36, 333849714, 1, 254006273, 72, 2174038, 72, 2261318, 64571, 4, 207616, 8310,
+                    4, 1293828, 28716, 63, 0, 1, 1006041, 43623, 251, 0, 1, 100181, 726, 719, 0, 1,
+                    100181, 726, 719, 0, 1, 100181, 726, 719, 0, 1, 107878, 680, 0, 1, 95336, 1,
+                    281145, 18848, 0, 1, 180194, 159, 1, 1, 158519, 8942, 0, 1, 159378, 8813, 0, 1,
+                    107490, 3298, 1, 106057, 655, 1, 1964219, 24520, 3,
+                ]),
                 unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {

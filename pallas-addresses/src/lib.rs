@@ -545,6 +545,10 @@ impl AsRef<[u8]> for StakePayload {
 }
 
 impl StakeAddress {
+    pub fn new(network: Network, payload: StakePayload) -> Self {
+        Self(network, payload)
+    }
+
     /// Gets the network assoaciated with this address
     pub fn network(&self) -> Network {
         self.0

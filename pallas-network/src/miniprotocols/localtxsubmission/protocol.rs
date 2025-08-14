@@ -1,12 +1,33 @@
+use thiserror::Error;
+
 use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
 use crate::miniprotocols::localstate::queries_v16::{
     Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash,
     TransactionInput, TransactionOutput, Value, Vote,
 };
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
+use crate::multiplexer;
 use pallas_codec::minicbor::{self, Decode, Encode};
 use pallas_codec::utils::{AnyUInt, Bytes, NonEmptyKeyValuePairs, Nullable, Set};
 pub use pallas_crypto::hash::Hash;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("attempted to receive message while agency is ours")]
+    AgencyIsOurs,
+
+    #[error("attempted to send message while agency is theirs")]
+    AgencyIsTheirs,
+
+    #[error("inbound message is not valid for current state")]
+    InvalidInbound,
+
+    #[error("outbound message is not valid for current state")]
+    InvalidOutbound,
+
+    #[error("error while sending or receiving data through the channel")]
+    ChannelError(multiplexer::Error),
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
@@ -137,6 +158,7 @@ pub struct VotingProcedure {
     pub anchor: Nullable<Anchor>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
 pub enum ConwayContextError {
@@ -416,6 +438,7 @@ pub struct EpochNo(#[n(0)] pub u64);
 /// in the Haskell sources.
 ///
 /// The `u8` variant appears for backward compatibility.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
 pub enum ConwayLedgerFailure {
@@ -559,7 +582,8 @@ pub enum ConwayGovPredFailure {
     TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<DisplayRewardAccount>),
 }
 
-/// Reject reason. It can be a pair of an era number and a sequence of errors, or else a string.
+/// Reject reason. It can be a pair of an era number and a sequence of errors,
+/// or else a string.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TxValidationError {
     ByronTxValidationError {

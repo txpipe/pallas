@@ -59,7 +59,7 @@ mod alonzo_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -167,7 +167,7 @@ mod alonzo_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -202,7 +202,7 @@ mod alonzo_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -237,7 +237,7 @@ mod alonzo_tests {
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
             Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({:?})", err),
+            Err(err) => panic!("Unexpected error ({err:?})"),
         }
     }
 
@@ -279,7 +279,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxInsEmpty) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -310,7 +310,7 @@ mod alonzo_tests {
             Ok(()) => panic!("All inputs should be within the UTxO set"),
             Err(err) => match err {
                 Alonzo(AlonzoError::InputNotInUTxO) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -354,7 +354,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Validity interval lower bound should have been reached"),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockPrecedesValInt) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -398,7 +398,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Validity interval upper bound should not have been surpassed"),
             Err(err) => match err {
                 Alonzo(AlonzoError::BlockExceedsValInt) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -438,7 +438,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::FeeBelowMin) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -555,7 +555,7 @@ mod alonzo_tests {
             Ok(()) => panic!("No collateral inputs"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralMissing) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -668,7 +668,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TooManyCollaterals) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -800,7 +800,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralNotVKeyLocked) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -921,7 +921,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Collateral inputs should contain only lovelace"),
             Err(err) => match err {
                 Alonzo(AlonzoError::NonLovelaceCollateral) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1033,7 +1033,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Collateral inputs should contain the minimum lovelace"),
             Err(err) => match err {
                 Alonzo(AlonzoError::CollateralMinLovelace) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1076,7 +1076,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Preservation of value does not hold"),
             Err(err) => match err {
                 Alonzo(AlonzoError::PreservationOfValue) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1094,7 +1094,7 @@ mod alonzo_tests {
             match Address::from_bytes(&Vec::<u8>::from(first_output.address.clone())) {
                 Ok(Address::Shelley(sa)) => sa,
                 Ok(_) => panic!("Decoded output address and found the wrong era"),
-                Err(e) => panic!("Unable to parse output address({:?})", e),
+                Err(e) => panic!("Unable to parse output address({e:?})"),
             };
         let altered_address: ShelleyAddress = ShelleyAddress::new(
             Network::Testnet,
@@ -1139,7 +1139,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Output network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::OutputWrongNetworkID) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1182,7 +1182,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Transaction network ID should match environment network ID"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxWrongNetworkID) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1295,7 +1295,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Transaction ex units should be below maximum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::TxExUnitsExceeded) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1337,7 +1337,7 @@ mod alonzo_tests {
             ),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxTxSizeExceeded) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1459,7 +1459,7 @@ mod alonzo_tests {
             Ok(()) => panic!("All required signers should have signed the transaction"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ReqSignerMissing) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1502,7 +1502,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Missing verification key witness"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWitnessMissing) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1552,7 +1552,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Witness signature should verify the transaction"),
             Err(err) => match err {
                 Alonzo(AlonzoError::VKWrongSignature) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1668,7 +1668,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Missing Plutus script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ScriptWitnessMissing) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1792,7 +1792,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Unneeded Plutus script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededNativeScript) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1835,7 +1835,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Minting policy is not supported by a matching native script"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MintingLacksPolicy) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -1951,7 +1951,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Missing datum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::DatumMissing) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2073,7 +2073,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Unneeded datum"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededDatum) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2196,7 +2196,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Unneeded redeemer"),
             Err(err) => match err {
                 Alonzo(AlonzoError::UnneededRedeemer) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2312,7 +2312,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Redeemer missing"),
             Err(err) => match err {
                 Alonzo(AlonzoError::RedeemerMissing) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2350,7 +2350,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Transaction auxiliary data removed"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MetadataHash) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2389,7 +2389,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Output minimum lovelace is unreached"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MinLovelaceUnreached) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2428,7 +2428,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Max value size exceeded"),
             Err(err) => match err {
                 Alonzo(AlonzoError::MaxValSizeExceeded) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }
@@ -2548,7 +2548,7 @@ mod alonzo_tests {
             Ok(()) => panic!("Wrong script integrity hash"),
             Err(err) => match err {
                 Alonzo(AlonzoError::ScriptIntegrityHash) => (),
-                _ => panic!("Unexpected error ({:?})", err),
+                _ => panic!("Unexpected error ({err:?})"),
             },
         }
     }

@@ -86,14 +86,9 @@ pub fn validate_tx(
             _ => Err(TxAndProtParamsDiffer),
         },
         (MultiEraProtocolParameters::Conway(cpp), _) => match metx {
-            MultiEraTx::Conway(mtx) => validate_conway_tx(
-                mtx,
-                utxos,
-                cpp,
-                env.block_slot(),
-                env.prot_magic(),
-                env.network_id(),
-            ),
+            MultiEraTx::Conway(mtx) => {
+                validate_conway_tx(mtx, utxos, cpp, env.block_slot(), env.network_id())
+            }
             _ => Err(TxAndProtParamsDiffer),
         },
         (_, None) => Err(EnvMissingAccountState),

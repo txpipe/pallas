@@ -112,7 +112,7 @@ async fn do_chainsync(
                     }
                 };
             }
-            chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {:?}", x),
+            chainsync::NextResponse::RollBackward(x, _) => log::info!("rollback to {x:?}"),
             chainsync::NextResponse::Await => tracing::info!("tip of chaing reached"),
         };
     }

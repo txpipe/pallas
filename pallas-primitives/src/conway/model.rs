@@ -136,7 +136,9 @@ pub type CommitteeColdCredential = StakeCredential;
 
 pub type CommitteeHotCredential = StakeCredential;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord, Hash,
+)]
 #[cbor(index_only)]
 pub enum Language {
     #[n(0)]
@@ -452,14 +454,14 @@ pub struct Constitution {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 #[cbor(flat)]
 pub enum Voter {
-    #[n(0)]
-    ConstitutionalCommitteeKey(#[n(0)] AddrKeyhash),
     #[n(1)]
     ConstitutionalCommitteeScript(#[n(0)] ScriptHash),
-    #[n(2)]
-    DRepKey(#[n(0)] AddrKeyhash),
+    #[n(0)]
+    ConstitutionalCommitteeKey(#[n(0)] AddrKeyhash),
     #[n(3)]
     DRepScript(#[n(0)] ScriptHash),
+    #[n(2)]
+    DRepKey(#[n(0)] AddrKeyhash),
     #[n(4)]
     StakePoolKey(#[n(0)] AddrKeyhash),
 }
@@ -649,7 +651,8 @@ pub type PlutusV2Script = PlutusScript<2>;
 #[deprecated(since = "0.31.0", note = "use `PlutusScript<3>` instead")]
 pub type PlutusV3Script = PlutusScript<3>;
 
-// script = [0, native_script // 1, plutus_v1_script // 2, plutus_v2_script // 3, plutus_v3_script]
+// script = [0, native_script // 1, plutus_v1_script // 2, plutus_v2_script //
+// 3, plutus_v3_script]
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum ScriptRef<'b> {
@@ -725,11 +728,61 @@ pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]
 mod tests {
+    use super::Block;
     use pallas_codec::minicbor;
 
-    use super::Block;
-
     type BlockWrapper<'b> = (u16, Block<'b>);
+
+    #[cfg(test)]
+    mod tests_voter {
+        use super::super::Voter;
+        use crate::Hash;
+        use std::cmp::Ordering;
+        use test_case::test_case;
+
+        fn fake_hash(prefix: &str) -> Hash<28> {
+            let null_hash: [u8; 28] = [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+            Hash::from(&[prefix.as_bytes(), &null_hash].concat()[0..28])
+        }
+
+        fn cc_script(prefix: &str) -> Voter {
+            Voter::ConstitutionalCommitteeScript(fake_hash(prefix))
+        }
+
+        fn cc_key(prefix: &str) -> Voter {
+            Voter::ConstitutionalCommitteeKey(fake_hash(prefix))
+        }
+
+        fn drep_script(prefix: &str) -> Voter {
+            Voter::DRepScript(fake_hash(prefix))
+        }
+
+        fn drep_key(prefix: &str) -> Voter {
+            Voter::DRepKey(fake_hash(prefix))
+        }
+
+        fn spo(prefix: &str) -> Voter {
+            Voter::StakePoolKey(fake_hash(prefix))
+        }
+
+        #[test_case(cc_script("alice"), cc_script("alice") => Ordering::Equal)]
+        #[test_case(cc_script("alice"), cc_key("alice") => Ordering::Less)]
+        #[test_case(cc_script("alice"), drep_script("alice") => Ordering::Less)]
+        #[test_case(cc_script("alice"), drep_key("alice") => Ordering::Less)]
+        #[test_case(cc_script("alice"), spo("alice") => Ordering::Less)]
+        #[test_case(cc_script("bob"), cc_script("alice") => Ordering::Greater)]
+        #[test_case(drep_script("alice"), cc_script("alice") => Ordering::Greater)]
+        #[test_case(drep_script("alice"), cc_key("alice") => Ordering::Greater)]
+        #[test_case(drep_script("alice"), drep_script("alice") => Ordering::Equal)]
+        #[test_case(drep_script("alice"), drep_key("alice") => Ordering::Less)]
+        #[test_case(drep_script("alice"), spo("alice") => Ordering::Less)]
+        #[test_case(drep_script("bob"), drep_script("alice") => Ordering::Greater)]
+        fn voter_ordering(left: Voter, right: Voter) -> Ordering {
+            left.cmp(&right)
+        }
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {

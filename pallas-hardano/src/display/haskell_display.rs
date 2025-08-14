@@ -86,7 +86,7 @@ impl HaskellDisplay for ConwayLedgerFailure {
                 )
             }
             MempoolFailure(e) => format!("ConwayMempoolFailure {}", e.to_haskell_str()),
-            U8(v) => format!("U8 {}", v),
+            U8(v) => format!("U8 {v}"),
         }
     }
 }
@@ -395,7 +395,7 @@ impl HaskellDisplay for UtxoFailure {
             }
             NoCollateralInputs => "NoCollateralInputs".to_string(),
             TooManyCollateralInputs(actual, max) => {
-                format!("(TooManyCollateralInputs {} {})", actual, max)
+                format!("(TooManyCollateralInputs {actual} {max})")
             }
             WrongNetworkInTxBody(expected, actual) => format!(
                 "(WrongNetworkInTxBody {} {})",
@@ -986,7 +986,7 @@ impl HaskellDisplay for ProposalProcedure {
 
 impl HaskellDisplay for ScriptHash {
     fn to_haskell_str(&self) -> String {
-        format!("ScriptHash \"{}\"", self)
+        format!("ScriptHash \"{self}\"")
     }
 }
 
@@ -1024,7 +1024,7 @@ where
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1041,7 +1041,7 @@ where
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1060,14 +1060,14 @@ impl HaskellDisplay for i64 {
         if *self >= 0 {
             self.to_string()
         } else {
-            format!("({})", self)
+            format!("({self})")
         }
     }
 }
 
 impl HaskellDisplay for u8 {
     fn to_haskell_str(&self) -> String {
-        format!("{}", self)
+        format!("{self}")
     }
 }
 
@@ -1240,7 +1240,7 @@ trait AsProtocolVersion {
 
 impl AsUrl for String {
     fn as_url(&self) -> String {
-        format!("Url {{urlToText = \"{}\"}}", self)
+        format!("Url {{urlToText = \"{self}\"}}")
     }
 }
 impl AsTransactionId for [u8] {
@@ -1251,7 +1251,7 @@ impl AsTransactionId for [u8] {
 
 impl AsTransactionIx for u64 {
     fn as_tx_ix(&self) -> String {
-        format!("TxIx {{unTxIx = {}}}", self)
+        format!("TxIx {{unTxIx = {self}}}")
     }
 }
 
@@ -1261,7 +1261,7 @@ trait AsIx {
 
 impl AsIx for u64 {
     fn as_asix(&self) -> String {
-        format!("AsIx {{unAsIx = {}}}", self)
+        format!("AsIx {{unAsIx = {self}}}")
     }
 }
 
@@ -1284,21 +1284,21 @@ trait AsCertIx {
 
 impl AsCertIx for u64 {
     fn as_cert_ix(&self) -> String {
-        format!("CertIx {{unCertIx = {}}}", self)
+        format!("CertIx {{unCertIx = {self}}}")
     }
 }
 
 impl AsSafeHash for [u8] {
     fn as_safe_hash(&self) -> String {
         let hex = hex::encode(self);
-        format!("SafeHash \"{}\"", hex)
+        format!("SafeHash \"{hex}\"")
     }
 }
 
 impl AsSafeHash for Hash<28> {
     fn as_safe_hash(&self) -> String {
         let hex = hex::encode(self.as_ref());
-        format!("SafeHash \"{}\"", hex)
+        format!("SafeHash \"{hex}\"")
     }
 }
 
@@ -1317,7 +1317,7 @@ where
 impl AsKeyHash for [u8] {
     fn as_key_hash(&self) -> String {
         let hex = hex::encode(self);
-        format!("KeyHash {{unKeyHash = \"{}\"}}", hex)
+        format!("KeyHash {{unKeyHash = \"{hex}\"}}")
     }
 }
 impl AsKeyHash for Hash<28> {
@@ -1359,7 +1359,7 @@ impl AsPolicyId for Hash<28> {
 impl AsVKey for [u8] {
     fn as_vkey(&self) -> String {
         let hex = hex::encode(self);
-        format!("VKey (VerKeyEd25519DSIGN \"{}\")", hex)
+        format!("VKey (VerKeyEd25519DSIGN \"{hex}\")")
     }
 }
 
@@ -1378,14 +1378,14 @@ impl AsKeyHashObject for [u8] {
 impl AsScriptHash for [u8] {
     fn as_script_hash(&self) -> String {
         let hex = hex::encode(self);
-        format!("ScriptHash \"{}\"", hex)
+        format!("ScriptHash \"{hex}\"")
     }
 }
 
 impl AsScriptHash for Hash<28> {
     fn as_script_hash(&self) -> String {
         let hex = hex::encode(self.deref());
-        format!("ScriptHash \"{}\"", hex)
+        format!("ScriptHash \"{hex}\"")
     }
 }
 
@@ -1419,7 +1419,7 @@ impl<T: HaskellDisplay> AsFromList for Vec<&Option<T>> {
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1434,7 +1434,7 @@ where
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1449,7 +1449,7 @@ where
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1461,7 +1461,7 @@ impl<T: HaskellDisplay> AsFromList for &Vec<T> {
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1469,7 +1469,7 @@ impl HaskellDisplay for [String] {
     fn to_haskell_str(&self) -> String {
         let result = self.join(",");
 
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1479,7 +1479,7 @@ trait AsDisplayCoin {
 
 impl AsDisplayCoin for u64 {
     fn as_display_coin(&self) -> String {
-        format!("Coin {}", self)
+        format!("Coin {self}")
     }
 }
 
@@ -1617,7 +1617,7 @@ where
             .map(|(k, v)| format!("({},{})", k.to_haskell_str(), v.to_haskell_str()))
             .collect::<Vec<_>>()
             .join(",");
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1630,7 +1630,7 @@ impl HaskellDisplay
             .map(|(k, v)| format!("({},{})", k.to_haskell_str(), v.as_from_list()))
             .collect::<Vec<_>>()
             .join(",");
-        format!("fromList [{}]", result)
+        format!("fromList [{result}]")
     }
 }
 
@@ -1667,7 +1667,7 @@ trait AsAssetName {
 
 impl AsAssetName for AssetName {
     fn as_asset_name(&self) -> String {
-        format!("\"{}\"", self)
+        format!("\"{self}\"")
     }
 }
 
@@ -1709,7 +1709,7 @@ impl HaskellDisplay for TransactionOutput {
                     None => "NoDatum".to_string(),
                 };
 
-                format!("{},{},{},SNothing", address, value, datum)
+                format!("{address},{value},{datum},SNothing")
             }
             Current(txo) => {
                 let address = txo.address.as_address();
@@ -1730,7 +1730,7 @@ impl HaskellDisplay for TransactionOutput {
 
                 let script = txo.script_ref.to_haskell_str();
 
-                format!("{},{},{},{}", address, value, datum, script)
+                format!("{address},{value},{datum},{script}")
             }
         }
     }
@@ -1887,7 +1887,7 @@ impl HaskellDisplay for Utxo {
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("UTxO (fromList [{}])", result)
+        format!("UTxO (fromList [{result}])")
     }
 }
 
@@ -1954,7 +1954,7 @@ impl AsMaryValue for Coin {
 
 impl AsMaryValue for u64 {
     fn as_mary_value(&self) -> String {
-        format!("MaryValue (Coin {})", self)
+        format!("MaryValue (Coin {self})")
     }
 }
 
@@ -1974,7 +1974,7 @@ impl HaskellDisplay for pallas_addresses::Network {
         match self {
             pallas_addresses::Network::Mainnet => "Mainnet".to_string(),
             pallas_addresses::Network::Testnet => "Testnet".to_string(),
-            pallas_addresses::Network::Other(magic) => format!("Other {}", magic),
+            pallas_addresses::Network::Other(magic) => format!("Other {magic}"),
         }
     }
 }
@@ -2011,7 +2011,7 @@ impl HaskellDisplay for ShelleyDelegationPart {
         if str == "StakeRefNull" {
             str.to_string()
         } else {
-            format!("({})", str)
+            format!("({str})")
         }
     }
 }
@@ -2069,14 +2069,14 @@ where
                     .map(move |inner| {
                         let asset_name = inner.0.as_asset_name();
                         let amount = inner.1.to_haskell_str();
-                        format!("({},{})", asset_name, amount)
+                        format!("({asset_name},{amount})")
                     })
                     .collect::<Vec<_>>();
                 format!("({},fromList [{}])", policy_id, rest.join(","))
             })
             .collect::<Vec<_>>()
             .join(",");
-        format!("MultiAsset (fromList [{}])", str)
+        format!("MultiAsset (fromList [{str}])")
     }
 }
 
@@ -2134,7 +2134,7 @@ where
             Indef(vec) => vec.as_from_list(),
         };
 
-        format!("MaybeIndefArray {}", str)
+        format!("MaybeIndefArray {str}")
     }
 }
 
@@ -2156,14 +2156,14 @@ trait AsSlotNo {
 
 impl AsSlotNo for u64 {
     fn as_slot_no(&self) -> String {
-        format!("SlotNo {}", self)
+        format!("SlotNo {self}")
     }
 }
 
 impl AsSlotNo for SMaybe<u64> {
     fn as_slot_no(&self) -> String {
         match self {
-            SMaybe::Some(v) => format!("SJust (SlotNo {})", v),
+            SMaybe::Some(v) => format!("SJust (SlotNo {v})"),
             _ => "SNothing".to_string(),
         }
     }
@@ -2175,12 +2175,12 @@ trait AsBlake2b256 {
 
 impl AsBlake2b256 for Hash<32> {
     fn as_blake2b256(&self) -> String {
-        format!("blake2b_256: SafeHash \"{}\"", self)
+        format!("blake2b_256: SafeHash \"{self}\"")
     }
 }
 impl AsBlake2b256 for Hash<28> {
     fn as_blake2b256(&self) -> String {
-        format!("blake2b_256: SafeHash \"{}\"", self)
+        format!("blake2b_256: SafeHash \"{self}\"")
     }
 }
 
@@ -2448,7 +2448,7 @@ where
             .map(|item| item.to_haskell_str())
             .collect::<Vec<_>>()
             .join(",");
-        format!("[{}]", value)
+        format!("[{value}]")
     }
 
     fn to_haskell_str_p(&self) -> String {
@@ -2458,7 +2458,7 @@ where
             .map(|item| item.to_haskell_str_p())
             .collect::<Vec<_>>()
             .join(",");
-        format!("[{}]", value)
+        format!("[{value}]")
     }
 }
 
@@ -2471,9 +2471,9 @@ impl HaskellDisplay for DeltaCoin {
 impl HaskellDisplay for i32 {
     fn to_haskell_str(&self) -> String {
         if *self >= 0 {
-            format!("{}", self)
+            format!("{self}")
         } else {
-            format!("({})", self)
+            format!("({self})")
         }
     }
 }
@@ -2484,7 +2484,7 @@ impl HaskellDisplay for DatumHash {
 }
 
 fn display_governance_action_id_index(index: &u32) -> String {
-    format!("GovActionIx {{unGovActionIx = {}}}", index)
+    format!("GovActionIx {{unGovActionIx = {index}}}")
 }
 
 trait AsDnsName {
@@ -2512,10 +2512,7 @@ trait AsAuxDataHash {
 
 impl AsAuxDataHash for Bytes {
     fn as_aux_data_hash(&self) -> String {
-        format!(
-            "AuxiliaryDataHash {{unsafeAuxiliaryDataHash = SafeHash \"{}\"}}",
-            self
-        )
+        format!("AuxiliaryDataHash {{unsafeAuxiliaryDataHash = SafeHash \"{self}\"}}")
     }
 }
 
@@ -2531,7 +2528,7 @@ impl AsIPv4 for Nullable<Bytes> {
                     .map(|byte| byte.to_string())
                     .collect::<Vec<_>>()
                     .join(".");
-                format!("(SJust {})", str)
+                format!("(SJust {str})")
             }
             _ => "SNothing".to_string(),
         }
@@ -2559,7 +2556,7 @@ impl AsIPv6 for Nullable<Bytes> {
 
                 let ip = Ipv6Addr::from(data).to_string();
 
-                format!("(SJust {})", ip)
+                format!("(SJust {ip})")
             }
             _ => "SNothing".to_string(),
         }
@@ -2584,7 +2581,7 @@ trait AsEpochNo {
 }
 impl AsEpochNo for u64 {
     fn as_epoch_no(&self) -> String {
-        format!("EpochNo {}", self)
+        format!("EpochNo {self}")
     }
 }
 
@@ -2596,7 +2593,7 @@ impl AsNetworkMagic for u64 {
     fn as_network_magic(&self) -> String {
         match self {
             0 => "NetworkMainOrStage".to_string(),
-            _ => format!("NetworkTestnet {}", self),
+            _ => format!("NetworkTestnet {self}"),
         }
     }
 }
@@ -2608,7 +2605,7 @@ trait AsPort {
 impl AsPort for Nullable<u32> {
     fn as_port(&self) -> String {
         match self {
-            Nullable::Some(p) => format!("(SJust (Port {{portToWord16 = {}}}))", p),
+            Nullable::Some(p) => format!("(SJust (Port {{portToWord16 = {p}}}))"),
             _ => "SNothing".to_string(),
         }
     }
@@ -2625,10 +2622,8 @@ impl HaskellDisplay for CostModels {
                         .collect::<Vec<_>>()
                         .join(",");
 
-                    let str = format!(
-                        "(PlutusV{},CostModel PlutusV{} [{}])",
-                        version, version, model_str,
-                    );
+                    let str =
+                        format!("(PlutusV{version},CostModel PlutusV{version} [{model_str}])",);
                     Some(str.as_is())
                 }
                 _ => None,

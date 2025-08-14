@@ -46,7 +46,7 @@ pub struct DRepVotingThresholds {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Constitution {
     pub anchor: Anchor,
-    pub script: String,
+    pub script: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
