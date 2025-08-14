@@ -19,8 +19,8 @@ use pallas_codec::{
 use pallas_primitives::{
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
-        DatumOption, Language, Mint, NativeScript, Redeemer, RequiredSigners, ScriptRef,
-        TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
+        DatumOption, Language, Mint, Redeemer, RequiredSigners, ScriptRef, TransactionBody,
+        TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput,
 };
@@ -47,7 +47,7 @@ pub fn validate_babbage_tx(
     check_network_id(tx_body, network_id)?;
     check_tx_size(&size, prot_pps)?;
     check_tx_ex_units(mtx, prot_pps)?;
-    check_minting(tx_body, mtx)?;
+    check_minting(tx_body, mtx, utxos)?;
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, utxos, network_magic, network_id, block_slot)?;
@@ -433,39 +433,47 @@ fn check_tx_ex_units(mtx: &Tx, prot_pps: &BabbageProtParams) -> ValidationResult
 
 // Each minted / burned asset is paired with an appropriate native script or
 // Plutus script.
-fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
+fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
-            let native_script_wits: Vec<NativeScript> =
-                match &mtx.transaction_witness_set.native_script {
-                    None => Vec::new(),
-                    Some(keep_raw_native_script_wits) => keep_raw_native_script_wits
-                        .iter()
-                        .map(|x| x.clone().unwrap())
-                        .collect(),
-                };
-            let v1_script_wits: Vec<PlutusScript<1>> =
-                match &mtx.transaction_witness_set.plutus_v1_script {
-                    None => Vec::new(),
-                    Some(v1_script_wits) => v1_script_wits.clone(),
-                };
-            let v2_script_wits: Vec<PlutusScript<2>> =
-                match &mtx.transaction_witness_set.plutus_v2_script {
-                    None => Vec::new(),
-                    Some(v2_script_wits) => v2_script_wits.clone(),
-                };
+            let native_script_wits = mtx
+                .transaction_witness_set
+                .native_script
+                .iter()
+                .flatten()
+                .map(|x| compute_native_script_hash(&*x));
+
+            let v1_scripts_wits = mtx
+                .transaction_witness_set
+                .plutus_v1_script
+                .iter()
+                .flatten()
+                .map(compute_plutus_v1_script_hash);
+
+            let v2_scripts_wits = mtx
+                .transaction_witness_set
+                .plutus_v2_script
+                .iter()
+                .flatten()
+                .map(compute_plutus_v2_script_hash);
+
+            let ref_scripts = tx_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .filter_map(|x| get_script_hash_from_reference_input(x, utxos));
+
+            let all_scripts_wits: Vec<_> = native_script_wits
+                .chain(v1_scripts_wits)
+                .chain(v2_scripts_wits)
+                .chain(ref_scripts)
+                .collect();
+
+            dbg!(&all_scripts_wits);
+
             for (policy, _) in minted_value.iter() {
-                if native_script_wits
-                    .iter()
-                    .all(|script| compute_native_script_hash(script) != *policy)
-                    && v1_script_wits
-                        .iter()
-                        .all(|script| compute_plutus_v1_script_hash(script) != *policy)
-                    && v2_script_wits
-                        .iter()
-                        .all(|script| compute_plutus_v2_script_hash(script) != *policy)
-                {
-                    return Err(PostAlonzo(MintingLacksPolicy));
+                if !all_scripts_wits.contains(policy) {
+                    return Err(PostAlonzo(MintingLacksPolicy(*policy)));
                 }
             }
             Ok(())
@@ -749,9 +757,9 @@ fn check_minting_policies(
                     }
                 }
             }
-            for (policy_covered, _) in minting_policies {
+            for (policy_covered, policy) in minting_policies {
                 if !policy_covered {
-                    return Err(PostAlonzo(MintingLacksPolicy));
+                    return Err(PostAlonzo(MintingLacksPolicy(policy)));
                 }
             }
             Ok(())
