@@ -31,6 +31,18 @@ pub struct GenesisValues {
     pub shelley_known_slot: u64,
     pub shelley_known_hash: String,
     pub shelley_known_time: u64,
+
+    // Hard Fork Combinator (HFC) era transition slots
+    #[serde(default)]
+    pub allegra_start_slot: Option<u64>,
+    #[serde(default)]
+    pub mary_start_slot: Option<u64>,
+    #[serde(default)]
+    pub alonzo_start_slot: Option<u64>,
+    #[serde(default)]
+    pub babbage_start_slot: Option<u64>,
+    #[serde(default)]
+    pub conway_start_slot: Option<u64>,
 }
 
 impl GenesisValues {
@@ -51,6 +63,13 @@ impl GenesisValues {
             shelley_known_hash: "aa83acbf5904c0edfe4d79b3689d3d00fcfc553cf360fd2229b98d464c28e9de"
                 .to_string(),
             shelley_known_time: 1596059091,
+
+            // Era transitions - source: official Cardano documentation
+            allegra_start_slot: Some(16588800),
+            mary_start_slot: Some(23068800),
+            alonzo_start_slot: Some(39916975),
+            babbage_start_slot: Some(72316896),
+            conway_start_slot: Some(133660855), 
         }
     }
 
@@ -71,6 +90,13 @@ impl GenesisValues {
             shelley_known_hash: "02b1c561715da9e540411123a6135ee319b02f60b9a11a603d3305556c04329f"
                 .to_string(),
             shelley_known_time: 1595967616,
+
+            // Legacy testnet era transitions - not documented
+            allegra_start_slot: None,
+            mary_start_slot: None,
+            alonzo_start_slot: None,
+            babbage_start_slot: None,
+            conway_start_slot: None,
         }
     }
 
@@ -89,6 +115,13 @@ impl GenesisValues {
             shelley_known_hash: "268ae601af8f9214804735910a3301881fbe0eec9936db7d1fb9fc39e93d1e37"
                 .to_string(),
             shelley_known_time: 1666656000,
+
+            // Preview likely started in Babbage era
+            allegra_start_slot: None,
+            mary_start_slot: None,
+            alonzo_start_slot: None,
+            babbage_start_slot: None,
+            conway_start_slot: Some(31424418),
         }
     }
 
@@ -109,6 +142,13 @@ impl GenesisValues {
             shelley_known_hash: "c971bfb21d2732457f9febf79d9b02b20b9a3bef12c561a78b818bcb8b35a574"
                 .to_string(),
             shelley_known_time: 1655769600,
+
+            // Preprod era transitions - not documented
+            allegra_start_slot: None,
+            mary_start_slot: None,
+            alonzo_start_slot: None,
+            babbage_start_slot: None,
+            conway_start_slot: None,
         }
     }
 
@@ -121,6 +161,111 @@ impl GenesisValues {
             PREVIEW_MAGIC => Some(Self::preview()),
             PRE_PRODUCTION_MAGIC => Some(Self::preprod()),
             _ => None,
+        }
+    }
+
+    /// Get era start slot using HFC data
+    pub fn era_start_slot(&self, era: crate::Era) -> Option<u64> {
+        use crate::Era;
+        match era {
+            Era::Byron => Some(0),
+            Era::Shelley => Some(self.shelley_known_slot),
+            Era::Allegra => self.allegra_start_slot,
+            Era::Mary => self.mary_start_slot,
+            Era::Alonzo => self.alonzo_start_slot,
+            Era::Babbage => self.babbage_start_slot,
+            Era::Conway => self.conway_start_slot,
+        }
+    }
+
+    /// Get era from slot number using HFC data
+    pub fn slot_to_era(&self, slot: u64) -> crate::Era {
+        use crate::Era;
+
+        if slot < self.shelley_known_slot {
+            Era::Byron
+        } else if self.allegra_start_slot.map_or(true, |s| slot < s) {
+            Era::Shelley
+        } else if self.mary_start_slot.map_or(true, |s| slot < s) {
+            Era::Allegra
+        } else if self.alonzo_start_slot.map_or(true, |s| slot < s) {
+            Era::Mary
+        } else if self.babbage_start_slot.map_or(true, |s| slot < s) {
+            Era::Alonzo
+        } else if self.conway_start_slot.map_or(true, |s| slot < s) {
+            Era::Babbage
+        } else {
+            Era::Conway
+        }
+    }
+
+    /// Get list of all known eras (regardless of whether slot data is available)
+    pub fn available_eras(&self) -> Vec<crate::Era> {
+        use crate::Era;
+        vec![
+            Era::Byron,
+            Era::Shelley,
+            Era::Allegra,
+            Era::Mary,
+            Era::Alonzo,
+            Era::Babbage,
+            Era::Conway,
+        ]
+    }
+
+    /// Get list of eras that have slot transition data configured
+    pub fn eras_with_slot_data(&self) -> Vec<crate::Era> {
+        use crate::Era;
+        let mut eras = vec![Era::Byron, Era::Shelley]; // Always have these
+
+        if self.allegra_start_slot.is_some() {
+            eras.push(Era::Allegra);
+        }
+        if self.mary_start_slot.is_some() {
+            eras.push(Era::Mary);
+        }
+        if self.alonzo_start_slot.is_some() {
+            eras.push(Era::Alonzo);
+        }
+        if self.babbage_start_slot.is_some() {
+            eras.push(Era::Babbage);
+        }
+        if self.conway_start_slot.is_some() {
+            eras.push(Era::Conway);
+        }
+
+        eras
+    }
+
+    /// Configure era transition slots with known values
+    /// This allows users to provide accurate slot numbers when they have them
+    pub fn with_era_slots(
+        mut self,
+        allegra: Option<u64>,
+        mary: Option<u64>,
+        alonzo: Option<u64>,
+        babbage: Option<u64>,
+        conway: Option<u64>,
+    ) -> Self {
+        self.allegra_start_slot = allegra;
+        self.mary_start_slot = mary;
+        self.alonzo_start_slot = alonzo;
+        self.babbage_start_slot = babbage;
+        self.conway_start_slot = conway;
+        self
+    }
+
+    /// Set a specific era's start slot
+    pub fn set_era_start_slot(&mut self, era: crate::Era, slot: Option<u64>) {
+        use crate::Era;
+        match era {
+            Era::Byron => {}   // Byron always starts at slot 0
+            Era::Shelley => {} // Shelley slot is in known_slot field
+            Era::Allegra => self.allegra_start_slot = slot,
+            Era::Mary => self.mary_start_slot = slot,
+            Era::Alonzo => self.alonzo_start_slot = slot,
+            Era::Babbage => self.babbage_start_slot = slot,
+            Era::Conway => self.conway_start_slot = slot,
         }
     }
 }
