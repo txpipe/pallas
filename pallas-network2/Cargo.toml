@@ -11,6 +11,7 @@ tokio = { version = "1.45.1", optional = true, features = ["full"] }
 pallas-network = { path = "../pallas-network" }
 pallas-codec = { path = "../pallas-codec" }
 chrono = "0.4.41"
+opentelemetry = "0.30.0"
 
 [features]
 emulation = ["tokio", "rand"]

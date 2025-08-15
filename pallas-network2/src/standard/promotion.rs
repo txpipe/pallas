@@ -44,6 +44,10 @@ pub struct PromotionBehavior {
     pub cold_peers: HashSet<PeerId>,
     pub warm_peers: HashSet<PeerId>,
     pub hot_peers: HashSet<PeerId>,
+    // metrics
+    cold_peers_gauge: opentelemetry::metrics::Gauge<u64>,
+    warm_peers_gauge: opentelemetry::metrics::Gauge<u64>,
+    hot_peers_gauge: opentelemetry::metrics::Gauge<u64>,
 }
 
 impl Default for PromotionBehavior {
@@ -54,12 +58,43 @@ impl Default for PromotionBehavior {
 
 impl PromotionBehavior {
     pub fn new(config: DiscoveryConfig) -> Self {
+        let meter = opentelemetry::global::meter("pallas-network2");
+
+        let cold_peers_gauge = meter
+            .u64_gauge("cold_peers")
+            .with_description("Total cold peers")
+            .build();
+
+        let warm_peers_gauge = meter
+            .u64_gauge("warm_peers")
+            .with_description("Total warm peers")
+            .build();
+
+        let hot_peers_gauge = meter
+            .u64_gauge("hot_peers")
+            .with_description("Total hot peers")
+            .build();
+
         Self {
             config,
             cold_peers: Default::default(),
             warm_peers: Default::default(),
             hot_peers: Default::default(),
+            cold_peers_gauge,
+            warm_peers_gauge,
+            hot_peers_gauge,
         }
+    }
+
+    fn update_metrics(&self) {
+        self.cold_peers_gauge
+            .record(self.cold_peers.len() as u64, &[]);
+
+        self.warm_peers_gauge
+            .record(self.warm_peers.len() as u64, &[]);
+
+        self.hot_peers_gauge
+            .record(self.hot_peers.len() as u64, &[]);
     }
 
     fn total_peers(&self) -> usize {
@@ -79,6 +114,7 @@ impl PromotionBehavior {
         if let Some(x) = self.warm_peers.take(pid) {
             println!("promoting warm peer {}", &pid);
             self.hot_peers.insert(x);
+            self.update_metrics();
 
             let version = state.version();
 
@@ -94,6 +130,7 @@ impl PromotionBehavior {
         if let Some(x) = self.cold_peers.take(pid) {
             println!("promoting cold peer {}", &pid);
             self.warm_peers.insert(x);
+            self.update_metrics();
         }
     }
 

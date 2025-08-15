@@ -101,19 +101,32 @@ impl MyNode {
     }
 }
 
+use opentelemetry_sdk::metrics::{MeterProviderBuilder, PeriodicReader};
+
 #[tokio::main]
 async fn main() {
+    let exporter = opentelemetry_stdout::MetricExporter::default();
+
+    let provider = MeterProviderBuilder::default()
+        .with_periodic_exporter(exporter)
+        .build();
+
+    opentelemetry::global::set_meter_provider(provider);
+
     let mut node = MyNode {
         network: Manager::new(MyEmulator::default(), InitiatorBehavior::default()),
     };
 
-    [1234, 1235]
-        .into_iter()
-        .map(|port| PeerId {
-            host: "127.0.0.1".to_string(),
-            port,
-        })
-        .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
+    [
+        1234, 1235, 1236, 1237, 1238, 1239, 1240, 1241, 1242, 1243, 1244, 1245, 1246, 1247, 1248,
+        1249,
+    ]
+    .into_iter()
+    .map(|port| PeerId {
+        host: "127.0.0.1".to_string(),
+        port,
+    })
+    .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
 
     loop {
         node.tick().await;
