@@ -367,6 +367,7 @@ fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
     if let Some(m) = &tx_body.mint {
         input = conway_add_minted_non_zero(&input, m, &PostAlonzo(NegativeValue))?;
     }
+
     if !conway_values_are_equal(&input, &output) {
         return Err(PostAlonzo(PreservationOfValue));
     }
