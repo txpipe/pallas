@@ -100,7 +100,7 @@ pub struct PeerClient {
     pub plexer: RunningPlexer,
     pub keepalive: KeepAliveHandle,
     pub chainsync: chainsync::N2NClient,
-    pub blockfetch: blockfetch::Client,
+    pub blockfetch: PlexerAdapter<blockfetch::Client>,
     pub txsubmission: txsubmission::Client,
     pub peersharing: PlexerAdapter<peersharing::Client>,
 }
@@ -148,7 +148,7 @@ impl PeerClient {
             plexer,
             keepalive,
             chainsync: chainsync::Client::new(cs_channel),
-            blockfetch: blockfetch::Client::new(bf_channel),
+            blockfetch: PlexerAdapter::new(blockfetch::Client::default(), bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
             peersharing: PlexerAdapter::new(peersharing::Client::default(), peersharing_channel),
         };
@@ -209,7 +209,7 @@ impl PeerClient {
         tokio::spawn(op(&mut self.chainsync))
     }
 
-    pub fn blockfetch(&mut self) -> &mut blockfetch::Client {
+    pub fn blockfetch(&mut self) -> &mut PlexerAdapter<blockfetch::Client> {
         &mut self.blockfetch
     }
 
@@ -231,7 +231,7 @@ pub struct PeerServer {
     pub plexer: RunningPlexer,
     pub handshake: PlexerAdapter<handshake::N2NServer>,
     pub chainsync: chainsync::N2NServer,
-    pub blockfetch: blockfetch::Server,
+    pub blockfetch: PlexerAdapter<blockfetch::Server>,
     pub txsubmission: txsubmission::Server,
     pub keepalive: PlexerAdapter<keepalive::Server>,
     pub peersharing: peersharing::Server,
@@ -252,7 +252,7 @@ impl PeerServer {
 
         let hs = PlexerAdapter::new(handshake::Server::default(), hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
-        let bf = blockfetch::Server::new(bf_channel);
+        let bf = PlexerAdapter::new(blockfetch::Server::default(), bf_channel);
         let txsub = txsubmission::Server::new(txsub_channel);
         let keepalive = PlexerAdapter::new(keepalive::Server::default(), keepalive_channel);
         let peersharing = peersharing::Server::new(peersharing_channel);
@@ -303,7 +303,7 @@ impl PeerServer {
         &mut self.chainsync
     }
 
-    pub fn blockfetch(&mut self) -> &mut blockfetch::Server {
+    pub fn blockfetch(&mut self) -> &mut PlexerAdapter<blockfetch::Server> {
         &mut self.blockfetch
     }
 

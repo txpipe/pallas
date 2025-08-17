@@ -1,19 +1,31 @@
 use crate::miniprotocols::Point;
 
+pub type Body = Vec<u8>;
+
+pub type Range = (Point, Point);
+
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum State {
+pub enum ClientState {
     Idle,
     Busy,
+    Streaming(Option<Body>),
+    Done,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ServerState {
+    Idle,
+    Busy(Range),
     Streaming,
     Done,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    RequestRange { range: (Point, Point) },
+    RequestRange(Range),
     ClientDone,
     StartBatch,
     NoBlocks,
-    Block { body: Vec<u8> },
+    Block(Body),
     BatchDone,
 }

@@ -285,9 +285,6 @@ pub enum AnyClientError {
     #[error("chainsync client error")]
     ChainSyncError(#[from] crate::miniprotocols::chainsync::ClientError),
 
-    #[error("blockfetch client error")]
-    BlockFetchError(#[from] crate::miniprotocols::blockfetch::ClientError),
-
     #[error("txsubmission client error")]
     TxSubmissionError(#[from] crate::miniprotocols::txsubmission::Error),
 }
