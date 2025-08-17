@@ -2,7 +2,9 @@ use pallas::{
     ledger::traverse::MultiEraHeader,
     network::{
         facades::PeerClient,
-        miniprotocols::{self, blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
+        miniprotocols::{
+            self, blockfetch, chainsync, keepalive, PlexerAdapter, Point, MAINNET_MAGIC,
+        },
     },
 };
 
@@ -13,9 +15,6 @@ use tokio::time::Instant;
 pub enum Error {
     #[error("hex conversion error")]
     FromHexError(#[from] hex::FromHexError),
-
-    #[error("blockfetch error")]
-    BlockFetchError(#[from] blockfetch::ClientError),
 
     #[error("chainsync error")]
     ChainSyncError(#[from] chainsync::ClientError),
@@ -28,7 +27,7 @@ pub enum Error {
 }
 
 async fn do_blockfetch(
-    blockfetch_client: &mut blockfetch::Client,
+    blockfetch_client: &mut PlexerAdapter<blockfetch::Client>,
     range: (Point, Point),
 ) -> Result<(), Error> {
     let blocks = blockfetch_client.fetch_range(range.clone()).await?;
@@ -46,7 +45,7 @@ async fn do_blockfetch(
 
 async fn do_chainsync(
     mut chainsync_client: chainsync::N2NClient,
-    mut blockfetch_client: blockfetch::Client,
+    mut blockfetch_client: PlexerAdapter<blockfetch::Client>,
 ) -> Result<(), Error> {
     let known_points = vec![Point::Specific(
         43847831u64,
