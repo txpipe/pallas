@@ -2,9 +2,7 @@ use pallas::{
     ledger::traverse::MultiEraHeader,
     network::{
         facades::PeerClient,
-        miniprotocols::{
-            self, blockfetch, chainsync, PlexerAdapter, Point, MAINNET_MAGIC,
-        },
+        miniprotocols::{self, blockfetch, chainsync, PlexerAdapter, Point, MAINNET_MAGIC},
     },
 };
 

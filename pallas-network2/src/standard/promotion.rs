@@ -206,9 +206,11 @@ impl PromotionBehavior {
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
         if self.hot_peers.len() < self.config.max_hot_peers
-            && self.warm_peers.contains(pid) && peer.is_initialized() {
-                self.promote_warm_peer(pid, peer, outbound);
-            }
+            && self.warm_peers.contains(pid)
+            && peer.is_initialized()
+        {
+            self.promote_warm_peer(pid, peer, outbound);
+        }
     }
 
     pub fn select_random_hot_peer(&self) -> Option<&PeerId> {

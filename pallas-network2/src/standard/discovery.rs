@@ -23,7 +23,6 @@ pub struct DiscoveryBehavior {
     discovered: HashSet<PeerId>,
 }
 
-
 impl DiscoveryBehavior {
     fn request_peers(&self, pid: &PeerId, outbound: &mut OutboundQueue<super::InitiatorBehavior>) {
         let msg = peersharing_proto::Message::ShareRequest(self.config.request_amount);
