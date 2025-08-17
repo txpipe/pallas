@@ -1,21 +1,14 @@
-use futures::{Stream, StreamExt};
+use futures::StreamExt;
 use std::{
-    cmp::Ordering,
     collections::HashSet,
     hash::Hash,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
     time::{Duration, Instant},
 };
 
 use tracing::{debug, error, info, instrument, trace};
 
-use crate::miniprotocols::{
-    blockfetch,
-    chainsync::{self, HeaderContent},
-    handshake, keepalive, peersharing,
-    txsubmission::{self, EraTxBody, EraTxId},
-};
+use crate::miniprotocols::{handshake, keepalive, peersharing};
 
 pub mod behaviors;
 pub mod netio;
@@ -35,7 +28,7 @@ impl FromStr for PeerId {
             .rsplit_once(':')
             .ok_or_else(|| "Missing port in address".to_string())?;
 
-        let port: u16 = port.parse().map_err(|e| format!("Invalid port: {}", e))?;
+        let port: u16 = port.parse().map_err(|e| format!("Invalid port: {e}"))?;
 
         Ok(PeerId {
             host: host.to_string(),
@@ -54,7 +47,7 @@ impl std::fmt::Display for PeerId {
 struct PeerHandle {
     id: PeerId,
     is_connected: bool,
-    span: tracing::Span,
+    _span: tracing::Span,
     tags: std::collections::HashSet<PeerTag>,
 }
 
@@ -64,7 +57,7 @@ impl PeerHandle {
             id: pid.clone(),
             is_connected: false,
             tags: HashSet::from_iter(tags),
-            span: tracing::info_span!("peer", pid = %pid),
+            _span: tracing::info_span!("peer", pid = %pid),
         }
     }
 
@@ -78,10 +71,6 @@ impl PeerHandle {
 
     fn add_tag(&mut self, tag: impl Into<PeerTag>) {
         self.tags.insert(tag.into());
-    }
-
-    fn remove_tag(&mut self, tag: impl Into<PeerTag>) {
-        self.tags.remove(&tag.into());
     }
 
     fn switch_tag(&mut self, from: impl Into<PeerTag>, to: impl Into<PeerTag>) {
@@ -129,7 +118,7 @@ pub enum NetworkEvent {
 
 #[derive(Debug)]
 pub struct State {
-    pub peers: papaya::HashMap<PeerId, PeerHandle>,
+    peers: papaya::HashMap<PeerId, PeerHandle>,
 }
 
 impl State {
@@ -239,11 +228,11 @@ impl std::fmt::Display for PeerTag {
             PeerTag::Cold => write!(f, "cold"),
             PeerTag::Banned => write!(f, "banned"),
             PeerTag::Trusted => write!(f, "trusted"),
-            PeerTag::Accepted(version) => write!(f, "accepted({})", version),
+            PeerTag::Accepted(version) => write!(f, "accepted({version})"),
             PeerTag::Rejected => write!(f, "rejected"),
             PeerTag::PeerSharing => write!(f, "peer-sharing"),
             PeerTag::SeenAlive(_) => write!(f, "seen-alive"),
-            PeerTag::SharedPeers(count) => write!(f, "shared-peers({})", count),
+            PeerTag::SharedPeers(count) => write!(f, "shared-peers({count})"),
         }
     }
 }
@@ -258,15 +247,15 @@ pub enum IntrinsicCommand {
 }
 
 impl IntrinsicCommand {
-    fn pid(&self) -> Option<PeerId> {
-        match self {
-            IntrinsicCommand::ConnectPeer(pid) => Some(pid.clone()),
-            IntrinsicCommand::SendMessage(pid, _) => Some(pid.clone()),
-            IntrinsicCommand::AddPeerTag(pid, _) => Some(pid.clone()),
-            IntrinsicCommand::SwitchPeerTag(pid, _, _) => Some(pid.clone()),
-            IntrinsicCommand::TrackNewPeer(pid, _) => Some(pid.clone()),
-        }
-    }
+    // fn pid(&self) -> Option<PeerId> {
+    //     match self {
+    //         IntrinsicCommand::ConnectPeer(pid) => Some(pid.clone()),
+    //         IntrinsicCommand::SendMessage(pid, _) => Some(pid.clone()),
+    //         IntrinsicCommand::AddPeerTag(pid, _) => Some(pid.clone()),
+    //         IntrinsicCommand::SwitchPeerTag(pid, _, _) => Some(pid.clone()),
+    //         IntrinsicCommand::TrackNewPeer(pid, _) => Some(pid.clone()),
+    //     }
+    // }
 }
 
 pub trait Behavior: Send + Sync {
@@ -407,7 +396,7 @@ impl Actuator {
                     return Ok(());
                 }
 
-                let result = self.plexer.connect_peer(&pid).await;
+                let result = self.plexer.connect_peer(pid).await;
 
                 match result {
                     Ok(()) => {
@@ -431,16 +420,12 @@ impl Actuator {
             IntrinsicCommand::SendMessage(pid, any_message) => {
                 info!(%pid, "sending message");
 
-                self.plexer.send_message(&pid, any_message.clone()).await?;
+                self.plexer.send_message(pid, any_message.clone()).await?;
 
                 self.notify(NetworkEvent::MessageSent(pid.clone(), any_message.clone()))
                     .await;
 
                 Ok(())
-            }
-            x => {
-                dbg!(x);
-                todo!()
             }
         }
     }

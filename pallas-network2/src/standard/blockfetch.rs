@@ -1,14 +1,14 @@
 use pallas_network::miniprotocols::{Agent as _, blockfetch as blockfetch_proto};
 
 use crate::{
-    BehaviorOutput, InterfaceCommand, InterfaceEvent, OutboundQueue, PeerId,
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     standard::{AnyMessage, BlockRange, InitiatorEvent, InitiatorState},
 };
 
 pub type Config = ();
 
 pub struct BlockFetchBehavior {
-    config: Config,
+    //config: Config,
 }
 
 impl Default for BlockFetchBehavior {
@@ -18,8 +18,8 @@ impl Default for BlockFetchBehavior {
 }
 
 impl BlockFetchBehavior {
-    pub fn new(config: Config) -> Self {
-        Self { config }
+    pub fn new(_config: Config) -> Self {
+        Self {}
     }
 
     pub fn request_block_batch(

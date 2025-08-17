@@ -2,10 +2,7 @@ use rand::Rng;
 use tracing::debug;
 
 use super::protocol::*;
-use crate::{
-    miniprotocols::{Agent, Error, PlexerAdapter},
-    multiplexer,
-};
+use crate::miniprotocols::{Agent, Error, PlexerAdapter};
 
 #[derive(Debug)]
 pub struct Client(State);
@@ -46,7 +43,7 @@ impl Agent for Client {
                 Message::KeepAlive(x) => Ok(State::Server(*x)),
                 _ => Err(Error::InvalidOutbound),
             },
-            State::Server(x) => match msg {
+            State::Server(_) => match msg {
                 Message::ResponseKeepAlive(x) => Ok(State::Client(ClientState::Response(*x))),
                 _ => Err(Error::InvalidInbound),
             },

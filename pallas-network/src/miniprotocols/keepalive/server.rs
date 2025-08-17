@@ -1,12 +1,7 @@
-use std::fmt::Debug;
-use thiserror::*;
 use tracing::debug;
 
 use super::protocol::*;
-use crate::{
-    miniprotocols::{Agent, Error, PlexerAdapter},
-    multiplexer,
-};
+use crate::miniprotocols::{Agent, Error, PlexerAdapter};
 
 pub struct Server(State);
 

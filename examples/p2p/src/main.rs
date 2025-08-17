@@ -1,21 +1,16 @@
 use std::{str::FromStr, time::Duration};
 
-use pallas::{
-    ledger::traverse::wellknown::PREVIEW_MAGIC,
-    network::{
-        manager::{
-            behaviors::{
-                ConnectPeersBehavior, ConnectPeersConfig, HandshakeBehavior, HandshakeConfig,
-                InterleaveBehavior, KeepAliveBehavior, KeepAliveConfig, PeerDiscoveryBehavior,
-                PeerDiscoveryConfig, PeerPromotionBehavior, PeerPromotionConfig,
-            },
-            IntrinsicCommand, Manager, PeerId,
+use pallas::network::{
+    manager::{
+        behaviors::{
+            ConnectPeersBehavior, ConnectPeersConfig, HandshakeBehavior, HandshakeConfig,
+            InterleaveBehavior, KeepAliveBehavior, KeepAliveConfig, PeerDiscoveryBehavior,
+            PeerDiscoveryConfig, PeerPromotionBehavior, PeerPromotionConfig,
         },
-        miniprotocols::MAINNET_MAGIC,
+        Manager, PeerId,
     },
+    miniprotocols::MAINNET_MAGIC,
 };
-use tokio::runtime::Handle;
-use tokio_stream::{self, StreamExt as TokioStreamExt};
 
 #[tokio::main]
 async fn main() {

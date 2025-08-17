@@ -153,7 +153,6 @@ where
                 let jitter = self.rules.jitter();
                 self.rules.reply_to(peer_id, msg, jitter, &mut self.pending);
             }
-            _ => (),
         };
 
         Ok(())

@@ -1,16 +1,15 @@
-use futures::{future, StreamExt};
 use itertools::Itertools;
 use tracing::warn;
 
 use crate::miniprotocols::{
     handshake,
-    peersharing::{self, IdleState},
+    peersharing::{self},
 };
 
 use super::*;
 
 pub struct ChainSyncBehavior {
-    intersect: Vec<crate::miniprotocols::Point>,
+    //intersect: Vec<crate::miniprotocols::Point>,
 }
 
 #[derive(Debug)]
@@ -50,10 +49,7 @@ impl PeerPromotionBehavior {
         missing
             .into_iter()
             .map(|pid| {
-                IntrinsicCommand::TrackNewPeer(
-                    pid.clone(),
-                    vec![PeerTag::Cold.into(), PeerTag::Trusted.into()],
-                )
+                IntrinsicCommand::TrackNewPeer(pid.clone(), vec![PeerTag::Cold, PeerTag::Trusted])
             })
             .collect()
     }
@@ -86,11 +82,7 @@ impl PeerPromotionBehavior {
         let candidates: Vec<_> = warm
             .take(required)
             .map(|(pid, _)| {
-                IntrinsicCommand::SwitchPeerTag(
-                    pid.clone(),
-                    PeerTag::Warm.into(),
-                    PeerTag::Hot.into(),
-                )
+                IntrinsicCommand::SwitchPeerTag(pid.clone(), PeerTag::Warm, PeerTag::Hot)
             })
             .collect();
 
@@ -124,11 +116,7 @@ impl PeerPromotionBehavior {
         let candidates: Vec<_> = cold
             .take(required)
             .map(|(pid, _)| {
-                IntrinsicCommand::SwitchPeerTag(
-                    pid.clone(),
-                    PeerTag::Cold.into(),
-                    PeerTag::Warm.into(),
-                )
+                IntrinsicCommand::SwitchPeerTag(pid.clone(), PeerTag::Cold, PeerTag::Warm)
             })
             .collect();
 
@@ -140,7 +128,7 @@ impl PeerPromotionBehavior {
 
 impl Behavior for PeerPromotionBehavior {
     fn backoff(&self) -> Option<Duration> {
-        self.backoff.clone()
+        self.backoff
     }
 
     fn next(&mut self, state: &State) -> impl Iterator<Item = IntrinsicCommand> {
@@ -202,7 +190,7 @@ impl ConnectPeersBehavior {
 
 impl Behavior for ConnectPeersBehavior {
     fn backoff(&self) -> Option<Duration> {
-        self.backoff.clone()
+        self.backoff
     }
 
     fn next(&mut self, state: &State) -> impl Iterator<Item = IntrinsicCommand> {
@@ -226,8 +214,8 @@ impl Behavior for ConnectPeersBehavior {
         for failed in self.failed.drain() {
             commands.push(IntrinsicCommand::SwitchPeerTag(
                 failed,
-                PeerTag::Warm.into(),
-                PeerTag::Banned.into(),
+                PeerTag::Warm,
+                PeerTag::Banned,
             ));
         }
 
@@ -277,8 +265,7 @@ impl CommandBuffer {
     }
 
     pub fn tag_peer(&mut self, pid: &PeerId, tag: PeerTag) {
-        self.0
-            .push(IntrinsicCommand::AddPeerTag(pid.clone(), tag.into()));
+        self.0.push(IntrinsicCommand::AddPeerTag(pid.clone(), tag));
     }
 
     pub fn drain(&mut self) -> Vec<IntrinsicCommand> {
@@ -355,7 +342,7 @@ impl HandshakeBehavior {
                     warn!(%pid, "peer does not support peer sharing");
                 }
             }
-            handshake::DoneState::Rejected(x) => {
+            handshake::DoneState::Rejected(_) => {
                 warn!(%pid, "handshake rejected");
                 self.buffer.tag_peer(pid, PeerTag::Rejected);
             }
@@ -387,11 +374,8 @@ impl Behavior for HandshakeBehavior {
     }
 
     fn handle(&mut self, event: &NetworkEvent) {
-        match event {
-            NetworkEvent::InitiatorStateChange(pid, InitiatorState::Handshake(state)) => {
-                self.handle_state_change(pid, state);
-            }
-            _ => (),
+        if let NetworkEvent::InitiatorStateChange(pid, InitiatorState::Handshake(state)) = event {
+            self.handle_state_change(pid, state);
         }
     }
 }
@@ -404,7 +388,7 @@ pub struct PeerDiscoveryConfig {
 pub struct PeerDiscoveryBehavior {
     buffer: CommandBuffer,
     config: PeerDiscoveryConfig,
-    span: tracing::Span,
+    _span: tracing::Span,
 }
 
 impl PeerDiscoveryBehavior {
@@ -412,7 +396,7 @@ impl PeerDiscoveryBehavior {
         Self {
             config,
             buffer: CommandBuffer::default(),
-            span: tracing::info_span!("peer_sharing"),
+            _span: tracing::info_span!("peer_sharing"),
         }
     }
 
@@ -435,16 +419,16 @@ impl PeerDiscoveryBehavior {
         for addr in response {
             let pid = match addr {
                 peersharing::PeerAddress::V4(ip, port) => {
-                    let host = format!("{}:{}", ip, port);
+                    let host = format!("{ip}:{port}");
                     PeerId::from_str(&host).unwrap()
                 }
                 peersharing::PeerAddress::V6(ip, port) => {
-                    let host = format!("[{}]:{}", ip, port);
+                    let host = format!("[{ip}]:{port}");
                     PeerId::from_str(&host).unwrap()
                 }
             };
 
-            self.buffer.track_peer(&pid, vec![PeerTag::Cold.into()]);
+            self.buffer.track_peer(&pid, vec![PeerTag::Cold]);
         }
 
         self.buffer
@@ -458,9 +442,8 @@ impl PeerDiscoveryBehavior {
     ) {
         use peersharing::*;
 
-        match state {
-            State::Idle(IdleState::Response(response)) => self.track(pid, response),
-            _ => (),
+        if let State::Idle(IdleState::Response(response)) = state {
+            self.track(pid, response)
         }
     }
 
@@ -491,7 +474,7 @@ impl Behavior for PeerDiscoveryBehavior {
     }
 
     fn next(&mut self, state: &State) -> impl Iterator<Item = IntrinsicCommand> {
-        let not_banned = self.count_not_banned_peers(&state);
+        let not_banned = self.count_not_banned_peers(state);
 
         if not_banned < self.config.desired_peers {
             info!(
@@ -500,7 +483,7 @@ impl Behavior for PeerDiscoveryBehavior {
                 "need more peers, requesting"
             );
 
-            let to_ask = self.filter_sharing_peers(&state);
+            let to_ask = self.filter_sharing_peers(state);
 
             info!(to_ask = to_ask.len(), "found peers with peer sharing");
 
@@ -513,11 +496,8 @@ impl Behavior for PeerDiscoveryBehavior {
     }
 
     fn handle(&mut self, event: &NetworkEvent) {
-        match event {
-            NetworkEvent::InitiatorStateChange(pid, InitiatorState::PeerSharing(state)) => {
-                self.handle_state_change(pid, state);
-            }
-            _ => (),
+        if let NetworkEvent::InitiatorStateChange(pid, InitiatorState::PeerSharing(state)) = event {
+            self.handle_state_change(pid, state);
         }
     }
 }
@@ -566,9 +546,8 @@ impl KeepAliveBehavior {
     ) {
         use keepalive::*;
 
-        match state {
-            State::Client(ClientState::Response(response)) => self.update(pid),
-            _ => (),
+        if let State::Client(ClientState::Response(_)) = state {
+            self.update(pid)
         }
     }
 

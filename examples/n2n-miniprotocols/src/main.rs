@@ -3,7 +3,7 @@ use pallas::{
     network::{
         facades::PeerClient,
         miniprotocols::{
-            self, blockfetch, chainsync, keepalive, PlexerAdapter, Point, MAINNET_MAGIC,
+            self, blockfetch, chainsync, PlexerAdapter, Point, MAINNET_MAGIC,
         },
     },
 };

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use tracing::{debug, warn};
 
 use super::{DoneState, Message, RefuseReason, State, VersionNumber, VersionTable};
-use crate::{miniprotocols::Error, multiplexer};
+use crate::miniprotocols::Error;
 
 pub struct Server<D>(State<D>)
 where

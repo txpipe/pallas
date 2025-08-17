@@ -1,5 +1,3 @@
-use std::{any::Any, u16};
-
 use pallas_network::miniprotocols::{Agent as _, keepalive as keepalive_proto};
 
 use crate::{

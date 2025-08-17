@@ -33,23 +33,15 @@ where
     QueryReply(VersionTable<D>),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum State<D>
 where
     D: Debug + Clone,
 {
+    #[default]
     Propose,
     Confirm(VersionTable<D>),
     Done(DoneState<D>),
-}
-
-impl<D> Default for State<D>
-where
-    D: Debug + Clone,
-{
-    fn default() -> Self {
-        State::Propose
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

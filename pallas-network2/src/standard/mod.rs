@@ -1,10 +1,6 @@
 //! Opinionated standard behavior for Cardano networks
 
-use std::{
-    collections::{HashMap, HashSet},
-    task::Poll,
-    time::Duration,
-};
+use std::{collections::HashMap, task::Poll, time::Duration};
 
 use futures::{Stream, StreamExt, stream::FusedStream};
 use pallas_network::miniprotocols::{
@@ -110,10 +106,7 @@ impl InitiatorState {
     }
 
     pub fn needs_connection(&self) -> bool {
-        match self.connection {
-            ConnectionState::Disconnected => true,
-            _ => false,
-        }
+        matches!(self.connection, ConnectionState::Disconnected)
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -317,14 +310,12 @@ impl Stream for InitiatorBehavior {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        if let Poll::Ready(_) = self.housekeeping.poll_tick(cx) {
+        if self.housekeeping.poll_tick(cx).is_ready() {
             self.housekeeping();
         }
 
-        if let Poll::Ready(x) = self.outbound.futures.poll_next_unpin(cx) {
-            if let Some(x) = x {
-                return Poll::Ready(Some(x));
-            }
+        if let Poll::Ready(Some(x)) = self.outbound.futures.poll_next_unpin(cx) {
+            return Poll::Ready(Some(x));
         }
 
         Poll::Pending
@@ -366,7 +357,7 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::IncludePeer(pid) => {
                 self.on_discovered(&pid);
             }
-            InitiatorCommand::IntersectChain(pid, point) => {
+            InitiatorCommand::IntersectChain(pid, _point) => {
                 tracing::info!(%pid, "intersecting chain");
             }
             InitiatorCommand::RequestBlockBatch(range, pid) => {

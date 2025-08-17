@@ -3,7 +3,7 @@ use std::{net::Ipv4Addr, time::Duration};
 use pallas_network::miniprotocols::{
     blockfetch, handshake as handshake_proto, keepalive, peersharing,
 };
-use pallas_network2::{emulation, standard::AnyMessage, InterfaceEvent, PeerId};
+use pallas_network2::{emulation, standard::AnyMessage, PeerId};
 use rand::Rng;
 
 fn reply_handshake_ok(
@@ -82,7 +82,7 @@ fn reply_block_fetch_ok(
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
     match msg {
-        blockfetch::Message::RequestRange(range) => {
+        blockfetch::Message::RequestRange(_range) => {
             tracing::debug!("received block fetch request");
 
             let msg = blockfetch::Message::StartBatch;
@@ -125,15 +125,13 @@ impl emulation::Rules for MyEmulatorRules {
         jitter: Duration,
         queue: &mut emulation::ReplyQueue<Self::Message>,
     ) {
-        let reply = match msg {
+        match msg {
             AnyMessage::Handshake(msg) => reply_handshake_ok(pid, msg, jitter, queue),
             AnyMessage::KeepAlive(msg) => reply_keepalive_ok(pid, msg, jitter, queue),
             AnyMessage::PeerSharing(msg) => reply_peer_sharing_ok(pid, msg, jitter, queue),
             AnyMessage::BlockFetch(msg) => reply_block_fetch_ok(pid, msg, queue),
             _ => todo!(),
         };
-
-        reply
     }
 
     fn should_connect(&self, pid: pallas_network2::PeerId) -> bool {

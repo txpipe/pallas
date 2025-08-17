@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashSet, u16};
+use std::collections::HashSet;
 
 use pallas_network::miniprotocols::{Agent as _, peersharing as peersharing_proto};
 
@@ -17,19 +17,12 @@ impl Default for Config {
     }
 }
 
+#[derive(Default)]
 pub struct DiscoveryBehavior {
     config: Config,
     discovered: HashSet<PeerId>,
 }
 
-impl Default for DiscoveryBehavior {
-    fn default() -> Self {
-        Self {
-            config: Config::default(),
-            discovered: HashSet::new(),
-        }
-    }
-}
 
 impl DiscoveryBehavior {
     fn request_peers(&self, pid: &PeerId, outbound: &mut OutboundQueue<super::InitiatorBehavior>) {

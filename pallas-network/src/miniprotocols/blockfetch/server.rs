@@ -49,7 +49,7 @@ impl Agent for Server {
                 _ => Err(Error::InvalidInbound),
             },
             Self::State::Streaming => match msg {
-                Message::Block(body) => Ok(Self::State::Streaming),
+                Message::Block(_) => Ok(Self::State::Streaming),
                 Message::BatchDone => Ok(Self::State::Idle),
                 _ => Err(Error::InvalidInbound),
             },
@@ -95,10 +95,7 @@ impl PlexerAdapter<Server> {
         self.recv().await?;
 
         match self.state() {
-            ServerState::Idle => todo!(),
-            ServerState::Busy(_) => todo!(),
-            ServerState::Streaming => todo!(),
-            ServerState::Done => todo!(),
+            ServerState::Busy(range) => Ok(Some(range.clone())),
             _ => Err(Error::InvalidInbound),
         }
     }

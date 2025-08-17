@@ -14,9 +14,6 @@ pub type OutboxSend<T> = tokio::sync::mpsc::Sender<T>;
 
 pub type HsMsg = handshake::Message<handshake::n2n::VersionData>;
 
-// TODO: Implement responder
-struct Responder {}
-
 async fn link_agent_io<A>(
     pid: PeerId,
     mut agent: PlexerAdapter<A>,
@@ -75,7 +72,7 @@ async fn link_agent_io<A>(
 }
 
 pub struct AgentIO<A: Agent> {
-    io: tokio::task::JoinHandle<()>,
+    _io: tokio::task::JoinHandle<()>,
     outbox: OutboxSend<A::Message>,
 }
 
@@ -97,7 +94,7 @@ impl<A: Agent> AgentIO<A> {
 
         let (outbox_send, outbox_recv) = tokio::sync::mpsc::channel(50);
 
-        let io = tokio::spawn(async move {
+        let _io = tokio::spawn(async move {
             let agent = A::default();
             let plexer = PlexerAdapter::new(agent, plexer_channel);
             let span = tracing::span!(tracing::Level::TRACE, "agent io", pid = %pid, protocol = %protocol_id);
@@ -106,7 +103,7 @@ impl<A: Agent> AgentIO<A> {
         });
 
         Self {
-            io,
+            _io,
             outbox: outbox_send,
         }
     }
@@ -117,7 +114,7 @@ pub type PsAgent = peersharing::Client;
 pub type KaAgent = keepalive::Client;
 
 pub struct PeerIO {
-    plexer: RunningPlexer,
+    _plexer: RunningPlexer,
     hs_io: AgentIO<HsAgent>,
     ka_io: AgentIO<KaAgent>,
     ps_io: AgentIO<PsAgent>,
@@ -146,10 +143,10 @@ impl PeerIO {
             manager_inbox,
         );
 
-        let plexer = plexer.spawn();
+        let _plexer = plexer.spawn();
 
         Self {
-            plexer,
+            _plexer,
             hs_io,
             ka_io,
             ps_io,
@@ -214,12 +211,10 @@ impl MegaPlexer {
     pub async fn disconnect_peer(&self, pid: &PeerId) -> Result<(), Error> {
         let peers = self.peers.pin();
 
-        let peer_io = peers.remove(pid).ok_or(Error::PeerNotFound)?;
+        let _peer_io = peers.remove(pid).ok_or(Error::PeerNotFound)?;
 
         todo!("abort peer io");
         //peer_io.plexer.abort().await;
-
-        Ok(())
     }
 
     pub async fn send_message(&self, pid: &PeerId, msg: AnyMessage) -> Result<(), Error> {
