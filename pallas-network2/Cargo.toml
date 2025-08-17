@@ -12,6 +12,7 @@ pallas-network = { path = "../pallas-network" }
 pallas-codec = { path = "../pallas-codec" }
 chrono = "0.4.41"
 opentelemetry = "0.30.0"
+tracing = "0.1.41"
 
 [features]
 emulation = ["tokio", "rand"]

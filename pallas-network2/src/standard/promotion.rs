@@ -32,7 +32,7 @@ pub struct DiscoveryConfig {
 impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
-            max_peers: 10,
+            max_peers: 50,
             max_warm_peers: 5,
             max_hot_peers: 3,
         }
@@ -44,10 +44,13 @@ pub struct PromotionBehavior {
     pub cold_peers: HashSet<PeerId>,
     pub warm_peers: HashSet<PeerId>,
     pub hot_peers: HashSet<PeerId>,
+    pub banned_peers: HashSet<PeerId>,
+
     // metrics
     cold_peers_gauge: opentelemetry::metrics::Gauge<u64>,
     warm_peers_gauge: opentelemetry::metrics::Gauge<u64>,
     hot_peers_gauge: opentelemetry::metrics::Gauge<u64>,
+    banned_peers_gauge: opentelemetry::metrics::Gauge<u64>,
 }
 
 impl Default for PromotionBehavior {
@@ -75,14 +78,21 @@ impl PromotionBehavior {
             .with_description("Total hot peers")
             .build();
 
+        let banned_peers_gauge = meter
+            .u64_gauge("banned_peers")
+            .with_description("Total banned peers")
+            .build();
+
         Self {
             config,
             cold_peers: Default::default(),
             warm_peers: Default::default(),
             hot_peers: Default::default(),
+            banned_peers: Default::default(),
             cold_peers_gauge,
             warm_peers_gauge,
             hot_peers_gauge,
+            banned_peers_gauge,
         }
     }
 
@@ -95,6 +105,9 @@ impl PromotionBehavior {
 
         self.hot_peers_gauge
             .record(self.hot_peers.len() as u64, &[]);
+
+        self.banned_peers_gauge
+            .record(self.banned_peers.len() as u64, &[]);
     }
 
     fn total_peers(&self) -> usize {
@@ -112,7 +125,7 @@ impl PromotionBehavior {
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
         if let Some(x) = self.warm_peers.take(pid) {
-            println!("promoting warm peer {}", &pid);
+            tracing::info!(%pid, "promoting warm peer");
             self.hot_peers.insert(x);
             self.update_metrics();
 
@@ -128,7 +141,7 @@ impl PromotionBehavior {
 
     fn promote_cold_peer(&mut self, pid: &PeerId) {
         if let Some(x) = self.cold_peers.take(pid) {
-            println!("promoting cold peer {}", &pid);
+            tracing::info!(%pid, "promoting cold peer");
             self.warm_peers.insert(x);
             self.update_metrics();
         }
@@ -139,7 +152,7 @@ impl PromotionBehavior {
         pid: &PeerId,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        println!("connecting warm peer {}", &pid);
+        tracing::info!(%pid, "connecting warm peer");
         outbound.push_ready(InterfaceCommand::Connect(pid.clone()));
     }
 
@@ -148,7 +161,13 @@ impl PromotionBehavior {
         pid: &PeerId,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        println!("disconnecting peer due to violation {}", &pid);
+        tracing::warn!(%pid, "disconnecting peer due to violation");
+        self.hot_peers.remove(pid);
+        self.warm_peers.remove(pid);
+        self.cold_peers.remove(pid);
+        self.banned_peers.insert(pid.clone());
+        self.update_metrics();
+
         outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
     }
 
@@ -173,7 +192,10 @@ impl PromotionBehavior {
 
     pub fn on_peer_discovered(&mut self, pid: &PeerId) {
         if self.total_peers() < self.config.max_peers {
+            tracing::info!(%pid, "discovered new peer");
             self.cold_peers.insert(pid.clone());
+        } else {
+            tracing::warn!(%pid, "discovered peer, but max peers reached");
         }
     }
 
@@ -188,5 +210,9 @@ impl PromotionBehavior {
                 self.promote_warm_peer(pid, peer, outbound);
             }
         }
+    }
+
+    pub fn select_random_hot_peer(&self) -> Option<&PeerId> {
+        self.hot_peers.iter().next()
     }
 }

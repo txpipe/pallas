@@ -8,24 +8,23 @@ use std::{
 
 use futures::{Stream, StreamExt, stream::FusedStream};
 use pallas_network::miniprotocols::{
-    Agent, Point,
-    blockfetch::{self, Body},
-    chainsync, handshake as handshake_proto, keepalive as keepalive_proto,
-    peersharing as peersharing_proto, txsubmission,
+    Agent, Point, blockfetch as blockfetch_proto, chainsync, handshake as handshake_proto,
+    keepalive as keepalive_proto, peersharing as peersharing_proto, txsubmission,
 };
 use tokio::time::Interval;
 
 use crate::{Behavior, BehaviorOutput, Command, Message, OutboundQueue, PeerId};
 
+mod blockfetch;
 mod discovery;
 mod handshake;
 mod keepalive;
 mod promotion;
 
 impl Command for () {
-    fn peer_id(&self) -> &PeerId {
-        unreachable!()
-    }
+    // fn peer_id(&self) -> &PeerId {
+    //     unreachable!()
+    // }
 }
 
 #[derive(Debug, Clone)]
@@ -34,7 +33,7 @@ pub enum AnyMessage {
     KeepAlive(keepalive_proto::Message),
     ChainSync(chainsync::Message<chainsync::HeaderContent>),
     PeerSharing(peersharing_proto::Message),
-    BlockFetch(blockfetch::Message),
+    BlockFetch(blockfetch_proto::Message),
     TxSubmission(txsubmission::Message<txsubmission::EraTxId, txsubmission::EraTxBody>),
 }
 
@@ -94,6 +93,7 @@ pub struct InitiatorState {
     handshake: handshake_proto::Client<handshake_proto::n2n::VersionData>,
     keepalive: keepalive_proto::Client,
     peersharing: peersharing_proto::Client,
+    blockfetch: blockfetch_proto::Client,
     violation: bool,
 }
 
@@ -104,6 +104,7 @@ impl InitiatorState {
             handshake: handshake_proto::Client::default(),
             keepalive: keepalive_proto::Client::default(),
             peersharing: peersharing_proto::Client::default(),
+            blockfetch: blockfetch_proto::Client::default(),
             violation: false,
         }
     }
@@ -142,6 +143,7 @@ impl InitiatorState {
                     self.handshake = handshake_proto::Client::new(sm);
                 }
                 Err(_) => {
+                    tracing::warn!("handshake violation");
                     self.violation = true;
                 }
             },
@@ -150,6 +152,7 @@ impl InitiatorState {
                     self.keepalive = keepalive_proto::Client::new(sm);
                 }
                 Err(_) => {
+                    tracing::warn!("keepalive violation");
                     self.violation = true;
                 }
             },
@@ -158,6 +161,16 @@ impl InitiatorState {
                     self.peersharing = peersharing_proto::Client::new(sm);
                 }
                 Err(_) => {
+                    tracing::warn!("peer sharing violation");
+                    self.violation = true;
+                }
+            },
+            AnyMessage::BlockFetch(msg) => match self.blockfetch.apply(msg) {
+                Ok(sm) => {
+                    self.blockfetch = blockfetch_proto::Client::new(sm);
+                }
+                Err(_) => {
+                    tracing::warn!("block fetch violation");
                     self.violation = true;
                 }
             },
@@ -166,31 +179,33 @@ impl InitiatorState {
     }
 }
 
+pub type BlockRange = (Point, Point);
+
 pub enum InitiatorCommand {
     IncludePeer(PeerId),
     IntersectChain(PeerId, Point),
     RequestNextHeader(PeerId, Point),
-    RequestBlockBody(PeerId, Point),
+    RequestBlockBatch(BlockRange, Option<PeerId>),
     SendTx(PeerId, txsubmission::EraTxId, txsubmission::EraTxBody),
 }
 
 impl Command for InitiatorCommand {
-    fn peer_id(&self) -> &PeerId {
-        match self {
-            Self::IncludePeer(pid) => pid,
-            Self::IntersectChain(pid, _) => pid,
-            Self::RequestNextHeader(pid, _) => pid,
-            Self::RequestBlockBody(pid, _) => pid,
-            Self::SendTx(pid, _, _) => pid,
-        }
-    }
+    // fn peer_id(&self) -> &PeerId {
+    //     match self {
+    //         Self::IncludePeer(pid) => pid,
+    //         Self::IntersectChain(pid, _) => pid,
+    //         Self::RequestNextHeader(pid, _) => pid,
+    //         Self::RequestBlockBody(pid, _) => pid,
+    //         Self::SendTx(pid, _, _) => pid,
+    //     }
+    // }
 }
 
 #[derive(Debug)]
 pub enum InitiatorEvent {
     PeerInitialized(PeerId, handshake_proto::n2n::VersionData),
     BlockHeaderReceived(PeerId, chainsync::HeaderContent),
-    BlockBodyReceived(PeerId, Point, Body),
+    BlockBodyReceived(PeerId, blockfetch_proto::Body),
     TxRequested(PeerId, txsubmission::EraTxId),
 }
 
@@ -200,6 +215,7 @@ pub struct InitiatorBehavior {
     handshake: handshake::HandshakeBehavior,
     keepalive: keepalive::KeepaliveBehavior,
     discovery: discovery::DiscoveryBehavior,
+    blockfetch: blockfetch::BlockFetchBehavior,
     outbound: OutboundQueue<Self>,
     housekeeping: Interval,
 }
@@ -214,8 +230,12 @@ impl InitiatorBehavior {
 
         self.promotion
             .visit_updated_peer(pid, state, &mut self.outbound);
+
+        self.blockfetch
+            .visit_updated_peer(pid, state, &mut self.outbound);
     }
 
+    #[tracing::instrument(skip(self, msg))]
     pub fn on_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         let entry = self.peers.remove(pid);
 
@@ -228,11 +248,25 @@ impl InitiatorBehavior {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     fn on_connected(&mut self, pid: &PeerId) {
         let entry = self.peers.remove(pid);
 
         if let Some(mut state) = entry {
             state.connection = ConnectionState::Connected;
+
+            self.visit_updated_peer(pid, &mut state);
+
+            self.peers.insert(pid.clone(), state);
+        }
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn on_disconnected(&mut self, pid: &PeerId) {
+        let entry = self.peers.remove(pid);
+
+        if let Some(mut state) = entry {
+            state.connection = ConnectionState::Disconnected;
 
             self.visit_updated_peer(pid, &mut state);
 
@@ -269,6 +303,7 @@ impl Default for InitiatorBehavior {
             handshake: handshake::HandshakeBehavior::default(),
             keepalive: keepalive::KeepaliveBehavior::default(),
             discovery: discovery::DiscoveryBehavior::default(),
+            blockfetch: blockfetch::BlockFetchBehavior::default(),
             outbound: Default::default(),
             housekeeping: tokio::time::interval(Duration::from_millis(10_000)),
         }
@@ -313,6 +348,9 @@ impl Behavior for InitiatorBehavior {
             crate::InterfaceEvent::Connected(pid) => {
                 self.on_connected(pid);
             }
+            crate::InterfaceEvent::Disconnected(pid) => {
+                self.on_disconnected(pid);
+            }
             crate::InterfaceEvent::Recv(pid, msg) => {
                 self.on_msg(pid, msg);
             }
@@ -329,7 +367,30 @@ impl Behavior for InitiatorBehavior {
                 self.on_discovered(&pid);
             }
             InitiatorCommand::IntersectChain(pid, point) => {
-                dbg!("intersect chain", pid, point);
+                tracing::info!(%pid, "intersecting chain");
+            }
+            InitiatorCommand::RequestBlockBatch(range, pid) => {
+                tracing::info!(?pid, "requesting block batch");
+
+                // either use the provided peer or select a random hot peer or return by logging
+                // a warning
+                let pid = match pid {
+                    Some(pid) => pid,
+                    None => {
+                        tracing::warn!("no peer provided, selecting random hot peer");
+
+                        match self.promotion.select_random_hot_peer() {
+                            Some(pid) => pid.clone(),
+                            None => {
+                                tracing::warn!("no hot peers");
+                                return;
+                            }
+                        }
+                    }
+                };
+
+                self.blockfetch
+                    .request_block_batch(&pid, range, &mut self.outbound);
             }
             _ => (),
         }

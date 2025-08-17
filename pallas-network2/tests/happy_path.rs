@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use pallas_network::miniprotocols::{Point, keepalive, txsubmission};
 use pallas_network2::standard::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
 use pallas_network2::{Manager, PeerId, emulation};
@@ -8,8 +10,14 @@ struct MyEmulatorRules;
 impl emulation::Rules for MyEmulatorRules {
     type Message = AnyMessage;
 
-    fn reply_to(&self, msg: Self::Message) -> emulation::ReplyAction<Self::Message> {
-        let reply = match msg {
+    fn reply_to(
+        &self,
+        pid: PeerId,
+        msg: Self::Message,
+        jitter: Duration,
+        queue: &mut emulation::ReplyQueue<Self::Message>,
+    ) {
+        match msg {
             AnyMessage::Handshake(msg) => match msg {
                 pallas_network::miniprotocols::handshake::Message::Propose(version_table) => {
                     let (version, data) = version_table.values.into_iter().next().unwrap();
@@ -17,23 +25,22 @@ impl emulation::Rules for MyEmulatorRules {
                     let msg =
                         pallas_network::miniprotocols::handshake::Message::Accept(version, data);
 
-                    emulation::ReplyAction::Message(AnyMessage::Handshake(msg))
+                    queue.push_jittered_msg(pid, AnyMessage::Handshake(msg), jitter);
                 }
-                _ => emulation::ReplyAction::Disconnect,
+                _ => queue.push_jittered_disconnect(pid, jitter),
             },
             AnyMessage::KeepAlive(msg) => {
                 let keepalive::Message::KeepAlive(token) = msg else {
-                    return emulation::ReplyAction::Disconnect;
+                    queue.push_jittered_disconnect(pid, jitter);
+                    return;
                 };
 
                 let msg = keepalive::Message::ResponseKeepAlive(token);
 
-                emulation::ReplyAction::Message(AnyMessage::KeepAlive(msg))
+                queue.push_jittered_msg(pid, AnyMessage::KeepAlive(msg), jitter);
             }
             _ => todo!(),
         };
-
-        reply
     }
 }
 
@@ -53,20 +60,20 @@ impl MyNode {
 
         let next_cmd = match event {
             InitiatorEvent::PeerInitialized(peer_id, version) => {
-                println!("Peer initialized: {peer_id} with version {version:?}");
+                tracing::info!(%peer_id, ?version, "peer initialized");
                 Some(InitiatorCommand::IntersectChain(peer_id, Point::Origin))
             }
 
             InitiatorEvent::BlockHeaderReceived(peer_id, _) => {
-                println!("Block header received from {peer_id}");
+                tracing::debug!(%peer_id, "block header received");
                 None
             }
-            InitiatorEvent::BlockBodyReceived(peer_id, _, _) => {
-                println!("Block body received from {peer_id}");
+            InitiatorEvent::BlockBodyReceived(peer_id, _) => {
+                tracing::debug!(%peer_id, "block body received");
                 None
             }
             InitiatorEvent::TxRequested(peer_id, _) => {
-                println!("Tx requested from {peer_id}");
+                tracing::info!(%peer_id, "tx requested");
                 Some(InitiatorCommand::SendTx(
                     peer_id,
                     txsubmission::EraTxId(0, vec![]),

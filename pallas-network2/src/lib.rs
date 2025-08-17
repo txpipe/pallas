@@ -74,7 +74,7 @@ pub trait Interface<M: Message> {
 
 /// Describes a command that can be handled by a behavior
 pub trait Command {
-    fn peer_id(&self) -> &PeerId;
+    //fn peer_id(&self) -> &PeerId;
 }
 
 /// Describes the behavior (business logic) of a network stack

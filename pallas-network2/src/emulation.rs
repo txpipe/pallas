@@ -10,16 +10,16 @@ use tokio::select;
 
 use crate::{Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, PeerId};
 
-#[derive(Debug)]
-pub enum ReplyAction<M> {
-    Message(M),
-    Disconnect,
-}
-
 pub trait Rules {
     type Message: Message + Clone + 'static;
 
-    fn reply_to(&self, msg: Self::Message) -> ReplyAction<Self::Message>;
+    fn reply_to(
+        &self,
+        pid: PeerId,
+        msg: Self::Message,
+        jitter: Duration,
+        queue: &mut ReplyQueue<Self::Message>,
+    );
 
     fn should_connect(&self, _pid: PeerId) -> bool {
         true
@@ -32,7 +32,7 @@ pub trait Rules {
 
 type ReplyFuture<M> = Pin<Box<dyn Future<Output = InterfaceEvent<M>> + Send>>;
 
-struct ReplyQueue<M>(FuturesUnordered<ReplyFuture<M>>)
+pub struct ReplyQueue<M>(FuturesUnordered<ReplyFuture<M>>)
 where
     M: Message;
 
@@ -44,8 +44,28 @@ where
         Self(FuturesUnordered::new())
     }
 
-    fn push(&mut self, future: ReplyFuture<M>) {
+    pub fn push(&mut self, future: ReplyFuture<M>) {
         self.0.push(future);
+    }
+
+    pub fn push_jittered_msg(&mut self, peer_id: PeerId, msg: M, jitter: Duration) {
+        let future = Box::pin(async move {
+            tokio::time::sleep(jitter).await;
+            tracing::debug!(%peer_id, "emulating recv from");
+            InterfaceEvent::Recv(peer_id, msg)
+        });
+
+        self.push(future);
+    }
+
+    pub fn push_jittered_disconnect(&mut self, peer_id: PeerId, jitter: Duration) {
+        let future = Box::pin(async move {
+            tokio::time::sleep(jitter).await;
+            tracing::warn!(%peer_id, "emulating disconnect");
+            InterfaceEvent::Disconnected(peer_id)
+        });
+
+        self.push(future);
     }
 }
 
@@ -106,7 +126,7 @@ where
 
                 let future = Box::pin(async move {
                     tokio::time::sleep(jitter).await;
-                    println!("emulation: connected to {}", peer_id);
+                    tracing::info!(%peer_id, "emulating connected");
                     InterfaceEvent::Connected(peer_id)
                 });
 
@@ -117,7 +137,7 @@ where
 
                 let future = Box::pin(async move {
                     tokio::time::sleep(jitter).await;
-                    println!("emulation: disconnected to {}", peer_id);
+                    tracing::info!(%peer_id, "emulating disconnected");
                     InterfaceEvent::Disconnected(peer_id)
                 });
 
@@ -131,28 +151,7 @@ where
                 self.pending.push(future1);
 
                 let jitter = self.rules.jitter();
-                let reply = self.rules.reply_to(msg);
-
-                match reply {
-                    ReplyAction::Message(msg) => {
-                        let future2 = Box::pin(async move {
-                            tokio::time::sleep(jitter).await;
-                            println!("emulation: recv from {}", peer_id);
-                            InterfaceEvent::Recv(peer_id, msg)
-                        });
-
-                        self.pending.push(future2);
-                    }
-                    ReplyAction::Disconnect => {
-                        let future2 = Box::pin(async move {
-                            tokio::time::sleep(jitter).await;
-                            println!("emulation: disconnect from {}", peer_id);
-                            InterfaceEvent::Disconnected(peer_id)
-                        });
-
-                        self.pending.push(future2);
-                    }
-                };
+                self.rules.reply_to(peer_id, msg, jitter, &mut self.pending);
             }
             _ => (),
         };

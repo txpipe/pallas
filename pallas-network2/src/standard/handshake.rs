@@ -1,10 +1,8 @@
-use std::any::Any;
-
 use pallas_network::miniprotocols::{Agent as _, handshake as handshake_proto};
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    standard::{AnyMessage, InitiatorEvent, InitiatorState},
+    standard::{AnyMessage, InitiatorState},
 };
 
 pub type Config = handshake_proto::n2n::VersionTable;
@@ -32,10 +30,12 @@ impl HandshakeBehavior {
     ) {
         if matches!(state.handshake.state(), handshake_proto::State::Propose) {
             let msg = handshake_proto::Message::Propose(self.config.clone());
+
             let out = BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                 pid.clone(),
                 AnyMessage::Handshake(msg),
             ));
+
             outbound.push_ready(out);
         }
     }
