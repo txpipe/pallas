@@ -12,7 +12,7 @@ use pallas_primitives::{
     Fragment, NonEmptySet, PositiveCoin,
 };
 use pallas_traverse::ComputeHash;
-
+use pallas_primitives::KeepRaw;
 use crate::{
     transaction::{
         model::{
@@ -277,14 +277,14 @@ impl BuildConway for StagingTransaction {
             }
             .into(),
             success: true,               // TODO
-            auxiliary_data: None.into(), // TODO
+            auxiliary_data: self.auxiliary_data.map(KeepRaw::from).into(),
         };
 
         // TODO: pallas auxiliary_data_hash should be Hash<32> not Bytes
         pallas_tx.transaction_body.auxiliary_data_hash = pallas_tx
             .auxiliary_data
             .clone()
-            .map(|ad| ad.compute_hash().to_vec().into())
+            .map(|ad| ad.compute_hash())
             .into();
 
         Ok(BuiltTransaction {
