@@ -347,7 +347,7 @@ pub fn conway_add_minted_non_zero(
                 &conway_add_multiasset_non_zero_values(
                     &coerce_to_u64(mary_base_value),
                     minted_value,
-                ),
+                )?,
                 err,
             )?,
         )),
@@ -443,11 +443,15 @@ fn add_multiasset_values(first: &Multiasset<i64>, second: &Multiasset<i64>) -> M
     wrap_multiasset(res)
 }
 
-fn conway_add_multiasset_values(
-    first: &ConwayMultiasset<u64>,
-    second: &ConwayMultiasset<u64>,
-) -> ConwayMultiasset<u64> {
-    let mut res: HashMap<PolicyId, HashMap<AssetName, u64>> = HashMap::new();
+fn conway_add_multiasset_values<T>(
+    first: &ConwayMultiasset<T>,
+    second: &ConwayMultiasset<T>,
+) -> ConwayMultiasset<T>
+where
+    T: std::ops::Add<Output = T> + Copy,
+{
+    let mut res: HashMap<PolicyId, HashMap<AssetName, T>> = HashMap::new();
+
     for (policy, new_assets) in first.iter() {
         match res.get(policy) {
             Some(old_assets) => res.insert(
@@ -478,8 +482,9 @@ fn conway_add_multiasset_values(
 fn conway_add_multiasset_non_zero_values(
     first: &ConwayMultiasset<u64>,
     second: &ConwayMultiasset<NonZeroInt>,
-) -> ConwayMultiasset<u64> {
+) -> Result<ConwayMultiasset<u64>, ValidationError> {
     let mut res: HashMap<PolicyId, HashMap<AssetName, u64>> = HashMap::new();
+
     for (policy, new_assets) in first.iter() {
         match res.get(policy) {
             Some(old_assets) => res.insert(
@@ -492,19 +497,21 @@ fn conway_add_multiasset_non_zero_values(
             ),
         };
     }
+
     for (policy, new_assets) in second.iter() {
         match res.get(policy) {
             Some(old_assets) => res.insert(
                 *policy,
-                conway_add_same_non_zero_policy_assets(old_assets, new_assets),
+                conway_add_same_non_zero_policy_assets(old_assets, new_assets)?,
             ),
             None => res.insert(
                 *policy,
-                conway_add_same_non_zero_policy_assets(&HashMap::new(), new_assets),
+                conway_add_same_non_zero_policy_assets(&HashMap::new(), new_assets)?,
             ),
         };
     }
-    conway_wrap_multiasset(res)
+
+    Ok(conway_wrap_multiasset(res))
 }
 
 fn add_same_policy_assets(
@@ -520,35 +527,48 @@ fn add_same_policy_assets(
     }
     res
 }
-fn conway_add_same_policy_assets(
-    old_assets: &HashMap<AssetName, u64>,
-    new_assets: &std::collections::BTreeMap<AssetName, u64>,
-) -> HashMap<AssetName, u64> {
-    let mut res: HashMap<AssetName, u64> = old_assets.clone();
+
+fn conway_add_same_policy_assets<T>(
+    old_assets: &HashMap<AssetName, T>,
+    new_assets: &std::collections::BTreeMap<AssetName, T>,
+) -> HashMap<AssetName, T>
+where
+    T: std::ops::Add<Output = T> + Copy,
+{
+    let mut res: HashMap<AssetName, T> = old_assets.clone();
+
     for (asset_name, new_amount) in new_assets.iter() {
         match res.get(asset_name) {
-            Some(old_amount) => res.insert(asset_name.clone(), old_amount + *new_amount),
+            Some(old_amount) => res.insert(asset_name.clone(), *old_amount + *new_amount),
             None => res.insert(asset_name.clone(), *new_amount),
         };
     }
+
     res
 }
 
 fn conway_add_same_non_zero_policy_assets(
     old_assets: &HashMap<AssetName, u64>,
     new_assets: &std::collections::BTreeMap<AssetName, NonZeroInt>,
-) -> HashMap<AssetName, u64> {
+) -> Result<HashMap<AssetName, u64>, ValidationError> {
     let mut res: HashMap<AssetName, u64> = old_assets.clone();
+
     for (asset_name, new_amount) in new_assets.iter() {
         match res.get(asset_name) {
-            Some(old_amount) => res.insert(
-                asset_name.clone(),
-                old_amount + i64::from(new_amount) as u64,
-            ),
+            Some(old_amount) => {
+                let result = (*old_amount as i64) + i64::from(new_amount);
+
+                if result < 0 {
+                    return Err(ValidationError::PostAlonzo(PostAlonzoError::NegativeValue));
+                }
+
+                res.insert(asset_name.clone(), result as u64)
+            }
             None => res.insert(asset_name.clone(), i64::from(new_amount) as u64),
         };
     }
-    res
+
+    Ok(res)
 }
 
 fn wrap_multiasset(input: HashMap<PolicyId, HashMap<AssetName, i64>>) -> Multiasset<i64> {
@@ -558,9 +578,9 @@ fn wrap_multiasset(input: HashMap<PolicyId, HashMap<AssetName, i64>>) -> Multias
         .collect()
 }
 
-fn conway_wrap_multiasset(
-    input: HashMap<PolicyId, HashMap<AssetName, u64>>,
-) -> ConwayMultiasset<u64> {
+fn conway_wrap_multiasset<T>(
+    input: HashMap<PolicyId, HashMap<AssetName, T>>,
+) -> ConwayMultiasset<T> {
     input
         .into_iter()
         .map(|(policy, assets)| (policy, assets.into_iter().collect()))

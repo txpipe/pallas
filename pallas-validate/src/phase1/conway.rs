@@ -367,6 +367,7 @@ fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
     if let Some(m) = &tx_body.mint {
         input = conway_add_minted_non_zero(&input, m, &PostAlonzo(NegativeValue))?;
     }
+
     if !conway_values_are_equal(&input, &output) {
         return Err(PostAlonzo(PreservationOfValue));
     }
@@ -641,8 +642,6 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> Validati
                 .chain(v3_scripts_wits)
                 .chain(ref_scripts)
                 .collect();
-
-            dbg!(&all_scripts_wits);
 
             for (policy, _) in minted_value.iter() {
                 if !all_scripts_wits.contains(policy) {
