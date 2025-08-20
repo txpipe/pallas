@@ -4,7 +4,7 @@ use pallas_network::miniprotocols::peersharing;
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    standard::{InitiatorEvent, InitiatorState},
+    behavior::{InitiatorEvent, InitiatorState},
 };
 
 impl From<peersharing::PeerAddress> for PeerId {

@@ -8,7 +8,7 @@ use rand::Rng as _;
 use std::{pin::Pin, time::Duration};
 use tokio::select;
 
-use crate::{Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, PeerId};
+use crate::{Interface, InterfaceCommand, InterfaceEvent, Message, PeerId};
 
 pub trait Rules {
     type Message: Message + Clone + 'static;
@@ -119,7 +119,7 @@ where
     M: Message + Clone + Send + Sync + 'static,
     R: Rules<Message = M>,
 {
-    fn execute(&mut self, cmd: InterfaceCommand<M>) -> Result<(), InterfaceError> {
+    fn dispatch(&mut self, cmd: InterfaceCommand<M>) {
         match cmd {
             InterfaceCommand::Connect(peer_id) => {
                 let jitter = self.rules.jitter();
@@ -154,8 +154,6 @@ where
                 self.rules.reply_to(peer_id, msg, jitter, &mut self.pending);
             }
         };
-
-        Ok(())
     }
 
     async fn poll_next(&mut self) -> InterfaceEvent<M> {

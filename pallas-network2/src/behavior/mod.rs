@@ -9,19 +9,13 @@ use pallas_network::miniprotocols::{
 };
 use tokio::time::Interval;
 
-use crate::{Behavior, BehaviorOutput, Command, Message, OutboundQueue, PeerId};
+use crate::{Behavior, BehaviorOutput, Message, OutboundQueue, PeerId};
 
 mod blockfetch;
 mod discovery;
 mod handshake;
 mod keepalive;
 mod promotion;
-
-impl Command for () {
-    // fn peer_id(&self) -> &PeerId {
-    //     unreachable!()
-    // }
-}
 
 #[derive(Debug, Clone)]
 pub enum AnyMessage {
@@ -167,7 +161,8 @@ impl InitiatorState {
                     self.violation = true;
                 }
             },
-            _ => (),
+            AnyMessage::ChainSync(_) => todo!(),
+            AnyMessage::TxSubmission(_) => todo!(),
         }
     }
 }
@@ -180,18 +175,6 @@ pub enum InitiatorCommand {
     RequestNextHeader(PeerId, Point),
     RequestBlockBatch(BlockRange, Option<PeerId>),
     SendTx(PeerId, txsubmission::EraTxId, txsubmission::EraTxBody),
-}
-
-impl Command for InitiatorCommand {
-    // fn peer_id(&self) -> &PeerId {
-    //     match self {
-    //         Self::IncludePeer(pid) => pid,
-    //         Self::IntersectChain(pid, _) => pid,
-    //         Self::RequestNextHeader(pid, _) => pid,
-    //         Self::RequestBlockBody(pid, _) => pid,
-    //         Self::SendTx(pid, _, _) => pid,
-    //     }
-    // }
 }
 
 #[derive(Debug)]
@@ -214,6 +197,29 @@ pub struct InitiatorBehavior {
 }
 
 impl InitiatorBehavior {
+    /// Define a peer to use for a given command.
+    ///
+    /// Commands that require a specific peer can either provide it explicitly
+    /// or let the behavior select a random hot peer. This method will
+    /// handle that logic for you.
+    ///
+    /// If the list of hot peers is empty, this method will return `None`.
+    pub fn define_peer(&mut self, pid: Option<PeerId>) -> Option<PeerId> {
+        if let Some(pid) = pid {
+            return Some(pid);
+        }
+
+        tracing::debug!("no peer provided, selecting random hot peer");
+
+        if let Some(pid) = self.promotion.select_random_hot_peer() {
+            return Some(pid.clone());
+        }
+
+        tracing::debug!("no hot peers available");
+
+        None
+    }
+
     pub fn visit_updated_peer(&mut self, pid: &PeerId, state: &mut InitiatorState) {
         self.handshake
             .visit_updated_peer(pid, state, &mut self.outbound);
@@ -363,21 +369,9 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::RequestBlockBatch(range, pid) => {
                 tracing::info!(?pid, "requesting block batch");
 
-                // either use the provided peer or select a random hot peer or return by logging
-                // a warning
-                let pid = match pid {
-                    Some(pid) => pid,
-                    None => {
-                        tracing::warn!("no peer provided, selecting random hot peer");
-
-                        match self.promotion.select_random_hot_peer() {
-                            Some(pid) => pid.clone(),
-                            None => {
-                                tracing::warn!("no hot peers");
-                                return;
-                            }
-                        }
-                    }
+                let Some(pid) = self.define_peer(pid) else {
+                    tracing::error!("can't request block without a hot peer");
+                    return;
                 };
 
                 self.blockfetch

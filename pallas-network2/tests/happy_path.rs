@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use pallas_network::miniprotocols::{Point, keepalive, txsubmission};
-use pallas_network2::standard::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
+use pallas_network2::behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
 use pallas_network2::{Manager, PeerId, emulation};
 
 #[derive(Default)]

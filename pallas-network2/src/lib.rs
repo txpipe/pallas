@@ -8,7 +8,7 @@ use futures::{
 #[cfg(feature = "emulation")]
 pub mod emulation;
 
-pub mod standard;
+pub mod behavior;
 
 /// A unique identifier for a peer in the network
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -50,6 +50,7 @@ pub enum InterfaceEvent<M: Message> {
     Disconnected(PeerId),
     Sent(PeerId, M),
     Recv(PeerId, M),
+    Error(PeerId, InterfaceError),
     Idle,
 }
 
@@ -68,13 +69,8 @@ impl<B: Behavior> From<InterfaceCommand<B::Message>> for BehaviorOutput<B> {
 /// An abstraction over the network interface where IO happens
 #[trait_variant::make]
 pub trait Interface<M: Message> {
-    fn execute(&mut self, cmd: InterfaceCommand<M>) -> Result<(), InterfaceError>;
+    fn dispatch(&mut self, cmd: InterfaceCommand<M>);
     async fn poll_next(&mut self) -> InterfaceEvent<M>;
-}
-
-/// Describes a command that can be handled by a behavior
-pub trait Command {
-    //fn peer_id(&self) -> &PeerId;
 }
 
 /// Describes the behavior (business logic) of a network stack
@@ -86,7 +82,7 @@ pub trait Behavior:
     type Event: Debug + Send + 'static;
 
     /// The command type that can be handled by the behavior
-    type Command: Command;
+    type Command;
 
     /// The state type of a peer in the network
     type PeerState: Default;
@@ -155,8 +151,7 @@ where
             output = behavior.select_next_some() => {
                 match output {
                     BehaviorOutput::InterfaceCommand(cmd) => {
-                        // TODO: define interface error handling
-                        self.interface.execute(cmd).unwrap();
+                        self.interface.dispatch(cmd);
                         None
                     }
                     BehaviorOutput::ExternalEvent(event) => {

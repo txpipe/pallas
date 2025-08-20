@@ -2,7 +2,7 @@ use pallas_network::miniprotocols::{Agent as _, handshake as handshake_proto};
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    standard::{AnyMessage, InitiatorState},
+    behavior::{AnyMessage, InitiatorState},
 };
 
 pub type Config = handshake_proto::n2n::VersionTable;

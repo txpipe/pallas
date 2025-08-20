@@ -4,7 +4,7 @@ use pallas_network::miniprotocols::{Agent as _, peersharing as peersharing_proto
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    standard::{AnyMessage, InitiatorState},
+    behavior::{AnyMessage, InitiatorState},
 };
 
 pub struct Config {

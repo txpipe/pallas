@@ -2,7 +2,7 @@ use pallas_network::miniprotocols::{Agent as _, blockfetch as blockfetch_proto};
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    standard::{AnyMessage, BlockRange, InitiatorEvent, InitiatorState},
+    behavior::{AnyMessage, BlockRange, InitiatorEvent, InitiatorState},
 };
 
 pub type Config = ();
