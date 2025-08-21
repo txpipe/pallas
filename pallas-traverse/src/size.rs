@@ -6,16 +6,16 @@ impl MultiEraTx<'_> {
     fn aux_data_size(&self) -> usize {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.auxiliary_data {
-                Nullable::Some(x) => x.raw_cbor().len(),
+                Nullable::Some(x) => x.raw_cbor().len() + 1,
                 _ => 2,
             },
             MultiEraTx::Babbage(x) => match &x.auxiliary_data {
-                Nullable::Some(x) => x.raw_cbor().len(),
+                Nullable::Some(x) => x.raw_cbor().len() + 1,
                 _ => 2,
             },
             MultiEraTx::Byron(_) => 0,
             MultiEraTx::Conway(x) => match &x.auxiliary_data {
-                Nullable::Some(x) => x.raw_cbor().len(),
+                Nullable::Some(x) => x.raw_cbor().len() + 1,
                 _ => 2,
             },
         }
@@ -40,7 +40,10 @@ impl MultiEraTx<'_> {
     }
 
     pub fn size(&self) -> usize {
-        self.body_size() + self.witness_set_size() + self.aux_data_size()
+        match self {
+            MultiEraTx::Byron(_) => self.body_size(),
+            _ => self.body_size() + self.witness_set_size() + self.aux_data_size(),
+        }
     }
 }
 
@@ -55,5 +58,48 @@ impl MultiEraBlock<'_> {
             MultiEraBlock::Byron(_) => None,
             MultiEraBlock::Conway(x) => Some(x.header.header_body.block_body_size as usize),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::MultiEraTx;
+
+    #[test]
+    fn known_size_matches() {
+        let cbor = hex::decode(include_str!("../../test_data/alonzo1.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 265);
+
+        let cbor = hex::decode(include_str!("../../test_data/byron1.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 220);
+
+        let cbor = hex::decode(include_str!("../../test_data/conway1.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 1096);
+
+        let cbor = hex::decode(include_str!("../../test_data/mary1.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 439);
+
+        let cbor = hex::decode(include_str!("../../test_data/babbage2.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 1748);
+
+        let cbor = hex::decode(include_str!("../../test_data/shelley1.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 293);
+
+        let cbor = hex::decode(include_str!("../../test_data/conway7.tx")).expect("invalid hex");
+        let tx = MultiEraTx::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(tx.size(), 3396);
     }
 }
