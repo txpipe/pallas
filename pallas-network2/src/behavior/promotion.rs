@@ -33,9 +33,9 @@ pub struct PromotionConfig {
 impl Default for PromotionConfig {
     fn default() -> Self {
         Self {
-            max_peers: 50,
-            max_warm_peers: 5,
-            max_hot_peers: 3,
+            max_peers: 100,
+            max_warm_peers: 50,
+            max_hot_peers: 10,
             max_error_count: 1,
         }
     }
@@ -112,6 +112,10 @@ impl PromotionBehavior {
             .record(self.banned_peers.len() as u64, &[]);
     }
 
+    pub fn peer_deficit(&self) -> usize {
+        self.config.max_peers - self.total_peers()
+    }
+
     fn total_peers(&self) -> usize {
         self.cold_peers.len() + self.warm_peers.len() + self.hot_peers.len()
     }
@@ -150,17 +154,6 @@ impl PromotionBehavior {
         }
     }
 
-    fn downgrade_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
-        tracing::warn!("downgrading peer");
-
-        self.warm_peers.remove(pid);
-        self.hot_peers.remove(pid);
-        self.cold_peers.insert(pid.clone());
-        self.update_metrics();
-
-        peer.promotion = Promotion::Cold;
-    }
-
     fn ban_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         tracing::warn!("banning peer");
 
@@ -196,6 +189,11 @@ impl PromotionBehavior {
     }
 
     pub fn on_peer_discovered(&mut self, pid: &PeerId, state: &mut InitiatorState) {
+        if self.banned_peers.contains(pid) {
+            tracing::warn!("skipping discovered peer, already banned");
+            return;
+        }
+
         if self.required_cold_peers() > 0 {
             tracing::debug!("flagging peer as cold");
             self.cold_peers.insert(pid.clone());
@@ -204,10 +202,6 @@ impl PromotionBehavior {
         } else {
             tracing::warn!("discovered peer, but max peers reached");
         }
-    }
-
-    pub fn select_random_hot_peer(&self) -> Option<&PeerId> {
-        self.hot_peers.iter().next()
     }
 }
 

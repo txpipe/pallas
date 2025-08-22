@@ -8,13 +8,27 @@ use crate::{
 };
 
 pub struct Config {
-    request_amount: u8,
+    high_water_mark: u8,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { request_amount: 15 }
+        Self {
+            high_water_mark: 100,
+        }
     }
+}
+
+fn peer_supports_peer_sharing(peer: &InitiatorState) -> bool {
+    peer.is_initialized() && peer.supports_peer_sharing()
+}
+
+fn peer_is_available(peer: &InitiatorState) -> bool {
+    peer_supports_peer_sharing(peer)
+        && matches!(
+            peer.peersharing.state(),
+            peersharing_proto::State::Idle(peersharing_proto::IdleState::Empty)
+        )
 }
 
 #[derive(Default)]
@@ -25,7 +39,11 @@ pub struct DiscoveryBehavior {
 
 impl DiscoveryBehavior {
     fn request_peers(&self, pid: &PeerId, outbound: &mut OutboundQueue<super::InitiatorBehavior>) {
-        let msg = peersharing_proto::Message::ShareRequest(self.config.request_amount);
+        let amount = self.config.high_water_mark as usize - self.discovered.len();
+
+        tracing::debug!(amount, "requesting peers");
+
+        let msg = peersharing_proto::Message::ShareRequest(amount as u8);
 
         let out = BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
             pid.clone(),
@@ -35,32 +53,39 @@ impl DiscoveryBehavior {
         outbound.push_ready(out);
     }
 
-    pub fn visit_updated_peer(
-        &mut self,
-        pid: &PeerId,
-        peer: &mut InitiatorState,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
-    ) {
-        if peer.is_initialized() && peer.supports_peer_sharing() {
-            match peer.peersharing.state() {
-                peersharing_proto::State::Idle(peersharing_proto::IdleState::Empty) => {
-                    self.request_peers(pid, outbound);
-                }
-                peersharing_proto::State::Idle(peersharing_proto::IdleState::Response(peers)) => {
-                    for peer in peers {
-                        self.discovered.insert(peer.clone().into());
-                    }
+    pub fn try_take_peers(&mut self, peer: &mut InitiatorState) {
+        match peer.peersharing.state() {
+            peersharing_proto::State::Idle(peersharing_proto::IdleState::Response(peers)) => {
+                tracing::info!(peers = peers.len(), "got peer discovery response");
 
-                    peer.peersharing =
-                        peersharing_proto::Client::new(peersharing_proto::State::Done);
+                for peer in peers {
+                    self.discovered.insert(peer.clone().into());
                 }
-                _ => (),
+
+                // TODO: think of how we reset this after a while to ask again
+                // for peers to the same responder.
+                peer.peersharing = peersharing_proto::Client::new(peersharing_proto::State::Done);
             }
+            _ => (),
         }
     }
 
-    pub fn take_peers(&mut self) -> Vec<PeerId> {
-        self.discovered.drain().collect()
+    pub fn drain_new_peers(&mut self, count: usize) -> HashSet<PeerId> {
+        let selected: HashSet<_> = self.discovered.iter().take(count).cloned().collect();
+
+        self.discovered = self.discovered.difference(&selected).cloned().collect();
+
+        tracing::debug!(
+            count = selected.len(),
+            remaining = self.discovered.len(),
+            "peers drained"
+        );
+
+        selected
+    }
+
+    fn needs_more_peers(&self) -> bool {
+        self.discovered.len() < self.config.high_water_mark as usize
     }
 }
 
@@ -71,24 +96,25 @@ impl PeerVisitor for DiscoveryBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        self.visit_updated_peer(pid, state, outbound);
+        if !self.needs_more_peers() {
+            return;
+        }
+
+        if !peer_is_available(state) {
+            return;
+        }
+
+        self.request_peers(pid, outbound);
     }
 
     fn visit_inbound_msg(
         &mut self,
-        pid: &PeerId,
+        _: &PeerId,
         state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        _: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        self.visit_updated_peer(pid, state, outbound);
-    }
-
-    fn visit_outbound_msg(
-        &mut self,
-        pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
-    ) {
-        self.visit_updated_peer(pid, state, outbound);
+        if peer_supports_peer_sharing(state) {
+            self.try_take_peers(state);
+        }
     }
 }

@@ -98,6 +98,16 @@ async fn main() {
         port: 19001,
     }));
 
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "backbone.cardano.iog.io".to_string(),
+        port: 3001,
+    }));
+
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "backbone.mainnet.emurgornd.com".to_string(),
+        port: 3001,
+    }));
+
     // constant requests of block ranges
     let cmd_send_2 = cmd_send.clone();
     tokio::spawn(async move {

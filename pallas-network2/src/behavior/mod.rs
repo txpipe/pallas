@@ -444,15 +444,31 @@ impl InitiatorBehavior {
         self.peers.insert(pid.clone(), state);
     }
 
+    fn move_discovered_into_promotion(&mut self) {
+        let deficit = self.promotion.peer_deficit();
+
+        if deficit == 0 {
+            return;
+        }
+
+        let new = self.discovery.drain_new_peers(deficit);
+
+        tracing::info!(deficit = deficit, new = new.len(), "discovered new peers",);
+
+        for pid in new {
+            if !self.peers.contains_key(&pid) {
+                self.on_discovered(&pid);
+            }
+        }
+    }
+
     #[tracing::instrument(skip_all)]
     fn housekeeping(&mut self) {
         for (pid, state) in self.peers.iter_mut() {
             all_visitors!(self, pid, state, visit_housekeeping);
         }
 
-        for pid in self.discovery.take_peers() {
-            self.on_discovered(&pid);
-        }
+        self.move_discovered_into_promotion();
     }
 }
 
