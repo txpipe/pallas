@@ -51,7 +51,7 @@ where
         let future = Box::pin(async move {
             tokio::time::sleep(jitter).await;
             tracing::debug!(%peer_id, "emulating recv from");
-            InterfaceEvent::Recv(peer_id, msg)
+            InterfaceEvent::Recv(peer_id, vec![msg])
         });
 
         self.push(future);

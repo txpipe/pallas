@@ -42,7 +42,17 @@ pub trait Message: Send + 'static + std::fmt::Debug + Sized + Clone + Debug {
     fn channel(&self) -> Channel;
     fn payload(&self) -> Payload;
 
-    fn from_payload(channel: Channel, payload: &Payload) -> Option<Self>;
+    /// Try to decode a message from a payload.
+    ///
+    /// This method should use a best-effort approach to decode a message from
+    /// the payload. Implementors need to take into account that payload might
+    /// be partial, in this case should return none and wait for a new call with
+    /// more data.
+    ///
+    /// Whatever payload is successfully consumed during the parsing, should be
+    /// drained from the variable, leaving the remaining data available for a
+    /// next call which will execute a new attempt.
+    fn from_payload(channel: Channel, payload: &mut Payload) -> Option<Self>;
 
     fn into_payload(self) -> (Channel, Payload);
 
@@ -72,7 +82,7 @@ pub enum InterfaceEvent<M: Message> {
     Connected(PeerId),
     Disconnected(PeerId),
     Sent(PeerId, M),
-    Recv(PeerId, M),
+    Recv(PeerId, Vec<M>),
     Error(PeerId, InterfaceError),
     Idle,
 }

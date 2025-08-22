@@ -78,15 +78,15 @@ async fn main() {
 
     let mut node = MyNode::new(interface);
 
-    // node.enqueue(InitiatorCommand::IncludePeer(PeerId {
-    //     host: "backbone.mainnet.cardanofoundation.org".to_string(),
-    //     port: 3001,
-    // }));
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "backbone.mainnet.cardanofoundation.org".to_string(),
+        port: 3001,
+    }));
 
-    // node.enqueue(InitiatorCommand::IncludePeer(PeerId {
-    //     host: "relay.cnode-m1.demeter.run".to_string(),
-    //     port: 3000,
-    // }));
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "relay.cnode-m1.demeter.run".to_string(),
+        port: 3000,
+    }));
 
     // node.enqueue(InitiatorCommand::IncludePeer(PeerId {
     //     host: "251.70.119.168".to_string(),
@@ -101,7 +101,7 @@ async fn main() {
     // constant requests of block ranges
     let cmd_send_2 = cmd_send.clone();
     tokio::spawn(async move {
-        for i in 0..50 {
+        for i in 0..3 {
             tracing::info!("requesting block range {}", i);
 
             let point = Point::Specific(

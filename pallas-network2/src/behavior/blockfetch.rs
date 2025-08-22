@@ -34,6 +34,7 @@ impl BlockFetchBehavior {
 
     pub fn enqueue(&mut self, request: Request) {
         self.requests.push_back(request);
+        tracing::info!(total = self.requests.len(), "new request");
     }
 
     pub fn request_block_batch(
@@ -88,9 +89,16 @@ impl PeerVisitor for BlockFetchBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
+        if self.requests.is_empty() {
+            tracing::trace!("no requests pending");
+            return;
+        }
+
         if peer_is_available(state) {
-            tracing::debug!("found available peer");
+            tracing::debug!("peer looks available");
+
             if let Some(request) = self.requests.pop_front() {
+                tracing::debug!("granting request to peer");
                 self.request_block_batch(pid, request, outbound);
             }
         }

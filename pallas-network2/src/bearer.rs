@@ -190,10 +190,10 @@ impl BearerReadHalf {
     }
 
     /// Reads from the channel until a complete message is found
-    pub async fn recv_full_msg<M>(
+    pub async fn read_full_msgs<M>(
         &mut self,
         partial_chunks: &mut HashMap<Channel, Payload>,
-    ) -> IOResult<M>
+    ) -> IOResult<Vec<M>>
     where
         M: Message,
     {
@@ -202,7 +202,7 @@ impl BearerReadHalf {
 
             let previous = partial_chunks.remove(&channel);
 
-            let payload = match previous {
+            let mut payload = match previous {
                 Some(x) => {
                     let mut payload = x;
                     payload.extend(chunk);
@@ -211,11 +211,18 @@ impl BearerReadHalf {
                 None => chunk,
             };
 
-            if let Some(msg) = M::from_payload(channel, &payload) {
-                return Ok(msg);
+            let mut msgs = Vec::new();
+
+            while let Some(msg) = M::from_payload(channel, &mut payload) {
+                msgs.push(msg);
             }
 
-            partial_chunks.insert(channel, payload);
+            if !payload.is_empty() {
+                tracing::debug!("payload is not empty after successful decode");
+                partial_chunks.insert(channel, payload);
+            }
+
+            return Ok(msgs);
         }
     }
 }

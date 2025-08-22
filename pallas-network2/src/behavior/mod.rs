@@ -3,7 +3,7 @@
 use std::{collections::HashMap, task::Poll, time::Duration};
 
 use futures::{Stream, StreamExt, stream::FusedStream};
-use pallas_codec::minicbor;
+use pallas_codec::{Fragment, minicbor};
 use pallas_network::miniprotocols::{
     Agent, Point, blockfetch as blockfetch_proto, chainsync, handshake as handshake_proto,
     keepalive as keepalive_proto, peersharing as peersharing_proto, txsubmission,
@@ -101,6 +101,24 @@ pub enum AnyMessage {
     TxSubmission(txsubmission::Message<txsubmission::EraTxId, txsubmission::EraTxBody>),
 }
 
+fn try_decode_message<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
+    let mut decoder = minicbor::Decoder::new(buffer);
+    let maybe_msg: Result<T, _> = decoder.decode();
+
+    match maybe_msg {
+        Ok(msg) => {
+            let new_pos = decoder.position();
+            buffer.drain(0..new_pos);
+            Some(msg)
+        }
+        Err(err) if err.is_end_of_input() => None,
+        Err(err) => {
+            tracing::error!(?err);
+            None
+        }
+    }
+}
+
 impl Message for AnyMessage {
     fn channel(&self) -> u16 {
         match self {
@@ -126,27 +144,27 @@ impl Message for AnyMessage {
         }
     }
 
-    fn from_payload(channel: Channel, payload: &Payload) -> Option<Self> {
+    fn from_payload(channel: Channel, payload: &mut Payload) -> Option<Self> {
         let channel = channel ^ 0x8000;
 
         match channel {
             pallas_network::miniprotocols::PROTOCOL_N2N_HANDSHAKE => {
-                minicbor::decode(payload).ok().map(AnyMessage::Handshake)
+                try_decode_message(payload).map(AnyMessage::Handshake)
             }
             pallas_network::miniprotocols::PROTOCOL_N2N_KEEP_ALIVE => {
-                minicbor::decode(payload).ok().map(AnyMessage::KeepAlive)
+                try_decode_message(payload).map(AnyMessage::KeepAlive)
             }
             pallas_network::miniprotocols::PROTOCOL_N2N_CHAIN_SYNC => {
-                minicbor::decode(payload).ok().map(AnyMessage::ChainSync)
+                try_decode_message(payload).map(AnyMessage::ChainSync)
             }
             pallas_network::miniprotocols::PROTOCOL_N2N_PEER_SHARING => {
-                minicbor::decode(payload).ok().map(AnyMessage::PeerSharing)
+                try_decode_message(payload).map(AnyMessage::PeerSharing)
             }
             pallas_network::miniprotocols::PROTOCOL_N2N_BLOCK_FETCH => {
-                minicbor::decode(payload).ok().map(AnyMessage::BlockFetch)
+                try_decode_message(payload).map(AnyMessage::BlockFetch)
             }
             pallas_network::miniprotocols::PROTOCOL_N2N_TX_SUBMISSION => {
-                minicbor::decode(payload).ok().map(AnyMessage::TxSubmission)
+                try_decode_message(payload).map(AnyMessage::TxSubmission)
             }
             x => unimplemented!("unsupported channel: {}", x),
         }
@@ -493,8 +511,10 @@ impl Behavior for InitiatorBehavior {
             crate::InterfaceEvent::Disconnected(pid) => {
                 self.on_disconnected(pid);
             }
-            crate::InterfaceEvent::Recv(pid, msg) => {
-                self.on_inbound_msg(pid, msg);
+            crate::InterfaceEvent::Recv(pid, msgs) => {
+                for msg in msgs {
+                    self.on_inbound_msg(pid, &msg);
+                }
             }
             crate::InterfaceEvent::Sent(pid, msg) => {
                 self.on_outbound_msg(pid, msg);

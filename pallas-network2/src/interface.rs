@@ -20,7 +20,7 @@ enum InternalEvent<M: Message> {
     Connected(PeerId, Bearer),
     Disconnected(PeerId),
     Sent(PeerId, M, BearerWriteHalf),
-    Recv(PeerId, M, BearerReadHalf, ChunkBuffer),
+    Recv(PeerId, Vec<M>, BearerReadHalf, ChunkBuffer),
     Error(PeerId, tokio::io::Error),
 }
 
@@ -64,10 +64,10 @@ async fn recv<M: Message>(
 ) -> InternalEvent<M> {
     let pid = pid.clone();
 
-    let result = reader.recv_full_msg(&mut partial_chunks).await;
+    let result = reader.read_full_msgs(&mut partial_chunks).await;
 
     match result {
-        Ok(msg) => InternalEvent::Recv(pid.clone(), msg, reader, partial_chunks),
+        Ok(msgs) => InternalEvent::Recv(pid.clone(), msgs, reader, partial_chunks),
         Err(e) => InternalEvent::Error(pid.clone(), e),
     }
 }
@@ -130,7 +130,7 @@ impl<M: Message> TokioInterface<M> {
     fn on_recv(
         &mut self,
         pid: PeerId,
-        msg: M,
+        msgs: Vec<M>,
         reader: BearerReadHalf,
         partial_chunks: ChunkBuffer,
     ) -> InterfaceEvent<M> {
@@ -138,7 +138,7 @@ impl<M: Message> TokioInterface<M> {
         let future = recv(pid.clone(), reader, partial_chunks);
         self.futures.push(Box::pin(future));
 
-        InterfaceEvent::Recv(pid, msg)
+        InterfaceEvent::Recv(pid, msgs)
     }
 
     fn on_error(&mut self, pid: PeerId, error: tokio::io::Error) -> InterfaceEvent<M> {
@@ -151,7 +151,7 @@ impl<M: Message> TokioInterface<M> {
         match event {
             InternalEvent::Connected(pid, stream) => self.on_connected(pid, stream),
             InternalEvent::Sent(pid, msg, stream) => self.on_sent(pid, msg, stream),
-            InternalEvent::Recv(pid, msg, stream, buf) => self.on_recv(pid, msg, stream, buf),
+            InternalEvent::Recv(pid, msgs, stream, buf) => self.on_recv(pid, msgs, stream, buf),
             InternalEvent::Disconnected(pid) => self.on_disconnected(pid),
             InternalEvent::Error(pid, error) => self.on_error(pid, error),
         }
