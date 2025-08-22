@@ -111,7 +111,7 @@ async fn main() {
     // constant requests of block ranges
     let cmd_send_2 = cmd_send.clone();
     tokio::spawn(async move {
-        for i in 0..3 {
+        for i in 0..30 {
             tracing::info!("requesting block range {}", i);
 
             let point = Point::Specific(
@@ -125,7 +125,7 @@ async fn main() {
                 .await
                 .unwrap();
 
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     });
 

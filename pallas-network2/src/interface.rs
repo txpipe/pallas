@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     future::ready,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -9,7 +10,7 @@ use futures::{
     Stream, StreamExt,
     stream::{FusedStream, FuturesUnordered},
 };
-use tokio::time::Instant;
+use tokio::{sync::Mutex, time::Instant};
 
 use crate::{
     Channel, Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, Payload, PeerId,
@@ -19,7 +20,7 @@ use crate::{
 enum InternalEvent<M: Message> {
     Connected(PeerId, Bearer),
     Disconnected(PeerId),
-    Sent(PeerId, M, BearerWriteHalf),
+    Sent(PeerId, M),
     Recv(PeerId, Vec<M>, BearerReadHalf, ChunkBuffer),
     Error(PeerId, tokio::io::Error),
 }
@@ -40,17 +41,19 @@ async fn connect<M: Message>(pid: PeerId) -> InternalEvent<M> {
 
 async fn send<M: Message>(
     pid: PeerId,
-    mut writer: BearerWriteHalf,
+    writer: SharedWriter,
     msg: M,
     ts: Timestamp,
 ) -> InternalEvent<M> {
     let pid = pid.clone();
     let copy = msg.clone();
 
+    let mut writer = writer.lock().await;
+
     let result = writer.write_message(msg, ts).await;
 
     match result {
-        Ok(_) => InternalEvent::Sent(pid.clone(), copy, writer),
+        Ok(_) => InternalEvent::Sent(pid.clone(), copy),
         Err(e) => InternalEvent::Error(pid.clone(), e),
     }
 }
@@ -72,17 +75,21 @@ async fn recv<M: Message>(
     }
 }
 
-async fn disconnect<M: Message>(pid: PeerId, mut writer: BearerWriteHalf) -> InternalEvent<M> {
+async fn disconnect<M: Message>(pid: PeerId, writer: SharedWriter) -> InternalEvent<M> {
     let pid = pid.clone();
+
+    let mut writer = writer.lock().await;
 
     writer.shutdown().await.unwrap();
 
     InternalEvent::Disconnected(pid.clone())
 }
 
+pub type SharedWriter = Arc<Mutex<BearerWriteHalf>>;
+
 pub struct TokioInterface<M: Message> {
     futures: FuturesUnordered<InterfaceFuture<M>>,
-    writers: HashMap<PeerId, BearerWriteHalf>,
+    writers: HashMap<PeerId, SharedWriter>,
     clock: Instant,
 }
 
@@ -95,8 +102,8 @@ impl<M: Message> TokioInterface<M> {
         }
     }
 
-    fn take_writer(&mut self, pid: &PeerId) -> Option<BearerWriteHalf> {
-        self.writers.remove(pid)
+    fn take_writer(&mut self, pid: &PeerId) -> Option<SharedWriter> {
+        self.writers.get(pid).cloned()
     }
 
     fn on_connected(&mut self, pid: PeerId, bearer: Bearer) -> InterfaceEvent<M> {
@@ -104,7 +111,8 @@ impl<M: Message> TokioInterface<M> {
 
         // we store the writer for this peer so we can send messages to it when
         // requested
-        self.writers.insert(pid.clone(), write);
+        self.writers
+            .insert(pid.clone(), Arc::new(Mutex::new(write)));
 
         // we immediately schedule a new recv for this peer to handle the incoming
         // messages
@@ -121,9 +129,7 @@ impl<M: Message> TokioInterface<M> {
         InterfaceEvent::Disconnected(pid)
     }
 
-    fn on_sent(&mut self, pid: PeerId, msg: M, writer: BearerWriteHalf) -> InterfaceEvent<M> {
-        self.writers.insert(pid.clone(), writer);
-
+    fn on_sent(&mut self, pid: PeerId, msg: M) -> InterfaceEvent<M> {
         InterfaceEvent::Sent(pid, msg)
     }
 
@@ -150,7 +156,7 @@ impl<M: Message> TokioInterface<M> {
     fn handle_internal_event(&mut self, event: InternalEvent<M>) -> InterfaceEvent<M> {
         match event {
             InternalEvent::Connected(pid, stream) => self.on_connected(pid, stream),
-            InternalEvent::Sent(pid, msg, stream) => self.on_sent(pid, msg, stream),
+            InternalEvent::Sent(pid, msg) => self.on_sent(pid, msg),
             InternalEvent::Recv(pid, msgs, stream, buf) => self.on_recv(pid, msgs, stream, buf),
             InternalEvent::Disconnected(pid) => self.on_disconnected(pid),
             InternalEvent::Error(pid, error) => self.on_error(pid, error),
