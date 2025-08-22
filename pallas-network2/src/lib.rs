@@ -8,7 +8,9 @@ use futures::{
 #[cfg(feature = "emulation")]
 pub mod emulation;
 
+pub mod bearer;
 pub mod behavior;
+pub mod interface;
 
 /// A unique identifier for a peer in the network
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -24,15 +26,36 @@ impl std::fmt::Display for PeerId {
 }
 
 #[derive(Debug)]
-pub enum InterfaceError {}
+pub enum InterfaceError {
+    // TODO: add more specific errors
+    Other(String),
+}
 
 pub type Channel = u16;
 pub type Payload = Vec<u8>;
 
+/// Protocol value that defines max segment length
+pub const MAX_SEGMENT_PAYLOAD_LENGTH: usize = 65535;
+
 /// Describes a message that can be sent over the network
-pub trait Message: Send + 'static + std::fmt::Debug {
+pub trait Message: Send + 'static + std::fmt::Debug + Sized + Clone + Debug {
     fn channel(&self) -> Channel;
     fn payload(&self) -> Payload;
+
+    fn from_payload(channel: Channel, payload: &Payload) -> Option<Self>;
+
+    fn into_payload(self) -> (Channel, Payload);
+
+    fn into_chunks(self) -> (Channel, Vec<Payload>) {
+        let (channel, payload) = self.into_payload();
+
+        let chunks = payload
+            .chunks(MAX_SEGMENT_PAYLOAD_LENGTH)
+            .map(Vec::from)
+            .collect();
+
+        (channel, chunks)
+    }
 }
 
 /// A low-level command to interact with the network interface
@@ -68,9 +91,8 @@ impl<B: Behavior> From<InterfaceCommand<B::Message>> for BehaviorOutput<B> {
 
 /// An abstraction over the network interface where IO happens
 #[trait_variant::make]
-pub trait Interface<M: Message> {
+pub trait Interface<M: Message>: Unpin + FusedStream + Stream<Item = InterfaceEvent<M>> {
     fn dispatch(&mut self, cmd: InterfaceCommand<M>);
-    async fn poll_next(&mut self) -> InterfaceEvent<M>;
 }
 
 /// Describes the behavior (business logic) of a network stack
@@ -159,7 +181,7 @@ where
                     }
                 }
             },
-            event = interface.poll_next().fuse() => {
+            event = interface.select_next_some() => {
                 self.behavior.apply_io(event);
                 None
             }

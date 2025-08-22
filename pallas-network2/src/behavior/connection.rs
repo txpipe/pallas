@@ -1,0 +1,109 @@
+use crate::{
+    InterfaceCommand, OutboundQueue, PeerId,
+    behavior::{ConnectionState, InitiatorBehavior, InitiatorState, PeerVisitor, Promotion},
+};
+
+fn needs_connection(peer: &InitiatorState) -> bool {
+    match peer.connection {
+        ConnectionState::Connected => false,
+        ConnectionState::Connecting => false,
+        ConnectionState::Initialized => false,
+        _ => match peer.promotion {
+            Promotion::Warm => true,
+            Promotion::Hot => true,
+            Promotion::Banned => false,
+            Promotion::Cold => false,
+        },
+    }
+}
+
+fn needs_disconnect(peer: &InitiatorState) -> bool {
+    match peer.connection {
+        ConnectionState::Errored => true,
+        ConnectionState::New => false,
+        ConnectionState::Connecting => false,
+        ConnectionState::Disconnected => false,
+        ConnectionState::Connected | ConnectionState::Initialized => match peer.promotion {
+            Promotion::Cold => true,
+            Promotion::Banned => true,
+            Promotion::Warm => false,
+            Promotion::Hot => false,
+        },
+    }
+}
+
+#[derive(Debug)]
+pub struct ConnectionConfig {
+    max_error_count: u32,
+}
+
+impl Default for ConnectionConfig {
+    fn default() -> Self {
+        Self { max_error_count: 3 }
+    }
+}
+
+pub struct ConnectionBehavior {
+    config: ConnectionConfig,
+
+    // metrics
+    connection_counter: opentelemetry::metrics::Counter<u64>,
+}
+
+impl Default for ConnectionBehavior {
+    fn default() -> Self {
+        Self::new(ConnectionConfig::default())
+    }
+}
+
+impl ConnectionBehavior {
+    pub fn new(config: ConnectionConfig) -> Self {
+        let meter = opentelemetry::global::meter("pallas-network2");
+
+        let connection_counter = meter
+            .u64_counter("connections")
+            .with_description("Total connections")
+            .build();
+
+        Self {
+            config,
+            connection_counter,
+        }
+    }
+
+    fn increment_counter(&self) {
+        self.connection_counter.add(1, &[]);
+    }
+}
+
+impl PeerVisitor for ConnectionBehavior {
+    fn visit_housekeeping(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        if needs_connection(state) {
+            state.connection = ConnectionState::Connecting;
+            outbound.push_ready(InterfaceCommand::Connect(pid.clone()));
+            self.increment_counter();
+        }
+
+        if needs_disconnect(state) {
+            tracing::info!("disconnecting peer");
+            outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
+        }
+    }
+
+    fn visit_errored(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        if needs_disconnect(state) {
+            tracing::info!("disconnecting errored peer");
+            outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
+        }
+    }
+}

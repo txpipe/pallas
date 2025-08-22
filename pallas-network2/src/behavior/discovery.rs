@@ -4,7 +4,7 @@ use pallas_network::miniprotocols::{Agent as _, peersharing as peersharing_proto
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorState},
+    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
 };
 
 pub struct Config {
@@ -13,7 +13,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { request_amount: 5 }
+        Self { request_amount: 15 }
     }
 }
 
@@ -61,5 +61,34 @@ impl DiscoveryBehavior {
 
     pub fn take_peers(&mut self) -> Vec<PeerId> {
         self.discovered.drain().collect()
+    }
+}
+
+impl PeerVisitor for DiscoveryBehavior {
+    fn visit_housekeeping(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.visit_updated_peer(pid, state, outbound);
+    }
+
+    fn visit_inbound_msg(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.visit_updated_peer(pid, state, outbound);
+    }
+
+    fn visit_outbound_msg(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.visit_updated_peer(pid, state, outbound);
     }
 }

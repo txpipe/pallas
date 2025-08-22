@@ -3,7 +3,7 @@ use std::{net::Ipv4Addr, time::Duration};
 use pallas_network::miniprotocols::{
     blockfetch, handshake as handshake_proto, keepalive, peersharing,
 };
-use pallas_network2::{emulation, standard::AnyMessage, PeerId};
+use pallas_network2::{behavior::AnyMessage, emulation, PeerId};
 use rand::Rng;
 
 fn reply_handshake_ok(
@@ -106,7 +106,6 @@ fn reply_block_fetch_ok(
                 Duration::from_secs(2),
             );
         }
-
         _ => queue.push_jittered_disconnect(pid, Duration::from_secs(0)),
     }
 }

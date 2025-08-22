@@ -13,6 +13,8 @@ pallas-codec = { path = "../pallas-codec" }
 chrono = "0.4.41"
 opentelemetry = "0.30.0"
 tracing = "0.1.41"
+byteorder = "1.5.0"
+socket2 = "0.6.0"
 
 [features]
 emulation = ["tokio", "rand"]

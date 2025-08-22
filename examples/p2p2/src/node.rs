@@ -1,16 +1,18 @@
+use std::any::Any;
+
 use pallas_network::miniprotocols::{txsubmission, Point};
 use pallas_network2::{
-    standard::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent},
-    Manager,
+    behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent},
+    Interface, Manager,
 };
 
 use crate::emulator::MyEmulator;
 
-pub struct MyNode {
-    network: Manager<MyEmulator, InitiatorBehavior, AnyMessage>,
+pub struct MyNode<I: Interface<AnyMessage>> {
+    network: Manager<I, InitiatorBehavior, AnyMessage>,
 }
 
-impl MyNode {
+impl<I: Interface<AnyMessage>> MyNode<I> {
     pub async fn tick(&mut self) {
         let event = self.network.poll_next().await;
 
@@ -52,10 +54,10 @@ impl MyNode {
     }
 }
 
-impl Default for MyNode {
-    fn default() -> Self {
+impl<I: Interface<AnyMessage>> MyNode<I> {
+    pub fn new(interface: I) -> Self {
         Self {
-            network: Manager::new(MyEmulator::default(), InitiatorBehavior::default()),
+            network: Manager::new(interface, InitiatorBehavior::default()),
         }
     }
 }

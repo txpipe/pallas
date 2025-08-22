@@ -98,7 +98,7 @@ pub fn setup_otel() {
         .add_directive("h2=off".parse().unwrap())
         .add_directive("reqwest=off".parse().unwrap())
         .add_directive("tower=off".parse().unwrap())
-        .add_directive("opentelemetry=info".parse().unwrap());
+        .add_directive("opentelemetry=off".parse().unwrap());
 
     let fmt_layer = tracing_subscriber::fmt::layer()
         //.with_thread_names(true)

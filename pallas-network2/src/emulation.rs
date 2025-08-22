@@ -6,7 +6,6 @@ use futures::{
 };
 use rand::Rng as _;
 use std::{pin::Pin, time::Duration};
-use tokio::select;
 
 use crate::{Interface, InterfaceCommand, InterfaceEvent, Message, PeerId};
 
@@ -117,7 +116,7 @@ where
 impl<M, R> Interface<M> for Emulator<M, R>
 where
     M: Message + Clone + Send + Sync + 'static,
-    R: Rules<Message = M>,
+    R: Rules<Message = M> + Unpin,
 {
     fn dispatch(&mut self, cmd: InterfaceCommand<M>) {
         match cmd {
@@ -155,15 +154,29 @@ where
             }
         };
     }
+}
 
-    async fn poll_next(&mut self) -> InterfaceEvent<M> {
-        select! {
-            Some(next) = self.pending.next() => {
-                next
-            }
-            _ = tokio::time::sleep(Duration::from_millis(2000)) => {
-                InterfaceEvent::Idle
-            }
-        }
+impl<M, R> FusedStream for Emulator<M, R>
+where
+    M: Message + Clone + Send + Sync + 'static,
+    R: Rules<Message = M> + Unpin,
+{
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
+impl<M, R> Stream for Emulator<M, R>
+where
+    M: Message + Clone + Send + Sync + 'static,
+    R: Rules<Message = M> + Unpin,
+{
+    type Item = InterfaceEvent<M>;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.get_mut().pending.poll_next_unpin(cx)
     }
 }

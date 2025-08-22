@@ -4,7 +4,7 @@ use pallas_network::miniprotocols::peersharing;
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{InitiatorEvent, InitiatorState},
+    behavior::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, Promotion},
 };
 
 impl From<peersharing::PeerAddress> for PeerId {
@@ -23,24 +23,26 @@ impl From<peersharing::PeerAddress> for PeerId {
 }
 
 #[derive(Debug)]
-pub struct DiscoveryConfig {
+pub struct PromotionConfig {
     max_peers: usize,
     max_warm_peers: usize,
     max_hot_peers: usize,
+    max_error_count: u32,
 }
 
-impl Default for DiscoveryConfig {
+impl Default for PromotionConfig {
     fn default() -> Self {
         Self {
             max_peers: 50,
             max_warm_peers: 5,
             max_hot_peers: 3,
+            max_error_count: 1,
         }
     }
 }
 
 pub struct PromotionBehavior {
-    config: DiscoveryConfig,
+    config: PromotionConfig,
     pub cold_peers: HashSet<PeerId>,
     pub warm_peers: HashSet<PeerId>,
     pub hot_peers: HashSet<PeerId>,
@@ -55,12 +57,12 @@ pub struct PromotionBehavior {
 
 impl Default for PromotionBehavior {
     fn default() -> Self {
-        Self::new(DiscoveryConfig::default())
+        Self::new(PromotionConfig::default())
     }
 }
 
 impl PromotionBehavior {
-    pub fn new(config: DiscoveryConfig) -> Self {
+    pub fn new(config: PromotionConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 
         let cold_peers_gauge = meter
@@ -114,106 +116,126 @@ impl PromotionBehavior {
         self.cold_peers.len() + self.warm_peers.len() + self.hot_peers.len()
     }
 
+    fn required_cold_peers(&self) -> usize {
+        self.config.max_peers - self.total_peers()
+    }
+
     fn required_warm_peers(&self) -> usize {
         self.config.max_warm_peers - self.warm_peers.len()
     }
 
-    fn promote_warm_peer(
-        &mut self,
-        pid: &PeerId,
-        state: &InitiatorState,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
-    ) {
+    fn required_hot_peers(&self) -> usize {
+        self.config.max_hot_peers - self.hot_peers.len()
+    }
+
+    fn promote_warm_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         if let Some(x) = self.warm_peers.take(pid) {
             tracing::info!(%pid, "promoting warm peer");
+
             self.hot_peers.insert(x);
             self.update_metrics();
 
-            let version = state.version();
-
-            if let Some(version) = version {
-                outbound.push_ready(BehaviorOutput::ExternalEvent(
-                    InitiatorEvent::PeerInitialized(pid.clone(), version),
-                ));
-            }
+            peer.promotion = Promotion::Hot;
         }
     }
 
-    fn promote_cold_peer(&mut self, pid: &PeerId) {
+    fn promote_cold_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         if let Some(x) = self.cold_peers.take(pid) {
             tracing::info!(%pid, "promoting cold peer");
+
             self.warm_peers.insert(x);
             self.update_metrics();
+
+            peer.promotion = Promotion::Warm;
         }
     }
 
-    fn connect_warm_peer(
-        &mut self,
-        pid: &PeerId,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
-    ) {
-        tracing::info!(%pid, "connecting warm peer");
-        outbound.push_ready(InterfaceCommand::Connect(pid.clone()));
+    fn downgrade_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
+        tracing::warn!("downgrading peer");
+
+        self.warm_peers.remove(pid);
+        self.hot_peers.remove(pid);
+        self.cold_peers.insert(pid.clone());
+        self.update_metrics();
+
+        peer.promotion = Promotion::Cold;
     }
 
-    fn disconnect_violation_peer(
-        &mut self,
-        pid: &PeerId,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
-    ) {
-        tracing::warn!(%pid, "disconnecting peer due to violation");
+    fn ban_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
+        tracing::warn!("banning peer");
+
         self.hot_peers.remove(pid);
         self.warm_peers.remove(pid);
         self.cold_peers.remove(pid);
         self.banned_peers.insert(pid.clone());
         self.update_metrics();
 
-        outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
+        peer.promotion = Promotion::Banned;
     }
 
-    pub fn on_peer_housekeeping(
-        &mut self,
-        pid: &PeerId,
-        peer: &InitiatorState,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
-    ) {
-        if peer.violation {
-            self.disconnect_violation_peer(pid, outbound);
+    fn categorize_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
+        if peer.violation && !self.banned_peers.contains(pid) {
+            self.ban_peer(pid, peer);
+            return;
         }
 
-        if self.cold_peers.contains(pid) && self.required_warm_peers() > 0 {
-            self.promote_cold_peer(pid);
+        if peer.error_count > self.config.max_error_count && !self.banned_peers.contains(pid) {
+            self.ban_peer(pid, peer);
+            return;
         }
 
-        if self.warm_peers.contains(pid) && peer.needs_connection() {
-            self.connect_warm_peer(pid, outbound);
+        if self.required_warm_peers() > 0 && self.cold_peers.contains(pid) {
+            self.promote_cold_peer(pid, peer);
+            return;
+        }
+
+        if self.required_hot_peers() > 0 && self.warm_peers.contains(pid) && peer.is_initialized() {
+            self.promote_warm_peer(pid, peer);
+            return;
         }
     }
 
-    pub fn on_peer_discovered(&mut self, pid: &PeerId) {
-        if self.total_peers() < self.config.max_peers {
-            tracing::info!(%pid, "discovered new peer");
+    pub fn on_peer_discovered(&mut self, pid: &PeerId, state: &mut InitiatorState) {
+        if self.required_cold_peers() > 0 {
+            tracing::debug!("flagging peer as cold");
             self.cold_peers.insert(pid.clone());
-        } else {
-            tracing::warn!(%pid, "discovered peer, but max peers reached");
-        }
-    }
 
-    pub fn visit_updated_peer(
-        &mut self,
-        pid: &PeerId,
-        peer: &mut InitiatorState,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
-    ) {
-        if self.hot_peers.len() < self.config.max_hot_peers
-            && self.warm_peers.contains(pid)
-            && peer.is_initialized()
-        {
-            self.promote_warm_peer(pid, peer, outbound);
+            state.promotion = Promotion::Cold;
+        } else {
+            tracing::warn!("discovered peer, but max peers reached");
         }
     }
 
     pub fn select_random_hot_peer(&self) -> Option<&PeerId> {
         self.hot_peers.iter().next()
+    }
+}
+
+impl PeerVisitor for PromotionBehavior {
+    fn visit_discovered(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        _: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.on_peer_discovered(pid, state);
+    }
+
+    fn visit_housekeeping(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        _: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.categorize_peer(pid, state);
+    }
+
+    fn visit_inbound_msg(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        _: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.categorize_peer(pid, state);
     }
 }
