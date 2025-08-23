@@ -1,5 +1,3 @@
-use pallas_network::miniprotocols::{Agent as _, keepalive as keepalive_proto};
-
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
@@ -26,8 +24,8 @@ impl KeepaliveBehavior {
             return;
         }
 
-        if matches!(peer.keepalive.state(), keepalive_proto::State::Client(_)) {
-            let msg = keepalive_proto::Message::KeepAlive(self.token);
+        if matches!(peer.keepalive, crate::protocol::keepalive::State::Client(_)) {
+            let msg = crate::protocol::keepalive::Message::KeepAlive(self.token);
 
             let out = InterfaceCommand::Send(pid.clone(), AnyMessage::KeepAlive(msg));
 

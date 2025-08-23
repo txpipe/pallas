@@ -4,13 +4,17 @@ use std::{collections::HashMap, task::Poll, time::Duration};
 
 use futures::{Stream, StreamExt, stream::FusedStream};
 use pallas_codec::{Fragment, minicbor};
-use pallas_network::miniprotocols::{
-    Agent, Point, blockfetch as blockfetch_proto, chainsync, handshake as handshake_proto,
-    keepalive as keepalive_proto, peersharing as peersharing_proto, txsubmission,
-};
 use tokio::time::Interval;
 
-use crate::{Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId};
+use crate::{
+    Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId,
+    protocol::{
+        Point,
+        chainsync::HeaderContent,
+        handshake::n2n::VersionData,
+        txsubmission::{EraTxBody, EraTxId},
+    },
+};
 
 mod blockfetch;
 mod connection;
@@ -93,12 +97,12 @@ pub trait PeerVisitor {
 
 #[derive(Debug, Clone)]
 pub enum AnyMessage {
-    Handshake(handshake_proto::Message<handshake_proto::n2n::VersionData>),
-    KeepAlive(keepalive_proto::Message),
-    ChainSync(chainsync::Message<chainsync::HeaderContent>),
-    PeerSharing(peersharing_proto::Message),
-    BlockFetch(blockfetch_proto::Message),
-    TxSubmission(txsubmission::Message<txsubmission::EraTxId, txsubmission::EraTxBody>),
+    Handshake(crate::protocol::handshake::Message<crate::protocol::handshake::n2n::VersionData>),
+    KeepAlive(crate::protocol::keepalive::Message),
+    ChainSync(crate::protocol::chainsync::Message<crate::protocol::chainsync::HeaderContent>),
+    PeerSharing(crate::protocol::peersharing::Message),
+    BlockFetch(crate::protocol::blockfetch::Message),
+    TxSubmission(crate::protocol::txsubmission::Message),
 }
 
 fn try_decode_message<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
@@ -122,14 +126,12 @@ fn try_decode_message<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
 impl Message for AnyMessage {
     fn channel(&self) -> u16 {
         match self {
-            AnyMessage::Handshake(_) => pallas_network::miniprotocols::PROTOCOL_N2N_HANDSHAKE,
-            AnyMessage::KeepAlive(_) => pallas_network::miniprotocols::PROTOCOL_N2N_KEEP_ALIVE,
-            AnyMessage::ChainSync(_) => pallas_network::miniprotocols::PROTOCOL_N2N_CHAIN_SYNC,
-            AnyMessage::PeerSharing(_) => pallas_network::miniprotocols::PROTOCOL_N2N_PEER_SHARING,
-            AnyMessage::BlockFetch(_) => pallas_network::miniprotocols::PROTOCOL_N2N_BLOCK_FETCH,
-            AnyMessage::TxSubmission(_) => {
-                pallas_network::miniprotocols::PROTOCOL_N2N_TX_SUBMISSION
-            }
+            AnyMessage::Handshake(_) => crate::protocol::handshake::CHANNEL_ID,
+            AnyMessage::KeepAlive(_) => crate::protocol::keepalive::CHANNEL_ID,
+            AnyMessage::ChainSync(_) => crate::protocol::chainsync::CHANNEL_ID,
+            AnyMessage::PeerSharing(_) => crate::protocol::peersharing::CHANNEL_ID,
+            AnyMessage::BlockFetch(_) => crate::protocol::blockfetch::CHANNEL_ID,
+            AnyMessage::TxSubmission(_) => crate::protocol::txsubmission::CHANNEL_ID,
         }
     }
 
@@ -148,22 +150,22 @@ impl Message for AnyMessage {
         let channel = channel ^ 0x8000;
 
         match channel {
-            pallas_network::miniprotocols::PROTOCOL_N2N_HANDSHAKE => {
+            crate::protocol::handshake::CHANNEL_ID => {
                 try_decode_message(payload).map(AnyMessage::Handshake)
             }
-            pallas_network::miniprotocols::PROTOCOL_N2N_KEEP_ALIVE => {
+            crate::protocol::keepalive::CHANNEL_ID => {
                 try_decode_message(payload).map(AnyMessage::KeepAlive)
             }
-            pallas_network::miniprotocols::PROTOCOL_N2N_CHAIN_SYNC => {
+            crate::protocol::chainsync::CHANNEL_ID => {
                 try_decode_message(payload).map(AnyMessage::ChainSync)
             }
-            pallas_network::miniprotocols::PROTOCOL_N2N_PEER_SHARING => {
+            crate::protocol::peersharing::CHANNEL_ID => {
                 try_decode_message(payload).map(AnyMessage::PeerSharing)
             }
-            pallas_network::miniprotocols::PROTOCOL_N2N_BLOCK_FETCH => {
+            crate::protocol::blockfetch::CHANNEL_ID => {
                 try_decode_message(payload).map(AnyMessage::BlockFetch)
             }
-            pallas_network::miniprotocols::PROTOCOL_N2N_TX_SUBMISSION => {
+            crate::protocol::txsubmission::CHANNEL_ID => {
                 try_decode_message(payload).map(AnyMessage::TxSubmission)
             }
             x => unimplemented!("unsupported channel: {}", x),
@@ -212,10 +214,12 @@ pub enum Promotion {
 pub struct InitiatorState {
     connection: ConnectionState,
     promotion: Promotion,
-    handshake: handshake_proto::Client<handshake_proto::n2n::VersionData>,
-    keepalive: keepalive_proto::Client,
-    peersharing: peersharing_proto::Client,
-    blockfetch: blockfetch_proto::Client,
+    handshake: crate::protocol::handshake::State<crate::protocol::handshake::n2n::VersionData>,
+    keepalive: crate::protocol::keepalive::State,
+    peersharing: crate::protocol::peersharing::State,
+    blockfetch: crate::protocol::blockfetch::State,
+    chain_sync: crate::protocol::chainsync::State<crate::protocol::chainsync::HeaderContent>,
+    tx_submission: crate::protocol::txsubmission::State,
     violation: bool,
     error_count: u32,
 }
@@ -225,10 +229,12 @@ impl InitiatorState {
         InitiatorState {
             connection: ConnectionState::default(),
             promotion: Promotion::default(),
-            handshake: handshake_proto::Client::default(),
-            keepalive: keepalive_proto::Client::default(),
-            peersharing: peersharing_proto::Client::default(),
-            blockfetch: blockfetch_proto::Client::default(),
+            handshake: crate::protocol::handshake::State::default(),
+            keepalive: crate::protocol::keepalive::State::default(),
+            peersharing: crate::protocol::peersharing::State::default(),
+            blockfetch: crate::protocol::blockfetch::State::default(),
+            chain_sync: crate::protocol::chainsync::State::default(),
+            tx_submission: crate::protocol::txsubmission::State::default(),
             violation: false,
             error_count: 0,
         }
@@ -238,11 +244,11 @@ impl InitiatorState {
         matches!(self.connection, ConnectionState::Initialized)
     }
 
-    pub fn version(&self) -> Option<handshake_proto::n2n::VersionData> {
-        match self.handshake.state() {
-            handshake_proto::State::Done(handshake_proto::DoneState::Accepted(_, data)) => {
-                Some(data.clone())
-            }
+    pub fn version(&self) -> Option<crate::protocol::handshake::n2n::VersionData> {
+        match &self.handshake {
+            crate::protocol::handshake::State::Done(
+                crate::protocol::handshake::DoneState::Accepted(_, data),
+            ) => Some(data.clone()),
             _ => None,
         }
     }
@@ -263,44 +269,72 @@ impl InitiatorState {
 
     pub fn apply_msg(&mut self, msg: &AnyMessage) {
         match msg {
-            AnyMessage::Handshake(msg) => match self.handshake.apply(msg) {
-                Ok(sm) => {
-                    self.handshake = handshake_proto::Client::new(sm);
-                }
-                Err(_) => {
+            AnyMessage::Handshake(msg) => {
+                let result = self.handshake.apply(msg);
+
+                let Ok(new) = result else {
                     tracing::warn!("handshake violation");
                     self.violation = true;
-                }
-            },
-            AnyMessage::KeepAlive(msg) => match self.keepalive.apply(msg) {
-                Ok(sm) => {
-                    self.keepalive = keepalive_proto::Client::new(sm);
-                }
-                Err(_) => {
+                    return;
+                };
+
+                self.handshake = new;
+            }
+            AnyMessage::KeepAlive(msg) => {
+                let result = self.keepalive.apply(msg);
+
+                let Ok(new) = result else {
                     tracing::warn!("keepalive violation");
                     self.violation = true;
-                }
-            },
-            AnyMessage::PeerSharing(msg) => match self.peersharing.apply(msg) {
-                Ok(sm) => {
-                    self.peersharing = peersharing_proto::Client::new(sm);
-                }
-                Err(_) => {
+                    return;
+                };
+
+                self.keepalive = new;
+            }
+            AnyMessage::PeerSharing(msg) => {
+                let result = self.peersharing.apply(msg);
+
+                let Ok(new) = result else {
                     tracing::warn!("peer sharing violation");
                     self.violation = true;
-                }
-            },
-            AnyMessage::BlockFetch(msg) => match self.blockfetch.apply(msg) {
-                Ok(sm) => {
-                    self.blockfetch = blockfetch_proto::Client::new(sm);
-                }
-                Err(_) => {
+                    return;
+                };
+
+                self.peersharing = new;
+            }
+            AnyMessage::BlockFetch(msg) => {
+                let result = self.blockfetch.apply(msg);
+
+                let Ok(new) = result else {
                     tracing::warn!("block fetch violation");
                     self.violation = true;
-                }
-            },
-            AnyMessage::ChainSync(_) => todo!(),
-            AnyMessage::TxSubmission(_) => todo!(),
+                    return;
+                };
+
+                self.blockfetch = new;
+            }
+            AnyMessage::ChainSync(msg) => {
+                let result = self.chain_sync.apply(msg);
+
+                let Ok(new) = result else {
+                    tracing::warn!("chain sync violation");
+                    self.violation = true;
+                    return;
+                };
+
+                self.chain_sync = new;
+            }
+            AnyMessage::TxSubmission(msg) => {
+                let result = self.tx_submission.apply(msg);
+
+                let Ok(new) = result else {
+                    tracing::warn!("tx submission violation");
+                    self.violation = true;
+                    return;
+                };
+
+                self.tx_submission = new;
+            }
         }
     }
 
@@ -308,10 +342,10 @@ impl InitiatorState {
     pub fn reset(&mut self) {
         self.connection = ConnectionState::default();
         self.promotion = Promotion::default();
-        self.handshake = handshake_proto::Client::default();
-        self.keepalive = keepalive_proto::Client::default();
-        self.peersharing = peersharing_proto::Client::default();
-        self.blockfetch = blockfetch_proto::Client::default();
+        self.handshake = crate::protocol::handshake::State::default();
+        self.keepalive = crate::protocol::keepalive::State::default();
+        self.peersharing = crate::protocol::peersharing::State::default();
+        self.blockfetch = crate::protocol::blockfetch::State::default();
         self.violation = false;
     }
 }
@@ -323,17 +357,17 @@ pub enum InitiatorCommand {
     IntersectChain(PeerId, Point),
     RequestNextHeader(PeerId, Point),
     RequestBlockBatch(BlockRange),
-    SendTx(PeerId, txsubmission::EraTxId, txsubmission::EraTxBody),
+    SendTx(PeerId, EraTxId, EraTxBody),
 }
 
-pub type AcceptedVersion = (u64, handshake_proto::n2n::VersionData);
+pub type AcceptedVersion = (u64, VersionData);
 
 #[derive(Debug)]
 pub enum InitiatorEvent {
     PeerInitialized(PeerId, AcceptedVersion),
-    BlockHeaderReceived(PeerId, chainsync::HeaderContent),
-    BlockBodyReceived(PeerId, blockfetch_proto::Body),
-    TxRequested(PeerId, txsubmission::EraTxId),
+    BlockHeaderReceived(PeerId, HeaderContent),
+    BlockBodyReceived(PeerId, crate::protocol::blockfetch::Body),
+    TxRequested(PeerId, EraTxId),
 }
 
 pub struct InitiatorBehavior {

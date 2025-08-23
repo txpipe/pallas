@@ -1,5 +1,5 @@
-use pallas_network::miniprotocols::Point;
 use pallas_network2::behavior::InitiatorCommand;
+use pallas_network2::protocol::Point;
 use pallas_network2::PeerId;
 use std::time::Duration;
 use tokio::select;

@@ -1,18 +1,17 @@
 use std::{net::Ipv4Addr, time::Duration};
 
-use pallas_network::miniprotocols::{
-    blockfetch, handshake as handshake_proto, keepalive, peersharing,
-};
 use pallas_network2::{behavior::AnyMessage, emulation, PeerId};
 use rand::Rng;
 
 fn reply_handshake_ok(
     pid: PeerId,
-    msg: pallas_network::miniprotocols::handshake::Message<handshake_proto::n2n::VersionData>,
+    msg: pallas_network2::protocol::handshake::Message<
+        pallas_network2::protocol::handshake::n2n::VersionData,
+    >,
     jitter: Duration,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
-    let handshake_proto::Message::Propose(version_table) = msg else {
+    let pallas_network2::protocol::handshake::Message::Propose(version_table) = msg else {
         queue.push_jittered_disconnect(pid, jitter);
         return;
     };
@@ -23,7 +22,7 @@ fn reply_handshake_ok(
 
     data.peer_sharing = Some(1);
 
-    let msg = pallas_network::miniprotocols::handshake::Message::Accept(version, data);
+    let msg = pallas_network2::protocol::handshake::Message::Accept(version, data);
 
     tracing::debug!(version, "replying handshake propose ok");
     queue.push_jittered_msg(pid, AnyMessage::Handshake(msg), jitter);
@@ -31,11 +30,11 @@ fn reply_handshake_ok(
 
 fn reply_keepalive_ok(
     pid: PeerId,
-    msg: pallas_network::miniprotocols::keepalive::Message,
+    msg: pallas_network2::protocol::keepalive::Message,
     jitter: Duration,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
-    let keepalive::Message::KeepAlive(token) = msg else {
+    let pallas_network2::protocol::keepalive::Message::KeepAlive(token) = msg else {
         queue.push_jittered_disconnect(pid, jitter);
         return;
     };
@@ -48,7 +47,7 @@ fn reply_keepalive_ok(
         return;
     }
 
-    let msg = keepalive::Message::ResponseKeepAlive(token);
+    let msg = pallas_network2::protocol::keepalive::Message::ResponseKeepAlive(token);
 
     tracing::debug!(token, "replying keepalive ok");
     queue.push_jittered_msg(pid, AnyMessage::KeepAlive(msg), jitter);
@@ -56,21 +55,23 @@ fn reply_keepalive_ok(
 
 fn reply_peer_sharing_ok(
     pid: PeerId,
-    msg: pallas_network::miniprotocols::peersharing::Message,
+    msg: pallas_network2::protocol::peersharing::Message,
     jitter: Duration,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
-    let peersharing::Message::ShareRequest(amount) = msg else {
+    let pallas_network2::protocol::peersharing::Message::ShareRequest(amount) = msg else {
         queue.push_jittered_disconnect(pid, jitter);
         return;
     };
 
     tracing::debug!(amount, "received peer sharing request");
 
-    let msg = peersharing::Message::SharePeers(vec![peersharing::PeerAddress::V4(
-        Ipv4Addr::new(123, 123, 123, 123),
-        9999,
-    )]);
+    let msg = pallas_network2::protocol::peersharing::Message::SharePeers(vec![
+        pallas_network2::protocol::peersharing::PeerAddress::V4(
+            Ipv4Addr::new(123, 123, 123, 123),
+            9999,
+        ),
+    ]);
 
     tracing::debug!(amount, "replying peer sharing ok");
     queue.push_jittered_msg(pid, AnyMessage::PeerSharing(msg), jitter);
@@ -78,28 +79,28 @@ fn reply_peer_sharing_ok(
 
 fn reply_block_fetch_ok(
     pid: PeerId,
-    msg: pallas_network::miniprotocols::blockfetch::Message,
+    msg: pallas_network2::protocol::blockfetch::Message,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
     match msg {
-        blockfetch::Message::RequestRange(_range) => {
+        pallas_network2::protocol::blockfetch::Message::RequestRange(_range) => {
             tracing::debug!("received block fetch request");
 
-            let msg = blockfetch::Message::StartBatch;
+            let msg = pallas_network2::protocol::blockfetch::Message::StartBatch;
             queue.push_jittered_msg(
                 pid.clone(),
                 AnyMessage::BlockFetch(msg),
                 Duration::from_secs(0),
             );
 
-            let msg2 = blockfetch::Message::Block(b"abc".to_vec());
+            let msg2 = pallas_network2::protocol::blockfetch::Message::Block(b"abc".to_vec());
             queue.push_jittered_msg(
                 pid.clone(),
                 AnyMessage::BlockFetch(msg2),
                 Duration::from_secs(1),
             );
 
-            let msg3 = blockfetch::Message::BatchDone;
+            let msg3 = pallas_network2::protocol::blockfetch::Message::BatchDone;
             queue.push_jittered_msg(
                 pid.clone(),
                 AnyMessage::BlockFetch(msg3),

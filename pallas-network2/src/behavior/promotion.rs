@@ -1,20 +1,18 @@
 use std::collections::HashSet;
 
-use pallas_network::miniprotocols::peersharing;
-
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, Promotion},
+    OutboundQueue, PeerId,
+    behavior::{InitiatorBehavior, InitiatorState, PeerVisitor, Promotion},
 };
 
-impl From<peersharing::PeerAddress> for PeerId {
-    fn from(addr: peersharing::PeerAddress) -> Self {
+impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
+    fn from(addr: crate::protocol::peersharing::PeerAddress) -> Self {
         match addr {
-            peersharing::PeerAddress::V4(addr, port) => PeerId {
+            crate::protocol::peersharing::PeerAddress::V4(addr, port) => PeerId {
                 host: addr.to_string(),
                 port: port as u16,
             },
-            peersharing::PeerAddress::V6(addr, port) => PeerId {
+            crate::protocol::peersharing::PeerAddress::V6(addr, port) => PeerId {
                 host: addr.to_string(),
                 port: port as u16,
             },

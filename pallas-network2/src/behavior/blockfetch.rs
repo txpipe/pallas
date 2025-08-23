@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use pallas_network::miniprotocols::{Agent as _, blockfetch as blockfetch_proto};
+use crate::protocol::blockfetch as blockfetch_proto;
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
@@ -57,7 +57,7 @@ impl BlockFetchBehavior {
         state: &InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        if let blockfetch_proto::ClientState::Streaming(Some(block)) = state.blockfetch.state() {
+        if let blockfetch_proto::State::Streaming(Some(block)) = &state.blockfetch {
             let out = InitiatorEvent::BlockBodyReceived(pid.clone(), block.clone());
 
             outbound.push_ready(BehaviorOutput::ExternalEvent(out));
@@ -67,10 +67,7 @@ impl BlockFetchBehavior {
 
 fn peer_is_available(state: &InitiatorState) -> bool {
     matches!(state.connection, ConnectionState::Initialized)
-        && matches!(
-            state.blockfetch.state(),
-            blockfetch_proto::ClientState::Idle
-        )
+        && matches!(state.blockfetch, blockfetch_proto::State::Idle)
 }
 
 impl PeerVisitor for BlockFetchBehavior {

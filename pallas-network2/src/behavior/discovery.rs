@@ -1,7 +1,5 @@
 use std::collections::HashSet;
 
-use pallas_network::miniprotocols::{Agent as _, peersharing as peersharing_proto};
-
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
@@ -26,8 +24,10 @@ fn peer_supports_peer_sharing(peer: &InitiatorState) -> bool {
 fn peer_is_available(peer: &InitiatorState) -> bool {
     peer_supports_peer_sharing(peer)
         && matches!(
-            peer.peersharing.state(),
-            peersharing_proto::State::Idle(peersharing_proto::IdleState::Empty)
+            &peer.peersharing,
+            crate::protocol::peersharing::State::Idle(
+                crate::protocol::peersharing::IdleState::Empty
+            )
         )
 }
 
@@ -43,7 +43,7 @@ impl DiscoveryBehavior {
 
         tracing::debug!(amount, "requesting peers");
 
-        let msg = peersharing_proto::Message::ShareRequest(amount as u8);
+        let msg = crate::protocol::peersharing::Message::ShareRequest(amount as u8);
 
         let out = BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
             pid.clone(),
@@ -54,8 +54,10 @@ impl DiscoveryBehavior {
     }
 
     pub fn try_take_peers(&mut self, peer: &mut InitiatorState) {
-        match peer.peersharing.state() {
-            peersharing_proto::State::Idle(peersharing_proto::IdleState::Response(peers)) => {
+        match &peer.peersharing {
+            crate::protocol::peersharing::State::Idle(
+                crate::protocol::peersharing::IdleState::Response(peers),
+            ) => {
                 tracing::info!(peers = peers.len(), "got peer discovery response");
 
                 for peer in peers {
@@ -64,7 +66,7 @@ impl DiscoveryBehavior {
 
                 // TODO: think of how we reset this after a while to ask again
                 // for peers to the same responder.
-                peer.peersharing = peersharing_proto::Client::new(peersharing_proto::State::Done);
+                peer.peersharing = crate::protocol::peersharing::State::Done;
             }
             _ => (),
         }

@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use pallas_network::miniprotocols::{Point, keepalive, txsubmission};
 use pallas_network2::behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
 use pallas_network2::{Manager, PeerId, emulation};
 
@@ -19,23 +18,22 @@ impl emulation::Rules for MyEmulatorRules {
     ) {
         match msg {
             AnyMessage::Handshake(msg) => match msg {
-                pallas_network::miniprotocols::handshake::Message::Propose(version_table) => {
+                pallas_network2::protocol::handshake::Message::Propose(version_table) => {
                     let (version, data) = version_table.values.into_iter().next().unwrap();
 
-                    let msg =
-                        pallas_network::miniprotocols::handshake::Message::Accept(version, data);
+                    let msg = pallas_network2::protocol::handshake::Message::Accept(version, data);
 
                     queue.push_jittered_msg(pid, AnyMessage::Handshake(msg), jitter);
                 }
                 _ => queue.push_jittered_disconnect(pid, jitter),
             },
             AnyMessage::KeepAlive(msg) => {
-                let keepalive::Message::KeepAlive(token) = msg else {
+                let pallas_network2::protocol::keepalive::Message::KeepAlive(token) = msg else {
                     queue.push_jittered_disconnect(pid, jitter);
                     return;
                 };
 
-                let msg = keepalive::Message::ResponseKeepAlive(token);
+                let msg = pallas_network2::protocol::keepalive::Message::ResponseKeepAlive(token);
 
                 queue.push_jittered_msg(pid, AnyMessage::KeepAlive(msg), jitter);
             }
@@ -61,7 +59,10 @@ impl MyNode {
         let next_cmd = match event {
             InitiatorEvent::PeerInitialized(peer_id, version) => {
                 tracing::info!(%peer_id, ?version, "peer initialized");
-                Some(InitiatorCommand::IntersectChain(peer_id, Point::Origin))
+                Some(InitiatorCommand::IntersectChain(
+                    peer_id,
+                    pallas_network2::protocol::Point::Origin,
+                ))
             }
 
             InitiatorEvent::BlockHeaderReceived(peer_id, _) => {
@@ -76,8 +77,8 @@ impl MyNode {
                 tracing::info!(%peer_id, "tx requested");
                 Some(InitiatorCommand::SendTx(
                     peer_id,
-                    txsubmission::EraTxId(0, vec![]),
-                    txsubmission::EraTxBody(0, vec![]),
+                    pallas_network2::protocol::txsubmission::EraTxId(0, vec![]),
+                    pallas_network2::protocol::txsubmission::EraTxBody(0, vec![]),
                 ))
             }
         };

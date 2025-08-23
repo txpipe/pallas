@@ -1,12 +1,10 @@
 use std::any::Any;
 
-use pallas_network::miniprotocols::{txsubmission, Point};
 use pallas_network2::{
     behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent},
+    protocol::{txsubmission, Point},
     Interface, Manager,
 };
-
-use crate::emulator::MyEmulator;
 
 pub struct MyNode<I: Interface<AnyMessage>> {
     network: Manager<I, InitiatorBehavior, AnyMessage>,

@@ -1,14 +1,13 @@
-use pallas_network::miniprotocols::{Agent as _, MAINNET_MAGIC, handshake as handshake_proto};
-
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{
         AcceptedVersion, AnyMessage, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor,
     },
+    protocol::MAINNET_MAGIC,
 };
 
 pub struct Config {
-    supported_version: handshake_proto::n2n::VersionTable,
+    supported_version: crate::protocol::handshake::n2n::VersionTable,
 }
 
 pub struct HandshakeBehavior {
@@ -18,10 +17,10 @@ pub struct HandshakeBehavior {
 impl Default for HandshakeBehavior {
     fn default() -> Self {
         Self::new(Config {
-            supported_version: pallas_network::miniprotocols::handshake::n2n::VersionTable {
+            supported_version: crate::protocol::handshake::n2n::VersionTable {
                 values: vec![(
                     13,
-                    pallas_network::miniprotocols::handshake::n2n::VersionData {
+                    crate::protocol::handshake::n2n::VersionData {
                         network_magic: MAINNET_MAGIC,
                         initiator_only_diffusion_mode: false,
                         peer_sharing: Some(1),
@@ -48,11 +47,12 @@ impl HandshakeBehavior {
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
         assert!(matches!(
-            state.handshake.state(),
-            handshake_proto::State::Propose
+            state.handshake,
+            crate::protocol::handshake::State::Propose
         ));
 
-        let msg = handshake_proto::Message::Propose(self.config.supported_version.clone());
+        let msg =
+            crate::protocol::handshake::Message::Propose(self.config.supported_version.clone());
 
         let out = BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
             pid.clone(),
@@ -68,8 +68,9 @@ impl HandshakeBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        let handshake_proto::State::Done(handshake_proto::DoneState::Accepted(num, data)) =
-            state.handshake.state()
+        let crate::protocol::handshake::State::Done(
+            crate::protocol::handshake::DoneState::Accepted(num, data),
+        ) = &state.handshake
         else {
             return;
         };
@@ -106,7 +107,7 @@ impl PeerVisitor for HandshakeBehavior {
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         // TODO: more efficient if we could subscribe just for messages of the
-        // appropriate protocol
+        // appropriate channel
         if needs_handshake(state) {
             self.check_confirmation(pid, state, outbound);
         }

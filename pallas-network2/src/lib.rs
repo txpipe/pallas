@@ -11,6 +11,7 @@ pub mod emulation;
 pub mod bearer;
 pub mod behavior;
 pub mod interface;
+pub mod protocol;
 
 /// A unique identifier for a peer in the network
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
