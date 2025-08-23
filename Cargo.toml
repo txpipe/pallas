@@ -4,6 +4,7 @@ members = [
   "pallas-codec",
   "pallas-addresses",
   "pallas-network",
+  "pallas-network2",
   "pallas-crypto",
   "pallas-configs",
   "pallas-primitives",
@@ -20,6 +21,4 @@ members = [
   "examples/n2n-miniprotocols",
   "examples/n2c-miniprotocols",
   "examples/p2p",
-  "examples/p2p2",
-  "pallas-network2",
 ]

@@ -1,70 +1,144 @@
-use std::{str::FromStr, time::Duration};
+use pallas_network2::behavior::InitiatorCommand;
+use pallas_network2::protocol::Point;
+use pallas_network2::PeerId;
+use std::time::Duration;
+use tokio::select;
 
-use pallas::network::{
-    manager::{
-        behaviors::{
-            ConnectPeersBehavior, ConnectPeersConfig, HandshakeBehavior, HandshakeConfig,
-            InterleaveBehavior, KeepAliveBehavior, KeepAliveConfig, PeerDiscoveryBehavior,
-            PeerDiscoveryConfig, PeerPromotionBehavior, PeerPromotionConfig,
-        },
-        Manager, PeerId,
-    },
-    miniprotocols::MAINNET_MAGIC,
-};
+use crate::emulator::MyEmulator;
+use crate::node::MyNode;
+
+mod emulator;
+mod node;
+mod otel;
+
+#[tokio::main]
+async fn main_emulator() {
+    otel::setup_otel();
+
+    let mut node = MyNode::new(MyEmulator::default());
+    let (cmd_send, mut cmd_recv) = tokio::sync::mpsc::channel::<InitiatorCommand>(5);
+
+    // constant injection of new peers
+    let cmd_send_1 = cmd_send.clone();
+    tokio::spawn(async move {
+        for i in 0..50 {
+            tracing::info!("including peer {}", 1234 + i);
+
+            cmd_send_1
+                .send(InitiatorCommand::IncludePeer(PeerId {
+                    host: "127.0.0.1".to_string(),
+                    port: 1234 + i,
+                }))
+                .await
+                .unwrap();
+
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+    });
+
+    // constant requests of block ranges
+    let cmd_send_2 = cmd_send.clone();
+    tokio::spawn(async move {
+        for i in 0..50 {
+            tracing::info!("requesting block range {}", i);
+
+            cmd_send_2
+                .send(InitiatorCommand::RequestBlockBatch((
+                    Point::Specific(i * 10, vec![0; 32]),
+                    Point::Specific((i + 1) * 10, vec![0; 32]),
+                )))
+                .await
+                .unwrap();
+
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        }
+    });
+
+    loop {
+        select! {
+            cmd = cmd_recv.recv() => {
+                if let Some(cmd) = cmd {
+                    node.enqueue(cmd);
+                }
+            }
+            _ = node.tick() => {
+                tokio::task::yield_now().await;
+            }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level(tracing::Level::INFO)
-            .finish(),
-    )
-    .unwrap();
+    otel::setup_otel();
 
-    let behavior = PeerPromotionBehavior::new(PeerPromotionConfig {
-        desired_hot_peers: (10, 10),
-        desired_warm_peers: (10, 10),
-        desired_cold_peers: (10, 10),
-        trusted_peers: vec![
-            PeerId::from_str("backbone.mainnet.cardanofoundation.org:3001").unwrap(),
-            PeerId::from_str("relay.cnode-m1.demeter.run:3000").unwrap(),
-            PeerId::from_str("r1.1percentpool.eu:19001").unwrap(),
-        ],
+    let interface = pallas_network2::interface::TokioInterface::new();
+
+    let (cmd_send, mut cmd_recv) = tokio::sync::mpsc::channel::<InitiatorCommand>(5);
+
+    let mut node = MyNode::new(interface);
+
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "backbone.mainnet.cardanofoundation.org".to_string(),
+        port: 3001,
+    }));
+
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "relay.cnode-m1.demeter.run".to_string(),
+        port: 3000,
+    }));
+
+    // node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+    //     host: "251.70.119.168".to_string(),
+    //     port: 3001,
+    // }));
+
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "r1.1percentpool.eu".to_string(),
+        port: 19001,
+    }));
+
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "backbone.cardano.iog.io".to_string(),
+        port: 3001,
+    }));
+
+    node.enqueue(InitiatorCommand::IncludePeer(PeerId {
+        host: "backbone.mainnet.emurgornd.com".to_string(),
+        port: 3001,
+    }));
+
+    // constant requests of block ranges
+    let cmd_send_2 = cmd_send.clone();
+    tokio::spawn(async move {
+        for i in 0..30 {
+            tracing::info!("requesting block range {}", i);
+
+            let point = Point::Specific(
+                164256430,
+                hex::decode("78709859196d89627faff31cf041449277258a6f78b1fe64cbf42e8448a1f219")
+                    .unwrap(),
+            );
+
+            cmd_send_2
+                .send(InitiatorCommand::RequestBlockBatch((point.clone(), point)))
+                .await
+                .unwrap();
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
     });
 
-    let next = ConnectPeersBehavior::new(ConnectPeersConfig {});
-
-    let behavior = InterleaveBehavior::new(behavior, next);
-
-    let version_data = pallas::network::miniprotocols::handshake::n2n::VersionData {
-        network_magic: MAINNET_MAGIC,
-        initiator_only_diffusion_mode: false,
-        peer_sharing: Some(1),
-        query: Some(false),
-    };
-
-    let next = HandshakeBehavior::new(HandshakeConfig {
-        handshake: pallas::network::miniprotocols::handshake::n2n::VersionTable {
-            values: vec![(13, version_data)].into_iter().collect(),
-        },
-    });
-
-    let behavior = InterleaveBehavior::new(behavior, next);
-
-    let next = KeepAliveBehavior::new(KeepAliveConfig {
-        interval: Duration::from_secs(5),
-    });
-
-    let behavior = InterleaveBehavior::new(behavior, next);
-
-    let next = PeerDiscoveryBehavior::new(PeerDiscoveryConfig { desired_peers: 10 });
-
-    let behavior = InterleaveBehavior::new(behavior, next);
-
-    Manager::new(behavior).run().await;
-
-    // let infinite_sprints = futures::stream::repeat_with(|| manager.sprint())
-    //     .throttle(std::time::Duration::from_millis(5000));
-
-    // infinite_sprints.for_each(|f| f).await;
+    loop {
+        select! {
+            cmd = cmd_recv.recv() => {
+                if let Some(cmd) = cmd {
+                    node.enqueue(cmd);
+                }
+            }
+            _ = node.tick() => {
+                tokio::task::yield_now().await;
+            }
+        }
+    }
 }
