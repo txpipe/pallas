@@ -80,6 +80,7 @@ pub type BootStakeWeight = u16;
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct HeavyDelegation {
+    pub omega: u32,
     pub issuer_pk: String,
     pub delegate_pk: String,
     pub cert: String,
