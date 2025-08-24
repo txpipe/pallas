@@ -333,7 +333,7 @@ pub struct TransactionBody<'a> {
     pub withdrawals: Option<BTreeMap<RewardAccount, Coin>>,
 
     #[n(7)]
-    pub auxiliary_data_hash: Option<Bytes>,
+    pub auxiliary_data_hash: Option<Hash<32>>,
 
     #[n(8)]
     pub validity_interval_start: Option<u64>,
