@@ -2,6 +2,7 @@
 name = "pallas-network2"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 [dependencies]
 futures = "0.3.31"

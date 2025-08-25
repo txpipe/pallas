@@ -5,7 +5,7 @@ use futures::{
     stream::{FusedStream, FuturesUnordered},
 };
 use rand::Rng as _;
-use std::{pin::Pin, time::Duration};
+use std::{pin::Pin, task::Poll, time::Duration};
 
 use crate::{Interface, InterfaceCommand, InterfaceEvent, Message, PeerId};
 
@@ -177,6 +177,12 @@ where
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        self.get_mut().pending.poll_next_unpin(cx)
+        let event = self.get_mut().pending.poll_next_unpin(cx);
+
+        match event {
+            Poll::Ready(Some(event)) => Poll::Ready(Some(event)),
+            Poll::Ready(None) => Poll::Pending,
+            Poll::Pending => Poll::Pending,
+        }
     }
 }

@@ -10,11 +10,11 @@ impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
         match addr {
             crate::protocol::peersharing::PeerAddress::V4(addr, port) => PeerId {
                 host: addr.to_string(),
-                port: port as u16,
+                port,
             },
             crate::protocol::peersharing::PeerAddress::V6(addr, port) => PeerId {
                 host: addr.to_string(),
-                port: port as u16,
+                port,
             },
         }
     }
@@ -182,7 +182,6 @@ impl PromotionBehavior {
 
         if self.required_hot_peers() > 0 && self.warm_peers.contains(pid) && peer.is_initialized() {
             self.promote_warm_peer(pid, peer);
-            return;
         }
     }
 

@@ -10,6 +10,7 @@ use futures::{
     Stream, StreamExt,
     stream::{FusedStream, FuturesUnordered},
 };
+
 use tokio::{sync::Mutex, time::Instant};
 
 use crate::{
@@ -25,7 +26,7 @@ enum InternalEvent<M: Message> {
     Error(PeerId, tokio::io::Error),
 }
 
-pub type InterfaceFuture<M: Message> = Pin<Box<dyn Future<Output = InternalEvent<M>> + Send>>;
+type InterfaceFuture<M> = Pin<Box<dyn Future<Output = InternalEvent<M>> + Send>>;
 
 async fn connect<M: Message>(pid: PeerId) -> InternalEvent<M> {
     let pid = pid.clone();
@@ -87,13 +88,19 @@ async fn disconnect<M: Message>(pid: PeerId, writer: SharedWriter) -> InternalEv
 
 pub type SharedWriter = Arc<Mutex<BearerWriteHalf>>;
 
-pub struct TokioInterface<M: Message> {
+pub struct TcpInterface<M: Message> {
     futures: FuturesUnordered<InterfaceFuture<M>>,
     writers: HashMap<PeerId, SharedWriter>,
     clock: Instant,
 }
 
-impl<M: Message> TokioInterface<M> {
+impl<M: Message> Default for TcpInterface<M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<M: Message> TcpInterface<M> {
     pub fn new() -> Self {
         Self {
             futures: FuturesUnordered::new(),
@@ -164,7 +171,7 @@ impl<M: Message> TokioInterface<M> {
     }
 }
 
-impl<M: Message> Interface<M> for TokioInterface<M> {
+impl<M: Message> Interface<M> for TcpInterface<M> {
     fn dispatch(&mut self, cmd: InterfaceCommand<M>) {
         match cmd {
             InterfaceCommand::Connect(pid) => {
@@ -203,13 +210,13 @@ impl<M: Message> Interface<M> for TokioInterface<M> {
     }
 }
 
-impl<M: Message> FusedStream for TokioInterface<M> {
+impl<M: Message> FusedStream for TcpInterface<M> {
     fn is_terminated(&self) -> bool {
         false
     }
 }
 
-impl<M: Message> Stream for TokioInterface<M> {
+impl<M: Message> Stream for TcpInterface<M> {
     type Item = InterfaceEvent<M>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

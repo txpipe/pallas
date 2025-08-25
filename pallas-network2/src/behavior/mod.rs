@@ -563,7 +563,7 @@ impl Behavior for InitiatorBehavior {
             }
             crate::InterfaceEvent::Recv(pid, msgs) => {
                 for msg in msgs {
-                    self.on_inbound_msg(pid, &msg);
+                    self.on_inbound_msg(pid, msg);
                 }
             }
             crate::InterfaceEvent::Sent(pid, msg) => {

@@ -52,7 +52,7 @@ pub trait Message: Send + 'static + std::fmt::Debug + Sized + Clone + Debug {
     ///
     /// Whatever payload is successfully consumed during the parsing, should be
     /// drained from the variable, leaving the remaining data available for a
-    /// next call which will execute a new attempt.
+    /// next call which will be used in the next attempt.
     fn from_payload(channel: Channel, payload: &mut Payload) -> Option<Self>;
 
     fn into_payload(self) -> (Channel, Payload);

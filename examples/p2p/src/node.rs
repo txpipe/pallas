@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use pallas_network2::{
     behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent},
     protocol::{txsubmission, Point},

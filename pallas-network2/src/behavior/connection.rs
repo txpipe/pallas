@@ -33,18 +33,16 @@ fn needs_disconnect(peer: &InitiatorState) -> bool {
 }
 
 #[derive(Debug)]
-pub struct ConnectionConfig {
-    max_error_count: u32,
-}
+pub struct ConnectionConfig {}
 
 impl Default for ConnectionConfig {
     fn default() -> Self {
-        Self { max_error_count: 3 }
+        Self {}
     }
 }
 
 pub struct ConnectionBehavior {
-    config: ConnectionConfig,
+    _config: ConnectionConfig,
 
     // metrics
     connection_counter: opentelemetry::metrics::Counter<u64>,
@@ -66,7 +64,7 @@ impl ConnectionBehavior {
             .build();
 
         Self {
-            config,
+            _config: config,
             connection_counter,
         }
     }

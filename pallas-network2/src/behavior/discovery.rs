@@ -54,21 +54,19 @@ impl DiscoveryBehavior {
     }
 
     pub fn try_take_peers(&mut self, peer: &mut InitiatorState) {
-        match &peer.peersharing {
-            crate::protocol::peersharing::State::Idle(
-                crate::protocol::peersharing::IdleState::Response(peers),
-            ) => {
-                tracing::info!(peers = peers.len(), "got peer discovery response");
+        if let crate::protocol::peersharing::State::Idle(
+            crate::protocol::peersharing::IdleState::Response(peers),
+        ) = &peer.peersharing
+        {
+            tracing::info!(peers = peers.len(), "got peer discovery response");
 
-                for peer in peers {
-                    self.discovered.insert(peer.clone().into());
-                }
-
-                // TODO: think of how we reset this after a while to ask again
-                // for peers to the same responder.
-                peer.peersharing = crate::protocol::peersharing::State::Done;
+            for peer in peers {
+                self.discovered.insert(peer.clone().into());
             }
-            _ => (),
+
+            // TODO: think of how we reset this after a while to ask again
+            // for peers to the same responder.
+            peer.peersharing = crate::protocol::peersharing::State::Done;
         }
     }
 

@@ -197,33 +197,31 @@ impl BearerReadHalf {
     where
         M: Message,
     {
-        loop {
-            let (channel, chunk) = self.read_segment().await?;
+        let (channel, chunk) = self.read_segment().await?;
 
-            let previous = partial_chunks.remove(&channel);
+        let previous = partial_chunks.remove(&channel);
 
-            let mut payload = match previous {
-                Some(x) => {
-                    let mut payload = x;
-                    payload.extend(chunk);
-                    payload
-                }
-                None => chunk,
-            };
-
-            let mut msgs = Vec::new();
-
-            while let Some(msg) = M::from_payload(channel, &mut payload) {
-                msgs.push(msg);
+        let mut payload = match previous {
+            Some(x) => {
+                let mut payload = x;
+                payload.extend(chunk);
+                payload
             }
+            None => chunk,
+        };
 
-            if !payload.is_empty() {
-                tracing::debug!("payload is not empty after successful decode");
-                partial_chunks.insert(channel, payload);
-            }
+        let mut msgs = Vec::new();
 
-            return Ok(msgs);
+        while let Some(msg) = M::from_payload(channel, &mut payload) {
+            msgs.push(msg);
         }
+
+        if !payload.is_empty() {
+            tracing::debug!("payload is not empty after successful decode");
+            partial_chunks.insert(channel, payload);
+        }
+
+        Ok(msgs)
     }
 }
 
