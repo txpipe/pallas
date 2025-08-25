@@ -1,0 +1,46 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:    # :4317
+        endpoint: 0.0.0.0:4317
+      http:    # :4318
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  # Traces -> Desktop viewer UI
+  otlphttp/desktop:
+    endpoint: http://desktop-viewer:4318
+    tls:
+      insecure: true
+
+  # Metrics -> VictoriaMetrics (Prometheus Remote Write)
+  prometheusremotewrite/vm:
+    endpoint: http://victoria-metrics:8428/api/v1/write
+
+  # Local stdout for quick sanity checks
+  debug:
+    verbosity: basic  # or 'detailed'
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/desktop, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite/vm, debug]
+    logs:
+      receivers: [otlp]
+      exporters: [debug]

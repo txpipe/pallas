@@ -9,7 +9,7 @@ impl Encode<()> for Message {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
-            Message::RequestRange { range } => {
+            Message::RequestRange(range) => {
                 e.array(3)?.u16(0)?;
                 e.encode(&range.0)?;
                 e.encode(&range.1)?;
@@ -27,7 +27,7 @@ impl Encode<()> for Message {
                 e.array(1)?.u16(3)?;
                 Ok(())
             }
-            Message::Block { body } => {
+            Message::Block(body) => {
                 e.array(2)?.u16(4)?;
                 e.tag(IanaTag::Cbor)?;
                 e.bytes(body)?;
@@ -50,9 +50,7 @@ impl<'b> Decode<'b, ()> for Message {
             0 => {
                 let point1 = d.decode()?;
                 let point2 = d.decode()?;
-                Ok(Message::RequestRange {
-                    range: (point1, point2),
-                })
+                Ok(Message::RequestRange((point1, point2)))
             }
             1 => Ok(Message::ClientDone),
             2 => Ok(Message::StartBatch),
@@ -60,9 +58,7 @@ impl<'b> Decode<'b, ()> for Message {
             4 => {
                 d.tag()?;
                 let body = d.bytes()?;
-                Ok(Message::Block {
-                    body: Vec::from(body),
-                })
+                Ok(Message::Block(Vec::from(body)))
             }
             5 => Ok(Message::BatchDone),
             _ => Err(decode::Error::message(

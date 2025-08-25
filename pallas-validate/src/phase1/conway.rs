@@ -607,7 +607,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> Validati
                 .native_script
                 .iter()
                 .flatten()
-                .map(|x| compute_native_script_hash(&*x));
+                .map(|x| compute_native_script_hash(x));
 
             let v1_scripts_wits = mtx
                 .transaction_witness_set
