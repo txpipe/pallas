@@ -55,12 +55,13 @@ impl From<BlockContent> for Vec<u8> {
 pub struct SkippedContent;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum IdleState<C> {
-    Empty,
+pub enum Data<C> {
+    New,
     Intersection(Point, Tip),
     NoIntersection(Tip),
     Content(C, Tip),
     Rollback(Point, Tip),
+    Drained,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -68,11 +69,40 @@ pub enum State<C>
 where
     C: Debug + Clone,
 {
-    Idle(IdleState<C>),
+    Idle(Data<C>),
     CanAwait,
     MustReply,
     Intersect(Vec<Point>),
     Done,
+}
+
+impl<C> State<C>
+where
+    C: Debug + Clone,
+{
+    pub fn is_new(&self) -> bool {
+        matches!(self, Self::Idle(Data::New))
+    }
+
+    pub fn is_drained(&self) -> bool {
+        matches!(self, Self::Idle(Data::Drained))
+    }
+
+    pub fn is_idle(&self) -> bool {
+        matches!(self, Self::Idle(_))
+    }
+
+    pub fn drain(&mut self) -> Option<Data<C>> {
+        let Self::Idle(data) = self else {
+            return None;
+        };
+
+        let out = data.clone();
+
+        *self = Self::Idle(Data::Drained);
+
+        Some(out)
+    }
 }
 
 impl<C> Default for State<C>
@@ -80,15 +110,15 @@ where
     C: Debug + Clone,
 {
     fn default() -> Self {
-        Self::Idle(IdleState::Empty)
+        Self::Idle(Data::New)
     }
 }
 
-impl<C> From<IdleState<C>> for State<C>
+impl<C> From<Data<C>> for State<C>
 where
     C: Debug + Clone,
 {
-    fn from(state: IdleState<C>) -> Self {
+    fn from(state: Data<C>) -> Self {
         State::Idle(state)
     }
 }
@@ -107,22 +137,20 @@ where
             },
             State::Intersect(_) => match msg {
                 Message::IntersectFound(p, t) => {
-                    Ok(IdleState::Intersection(p.clone(), t.clone()).into())
+                    Ok(Data::Intersection(p.clone(), t.clone()).into())
                 }
-                Message::IntersectNotFound(tip) => {
-                    Ok(IdleState::NoIntersection(tip.clone()).into())
-                }
+                Message::IntersectNotFound(tip) => Ok(Data::NoIntersection(tip.clone()).into()),
                 _ => Err(Error::InvalidInbound),
             },
             State::CanAwait => match msg {
-                Message::RollForward(c, t) => Ok(IdleState::Content(c.clone(), t.clone()).into()),
-                Message::RollBackward(p, t) => Ok(IdleState::Rollback(p.clone(), t.clone()).into()),
+                Message::RollForward(c, t) => Ok(Data::Content(c.clone(), t.clone()).into()),
+                Message::RollBackward(p, t) => Ok(Data::Rollback(p.clone(), t.clone()).into()),
                 Message::AwaitReply => Ok(State::MustReply),
                 _ => Err(Error::InvalidInbound),
             },
             State::MustReply => match msg {
-                Message::RollForward(c, t) => Ok(IdleState::Content(c.clone(), t.clone()).into()),
-                Message::RollBackward(p, t) => Ok(IdleState::Rollback(p.clone(), t.clone()).into()),
+                Message::RollForward(c, t) => Ok(Data::Content(c.clone(), t.clone()).into()),
+                Message::RollBackward(p, t) => Ok(Data::Rollback(p.clone(), t.clone()).into()),
                 _ => Err(Error::InvalidInbound),
             },
 

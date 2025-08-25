@@ -92,7 +92,7 @@ pub fn setup_otel() {
     // Create a new tracing::Fmt layer to print the logs to stdout. It has a
     // default filter of `info` level and above, and `debug` and above for logs
     // from OpenTelemetry crates. The filter levels can be customized as needed.
-    let filter_fmt = EnvFilter::new("debug")
+    let filter_fmt = EnvFilter::new("info")
         .add_directive("hyper=off".parse().unwrap())
         .add_directive("tonic=off".parse().unwrap())
         .add_directive("h2=off".parse().unwrap())

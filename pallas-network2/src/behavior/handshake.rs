@@ -1,8 +1,6 @@
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{
-        AcceptedVersion, AnyMessage, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor,
-    },
+    behavior::{AnyMessage, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor},
     protocol::MAINNET_MAGIC,
 };
 

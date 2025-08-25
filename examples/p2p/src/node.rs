@@ -17,23 +17,32 @@ impl<I: Interface<AnyMessage>> MyNode<I> {
         };
 
         let next_cmd = match event {
-            InitiatorEvent::PeerInitialized(peer_id, _) => {
-                tracing::info!(%peer_id, "peer initialized");
-                Some(InitiatorCommand::IntersectChain(peer_id, Point::Origin))
+            InitiatorEvent::PeerInitialized(pid, _) => {
+                tracing::info!(%pid, "peer initialized");
+                None
             }
+            InitiatorEvent::BlockHeaderReceived(pid, x, _) => {
+                let tag = x.variant;
+                let subtag = x.byron_prefix.map(|(x, _)| x);
+                let cbor = &x.cbor;
 
-            InitiatorEvent::BlockHeaderReceived(peer_id, _) => {
-                tracing::debug!(%peer_id, "block header received");
+                let header = pallas_traverse::MultiEraHeader::decode(tag, subtag, cbor).unwrap();
+
+                tracing::info!(slot = header.slot(), %pid, "header received");
                 None
             }
-            InitiatorEvent::BlockBodyReceived(peer_id, _) => {
-                tracing::warn!(%peer_id, "block body received");
+            InitiatorEvent::RollbackReceived(pid, _, _) => {
+                tracing::info!(%pid, "rollback received");
                 None
             }
-            InitiatorEvent::TxRequested(peer_id, _) => {
-                tracing::info!(%peer_id, "tx requested");
+            InitiatorEvent::BlockBodyReceived(pid, _) => {
+                tracing::info!(%pid, "block body received");
+                None
+            }
+            InitiatorEvent::TxRequested(pid, _) => {
+                tracing::info!(%pid, "tx requested");
                 Some(InitiatorCommand::SendTx(
-                    peer_id,
+                    pid,
                     txsubmission::EraTxId(0, vec![]),
                     txsubmission::EraTxBody(0, vec![]),
                 ))

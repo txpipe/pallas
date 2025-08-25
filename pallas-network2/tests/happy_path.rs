@@ -59,24 +59,24 @@ impl MyNode {
         let next_cmd = match event {
             InitiatorEvent::PeerInitialized(peer_id, version) => {
                 tracing::info!(%peer_id, ?version, "peer initialized");
-                Some(InitiatorCommand::IntersectChain(
-                    peer_id,
-                    pallas_network2::protocol::Point::Origin,
-                ))
-            }
-
-            InitiatorEvent::BlockHeaderReceived(peer_id, _) => {
-                tracing::debug!(%peer_id, "block header received");
                 None
             }
-            InitiatorEvent::BlockBodyReceived(peer_id, _) => {
-                tracing::debug!(%peer_id, "block body received");
+            InitiatorEvent::BlockHeaderReceived(pid, _, _) => {
+                tracing::debug!(%pid, "block header received");
                 None
             }
-            InitiatorEvent::TxRequested(peer_id, _) => {
-                tracing::info!(%peer_id, "tx requested");
+            InitiatorEvent::RollbackReceived(pid, _, _) => {
+                tracing::debug!(%pid, "rollback received");
+                None
+            }
+            InitiatorEvent::BlockBodyReceived(pid, _) => {
+                tracing::debug!(%pid, "block body received");
+                None
+            }
+            InitiatorEvent::TxRequested(pid, _) => {
+                tracing::info!(%pid, "tx requested");
                 Some(InitiatorCommand::SendTx(
-                    peer_id,
+                    pid,
                     pallas_network2::protocol::txsubmission::EraTxId(0, vec![]),
                     pallas_network2::protocol::txsubmission::EraTxBody(0, vec![]),
                 ))
@@ -102,6 +102,10 @@ async fn test_network() {
             port,
         })
         .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
+
+    node.network.enqueue(InitiatorCommand::IntersectChain(vec![
+        pallas_network2::protocol::Point::Origin,
+    ]));
 
     for _ in 0..20 {
         node.tick().await;

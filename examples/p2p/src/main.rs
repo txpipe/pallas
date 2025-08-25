@@ -53,26 +53,30 @@ async fn main() {
         port: 3001,
     }));
 
+    node.enqueue(InitiatorCommand::IntersectChain(vec![Point::Origin]));
+
     // constant requests of block ranges
-    let cmd_send_2 = cmd_send.clone();
-    tokio::spawn(async move {
-        for i in 0..30 {
-            tracing::info!("requesting block range {}", i);
+    // let cmd_send_2 = cmd_send.clone();
+    // tokio::spawn(async move {
+    //     for i in 0..30 {
+    //         tracing::info!("requesting block range {}", i);
 
-            let point = Point::Specific(
-                164256430,
-                hex::decode("78709859196d89627faff31cf041449277258a6f78b1fe64cbf42e8448a1f219")
-                    .unwrap(),
-            );
+    //         let point = Point::Specific(
+    //             164256430,
+    //
+    // hex::decode("
+    // 78709859196d89627faff31cf041449277258a6f78b1fe64cbf42e8448a1f219")
+    //                 .unwrap(),
+    //         );
 
-            cmd_send_2
-                .send(InitiatorCommand::RequestBlockBatch((point.clone(), point)))
-                .await
-                .unwrap();
+    //         cmd_send_2
+    //             .send(InitiatorCommand::RequestBlockBatch((point.clone(),
+    // point)))             .await
+    //             .unwrap();
 
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-    });
+    //         tokio::time::sleep(Duration::from_secs(1)).await;
+    //     }
+    // });
 
     loop {
         select! {

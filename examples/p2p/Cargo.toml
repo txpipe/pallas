@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 pallas-network2 = { path = "../../pallas-network2" }
+pallas-traverse = { path = "../../pallas-traverse" }
 hex = "0.4.3"
 thiserror = "1.0.31"
 rand = "0.8"

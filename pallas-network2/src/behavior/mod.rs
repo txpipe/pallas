@@ -10,13 +10,14 @@ use crate::{
     Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId,
     protocol::{
         Point,
-        chainsync::HeaderContent,
+        chainsync::{HeaderContent, Tip},
         handshake::n2n::VersionData,
         txsubmission::{EraTxBody, EraTxId},
     },
 };
 
 mod blockfetch;
+mod chainsync;
 mod connection;
 mod discovery;
 mod handshake;
@@ -218,7 +219,7 @@ pub struct InitiatorState {
     keepalive: crate::protocol::keepalive::State,
     peersharing: crate::protocol::peersharing::State,
     blockfetch: crate::protocol::blockfetch::State,
-    chain_sync: crate::protocol::chainsync::State<crate::protocol::chainsync::HeaderContent>,
+    chainsync: crate::protocol::chainsync::State<crate::protocol::chainsync::HeaderContent>,
     tx_submission: crate::protocol::txsubmission::State,
     violation: bool,
     error_count: u32,
@@ -233,7 +234,7 @@ impl InitiatorState {
             keepalive: crate::protocol::keepalive::State::default(),
             peersharing: crate::protocol::peersharing::State::default(),
             blockfetch: crate::protocol::blockfetch::State::default(),
-            chain_sync: crate::protocol::chainsync::State::default(),
+            chainsync: crate::protocol::chainsync::State::default(),
             tx_submission: crate::protocol::txsubmission::State::default(),
             violation: false,
             error_count: 0,
@@ -314,7 +315,7 @@ impl InitiatorState {
                 self.blockfetch = new;
             }
             AnyMessage::ChainSync(msg) => {
-                let result = self.chain_sync.apply(msg);
+                let result = self.chainsync.apply(msg);
 
                 let Ok(new) = result else {
                     tracing::warn!("chain sync violation");
@@ -322,7 +323,7 @@ impl InitiatorState {
                     return;
                 };
 
-                self.chain_sync = new;
+                self.chainsync = new;
             }
             AnyMessage::TxSubmission(msg) => {
                 let result = self.tx_submission.apply(msg);
@@ -354,7 +355,7 @@ pub type BlockRange = (Point, Point);
 
 pub enum InitiatorCommand {
     IncludePeer(PeerId),
-    IntersectChain(PeerId, Point),
+    IntersectChain(Vec<Point>),
     RequestNextHeader(PeerId, Point),
     RequestBlockBatch(BlockRange),
     SendTx(PeerId, EraTxId, EraTxBody),
@@ -365,7 +366,8 @@ pub type AcceptedVersion = (u64, VersionData);
 #[derive(Debug)]
 pub enum InitiatorEvent {
     PeerInitialized(PeerId, AcceptedVersion),
-    BlockHeaderReceived(PeerId, HeaderContent),
+    BlockHeaderReceived(PeerId, HeaderContent, Tip),
+    RollbackReceived(PeerId, Point, Tip),
     BlockBodyReceived(PeerId, crate::protocol::blockfetch::Body),
     TxRequested(PeerId, EraTxId),
 }
@@ -378,6 +380,7 @@ pub struct InitiatorBehavior {
     keepalive: keepalive::KeepaliveBehavior,
     discovery: discovery::DiscoveryBehavior,
     blockfetch: blockfetch::BlockFetchBehavior,
+    chainsync: chainsync::ChainSyncBehavior,
     outbound: OutboundQueue<Self>,
     housekeeping: Interval,
 }
@@ -390,6 +393,7 @@ macro_rules! all_visitors {
         $self.keepalive.$method($pid, $state, &mut $self.outbound);
         $self.discovery.$method($pid, $state, &mut $self.outbound);
         $self.blockfetch.$method($pid, $state, &mut $self.outbound);
+        $self.chainsync.$method($pid, $state, &mut $self.outbound);
     };
 }
 
@@ -409,7 +413,7 @@ impl InitiatorBehavior {
 
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
-        tracing::info!(channel = msg.channel(), "new outbound message");
+        tracing::debug!(channel = msg.channel(), "new outbound message");
 
         let entry = self.peers.remove(pid);
 
@@ -516,6 +520,7 @@ impl Default for InitiatorBehavior {
             keepalive: keepalive::KeepaliveBehavior::default(),
             discovery: discovery::DiscoveryBehavior::default(),
             blockfetch: blockfetch::BlockFetchBehavior::default(),
+            chainsync: chainsync::ChainSyncBehavior::default(),
             outbound: Default::default(),
             housekeeping: tokio::time::interval(Duration::from_millis(3_000)),
         }
@@ -583,8 +588,9 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::IncludePeer(pid) => {
                 self.on_discovered(&pid);
             }
-            InitiatorCommand::IntersectChain(pid, _point) => {
-                tracing::info!(%pid, "TODO: intersecting chain");
+            InitiatorCommand::IntersectChain(points) => {
+                tracing::info!("requesting intersection");
+                self.chainsync.start(points);
             }
             InitiatorCommand::RequestBlockBatch(range) => {
                 tracing::info!("enqueueing block batch");
