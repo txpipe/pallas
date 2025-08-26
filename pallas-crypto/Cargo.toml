@@ -21,13 +21,16 @@ pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
 serde = { version = "1.0.143", features = ["derive"]}
 serde_with = "3.11.0"
 blake2 = "0.10.6"
-ed25519-dalek = { version = "2" }
+ed25519-dalek = { version = "2", features = ["serde"] }
+zeroize = "1.8.1"
 
 [dev-dependencies]
 itertools = "0.13"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
+serde_json = "1"
 serde_test = "1.0.143"
 
 [features]
 default = []
+sk_clone_enabled = []
