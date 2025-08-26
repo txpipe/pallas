@@ -5,6 +5,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse::{self as trv};
 
+use pallas_validate::utils::MultiEraProtocolParameters;
 use prost_types::FieldMask;
 use trv::OriginalHash;
 
@@ -32,6 +33,7 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
 
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
+    fn get_pparams(&self) -> MultiEraProtocolParameters;
 }
 
 #[derive(Default, Clone)]
@@ -710,6 +712,20 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_block(&self, block: &trv::MultiEraBlock) -> u5c::Block {
+        let timestamp = self
+            .ledger
+            .as_ref()
+            .and_then(|ledger| Some(ledger.get_pparams()))
+            .and_then(|params| {
+                let start = params.system_start().timestamp() as u64;
+                let slot_len = params.slot_length();
+                let slot = block.slot();
+
+                slot.checked_mul(slot_len)
+                    .and_then(|d| start.checked_add(d))
+            })
+            .unwrap_or(0);
+
         u5c::Block {
             header: u5c::BlockHeader {
                 slot: block.slot(),
@@ -721,9 +737,7 @@ impl<C: LedgerContext> Mapper<C> {
                 tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
-
-            // TODO: implement timestamp. Is it the block minted time?
-            timestamp: 0,
+            timestamp,
         }
     }
 
@@ -744,6 +758,10 @@ mod tests {
     impl LedgerContext for NoLedger {
         fn get_utxos(&self, _refs: &[TxoRef]) -> Option<UtxoMap> {
             None
+        }
+
+        fn get_pparams(&self) -> MultiEraProtocolParameters {
+            todo!()
         }
     }
 
