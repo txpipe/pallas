@@ -44,6 +44,8 @@
 
 pub mod common;
 pub mod errors;
+mod single_kes;
+pub mod summed_kes;
 pub mod traits;
 
 pub use common::PublicKey;

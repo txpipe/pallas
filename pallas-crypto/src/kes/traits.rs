@@ -40,7 +40,7 @@ pub trait KesSk<'a>: Sized {
 ///
 /// # Example
 /// ```
-/// use pallas_crypto::kes::Sum6Kes;
+/// use pallas_crypto::kes::summed_kes::Sum6Kes;
 /// use pallas_crypto::kes::traits::{KesSig, KesSk};
 /// // The function caller needs to allocate memory for the secret key
 /// let mut key_buffer = [0u8; Sum6Kes::SIZE + 4];
