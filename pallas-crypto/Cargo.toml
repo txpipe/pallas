@@ -14,12 +14,20 @@ authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>", "Andrew Westberg <andre
 hex = "0.4"
 cryptoxide = { version = "0.4.4" }
 thiserror = "1.0"
-rand_core = "0.6"
+rand = "0.9"
+rand_chacha = "0.9"
+rand_core = "0.9"
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
-serde = "1.0.143"
+serde = { version = "1.0.143", features = ["derive"]}
+serde_with = "3.11.0"
+blake2 = "0.10.6"
+ed25519-dalek = { version = "2" }
 
 [dev-dependencies]
 itertools = "0.13"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 serde_test = "1.0.143"
+
+[features]
+default = []
