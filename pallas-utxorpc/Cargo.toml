@@ -12,7 +12,7 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }
-utxorpc-spec = { version = "0.16.0" }
+utxorpc-spec = { version = "0.17.0" }
 
 pallas-traverse = { version = "=1.0.0-alpha.2", path = "../pallas-traverse" }
 pallas-primitives = { version = "=1.0.0-alpha.2", path = "../pallas-primitives" }

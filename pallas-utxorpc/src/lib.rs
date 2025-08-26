@@ -721,6 +721,9 @@ impl<C: LedgerContext> Mapper<C> {
                 tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
+
+            // TODO: implement timestamp. Is it the block minted time?
+            timestamp: 0,
         }
     }
 
