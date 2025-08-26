@@ -20,6 +20,7 @@ pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
 pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto" }
 prost-types = "0.13.1"
 pallas-validate = { version = "=1.0.0-alpha.2", path = "../pallas-validate" }
+chrono = "0.4.39"
 
 [dev-dependencies]
 hex = "0.4.3"

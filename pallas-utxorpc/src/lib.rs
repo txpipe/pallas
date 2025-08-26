@@ -750,6 +750,8 @@ impl<C: LedgerContext> Mapper<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pallas_primitives::{Nonce, NonceVariant, RationalNumber};
+    use pallas_validate::utils::ShelleyProtParams;
     use pretty_assertions::assert_eq;
 
     #[derive(Clone)]
@@ -761,7 +763,43 @@ mod tests {
         }
 
         fn get_pparams(&self) -> MultiEraProtocolParameters {
-            todo!()
+            MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+                system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
+                epoch_length: 432000,
+                slot_length: 1,
+                minfee_b: 155381,
+                minfee_a: 44,
+                max_block_body_size: 65536,
+                max_transaction_size: 16384,
+                max_block_header_size: 1100,
+                key_deposit: 2_000_000,
+                pool_deposit: 500_000_000,
+                maximum_epoch: 18,
+                desired_number_of_stake_pools: 500,
+                pool_pledge_influence: RationalNumber {
+                    numerator: 3,
+                    denominator: 10,
+                },
+                expansion_rate: RationalNumber {
+                    numerator: 3,
+                    denominator: 1000,
+                },
+                treasury_growth_rate: RationalNumber {
+                    numerator: 2,
+                    denominator: 10,
+                },
+                decentralization_constant: RationalNumber {
+                    numerator: 0,
+                    denominator: 1,
+                },
+                extra_entropy: Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                },
+                protocol_version: (4, 0),
+                min_utxo_value: 1_000_000,
+                min_pool_cost: 340_000_000,
+            })
         }
     }
 
