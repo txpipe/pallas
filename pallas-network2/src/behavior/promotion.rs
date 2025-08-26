@@ -152,7 +152,7 @@ impl PromotionBehavior {
         }
     }
 
-    fn ban_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
+    pub fn ban_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         tracing::warn!("banning peer");
 
         self.hot_peers.remove(pid);
@@ -162,6 +162,23 @@ impl PromotionBehavior {
         self.update_metrics();
 
         peer.promotion = Promotion::Banned;
+    }
+
+    pub fn demote_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
+        tracing::warn!("demoting peer");
+
+        if self.banned_peers.contains(pid) {
+            tracing::warn!("cannot demote banned peer");
+            return;
+        }
+
+        self.hot_peers.remove(pid);
+        self.warm_peers.remove(pid);
+        self.cold_peers.insert(pid.clone());
+
+        self.update_metrics();
+
+        peer.promotion = Promotion::Cold;
     }
 
     fn categorize_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {

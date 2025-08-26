@@ -10,13 +10,12 @@ use crate::{
 
 pub type Config = ();
 
-pub type Request = BlockRange;
-
 type Intersection = Vec<Point>;
 
 pub struct ChainSyncBehavior {
     //config: Config,
     intersection: Option<Intersection>,
+    is_stopped: bool,
 }
 
 impl Default for ChainSyncBehavior {
@@ -27,11 +26,20 @@ impl Default for ChainSyncBehavior {
 
 impl ChainSyncBehavior {
     pub fn new(_config: Config) -> Self {
-        Self { intersection: None }
+        Self {
+            intersection: None,
+            is_stopped: false,
+        }
     }
 
     pub fn start(&mut self, intersection: Intersection) {
         self.intersection = Some(intersection);
+        self.is_stopped = false;
+    }
+
+    pub fn stop(&mut self) {
+        self.intersection = None;
+        self.is_stopped = true;
     }
 
     pub fn request_intersection(
@@ -117,6 +125,12 @@ impl PeerVisitor for ChainSyncBehavior {
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         self.drain_data(pid, state, outbound);
+
+        if self.is_stopped {
+            tracing::debug!("sync is stopped, skipping request next");
+            return;
+        }
+
         self.request_next(pid, state, outbound);
     }
 

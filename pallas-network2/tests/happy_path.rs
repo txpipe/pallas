@@ -103,7 +103,7 @@ async fn test_network() {
         })
         .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
 
-    node.network.enqueue(InitiatorCommand::IntersectChain(vec![
+    node.network.enqueue(InitiatorCommand::StartSync(vec![
         pallas_network2::protocol::Point::Origin,
     ]));
 

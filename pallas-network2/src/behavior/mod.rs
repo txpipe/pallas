@@ -86,6 +86,16 @@ pub trait PeerVisitor {
     }
 
     #[allow(unused_variables)]
+    fn visit_tagged(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        // default implementation does nothing
+    }
+
+    #[allow(unused_variables)]
     fn visit_housekeeping(
         &mut self,
         pid: &PeerId,
@@ -355,10 +365,13 @@ pub type BlockRange = (Point, Point);
 
 pub enum InitiatorCommand {
     IncludePeer(PeerId),
-    IntersectChain(Vec<Point>),
-    RequestNextHeader(PeerId, Point),
-    RequestBlockBatch(BlockRange),
+    Housekeeping,
+    StartSync(Vec<Point>),
+    StopSync,
+    RequestBlocks(BlockRange),
     SendTx(PeerId, EraTxId, EraTxBody),
+    BanPeer(PeerId),
+    DemotePeer(PeerId),
 }
 
 pub type AcceptedVersion = (u64, VersionData);
@@ -382,7 +395,6 @@ pub struct InitiatorBehavior {
     blockfetch: blockfetch::BlockFetchBehavior,
     chainsync: chainsync::ChainSyncBehavior,
     outbound: OutboundQueue<Self>,
-    housekeeping: Interval,
 }
 
 macro_rules! all_visitors {
@@ -474,6 +486,21 @@ impl InitiatorBehavior {
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
+    fn on_tagged(&mut self, pid: &PeerId, tag: Promotion) {
+        tracing::info!("tagged");
+
+        let entry = self.peers.remove(pid);
+
+        if let Some(mut state) = entry {
+            state.promotion = tag;
+
+            all_visitors!(self, pid, &mut state, visit_tagged);
+
+            self.peers.insert(pid.clone(), state);
+        }
+    }
+
+    #[tracing::instrument(skip_all, fields(pid = %pid))]
     fn on_discovered(&mut self, pid: &PeerId) {
         let mut state = InitiatorState::new();
 
@@ -522,7 +549,6 @@ impl Default for InitiatorBehavior {
             blockfetch: blockfetch::BlockFetchBehavior::default(),
             chainsync: chainsync::ChainSyncBehavior::default(),
             outbound: Default::default(),
-            housekeeping: tokio::time::interval(Duration::from_millis(3_000)),
         }
     }
 }
@@ -534,15 +560,12 @@ impl Stream for InitiatorBehavior {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        if self.housekeeping.poll_tick(cx).is_ready() {
-            self.housekeeping();
-        }
+        let poll = self.outbound.futures.poll_next_unpin(cx);
 
-        if let Poll::Ready(Some(x)) = self.outbound.futures.poll_next_unpin(cx) {
-            return Poll::Ready(Some(x));
+        match poll {
+            Poll::Ready(Some(x)) => Poll::Ready(Some(x)),
+            _ => Poll::Pending,
         }
-
-        Poll::Pending
     }
 }
 
@@ -588,15 +611,31 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::IncludePeer(pid) => {
                 self.on_discovered(&pid);
             }
-            InitiatorCommand::IntersectChain(points) => {
-                tracing::info!("requesting intersection");
+            InitiatorCommand::StartSync(points) => {
+                tracing::info!("starting sync");
                 self.chainsync.start(points);
             }
-            InitiatorCommand::RequestBlockBatch(range) => {
+            InitiatorCommand::StopSync => {
+                tracing::info!("stopping sync");
+                self.chainsync.stop();
+            }
+            InitiatorCommand::RequestBlocks(range) => {
                 tracing::info!("enqueueing block batch");
                 self.blockfetch.enqueue(range);
             }
-            _ => (),
+            InitiatorCommand::Housekeeping => {
+                tracing::debug!("housekeeping requested");
+                self.housekeeping();
+            }
+            InitiatorCommand::BanPeer(pid) => {
+                tracing::info!("banning peer");
+                self.on_tagged(&pid, Promotion::Banned);
+            }
+            InitiatorCommand::DemotePeer(pid) => {
+                tracing::info!("demoting peer");
+                self.on_tagged(&pid, Promotion::Cold);
+            }
+            InitiatorCommand::SendTx(..) => todo!(),
         }
     }
 }
