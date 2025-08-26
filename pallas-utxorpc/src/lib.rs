@@ -33,7 +33,7 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
 
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
-    fn get_pparams(&self) -> MultiEraProtocolParameters;
+    fn get_slot_pparams(&self, slot: u64) -> Option<MultiEraProtocolParameters>;
 }
 
 #[derive(Default, Clone)]
@@ -712,23 +712,11 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_block(&self, block: &trv::MultiEraBlock) -> u5c::Block {
-        let timestamp = self
-            .ledger
-            .as_ref()
-            .and_then(|ledger| Some(ledger.get_pparams()))
-            .and_then(|params| {
-                let start = params.system_start().timestamp() as u64;
-                let slot_len = params.slot_length();
-                let slot = block.slot();
-
-                slot.checked_mul(slot_len)
-                    .and_then(|d| start.checked_add(d))
-            })
-            .unwrap_or(0);
+        let slot = block.slot();
 
         u5c::Block {
             header: u5c::BlockHeader {
-                slot: block.slot(),
+                slot,
                 hash: block.hash().to_vec().into(),
                 height: block.number(),
             }
@@ -737,8 +725,22 @@ impl<C: LedgerContext> Mapper<C> {
                 tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
-            timestamp,
+            timestamp: self.map_slot_timestamp(slot),
         }
+    }
+
+    pub fn map_slot_timestamp(&self, slot: u64) -> u64 {
+        self.ledger
+            .as_ref()
+            .and_then(|ledger| ledger.get_slot_pparams(slot))
+            .and_then(|params| {
+                let start = params.system_start().timestamp() as u64;
+                let slot_len = params.slot_length();
+
+                slot.checked_mul(slot_len)
+                    .and_then(|d| start.checked_add(d))
+            })
+            .unwrap_or(0)
     }
 
     pub fn map_block_cbor(&self, raw: &[u8]) -> u5c::Block {
@@ -762,8 +764,8 @@ mod tests {
             None
         }
 
-        fn get_pparams(&self) -> MultiEraProtocolParameters {
-            MultiEraProtocolParameters::Shelley(ShelleyProtParams {
+        fn get_slot_pparams(&self, _slot: u64) -> Option<MultiEraProtocolParameters> {
+            Some(MultiEraProtocolParameters::Shelley(ShelleyProtParams {
                 system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
                 epoch_length: 432000,
                 slot_length: 1,
@@ -799,7 +801,7 @@ mod tests {
                 protocol_version: (4, 0),
                 min_utxo_value: 1_000_000,
                 min_pool_cost: 340_000_000,
-            })
+            }))
         }
     }
 
