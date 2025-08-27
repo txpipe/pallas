@@ -25,6 +25,7 @@ ed25519-dalek = { version = "2", features = ["serde"] }
 zeroize = "1.8.1"
 
 [dev-dependencies]
+criterion = "0.7"
 itertools = "0.13"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
@@ -35,3 +36,8 @@ serde_test = "1.0.143"
 [features]
 default = []
 sk_clone_enabled = []
+
+[[bench]]
+harness = false
+name = "summed_kes_benches"
+path = "./src/kes/summed_kes_benches.rs"
