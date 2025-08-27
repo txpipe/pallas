@@ -1,6 +1,6 @@
 #![cfg(feature = "kes_cli")]
 
-//! Message verifying
+/// Message verifying
 use crate::kes::common::open_three;
 use crate::kes::summed_kes::Sum6KesSig;
 use crate::kes::traits::KesSig;
