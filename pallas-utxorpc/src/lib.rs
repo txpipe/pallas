@@ -1,11 +1,10 @@
-use std::{collections::HashMap, ops::Deref};
+use std::{collections::HashMap, ops::Deref, u64};
 
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse::{self as trv};
 
-use pallas_validate::utils::MultiEraProtocolParameters;
 use prost_types::FieldMask;
 use trv::OriginalHash;
 
@@ -33,7 +32,7 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
 
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
-    fn get_slot_timestamp(&self, slot: u64) -> u64;
+    fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
 }
 
 #[derive(Default, Clone)]
@@ -726,7 +725,7 @@ impl<C: LedgerContext> Mapper<C> {
             timestamp: self
                 .ledger
                 .as_ref()
-                .map(|ledger| ledger.get_slot_timestamp(block.slot()))
+                .and_then(|ledger| ledger.get_slot_timestamp(block.slot()))
                 .unwrap_or(0),
         }
     }
@@ -750,8 +749,8 @@ mod tests {
             None
         }
 
-        fn get_slot_timestamp(&self, _slot: u64) -> u64 {
-            0
+        fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+            None
         }
     }
 
