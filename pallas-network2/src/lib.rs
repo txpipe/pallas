@@ -26,6 +26,18 @@ impl std::fmt::Display for PeerId {
     }
 }
 
+impl std::str::FromStr for PeerId {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (host, port) = s.split_once(':').ok_or("invalid peer id")?;
+        Ok(PeerId {
+            host: host.to_string(),
+            port: port.parse().unwrap(),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub enum InterfaceError {
     // TODO: add more specific errors
@@ -130,9 +142,9 @@ pub trait Behavior:
     ///
     /// The behavior is responsible for updating the state of the peer to
     /// reflect the what has been received from the network interface.
-    fn apply_io(&mut self, event: InterfaceEvent<Self::Message>);
+    fn handle_io(&mut self, event: InterfaceEvent<Self::Message>);
 
-    fn apply_cmd(&mut self, cmd: Self::Command);
+    fn execute(&mut self, cmd: Self::Command);
 }
 
 /// Manager to reconcile state between a network interface and a behavior
@@ -142,7 +154,6 @@ where
     I: Interface<M>,
     B: Behavior<Message = M>,
 {
-    backlog: Vec<B::Command>,
     interface: I,
     behavior: B,
 }
@@ -155,25 +166,12 @@ where
 {
     pub fn new(interface: I, behavior: B) -> Self {
         Self {
-            backlog: Vec::new(),
             interface,
             behavior,
         }
     }
 
-    pub fn behavior(&self) -> &B {
-        &self.behavior
-    }
-
-    fn apply_cmds(&mut self) {
-        for cmd in self.backlog.drain(..) {
-            self.behavior.apply_cmd(cmd);
-        }
-    }
-
     pub async fn poll_next(&mut self) -> Option<B::Event> {
-        self.apply_cmds();
-
         let Self {
             behavior,
             interface,
@@ -193,14 +191,14 @@ where
                 }
             },
             event = interface.select_next_some() => {
-                self.behavior.apply_io(event);
+                self.behavior.handle_io(event);
                 None
             }
         }
     }
 
-    pub fn enqueue(&mut self, cmd: B::Command) {
-        self.backlog.push(cmd);
+    pub fn execute(&mut self, cmd: B::Command) {
+        self.behavior.execute(cmd);
     }
 }
 

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::Duration;
 
 use pallas_network2::behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
@@ -44,11 +45,12 @@ impl emulation::Rules for MyEmulatorRules {
 
 type MyEmulator = emulation::Emulator<AnyMessage, MyEmulatorRules>;
 
-struct MyNode {
+struct MockNode {
     network: Manager<MyEmulator, InitiatorBehavior, AnyMessage>,
+    initialized_peers: HashSet<PeerId>,
 }
 
-impl MyNode {
+impl MockNode {
     async fn tick(&mut self) {
         let event = self.network.poll_next().await;
 
@@ -59,6 +61,11 @@ impl MyNode {
         let next_cmd = match event {
             InitiatorEvent::PeerInitialized(peer_id, version) => {
                 tracing::info!(%peer_id, ?version, "peer initialized");
+                self.initialized_peers.insert(peer_id);
+                None
+            }
+            InitiatorEvent::IntersectionFound(pid, _, _) => {
+                tracing::info!(%pid, "intersection found");
                 None
             }
             InitiatorEvent::BlockHeaderReceived(pid, _, _) => {
@@ -84,28 +91,22 @@ impl MyNode {
         };
 
         if let Some(cmd) = next_cmd {
-            self.network.enqueue(cmd);
+            self.network.execute(cmd);
         }
     }
 }
 
 #[tokio::test]
-async fn test_network() {
-    let mut node = MyNode {
+async fn test_include_peer() {
+    let mut node = MockNode {
+        initialized_peers: HashSet::new(),
         network: Manager::new(MyEmulator::default(), InitiatorBehavior::default()),
     };
 
-    [1234, 1235, 1236, 1237, 1238]
-        .into_iter()
-        .map(|port| PeerId {
-            host: "127.0.0.1".to_string(),
-            port,
-        })
-        .for_each(|x| node.network.enqueue(InitiatorCommand::IncludePeer(x)));
-
-    node.network.enqueue(InitiatorCommand::StartSync(vec![
-        pallas_network2::protocol::Point::Origin,
-    ]));
+    node.network.execute(InitiatorCommand::IncludePeer(PeerId {
+        host: "99.99.99.99".to_string(),
+        port: 1234,
+    }));
 
     for _ in 0..20 {
         node.tick().await;

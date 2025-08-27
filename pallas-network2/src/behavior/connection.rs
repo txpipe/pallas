@@ -1,6 +1,6 @@
 use crate::{
     InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{ConnectionState, InitiatorBehavior, InitiatorState, PeerVisitor, Promotion},
+    behavior::{ConnectionState, InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
 };
 
 fn needs_connection(peer: &InitiatorState) -> bool {
@@ -9,10 +9,10 @@ fn needs_connection(peer: &InitiatorState) -> bool {
         ConnectionState::Connecting => false,
         ConnectionState::Initialized => false,
         _ => match peer.promotion {
-            Promotion::Warm => true,
-            Promotion::Hot => true,
-            Promotion::Banned => false,
-            Promotion::Cold => false,
+            PromotionTag::Warm => true,
+            PromotionTag::Hot => true,
+            PromotionTag::Banned => false,
+            PromotionTag::Cold => false,
         },
     }
 }
@@ -24,10 +24,10 @@ fn needs_disconnect(peer: &InitiatorState) -> bool {
         ConnectionState::Connecting => false,
         ConnectionState::Disconnected => false,
         ConnectionState::Connected | ConnectionState::Initialized => match peer.promotion {
-            Promotion::Cold => true,
-            Promotion::Banned => true,
-            Promotion::Warm => false,
-            Promotion::Hot => false,
+            PromotionTag::Cold => true,
+            PromotionTag::Banned => true,
+            PromotionTag::Warm => false,
+            PromotionTag::Hot => false,
         },
     }
 }

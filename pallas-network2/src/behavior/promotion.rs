@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     OutboundQueue, PeerId,
-    behavior::{InitiatorBehavior, InitiatorState, PeerVisitor, Promotion},
+    behavior::{InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
 };
 
 impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
@@ -22,10 +22,10 @@ impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
 
 #[derive(Debug)]
 pub struct PromotionConfig {
-    max_peers: usize,
-    max_warm_peers: usize,
-    max_hot_peers: usize,
-    max_error_count: u32,
+    pub max_peers: usize,
+    pub max_warm_peers: usize,
+    pub max_hot_peers: usize,
+    pub max_error_count: u32,
 }
 
 impl Default for PromotionConfig {
@@ -137,7 +137,7 @@ impl PromotionBehavior {
             self.hot_peers.insert(x);
             self.update_metrics();
 
-            peer.promotion = Promotion::Hot;
+            peer.promotion = PromotionTag::Hot;
         }
     }
 
@@ -148,7 +148,7 @@ impl PromotionBehavior {
             self.warm_peers.insert(x);
             self.update_metrics();
 
-            peer.promotion = Promotion::Warm;
+            peer.promotion = PromotionTag::Warm;
         }
     }
 
@@ -161,7 +161,7 @@ impl PromotionBehavior {
         self.banned_peers.insert(pid.clone());
         self.update_metrics();
 
-        peer.promotion = Promotion::Banned;
+        peer.promotion = PromotionTag::Banned;
     }
 
     pub fn demote_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
@@ -178,7 +178,7 @@ impl PromotionBehavior {
 
         self.update_metrics();
 
-        peer.promotion = Promotion::Cold;
+        peer.promotion = PromotionTag::Cold;
     }
 
     fn categorize_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
@@ -212,7 +212,7 @@ impl PromotionBehavior {
             tracing::debug!("flagging peer as cold");
             self.cold_peers.insert(pid.clone());
 
-            state.promotion = Promotion::Cold;
+            state.promotion = PromotionTag::Cold;
         } else {
             tracing::warn!("discovered peer, but max peers reached");
         }

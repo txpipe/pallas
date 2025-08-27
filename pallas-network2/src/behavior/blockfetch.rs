@@ -98,6 +98,8 @@ impl PeerVisitor for BlockFetchBehavior {
                 tracing::debug!("granting request to peer");
                 self.request_block_batch(pid, request, outbound);
             }
+        } else {
+            tracing::warn!("no peer available");
         }
     }
 }

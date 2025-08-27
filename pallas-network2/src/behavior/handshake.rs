@@ -104,8 +104,6 @@ impl PeerVisitor for HandshakeBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        // TODO: more efficient if we could subscribe just for messages of the
-        // appropriate channel
         if needs_handshake(state) {
             self.check_confirmation(pid, state, outbound);
         }

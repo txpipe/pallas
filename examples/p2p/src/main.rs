@@ -1,13 +1,9 @@
-use pallas_network2::behavior::InitiatorCommand;
 use pallas_network2::protocol::Point;
-use pallas_network2::PeerId;
-use std::time::Duration;
-use tokio::select;
 
 #[allow(unused_imports)]
 use crate::emulator::MyEmulator;
 
-use crate::node::{MyConfig, MyNode};
+use crate::node::{MyConfig, MyNode, PromotionConfig};
 
 mod emulator;
 mod node;
@@ -28,29 +24,20 @@ async fn main() {
         MyConfig {
             chain_intersection: vec![Point::Origin],
             initial_peers: vec![
-                PeerId {
-                    host: "backbone.mainnet.cardanofoundation.org".to_string(),
-                    port: 3001,
-                },
-                PeerId {
-                    host: "relay.cnode-m1.demeter.run".to_string(),
-                    port: 3000,
-                },
-                PeerId {
-                    host: "r1.1percentpool.eu".to_string(),
-                    port: 19001,
-                },
-                PeerId {
-                    host: "backbone.cardano.iog.io".to_string(),
-                    port: 3001,
-                },
+                "relay.cnode-m1.demeter.run:3000".to_string(),
+                "r1.1percentpool.eu:19001".to_string(),
+                "backbone.mainnet.cardanofoundation.org:3001".to_string(),
+                "backbone.cardano.iog.io:3001".to_string(),
             ],
+            promotion: PromotionConfig {
+                max_peers: 10,
+                max_warm_peers: 5,
+                max_hot_peers: 3,
+                max_error_count: 10,
+            },
         },
         interface,
     );
 
-    //let (cmd_send, cmd_recv) = tokio::sync::mpsc::channel(100);
-    let chain = node.download_chain(10).await;
-
-    println!("blocks downloaded: {:?}", chain.len());
+    node.run_forever().await.unwrap();
 }

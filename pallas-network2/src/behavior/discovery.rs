@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct Config {
-    high_water_mark: u8,
+    pub high_water_mark: u8,
 }
 
 impl Default for Config {

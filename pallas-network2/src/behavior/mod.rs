@@ -1,19 +1,12 @@
 //! Opinionated standard behavior for Cardano networks
 
-use std::{collections::HashMap, task::Poll, time::Duration};
-
 use futures::{Stream, StreamExt, stream::FusedStream};
+use std::{collections::HashMap, task::Poll};
+
 use pallas_codec::{Fragment, minicbor};
-use tokio::time::Interval;
 
 use crate::{
-    Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId,
-    protocol::{
-        Point,
-        chainsync::{HeaderContent, Tip},
-        handshake::n2n::VersionData,
-        txsubmission::{EraTxBody, EraTxId},
-    },
+    Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId, protocol as proto,
 };
 
 mod blockfetch;
@@ -23,6 +16,14 @@ mod discovery;
 mod handshake;
 mod keepalive;
 mod promotion;
+
+pub use blockfetch::*;
+pub use chainsync::*;
+pub use connection::*;
+pub use discovery::*;
+pub use handshake::*;
+pub use keepalive::*;
+pub use promotion::*;
 
 pub trait PeerVisitor {
     #[allow(unused_variables)]
@@ -108,15 +109,15 @@ pub trait PeerVisitor {
 
 #[derive(Debug, Clone)]
 pub enum AnyMessage {
-    Handshake(crate::protocol::handshake::Message<crate::protocol::handshake::n2n::VersionData>),
-    KeepAlive(crate::protocol::keepalive::Message),
-    ChainSync(crate::protocol::chainsync::Message<crate::protocol::chainsync::HeaderContent>),
-    PeerSharing(crate::protocol::peersharing::Message),
-    BlockFetch(crate::protocol::blockfetch::Message),
-    TxSubmission(crate::protocol::txsubmission::Message),
+    Handshake(proto::handshake::Message<proto::handshake::n2n::VersionData>),
+    KeepAlive(proto::keepalive::Message),
+    ChainSync(proto::chainsync::Message<proto::chainsync::HeaderContent>),
+    PeerSharing(proto::peersharing::Message),
+    BlockFetch(proto::blockfetch::Message),
+    TxSubmission(proto::txsubmission::Message),
 }
 
-fn try_decode_message<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
+fn try_decode_msg<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
     let mut decoder = minicbor::Decoder::new(buffer);
     let maybe_msg: Result<T, _> = decoder.decode();
 
@@ -137,12 +138,12 @@ fn try_decode_message<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
 impl Message for AnyMessage {
     fn channel(&self) -> u16 {
         match self {
-            AnyMessage::Handshake(_) => crate::protocol::handshake::CHANNEL_ID,
-            AnyMessage::KeepAlive(_) => crate::protocol::keepalive::CHANNEL_ID,
-            AnyMessage::ChainSync(_) => crate::protocol::chainsync::CHANNEL_ID,
-            AnyMessage::PeerSharing(_) => crate::protocol::peersharing::CHANNEL_ID,
-            AnyMessage::BlockFetch(_) => crate::protocol::blockfetch::CHANNEL_ID,
-            AnyMessage::TxSubmission(_) => crate::protocol::txsubmission::CHANNEL_ID,
+            AnyMessage::Handshake(_) => proto::handshake::CHANNEL_ID,
+            AnyMessage::KeepAlive(_) => proto::keepalive::CHANNEL_ID,
+            AnyMessage::ChainSync(_) => proto::chainsync::CHANNEL_ID,
+            AnyMessage::PeerSharing(_) => proto::peersharing::CHANNEL_ID,
+            AnyMessage::BlockFetch(_) => proto::blockfetch::CHANNEL_ID,
+            AnyMessage::TxSubmission(_) => proto::txsubmission::CHANNEL_ID,
         }
     }
 
@@ -161,23 +162,13 @@ impl Message for AnyMessage {
         let channel = channel ^ 0x8000;
 
         match channel {
-            crate::protocol::handshake::CHANNEL_ID => {
-                try_decode_message(payload).map(AnyMessage::Handshake)
-            }
-            crate::protocol::keepalive::CHANNEL_ID => {
-                try_decode_message(payload).map(AnyMessage::KeepAlive)
-            }
-            crate::protocol::chainsync::CHANNEL_ID => {
-                try_decode_message(payload).map(AnyMessage::ChainSync)
-            }
-            crate::protocol::peersharing::CHANNEL_ID => {
-                try_decode_message(payload).map(AnyMessage::PeerSharing)
-            }
-            crate::protocol::blockfetch::CHANNEL_ID => {
-                try_decode_message(payload).map(AnyMessage::BlockFetch)
-            }
-            crate::protocol::txsubmission::CHANNEL_ID => {
-                try_decode_message(payload).map(AnyMessage::TxSubmission)
+            proto::handshake::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::Handshake),
+            proto::keepalive::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::KeepAlive),
+            proto::chainsync::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::ChainSync),
+            proto::peersharing::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::PeerSharing),
+            proto::blockfetch::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::BlockFetch),
+            proto::txsubmission::CHANNEL_ID => {
+                try_decode_msg(payload).map(AnyMessage::TxSubmission)
             }
             x => unimplemented!("unsupported channel: {}", x),
         }
@@ -190,14 +181,6 @@ impl Message for AnyMessage {
         (channel, payload)
     }
 }
-
-pub struct ChainSyncBehavior;
-
-pub struct PeerSharingBehavior;
-
-pub struct BlockFetchBehavior;
-
-pub struct TxSubmissionBehavior;
 
 pub type LastSeen = chrono::DateTime<chrono::Utc>;
 
@@ -213,7 +196,7 @@ pub enum ConnectionState {
 }
 
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
-pub enum Promotion {
+pub enum PromotionTag {
     #[default]
     Cold,
     Warm,
@@ -224,30 +207,32 @@ pub enum Promotion {
 #[derive(Default, Debug)]
 pub struct InitiatorState {
     connection: ConnectionState,
-    promotion: Promotion,
-    handshake: crate::protocol::handshake::State<crate::protocol::handshake::n2n::VersionData>,
-    keepalive: crate::protocol::keepalive::State,
-    peersharing: crate::protocol::peersharing::State,
-    blockfetch: crate::protocol::blockfetch::State,
-    chainsync: crate::protocol::chainsync::State<crate::protocol::chainsync::HeaderContent>,
-    tx_submission: crate::protocol::txsubmission::State,
+    promotion: PromotionTag,
+    handshake: proto::handshake::State<proto::handshake::n2n::VersionData>,
+    keepalive: proto::keepalive::State,
+    peersharing: proto::peersharing::State,
+    blockfetch: proto::blockfetch::State,
+    chainsync: proto::chainsync::State<proto::chainsync::HeaderContent>,
+    tx_submission: proto::txsubmission::State,
     violation: bool,
     error_count: u32,
+    continue_sync: bool,
 }
 
 impl InitiatorState {
     pub fn new() -> Self {
         InitiatorState {
             connection: ConnectionState::default(),
-            promotion: Promotion::default(),
-            handshake: crate::protocol::handshake::State::default(),
-            keepalive: crate::protocol::keepalive::State::default(),
-            peersharing: crate::protocol::peersharing::State::default(),
-            blockfetch: crate::protocol::blockfetch::State::default(),
+            promotion: PromotionTag::default(),
+            handshake: proto::handshake::State::default(),
+            keepalive: proto::keepalive::State::default(),
+            peersharing: proto::peersharing::State::default(),
+            blockfetch: proto::blockfetch::State::default(),
             chainsync: crate::protocol::chainsync::State::default(),
             tx_submission: crate::protocol::txsubmission::State::default(),
             violation: false,
             error_count: 0,
+            continue_sync: false,
         }
     }
 
@@ -255,16 +240,16 @@ impl InitiatorState {
         matches!(self.connection, ConnectionState::Initialized)
     }
 
-    pub fn version(&self) -> Option<crate::protocol::handshake::n2n::VersionData> {
+    pub fn version(&self) -> Option<proto::handshake::n2n::VersionData> {
         match &self.handshake {
-            crate::protocol::handshake::State::Done(
-                crate::protocol::handshake::DoneState::Accepted(_, data),
-            ) => Some(data.clone()),
+            proto::handshake::State::Done(proto::handshake::DoneState::Accepted(_, data)) => {
+                Some(data.clone())
+            }
             _ => None,
         }
     }
 
-    pub fn promotion(&self) -> Promotion {
+    pub fn promotion(&self) -> PromotionTag {
         self.promotion
     }
 
@@ -352,49 +337,61 @@ impl InitiatorState {
     /// Resets the state back to its initial state, except for error count
     pub fn reset(&mut self) {
         self.connection = ConnectionState::default();
-        self.promotion = Promotion::default();
-        self.handshake = crate::protocol::handshake::State::default();
-        self.keepalive = crate::protocol::keepalive::State::default();
-        self.peersharing = crate::protocol::peersharing::State::default();
-        self.blockfetch = crate::protocol::blockfetch::State::default();
+        self.promotion = PromotionTag::default();
+        self.handshake = proto::handshake::State::default();
+        self.keepalive = proto::keepalive::State::default();
+        self.peersharing = proto::peersharing::State::default();
+        self.blockfetch = proto::blockfetch::State::default();
         self.violation = false;
     }
 }
 
-pub type BlockRange = (Point, Point);
+pub type TagFn = fn(&mut InitiatorState);
 
+pub type BlockRange = (proto::Point, proto::Point);
+
+#[derive(Debug)]
 pub enum InitiatorCommand {
     IncludePeer(PeerId),
     Housekeeping,
-    StartSync(Vec<Point>),
-    StopSync,
+    StartSync(Vec<proto::Point>),
+    ContinueSync(PeerId),
     RequestBlocks(BlockRange),
-    SendTx(PeerId, EraTxId, EraTxBody),
+    SendTx(
+        PeerId,
+        proto::txsubmission::EraTxId,
+        proto::txsubmission::EraTxBody,
+    ),
     BanPeer(PeerId),
     DemotePeer(PeerId),
 }
 
-pub type AcceptedVersion = (u64, VersionData);
+pub type AcceptedVersion = (u64, proto::handshake::n2n::VersionData);
 
 #[derive(Debug)]
 pub enum InitiatorEvent {
     PeerInitialized(PeerId, AcceptedVersion),
-    BlockHeaderReceived(PeerId, HeaderContent, Tip),
-    RollbackReceived(PeerId, Point, Tip),
-    BlockBodyReceived(PeerId, crate::protocol::blockfetch::Body),
-    TxRequested(PeerId, EraTxId),
+    IntersectionFound(PeerId, proto::Point, proto::chainsync::Tip),
+    BlockHeaderReceived(
+        PeerId,
+        proto::chainsync::HeaderContent,
+        proto::chainsync::Tip,
+    ),
+    RollbackReceived(PeerId, proto::Point, proto::chainsync::Tip),
+    BlockBodyReceived(PeerId, proto::blockfetch::Body),
+    TxRequested(PeerId, proto::txsubmission::EraTxId),
 }
 
 pub struct InitiatorBehavior {
-    peers: HashMap<PeerId, InitiatorState>,
-    promotion: promotion::PromotionBehavior,
-    connection: connection::ConnectionBehavior,
-    handshake: handshake::HandshakeBehavior,
-    keepalive: keepalive::KeepaliveBehavior,
-    discovery: discovery::DiscoveryBehavior,
-    blockfetch: blockfetch::BlockFetchBehavior,
-    chainsync: chainsync::ChainSyncBehavior,
-    outbound: OutboundQueue<Self>,
+    pub promotion: promotion::PromotionBehavior,
+    pub connection: connection::ConnectionBehavior,
+    pub handshake: handshake::HandshakeBehavior,
+    pub keepalive: keepalive::KeepaliveBehavior,
+    pub discovery: discovery::DiscoveryBehavior,
+    pub blockfetch: blockfetch::BlockFetchBehavior,
+    pub chainsync: chainsync::ChainSyncBehavior,
+    pub peers: HashMap<PeerId, InitiatorState>,
+    pub outbound: OutboundQueue<Self>,
 }
 
 macro_rules! all_visitors {
@@ -412,92 +409,70 @@ macro_rules! all_visitors {
 impl InitiatorBehavior {
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
     pub fn on_inbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
-        let entry = self.peers.remove(pid);
+        tracing::debug!(channel = msg.channel(), "new inbound message");
 
-        if let Some(mut state) = entry {
+        self.peers.entry(pid.clone()).and_modify(|state| {
             state.apply_msg(msg);
 
-            all_visitors!(self, pid, &mut state, visit_inbound_msg);
-
-            self.peers.insert(pid.clone(), state);
-        }
+            all_visitors!(self, pid, state, visit_inbound_msg);
+        });
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 
-        let entry = self.peers.remove(pid);
-
-        if let Some(mut state) = entry {
+        self.peers.entry(pid.clone()).and_modify(|state| {
             state.apply_msg(msg);
 
-            all_visitors!(self, pid, &mut state, visit_outbound_msg);
-
-            self.peers.insert(pid.clone(), state);
-        }
+            all_visitors!(self, pid, state, visit_outbound_msg);
+        });
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
     fn on_connected(&mut self, pid: &PeerId) {
         tracing::info!("connected");
 
-        let entry = self.peers.remove(pid);
-
-        if let Some(mut state) = entry {
+        self.peers.entry(pid.clone()).and_modify(|state| {
             state.connection = ConnectionState::Connected;
 
-            all_visitors!(self, pid, &mut state, visit_connected);
-
-            self.peers.insert(pid.clone(), state);
-        }
+            all_visitors!(self, pid, state, visit_connected);
+        });
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
     fn on_disconnected(&mut self, pid: &PeerId) {
         tracing::info!("disconnected");
 
-        let entry = self.peers.remove(pid);
-
-        if let Some(mut state) = entry {
+        self.peers.entry(pid.clone()).and_modify(|state| {
             state.connection = ConnectionState::Disconnected;
             state.reset();
 
-            all_visitors!(self, pid, &mut state, visit_disconnected);
-
-            self.peers.insert(pid.clone(), state);
-        }
+            all_visitors!(self, pid, state, visit_disconnected);
+        });
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
     fn on_errored(&mut self, pid: &PeerId) {
         tracing::error!("error");
 
-        let entry = self.peers.remove(pid);
-
-        if let Some(mut state) = entry {
+        self.peers.entry(pid.clone()).and_modify(|state| {
             state.connection = ConnectionState::Errored;
             state.error_count += 1;
 
-            all_visitors!(self, pid, &mut state, visit_errored);
-
-            self.peers.insert(pid.clone(), state);
-        }
+            all_visitors!(self, pid, state, visit_errored);
+        });
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
-    fn on_tagged(&mut self, pid: &PeerId, tag: Promotion) {
-        tracing::info!("tagged");
+    fn on_tagged(&mut self, pid: &PeerId, tagger: TagFn) {
+        tracing::debug!("tagged");
 
-        let entry = self.peers.remove(pid);
+        self.peers.entry(pid.clone()).and_modify(|state| {
+            tagger(state);
 
-        if let Some(mut state) = entry {
-            state.promotion = tag;
-
-            all_visitors!(self, pid, &mut state, visit_tagged);
-
-            self.peers.insert(pid.clone(), state);
-        }
+            all_visitors!(self, pid, state, visit_tagged);
+        });
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
@@ -517,6 +492,11 @@ impl InitiatorBehavior {
         }
 
         let new = self.discovery.drain_new_peers(deficit);
+
+        if new.is_empty() {
+            tracing::trace!("no new peers discovered");
+            return;
+        }
 
         tracing::info!(deficit = deficit, new = new.len(), "discovered new peers",);
 
@@ -541,13 +521,13 @@ impl Default for InitiatorBehavior {
     fn default() -> Self {
         Self {
             peers: Default::default(),
-            promotion: promotion::PromotionBehavior::default(),
-            connection: connection::ConnectionBehavior::default(),
-            handshake: handshake::HandshakeBehavior::default(),
-            keepalive: keepalive::KeepaliveBehavior::default(),
-            discovery: discovery::DiscoveryBehavior::default(),
-            blockfetch: blockfetch::BlockFetchBehavior::default(),
-            chainsync: chainsync::ChainSyncBehavior::default(),
+            promotion: PromotionBehavior::default(),
+            connection: ConnectionBehavior::default(),
+            handshake: HandshakeBehavior::default(),
+            keepalive: KeepaliveBehavior::default(),
+            discovery: DiscoveryBehavior::default(),
+            blockfetch: BlockFetchBehavior::default(),
+            chainsync: ChainSyncBehavior::default(),
             outbound: Default::default(),
         }
     }
@@ -581,7 +561,7 @@ impl Behavior for InitiatorBehavior {
     type PeerState = InitiatorState;
     type Message = AnyMessage;
 
-    fn apply_io(&mut self, event: crate::InterfaceEvent<Self::Message>) {
+    fn handle_io(&mut self, event: crate::InterfaceEvent<Self::Message>) {
         match &event {
             crate::InterfaceEvent::Connected(pid) => {
                 self.on_connected(pid);
@@ -606,44 +586,37 @@ impl Behavior for InitiatorBehavior {
         }
     }
 
-    fn apply_cmd(&mut self, cmd: Self::Command) {
+    fn execute(&mut self, cmd: Self::Command) {
         match cmd {
             InitiatorCommand::IncludePeer(pid) => {
+                tracing::debug!("include peer command");
                 self.on_discovered(&pid);
             }
             InitiatorCommand::StartSync(points) => {
-                tracing::info!("starting sync");
+                tracing::debug!("start sync command");
                 self.chainsync.start(points);
             }
-            InitiatorCommand::StopSync => {
-                tracing::info!("stopping sync");
-                self.chainsync.stop();
+            InitiatorCommand::ContinueSync(pid) => {
+                tracing::debug!("continue sync command");
+                self.on_tagged(&pid, |state| state.continue_sync = true);
             }
             InitiatorCommand::RequestBlocks(range) => {
-                tracing::info!("enqueueing block batch");
+                tracing::debug!("request blocks command");
                 self.blockfetch.enqueue(range);
             }
             InitiatorCommand::Housekeeping => {
-                tracing::debug!("housekeeping requested");
+                tracing::debug!("housekeeping command");
                 self.housekeeping();
             }
             InitiatorCommand::BanPeer(pid) => {
-                tracing::info!("banning peer");
-                self.on_tagged(&pid, Promotion::Banned);
+                tracing::debug!("ban peer command");
+                self.on_tagged(&pid, |state| state.promotion = PromotionTag::Banned);
             }
             InitiatorCommand::DemotePeer(pid) => {
-                tracing::info!("demoting peer");
-                self.on_tagged(&pid, Promotion::Cold);
+                tracing::debug!("demote peer command");
+                self.on_tagged(&pid, |state| state.promotion = PromotionTag::Cold);
             }
             InitiatorCommand::SendTx(..) => todo!(),
         }
     }
 }
-
-pub struct ResponderBehavior;
-
-pub struct ResponderState;
-
-pub enum ResponderEvent {}
-
-pub enum ResponderCommand {}

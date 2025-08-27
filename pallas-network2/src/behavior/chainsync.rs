@@ -1,3 +1,4 @@
+use crate::behavior::PromotionTag;
 use crate::protocol::{Point, chainsync as chainsync_proto};
 
 use crate::{
@@ -15,7 +16,6 @@ type Intersection = Vec<Point>;
 pub struct ChainSyncBehavior {
     //config: Config,
     intersection: Option<Intersection>,
-    is_stopped: bool,
 }
 
 impl Default for ChainSyncBehavior {
@@ -26,20 +26,11 @@ impl Default for ChainSyncBehavior {
 
 impl ChainSyncBehavior {
     pub fn new(_config: Config) -> Self {
-        Self {
-            intersection: None,
-            is_stopped: false,
-        }
+        Self { intersection: None }
     }
 
     pub fn start(&mut self, intersection: Intersection) {
         self.intersection = Some(intersection);
-        self.is_stopped = false;
-    }
-
-    pub fn stop(&mut self) {
-        self.intersection = None;
-        self.is_stopped = true;
     }
 
     pub fn request_intersection(
@@ -64,11 +55,6 @@ impl ChainSyncBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        if !state.chainsync.is_idle() {
-            tracing::trace!("chainsync is not idle, skipping request next");
-            return;
-        }
-
         tracing::debug!("requesting next header");
 
         let out = chainsync_proto::Message::RequestNext;
@@ -97,8 +83,10 @@ impl ChainSyncBehavior {
                 let out = InitiatorEvent::RollbackReceived(pid.clone(), point.clone(), tip.clone());
                 outbound.push_ready(BehaviorOutput::ExternalEvent(out));
             }
-            chainsync_proto::Data::Intersection(..) => {
-                // TODO: make sure it matches the intersection we requested
+            chainsync_proto::Data::Intersection(point, tip) => {
+                let out =
+                    InitiatorEvent::IntersectionFound(pid.clone(), point.clone(), tip.clone());
+                outbound.push_ready(BehaviorOutput::ExternalEvent(out));
             }
             chainsync_proto::Data::NoIntersection(..) => {
                 tracing::error!("no intersection found");
@@ -114,7 +102,7 @@ fn peer_is_syncing(state: &InitiatorState) -> bool {
 }
 
 fn peer_should_sync(state: &InitiatorState) -> bool {
-    matches!(state.connection, ConnectionState::Initialized)
+    matches!(state.connection, ConnectionState::Initialized) && state.promotion == PromotionTag::Hot
 }
 
 impl PeerVisitor for ChainSyncBehavior {
@@ -124,14 +112,34 @@ impl PeerVisitor for ChainSyncBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        self.drain_data(pid, state, outbound);
-
-        if self.is_stopped {
-            tracing::debug!("sync is stopped, skipping request next");
+        if !peer_is_syncing(state) {
+            tracing::trace!("peer is not syncing, skipping drain data");
             return;
         }
 
-        self.request_next(pid, state, outbound);
+        self.drain_data(pid, state, outbound);
+    }
+
+    fn visit_tagged(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        if !peer_is_syncing(state) {
+            tracing::trace!("peer is not syncing, skipping tagged");
+            return;
+        }
+
+        if !state.chainsync.is_idle() {
+            tracing::trace!("chainsync is not idle, skipping request next");
+            return;
+        }
+
+        if state.continue_sync {
+            tracing::debug!("peer wants to continue sync");
+            self.request_next(pid, state, outbound);
+        }
     }
 
     fn visit_housekeeping(
@@ -141,21 +149,21 @@ impl PeerVisitor for ChainSyncBehavior {
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         let Some(intersection) = &self.intersection else {
-            tracing::trace!("no intersection requested, skipping housekeeping");
+            tracing::trace!("no intersection requested");
             return;
         };
 
-        if peer_is_syncing(state) {
-            tracing::debug!("peer is already syncing, skipping housekeeping");
-            return;
-        }
-
         if !peer_should_sync(state) {
-            tracing::debug!("peer is not initialized, skipping housekeeping");
+            tracing::trace!("peer is not suitable for sync");
             return;
         }
 
-        tracing::debug!("peer needs to sync");
+        if peer_is_syncing(state) {
+            tracing::trace!("peer is already syncing");
+            return;
+        }
+
+        tracing::trace!("peer needs to sync");
 
         self.request_intersection(pid, intersection, outbound);
     }
