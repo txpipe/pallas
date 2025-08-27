@@ -1,98 +1,137 @@
 use pallas_codec::Fragment;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use tracing::debug;
 
-use super::{DoneState, Message, State, VersionTable};
-use crate::miniprotocols::Error;
+use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
+use crate::multiplexer;
 
 #[derive(Debug)]
-pub struct Client<D>(State<D>)
-where
-    D: Debug + Clone;
-
-impl<D> Default for Client<D>
-where
-    D: Debug + Clone,
-    Message<D>: Fragment,
-{
-    fn default() -> Self {
-        Client(State::<D>::default())
-    }
+pub enum Confirmation<D: Debug + Clone> {
+    Accepted(VersionNumber, D),
+    Rejected(RefuseReason),
+    QueryReply(VersionTable<D>),
 }
 
-impl<D> crate::miniprotocols::Agent for Client<D>
+pub struct Client<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
+
+impl<D> Client<D>
 where
     D: Debug + Clone,
     Message<D>: Fragment,
 {
-    type State = State<D>;
-    type Message = Message<D>;
-
-    fn new(init: Self::State) -> Self {
-        Self(init)
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
+        Self(
+            State::Propose,
+            multiplexer::ChannelBuffer::new(channel),
+            PhantomData {},
+        )
     }
 
-    fn is_done(&self) -> bool {
-        matches!(self.state(), State::Done(..))
-    }
-
-    fn has_agency(&self) -> bool {
-        match self.state() {
-            State::Propose => true,
-            State::Confirm(..) => false,
-            State::Done(..) => true,
-        }
-    }
-
-    fn state(&self) -> &Self::State {
+    pub fn state(&self) -> &State {
         &self.0
     }
 
-    fn apply(&self, msg: &Self::Message) -> Result<Self::State, Error> {
+    pub fn is_done(&self) -> bool {
+        self.0 == State::Done
+    }
+
+    pub fn has_agency(&self) -> bool {
         match self.state() {
-            State::Propose => match msg {
-                Message::Propose(x) => Ok(State::Confirm(x.clone())),
-                _ => Err(Error::InvalidOutbound),
-            },
-            State::Confirm(..) => match msg {
-                Message::Accept(x, y) => Ok(State::Done(DoneState::Accepted(*x, y.clone()))),
-                Message::Refuse(x) => Ok(State::Done(DoneState::Rejected(x.clone()))),
-                Message::QueryReply(x) => Ok(State::Done(DoneState::QueryReply(x.clone()))),
-                _ => Err(Error::InvalidInbound),
-            },
-            State::Done(..) => Err(Error::InvalidInbound),
+            State::Propose => true,
+            State::Confirm => false,
+            State::Done => false,
         }
     }
-}
 
-impl<D> crate::miniprotocols::PlexerAdapter<Client<D>>
-where
-    D: Debug + Clone,
-    Message<D>: Fragment,
-{
+    fn assert_agency_is_ours(&self) -> Result<(), Error> {
+        if !self.has_agency() {
+            Err(Error::AgencyIsTheirs)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
+        if self.has_agency() {
+            Err(Error::AgencyIsOurs)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn assert_outbound_state(&self, msg: &Message<D>) -> Result<(), Error> {
+        match (&self.0, msg) {
+            (State::Propose, Message::Propose(_)) => Ok(()),
+            _ => Err(Error::InvalidOutbound),
+        }
+    }
+
+    fn assert_inbound_state(&self, msg: &Message<D>) -> Result<(), Error> {
+        match (&self.0, msg) {
+            (State::Confirm, Message::Accept(..)) => Ok(()),
+            (State::Confirm, Message::Refuse(..)) => Ok(()),
+            (State::Confirm, Message::QueryReply(..)) => Ok(()),
+            _ => Err(Error::InvalidInbound),
+        }
+    }
+
+    pub async fn send_message(&mut self, msg: &Message<D>) -> Result<(), Error> {
+        self.assert_agency_is_ours()?;
+        self.assert_outbound_state(msg)?;
+        self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
+
+        Ok(())
+    }
+
+    pub async fn recv_message(&mut self) -> Result<Message<D>, Error> {
+        self.assert_agency_is_theirs()?;
+        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        self.assert_inbound_state(&msg)?;
+
+        Ok(msg)
+    }
+
     pub async fn send_propose(&mut self, versions: VersionTable<D>) -> Result<(), Error> {
         let msg = Message::Propose(versions);
-        self.send(&msg).await?;
+        self.send_message(&msg).await?;
+        self.0 = State::Confirm;
 
         debug!("version proposed");
 
         Ok(())
     }
 
-    pub async fn recv_while_confirm(&mut self) -> Result<DoneState<D>, Error> {
-        self.recv().await?;
+    pub async fn recv_while_confirm(&mut self) -> Result<Confirmation<D>, Error> {
+        match self.recv_message().await? {
+            Message::Accept(v, m) => {
+                self.0 = State::Done;
+                debug!("handshake accepted");
 
-        debug!("version confirmed");
+                Ok(Confirmation::Accepted(v, m))
+            }
+            Message::Refuse(r) => {
+                self.0 = State::Done;
+                debug!("handshake refused");
 
-        match self.state() {
-            State::Done(x) => Ok(x.clone()),
+                Ok(Confirmation::Rejected(r))
+            }
+            Message::QueryReply(version_table) => {
+                debug!("handshake query reply");
+
+                Ok(Confirmation::QueryReply(version_table))
+            }
             _ => Err(Error::InvalidInbound),
         }
     }
 
-    pub async fn handshake(&mut self, versions: VersionTable<D>) -> Result<DoneState<D>, Error> {
+    pub async fn handshake(&mut self, versions: VersionTable<D>) -> Result<Confirmation<D>, Error> {
         self.send_propose(versions).await?;
         self.recv_while_confirm().await
+    }
+
+    pub fn unwrap(self) -> multiplexer::AgentChannel {
+        self.1.unwrap()
     }
 }
 

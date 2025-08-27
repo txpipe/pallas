@@ -12,8 +12,6 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>", "Pi Lanningham <pi.lannin
 
 [dependencies]
 byteorder = "1.4.3"
-papaya = "0.2.1"
-futures = "0.3.31"
 hex = "0.4.3"
 itertools = "0.13.0"
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }

@@ -21,12 +21,7 @@ async fn main() {
         hex::decode("3d681e503fd9318d0f68c74a699895ce61f0a07010b516b80ce968a6b000e231").unwrap(),
     );
 
-    let block = peer
-        .blockfetch()
-        .fetch_single(point)
-        .await
-        .unwrap()
-        .unwrap();
+    let block = peer.blockfetch().fetch_single(point).await.unwrap();
 
     println!("downloaded block of size: {}", block.len());
     println!("{}", hex::encode(&block));

@@ -27,10 +27,7 @@ pub struct Server(State, multiplexer::ChannelBuffer);
 
 impl Server {
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
-        Self(
-            State::Idle(IdleState::Empty),
-            multiplexer::ChannelBuffer::new(channel),
-        )
+        Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
     pub fn state(&self) -> &State {
@@ -43,7 +40,7 @@ impl Server {
 
     fn has_agency(&self) -> bool {
         match &self.0 {
-            State::Idle(..) => false,
+            State::Idle => false,
             State::Busy(..) => true,
             State::Done => false,
         }
@@ -74,8 +71,8 @@ impl Server {
 
     fn assert_inbound_state(&self, msg: &Message) -> Result<(), ServerError> {
         match (&self.0, msg) {
-            (State::Idle(..), Message::ShareRequest(..)) => Ok(()),
-            (State::Idle(..), Message::Done) => Ok(()),
+            (State::Idle, Message::ShareRequest(..)) => Ok(()),
+            (State::Idle, Message::Done) => Ok(()),
             _ => Err(ServerError::InvalidInbound),
         }
     }
@@ -83,32 +80,18 @@ impl Server {
     pub async fn send_message(&mut self, msg: &Message) -> Result<(), ServerError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-
         self.1
             .send_msg_chunks(msg)
             .await
             .map_err(ServerError::Plexer)?;
-
-        self.0 = match &msg {
-            Message::SharePeers(response) => State::Idle(IdleState::Response(response.clone())),
-            _ => unreachable!(),
-        };
 
         Ok(())
     }
 
     pub async fn recv_message(&mut self) -> Result<Message, ServerError> {
         self.assert_agency_is_theirs()?;
-
         let msg = self.1.recv_full_msg().await.map_err(ServerError::Plexer)?;
-
         self.assert_inbound_state(&msg)?;
-
-        self.0 = match &msg {
-            Message::ShareRequest(x) => State::Busy(*x),
-            Message::Done => State::Done,
-            _ => unreachable!(),
-        };
 
         Ok(msg)
     }
@@ -134,9 +117,9 @@ impl Server {
         &mut self,
         response: Vec<PeerAddress>,
     ) -> Result<(), ServerError> {
-        let msg = Message::SharePeers(response.clone());
-
+        let msg = Message::SharePeers(response);
         self.send_message(&msg).await?;
+        self.0 = State::Idle;
 
         Ok(())
     }

@@ -1,14 +1,8 @@
 pub type Cookie = u16;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum ClientState {
-    Empty,
-    Response(Cookie),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
-    Client(ClientState),
+    Client,
     Server(Cookie),
     Done,
 }

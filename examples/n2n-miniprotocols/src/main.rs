@@ -2,7 +2,7 @@ use pallas::{
     ledger::traverse::MultiEraHeader,
     network::{
         facades::PeerClient,
-        miniprotocols::{self, blockfetch, chainsync, PlexerAdapter, Point, MAINNET_MAGIC},
+        miniprotocols::{blockfetch, chainsync, keepalive, Point, MAINNET_MAGIC},
     },
 };
 
@@ -14,18 +14,21 @@ pub enum Error {
     #[error("hex conversion error")]
     FromHexError(#[from] hex::FromHexError),
 
+    #[error("blockfetch error")]
+    BlockFetchError(#[from] blockfetch::ClientError),
+
     #[error("chainsync error")]
     ChainSyncError(#[from] chainsync::ClientError),
 
     #[error("keepalive error")]
-    ClientError(#[from] miniprotocols::Error),
+    KeepAliveError(#[from] keepalive::ClientError),
 
     #[error("pallas_traverse error")]
     PallasTraverseError(#[from] pallas::ledger::traverse::Error),
 }
 
 async fn do_blockfetch(
-    blockfetch_client: &mut PlexerAdapter<blockfetch::Client>,
+    blockfetch_client: &mut blockfetch::Client,
     range: (Point, Point),
 ) -> Result<(), Error> {
     let blocks = blockfetch_client.fetch_range(range.clone()).await?;
@@ -43,7 +46,7 @@ async fn do_blockfetch(
 
 async fn do_chainsync(
     mut chainsync_client: chainsync::N2NClient,
-    mut blockfetch_client: PlexerAdapter<blockfetch::Client>,
+    mut blockfetch_client: blockfetch::Client,
 ) -> Result<(), Error> {
     let known_points = vec![Point::Specific(
         43847831u64,

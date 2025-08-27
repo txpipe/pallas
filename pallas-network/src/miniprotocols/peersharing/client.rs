@@ -1,80 +1,133 @@
 use std::fmt::Debug;
+use thiserror::*;
 use tracing::debug;
 
 use super::protocol::*;
-use crate::miniprotocols::{Agent, Error, PlexerAdapter};
+use crate::multiplexer;
 
-#[derive(Debug)]
-pub struct Client(State);
+#[derive(Error, Debug)]
+pub enum ClientError {
+    #[error("attempted to receive message while agency is ours")]
+    AgencyIsOurs,
 
-impl Default for Client {
-    fn default() -> Self {
-        Self(State::Idle(IdleState::Empty))
-    }
+    #[error("attempted to send message while agency is theirs")]
+    AgencyIsTheirs,
+
+    #[error("inbound message is not valid for current state")]
+    InvalidInbound,
+
+    #[error("outbound message is not valid for current state")]
+    InvalidOutbound,
+
+    #[error("requested amount mismatch")]
+    RequestedAmountMismatch,
+
+    #[error("error while sending or receiving data through the channel")]
+    Plexer(multiplexer::Error),
 }
 
-impl Agent for Client {
-    type Message = Message;
-    type State = State;
+pub struct Client(State, multiplexer::ChannelBuffer);
 
-    fn new(init: Self::State) -> Self {
-        Self(init)
+impl Client {
+    pub fn new(channel: multiplexer::AgentChannel) -> Self {
+        Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
-    fn is_done(&self) -> bool {
-        matches!(self.0, State::Done)
-    }
-
-    fn has_agency(&self) -> bool {
-        match self.state() {
-            State::Idle(..) => true,
-            State::Busy(..) => false,
-            State::Done => true,
-        }
-    }
-
-    fn state(&self) -> &Self::State {
+    pub fn state(&self) -> &State {
         &self.0
     }
 
-    fn apply(&self, msg: &Self::Message) -> Result<Self::State, Error> {
-        match self.state() {
-            State::Idle(..) => match msg {
-                Message::ShareRequest(x) => Ok(State::Busy(*x)),
-                _ => Err(Error::InvalidOutbound),
-            },
-            State::Busy(..) => match msg {
-                Message::SharePeers(x) => Ok(State::Idle(IdleState::Response(x.clone()))),
-                _ => Err(Error::InvalidInbound),
-            },
-            State::Done => Err(Error::InvalidOutbound),
+    pub fn is_done(&self) -> bool {
+        self.0 == State::Done
+    }
+
+    pub fn has_agency(&self) -> bool {
+        match &self.0 {
+            State::Idle => true,
+            State::Busy(..) => false,
+            State::Done => false,
         }
     }
-}
 
-impl PlexerAdapter<Client> {
-    pub async fn send_share_request(&mut self, amount: Amount) -> Result<(), Error> {
+    fn assert_agency_is_ours(&self) -> Result<(), ClientError> {
+        if !self.has_agency() {
+            Err(ClientError::AgencyIsTheirs)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn assert_agency_is_theirs(&self) -> Result<(), ClientError> {
+        if self.has_agency() {
+            Err(ClientError::AgencyIsOurs)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn assert_outbound_state(&self, msg: &Message) -> Result<(), ClientError> {
+        match (&self.0, msg) {
+            (State::Idle, Message::ShareRequest(..)) => Ok(()),
+            (State::Idle, Message::Done) => Ok(()),
+            _ => Err(ClientError::InvalidOutbound),
+        }
+    }
+
+    fn assert_inbound_state(&self, msg: &Message) -> Result<(), ClientError> {
+        match (&self.0, msg) {
+            (State::Busy(..), Message::SharePeers(..)) => Ok(()),
+            _ => Err(ClientError::InvalidInbound),
+        }
+    }
+
+    pub async fn send_message(&mut self, msg: &Message) -> Result<(), ClientError> {
+        self.assert_agency_is_ours()?;
+        self.assert_outbound_state(msg)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(ClientError::Plexer)?;
+
+        Ok(())
+    }
+
+    pub async fn recv_message(&mut self) -> Result<Message, ClientError> {
+        self.assert_agency_is_theirs()?;
+        let msg = self.1.recv_full_msg().await.map_err(ClientError::Plexer)?;
+        self.assert_inbound_state(&msg)?;
+
+        Ok(msg)
+    }
+
+    pub async fn send_share_request(&mut self, amount: Amount) -> Result<(), ClientError> {
         let msg = Message::ShareRequest(amount);
-        self.send(&msg).await?;
-
+        self.send_message(&msg).await?;
+        self.0 = State::Busy(amount);
         debug!(amount, "sent share request message");
 
         Ok(())
     }
 
-    pub async fn recv_peer_addresses(&mut self) -> Result<Vec<PeerAddress>, Error> {
-        self.recv().await?;
-
-        match self.state() {
-            State::Idle(IdleState::Response(addresses)) => Ok(addresses.clone()),
-            _ => Err(Error::InvalidInbound),
+    pub async fn recv_peer_addresses(&mut self) -> Result<Vec<PeerAddress>, ClientError> {
+        let msg = self.recv_message().await?;
+        match msg {
+            Message::SharePeers(addresses) => {
+                debug!(
+                    length = addresses.len(),
+                    ?addresses,
+                    "received peer addresses"
+                );
+                self.0 = State::Idle;
+                Ok(addresses)
+            }
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
-    pub async fn send_done(&mut self) -> Result<(), Error> {
+    pub async fn send_done(&mut self) -> Result<(), ClientError> {
         let msg = Message::Done;
-
-        self.send(&msg).await?;
+        self.send_message(&msg).await?;
+        self.0 = State::Done;
 
         Ok(())
     }

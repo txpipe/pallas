@@ -9,12 +9,11 @@ use pallas_network::miniprotocols::localstate::queries_v16::{
     SystemStart, UnitInterval, Value,
 };
 use pallas_network::miniprotocols::localtxsubmission::SMaybe;
-use pallas_network::miniprotocols::PlexerAdapter;
 use pallas_network::{
     facades::{DmqClient, NodeClient, PeerClient, PeerServer},
     miniprotocols::{
         blockfetch,
-        blockfetch::Message,
+        blockfetch::BlockRequest,
         chainsync::{self, NextResponse},
         chainsync::{ClientRequest, HeaderContent, Tip},
         handshake,
@@ -156,10 +155,7 @@ pub async fn blockfetch_happy_path() {
         .request_range((known_point.clone(), known_point))
         .await;
 
-    assert!(matches!(
-        client.state(),
-        blockfetch::ClientState::Streaming(_)
-    ));
+    assert!(matches!(client.state(), blockfetch::State::Streaming));
 
     println!("streaming...");
 
@@ -173,10 +169,7 @@ pub async fn blockfetch_happy_path() {
             _ => panic!("expected block body"),
         }
 
-        assert!(matches!(
-            client.state(),
-            blockfetch::ClientState::Streaming(_)
-        ));
+        assert!(matches!(client.state(), blockfetch::State::Streaming));
     }
 
     let next = client.recv_while_streaming().await.unwrap();
@@ -185,7 +178,7 @@ pub async fn blockfetch_happy_path() {
 
     client.send_done().await.unwrap();
 
-    assert!(matches!(client.state(), blockfetch::ClientState::Done));
+    assert!(matches!(client.state(), blockfetch::State::Done));
 }
 
 #[tokio::test]
@@ -217,29 +210,26 @@ pub async fn blockfetch_server_and_client_happy_path() {
 
             // server receives range from client, sends blocks
 
-            let range_request = server_bf.recv_while_idle().await.unwrap().unwrap();
+            let BlockRequest(range_request) = server_bf.recv_while_idle().await.unwrap().unwrap();
 
             assert_eq!(range_request, (point.clone(), point.clone()));
-            assert_eq!(
-                *server_bf.state(),
-                blockfetch::ServerState::Busy(range_request)
-            );
+            assert_eq!(*server_bf.state(), blockfetch::State::Busy);
 
-            server_bf.reply_block_range(bodies).await.unwrap();
+            server_bf.send_block_range(bodies).await.unwrap();
 
-            assert_eq!(*server_bf.state(), blockfetch::ServerState::Idle);
+            assert_eq!(*server_bf.state(), blockfetch::State::Idle);
 
             // server receives range from client, sends NoBlocks
 
-            let _ = server_bf.recv_while_idle().await.unwrap().unwrap();
+            let BlockRequest(_) = server_bf.recv_while_idle().await.unwrap().unwrap();
 
-            server_bf.reply_block_range(vec![]).await.unwrap();
+            server_bf.send_block_range(vec![]).await.unwrap();
 
-            assert_eq!(*server_bf.state(), blockfetch::ServerState::Idle);
+            assert_eq!(*server_bf.state(), blockfetch::State::Idle);
 
             assert!(server_bf.recv_while_idle().await.unwrap().is_none());
 
-            assert_eq!(*server_bf.state(), blockfetch::ServerState::Done);
+            assert_eq!(*server_bf.state(), blockfetch::State::Done);
         }
     });
 
@@ -253,11 +243,11 @@ pub async fn blockfetch_server_and_client_happy_path() {
         // client sends request range
 
         client_bf
-            .request_range((point.clone(), point.clone()))
+            .send_request_range((point.clone(), point.clone()))
             .await
             .unwrap();
 
-        assert!(matches!(client_bf.state(), blockfetch::ClientState::Busy));
+        assert!(client_bf.recv_while_busy().await.unwrap().is_some());
 
         // client receives blocks until idle
 
@@ -272,12 +262,12 @@ pub async fn blockfetch_server_and_client_happy_path() {
         // client sends request range
 
         client_bf
-            .request_range((point.clone(), point.clone()))
+            .send_request_range((point.clone(), point.clone()))
             .await
             .unwrap();
 
         // recv_while_busy returns None for NoBlocks message
-        assert!(matches!(client_bf.state(), blockfetch::ClientState::Idle));
+        assert!(client_bf.recv_while_busy().await.unwrap().is_none());
 
         // client sends done
 
@@ -307,8 +297,8 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 
             let mut server_plexer = Plexer::new(bearer);
 
-            let server_hs = handshake::Server::<VersionData>::default();
-            let mut server_hs = PlexerAdapter::new(server_hs, server_plexer.subscribe_server(0));
+            let mut server_hs: handshake::Server<VersionData> =
+                handshake::Server::new(server_plexer.subscribe_server(0));
             let mut server_cs = chainsync::N2NServer::new(server_plexer.subscribe_server(2));
 
             let server_plexer = server_plexer.spawn();
@@ -1819,10 +1809,7 @@ pub async fn peer_sharing_server_and_client_happy_path() {
 
             server_ps.send_peer_addresses(addresses).await.unwrap();
 
-            assert_eq!(
-                *server_ps.state(),
-                peersharing::State::Idle(peersharing::IdleState::Empty)
-            );
+            assert_eq!(*server_ps.state(), peersharing::State::Idle);
 
             // Server receives Done message from client
 
@@ -1947,8 +1934,7 @@ pub async fn local_message_notification_server_and_client_happy_path() {
         let client_msg = client.msg_notification();
         assert_eq!(*client_msg.state(), localmsgnotification::State::Idle);
 
-        // client sends a non blocking request to server and waits for a reply from the
-        // server
+        // client sends a non blocking request to server and waits for a reply from the server
         client_msg
             .send_request_messages_non_blocking()
             .await
@@ -1962,8 +1948,7 @@ pub async fn local_message_notification_server_and_client_happy_path() {
         assert_eq!(*client_msg.state(), localmsgnotification::State::Idle);
         assert_eq!(reply, localmsgnotification::Reply(fake_msgs(), true));
 
-        // client sends a blocking request to server and waits for a reply from the
-        // server
+        // client sends a blocking request to server and waits for a reply from the server
         client_msg.send_request_messages_blocking().await.unwrap();
         assert_eq!(
             *client_msg.state(),

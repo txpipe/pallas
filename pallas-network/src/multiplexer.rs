@@ -436,7 +436,6 @@ impl AgentChannel {
     }
 }
 
-#[derive(Debug)]
 pub struct RunningPlexer {
     demuxer: JoinHandle<Result<(), Error>>,
     muxer: JoinHandle<Result<(), Error>>,
@@ -480,27 +479,8 @@ impl Plexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
 
-        let demuxer = tokio::spawn(async move {
-            let result = demuxer.run().await;
-
-            if let Err(err) = &result {
-                error!(?err);
-            }
-
-            warn!("demuxer loop ended");
-            result
-        });
-
-        let muxer = tokio::spawn(async move {
-            let result = muxer.run().await;
-
-            if let Err(err) = &result {
-                error!(?err);
-            }
-
-            warn!("muxer loop ended");
-            result
-        });
+        let demuxer = tokio::spawn(async move { demuxer.run().await });
+        let muxer = tokio::spawn(async move { muxer.run().await });
 
         RunningPlexer { demuxer, muxer }
     }
