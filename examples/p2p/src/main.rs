@@ -1,11 +1,7 @@
 use pallas_network2::protocol::Point;
 
-#[allow(unused_imports)]
-use crate::emulator::MyEmulator;
-
 use crate::node::{MyConfig, MyNode, PromotionConfig};
 
-mod emulator;
 mod node;
 mod otel;
 

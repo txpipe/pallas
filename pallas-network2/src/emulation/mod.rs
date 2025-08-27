@@ -9,6 +9,8 @@ use std::{pin::Pin, task::Poll, time::Duration};
 
 use crate::{Interface, InterfaceCommand, InterfaceEvent, Message, PeerId};
 
+pub mod happy;
+
 pub trait Rules {
     type Message: Message + Clone + 'static;
 

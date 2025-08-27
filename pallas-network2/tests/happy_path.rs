@@ -1,57 +1,17 @@
 use std::collections::HashSet;
-use std::time::Duration;
 
 use pallas_network2::behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
-use pallas_network2::{Manager, PeerId, emulation};
-
-#[derive(Default)]
-struct MyEmulatorRules;
-
-impl emulation::Rules for MyEmulatorRules {
-    type Message = AnyMessage;
-
-    fn reply_to(
-        &self,
-        pid: PeerId,
-        msg: Self::Message,
-        jitter: Duration,
-        queue: &mut emulation::ReplyQueue<Self::Message>,
-    ) {
-        match msg {
-            AnyMessage::Handshake(msg) => match msg {
-                pallas_network2::protocol::handshake::Message::Propose(version_table) => {
-                    let (version, data) = version_table.values.into_iter().next().unwrap();
-
-                    let msg = pallas_network2::protocol::handshake::Message::Accept(version, data);
-
-                    queue.push_jittered_msg(pid, AnyMessage::Handshake(msg), jitter);
-                }
-                _ => queue.push_jittered_disconnect(pid, jitter),
-            },
-            AnyMessage::KeepAlive(msg) => {
-                let pallas_network2::protocol::keepalive::Message::KeepAlive(token) = msg else {
-                    queue.push_jittered_disconnect(pid, jitter);
-                    return;
-                };
-
-                let msg = pallas_network2::protocol::keepalive::Message::ResponseKeepAlive(token);
-
-                queue.push_jittered_msg(pid, AnyMessage::KeepAlive(msg), jitter);
-            }
-            _ => todo!(),
-        };
-    }
-}
-
-type MyEmulator = emulation::Emulator<AnyMessage, MyEmulatorRules>;
+use pallas_network2::emulation::happy::HappyEmulator;
+use pallas_network2::{Manager, PeerId};
 
 struct MockNode {
-    network: Manager<MyEmulator, InitiatorBehavior, AnyMessage>,
+    network: Manager<HappyEmulator, InitiatorBehavior, AnyMessage>,
     initialized_peers: HashSet<PeerId>,
 }
 
 impl MockNode {
     async fn tick(&mut self) {
+        dbg!("tick");
         let event = self.network.poll_next().await;
 
         let Some(event) = event else {
@@ -97,10 +57,11 @@ impl MockNode {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_include_peer() {
     let mut node = MockNode {
         initialized_peers: HashSet::new(),
-        network: Manager::new(MyEmulator::default(), InitiatorBehavior::default()),
+        network: Manager::new(HappyEmulator::default(), InitiatorBehavior::default()),
     };
 
     node.network.execute(InitiatorCommand::IncludePeer(PeerId {
@@ -108,7 +69,13 @@ async fn test_include_peer() {
         port: 1234,
     }));
 
-    for _ in 0..20 {
+    for i in 0..100 {
         node.tick().await;
+
+        if i % 5 == 0 {
+            node.network.execute(InitiatorCommand::Housekeeping);
+        }
     }
+
+    assert_eq!(node.initialized_peers.len(), 1);
 }

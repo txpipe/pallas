@@ -1,17 +1,16 @@
 use std::{net::Ipv4Addr, time::Duration};
 
-use pallas_network2::{behavior::AnyMessage, emulation, PeerId};
+use crate::protocol as proto;
+use crate::{PeerId, behavior::AnyMessage, emulation};
 use rand::Rng;
 
 fn reply_handshake_ok(
     pid: PeerId,
-    msg: pallas_network2::protocol::handshake::Message<
-        pallas_network2::protocol::handshake::n2n::VersionData,
-    >,
+    msg: proto::handshake::Message<proto::handshake::n2n::VersionData>,
     jitter: Duration,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
-    let pallas_network2::protocol::handshake::Message::Propose(version_table) = msg else {
+    let proto::handshake::Message::Propose(version_table) = msg else {
         queue.push_jittered_disconnect(pid, jitter);
         return;
     };
@@ -22,7 +21,7 @@ fn reply_handshake_ok(
 
     data.peer_sharing = Some(1);
 
-    let msg = pallas_network2::protocol::handshake::Message::Accept(version, data);
+    let msg = proto::handshake::Message::Accept(version, data);
 
     tracing::debug!(version, "replying handshake propose ok");
     queue.push_jittered_msg(pid, AnyMessage::Handshake(msg), jitter);
@@ -30,11 +29,11 @@ fn reply_handshake_ok(
 
 fn reply_keepalive_ok(
     pid: PeerId,
-    msg: pallas_network2::protocol::keepalive::Message,
+    msg: proto::keepalive::Message,
     jitter: Duration,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
-    let pallas_network2::protocol::keepalive::Message::KeepAlive(token) = msg else {
+    let proto::keepalive::Message::KeepAlive(token) = msg else {
         queue.push_jittered_disconnect(pid, jitter);
         return;
     };
@@ -47,7 +46,7 @@ fn reply_keepalive_ok(
         return;
     }
 
-    let msg = pallas_network2::protocol::keepalive::Message::ResponseKeepAlive(token);
+    let msg = proto::keepalive::Message::ResponseKeepAlive(token);
 
     tracing::debug!(token, "replying keepalive ok");
     queue.push_jittered_msg(pid, AnyMessage::KeepAlive(msg), jitter);
@@ -55,23 +54,21 @@ fn reply_keepalive_ok(
 
 fn reply_peer_sharing_ok(
     pid: PeerId,
-    msg: pallas_network2::protocol::peersharing::Message,
+    msg: proto::peersharing::Message,
     jitter: Duration,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
-    let pallas_network2::protocol::peersharing::Message::ShareRequest(amount) = msg else {
+    let proto::peersharing::Message::ShareRequest(amount) = msg else {
         queue.push_jittered_disconnect(pid, jitter);
         return;
     };
 
     tracing::debug!(amount, "received peer sharing request");
 
-    let msg = pallas_network2::protocol::peersharing::Message::SharePeers(vec![
-        pallas_network2::protocol::peersharing::PeerAddress::V4(
-            Ipv4Addr::new(123, 123, 123, 123),
-            9999,
-        ),
-    ]);
+    let msg = proto::peersharing::Message::SharePeers(vec![proto::peersharing::PeerAddress::V4(
+        Ipv4Addr::new(123, 123, 123, 123),
+        9999,
+    )]);
 
     tracing::debug!(amount, "replying peer sharing ok");
     queue.push_jittered_msg(pid, AnyMessage::PeerSharing(msg), jitter);
@@ -79,28 +76,28 @@ fn reply_peer_sharing_ok(
 
 fn reply_block_fetch_ok(
     pid: PeerId,
-    msg: pallas_network2::protocol::blockfetch::Message,
+    msg: proto::blockfetch::Message,
     queue: &mut emulation::ReplyQueue<AnyMessage>,
 ) {
     match msg {
-        pallas_network2::protocol::blockfetch::Message::RequestRange(_range) => {
+        proto::blockfetch::Message::RequestRange(_range) => {
             tracing::debug!("received block fetch request");
 
-            let msg = pallas_network2::protocol::blockfetch::Message::StartBatch;
+            let msg = proto::blockfetch::Message::StartBatch;
             queue.push_jittered_msg(
                 pid.clone(),
                 AnyMessage::BlockFetch(msg),
                 Duration::from_secs(0),
             );
 
-            let msg2 = pallas_network2::protocol::blockfetch::Message::Block(b"abc".to_vec());
+            let msg2 = proto::blockfetch::Message::Block(b"abc".to_vec());
             queue.push_jittered_msg(
                 pid.clone(),
                 AnyMessage::BlockFetch(msg2),
                 Duration::from_secs(1),
             );
 
-            let msg3 = pallas_network2::protocol::blockfetch::Message::BatchDone;
+            let msg3 = proto::blockfetch::Message::BatchDone;
             queue.push_jittered_msg(
                 pid.clone(),
                 AnyMessage::BlockFetch(msg3),
@@ -112,9 +109,9 @@ fn reply_block_fetch_ok(
 }
 
 #[derive(Default)]
-pub struct MyEmulatorRules;
+pub struct HappyRules;
 
-impl emulation::Rules for MyEmulatorRules {
+impl emulation::Rules for HappyRules {
     type Message = AnyMessage;
 
     #[tracing::instrument(skip(self, msg, jitter, queue))]
@@ -134,10 +131,10 @@ impl emulation::Rules for MyEmulatorRules {
         };
     }
 
-    fn should_connect(&self, pid: pallas_network2::PeerId) -> bool {
+    fn should_connect(&self, pid: PeerId) -> bool {
         tracing::debug!(%pid, "connection requested");
         true
     }
 }
 
-pub type MyEmulator = emulation::Emulator<AnyMessage, MyEmulatorRules>;
+pub type HappyEmulator = emulation::Emulator<AnyMessage, HappyRules>;
