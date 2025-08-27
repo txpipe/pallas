@@ -33,7 +33,7 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
 
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
-    fn get_slot_pparams(&self, slot: u64) -> Option<MultiEraProtocolParameters>;
+    fn get_slot_timestamp(&self, slot: u64) -> u64;
 }
 
 #[derive(Default, Clone)]
@@ -712,11 +712,9 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_block(&self, block: &trv::MultiEraBlock) -> u5c::Block {
-        let slot = block.slot();
-
         u5c::Block {
             header: u5c::BlockHeader {
-                slot,
+                slot: block.slot(),
                 hash: block.hash().to_vec().into(),
                 height: block.number(),
             }
@@ -725,22 +723,12 @@ impl<C: LedgerContext> Mapper<C> {
                 tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
-            timestamp: self.map_slot_timestamp(slot),
+            timestamp: self
+                .ledger
+                .as_ref()
+                .map(|ledger| ledger.get_slot_timestamp(block.slot()))
+                .unwrap_or(0),
         }
-    }
-
-    pub fn map_slot_timestamp(&self, slot: u64) -> u64 {
-        self.ledger
-            .as_ref()
-            .and_then(|ledger| ledger.get_slot_pparams(slot))
-            .and_then(|params| {
-                let start = params.system_start().timestamp() as u64;
-                let slot_len = params.slot_length();
-
-                slot.checked_mul(slot_len)
-                    .and_then(|d| start.checked_add(d))
-            })
-            .unwrap_or(0)
     }
 
     pub fn map_block_cbor(&self, raw: &[u8]) -> u5c::Block {
@@ -752,8 +740,6 @@ impl<C: LedgerContext> Mapper<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pallas_primitives::{Nonce, NonceVariant, RationalNumber};
-    use pallas_validate::utils::ShelleyProtParams;
     use pretty_assertions::assert_eq;
 
     #[derive(Clone)]
@@ -764,44 +750,8 @@ mod tests {
             None
         }
 
-        fn get_slot_pparams(&self, _slot: u64) -> Option<MultiEraProtocolParameters> {
-            Some(MultiEraProtocolParameters::Shelley(ShelleyProtParams {
-                system_start: chrono::DateTime::parse_from_rfc3339("2017-09-23T21:44:51Z").unwrap(),
-                epoch_length: 432000,
-                slot_length: 1,
-                minfee_b: 155381,
-                minfee_a: 44,
-                max_block_body_size: 65536,
-                max_transaction_size: 16384,
-                max_block_header_size: 1100,
-                key_deposit: 2_000_000,
-                pool_deposit: 500_000_000,
-                maximum_epoch: 18,
-                desired_number_of_stake_pools: 500,
-                pool_pledge_influence: RationalNumber {
-                    numerator: 3,
-                    denominator: 10,
-                },
-                expansion_rate: RationalNumber {
-                    numerator: 3,
-                    denominator: 1000,
-                },
-                treasury_growth_rate: RationalNumber {
-                    numerator: 2,
-                    denominator: 10,
-                },
-                decentralization_constant: RationalNumber {
-                    numerator: 0,
-                    denominator: 1,
-                },
-                extra_entropy: Nonce {
-                    variant: NonceVariant::NeutralNonce,
-                    hash: None,
-                },
-                protocol_version: (4, 0),
-                min_utxo_value: 1_000_000,
-                min_pool_cost: 340_000_000,
-            }))
+        fn get_slot_timestamp(&self, _slot: u64) -> u64 {
+            0
         }
     }
 
