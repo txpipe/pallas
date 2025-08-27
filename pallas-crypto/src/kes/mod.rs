@@ -46,6 +46,7 @@ pub mod common;
 pub mod errors;
 mod single_kes;
 pub mod summed_kes;
+mod summed_kes_interoperability;
 mod summed_kes_tests;
 pub mod traits;
 
