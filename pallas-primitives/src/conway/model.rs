@@ -734,6 +734,125 @@ mod tests {
     type BlockWrapper<'b> = (u16, Block<'b>);
 
     #[cfg(test)]
+    mod tests_value {
+        use super::super::Mint;
+        use super::super::Multiasset;
+        use super::super::NonZeroInt;
+        use super::super::Value;
+        use pallas_codec::minicbor;
+        use std::collections::BTreeMap;
+
+        // a value can have zero coins and omit the multiasset
+        #[test]
+        fn decode_zero_value() {
+            let ma: Value = minicbor::decode(&hex::decode("00").unwrap()).unwrap();
+            assert_eq!(ma, Value::Coin(0));
+        }
+
+        // a value can have zero coins and an empty multiasset map
+        // Note: this will roundtrip back to "00"
+        #[test]
+        fn permit_definite_asset() {
+            let ma: Value = minicbor::decode(&hex::decode("8200a0").unwrap()).unwrap();
+            assert_eq!(ma, Value::Multiasset(0, BTreeMap::new()));
+        }
+
+        // indefinite-encoded value is invalid
+        #[test]
+        fn reject_indefinite_value() {
+            let ma: Result<Value, _> = minicbor::decode(&hex::decode("9f00a0ff").unwrap());
+            assert_eq!(
+                ma.map_err(|e| e.to_string()),
+                Err("decode error: Unknown cbor data type for this macro-defined enum.".to_owned())
+            );
+        }
+
+        // the asset sub-map of a policy map in a multiasset must not be null in Conway
+        #[test]
+        fn reject_null_tokens() {
+            let ma: Result<Value, _> = minicbor::decode(&hex::decode("8200a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap());
+            assert_eq!(
+                ma.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+        // the asset sub-map of a policy map in a multiasset must not have any zero values in
+        // Conway
+        #[test]
+        fn reject_zero_tokens() {
+            let ma: Result<Value, _> = minicbor::decode(&hex::decode("8200a1581c00000000000000000000000000000000000000000000000000000000a14000").unwrap());
+            assert_eq!(
+                ma.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+        #[test]
+        fn multiasset_reject_null_tokens() {
+            let ma: Result<Multiasset<NonZeroInt>, _> = minicbor::decode(&hex::decode("a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap());
+            assert_eq!(
+                ma.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+        // the decoder for MaryValue in the haskell node rejects inputs that are "too big" as
+        // defined by `isMultiAssetSmallEnough`
+        #[test]
+        fn multiasset_not_too_big() {
+            todo!()
+        }
+
+        #[test]
+        fn mint_reject_null_tokens() {
+            let ma: Result<Mint, _> = minicbor::decode(&hex::decode("a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap());
+            assert_eq!(
+                ma.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+    }
+
+    mod tests_transaction {
+        use super::super::TransactionBody;
+        use pallas_codec::minicbor;
+
+        // a simple tx with just inputs, outputs, and fee.
+        // address is all 00 bytes, which seems like it should fail?
+        #[test]
+        fn decode_simple_tx() {
+            let tx_bytes = hex::decode("a300828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a04000000").unwrap();
+            let tx: TransactionBody = minicbor::decode(&tx_bytes).unwrap();
+            assert_eq!(tx.fee, 0);
+        }
+
+        // the decoder for ConwayTxBodyRaw rejects transaction bodies missing inputs, outputs, or
+        // fee
+        #[test]
+        fn reject_empty_tx() {
+            let tx_bytes = hex::decode("a0").unwrap();
+            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            assert_eq!(
+                tx.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+        // the mint may not be present if it is empty
+        #[test]
+        fn reject_empty_present_mint() {
+            let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a0400000009a0").unwrap();
+            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            assert_eq!(
+                tx.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+    }
+
+    #[cfg(test)]
     mod tests_voter {
         use super::super::Voter;
         use crate::Hash;
