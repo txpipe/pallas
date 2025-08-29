@@ -44,7 +44,8 @@
 
 #[cfg(feature = "kes_cli")]
 pub mod cli;
-//mod cli_tests;
+#[cfg(feature = "kes_cli")]
+mod cli_tests;
 
 pub mod common;
 pub mod errors;
