@@ -7,7 +7,7 @@ use std::ops::{Div, Mul, Neg, Sub};
 use std::sync::LazyLock;
 use thiserror::Error;
 
-pub type FixedDecimal = crate::math_dashu::Decimal;
+pub type FixedDecimal = crate::math_bigint::Decimal;
 
 pub static ZERO: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(0u64));
 pub static MINUS_ONE: LazyLock<FixedDecimal> = LazyLock::new(|| FixedDecimal::from(-1i64));
@@ -95,7 +95,6 @@ pub struct ExpCmpOrdering {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dashu_base::Abs;
     use proptest::prelude::Strategy;
     use proptest::proptest;
     use std::fs::File;
