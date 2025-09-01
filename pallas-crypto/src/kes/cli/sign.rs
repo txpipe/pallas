@@ -1,4 +1,4 @@
-#![cfg(feature = "kes_cli")]
+#![cfg(feature = "kes-cli")]
 
 /// Message signing
 use crate::kes::common::open_both;

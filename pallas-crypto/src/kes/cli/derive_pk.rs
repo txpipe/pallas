@@ -1,4 +1,4 @@
-#![cfg(feature = "kes_cli")]
+#![cfg(feature = "kes-cli")]
 
 /// Public key derivation
 use crate::kes::common::open_any;

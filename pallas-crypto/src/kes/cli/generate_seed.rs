@@ -1,4 +1,4 @@
-#![cfg(feature = "kes_cli")]
+#![cfg(feature = "kes-cli")]
 
 /// Seed generation
 use crate::kes::common::generate_crypto_secure_seed;

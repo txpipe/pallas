@@ -40,7 +40,7 @@ tempfile = "3.19.1"
 [features]
 default = []
 sk_clone_enabled = []
-kes_cli = []
+kes-cli = []
 
 [[bench]]
 harness = false
@@ -48,6 +48,6 @@ name = "summed_kes_benches"
 path = "./src/kes/summed_kes_benches.rs"
 
 [[bin]]
-name = "kes_cli"
+name = "kes-cli"
 path = "./src/kes/summed_kes_cli.rs"
-required-features = ["kes_cli"]
+required-features = ["kes-cli"]

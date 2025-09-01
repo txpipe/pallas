@@ -1,4 +1,4 @@
-#![cfg(feature = "kes_cli")]
+#![cfg(feature = "kes-cli")]
 
 /// Signing key updating
 use crate::kes::common::open_any;

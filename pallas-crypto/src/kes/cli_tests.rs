@@ -8,7 +8,7 @@ mod test {
 
     use crate::kes::common::generate_crypto_secure_seed;
 
-    const PRG: &str = env!("CARGO_PKG_NAME");
+    const PRG: &str = "kes-cli";
 
     #[test]
     fn correct_output_help_arg() {

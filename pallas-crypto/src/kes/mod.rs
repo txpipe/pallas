@@ -42,9 +42,9 @@
 //! other words, the number of individual hashes to be stored equals the depth
 //! of the Merkle tree.
 
-#[cfg(feature = "kes_cli")]
+#[cfg(feature = "kes-cli")]
 pub mod cli;
-#[cfg(feature = "kes_cli")]
+#[cfg(feature = "kes-cli")]
 mod cli_tests;
 
 pub mod common;

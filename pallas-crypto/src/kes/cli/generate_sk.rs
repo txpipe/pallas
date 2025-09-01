@@ -1,4 +1,4 @@
-#![cfg(feature = "kes_cli")]
+#![cfg(feature = "kes-cli")]
 
 /// Signing key generation
 use crate::kes::common::generate_crypto_secure_seed;

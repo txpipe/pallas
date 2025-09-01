@@ -1,4 +1,4 @@
-#![cfg(feature = "kes_cli")]
+#![cfg(feature = "kes-cli")]
 
 //! CLI implementation using Sum6Kes implementation of KES
 
