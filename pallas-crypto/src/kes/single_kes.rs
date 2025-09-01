@@ -60,8 +60,7 @@ impl<'a> KesSk<'a> for Sum0Kes<'a> {
 
     fn sign(&self, m: &[u8]) -> Sum0KesSig {
         let secret = EdSigningKey::from_bytes(
-            self.0
-                .as_ref()
+            (&*self.0)
                 .try_into()
                 .expect("Seed is defined with 32 bytes, so it won't fail."),
         );
@@ -203,8 +202,7 @@ impl<'a> KesSk<'a> for Sum0CompactKes<'a> {
 
     fn sign(&self, m: &[u8]) -> Sum0CompactKesSig {
         let secret = EdSigningKey::from_bytes(
-            self.0
-                .as_ref()
+            (&*self.0)
                 .try_into()
                 .expect("Seed is defined with 32 bytes, so it won't fail."),
         );
