@@ -1855,20 +1855,20 @@ pub async fn local_message_notification_server_and_client_happy_path() {
             DmqMsg {
                 msg_id: vec![0, 1],
                 msg_body: vec![0, 1, 2],
-                block_number: 10,
-                ttl: 100,
                 kes_signature: vec![0, 1, 2, 3],
-                operational_certificate: vec![0, 1, 2, 3, 4],
                 kes_period: 10,
+                operational_certificate: vec![0, 1, 2, 3, 4],
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+                expires_at: 100,
             },
             DmqMsg {
                 msg_id: vec![1, 2],
                 msg_body: vec![1, 2, 3],
-                block_number: 11,
-                ttl: 100,
                 kes_signature: vec![1, 2, 3, 4],
+                kes_period: 12,
                 operational_certificate: vec![1, 2, 3, 4, 5],
-                kes_period: 11,
+                cold_verification_key: vec![1, 2, 3, 4, 5, 6],
+                expires_at: 102,
             },
         ]
     }
@@ -1976,11 +1976,11 @@ pub async fn local_message_submission_server_and_client_happy_path() {
         DmqMsg {
             msg_id: vec![0, 1],
             msg_body: vec![0, 1, 2],
-            block_number: 10,
-            ttl: 100,
             kes_signature: vec![0, 1, 2, 3],
-            operational_certificate: vec![0, 1, 2, 3, 4],
             kes_period: 10,
+            operational_certificate: vec![0, 1, 2, 3, 4],
+            cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+            expires_at: 100,
         }
     }
 
