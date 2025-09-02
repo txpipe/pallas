@@ -1,14 +1,23 @@
-/// The bytes of a message to be submitted to the local message submission protocol.
+/// A message to be sent by the local message submission protocol.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsg {
+    /// The payload of the message.
+    pub msg_payload: DmqMsgPayload,
+
+    /// The KES signature of the message created by the SPO sending the message.
+    pub kes_signature: Vec<u8>,
+}
+
+/// The payload of a message to be submitted to the local message submission protocol.
+///
+/// Important: This message is not signed and should not be considered final.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DmqMsgPayload {
     /// The message id.
     pub msg_id: Vec<u8>,
 
     /// The message body.
     pub msg_body: Vec<u8>,
-
-    /// The KES signature of the message created by the SPO sending the message.
-    pub kes_signature: Vec<u8>,
 
     /// The KES period at which the KES signature was created.
     pub kes_period: u64,
