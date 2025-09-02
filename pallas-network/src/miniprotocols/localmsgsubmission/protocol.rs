@@ -1,3 +1,7 @@
+use std::convert::Infallible;
+
+use pallas_codec::minicbor;
+
 /// A message to be sent by the local message submission protocol.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsg {
@@ -32,6 +36,13 @@ pub struct DmqMsgPayload {
     pub expires_at: u32,
 }
 
+impl DmqMsgPayload {
+    /// Returns the bytes to sign for the message payload.
+    pub fn bytes_to_sign(&self) -> Result<Vec<u8>, minicbor::encode::Error<Infallible>> {
+        minicbor::to_vec(self)
+    }
+}
+
 /// Reject reason.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsgValidationError(pub String);
@@ -39,5 +50,28 @@ pub struct DmqMsgValidationError(pub String);
 impl From<String> for DmqMsgValidationError {
     fn from(string: String) -> DmqMsgValidationError {
         DmqMsgValidationError(string)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dmq_msg_payload_bytes_to_sign_golden() {
+        let payload = DmqMsgPayload {
+            msg_id: vec![1, 2, 3],
+            msg_body: vec![4, 5, 6],
+            kes_period: 7,
+            operational_certificate: vec![8, 9, 10],
+            cold_verification_key: vec![11, 12, 13],
+            expires_at: 14,
+        };
+
+        let bytes = payload.bytes_to_sign().unwrap();
+        assert_eq!(
+            vec![134, 67, 1, 2, 3, 67, 4, 5, 6, 7, 67, 8, 9, 10, 67, 11, 12, 13, 14,],
+            bytes
+        );
     }
 }
