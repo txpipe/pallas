@@ -10,6 +10,12 @@ pub struct DmqMsg {
 
     /// The KES signature of the message created by the SPO sending the message.
     pub kes_signature: Vec<u8>,
+
+    /// The operational certificate of the SPO that created the message.
+    pub operational_certificate: Vec<u8>,
+
+    /// The cold verification key of the SPO that created the message.
+    pub cold_verification_key: Vec<u8>,
 }
 
 /// The payload of a message to be submitted to the local message submission protocol.
@@ -25,12 +31,6 @@ pub struct DmqMsgPayload {
 
     /// The KES period at which the KES signature was created.
     pub kes_period: u64,
-
-    /// The operational certificate of the SPO that created the message.
-    pub operational_certificate: Vec<u8>,
-
-    /// The cold verification key of the SPO that created the message.
-    pub cold_verification_key: Vec<u8>,
 
     /// The expiration timestamp of the message.
     pub expires_at: u32,
@@ -63,15 +63,10 @@ mod tests {
             msg_id: vec![1, 2, 3],
             msg_body: vec![4, 5, 6],
             kes_period: 7,
-            operational_certificate: vec![8, 9, 10],
-            cold_verification_key: vec![11, 12, 13],
             expires_at: 14,
         };
 
         let bytes = payload.bytes_to_sign().unwrap();
-        assert_eq!(
-            vec![134, 67, 1, 2, 3, 67, 4, 5, 6, 7, 67, 8, 9, 10, 67, 11, 12, 13, 14,],
-            bytes
-        );
+        assert_eq!(vec![134, 67, 1, 2, 3, 67, 4, 5, 6, 7, 14], bytes);
     }
 }
