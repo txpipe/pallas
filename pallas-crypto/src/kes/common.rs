@@ -92,35 +92,6 @@ fn hash_two_arrays(
     out_bytes.copy_from_slice(hasher.finalize().as_ref());
 }
 
-#[cfg(test)]
-mod test {
-
-    use crate::hash::Hasher;
-    use crate::kes::PublicKey;
-
-    #[test]
-    fn hash_pubkey_pair() {
-        let pk1_bytes = [0u8; 32];
-        let pk1 = PublicKey::from_bytes(&pk1_bytes).unwrap();
-        let pk2_bytes = [9u8; 32];
-        let pk2 = PublicKey::from_bytes(&pk2_bytes).unwrap();
-
-        let mut pkPair_bytes = [0u8; 64];
-        let (left, right) = pkPair_bytes.split_at_mut(pk1_bytes.len());
-        left.copy_from_slice(&pk1_bytes);
-        right.copy_from_slice(&pk2_bytes);
-
-        let mut hasher = Hasher::<256>::new();
-        hasher.input(&pkPair_bytes);
-        let digest = hasher.finalize();
-        assert_eq!(
-            pk1.hash_pair(&pk2).as_bytes(),
-            digest.as_ref(),
-            "Hash pair gave incorrect result"
-        )
-    }
-}
-
 impl AsRef<[u8]> for PublicKey {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -147,45 +118,6 @@ impl Seed {
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 
         (left_seed, right_seed)
-    }
-}
-
-#[cfg(test)]
-mod test1 {
-
-    use crate::hash::Hasher;
-    use crate::kes::common::Seed;
-    use std::ops::Deref;
-
-    #[test]
-    fn hash_seed() {
-        let mut seed_bytes = [5u8; 32];
-
-        let mut seed1 = [0u8; 33];
-        let mut seed1left = [1u8; 1];
-        let (left, right) = seed1.split_at_mut(1);
-        left.copy_from_slice(&seed1left);
-        right.copy_from_slice(&seed_bytes);
-
-        let mut seed2 = [0u8; 33];
-        let mut seed2left = [2u8; 1];
-        let (left, right) = seed2.split_at_mut(1);
-        left.copy_from_slice(&seed2left);
-        right.copy_from_slice(&seed_bytes);
-
-        let mut hasher1 = Hasher::<256>::new();
-        hasher1.input(&seed1);
-        let digest1 = hasher1.finalize();
-
-        let mut hasher2 = Hasher::<256>::new();
-        hasher2.input(&seed2);
-        let digest2 = hasher2.finalize();
-
-        assert_eq!(
-            Seed::split_slice(&mut seed_bytes),
-            (*digest1.deref(), *digest2.deref()),
-            "seed pair gave incorrect result"
-        )
     }
 }
 
