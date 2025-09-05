@@ -70,26 +70,11 @@ impl PublicKey {
 
     /// Hash two public keys using Blake2b
     pub(crate) fn hash_pair(&self, other: &PublicKey) -> PublicKey {
-        let mut out = [0u8; 32];
-        let mut tmp_bytes = [0u8; 64];
-        hash_two_arrays(&mut out, &mut tmp_bytes, &self.0, &other.0);
-        PublicKey(out)
+        let mut hasher = Hasher::<256>::new();
+        hasher.input(&self.0);
+        hasher.input(&other.0);
+        PublicKey(*hasher.finalize())
     }
-}
-
-fn hash_two_arrays(
-    out_bytes: &mut [u8],
-    tmp_bytes: &mut [u8],
-    left_bytes: &[u8],
-    right_bytes: &[u8],
-) {
-    let (left, right) = (*tmp_bytes).split_at_mut(left_bytes.len());
-    left.copy_from_slice(left_bytes);
-    right.copy_from_slice(right_bytes);
-
-    let mut hasher = Hasher::<256>::new();
-    hasher.input(tmp_bytes);
-    out_bytes.copy_from_slice(hasher.finalize().as_ref());
 }
 
 impl AsRef<[u8]> for PublicKey {
@@ -106,14 +91,16 @@ impl Seed {
     /// slice with zeros.
     pub fn split_slice(bytes: &mut [u8]) -> ([u8; 32], [u8; 32]) {
         assert_eq!(bytes.len(), Self::SIZE, "Size of the seed is incorrect.");
-        let mut left_seed = [0u8; Self::SIZE];
-        let mut right_seed = [0u8; Self::SIZE];
 
-        let mut tmp_bytes = [0u8; 33];
-        hash_two_arrays(&mut left_seed, &mut tmp_bytes, &[1], bytes);
+        let mut hasher = Hasher::<256>::new();
+        hasher.input(&[1]);
+        hasher.input(&bytes);
+        let left_seed = *hasher.finalize();
 
-        let mut tmp_bytes = [0u8; 33];
-        hash_two_arrays(&mut right_seed, &mut tmp_bytes, &[2], bytes);
+        let mut hasher = Hasher::<256>::new();
+        hasher.input(&[2]);
+        hasher.input(&bytes);
+        let right_seed = *hasher.finalize();
 
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 
