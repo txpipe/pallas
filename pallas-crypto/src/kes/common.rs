@@ -1,4 +1,5 @@
 //! Structures common to all constructions of key evolving signatures
+use crate::hash::Hasher;
 use crate::kes::errors::Error;
 use blake2::digest::{Update, VariableOutput};
 use blake2::Blake2bVar;
@@ -72,12 +73,48 @@ impl PublicKey {
     /// Hash two public keys using Blake2b
     pub(crate) fn hash_pair(&self, other: &PublicKey) -> PublicKey {
         let mut out = [0u8; 32];
-        let mut h = Blake2bVar::new(32).expect("valid size");
-        h.update(&self.0);
-        h.update(&other.0);
-
-        h.finalize_variable(&mut out).expect("valid size");
+        hash_two_pubkey(&mut out, &self.0, &other.0);
         PublicKey(out)
+    }
+}
+
+fn hash_two_pubkey(bytes: &mut [u8], left_bytes: &[u8], right_bytes: &[u8]) {
+    let mut pair_bytes = [0u8; 64];
+    let (left, right) = pair_bytes.split_at_mut(left_bytes.len());
+    left.copy_from_slice(&left_bytes);
+    right.copy_from_slice(&right_bytes);
+
+    let mut hasher = Hasher::<256>::new();
+    hasher.input(&pair_bytes);
+    bytes.copy_from_slice(hasher.finalize().as_ref());
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::hash::Hasher;
+    use crate::kes::PublicKey;
+
+    #[test]
+    fn hash_pubkey_pair() {
+        let pk1_bytes = [0u8; 32];
+        let pk1 = PublicKey::from_bytes(&pk1_bytes).unwrap();
+        let pk2_bytes = [9u8; 32];
+        let pk2 = PublicKey::from_bytes(&pk2_bytes).unwrap();
+
+        let mut pkPair_bytes = [0u8; 64];
+        let (left, right) = pkPair_bytes.split_at_mut(pk1_bytes.len());
+        left.copy_from_slice(&pk1_bytes);
+        right.copy_from_slice(&pk2_bytes);
+
+        let mut hasher = Hasher::<256>::new();
+        hasher.input(&pkPair_bytes);
+        let digest = hasher.finalize();
+        assert_eq!(
+            pk1.hash_pair(&pk2).as_bytes(),
+            digest.as_ref(),
+            "Hash pair gave incorrect result"
+        )
     }
 }
 
@@ -114,6 +151,35 @@ impl Seed {
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 
         (left_seed, right_seed)
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::hash::Hasher;
+    use crate::kes::PublicKey;
+
+    #[test]
+    fn hash_pubkey_pair() {
+        let pk1_bytes = [0u8; 32];
+        let pk1 = PublicKey::from_bytes(&pk1_bytes).unwrap();
+        let pk2_bytes = [9u8; 32];
+        let pk2 = PublicKey::from_bytes(&pk2_bytes).unwrap();
+
+        let mut pkPair_bytes = [0u8; 64];
+        let (left, right) = pkPair_bytes.split_at_mut(pk1_bytes.len());
+        left.copy_from_slice(&pk1_bytes);
+        right.copy_from_slice(&pk2_bytes);
+
+        let mut hasher = Hasher::<256>::new();
+        hasher.input(&pkPair_bytes);
+        let digest = hasher.finalize();
+        assert_eq!(
+            pk1.hash_pair(&pk2).as_bytes(),
+            digest.as_ref(),
+            "Hash pair gave incorrect result"
+        )
     }
 }
 

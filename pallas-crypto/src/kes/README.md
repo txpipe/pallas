@@ -123,7 +123,7 @@ OK
 
 ## Compatibility with Cardano
 We provide two implementations of KES for compatibility with Cardano's blockchain. Cardano currently
-uses `Sum6Kes` which is suppoted here.
+uses `Sum6Kes` which is supported here.
 As that implementation is not optimal in what concerns signature size,
 we provide implementation of `SumCompact6Kes`, which provides an asymptotic halving of the signature
 size. We provide test vectors generated using Cardano's code to ensure that future changes in the
