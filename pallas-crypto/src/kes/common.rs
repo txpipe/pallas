@@ -84,8 +84,8 @@ fn hash_two_arrays(
     right_bytes: &[u8],
 ) {
     let (left, right) = (*tmp_bytes).split_at_mut(left_bytes.len());
-    left.copy_from_slice(&left_bytes);
-    right.copy_from_slice(&right_bytes);
+    left.copy_from_slice(left_bytes);
+    right.copy_from_slice(right_bytes);
 
     let mut hasher = Hasher::<256>::new();
     hasher.input(tmp_bytes);
@@ -110,10 +110,10 @@ impl Seed {
         let mut right_seed = [0u8; Self::SIZE];
 
         let mut tmp_bytes = [0u8; 33];
-        hash_two_arrays(&mut left_seed, &mut tmp_bytes, &[1], &bytes);
+        hash_two_arrays(&mut left_seed, &mut tmp_bytes, &[1], bytes);
 
         let mut tmp_bytes = [0u8; 33];
-        hash_two_arrays(&mut right_seed, &mut tmp_bytes, &[2], &bytes);
+        hash_two_arrays(&mut right_seed, &mut tmp_bytes, &[2], bytes);
 
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 
