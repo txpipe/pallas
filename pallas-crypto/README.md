@@ -9,6 +9,6 @@ Crate with all the cryptographic material to support Cardano protocol:
 - [ ] Bip32-Ed25519 key derivation
 - [ ] BIP39 mnemonics
 - [x] VRF
-- [x] KES
+- [x] [KES](src/kes/README.md)
 - [ ] SECP256k1
 - [x] Nonce calculations

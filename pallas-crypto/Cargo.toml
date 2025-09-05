@@ -11,15 +11,42 @@ readme = "README.md"
 authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>", "Andrew Westberg <andrewwestberg@gmail.com>"]
 
 [dependencies]
+clap = { version = "4.5.38", features = ["derive", "env"] }
 hex = "0.4"
 cryptoxide = { version = "0.4.4" }
 thiserror = "1.0"
-rand_core = "0.6"
+rand = "0.9"
+rand_chacha = "0.9"
+rand_core = "0.9"
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
-serde = "1.0.143"
+serde = { version = "1.0.143", features = ["derive"]}
+serde_with = "3.11.0"
+ed25519-dalek = { version = "2", features = ["serde"] }
+zeroize = "1.8.1"
 
 [dev-dependencies]
+assert_cmd = "2.0"
+criterion = "0.7"
 itertools = "0.13"
+predicates = "3.1"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
+proptest = "1.6"
+serde_json = "1"
 serde_test = "1.0.143"
+tempfile = "3.19.1"
+
+[features]
+default = []
+sk_clone_enabled = []
+kes-cli = []
+
+[[bench]]
+harness = false
+name = "summed_kes_benches"
+path = "./src/kes/summed_kes_benches.rs"
+
+[[bin]]
+name = "kes-cli"
+path = "./src/kes/summed_kes_cli.rs"
+required-features = ["kes-cli"]
