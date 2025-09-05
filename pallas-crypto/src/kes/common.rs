@@ -1,8 +1,6 @@
 //! Structures common to all constructions of key evolving signatures
 use crate::hash::Hasher;
 use crate::kes::errors::Error;
-use blake2::digest::{Update, VariableOutput};
-use blake2::Blake2bVar;
 use ed25519_dalek as ed25519;
 use rand::RngCore;
 use rand::SeedableRng;
@@ -73,20 +71,25 @@ impl PublicKey {
     /// Hash two public keys using Blake2b
     pub(crate) fn hash_pair(&self, other: &PublicKey) -> PublicKey {
         let mut out = [0u8; 32];
-        hash_two_pubkey(&mut out, &self.0, &other.0);
+        let mut tmp_bytes = [0u8; 64];
+        hash_two_arrays(&mut out, &mut tmp_bytes, &self.0, &other.0);
         PublicKey(out)
     }
 }
 
-fn hash_two_pubkey(bytes: &mut [u8], left_bytes: &[u8], right_bytes: &[u8]) {
-    let mut pair_bytes = [0u8; 64];
-    let (left, right) = pair_bytes.split_at_mut(left_bytes.len());
+fn hash_two_arrays(
+    out_bytes: &mut [u8],
+    tmp_bytes: &mut [u8],
+    left_bytes: &[u8],
+    right_bytes: &[u8],
+) {
+    let (left, right) = (*tmp_bytes).split_at_mut(left_bytes.len());
     left.copy_from_slice(&left_bytes);
     right.copy_from_slice(&right_bytes);
 
     let mut hasher = Hasher::<256>::new();
-    hasher.input(&pair_bytes);
-    bytes.copy_from_slice(hasher.finalize().as_ref());
+    hasher.input(tmp_bytes);
+    out_bytes.copy_from_slice(hasher.finalize().as_ref());
 }
 
 #[cfg(test)]
@@ -135,18 +138,11 @@ impl Seed {
         let mut left_seed = [0u8; Self::SIZE];
         let mut right_seed = [0u8; Self::SIZE];
 
-        let mut hasher = Blake2bVar::new(32).expect("valid size");
-        hasher.update(&[1]);
-        hasher.update(bytes);
-        hasher
-            .finalize_variable(&mut left_seed)
-            .expect("valid size");
-        let mut hasher = Blake2bVar::new(32).expect("valid size");
-        hasher.update(&[2]);
-        hasher.update(bytes);
-        hasher
-            .finalize_variable(&mut right_seed)
-            .expect("valid size");
+        let mut tmp_bytes = [0u8; 33];
+        hash_two_arrays(&mut left_seed, &mut tmp_bytes, &[1], &bytes);
+
+        let mut tmp_bytes = [0u8; 33];
+        hash_two_arrays(&mut right_seed, &mut tmp_bytes, &[2], &bytes);
 
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 
@@ -155,30 +151,40 @@ impl Seed {
 }
 
 #[cfg(test)]
-mod test {
+mod test1 {
 
     use crate::hash::Hasher;
-    use crate::kes::PublicKey;
+    use crate::kes::common::Seed;
+    use std::ops::Deref;
 
     #[test]
-    fn hash_pubkey_pair() {
-        let pk1_bytes = [0u8; 32];
-        let pk1 = PublicKey::from_bytes(&pk1_bytes).unwrap();
-        let pk2_bytes = [9u8; 32];
-        let pk2 = PublicKey::from_bytes(&pk2_bytes).unwrap();
+    fn hash_seed() {
+        let mut seed_bytes = [5u8; 32];
 
-        let mut pkPair_bytes = [0u8; 64];
-        let (left, right) = pkPair_bytes.split_at_mut(pk1_bytes.len());
-        left.copy_from_slice(&pk1_bytes);
-        right.copy_from_slice(&pk2_bytes);
+        let mut seed1 = [0u8; 33];
+        let mut seed1left = [1u8; 1];
+        let (left, right) = seed1.split_at_mut(1);
+        left.copy_from_slice(&seed1left);
+        right.copy_from_slice(&seed_bytes);
 
-        let mut hasher = Hasher::<256>::new();
-        hasher.input(&pkPair_bytes);
-        let digest = hasher.finalize();
+        let mut seed2 = [0u8; 33];
+        let mut seed2left = [2u8; 1];
+        let (left, right) = seed2.split_at_mut(1);
+        left.copy_from_slice(&seed2left);
+        right.copy_from_slice(&seed_bytes);
+
+        let mut hasher1 = Hasher::<256>::new();
+        hasher1.input(&seed1);
+        let digest1 = hasher1.finalize();
+
+        let mut hasher2 = Hasher::<256>::new();
+        hasher2.input(&seed2);
+        let digest2 = hasher2.finalize();
+
         assert_eq!(
-            pk1.hash_pair(&pk2).as_bytes(),
-            digest.as_ref(),
-            "Hash pair gave incorrect result"
+            Seed::split_slice(&mut seed_bytes),
+            (*digest1.deref(), *digest2.deref()),
+            "seed pair gave incorrect result"
         )
     }
 }
