@@ -115,17 +115,6 @@ where
         }
     }
 
-    pub async fn recv_done(&mut self) -> Result<(), Error> {
-        match self.recv_message().await? {
-            Message::ServerDone => {
-                self.0 = State::Done;
-
-                Ok(())
-            }
-            _ => Err(Error::InvalidInbound),
-        }
-    }
-
     pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::ClientDone;
         self.send_message(&msg).await?;
