@@ -1201,11 +1201,20 @@ fn mk_plutus_script_redeemer_pointers(
     let mut res: Vec<RedeemersKey> = Vec::new();
     let sorted_inputs: &Vec<TransactionInput> = &sort_inputs(&tx_body.inputs);
     for (index, input) in sorted_inputs.iter().enumerate() {
-        if get_script_hash_from_input(input, utxos).is_some() {
-            res.push(RedeemersKey {
-                tag: pallas_primitives::conway::RedeemerTag::Spend,
-                index: index as u32,
-            })
+        if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
+            // Only create redeemer pointer for Plutus scripts, not native scripts
+            if is_phase_2_script(
+                &script_hash,
+                plutus_v1_scripts,
+                plutus_v2_scripts,
+                plutus_v3_scripts,
+                reference_scripts,
+            ) {
+                res.push(RedeemersKey {
+                    tag: pallas_primitives::conway::RedeemerTag::Spend,
+                    index: index as u32,
+                })
+            }
         }
     }
     if let Some(mint) = &tx_body.mint {
