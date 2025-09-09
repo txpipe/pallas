@@ -910,6 +910,35 @@ mod tests {
 
     }
 
+    mod tests_auxdata {
+        use super::super::PostAlonzoAuxiliaryData;
+        use pallas_codec::minicbor;
+
+        #[test]
+        fn decode_auxdata_shelley_format_empty() {
+            let auxdata_bytes = hex::decode("a0").unwrap();
+            let auxdata: PostAlonzoAuxiliaryData =
+                minicbor::decode(&auxdata_bytes).unwrap();
+            assert_eq!(auxdata.metadata, None);
+        }
+
+        #[test]
+        fn decode_auxdata_shelley_ma_format_empty() {
+            let auxdata_bytes = hex::decode("82a080").unwrap();
+            let auxdata: PostAlonzoAuxiliaryData =
+                minicbor::decode(&auxdata_bytes).unwrap();
+            assert_eq!(auxdata.metadata, None);
+        }
+
+        #[test]
+        fn decode_auxdata_alonzo_format_empty() {
+            let auxdata_bytes = hex::decode("d90103a0").unwrap();
+            let auxdata: PostAlonzoAuxiliaryData =
+                minicbor::decode(&auxdata_bytes).unwrap();
+            assert_eq!(auxdata.metadata, None);
+        }
+    }
+
     mod tests_transaction {
         use super::super::TransactionBody;
         use pallas_codec::minicbor;
