@@ -94,12 +94,12 @@ impl Seed {
 
         let mut hasher = Hasher::<256>::new();
         hasher.input(&[1]);
-        hasher.input(&bytes);
+        hasher.input(bytes);
         let left_seed = *hasher.finalize();
 
         let mut hasher = Hasher::<256>::new();
         hasher.input(&[2]);
-        hasher.input(&bytes);
+        hasher.input(bytes);
         let right_seed = *hasher.finalize();
 
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
