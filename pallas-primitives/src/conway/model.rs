@@ -814,6 +814,102 @@ mod tests {
         }
     }
 
+    mod tests_witness_set {
+        use super::super::{Bytes, VKeyWitness, WitnessSet};
+        use pallas_codec::minicbor;
+
+        #[test]
+        fn decode_empty_witness_set() {
+            let witness_set_bytes = hex::decode("a0").unwrap();
+            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+            assert_eq!(ws.vkeywitness, None);
+        }
+
+        #[test]
+        fn decode_witness_set_having_vkeywitness_legacy_may_be_empty() {
+            let witness_set_bytes = hex::decode("a10080").unwrap();
+            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+
+            // TODO: It is really surprising that the guard when decoding non
+            // empty sets from cbor has been commented out
+            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![]));
+        }
+
+        #[test]
+        fn decode_witness_set_having_vkeywitness_legacy_may_be_indefinite() {
+            let witness_set_bytes = hex::decode("a1009fff").unwrap();
+            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+
+            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![]));
+        }
+
+        #[test]
+        fn decode_witness_set_having_vkeywitness_legacy_singleton() {
+            let witness_set_bytes = hex::decode("a10081824040").unwrap();
+            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+
+            let expected = VKeyWitness {
+                vkey: Bytes::from(vec![]),
+                signature: Bytes::from(vec![]),
+            };
+            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
+        }
+
+        #[test]
+        fn decode_witness_set_having_vkeywitness_conwaystyle_singleton() {
+            let witness_set_bytes = hex::decode("a100d9010281824040").unwrap();
+            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+
+            let expected = VKeyWitness {
+                vkey: Bytes::from(vec![]),
+                signature: Bytes::from(vec![]),
+            };
+            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
+        }
+
+        #[test]
+        fn decode_witness_set_having_vkeywitness_conwaystyle_must_be_nonempty() {
+            let witness_set_bytes = hex::decode("a100d9010280").unwrap();
+            let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
+            assert_eq!(
+                ws.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+        #[test]
+        fn decode_witness_set_having_vkeywitness_reject_nonsense_tag() {
+            // VKey witness set with nonsense tag 259
+            let witness_set_bytes = hex::decode("a100d9010381824040").unwrap();
+            let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
+            assert_eq!(
+                ws.map_err(|e| e.to_string()),
+                Err("decode error: Unrecognised tag: Tag(259)".to_owned())
+            );
+        }
+
+        // Unclear what the behavior should be when there are duplicates. The haskell code
+        // allows duplicate entries in the CBOR but represents the vkey witnesses using a
+        // set data type, so that the resulting data structure will only have one element.
+        #[test]
+        fn decode_witness_set_having_vkeywitness_duplicate_entries() {
+            // VKey witness set with nonsense tag 259
+            let witness_set_bytes = hex::decode("a100d9010382824040824040").unwrap();
+            let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
+
+            let expected = VKeyWitness {
+                vkey: Bytes::from(vec![]),
+                signature: Bytes::from(vec![]),
+            };
+            //assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected, expected]));
+            assert_eq!(
+                ws.map_err(|e| e.to_string()),
+                Err("bad".to_owned())
+            );
+        }
+
+    }
+
     mod tests_transaction {
         use super::super::TransactionBody;
         use pallas_codec::minicbor;
@@ -840,6 +936,8 @@ mod tests {
         }
 
         // the mint may not be present if it is empty
+        // TODO: equivalent tests for certs, withdrawals, collateral inputs, required signer
+        // hashes, reference inputs, voting procedures, and proposal procedures
         #[test]
         fn reject_empty_present_mint() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a0400000009a0").unwrap();
