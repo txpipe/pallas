@@ -680,6 +680,13 @@ impl<'b> From<babbage::ScriptRef<'b>> for ScriptRef<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `ScriptRef` instead")]
 pub type MintedScriptRef<'b> = ScriptRef<'b>;
 
+// FIXME: re-exporting here means it does not use the above PostAlonzoAuxiliaryData; instead, it
+// uses the one defined in the alonzo module, which only supports plutus V1 scripts
+//
+// Same problem exists in the babbage module
+//
+// should probably take a type parameter for the post-alonzo variant or just define a whole
+// separate type here and in babbage
 pub use crate::alonzo::AuxiliaryData;
 
 /// A memory representation of an already minted block
@@ -893,8 +900,7 @@ mod tests {
         // set data type, so that the resulting data structure will only have one element.
         #[test]
         fn decode_witness_set_having_vkeywitness_duplicate_entries() {
-            // VKey witness set with nonsense tag 259
-            let witness_set_bytes = hex::decode("a100d9010382824040824040").unwrap();
+            let witness_set_bytes = hex::decode("a100d9010282824040824040").unwrap();
             let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
 
             let expected = VKeyWitness {
@@ -911,31 +917,53 @@ mod tests {
     }
 
     mod tests_auxdata {
-        use super::super::PostAlonzoAuxiliaryData;
+        use super::super::AuxiliaryData;
         use pallas_codec::minicbor;
+        use std::collections::BTreeMap;
 
         #[test]
         fn decode_auxdata_shelley_format_empty() {
             let auxdata_bytes = hex::decode("a0").unwrap();
-            let auxdata: PostAlonzoAuxiliaryData =
+            let auxdata: AuxiliaryData =
                 minicbor::decode(&auxdata_bytes).unwrap();
-            assert_eq!(auxdata.metadata, None);
+            match auxdata {
+                AuxiliaryData::Shelley(s) => {
+                    assert_eq!(s, BTreeMap::new());
+                }
+                _ => {
+                    panic!("Unexpected variant");
+                }
+            }
         }
 
         #[test]
         fn decode_auxdata_shelley_ma_format_empty() {
             let auxdata_bytes = hex::decode("82a080").unwrap();
-            let auxdata: PostAlonzoAuxiliaryData =
+            let auxdata: AuxiliaryData =
                 minicbor::decode(&auxdata_bytes).unwrap();
-            assert_eq!(auxdata.metadata, None);
+            match auxdata {
+                AuxiliaryData::ShelleyMa(s) => {
+                    assert_eq!(s.transaction_metadata, BTreeMap::new());
+                }
+                _ => {
+                    panic!("Unexpected variant");
+                }
+            }
         }
 
         #[test]
         fn decode_auxdata_alonzo_format_empty() {
             let auxdata_bytes = hex::decode("d90103a0").unwrap();
-            let auxdata: PostAlonzoAuxiliaryData =
+            let auxdata: AuxiliaryData =
                 minicbor::decode(&auxdata_bytes).unwrap();
-            assert_eq!(auxdata.metadata, None);
+            match auxdata {
+                AuxiliaryData::PostAlonzo(a) => {
+                    assert_eq!(a.metadata, None);
+                }
+                _ => {
+                    panic!("Unexpected variant");
+                }
+            }
         }
     }
 
