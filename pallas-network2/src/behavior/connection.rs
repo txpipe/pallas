@@ -1,6 +1,6 @@
 use crate::{
-    InterfaceCommand, OutboundQueue, PeerId,
     behavior::{ConnectionState, InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
+    InterfaceCommand, OutboundQueue, PeerId,
 };
 
 fn needs_connection(peer: &InitiatorState) -> bool {
@@ -32,14 +32,8 @@ fn needs_disconnect(peer: &InitiatorState) -> bool {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConnectionConfig {}
-
-impl Default for ConnectionConfig {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 pub struct ConnectionBehavior {
     _config: ConnectionConfig,

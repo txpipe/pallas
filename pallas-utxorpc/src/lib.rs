@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Deref, u64};
+use std::{collections::HashMap, ops::Deref};
 
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
