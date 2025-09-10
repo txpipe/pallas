@@ -60,7 +60,7 @@ impl RollbackBuffer {
     }
 
     /// Iterates over the contents of the buffer
-    pub fn peek(&self) -> Iter<Point> {
+    pub fn peek(&self) -> Iter<'_, Point> {
         self.points.iter()
     }
 

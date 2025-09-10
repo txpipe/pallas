@@ -1,15 +1,15 @@
 use std::collections::HashSet;
 
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
 };
 
-pub struct Config {
+pub struct DiscoveryConfig {
     pub high_water_mark: u8,
 }
 
-impl Default for Config {
+impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             high_water_mark: 100,
@@ -33,7 +33,7 @@ fn peer_is_available(peer: &InitiatorState) -> bool {
 
 #[derive(Default)]
 pub struct DiscoveryBehavior {
-    config: Config,
+    config: DiscoveryConfig,
     discovered: HashSet<PeerId>,
 }
 

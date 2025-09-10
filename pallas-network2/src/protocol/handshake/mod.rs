@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
+use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::protocol::Error;
 
@@ -236,7 +236,7 @@ impl<'b> Decode<'b, ()> for RefuseReason {
 
         match d.u16()? {
             0 => {
-                let mut versions = d.array_iter::<u64>()?;
+                let versions = d.array_iter::<u64>()?;
                 let versions: Vec<u64> = versions.collect::<Result<_, _>>()?;
                 Ok(RefuseReason::VersionMismatch(versions))
             }

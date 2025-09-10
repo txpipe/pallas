@@ -1,7 +1,7 @@
 use std::{net::Ipv4Addr, time::Duration};
 
 use crate::protocol as proto;
-use crate::{PeerId, behavior::AnyMessage, emulation};
+use crate::{behavior::AnyMessage, emulation, PeerId};
 use rand::Rng;
 
 fn reply_handshake_ok(
@@ -40,7 +40,7 @@ fn reply_keepalive_ok(
 
     tracing::debug!("received keepalive");
 
-    if rand::thread_rng().gen_ratio(1, 10) {
+    if rand::rng().random_ratio(1, 10) {
         tracing::debug!("randomly dropping connection (1/10)");
         queue.push_jittered_disconnect(pid, jitter);
         return;
