@@ -733,6 +733,20 @@ pub struct Tx<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
 
+fn is_multiasset_small_enough<T>(ma: Multiasset<T>) -> bool {
+    let per_asset_size = 44;
+    let per_policy_size = 28;
+
+    let policy_count = ma.len();
+    let mut asset_count = 0;
+    for (policy, assets) in ma {
+        asset_count += assets.len();
+    }
+
+    let size = per_asset_size * asset_count + per_policy_size * policy_count;
+    size <= 65535
+}
+
 #[cfg(test)]
 mod tests {
     use super::Block;
@@ -759,19 +773,16 @@ mod tests {
         // a value can have zero coins and an empty multiasset map
         // Note: this will roundtrip back to "00"
         #[test]
-        fn permit_definite_asset() {
+        fn permit_definite_value() {
             let ma: Value = minicbor::decode(&hex::decode("8200a0").unwrap()).unwrap();
             assert_eq!(ma, Value::Multiasset(0, BTreeMap::new()));
         }
 
-        // indefinite-encoded value is invalid
+        // Indefinite-encoded value is valid
         #[test]
-        fn reject_indefinite_value() {
-            let ma: Result<Value, _> = minicbor::decode(&hex::decode("9f00a0ff").unwrap());
-            assert_eq!(
-                ma.map_err(|e| e.to_string()),
-                Err("decode error: Unknown cbor data type for this macro-defined enum.".to_owned())
-            );
+        fn permit_indefinite_value() {
+            let ma: Value = minicbor::decode(&hex::decode("9f00a0ff").unwrap()).unwrap();
+            assert_eq!(ma, Value::Multiasset(0, BTreeMap::new()));
         }
 
         // the asset sub-map of a policy map in a multiasset must not be null in Conway
@@ -808,7 +819,21 @@ mod tests {
         // defined by `isMultiAssetSmallEnough`
         #[test]
         fn multiasset_not_too_big() {
-            todo!()
+            // Creating CBOR representation of a value with 1500 policies
+            // 1500 * 44 is greater than 65535 so this should fail to decode
+            let mut s: String = "b905dc".to_owned();
+            for i in 0..1500u16 {
+                // policy
+                s += "581c0000000000000000000000000000000000000000000000000000";
+                s += &hex::encode(i.to_be_bytes());
+                // minimal token map (conway requires nonempty asset maps)
+                s += "a14001";
+            }
+            let ma: Result<Multiasset<NonZeroInt>, _> = minicbor::decode(&hex::decode(s).unwrap());
+            match ma {
+                Ok(_) => panic!("decode succeded but should fail"),
+                Err(e) => assert_eq!(e.to_string(), "bad")
+            }
         }
 
         #[test]
@@ -837,8 +862,15 @@ mod tests {
             let witness_set_bytes = hex::decode("a10080").unwrap();
             let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
 
-            // TODO: It is really surprising that the guard when decoding non
-            // empty sets from cbor has been commented out
+            // FIXME: The decoder behavior here is strictly correct w.r.t. the haskell code; we
+            // must accept a vkeywitness set that is present but empty (in the legacy witness set
+            // format).
+            //
+            // However, the types we are using in pallas here are confusing; vkeywitness is of type
+            // Option<NonEmptySet>, and in fact, our "NonEmptySet" type allows constructing an
+            // empty value via CBOR decoding (there used to be a guard, but it was commented out).
+            // So we end up with a Some(vec![]). It would make more sense to just have a 'Set'
+            // type.
             assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![]));
         }
 
@@ -898,6 +930,8 @@ mod tests {
         // Unclear what the behavior should be when there are duplicates. The haskell code
         // allows duplicate entries in the CBOR but represents the vkey witnesses using a
         // set data type, so that the resulting data structure will only have one element.
+        // However, our NonEmptySet type is secretly a vector and does not prevent duplicates.
+        // Do we ever hash witness sets? i.e. do we need to remember the original bytes?
         #[test]
         fn decode_witness_set_having_vkeywitness_duplicate_entries() {
             let witness_set_bytes = hex::decode("a100d9010282824040824040").unwrap();
@@ -971,8 +1005,8 @@ mod tests {
         use super::super::TransactionBody;
         use pallas_codec::minicbor;
 
-        // a simple tx with just inputs, outputs, and fee.
-        // address is all 00 bytes, which seems like it should fail?
+        // A simple tx with just inputs, outputs, and fee. Address is not well-formed, since the
+        // 00 header implies both a payment part and a staking part are present.
         #[test]
         fn decode_simple_tx() {
             let tx_bytes = hex::decode("a300828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a04000000").unwrap();
@@ -980,7 +1014,7 @@ mod tests {
             assert_eq!(tx.fee, 0);
         }
 
-        // the decoder for ConwayTxBodyRaw rejects transaction bodies missing inputs, outputs, or
+        // The decoder for ConwayTxBodyRaw rejects transaction bodies missing inputs, outputs, or
         // fee
         #[test]
         fn reject_empty_tx() {
@@ -992,7 +1026,7 @@ mod tests {
             );
         }
 
-        // the mint may not be present if it is empty
+        // The mint may not be present if it is empty
         // TODO: equivalent tests for certs, withdrawals, collateral inputs, required signer
         // hashes, reference inputs, voting procedures, and proposal procedures
         #[test]
