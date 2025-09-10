@@ -797,7 +797,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
 
 #[cfg(test)]
 pub mod tests {
-    use pallas_codec::minicbor;
+    //use pallas_codec::minicbor;
 
     /// Decode/encode roundtrip tests for the localstate example queries/results.
     #[test]
@@ -857,26 +857,26 @@ pub mod tests {
     }
 
     // TODO: DRY with other decode/encode roundtripss
-    /// Decode a value of type T, transform it to U and encode that again to form a roundtrip.
-    fn roundtrips_with<T, U>(message_str: &str, transform: fn(T) -> U)
-    where
-        T: for<'b> minicbor::Decode<'b, ()> + std::fmt::Debug,
-        U: std::fmt::Debug + minicbor::Encode<()>,
-    {
-        use pallas_codec::minicbor;
-
-        let bytes = hex::decode(message_str).unwrap_or_else(|e| panic!("bad message file: {e:?}"));
-
-        let value: T =
-            minicbor::decode(&bytes[..]).unwrap_or_else(|e| panic!("error decoding cbor: {e:?}"));
-        println!("Decoded value: {:#?}", value);
-
-        let result: U = transform(value);
-        println!("Transformed to: {:#?}", result);
-
-        let bytes2 =
-            minicbor::to_vec(result).unwrap_or_else(|e| panic!("error encoding cbor: {e:?}"));
-
-        assert_eq!(hex::encode(bytes), hex::encode(bytes2));
-    }
+    // Decode a value of type T, transform it to U and encode that again to form a roundtrip.
+    //fn roundtrips_with<T, U>(message_str: &str, transform: fn(T) -> U)
+    //where
+    //    T: for<'b> minicbor::Decode<'b, ()> + std::fmt::Debug,
+    //    U: std::fmt::Debug + minicbor::Encode<()>,
+    //{
+    //    use pallas_codec::minicbor;
+    //
+    //    let bytes = hex::decode(message_str).unwrap_or_else(|e| panic!("bad message file: {e:?}"));
+    //
+    //    let value: T =
+    //        minicbor::decode(&bytes[..]).unwrap_or_else(|e| panic!("error decoding cbor: {e:?}"));
+    //    println!("Decoded value: {:#?}", value);
+    //
+    //    let result: U = transform(value);
+    //    println!("Transformed to: {:#?}", result);
+    //
+    //    let bytes2 =
+    //        minicbor::to_vec(result).unwrap_or_else(|e| panic!("error encoding cbor: {e:?}"));
+    //
+    //    assert_eq!(hex::encode(bytes), hex::encode(bytes2));
+    //}
 }

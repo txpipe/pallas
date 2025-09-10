@@ -7,7 +7,6 @@
 //! knows, maybe even a full node in the far away future).
 
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
 
 #[doc(inline)]
 pub use pallas_network as network;
