@@ -10,12 +10,12 @@ use crate::{
     },
 };
 
-pub type Config = ();
+pub type BlockFetchConfig = ();
 
 pub type Request = BlockRange;
 
 pub struct BlockFetchBehavior {
-    //config: Config,
+    //config: BlockFetchConfig,
     requests: VecDeque<Request>,
 }
 
@@ -26,7 +26,7 @@ impl Default for BlockFetchBehavior {
 }
 
 impl BlockFetchBehavior {
-    pub fn new(_config: Config) -> Self {
+    pub fn new(_config: BlockFetchConfig) -> Self {
         Self {
             requests: VecDeque::new(),
         }

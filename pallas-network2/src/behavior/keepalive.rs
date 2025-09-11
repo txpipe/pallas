@@ -1,5 +1,5 @@
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
+    InterfaceCommand, OutboundQueue, PeerId,
     behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
 };
 

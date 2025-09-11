@@ -27,7 +27,7 @@ impl<'b> MultiEraProposal<'b> {
         }
     }
 
-    pub fn gov_action(&self) -> MultiEraGovAction {
+    pub fn gov_action(&self) -> MultiEraGovAction<'_> {
         match self {
             MultiEraProposal::Conway(x) => {
                 MultiEraGovAction::Conway(Box::new(Cow::Borrowed(&x.gov_action)))

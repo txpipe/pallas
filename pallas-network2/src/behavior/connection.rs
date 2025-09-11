@@ -32,14 +32,8 @@ fn needs_disconnect(peer: &InitiatorState) -> bool {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConnectionConfig {}
-
-impl Default for ConnectionConfig {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 pub struct ConnectionBehavior {
     _config: ConnectionConfig,

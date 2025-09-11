@@ -1,7 +1,7 @@
 use std::{fmt::Debug, pin::Pin};
 
 use futures::{
-    FutureExt, Stream, StreamExt, select,
+    Stream, StreamExt, select,
     stream::{FusedStream, FuturesUnordered},
 };
 

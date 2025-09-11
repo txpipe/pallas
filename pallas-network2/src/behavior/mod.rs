@@ -382,6 +382,7 @@ pub enum InitiatorEvent {
     TxRequested(PeerId, proto::txsubmission::EraTxId),
 }
 
+#[derive(Default)]
 pub struct InitiatorBehavior {
     pub promotion: promotion::PromotionBehavior,
     pub connection: connection::ConnectionBehavior,
@@ -514,22 +515,6 @@ impl InitiatorBehavior {
         }
 
         self.move_discovered_into_promotion();
-    }
-}
-
-impl Default for InitiatorBehavior {
-    fn default() -> Self {
-        Self {
-            peers: Default::default(),
-            promotion: PromotionBehavior::default(),
-            connection: ConnectionBehavior::default(),
-            handshake: HandshakeBehavior::default(),
-            keepalive: KeepaliveBehavior::default(),
-            discovery: DiscoveryBehavior::default(),
-            blockfetch: BlockFetchBehavior::default(),
-            chainsync: ChainSyncBehavior::default(),
-            outbound: Default::default(),
-        }
     }
 }
 

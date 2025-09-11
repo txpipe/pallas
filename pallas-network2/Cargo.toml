@@ -21,5 +21,6 @@ hex = "0.4.3"
 [features]
 emulation = ["tokio", "rand"]
 default = ["emulation"]
+blueprint = []
 
 [dev-dependencies]

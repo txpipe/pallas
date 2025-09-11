@@ -236,7 +236,7 @@ impl<'b> Decode<'b, ()> for RefuseReason {
 
         match d.u16()? {
             0 => {
-                let mut versions = d.array_iter::<u64>()?;
+                let versions = d.array_iter::<u64>()?;
                 let versions: Vec<u64> = versions.collect::<Result<_, _>>()?;
                 Ok(RefuseReason::VersionMismatch(versions))
             }

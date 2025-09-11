@@ -23,7 +23,7 @@ impl<'b> MultiEraOutput<'b> {
         Self::Conway(Box::new(Cow::Borrowed(output)))
     }
 
-    pub fn datum(&self) -> Option<conway::DatumOption> {
+    pub fn datum(&self) -> Option<conway::DatumOption<'_>> {
         match self {
             MultiEraOutput::AlonzoCompatible(x, _) => x.datum_hash.map(babbage::DatumOption::Hash),
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
@@ -46,7 +46,7 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    pub fn script_ref(&self) -> Option<conway::ScriptRef> {
+    pub fn script_ref(&self) -> Option<conway::ScriptRef<'_>> {
         match &self {
             MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
@@ -91,7 +91,7 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::TransactionOutput> {
+    pub fn as_babbage(&self) -> Option<&babbage::TransactionOutput<'_>> {
         match self {
             MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(x) => Some(x),
@@ -109,7 +109,7 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    pub fn as_conway(&self) -> Option<&conway::TransactionOutput> {
+    pub fn as_conway(&self) -> Option<&conway::TransactionOutput<'_>> {
         match self {
             MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(_) => None,
@@ -193,7 +193,7 @@ impl<'b> MultiEraOutput<'b> {
     }
 
     #[deprecated(note = "Use `value().assets()` instead")]
-    pub fn non_ada_assets(&self) -> Vec<MultiEraPolicyAssets> {
+    pub fn non_ada_assets(&self) -> Vec<MultiEraPolicyAssets<'_>> {
         match self {
             MultiEraOutput::AlonzoCompatible(x, _) => match &x.amount {
                 alonzo::Value::Coin(_) => vec![],

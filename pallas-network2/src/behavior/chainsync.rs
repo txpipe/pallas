@@ -4,17 +4,16 @@ use crate::protocol::{Point, chainsync as chainsync_proto};
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{
-        AnyMessage, BlockRange, ConnectionState, InitiatorBehavior, InitiatorEvent, InitiatorState,
-        PeerVisitor,
+        AnyMessage, ConnectionState, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor,
     },
 };
 
-pub type Config = ();
+pub type ChainSyncConfig = ();
 
 type Intersection = Vec<Point>;
 
 pub struct ChainSyncBehavior {
-    //config: Config,
+    //config: ChainSyncConfig,
     intersection: Option<Intersection>,
 }
 
@@ -25,7 +24,7 @@ impl Default for ChainSyncBehavior {
 }
 
 impl ChainSyncBehavior {
-    pub fn new(_config: Config) -> Self {
+    pub fn new(_config: ChainSyncConfig) -> Self {
         Self { intersection: None }
     }
 
@@ -52,7 +51,7 @@ impl ChainSyncBehavior {
     pub fn request_next(
         &self,
         pid: &PeerId,
-        state: &mut InitiatorState,
+        _state: &mut InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
         tracing::debug!("requesting next header");
