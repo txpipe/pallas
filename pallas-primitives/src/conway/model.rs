@@ -63,12 +63,6 @@ pub enum Value {
     Multiasset(Coin, Multiasset<PositiveCoin>),
 }
 
-//codec_by_datatype! {
-//    Value,
-//    U8 | U16 | U32 | U64 => Coin,
-//    (coin, multi => Multiasset)
-//}
-
 impl<C> minicbor::Encode<C> for Value {
     fn encode<W: minicbor::encode::Write>(
         &self,
@@ -859,19 +853,6 @@ pub struct WitnessSet<'b> {
     pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
 }
 
-//impl<'b, C> minicbor::Decode<'b, C> for WitnessSet<'b> {
-//    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-//        let vkeywitness = d.decode_with(ctx)?;
-//        let native_script = d.decode_with(ctx)?;
-//        let bootstrap_witness = d.decode_with(ctx)?;
-//        let plutus_v1_script = d.decode_with(ctx)?;
-//        let plutus_data = d.decode_with(ctx)?;
-//        let redeemer = d.decode_with(ctx)?;
-//        let plutus_v2_script = d.decode_with(ctx)?;
-//        let plutus_v3_script = d.decode_with(ctx)?;
-//    }
-
-
 #[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
@@ -1112,45 +1093,6 @@ mod tests {
             let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
             assert_eq!(ws.vkeywitness, None);
         }
-
-        // Legacy format is not supported when decoder version is 9
-        // These tests should go in a pre-conway module?
-        //#[test]
-        //fn decode_witness_set_having_vkeywitness_legacy_may_be_empty() {
-        //    let witness_set_bytes = hex::decode("a10080").unwrap();
-        //    let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
-
-        //    // FIXME: The decoder behavior here is strictly correct w.r.t. the haskell code; we
-        //    // must accept a vkeywitness set that is present but empty (in the legacy witness set
-        //    // format).
-        //    //
-        //    // However, the types we are using in pallas here are confusing; vkeywitness is of type
-        //    // Option<NonEmptySet>, and in fact, our "NonEmptySet" type allows constructing an
-        //    // empty value via CBOR decoding (there used to be a guard, but it was commented out).
-        //    // So we end up with a Some(vec![]). It would make more sense to just have a 'Set'
-        //    // type.
-        //    assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![]));
-        //}
-
-        //#[test]
-        //fn decode_witness_set_having_vkeywitness_legacy_may_be_indefinite() {
-        //    let witness_set_bytes = hex::decode("a1009fff").unwrap();
-        //    let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
-
-        //    assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![]));
-        //}
-
-        //#[test]
-        //fn decode_witness_set_having_vkeywitness_legacy_singleton() {
-        //    let witness_set_bytes = hex::decode("a10081824040").unwrap();
-        //    let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
-
-        //    let expected = VKeyWitness {
-        //        vkey: Bytes::from(vec![]),
-        //        signature: Bytes::from(vec![]),
-        //    };
-        //    assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
-        //}
 
         #[test]
         fn decode_witness_set_having_vkeywitness_untagged_must_be_nonempty() {
