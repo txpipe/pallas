@@ -39,5 +39,4 @@ pub enum Message {
     RequestMessagesBlocking,
     ReplyMessagesBlocking(Vec<DmqMsg>),
     ClientDone,
-    ServerDone,
 }

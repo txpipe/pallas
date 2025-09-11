@@ -42,10 +42,6 @@ impl Encode<()> for Message {
                 e.array(1)?.u16(3)?;
                 Ok(())
             }
-            Message::ServerDone => {
-                e.array(1)?.u16(4)?;
-                Ok(())
-            }
         }
     }
 }
@@ -73,7 +69,6 @@ impl<'b> Decode<'b, ()> for Message {
                 Ok(Message::ReplyMessagesBlocking(msgs))
             }
             3 => Ok(Message::ClientDone),
-            4 => Ok(Message::ServerDone),
             _ => Err(decode::Error::message(
                 "unknown variant for localmsgsubmission message",
             )),
