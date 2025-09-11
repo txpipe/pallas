@@ -1,6 +1,6 @@
 use crate::{
-    behavior::{ConnectionState, InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
     InterfaceCommand, OutboundQueue, PeerId,
+    behavior::{ConnectionState, InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
 };
 
 fn needs_connection(peer: &InitiatorState) -> bool {

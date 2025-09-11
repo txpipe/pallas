@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use crate::{
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
+    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
 };
 
 pub struct DiscoveryConfig {

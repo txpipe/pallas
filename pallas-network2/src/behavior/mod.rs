@@ -1,12 +1,12 @@
 //! Opinionated standard behavior for Cardano networks
 
-use futures::{stream::FusedStream, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream::FusedStream};
 use std::{collections::HashMap, task::Poll};
 
-use pallas_codec::{minicbor, Fragment};
+use pallas_codec::{Fragment, minicbor};
 
 use crate::{
-    protocol as proto, Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId,
+    Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId, protocol as proto,
 };
 
 mod blockfetch;

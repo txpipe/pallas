@@ -1,9 +1,8 @@
 use std::{fmt::Debug, pin::Pin};
 
 use futures::{
-    select,
+    Stream, StreamExt, select,
     stream::{FusedStream, FuturesUnordered},
-    Stream, StreamExt,
 };
 
 #[cfg(feature = "emulation")]

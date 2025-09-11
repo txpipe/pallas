@@ -3,11 +3,11 @@ use std::collections::VecDeque;
 use crate::protocol::blockfetch as blockfetch_proto;
 
 use crate::{
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{
         AnyMessage, BlockRange, ConnectionState, InitiatorBehavior, InitiatorEvent, InitiatorState,
         PeerVisitor,
     },
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
 };
 
 pub type BlockFetchConfig = ();

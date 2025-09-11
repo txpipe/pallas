@@ -1,6 +1,6 @@
 use crate::{
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
     InterfaceCommand, OutboundQueue, PeerId,
+    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
 };
 
 pub struct KeepaliveBehavior {

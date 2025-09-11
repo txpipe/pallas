@@ -1,11 +1,11 @@
 use crate::behavior::PromotionTag;
-use crate::protocol::{chainsync as chainsync_proto, Point};
+use crate::protocol::{Point, chainsync as chainsync_proto};
 
 use crate::{
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{
         AnyMessage, ConnectionState, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor,
     },
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
 };
 
 pub type ChainSyncConfig = ();
