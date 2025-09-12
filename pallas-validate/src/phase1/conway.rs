@@ -333,7 +333,7 @@ fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
                 for (key, val) in assets.into_iter() {
                     let mut conway_value = Vec::new();
                     for (inner_key, inner_val) in val.into_iter() {
-                        conway_value.push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
+                        conway_value.push((inner_key, inner_val));
                     }
                     conway_assets.push((key, conway_value.into_iter().collect()));
                 }
