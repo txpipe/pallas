@@ -309,40 +309,8 @@ fn check_collaterals_assets(
 }
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
-    match multi_era_output.value() {
-        MultiEraValue::Byron(coin) => Value::Coin(coin),
-        MultiEraValue::AlonzoCompatible(cow) => match cow.into_owned() {
-            babbage::Value::Coin(coin) => Value::Coin(coin),
-            babbage::Value::Multiasset(coin, assets) => {
-                let mut conway_assets = Vec::new();
-                for (key, val) in assets.into_iter() {
-                    let mut conway_value = Vec::new();
-                    for (inner_key, inner_val) in val.into_iter() {
-                        conway_value.push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
-                    }
-                    conway_assets.push((key, conway_value.into_iter().collect()));
-                }
-                let conway_assets = conway_assets.into_iter().collect();
-                Value::Multiasset(coin, conway_assets)
-            }
-        },
-        MultiEraValue::Conway(cow) => match cow.clone().into_owned() {
-            Value::Coin(coin) => Value::Coin(coin),
-            Value::Multiasset(coin, assets) => {
-                let mut conway_assets = Vec::new();
-                for (key, val) in assets.into_iter() {
-                    let mut conway_value = Vec::new();
-                    for (inner_key, inner_val) in val.into_iter() {
-                        conway_value.push((inner_key, inner_val));
-                    }
-                    conway_assets.push((key, conway_value.into_iter().collect()));
-                }
-                let conway_assets = conway_assets.into_iter().collect();
-                Value::Multiasset(coin, conway_assets)
-            }
-        },
-        _ => unimplemented!(),
-    }
+    let value = multi_era_output.value();
+    value.into_conway()
 }
 
 // The preservation of value property holds.
@@ -1022,16 +990,16 @@ fn check_input_datum_hash_in_witness_set(
     plutus_data_hash: &mut [(bool, Hash<32>)],
 ) -> ValidationResult {
     for input in &tx_body.inputs {
-        match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
-            Some(output) => {
-                if let Some(datum_option) = output.datum() {
-                    let hash = datum_option.compute_hash();
-                    find_plutus_datum_in_witness_set(&hash, plutus_data_hash)?
-                }
-            }
-            None => return Err(PostAlonzo(InputNotInUTxO)),
+        let output = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
+
+        if let Some(datum_option) = output.datum() {
+            let hash = datum_option.compute_hash();
+            find_plutus_datum_in_witness_set(&hash, plutus_data_hash)?
         }
     }
+
     Ok(())
 }
 
