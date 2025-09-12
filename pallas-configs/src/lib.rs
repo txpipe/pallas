@@ -3,5 +3,5 @@
 pub mod alonzo;
 pub mod byron;
 pub mod conway;
-pub mod shelley;
 pub mod cost_models;
+pub mod shelley;

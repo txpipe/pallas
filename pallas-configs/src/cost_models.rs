@@ -1,5 +1,3 @@
-
-
 const V1_NAMES: [&str; 166] = [
     "addInteger-cpu-arguments-intercept",
     "addInteger-cpu-arguments-slope",

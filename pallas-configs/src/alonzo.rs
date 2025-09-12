@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::{collections::HashMap, ops::Deref};
 
-use crate::cost_models::{get_name_for_value_index};
+use crate::cost_models::get_name_for_value_index;
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -71,7 +71,10 @@ impl<'de> Deserialize<'de> for Fraction {
                         let decimal_places = float_str.len() - pos - 1;
                         let denominator = 10u64.pow(decimal_places as u32);
                         let numerator = (float_val * denominator as f64).round() as u64;
-                        Ok(Fraction { numerator, denominator })
+                        Ok(Fraction {
+                            numerator,
+                            denominator,
+                        })
                     } else {
                         Ok(Fraction {
                             numerator: float_val as u64,
@@ -83,15 +86,22 @@ impl<'de> Deserialize<'de> for Fraction {
                 }
             }
             Value::Object(map) => {
-                let numerator = map.get("numerator")
+                let numerator = map
+                    .get("numerator")
                     .and_then(|v| v.as_u64())
                     .ok_or_else(|| serde::de::Error::custom("Missing or invalid numerator"))?;
-                let denominator = map.get("denominator")
+                let denominator = map
+                    .get("denominator")
                     .and_then(|v| v.as_u64())
                     .ok_or_else(|| serde::de::Error::custom("Missing or invalid denominator"))?;
-                Ok(Fraction { numerator, denominator })
+                Ok(Fraction {
+                    numerator,
+                    denominator,
+                })
             }
-            _ => Err(serde::de::Error::custom("Expected number or fraction object"))
+            _ => Err(serde::de::Error::custom(
+                "Expected number or fraction object",
+            )),
         }
     }
 }
@@ -130,7 +140,7 @@ impl From<CostModel> for Vec<i64> {
 }
 
 impl CostModel {
-    fn from_array_with_version(arr: Vec<serde_json::Value> , language: &Language) -> Self {
+    fn from_array_with_version(arr: Vec<serde_json::Value>, language: &Language) -> Self {
         let mut cost_map = HashMap::new();
 
         let plutus_version = match language {
@@ -185,7 +195,7 @@ impl From<CostModelPerLanguage> for pallas_primitives::babbage::CostModels {
     }
 }
 
-impl <'de> Deserialize<'de> for CostModelPerLanguage {
+impl<'de> Deserialize<'de> for CostModelPerLanguage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -204,12 +214,9 @@ impl <'de> Deserialize<'de> for CostModelPerLanguage {
                 };
 
                 let cost_model = match cost_model_value {
-                    Value::Object(_) => {
-                        CostModel::deserialize(cost_model_value).map_err(serde::de::Error::custom)?
-                    }
-                    Value::Array(arr) => {
-                        CostModel::from_array_with_version(arr, &language)
-                    }
+                    Value::Object(_) => CostModel::deserialize(cost_model_value)
+                        .map_err(serde::de::Error::custom)?,
+                    Value::Array(arr) => CostModel::from_array_with_version(arr, &language),
                     _ => {
                         return Err(serde::de::Error::custom("Invalid cost model format"));
                     }
