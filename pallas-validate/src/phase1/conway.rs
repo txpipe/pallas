@@ -994,8 +994,9 @@ fn check_input_datum_hash_in_witness_set(
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(InputNotInUTxO))?;
 
-        if let Some(datum_option) = output.datum() {
-            let hash = datum_option.compute_hash();
+        // we only check for datum in the witness set if it's not an inline datum in the
+        // output (aka: DatumOption::Hash).
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
             find_plutus_datum_in_witness_set(&hash, plutus_data_hash)?
         }
     }
