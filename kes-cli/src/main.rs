@@ -27,9 +27,6 @@ pub mod update;
 /// Message verifying
 pub mod verify;
 
-/// CLI tests
-mod tests;
-
 /// CLI commands available
 #[derive(Debug, Subcommand)]
 pub enum Command {
