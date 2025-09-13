@@ -22,7 +22,7 @@ use pallas_primitives::{
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
-use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
+use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput, MultiEraValue, OriginalHash};
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -309,50 +309,8 @@ fn check_collaterals_assets(
 }
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
-    match multi_era_output {
-        MultiEraOutput::Conway(x) => match x.clone().into_owned() {
-            TransactionOutput::Legacy(output) => {
-                let amount = output.amount.clone();
-                match amount {
-                    babbage::Value::Coin(coin) => Value::Coin(coin),
-                    babbage::Value::Multiasset(coin, assets) => {
-                        let mut conway_assets = Vec::new();
-                        for (key, val) in assets.into_iter() {
-                            let mut conway_value = Vec::new();
-                            for (inner_key, inner_val) in val.into_iter() {
-                                conway_value
-                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
-                            }
-                            conway_assets.push((key, conway_value.into_iter().collect()));
-                        }
-                        let conway_assets = conway_assets.into_iter().collect();
-                        Value::Multiasset(coin, conway_assets)
-                    }
-                }
-            }
-            TransactionOutput::PostAlonzo(output) => output.value.clone(),
-        },
-        MultiEraOutput::AlonzoCompatible(output, _) => {
-            let amount = output.amount.clone();
-            match amount {
-                babbage::Value::Coin(coin) => Value::Coin(coin),
-                babbage::Value::Multiasset(coin, assets) => {
-                    let mut conway_assets = Vec::new();
-                    for (key, val) in assets.into_iter() {
-                        let mut conway_value = Vec::new();
-                        for (inner_key, inner_val) in val.into_iter() {
-                            conway_value
-                                .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
-                        }
-                        conway_assets.push((key, conway_value.into_iter().collect()));
-                    }
-                    let conway_assets = conway_assets.into_iter().collect();
-                    Value::Multiasset(coin, conway_assets)
-                }
-            }
-        }
-        _ => unimplemented!(),
-    }
+    let value = multi_era_output.value();
+    value.into_conway()
 }
 
 // The preservation of value property holds.
@@ -1032,18 +990,17 @@ fn check_input_datum_hash_in_witness_set(
     plutus_data_hash: &mut [(bool, Hash<32>)],
 ) -> ValidationResult {
     for input in &tx_body.inputs {
-        match utxos
+        let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
-            .and_then(MultiEraOutput::as_conway)
-        {
-            Some(output) => {
-                if let Some(datum_hash) = get_datum_hash(output) {
-                    find_plutus_datum_in_witness_set(&datum_hash, plutus_data_hash)?
-                }
-            }
-            None => return Err(PostAlonzo(InputNotInUTxO)),
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
+
+        // we only check for datum in the witness set if it's not an inline datum in the
+        // output (aka: DatumOption::Hash).
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
+            find_plutus_datum_in_witness_set(&hash, plutus_data_hash)?
         }
     }
+
     Ok(())
 }
 
