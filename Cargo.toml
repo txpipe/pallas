@@ -20,5 +20,6 @@ members = [
   "examples/crawler",
   "examples/n2n-miniprotocols",
   "examples/n2c-miniprotocols",
-  "examples/p2p", "kes-cli",
+  "examples/p2p",
+  "kes-cli",
 ]
