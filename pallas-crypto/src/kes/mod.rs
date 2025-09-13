@@ -1,3 +1,4 @@
+#![cfg(feature = "kes")]
 #![warn(missing_docs, rust_2018_idioms)]
 //! A key evolving signatures implementation based on
 //! "Composition and Efficiency Tradeoffs for Forward-Secure Digital Signatures"
@@ -8,9 +9,10 @@
 //! then use that in a nested\/recursive fashion to construct up to a 7-level
 //! deep binary tree version.
 //!
-//! We provide two different implementations in this crate, to provide compatibility
-//! with Cardano's different eras. The first, `SumKes`, is a trivial construction,
-//! while the second, `SumCompactKes`, is a version with a more compact signature.
+//! We provide two different implementations in this crate, to provide
+//! compatibility with Cardano's different eras. The first, `SumKes`, is a
+//! trivial construction, while the second, `SumCompactKes`, is a version with a
+//! more compact signature.
 //!
 //! Consider the following Merkle tree:
 //!
@@ -41,11 +43,6 @@
 //! then, only contains the VerKey for node C, and the signature for node B. In
 //! other words, the number of individual hashes to be stored equals the depth
 //! of the Merkle tree.
-
-#[cfg(feature = "kes-cli")]
-pub mod cli;
-#[cfg(feature = "kes-cli")]
-mod cli_tests;
 
 pub mod common;
 pub mod errors;

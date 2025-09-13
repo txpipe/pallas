@@ -6,7 +6,7 @@ mod test {
     use std::io::Write;
     use tempfile::NamedTempFile;
 
-    use crate::kes::common::generate_crypto_secure_seed;
+    use pallas_crypto::kes::common::generate_crypto_secure_seed;
 
     const PRG: &str = "kes-cli";
 

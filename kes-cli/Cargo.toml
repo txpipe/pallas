@@ -1,0 +1,14 @@
+[package]
+name = "kes-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.38", features = ["derive", "env"] }
+hex = "0.4.3"
+pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto", features = ["kes"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+tempfile = "3.19.1"
+predicates = "3.1"

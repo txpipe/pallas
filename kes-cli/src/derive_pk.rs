@@ -1,22 +1,20 @@
-#![cfg(feature = "kes-cli")]
-
-/// Period of signing key
-use crate::kes::common::open_any;
-use crate::kes::summed_kes::Sum6Kes;
-use crate::kes::traits::KesSk;
+/// Public key derivation
 use clap::Parser;
+use pallas_crypto::kes::common::open_any;
+use pallas_crypto::kes::summed_kes::Sum6Kes;
+use pallas_crypto::kes::traits::KesSk;
 use std::error::Error;
 use std::io::Read;
 
 #[derive(Debug, Parser)]
-/// Arguments for period getter
+/// Arguments for public key derivation
 pub struct Args {
-    ///Signing key path used for determining a period
+    ///Signing key path used for derivation of a public key
     #[arg(short, long, value_name = "FILE")]
     file: Option<String>,
 }
 
-/// Get period from 612 bytes signing key
+/// Derives 32 bytes public key from 612 bytes signing key
 pub fn run(args: Args) -> Result<(), Box<dyn Error>> {
     match args.file {
         None => {
@@ -36,8 +34,8 @@ pub fn run(args: Args) -> Result<(), Box<dyn Error>> {
                         sk_bytes.copy_from_slice(&bs);
                         match Sum6Kes::from_bytes(&mut sk_bytes) {
                             Ok(sk) => {
-                                let period = sk.get_period();
-                                print!("{period}");
+                                let pk = sk.to_pk();
+                                print!("{}", hex::encode(pk.as_bytes()));
                             }
                             _ => {
                                 eprintln!("Signing key expects 612 bytes");
@@ -51,6 +49,5 @@ pub fn run(args: Args) -> Result<(), Box<dyn Error>> {
             }
         },
     };
-
     Ok(())
 }

@@ -1,7 +1,5 @@
-#![cfg(feature = "kes-cli")]
-
 /// Seed generation
-use crate::kes::common::generate_crypto_secure_seed;
+use pallas_crypto::kes::common::generate_crypto_secure_seed;
 use std::error::Error;
 
 /// Generates 32 bytes secret seed using cryptographic secure generator

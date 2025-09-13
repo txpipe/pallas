@@ -1,12 +1,11 @@
-#![cfg(feature = "kes-cli")]
-
 /// Signing key generation
-use crate::kes::common::generate_crypto_secure_seed;
-use crate::kes::summed_kes::Sum6Kes;
-use crate::kes::traits::KesSk;
+use pallas_crypto::kes::common::generate_crypto_secure_seed;
+use pallas_crypto::kes::summed_kes::Sum6Kes;
+use pallas_crypto::kes::traits::KesSk;
 use std::error::Error;
 
-/// Generates 612 bytes signing key of Sum6Kes using cryptographic secure generator
+/// Generates 612 bytes signing key of Sum6Kes using cryptographic secure
+/// generator
 pub fn run() -> Result<(), Box<dyn Error>> {
     let mut key_bytes = [0u8; Sum6Kes::SIZE + 4];
     let mut seed_bytes = [0u8; 32];
