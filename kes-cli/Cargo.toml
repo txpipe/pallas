@@ -1,7 +1,12 @@
 [package]
 name = "kes-cli"
-version = "0.1.0"
-edition = "2024"
+version = "1.0.0-alpha.2"
+edition = "2021"
+description = "CLI tool for KES management"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+license = "Apache-2.0"
+publish = false
 
 [dependencies]
 clap = { version = "4.5.38", features = ["derive", "env"] }

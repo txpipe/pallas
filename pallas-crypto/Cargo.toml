@@ -43,8 +43,3 @@ kes = ["rand", "rand_chacha", "serde_with", "ed25519-dalek", "zeroize"]
 harness = false
 name = "summed_kes_benches"
 path = "./src/kes/summed_kes_benches.rs"
-
-[[bin]]
-name = "kes-cli"
-path = "./src/kes/summed_kes_cli.rs"
-required-features = ["kes-cli"]
