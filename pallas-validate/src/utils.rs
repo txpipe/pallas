@@ -344,7 +344,7 @@ pub fn conway_add_minted_non_zero(
         ConwayValue::Multiasset(n, mary_base_value) => Ok(ConwayValue::Multiasset(
             *n,
             conway_coerce_to_coin(
-                &conway_add_multiasset_non_zero_values(
+                &conway_add_multiasset_non_negative_values(
                     &coerce_to_u64(mary_base_value),
                     minted_value,
                 )?,
@@ -479,7 +479,7 @@ where
     conway_wrap_multiasset(res)
 }
 
-fn conway_add_multiasset_non_zero_values(
+fn conway_add_multiasset_non_negative_values(
     first: &ConwayMultiasset<u64>,
     second: &ConwayMultiasset<NonZeroInt>,
 ) -> Result<ConwayMultiasset<u64>, ValidationError> {
@@ -510,6 +510,12 @@ fn conway_add_multiasset_non_zero_values(
             ),
         };
     }
+
+    // Remove any asset that has 0 quantity after the addition
+    res.retain(|_, assets| {
+        assets.retain(|_, amount| *amount > 0);
+        !assets.is_empty()
+    });
 
     Ok(conway_wrap_multiasset(res))
 }
