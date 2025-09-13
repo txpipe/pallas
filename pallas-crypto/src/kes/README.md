@@ -11,7 +11,10 @@ This library defines macros to generate KES algorithms with different depths. We
 algorithms up to depth 7. However, if you require a higher depth key, feel free to open an
 issue/PR.
 
+This module requires the `kes` feature flag.
+
 ## Library usage
+
 This library exposes `SumXKes` for `X` in [2,7]. A KES algorithm with depth `X` can evolve the key
 `2^X`. When a secret key is evolved, the old seed is overwritten with zeroes.
 
@@ -38,7 +41,8 @@ fn main() {
 ## Command-Line
 
 `kes` comes with an optional command-line interface for Linux. The command-line is self explanatory by using `--help` on various commands and sub-commands.
-Build with flag: `--features="kes-cli"` to have
+
+The CLI lives in the `kes-cli` crate within the Pallas workspace.
 
 ### How to randomly generate a 32-byte valid secret seed (<strong>seed.prv</strong>)
 
