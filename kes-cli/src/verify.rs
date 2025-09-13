@@ -1,11 +1,9 @@
-#![cfg(feature = "kes-cli")]
-
 /// Message verifying
-use crate::kes::common::open_three;
-use crate::kes::summed_kes::Sum6KesSig;
-use crate::kes::traits::KesSig;
-use crate::kes::PublicKey;
 use clap::Parser;
+use pallas_crypto::kes::PublicKey;
+use pallas_crypto::kes::common::open_three;
+use pallas_crypto::kes::summed_kes::Sum6KesSig;
+use pallas_crypto::kes::traits::KesSig;
 use std::error::Error;
 use std::io::Read;
 
@@ -16,11 +14,13 @@ pub struct Args {
     #[arg(short, long, value_name = "FILE")]
     file: Option<String>,
 
-    ///Signature filepath to be verified against the stdin msg and using the public key
+    ///Signature filepath to be verified against the stdin msg and using the
+    /// public key
     #[arg(short, long, value_name = "FILE")]
     signature: Option<String>,
 
-    /// Period for which verification is realized, ie., the period that was current when signature was made.
+    /// Period for which verification is realized, ie., the period that was
+    /// current when signature was made.
     #[arg(short, long, value_name = "INT")]
     period: Option<u32>,
 }

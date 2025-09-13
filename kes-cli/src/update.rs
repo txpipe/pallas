@@ -1,10 +1,8 @@
-#![cfg(feature = "kes-cli")]
-
 /// Signing key updating
-use crate::kes::common::open_any;
-use crate::kes::summed_kes::Sum6Kes;
-use crate::kes::traits::KesSk;
 use clap::Parser;
+use pallas_crypto::kes::common::open_any;
+use pallas_crypto::kes::summed_kes::Sum6Kes;
+use pallas_crypto::kes::traits::KesSk;
 use std::error::Error;
 use std::io::Read;
 

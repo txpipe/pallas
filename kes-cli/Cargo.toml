@@ -1,0 +1,19 @@
+[package]
+name = "kes-cli"
+version = "1.0.0-alpha.2"
+edition = "2021"
+description = "CLI tool for KES management"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+clap = { version = "4.5.38", features = ["derive", "env"] }
+hex = "0.4.3"
+pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto", features = ["kes"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+tempfile = "3.19.1"
+predicates = "3.1"

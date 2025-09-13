@@ -11,42 +11,35 @@ readme = "README.md"
 authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>", "Andrew Westberg <andrewwestberg@gmail.com>"]
 
 [dependencies]
-clap = { version = "4.5.38", features = ["derive", "env"] }
 hex = "0.4"
 cryptoxide = { version = "0.4.4" }
 thiserror = "1.0"
-rand = "0.9"
-rand_chacha = "0.9"
 rand_core = "0.9"
+serde = { version = "1.0.143", features = ["derive"] }
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
-serde = { version = "1.0.143", features = ["derive"]}
-serde_with = "3.11.0"
-ed25519-dalek = { version = "2", features = ["serde"] }
-zeroize = "1.8.1"
+
+# kes dependencies
+rand = { version = "0.9", optional = true }
+rand_chacha = { version = "0.9", optional = true }
+serde_with = { version = "3.11.0", optional = true }
+ed25519-dalek = { version = "2", features = ["serde"], optional = true }
+zeroize = { version = "1.8.1", optional = true }
 
 [dev-dependencies]
-assert_cmd = "2.0"
 criterion = "0.7"
 itertools = "0.13"
-predicates = "3.1"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 proptest = "1.6"
 serde_json = "1"
 serde_test = "1.0.143"
-tempfile = "3.19.1"
 
 [features]
 default = []
 sk_clone_enabled = []
-kes-cli = []
+kes = ["rand", "rand_chacha", "serde_with", "ed25519-dalek", "zeroize"]
 
 [[bench]]
 harness = false
 name = "summed_kes_benches"
 path = "./src/kes/summed_kes_benches.rs"
-
-[[bin]]
-name = "kes-cli"
-path = "./src/kes/summed_kes_cli.rs"
-required-features = ["kes-cli"]

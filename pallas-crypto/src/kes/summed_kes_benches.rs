@@ -7,7 +7,8 @@ use pallas_crypto::kes::summed_kes::{
 };
 use pallas_crypto::kes::traits::{KesCompactSig, KesSk};
 
-// Implementing benches with macros, because the closure of benched function creates problems with lifetime of KES
+// Implementing benches with macros, because the closure of benched function
+// creates problems with lifetime of KES
 macro_rules! bench_keygen {
     ($name:ident, $kes:ident, $depth:expr) => {
         fn $name(c: &mut Criterion) {
