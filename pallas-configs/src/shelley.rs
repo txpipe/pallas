@@ -1,4 +1,4 @@
-use num_rational::BigRational;
+use num_rational::Rational64;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::conway::{Epoch, RationalNumber};
 use serde::{Deserialize, Deserializer};
@@ -11,12 +11,12 @@ where
     D: Deserializer<'de>,
 {
     let s = f32::deserialize(deserializer)?;
-    let r = BigRational::from_float(s)
+    let r = Rational64::approximate_float(s)
         .ok_or(serde::de::Error::custom("can't turn float into rational"))?;
 
     let r = pallas_primitives::alonzo::RationalNumber {
-        numerator: r.numer().try_into().map_err(serde::de::Error::custom)?,
-        denominator: r.denom().try_into().map_err(serde::de::Error::custom)?,
+        numerator: *r.numer() as u64,
+        denominator: *r.denom() as u64,
     };
 
     Ok(r)
