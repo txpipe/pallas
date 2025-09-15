@@ -34,6 +34,27 @@ use std::collections::HashSet;
 #[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
 pub struct Multiasset<A>(#[n(0)] BTreeMap<PolicyId, BTreeMap<AssetName, A>>);
 
+impl<A, const N: usize> From<[(PolicyId, BTreeMap<AssetName, A>); N]> for Multiasset<A>
+    where BTreeMap<PolicyId, BTreeMap<AssetName, A>>: From<[(PolicyId, BTreeMap<AssetName, A>); N]> {
+    fn from(x: [(PolicyId, BTreeMap<AssetName, A>); N]) -> Self {
+        Multiasset(BTreeMap::<PolicyId, BTreeMap<AssetName, A>>::from(x))
+    }
+}
+
+impl<A> FromIterator<(PolicyId, BTreeMap<AssetName, A>)> for Multiasset<A> {
+    fn from_iter<I: IntoIterator<Item=(PolicyId, BTreeMap<AssetName, A>)>>(iter: I) -> Self {
+        Multiasset(BTreeMap::<PolicyId, BTreeMap<AssetName, A>>::from_iter(iter))
+    }
+}
+
+impl<A> std::ops::Deref for Multiasset<A> {
+    type Target = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<'b, C, A: minicbor::Decode<'b, C>> minicbor::Decode<'b, C> for Multiasset<A> {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let policies: BTreeMap<PolicyId, BTreeMap<AssetName, A>> = d.decode_with(ctx)?;
