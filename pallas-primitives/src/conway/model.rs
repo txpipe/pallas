@@ -565,11 +565,11 @@ impl<'b, C> minicbor::Decode<'b, C> for TransactionBody<'b> {
             }
         }
 
-        if let Some(map_count) = map_init {
-            if map_count != items_seen {
-                return Err(minicbor::decode::Error::message("map is not valid cbor: declared count did not match actual count"));
-            }
-        } else {
+        if map_init.is_some_and(|map_count| map_count != items_seen) {
+            return Err(minicbor::decode::Error::message("map is not valid cbor: declared count did not match actual count"));
+        }
+
+        if map_init.is_none() {
             let ty = d.datatype()?;
             if ty == minicbor::data::Type::Break {
                 d.skip()?;
