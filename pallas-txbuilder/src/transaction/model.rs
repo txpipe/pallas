@@ -3,7 +3,7 @@ use pallas_crypto::{
     hash::{Hash, Hasher},
     key::ed25519,
 };
-use pallas_primitives::{conway, Fragment, NonEmptySet};
+use pallas_primitives::{conway::{self, AuxiliaryData}, Fragment, NonEmptySet};
 
 use std::{collections::HashMap, ops::Deref};
 
@@ -15,7 +15,7 @@ use super::{
     AssetName, Bytes, Bytes32, Bytes64, DatumBytes, DatumHash, Hash28, PolicyId, PubKeyHash,
     PublicKey, ScriptBytes, ScriptHash, Signature, TransactionStatus, TxHash,
 };
-
+use pallas_codec::minicbor;
 // TODO: Don't make wrapper types public
 #[derive(Default, Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct StagingTransaction {
@@ -39,10 +39,10 @@ pub struct StagingTransaction {
     pub signature_amount_override: Option<u8>,
     pub change_address: Option<Address>,
     pub language_view: Option<pallas_primitives::conway::LanguageView>,
+    pub auxiliary_data: Option<AuxiliaryData>,
     // pub certificates: TODO
     // pub withdrawals: TODO
     // pub updates: TODO
-    // pub auxiliary_data: TODO
     // pub phase_2_valid: TODO
 }
 
@@ -371,6 +371,20 @@ impl StagingTransaction {
         self.change_address = None;
         self
     }
+
+    pub fn add_auxiliary_data(mut self, data: Vec<u8>) -> Self {
+        if let Ok(aux) = minicbor::decode::<AuxiliaryData>(data.as_ref()) {
+            self.auxiliary_data = Some(aux);
+        }
+        self
+    }
+
+    pub fn clear_auxiliary_data(mut self) -> Self {
+        self.auxiliary_data = None;
+        self
+    }
+
+
 }
 
 // TODO: Don't want our wrapper types in fields public
