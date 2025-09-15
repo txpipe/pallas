@@ -11,7 +11,6 @@ readme = "../README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-network = { version = "=1.0.0-alpha.2", path = "../pallas-network/" }
 pallas-primitives = { version = "=1.0.0-alpha.2", path = "../pallas-primitives/" }
 pallas-traverse = { version = "=1.0.0-alpha.2", path = "../pallas-traverse/" }
 pallas-addresses = { version = "=1.0.0-alpha.2", path = "../pallas-addresses/" }
@@ -21,6 +20,9 @@ pallas-utxorpc = { version = "=1.0.0-alpha.2", path = "../pallas-utxorpc/" }
 pallas-configs = { version = "=1.0.0-alpha.2", path = "../pallas-configs/" }
 pallas-txbuilder = { version = "=1.0.0-alpha.2", path = "../pallas-txbuilder/" }
 pallas-validate = { version = "=1.0.0-alpha.2", path = "../pallas-validate/" }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+pallas-network = { version = "=1.0.0-alpha.2", path = "../pallas-network/" }
 pallas-hardano = { version = "=1.0.0-alpha.2", path = "../pallas-hardano/", optional = true }
 
 [features]
