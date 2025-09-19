@@ -132,12 +132,4 @@ where
             _ => Err(Error::InvalidInbound),
         }
     }
-
-    pub async fn send_done(&mut self) -> Result<(), Error> {
-        let msg = Message::ServerDone;
-        self.send_message(&msg).await?;
-        self.0 = State::Done;
-
-        Ok(())
-    }
 }
