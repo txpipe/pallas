@@ -22,7 +22,7 @@ use pallas_primitives::{
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
-use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput, MultiEraValue, OriginalHash};
+use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
