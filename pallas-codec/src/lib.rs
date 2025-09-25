@@ -42,7 +42,9 @@ macro_rules! codec_by_datatype {
             ) -> Result<(), minicbor::encode::Error<W::Error>> {
                 match self {
                     $( $enum_name::$many_f ($( $vars ),+) => {
-                        e.array(2)?;
+                        // Counting the number of `$vars`:
+                        let length: u64 = 0 $(+ { let _ = $vars; 1 })+;
+                        e.array(length)?;
                         $( e.encode_with($vars, ctx)?; )+
                     }, )?
                     $( $enum_name::$one_f(__x666) => {
@@ -53,5 +55,46 @@ macro_rules! codec_by_datatype {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::minicbor::{self, decode, encode, Decode, Encode};
+
+    #[derive(Clone, Debug)]
+    enum Thing {
+        Coin(u32),
+        Change(bool),
+        Multiasset(bool, u64, i32),
+    }
+
+    codec_by_datatype! {
+        Thing,
+        U8 | U16 | U32 => Coin,
+        Bool => Change,
+        (b, u, i => Multiasset)
+    }
+
+    #[cfg(test)]
+    pub fn roundtrip_codec<T: Encode<()> + for<'a> Decode<'a, ()> + std::fmt::Debug>(
+        query: T,
+    ) -> () {
+        let mut cbor = Vec::new();
+        match encode(query, &mut cbor) {
+            Ok(_) => (),
+            Err(err) => panic!("Unable to encode data ({:?})", err),
+        };
+        println!("{:-<70}\nResulting CBOR: {:02x?}", "", cbor);
+
+        let query: T = decode(&cbor).unwrap();
+        println!("Decoded data: {:?}", query);
+    }
+
+    #[test]
+    fn roundtrip_codec_by_datatype() {
+        roundtrip_codec(Thing::Coin(0xfafa));
+        roundtrip_codec(Thing::Change(false));
+        roundtrip_codec(Thing::Multiasset(true, 10, -20));
     }
 }
