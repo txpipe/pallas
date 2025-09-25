@@ -708,7 +708,7 @@ pub struct Block<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
+#[derive(Clone, Serialize, Deserialize, Encode, Debug)]
 pub struct Tx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
@@ -721,6 +721,29 @@ pub struct Tx<'b> {
 
     #[n(3)]
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for Tx<'b>
+where
+    KeepRaw<'b, TransactionBody<'b>>: minicbor::Decode<'b, C>,
+    KeepRaw<'b, WitnessSet<'b>>: minicbor::Decode<'b, C>,
+    Nullable<KeepRaw<'b, AuxiliaryData>>: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let transaction_body = d.decode_with(ctx)?;
+        let transaction_witness_set = d.decode_with(ctx)?;
+        let success = d.decode_with(ctx).unwrap_or(true);
+        let auxiliary_data =  d.decode_with(ctx).unwrap_or(Nullable::Null);
+
+        Ok(Self {
+            transaction_body,
+            transaction_witness_set,
+            success,
+            auxiliary_data,
+        })
+    }
 }
 
 #[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]

@@ -1340,11 +1340,11 @@ where
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             minicbor::data::Type::Null => {
-                d.null()?;
+                d.skip()?;
                 Ok(Self::Null)
             }
             minicbor::data::Type::Undefined => {
-                d.undefined()?;
+                d.skip()?;
                 Ok(Self::Undefined)
             }
             _ => {
