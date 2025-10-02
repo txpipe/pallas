@@ -67,6 +67,6 @@ mod tests {
         };
 
         let bytes = payload.bytes_to_sign().unwrap();
-        assert_eq!(vec![134, 67, 1, 2, 3, 67, 4, 5, 6, 7, 14], bytes);
+        assert_eq!(vec![132, 67, 1, 2, 3, 67, 4, 5, 6, 7, 14], bytes);
     }
 }
