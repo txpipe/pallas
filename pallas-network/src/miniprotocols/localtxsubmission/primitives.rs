@@ -1,8 +1,8 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, AssetName, Coin, DRep, Epoch, PolicyId, PoolMetadata, Relay, RewardAccount, ScriptHash,
-    UnitInterval,
+    Anchor, AssetName, Coin, DRep, Epoch, FieldedRewardAccount, PolicyId, PoolMetadata, Relay,
+    ScriptHash, UnitInterval,
 };
 pub use pallas_codec::utils::KeyValuePairs;
 pub use pallas_crypto::hash::Hash;
@@ -20,9 +20,9 @@ pub type Mint = Multiasset<i64>;
 #[derive(Debug, Decode, Encode, Clone, Hash, PartialEq, Eq)]
 #[cbor(flat)]
 pub enum Credential {
-    #[n(0)]
-    ScriptHashObj(#[n(0)] ScriptHash),
     #[n(1)]
+    ScriptHashObj(#[n(0)] ScriptHash),
+    #[n(0)]
     KeyHashObj(#[n(0)] AddrKeyhash),
 }
 
@@ -37,7 +37,7 @@ pub enum Certificate {
         pledge: Coin,
         cost: Coin,
         margin: UnitInterval,
-        reward_account: RewardAccount,
+        reward_account: FieldedRewardAccount,
         pool_owners: Set<AddrKeyhash>,
         relays: Vec<Relay>,
         pool_metadata: Nullable<PoolMetadata>,
