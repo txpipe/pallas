@@ -1,3 +1,4 @@
+use num_rational::Ratio;
 use serde::Deserialize;
 use std::{collections::HashMap, ops::Deref};
 
@@ -62,25 +63,13 @@ impl<'de> Deserialize<'de> for Fraction {
         match value {
             Value::Number(num) => {
                 if let Some(float_val) = num.as_f64() {
-                    // Convert float to string
-                    let float_str = float_val.to_string();
-                    // Find the position of the decimal point
-                    let decimal_pos = float_str.find('.');
-                    // Calculate numerator and denominator
-                    if let Some(pos) = decimal_pos {
-                        let decimal_places = float_str.len() - pos - 1;
-                        let denominator = 10u64.pow(decimal_places as u32);
-                        let numerator = (float_val * denominator as f64).round() as u64;
-                        Ok(Fraction {
-                            numerator,
-                            denominator,
-                        })
-                    } else {
-                        Ok(Fraction {
-                            numerator: float_val as u64,
-                            denominator: 1,
-                        })
-                    }
+                    let ratio = Ratio::approximate_float_unsigned(float_val)
+                        .ok_or_else(|| serde::de::Error::custom("Missing or invalid fraction"))?;
+
+                    Ok(Fraction {
+                        numerator: *ratio.numer(),
+                        denominator: *ratio.denom(),
+                    })
                 } else {
                     Err(serde::de::Error::custom("Invalid number format"))
                 }
