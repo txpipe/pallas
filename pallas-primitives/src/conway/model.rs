@@ -29,7 +29,39 @@ pub use crate::babbage::Header;
 
 use pallas_codec::minicbor::data::Type;
 
-use std::collections::HashSet;
+trait StrictContext {
+    fn push_error(&mut self, s: String);
+    fn get_errors(&self) -> &[String];
+}
+
+pub struct BasicStrictContext {
+    errors: Vec<String>,
+}
+
+impl BasicStrictContext {
+    pub fn new() -> Self {
+        BasicStrictContext {
+            errors: vec![]
+        }
+    }
+}
+
+impl StrictContext for BasicStrictContext {
+    fn push_error(&mut self, s: String) {
+        self.errors.push(s)
+    }
+    fn get_errors(&self) -> &[String] {
+        &self.errors
+    }
+}
+
+impl StrictContext for () {
+    fn push_error(&mut self, _s: String) {
+    }
+    fn get_errors(&self) -> &[String] {
+        &[]
+    }
+}
 
 #[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
 pub struct Multiasset<A>(#[n(0)] BTreeMap<PolicyId, BTreeMap<AssetName, A>>);
@@ -55,28 +87,79 @@ impl<A> std::ops::Deref for Multiasset<A> {
     }
 }
 
-impl<'b, C, A: minicbor::Decode<'b, C>> minicbor::Decode<'b, C> for Multiasset<A> {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+impl<'b, Ctx, A: minicbor::Decode<'b, Ctx>> minicbor::Decode<'b, Ctx> for Multiasset<A>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
         let policies: BTreeMap<PolicyId, BTreeMap<AssetName, A>> = d.decode_with(ctx)?;
 
         // In Conway, all policies must be nonempty, and all amounts must be nonzero.
         // We always parameterize Multiasset with NonZeroInt in practice, but maybe it should be
         // monomorphic?
-        for (_policy, assets) in &policies {
-            if assets.len() == 0 {
-                return Err(minicbor::decode::Error::message("Policy must not be empty"));
+        for assets in policies.values() {
+            if assets.is_empty() {
+                ctx.push_error("Policy must not be empty".to_string());
             }
         }
 
         let result = Multiasset(policies);
         if !is_multiasset_small_enough(&result) {
-            return Err(minicbor::decode::Error::message("Multiasset must not exceed size limit"));
+            ctx.push_error("Multiasset must not exceed size limit".to_string());
         }
         Ok(result)
     }
 }
 
-pub type Mint = Multiasset<NonZeroInt>;
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct StrictMultiasset<A> {
+    inner: Multiasset<A>
+}
+
+impl<'b, Ctx, A: minicbor::Decode<'b, Ctx>> minicbor::Decode<'b, Ctx> for StrictMultiasset<A>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let inner: Multiasset<A> = d.decode_with(ctx)?;
+        let errs = ctx.get_errors();
+        if !errs.is_empty() {
+            let s = errs.join(";");
+            return Err(minicbor::decode::Error::message(
+                    format!("Multiasset failed strict validations: {}", s)
+            ));
+        }
+        Ok(StrictMultiasset {
+            inner
+        })
+    }
+}
+
+pub type Mint = NonEmptyMultiasset<NonZeroInt>;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct StrictMint {
+    inner: Mint
+}
+
+impl<'b, Ctx> minicbor::Decode<'b, Ctx> for StrictMint
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let inner: Mint = d.decode_with(ctx)?;
+        let errs = ctx.get_errors();
+        if !errs.is_empty() {
+            let s = errs.join(";");
+            return Err(minicbor::decode::Error::message(
+                    format!("Mint failed strict validations: {}", s)
+            ));
+        }
+        Ok(StrictMint {
+            inner
+        })
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Value {
@@ -104,17 +187,20 @@ impl<C> minicbor::Encode<C> for Value {
     }
 }
 
-impl<'b, C> minicbor::Decode<'b, C> for Value {
-    fn decode(d: &mut minicbor::Decoder<'b>, _ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+impl<'b, Ctx> minicbor::Decode<'b, Ctx> for Value
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
         match d.datatype()? {
             Type::U8 | Type::U16 | Type::U32 | Type::U64 => {
-                let coin = d.decode()?;
+                let coin = d.decode_with(ctx)?;
                 Ok(Value::Coin(coin))
             }
             Type::Array | Type::ArrayIndef => {
                 let _ = d.array()?;
-                let coin = d.decode()?;
-                let multiasset = d.decode()?;
+                let coin = d.decode_with(ctx)?;
+                let multiasset = d.decode_with(ctx)?;
                 Ok(Value::Multiasset(coin, multiasset))
             }
             t => {
@@ -124,9 +210,33 @@ impl<'b, C> minicbor::Decode<'b, C> for Value {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct StrictValue {
+    inner: Value
+}
+
+impl<'b, Ctx> minicbor::Decode<'b, Ctx> for StrictValue
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let inner: Value = d.decode_with(ctx)?;
+        let errs = ctx.get_errors();
+        if !errs.is_empty() {
+            let s = errs.join(";");
+            return Err(minicbor::decode::Error::message(
+                    format!("Value failed strict validations: {}", s)
+            ));
+        }
+        Ok(StrictValue {
+            inner
+        })
+    }
+}
+
 pub use crate::alonzo::TransactionOutput as LegacyTransactionOutput;
 
-pub type Withdrawals = BTreeMap<RewardAccount, Coin>;
+pub type Withdrawals = NonEmptyMap<RewardAccount, Coin>;
 
 pub type RequiredSigners = NonEmptySet<AddrKeyhash>;
 
@@ -392,8 +502,7 @@ pub struct DRepVotingThresholds {
     pub treasury_withdrawal: UnitInterval,
 }
 
-#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Clone)]
-#[cbor(map)]
+#[derive(Encode, Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct TransactionBody<'a> {
     #[n(0)]
     pub inputs: Set<TransactionInput>,
@@ -411,7 +520,7 @@ pub struct TransactionBody<'a> {
     pub certificates: Option<NonEmptySet<Certificate>>,
 
     #[n(5)]
-    pub withdrawals: Option<BTreeMap<RewardAccount, Coin>>,
+    pub withdrawals: Option<NonEmptyMap<RewardAccount, Coin>>,
 
     #[n(7)]
     pub auxiliary_data_hash: Option<Bytes>,
@@ -420,7 +529,7 @@ pub struct TransactionBody<'a> {
     pub validity_interval_start: Option<u64>,
 
     #[n(9)]
-    pub mint: Option<Multiasset<NonZeroInt>>,
+    pub mint: Option<NonEmptyMultiasset<NonZeroInt>>,
 
     #[n(11)]
     pub script_data_hash: Option<Hash<32>>,
@@ -457,180 +566,417 @@ pub struct TransactionBody<'a> {
     pub donation: Option<PositiveCoin>,
 }
 
-// This is ugly but I'm not sure how to do it with minicbor-derive
-// the cbor map implementation is here:
-// https://github.com/twittner/minicbor/blob/83a4a0f868ac9ffc924a282f8f917aa2ad7c698a/minicbor-derive/src/decode.rs#L405-L424
-// We need to do validation inside the decoder or change the types of the validated fields to
-// new types that do their own validation
-impl<'b, C> minicbor::Decode<'b, C> for TransactionBody<'b> {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let mut must_inputs = None;
-        let mut must_outputs = None;
-        let mut must_fee = None;
-        let mut ttl = None;
-        let mut certificates = None;
-        let mut withdrawals = None;
-        let mut auxiliary_data_hash = None;
-        let mut validity_interval_start = None;
-        let mut mint: Option<Multiasset<NonZeroInt>> = None;
-        let mut script_data_hash = None;
-        let mut collateral = None;
-        let mut required_signers = None;
-        let mut network_id = None;
-        let mut collateral_return = None;
-        let mut total_collateral = None;
-        let mut reference_inputs = None;
-        let mut voting_procedures = None;
-        let mut proposal_procedures = None;
-        let mut treasury_value = None;
-        let mut donation = None;
+#[derive(Clone, Debug)]
+enum TxBodyField<'a> {
+    Inputs(Set<TransactionInput>),
+    Outputs(Vec<TransactionOutput<'a>>),
+    Fee(Coin),
+    Ttl(Option<u64>),
+    Certificates(Option<NonEmptySet<Certificate>>),
+    Withdrawals(Option<NonEmptyMap<RewardAccount, Coin>>),
+    AuxiliaryDataHash(Option<Bytes>),
+    ValidityIntervalStart(Option<u64>),
+    Mint(Option<NonEmptyMultiasset<NonZeroInt>>),
+    ScriptDataHash(Option<Hash<32>>),
+    Collateral(Option<NonEmptySet<TransactionInput>>),
+    RequiredSigners(Option<RequiredSigners>),
+    NetworkId(Option<NetworkId>),
+    CollateralReturn(Option<TransactionOutput<'a>>),
+    TotalCollateral(Option<Coin>),
+    ReferenceInputs(Option<NonEmptySet<TransactionInput>>),
+    VotingProcedures(Option<VotingProcedures>),
+    ProposalProcedures(Option<NonEmptySet<ProposalProcedure>>),
+    TreasuryValue(Option<Coin>),
+    Donation(Option<PositiveCoin>),
+}
 
-        let map_init = d.map()?;
-        let mut items_seen = 0;
+fn decode_tx_body_field<'b, Ctx>(d: &mut minicbor::Decoder<'b>, k: u64, ctx: &mut Ctx) -> Result<TxBodyField<'b>, minicbor::decode::Error>
+where
+    Ctx: StrictContext
+{
+    match k {
+        0 => {
+            let inputs = d.decode_with(ctx)?;
+            Ok(TxBodyField::Inputs(inputs))
+        },
+        1 => {
+            let outputs = d.decode_with(ctx)?;
+            Ok(TxBodyField::Outputs(outputs))
+        },
+        2 => {
+            let coin = d.decode_with(ctx)?;
+            Ok(TxBodyField::Fee(coin))
+        },
+        3 => {
+            let ttl = d.decode_with(ctx)?;
+            Ok(TxBodyField::Ttl(ttl))
+        },
+        4 => {
+            let certificates = d.decode_with(ctx)?;
+            Ok(TxBodyField::Certificates(certificates))
+        },
+        5 => {
+            let withdrawals = d.decode_with(ctx)?;
+            Ok(TxBodyField::Withdrawals(withdrawals))
+        }
+        7 => {
+            let auxiliary_data_hash= d.decode_with(ctx)?;
+            Ok(TxBodyField::AuxiliaryDataHash(auxiliary_data_hash))
+        }
+        8 => {
+            let validity_interval_start = d.decode_with(ctx)?;
+            Ok(TxBodyField::ValidityIntervalStart(validity_interval_start))
+        }
+        9 => {
+            let mint = d.decode_with(ctx)?;
+            Ok(TxBodyField::Mint(mint))
+        }
+        11 => {
+            let script_data_hash = d.decode_with(ctx)?;
+            Ok(TxBodyField::ScriptDataHash(script_data_hash))
+        }
+        13 => {
+            let collateral = d.decode_with(ctx)?;
+            Ok(TxBodyField::Collateral(collateral))
+        }
+        14 => {
+            let required_signers = d.decode_with(ctx)?;
+            Ok(TxBodyField::RequiredSigners(required_signers))
+        }
+        15 => {
+            let network_id = d.decode_with(ctx)?;
+            Ok(TxBodyField::NetworkId(network_id))
+        }
+        16 => {
+            let collateral_return = d.decode_with(ctx)?;
+            Ok(TxBodyField::CollateralReturn(collateral_return))
+        }
+        17 => {
+            let total_collateral = d.decode_with(ctx)?;
+            Ok(TxBodyField::TotalCollateral(total_collateral))
+        }
+        18 => {
+            let reference_inputs = d.decode_with(ctx)?;
+            Ok(TxBodyField::ReferenceInputs(reference_inputs))
+        }
+        19 => {
+            let voting_procedures = d.decode_with(ctx)?;
+            Ok(TxBodyField::VotingProcedures(voting_procedures))
+        }
+        20 => {
+            let proposal_procedures = d.decode_with(ctx)?;
+            Ok(TxBodyField::ProposalProcedures(proposal_procedures))
+        }
+        21 => {
+            let treasury_value = d.decode_with(ctx)?;
+            Ok(TxBodyField::TreasuryValue(treasury_value))
+        }
+        22 => {
+            let donation = d.decode_with(ctx)?;
+            Ok(TxBodyField::Donation(donation))
+        }
+        k => Err(minicbor::decode::Error::message(format!("Unknown txbody field key {}", k)))
+    }
+}
 
-        let mut seen_key = HashSet::new();
+struct TxBodyFields<'b> {
+    entries: BTreeMap<u64, Vec<TxBodyField<'b>>>,
+}
 
-        loop {
-            let n = d.i64();
-            let Ok(index) = n else { break };
-            if seen_key.contains(&index) {
-                return Err(minicbor::decode::Error::message("transaction body must not contain duplicate keys"));
-            }
-            match index {
-                0 => {
-                    must_inputs = d.decode_with(ctx)?;
-                },
-                1 => {
-                    must_outputs = d.decode_with(ctx)?;
-                },
-                2 => {
-                    must_fee = d.decode_with(ctx)?;
-                },
-                3 => {
-                    ttl = d.decode_with(ctx)?;
-                },
-                4 => {
-                    certificates = d.decode_with(ctx)?;
-                },
-                5 => {
-                    let real_withdrawals: BTreeMap<RewardAccount, Coin> = d.decode_with(ctx)?;
-                    if real_withdrawals.len() == 0 {
-                        return Err(minicbor::decode::Error::message("withdrawals must be non-empty if present"));
+impl <'b, Ctx> minicbor::Decode<'b, Ctx> for TxBodyFields<'b>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let mut entries = BTreeMap::new();
+        let map_size = d.map()?;
+        match map_size {
+            None => {
+                loop {
+                    let ty = d.datatype()?;
+                    if ty == Type::Break {
+                        d.skip()?;
+                        break;
                     }
-                    withdrawals = Some(real_withdrawals);
-                },
-                7 => {
-                    auxiliary_data_hash = d.decode_with(ctx)?;
-                },
-                8 => {
-                    validity_interval_start = d.decode_with(ctx)?;
-                },
-                9 => {
-                    let real_mint: Multiasset<NonZeroInt> = d.decode_with(ctx)?;
-                    if real_mint.0.len() == 0 {
-                        return Err(minicbor::decode::Error::message("mint must be non-empty if present"));
-                    }
-                    mint = Some(real_mint);
-                },
-                11 => {
-                    script_data_hash = d.decode_with(ctx)?;
-                },
-                13 => {
-                    collateral = d.decode_with(ctx)?;
-                },
-                14 => {
-                    required_signers = d.decode_with(ctx)?;
-                },
-                15 => {
-                    network_id = d.decode_with(ctx)?;
-                },
-                16 => {
-                    collateral_return = d.decode_with(ctx)?;
-                },
-                17 => {
-                    total_collateral = d.decode_with(ctx)?;
-                },
-                18 => {
-                    reference_inputs = d.decode_with(ctx)?;
-                },
-                19 => {
-                    let real_voting_procedures: VotingProcedures = d.decode_with(ctx)?;
-                    if real_voting_procedures.len() == 0 {
-                        return Err(minicbor::decode::Error::message("voting procedures must be non-empty if present"));
-                    }
-                    voting_procedures = Some(real_voting_procedures);
-                },
-                20 => {
-                    let real_proposal_procedures: NonEmptySet<ProposalProcedure> = d.decode_with(ctx)?;
-                    if real_proposal_procedures.len() == 0 {
-                        return Err(minicbor::decode::Error::message("proposal procedures must be non-empty if present"));
-                    }
-                    proposal_procedures = Some(real_proposal_procedures);
-                },
-                21 => {
-                    treasury_value = d.decode_with(ctx)?;
-                },
-                22 => {
-                    donation = d.decode_with(ctx)?;
-                },
-                _ => {
-                    return Err(minicbor::decode::Error::message("unexpected index"));
+                    let k = d.u64()?;
+                    let v = decode_tx_body_field(d, k, ctx)?;
+                    entries.entry(k).and_modify(|ar: &mut Vec<TxBodyField<'b>>| ar.push(v.clone())).or_insert(vec![v]);
+                }
+            },
+            Some(n) => {
+                for _ in 0..n {
+                    let k = d.u64()?;
+                    let v = decode_tx_body_field(d, k, ctx)?;
+                    entries.entry(k).and_modify(|ar: &mut Vec<TxBodyField<'b>>| ar.push(v.clone())).or_insert(vec![v]);
                 }
             }
-            seen_key.insert(index);
-            items_seen += 1;
-            if let Some(map_count) = map_init {
-                if items_seen == map_count {
-                    break;
-                }
-            }
         }
-
-        if map_init.is_some_and(|map_count| map_count != items_seen) {
-            return Err(minicbor::decode::Error::message("map is not valid cbor: declared count did not match actual count"));
-        }
-
-        if map_init.is_none() {
-            let ty = d.datatype()?;
-            if ty == minicbor::data::Type::Break {
-                d.skip()?;
-            } else {
-                return Err(minicbor::decode::Error::message("unexpected garbage at end of map"));
-            }
-        }
-
-        let Some(inputs) = must_inputs else {
-            return Err(minicbor::decode::Error::message("field inputs is required"));
-        };
-        let Some(outputs) = must_outputs else {
-            return Err(minicbor::decode::Error::message("field outputs is required"));
-        };
-        let Some(fee) = must_fee else {
-            return Err(minicbor::decode::Error::message("field fee is required"));
-        };
-
-        Ok(Self {
-            inputs,
-            outputs,
-            fee,
-            ttl,
-            certificates,
-            withdrawals,
-            auxiliary_data_hash,
-            validity_interval_start,
-            mint,
-            script_data_hash,
-            collateral,
-            required_signers,
-            network_id,
-            collateral_return,
-            total_collateral,
-            reference_inputs,
-            voting_procedures,
-            proposal_procedures,
-            treasury_value,
-            donation,
+        Ok(TxBodyFields {
+            entries
         })
+    }
+}
+
+fn make_basic_tx_body<'a>(inputs: Set<TransactionInput>, outputs: Vec<TransactionOutput<'a>>, fee: Coin) -> TransactionBody<'a> {
+    TransactionBody {
+        inputs,
+        outputs,
+        fee,
+        ttl: None,
+        certificates: None,
+        withdrawals: None,
+        auxiliary_data_hash: None,
+        validity_interval_start: None,
+        mint: None,
+        script_data_hash: None,
+        collateral: None,
+        required_signers: None,
+        network_id: None,
+        collateral_return: None,
+        total_collateral: None,
+        reference_inputs: None,
+        voting_procedures: None,
+        proposal_procedures: None,
+        treasury_value: None,
+        donation: None,
+    }
+}
+
+fn set_tx_body_field<'a>(txbody: &mut TransactionBody<'a>, index: u64, field: TxBodyField<'a>) -> Result<(), String> {
+    match (index, field) {
+        (0, TxBodyField::Inputs(i)) => {
+            txbody.inputs = i;
+        },
+        (1, TxBodyField::Outputs(o)) => {
+            txbody.outputs = o;
+        },
+        (2, TxBodyField::Fee(f)) => {
+            txbody.fee = f;
+        }
+        (3, TxBodyField::Ttl(t)) => {
+            txbody.ttl = t;
+        }
+        (4, TxBodyField::Certificates(c)) => {
+            txbody.certificates = c;
+        }
+        (5, TxBodyField::Withdrawals(w)) => {
+            txbody.withdrawals = w;
+        }
+        (7, TxBodyField::AuxiliaryDataHash(a)) => {
+            txbody.auxiliary_data_hash = a;
+        }
+        (8, TxBodyField::ValidityIntervalStart(v)) => {
+            txbody.validity_interval_start = v;
+        }
+        (9, TxBodyField::Mint(m)) => {
+            txbody.mint = m;
+        }
+        (11, TxBodyField::ScriptDataHash(s)) => {
+            txbody.script_data_hash = s;
+        }
+        (13, TxBodyField::Collateral(c)) => {
+            txbody.collateral = c;
+        }
+        (14, TxBodyField::RequiredSigners(r)) => {
+            txbody.required_signers = r;
+        }
+        (15, TxBodyField::NetworkId(n)) => {
+            txbody.network_id = n;
+        }
+        (16, TxBodyField::CollateralReturn(c)) => {
+            txbody.collateral_return = c;
+        }
+        (17, TxBodyField::TotalCollateral(t)) => {
+            txbody.total_collateral = t;
+        }
+        (18, TxBodyField::ReferenceInputs(r)) => {
+            txbody.reference_inputs = r;
+        }
+        (19, TxBodyField::VotingProcedures(v)) => {
+            txbody.voting_procedures = v;
+        }
+        (20, TxBodyField::ProposalProcedures(p)) => {
+            txbody.proposal_procedures = p;
+        }
+        (21, TxBodyField::TreasuryValue(t)) => {
+            txbody.treasury_value = t;
+        }
+        (22, TxBodyField::Donation(d)) => {
+            txbody.donation = d;
+        }
+        (ix, f) => {
+            return Err(format!("Wrong index {} for txbody field {:?}", ix, f))
+        }
+    }
+    Ok(())
+}
+
+impl <'b, Ctx> minicbor::Decode<'b, Ctx> for TransactionBody<'b>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let fields: TxBodyFields<'b> = d.decode_with(ctx)?;
+        let entries = fields.entries;
+        let inputs = entries.get(&0).and_then(|v| v.first());
+        let outputs = entries.get(&1).and_then(|v| v.first());
+        let fee = entries.get(&2).and_then(|v| v.first());
+        let mut tx_body = match (inputs, outputs, fee) {
+            (Some(TxBodyField::Inputs(inputs)), Some(TxBodyField::Outputs(outputs)), Some(TxBodyField::Fee(fee))) => {
+                make_basic_tx_body(inputs.clone(), outputs.clone(), *fee)
+            },
+            _ => {
+                return Err(minicbor::decode::Error::message("inputs, outputs, and fee fields are required"))
+            },
+        };
+        for (key, val) in entries {
+            if val.len() > 1 {
+                ctx.push_error(format!("duplicate txbody entries for key {}", key))
+            }
+            match val.first() {
+                Some(first) => {
+                    let result = set_tx_body_field(&mut tx_body, key, first.clone());
+                    if let Err(e) = result {
+                        return Err(minicbor::decode::Error::message(
+                                format!("could not set txbody field: {}", e)
+                        ));
+                    }
+                },
+                None => {
+                    // This is impossible because we always initialize TxBodyFields entries with
+                    // singleton arrays. Could maybe use a NonEmpty Vec type to eliminate this
+                    // branch
+                    return Err(minicbor::decode::Error::message("TxBodyFields entry was empty"))
+                }
+            }
+        }
+        Ok(tx_body)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StrictTransactionBody<'b> {
+    inner: TransactionBody<'b>
+}
+
+impl <'b, Ctx> minicbor::Decode<'b, Ctx> for StrictTransactionBody<'b>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let inner = d.decode_with(ctx)?;
+        let errs = ctx.get_errors();
+        if !errs.is_empty() {
+            let s = errs.join(";");
+            return Err(minicbor::decode::Error::message(
+                    format!("TransactionBody failed strict validations: {}", s)
+            ));
+        }
+        Ok(StrictTransactionBody {
+            inner
+        })
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct NonEmptyMap<K, V> {
+    #[serde(bound(deserialize = "K: Deserialize<'de> + Ord, V: Deserialize<'de>"))]
+    map: BTreeMap<K, V>
+}
+
+impl<K, V, C> minicbor::Encode<C> for NonEmptyMap<K, V>
+where
+    K: minicbor::Encode<C> + Ord,
+    V: minicbor::Encode<C>
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode_with(&self.map, ctx)?;
+        Ok(())
+    }
+}
+
+impl <'b, Ctx, K, V> minicbor::Decode<'b, Ctx> for NonEmptyMap<K, V>
+where
+    K: minicbor::Decode<'b, Ctx> + Eq + Ord,
+    V: minicbor::Decode<'b, Ctx>,
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let map: BTreeMap<K, V> = d.decode_with(ctx)?;
+        if map.is_empty() {
+            ctx.push_error("map must not be empty".to_string());
+        }
+        Ok(NonEmptyMap { map })
+    }
+}
+
+impl<K, V> std::ops::Deref for NonEmptyMap<K, V> {
+    type Target = BTreeMap<K, V>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct NonEmptyMultiasset<T> {
+    asset: Multiasset<T>
+}
+
+impl<C, T> minicbor::Encode<C> for NonEmptyMultiasset<T>
+where T: minicbor::Encode<C>
+{
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.encode_with(&self.asset, ctx)?;
+        Ok(())
+    }
+}
+
+impl <'b, Ctx, T> minicbor::Decode<'b, Ctx> for NonEmptyMultiasset<T>
+where
+    T: minicbor::Decode<'b, Ctx>,
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let asset: Multiasset<T> = d.decode_with(ctx)?;
+        if asset.0.is_empty() {
+            ctx.push_error("multiasset must not be empty".to_string());
+        }
+        Ok(NonEmptyMultiasset { asset })
+    }
+}
+
+impl<A> std::ops::Deref for NonEmptyMultiasset<A> {
+    type Target = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.asset.0
+    }
+}
+
+impl<A> NonEmptyMultiasset<A> {
+    pub fn from_multiasset(ma: Multiasset<A>) -> Option<Self> {
+        if ma.is_empty() {
+            None
+        } else {
+            Some(NonEmptyMultiasset {
+                asset: ma,
+            })
+        }
+    }
+
+    pub fn to_multiasset(self) -> Multiasset<A> {
+        self.asset
     }
 }
 
@@ -648,7 +994,7 @@ pub enum Vote {
     Abstain,
 }
 
-pub type VotingProcedures = BTreeMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
+pub type VotingProcedures = NonEmptyMap<Voter, BTreeMap<GovActionId, VotingProcedure>>;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct VotingProcedure {
@@ -751,12 +1097,44 @@ pub type MintedPostAlonzoTransactionOutput<'b> = PostAlonzoTransactionOutput<'b>
 
 pub type TransactionOutput<'b> = babbage::GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
 
-// FIXME: Repeated since macro does not handle type generics yet.
-codec_by_datatype! {
-    TransactionOutput<'b>,
-    Array | ArrayIndef => Legacy,
-    Map | MapIndef => PostAlonzo,
-    ()
+impl<'b, C> minicbor::Encode<C> for TransactionOutput<'b> {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        match self {
+            TransactionOutput::Legacy(legacy) => {
+                e.encode(legacy)?;
+                Ok(())
+            }
+            TransactionOutput::PostAlonzo(post_alonzo) => {
+                e.encode(post_alonzo)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<'b, Ctx> minicbor::Decode<'b, Ctx> for TransactionOutput<'b>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        match d.datatype()? {
+            Type::Array | Type::ArrayIndef => {
+                let legacy = d.decode_with(ctx)?;
+                Ok(TransactionOutput::Legacy(legacy))
+            }
+            Type::Map | Type::MapIndef => {
+                let post_alonzo = d.decode_with(ctx)?;
+                Ok(TransactionOutput::PostAlonzo(post_alonzo))
+            }
+            _ => {
+                Err(minicbor::decode::Error::message("Expected array or map"))
+            }
+        }
+    }
 }
 
 #[deprecated(since = "1.0.0-alpha", note = "use `TransactionOutput` instead")]
@@ -874,6 +1252,30 @@ pub struct WitnessSet<'b> {
     pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct StrictWitnessSet<'b> {
+    inner: WitnessSet<'b>
+}
+
+impl<'b, Ctx> minicbor::Decode<'b, Ctx> for StrictWitnessSet<'b>
+where
+    Ctx: StrictContext
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut Ctx) -> Result<Self, minicbor::decode::Error> {
+        let inner: WitnessSet<'b> = d.decode_with(ctx)?;
+        let errs = ctx.get_errors();
+        if !errs.is_empty() {
+            let s = errs.join(";");
+            return Err(minicbor::decode::Error::message(
+                    format!("WitnessSet failed strict validations: {}", s)
+            ));
+        }
+        Ok(StrictWitnessSet {
+            inner
+        })
+    }
+}
+
 #[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
@@ -953,6 +1355,7 @@ pub use crate::alonzo::AuxiliaryData;
 /// original CBOR bytes for each structure that might require hashing. In this
 /// way, we make sure that the resulting hash matches what exists on-chain.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[cbor(context_bound = "StrictContext")]
 pub struct Block<'b> {
     #[n(0)]
     pub header: KeepRaw<'b, Header>,
@@ -974,6 +1377,7 @@ pub struct Block<'b> {
 pub type MintedBlock<'b> = Block<'b>;
 
 #[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
+#[cbor(context_bound = "StrictContext")]
 pub struct Tx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
@@ -997,7 +1401,7 @@ fn is_multiasset_small_enough<T>(ma: &Multiasset<T>) -> bool {
 
     let policy_count = ma.0.len();
     let mut asset_count = 0;
-    for (_policy, assets) in &ma.0 {
+    for assets in ma.0.values() {
         asset_count += assets.len();
     }
 
@@ -1014,42 +1418,43 @@ mod tests {
 
     #[cfg(test)]
     mod tests_value {
-        use super::super::Mint;
-        use super::super::Multiasset;
+        use super::super::BasicStrictContext;
+        use super::super::{StrictMint};
+        use super::super::{Multiasset, StrictMultiasset};
         use super::super::NonZeroInt;
-        use super::super::Value;
+        use super::super::{Value, StrictValue};
         use pallas_codec::minicbor;
         use std::collections::BTreeMap;
 
         // a value can have zero coins and omit the multiasset
         #[test]
         fn decode_zero_value() {
-            let ma: Value = minicbor::decode(&hex::decode("00").unwrap()).unwrap();
-            assert_eq!(ma, Value::Coin(0));
+            let ma: StrictValue = minicbor::decode_with(&hex::decode("00").unwrap(), &mut BasicStrictContext::new()).unwrap();
+            assert_eq!(ma.inner, Value::Coin(0));
         }
 
         // a value can have zero coins and an empty multiasset map
         // Note: this will roundtrip back to "00"
         #[test]
         fn permit_definite_value() {
-            let ma: Value = minicbor::decode(&hex::decode("8200a0").unwrap()).unwrap();
-            assert_eq!(ma, Value::Multiasset(0, Multiasset(BTreeMap::new())));
+            let ma: StrictValue = minicbor::decode_with(&hex::decode("8200a0").unwrap(), &mut BasicStrictContext::new()).unwrap();
+            assert_eq!(ma.inner, Value::Multiasset(0, Multiasset(BTreeMap::new())));
         }
 
         // Indefinite-encoded value is valid
         #[test]
         fn permit_indefinite_value() {
-            let ma: Value = minicbor::decode(&hex::decode("9f00a0ff").unwrap()).unwrap();
-            assert_eq!(ma, Value::Multiasset(0, Multiasset(BTreeMap::new())));
+            let ma: StrictValue = minicbor::decode_with(&hex::decode("9f00a0ff").unwrap(), &mut BasicStrictContext::new()).unwrap();
+            assert_eq!(ma.inner, Value::Multiasset(0, Multiasset(BTreeMap::new())));
         }
 
         // the asset sub-map of a policy map in a multiasset must not be null in Conway
         #[test]
         fn reject_null_tokens() {
-            let ma: Result<Value, _> = minicbor::decode(&hex::decode("8200a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap());
+            let ma: Result<StrictValue, _> = minicbor::decode_with(&hex::decode("8200a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap(), &mut BasicStrictContext::new());
             assert_eq!(
                 ma.map_err(|e| e.to_string()),
-                Err("decode error: Policy must not be empty".to_owned())
+                Err("decode error: Value failed strict validations: Policy must not be empty".to_owned())
             );
         }
 
@@ -1057,7 +1462,7 @@ mod tests {
         // Conway
         #[test]
         fn reject_zero_tokens() {
-            let ma: Result<Value, _> = minicbor::decode(&hex::decode("8200a1581c00000000000000000000000000000000000000000000000000000000a14000").unwrap());
+            let ma: Result<StrictValue, _> = minicbor::decode_with(&hex::decode("8200a1581c00000000000000000000000000000000000000000000000000000000a14000").unwrap(), &mut BasicStrictContext::new());
             assert_eq!(
                 ma.map_err(|e| e.to_string()),
                 Err("decode error: PositiveCoin must not be 0".to_owned())
@@ -1066,10 +1471,10 @@ mod tests {
 
         #[test]
         fn multiasset_reject_null_tokens() {
-            let ma: Result<Multiasset<NonZeroInt>, _> = minicbor::decode(&hex::decode("a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap());
+            let ma: Result<StrictMultiasset<NonZeroInt>, _> = minicbor::decode_with(&hex::decode("a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap(), &mut BasicStrictContext::new());
             assert_eq!(
                 ma.map_err(|e| e.to_string()),
-                Err("decode error: Policy must not be empty".to_owned())
+                Err("decode error: Multiasset failed strict validations: Policy must not be empty".to_owned())
             );
         }
 
@@ -1087,38 +1492,38 @@ mod tests {
                 // minimal token map (conway requires nonempty asset maps)
                 s += "a14001";
             }
-            let ma: Result<Multiasset<NonZeroInt>, _> = minicbor::decode(&hex::decode(s).unwrap());
+            let ma: Result<StrictMultiasset<NonZeroInt>, _> = minicbor::decode_with(&hex::decode(s).unwrap(), &mut BasicStrictContext::new());
             match ma {
                 Ok(_) => panic!("decode succeded but should fail"),
-                Err(e) => assert_eq!(e.to_string(), "decode error: Multiasset must not exceed size limit")
+                Err(e) => assert_eq!(e.to_string(), "decode error: Multiasset failed strict validations: Multiasset must not exceed size limit")
             }
         }
 
         #[test]
         fn mint_reject_null_tokens() {
-            let ma: Result<Mint, _> = minicbor::decode(&hex::decode("a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap());
+            let ma: Result<StrictMint, _> = minicbor::decode_with(&hex::decode("a1581c00000000000000000000000000000000000000000000000000000000a0").unwrap(), &mut BasicStrictContext::new());
             assert_eq!(
                 ma.map_err(|e| e.to_string()),
-                Err("decode error: Policy must not be empty".to_owned())
+                Err("decode error: Mint failed strict validations: Policy must not be empty".to_owned())
             );
         }
     }
 
     mod tests_witness_set {
-        use super::super::{Bytes, VKeyWitness, WitnessSet};
+        use super::super::{BasicStrictContext, Bytes, VKeyWitness, WitnessSet, StrictWitnessSet};
         use pallas_codec::minicbor;
 
         #[test]
         fn decode_empty_witness_set() {
             let witness_set_bytes = hex::decode("a0").unwrap();
-            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+            let ws: WitnessSet = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new()).unwrap();
             assert_eq!(ws.vkeywitness, None);
         }
 
         #[test]
         fn decode_witness_set_having_vkeywitness_untagged_must_be_nonempty() {
             let witness_set_bytes = hex::decode("a10080").unwrap();
-            let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
+            let ws: Result<StrictWitnessSet, _> = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 ws.map_err(|e| e.to_string()),
                 Err("decode error: decoding empty set as NonEmptySet".to_owned())
@@ -1128,31 +1533,31 @@ mod tests {
         #[test]
         fn decode_witness_set_having_vkeywitness_untagged_singleton() {
             let witness_set_bytes = hex::decode("a10081824040").unwrap();
-            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+            let ws: StrictWitnessSet = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new()).unwrap();
 
             let expected = VKeyWitness {
                 vkey: Bytes::from(vec![]),
                 signature: Bytes::from(vec![]),
             };
-            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
+            assert_eq!(ws.inner.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
         }
 
         #[test]
         fn decode_witness_set_having_vkeywitness_conwaystyle_singleton() {
             let witness_set_bytes = hex::decode("a100d9010281824040").unwrap();
-            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+            let ws: StrictWitnessSet = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new()).unwrap();
 
             let expected = VKeyWitness {
                 vkey: Bytes::from(vec![]),
                 signature: Bytes::from(vec![]),
             };
-            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
+            assert_eq!(ws.inner.vkeywitness.map(|s| s.to_vec()), Some(vec![expected]));
         }
 
         #[test]
         fn decode_witness_set_having_vkeywitness_conwaystyle_must_be_nonempty() {
             let witness_set_bytes = hex::decode("a100d9010280").unwrap();
-            let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
+            let ws: Result<StrictWitnessSet, _> = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 ws.map_err(|e| e.to_string()),
                 Err("decode error: decoding empty set as NonEmptySet".to_owned())
@@ -1163,7 +1568,7 @@ mod tests {
         fn decode_witness_set_having_vkeywitness_reject_nonsense_tag() {
             // VKey witness set with nonsense tag 259
             let witness_set_bytes = hex::decode("a100d9010381824040").unwrap();
-            let ws: Result<WitnessSet, _> = minicbor::decode(&witness_set_bytes);
+            let ws: Result<StrictWitnessSet, _> = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 ws.map_err(|e| e.to_string()),
                 Err("decode error: Unrecognised tag: Tag(259)".to_owned())
@@ -1178,13 +1583,13 @@ mod tests {
         #[test]
         fn decode_witness_set_having_vkeywitness_duplicate_entries() {
             let witness_set_bytes = hex::decode("a100d9010282824040824040").unwrap();
-            let ws: WitnessSet = minicbor::decode(&witness_set_bytes).unwrap();
+            let ws: StrictWitnessSet = minicbor::decode_with(&witness_set_bytes, &mut BasicStrictContext::new()).unwrap();
 
             let expected = VKeyWitness {
                 vkey: Bytes::from(vec![]),
                 signature: Bytes::from(vec![]),
             };
-            assert_eq!(ws.vkeywitness.map(|s| s.to_vec()), Some(vec![expected.clone(), expected]));
+            assert_eq!(ws.inner.vkeywitness.map(|s| s.to_vec()), Some(vec![expected.clone(), expected]));
         }
 
     }
@@ -1241,7 +1646,7 @@ mod tests {
     }
 
     mod tests_transaction {
-        use super::super::TransactionBody;
+        use super::super::{BasicStrictContext, TransactionBody, StrictTransactionBody};
         use pallas_codec::minicbor;
 
         // A simple tx with just inputs, outputs, and fee. Address is not well-formed, since the
@@ -1249,7 +1654,8 @@ mod tests {
         #[test]
         fn decode_simple_tx() {
             let tx_bytes = hex::decode("a300828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a04000000").unwrap();
-            let tx: TransactionBody = minicbor::decode(&tx_bytes).unwrap();
+            let tx: StrictTransactionBody = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new()).unwrap();
+            let tx: TransactionBody = tx.inner;
             assert_eq!(tx.fee, 0);
         }
 
@@ -1258,10 +1664,10 @@ mod tests {
         #[test]
         fn reject_empty_tx() {
             let tx_bytes = hex::decode("a0").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: field inputs is required".to_owned())
+                Err("decode error: inputs, outputs, and fee fields are required".to_owned())
             );
         }
 
@@ -1269,10 +1675,10 @@ mod tests {
         #[test]
         fn reject_tx_missing_outputs() {
             let tx_bytes = hex::decode("a200818258200000000000000000000000000000000000000000000000000000000000000008090200").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: field outputs is required".to_owned())
+                Err("decode error: inputs, outputs, and fee fields are required".to_owned())
             );
         }
 
@@ -1280,10 +1686,10 @@ mod tests {
         #[test]
         fn reject_tx_missing_fee() {
             let tx_bytes = hex::decode("a20081825820000000000000000000000000000000000000000000000000000000000000000809018182581c000000000000000000000000000000000000000000000000000000001affffffff").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: field fee is required".to_owned())
+                Err("decode error: inputs, outputs, and fee fields are required".to_owned())
             );
         }
 
@@ -1293,17 +1699,17 @@ mod tests {
         #[test]
         fn reject_empty_present_mint() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a0400000009a0").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: mint must be non-empty if present".to_owned())
+                Err("decode error: TransactionBody failed strict validations: multiasset must not be empty".to_owned())
             );
         }
 
         #[test]
         fn reject_empty_present_certs() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a040000000480").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
                 Err("decode error: decoding empty set as NonEmptySet".to_owned())
@@ -1313,17 +1719,17 @@ mod tests {
         #[test]
         fn reject_empty_present_withdrawals() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a0400000005a0").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: withdrawals must be non-empty if present".to_owned())
+                Err("decode error: TransactionBody failed strict validations: map must not be empty".to_owned())
             );
         }
 
         #[test]
         fn reject_empty_present_collateral_inputs() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a040000000d80").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
                 Err("decode error: decoding empty set as NonEmptySet".to_owned())
@@ -1333,7 +1739,7 @@ mod tests {
         #[test]
         fn reject_empty_present_required_signers() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a040000000e80").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
                 Err("decode error: decoding empty set as NonEmptySet".to_owned())
@@ -1343,17 +1749,17 @@ mod tests {
         #[test]
         fn reject_empty_present_voting_procedures() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a0400000013a0").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: voting procedures must be non-empty if present".to_owned())
+                Err("decode error: TransactionBody failed strict validations: map must not be empty".to_owned())
             );
         }
 
         #[test]
         fn reject_empty_present_proposal_procedures() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a040000001480").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
                 Err("decode error: decoding empty set as NonEmptySet".to_owned())
@@ -1363,7 +1769,7 @@ mod tests {
         #[test]
         fn reject_empty_present_donation() {
             let tx_bytes = hex::decode("a400828258206767676767676767676767676767676767676767676767676767676767676767008258206767676767676767676767676767676767676767676767676767676767676767000200018182581c000000000000000000000000000000000000000000000000000000001a040000001600").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
                 Err("decode error: PositiveCoin must not be 0".to_owned())
@@ -1374,10 +1780,10 @@ mod tests {
         #[test]
         fn reject_duplicate_keys() {
             let tx_bytes = hex::decode("a40081825820000000000000000000000000000000000000000000000000000000000000000809018182581c000000000000000000000000000000000000000000000000000000001affffffff02010201").unwrap();
-            let tx: Result<TransactionBody<'_>, _> = minicbor::decode(&tx_bytes);
+            let tx: Result<StrictTransactionBody<'_>, _> = minicbor::decode_with(&tx_bytes, &mut BasicStrictContext::new());
             assert_eq!(
                 tx.map_err(|e| e.to_string()),
-                Err("decode error: transaction body must not contain duplicate keys".to_owned())
+                Err("decode error: TransactionBody failed strict validations: duplicate txbody entries for key 2".to_owned())
             );
         }
     }

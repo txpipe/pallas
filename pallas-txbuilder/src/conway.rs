@@ -7,7 +7,7 @@ use pallas_primitives::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
         PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
         ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
-        WitnessSet,
+        WitnessSet, NonEmptyMultiasset,
     },
     Fragment, NonEmptySet, PositiveCoin,
 };
@@ -68,11 +68,7 @@ impl BuildConway for StagingTransaction {
                 )
             })
             .collect::<Vec<_>>();
-        let mint = if mint.is_empty() {
-            None
-        } else {
-            Some(mint.into_iter().collect())
-        };
+        let mint = NonEmptyMultiasset::from_multiasset(mint.into_iter().collect());
 
         let collateral = NonEmptySet::from_vec(
             self.collateral_inputs
@@ -160,7 +156,7 @@ impl BuildConway for StagingTransaction {
 
         let mut mint_policies = mint
             .iter()
-            .flat_map(|x: &pallas_primitives::conway::Multiasset<NonZeroInt>| x.iter())
+            .flat_map(|x: &pallas_primitives::conway::NonEmptyMultiasset<NonZeroInt>| x.iter())
             .map(|(p, _)| *p)
             .collect::<Vec<_>>();
 
