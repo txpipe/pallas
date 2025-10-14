@@ -12,7 +12,7 @@ pub struct DmqMsg {
     pub kes_signature: Vec<u8>,
 
     /// The operational certificate of the SPO that created the message.
-    pub operational_certificate: Vec<u8>,
+    pub operational_certificate: DmqMsgOperationalCertificate,
 
     /// The cold verification key of the SPO that created the message.
     pub cold_verification_key: Vec<u8>,
@@ -43,6 +43,15 @@ impl DmqMsgPayload {
     }
 }
 
+/// The representation of an operational certificate in a DMQ message.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DmqMsgOperationalCertificate {
+    pub kes_vk: Vec<u8>,
+    pub issue_number: u64,
+    pub start_kes_period: u64,
+    pub cert_sig: Vec<u8>,
+}
+
 /// Reject reason.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsgValidationError(pub String);
@@ -67,6 +76,6 @@ mod tests {
         };
 
         let bytes = payload.bytes_to_sign().unwrap();
-        assert_eq!(vec![134, 67, 1, 2, 3, 67, 4, 5, 6, 7, 14], bytes);
+        assert_eq!(vec![132, 67, 1, 2, 3, 67, 4, 5, 6, 7, 14], bytes);
     }
 }
