@@ -13,12 +13,12 @@ use crate::miniprotocols::handshake::n2n::VersionData;
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localmsgnotification, localmsgsubmission,
+    blockfetch, chainsync, handshake, keepalive, leiosnotify, localmsgnotification, localmsgsubmission,
     localstate, localtxsubmission, peersharing, txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC,
     PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION, PROTOCOL_N2C_MSG_SUBMISSION,
     PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
     PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
-    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
+    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_LEIOS_NOTIFY, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
@@ -108,6 +108,7 @@ pub struct PeerClient {
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
     pub peersharing: peersharing::Client,
+    pub leiosnotify: leiosnotify::Client,
 }
 
 impl PeerClient {
@@ -125,6 +126,7 @@ impl PeerClient {
         let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
         let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+        let leiosnotify_channel = plexer.subscribe_client(PROTOCOL_N2N_LEIOS_NOTIFY);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
         let keepalive = keepalive::Client::new(channel);
@@ -156,6 +158,7 @@ impl PeerClient {
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
             peersharing: peersharing::Client::new(peersharing_channel),
+            leiosnotify: leiosnotify::Client::new(leiosnotify_channel),
         };
 
         Ok(client)
@@ -226,6 +229,10 @@ impl PeerClient {
         &mut self.peersharing
     }
 
+    pub fn leiosnotify(&mut self) -> &mut leiosnotify::Client {
+        &mut self.leiosnotify
+    }
+
     pub async fn abort(self) {
         self.plexer.abort().await
     }
@@ -240,6 +247,7 @@ pub struct PeerServer {
     pub txsubmission: txsubmission::Server,
     pub keepalive: keepalive::Server,
     pub peersharing: peersharing::Server,
+    pub leiosnotify: leiosnotify::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<(u64, n2n::VersionData)>,
 }
@@ -254,6 +262,7 @@ impl PeerServer {
         let txsub_channel = plexer.subscribe_server(PROTOCOL_N2N_TX_SUBMISSION);
         let keepalive_channel = plexer.subscribe_server(PROTOCOL_N2N_KEEP_ALIVE);
         let peersharing_channel = plexer.subscribe_server(PROTOCOL_N2N_PEER_SHARING);
+        let leiosnotify_channel = plexer.subscribe_server(PROTOCOL_N2N_LEIOS_NOTIFY);
 
         let hs = handshake::N2NServer::new(hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
@@ -261,6 +270,7 @@ impl PeerServer {
         let txsub = txsubmission::Server::new(txsub_channel);
         let keepalive = keepalive::Server::new(keepalive_channel);
         let peersharing = peersharing::Server::new(peersharing_channel);
+        let leiosnotify = leiosnotify::Server::new(leiosnotify_channel);
 
         let plexer = plexer.spawn();
 
@@ -272,6 +282,7 @@ impl PeerServer {
             txsubmission: txsub,
             keepalive,
             peersharing,
+            leiosnotify,
             accepted_address: None,
             accepted_version: None,
         }
@@ -322,6 +333,10 @@ impl PeerServer {
 
     pub fn peersharing(&mut self) -> &mut peersharing::Server {
         &mut self.peersharing
+    }
+
+    pub fn leiosnotify(&mut self) -> &mut leiosnotify::Server {
+        &mut self.leiosnotify
     }
 
     pub fn accepted_address(&self) -> Option<&SocketAddr> {

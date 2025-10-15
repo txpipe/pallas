@@ -6,6 +6,7 @@ pub mod blockfetch;
 pub mod chainsync;
 pub mod handshake;
 pub mod keepalive;
+pub mod leiosnotify;
 pub mod localmsgnotification;
 pub mod localmsgsubmission;
 pub mod localstate;
