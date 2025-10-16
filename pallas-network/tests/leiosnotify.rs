@@ -148,3 +148,71 @@ pub async fn leiosnotify_server_and_client_happy_path() {
 
     tokio::try_join!(client, server).unwrap();
 }
+
+#[cfg(unix)]
+#[tokio::test]
+pub async fn leiosnotify_outbound_no_agency() {
+    let rb_header: leiosnotify::Header =
+        hex::decode("eade0000eade0000eade0000eade0000eade0000eade0000eade0000eade0000").unwrap();
+
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30004))
+        .await
+        .unwrap();
+
+    let server = tokio::spawn({
+        async move {
+            // server setup
+
+            let mut peer_server = PeerServer::accept(&listener, 0).await.unwrap();
+
+            let server_ln = peer_server.leiosnotify();
+
+            // server is Idle
+            assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
+
+            // Server incorrectly tries to send message
+            let res = server_ln.send_block_announcement(rb_header).await;
+
+            match res {
+                Err(leiosnotify::ServerError::AgencyIsTheirs) => {}
+                Err(leiosnotify::ServerError::InvalidOutbound) => {
+                    tracing::warn!("Expected ServerError `AgencyIsTheirs`, got `InvalidOutbound`")
+                }
+                Err(e) => panic!("Unexpected error: {:?}", e),
+                Ok(_) => panic!("Server has no agency"),
+            }
+
+            // Server receives Done message from client
+            server_ln.recv_request_next().await.unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Done);
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+
+        let mut client_to_server_conn = PeerClient::connect("localhost:30004", 0).await.unwrap();
+
+        let client_ln = client_to_server_conn.leiosnotify();
+
+        // client sends Done
+        client_ln.send_done().await.unwrap();
+        assert!(client_ln.is_done());
+
+        // client sends `RequestNext` while not having agency
+        let res = client_ln.send_request_next().await;
+
+        match res {
+            Err(leiosnotify::ClientError::ProtocolDone) => {}
+            Err(leiosnotify::ClientError::InvalidOutbound) => {
+                tracing::warn!("Expected ClientError `ProtocolDone`, got `InvalidOutbound`")
+            }
+            Err(e) => panic!("Unexpected error: {:?}", e),
+            Ok(_) => panic!("Client has no agency"),
+        }
+    });
+
+    tokio::try_join!(client, server).unwrap();
+}

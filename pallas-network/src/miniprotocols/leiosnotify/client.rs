@@ -13,6 +13,9 @@ pub enum ClientError {
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    #[error("attempted to send message after protocol is done")]
+    ProtocolDone,
+
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
@@ -48,7 +51,9 @@ impl Client {
     }
 
     fn assert_agency_is_ours(&self) -> Result<(), ClientError> {
-        if !self.has_agency() {
+        if self.is_done() {
+            Err(ClientError::ProtocolDone)
+        } else if !self.has_agency() {
             Err(ClientError::AgencyIsTheirs)
         } else {
             Ok(())
@@ -58,6 +63,8 @@ impl Client {
     fn assert_agency_is_theirs(&self) -> Result<(), ClientError> {
         if self.has_agency() {
             Err(ClientError::AgencyIsOurs)
+        } else if self.is_done() {
+            Err(ClientError::ProtocolDone)
         } else {
             Ok(())
         }
