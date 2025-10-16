@@ -1,3 +1,4 @@
+#![cfg(feature = "leios")]
 // use pallas_codec::utils::AnyCbor;
 // use pallas_crypto::hash::Hash;
 use pallas_network::{
