@@ -21,7 +21,6 @@ pub enum ClientError {
 
     // #[error("")]
     // ProtocolSpecificError,
-
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
@@ -112,10 +111,7 @@ impl Client {
         let msg = self.recv_message().await?;
         match msg {
             Message::BlockAnnouncement(params) => {
-                debug!(
-                    ?params,
-                    "received "
-                );
+                debug!(?params, "received ");
                 self.0 = State::Idle;
                 Ok(params)
             }
@@ -127,11 +123,7 @@ impl Client {
         let msg = self.recv_message().await?;
         match msg {
             Message::BlockOffer(slot, hash) => {
-                debug!(
-                    ?slot,
-                    ?hash,
-                    "received "
-                );
+                debug!(?slot, ?hash, "received ");
                 self.0 = State::Idle;
                 Ok((slot, hash))
             }
@@ -139,15 +131,11 @@ impl Client {
         }
     }
 
-    pub async fn recv_block_tx_offer(&mut self) -> Result<BlockTxsOffer, ClientError> {
+    pub async fn recv_block_txs_offer(&mut self) -> Result<BlockTxsOffer, ClientError> {
         let msg = self.recv_message().await?;
         match msg {
             Message::BlockTxsOffer(slot, hash) => {
-                debug!(
-                    ?slot,
-                    ?hash,
-                    "received "
-                );
+                debug!(?slot, ?hash, "received ");
                 self.0 = State::Idle;
                 Ok((slot, hash))
             }
@@ -159,10 +147,7 @@ impl Client {
         let msg = self.recv_message().await?;
         match msg {
             Message::VoteOffer(params) => {
-                debug!(
-                    ?params,
-                    "received "
-                );
+                debug!(?params, "received ");
                 self.0 = State::Idle;
                 Ok(params)
             }

@@ -14,35 +14,35 @@ use tokio::net::TcpListener;
 #[cfg(unix)]
 #[tokio::test]
 pub async fn leiosnotify_server_and_client_happy_path() {
-    use tracing::info;
+    use tracing::debug;
 
     tracing_subscriber::fmt::init();
-    
-    let _block_hash: leiosnotify::Hash = hex::decode(
-        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-    ).unwrap();
 
-    let rb_header: leiosnotify::Header = hex::decode(
-        "eade0000eade0000eade0000eade0000eade0000eade0000eade0000eade0000"
-    ).unwrap();
+    let block_hash: leiosnotify::Hash =
+        hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap();
 
-    let _block_txs_hash: leiosnotify::Hash = hex::decode(
-        "bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0"
-    ).unwrap();
+    let rb_header: leiosnotify::Header =
+        hex::decode("eade0000eade0000eade0000eade0000eade0000eade0000eade0000eade0000").unwrap();
 
-    let _block_slot: leiosnotify::Slot = 123456789;
-    let _block_txs_slot: leiosnotify::Slot = 222222222;
-    
-    let _vote_issuer_id: leiosnotify::Hash = hex::decode(
-        "beedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeed"
-    ).unwrap();
-            
+    let block_txs_hash: leiosnotify::Hash =
+        hex::decode("bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0bee0").unwrap();
+
+    let block_slot: leiosnotify::Slot = 123456789;
+    let block_txs_slot: leiosnotify::Slot = 222222222;
+
+    let vote_issuer_id: leiosnotify::Hash =
+        hex::decode("beedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeedbeed").unwrap();
+
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
         .await
         .unwrap();
 
     let server = tokio::spawn({
         let sent_header = rb_header.clone();
+        let sent_block_hash = block_hash.clone();
+        let sent_block_txs_hash = block_txs_hash.clone();
+        let sent_vote_issuer_id = vote_issuer_id.clone();
+
         async move {
             // server setup
 
@@ -50,24 +50,56 @@ pub async fn leiosnotify_server_and_client_happy_path() {
 
             let server_ln = peer_server.leiosnotify();
 
-            // server receives share request from client
-
-            info!("server waiting for share request");
-
+            // server receives `RequestNext` from client
+            debug!("server waiting for share request");
             server_ln.recv_request_next().await.unwrap();
-
             assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
 
-            // Server sends peer addresses
+            // Server sends header
+            server_ln
+                .send_block_announcement(sent_header)
+                .await
+                .unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
 
-            server_ln.send_block_announcement(sent_header).await.unwrap();
+            // server receives `RequestNext` from client
+            debug!("server waiting for share request");
+            server_ln.recv_request_next().await.unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
 
+            // Server sends block offer
+            server_ln
+                .send_block_offer(block_slot, sent_block_hash)
+                .await
+                .unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
+
+            // server receives `RequestNext` from client
+            debug!("server waiting for share request");
+            server_ln.recv_request_next().await.unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
+
+            // Server sends txs offer
+            server_ln
+                .send_block_txs_offer(block_txs_slot, sent_block_txs_hash)
+                .await
+                .unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
+
+            // server receives `RequestNext` from client
+            debug!("server waiting for share request");
+            server_ln.recv_request_next().await.unwrap();
+            assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
+
+            // Server sends votes offer
+            server_ln
+                .send_vote_offer(vec![(block_slot, sent_vote_issuer_id)])
+                .await
+                .unwrap();
             assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
 
             // Server receives Done message from client
-
             server_ln.recv_request_next().await.unwrap();
-
             assert_eq!(*server_ln.state(), leiosnotify::State::Done);
         }
     });
@@ -81,19 +113,36 @@ pub async fn leiosnotify_server_and_client_happy_path() {
 
         let client_ln = client_to_server_conn.leiosnotify();
 
-        // client sends peers request, receives peer addresses
-
+        // client sends `RequestNext`, receives block announcement
         client_ln.send_request_next().await.unwrap();
-
         assert_eq!(
             client_ln.recv_block_announcement().await.unwrap(),
             rb_header,
         );
 
+        // client sends `RequestNext`, receives block offer
+        client_ln.send_request_next().await.unwrap();
+        assert_eq!(
+            client_ln.recv_block_offer().await.unwrap(),
+            (block_slot, block_hash),
+        );
+
+        // client sends `RequestNext`, receives tx offer
+        client_ln.send_request_next().await.unwrap();
+        assert_eq!(
+            client_ln.recv_block_txs_offer().await.unwrap(),
+            (block_txs_slot, block_txs_hash),
+        );
+
+        // client sends `RequestNext`, receives votes offer
+        client_ln.send_request_next().await.unwrap();
+        assert_eq!(
+            client_ln.recv_vote_offer().await.unwrap(),
+            vec![(block_slot, vote_issuer_id)],
+        );
+
         // client sends Done
-
         client_ln.send_done().await.unwrap();
-
         assert!(client_ln.is_done())
     });
 

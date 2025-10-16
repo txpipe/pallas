@@ -110,10 +110,7 @@ impl Server {
         }
     }
 
-    pub async fn send_block_announcement(
-        &mut self,
-        response: Header,
-    ) -> Result<(), ServerError> {
+    pub async fn send_block_announcement(&mut self, response: Header) -> Result<(), ServerError> {
         let msg = Message::BlockAnnouncement(response);
         self.send_message(&msg).await?;
         self.0 = State::Idle;

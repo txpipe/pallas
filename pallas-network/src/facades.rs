@@ -13,12 +13,13 @@ use crate::miniprotocols::handshake::n2n::VersionData;
 use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, leiosnotify, localmsgnotification, localmsgsubmission,
-    localstate, localtxsubmission, peersharing, txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC,
-    PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION, PROTOCOL_N2C_MSG_SUBMISSION,
-    PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
-    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
-    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_LEIOS_NOTIFY, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
+    blockfetch, chainsync, handshake, keepalive, leiosnotify, localmsgnotification,
+    localmsgsubmission, localstate, localtxsubmission, peersharing, txmonitor, txsubmission,
+    PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION,
+    PROTOCOL_N2C_MSG_SUBMISSION, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR,
+    PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
+    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_LEIOS_NOTIFY,
+    PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
