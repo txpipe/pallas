@@ -1,15 +1,11 @@
-; This file was auto-generated from huddle. Please do not modify it directly!
+; conway.cddl fragments integrated to CIP draft fetched 17 Oct 2025 from cardano-scaling
 
-; Valid blocks must also satisfy the following two constraints:
-; 1. the length of transaction_bodies and transaction_witness_sets
-;    must be the same
-; 2. every transaction_index must be strictly smaller than the
-;    length of transaction_bodies
 block = 
   [ header                 
   , transaction_bodies       : [* transaction_body]                   
   , transaction_witness_sets : [* transaction_witness_set]            
   , auxiliary_data_set       : {* transaction_index => auxiliary_data}
+  , ? eb_certificate         : leios_certificate
   , invalid_transactions     : [* transaction_index]                  
   ]
 
@@ -24,6 +20,49 @@ header_body =
   , vrf_result        : vrf_cert    
   , block_body_size   : uint .size 4
   , block_body_hash   : hash32      
+  , ? ( announced_eb         : hash32
+      , announced_eb_size    : uint32
+      )
+  , ? certified_eb           : bool
   , operational_cert
   , protocol_version
+  ]
+
+
+endorser_block =
+  [ transaction_references   : [* tx_reference]
+  ]
+
+; Reference structures
+tx_reference =
+  [ tx_hash                  : hash32     ; Hash of complete transaction bytes
+  , tx_size                  : uint16     ; Transaction size in bytes
+  ]
+
+leios_certificate =
+  [ election_id              : election_id
+  , endorser_block_hash      : hash32
+  , persistent_voters        : [* persistent_voter_id]
+  , nonpersistent_voters     : {* pool_id => bls_signature}
+  , ? aggregate_elig_sig     : bls_signature
+  , aggregate_vote_sig       : bls_signature
+  ]
+
+leios_vote = persistent_vote / non_persistent_vote
+
+persistent_vote =
+  [ 0
+  , election_id
+  , persistent_voter_id
+  , endorser_block_hash
+  , vote_signature
+  ]
+
+non_persistent_vote =
+  [ 1
+  , election_id
+  , pool_id
+  , eligibility_signature
+  , endorser_block_hash
+  , vote_signature
   ]
