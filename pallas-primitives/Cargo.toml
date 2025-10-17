@@ -24,3 +24,4 @@ test-case = "3.3.1"
 [features]
 json = ["serde", "serde_json"]
 default = ["json"]
+leios = []
