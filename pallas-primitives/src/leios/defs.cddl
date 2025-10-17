@@ -21,7 +21,7 @@ header_body =
   , block_body_size   : uint .size 4
   , block_body_hash   : hash32      
   , ? ( announced_eb         : hash32
-      , announced_eb_size    : uint32
+      , announced_eb_size    : uint .size 4
       )
   , ? certified_eb           : bool
   , operational_cert
@@ -35,8 +35,8 @@ endorser_block =
 
 ; Reference structures
 tx_reference =
-  [ tx_hash                  : hash32     ; Hash of complete transaction bytes
-  , tx_size                  : uint16     ; Transaction size in bytes
+  [ tx_hash                  : hash32          ; Hash of complete transaction bytes
+  , tx_size                  : uint .size 2   ; Transaction size in bytes
   ]
 
 leios_certificate =
@@ -61,8 +61,24 @@ persistent_vote =
 non_persistent_vote =
   [ 1
   , election_id
-  , pool_id
+  , pool_keyhash
   , eligibility_signature
   , endorser_block_hash
   , vote_signature
   ]
+
+; approx size 136 + ⌈m/8⌉ + 76(n - m), where
+; - n = committee size
+; - m = number of persistent voters
+; (see https://github.com/input-output-hk/ouroboros-leios/blob/d5f1a9bc940e69f406c3e25c0d7d9aa58cf701f8/crypto-benchmarks.rs/Specification.md?plain=1#L106)
+bls_signature = bytes .size 48
+
+election_id = bytes .size 8
+
+persistent_voter_id = bytes .size 2
+
+endorser_block_hash = hash32
+
+vote_signature = bytes .size 48 
+
+eligibility_signature = bytes .size 48
