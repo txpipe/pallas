@@ -86,10 +86,20 @@ pub struct HeaderBody {
     #[n(7)]
     pub block_body_hash: Hash<32>,
 
+    // Two fields, according to the old CIP (not a tuple as recently)
     #[n(8)]
-    pub operational_cert: OperationalCert,
+    pub announced_eb: Option<Hash<32>>,
 
     #[n(9)]
+    pub announced_eb_size: Option<u32>,
+
+    #[n(10)]
+    pub certified_eb: Option<bool>,
+
+    #[n(11)]
+    pub operational_cert: OperationalCert,
+
+    #[n(12)]
     pub protocol_version: ProtocolVersion,
 }
 
