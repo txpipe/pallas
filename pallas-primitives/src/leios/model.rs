@@ -61,6 +61,15 @@ pub struct Block<'b> {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct EbAnnouncement {
+    #[n(0)]
+    pub announced_eb: Option<Hash<32>>,
+
+    #[n(1)]
+    pub announced_eb_size: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
     pub block_number: u64,
@@ -86,20 +95,16 @@ pub struct HeaderBody {
     #[n(7)]
     pub block_body_hash: Hash<32>,
 
-    // Two fields, according to the old CIP (not a tuple as recently)
     #[n(8)]
-    pub announced_eb: Option<Hash<32>>,
+    pub eb_announcement: Option<EbAnnouncement>,
 
     #[n(9)]
-    pub announced_eb_size: Option<u32>,
-
-    #[n(10)]
     pub certified_eb: Option<bool>,
 
-    #[n(11)]
+    #[n(10)]
     pub operational_cert: OperationalCert,
 
-    #[n(12)]
+    #[n(11)]
     pub protocol_version: ProtocolVersion,
 }
 
