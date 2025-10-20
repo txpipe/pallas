@@ -17,9 +17,8 @@ use pallas_codec::utils::{Bytes, KeepRaw};
 use pallas_primitives::{
     babbage,
     conway::{
-        DatumOption, Language, LanguageView, Mint, NativeScript, Redeemers, RedeemersKey,
-        RequiredSigners, ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value,
-        WitnessSet,
+        DatumOption, Language, LanguageView, Mint, Redeemers, RedeemersKey, RequiredSigners,
+        ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
@@ -45,7 +44,7 @@ pub fn validate_conway_tx(
     check_network_id(tx_body, network_id)?;
     check_tx_size(&size, prot_pps)?;
     check_tx_ex_units(mtx, prot_pps)?;
-    check_minting(tx_body, mtx)?;
+    check_minting(tx_body, mtx, utxos)?;
     check_well_formedness(tx_body, mtx)?;
     check_witness_set(mtx, utxos)?;
     check_languages(mtx, utxos, prot_pps)?;
@@ -310,50 +309,8 @@ fn check_collaterals_assets(
 }
 
 fn val_from_multi_era_output(multi_era_output: &MultiEraOutput) -> Value {
-    match multi_era_output {
-        MultiEraOutput::Conway(x) => match x.clone().into_owned() {
-            TransactionOutput::Legacy(output) => {
-                let amount = output.amount.clone();
-                match amount {
-                    babbage::Value::Coin(coin) => Value::Coin(coin),
-                    babbage::Value::Multiasset(coin, assets) => {
-                        let mut conway_assets = Vec::new();
-                        for (key, val) in assets.into_iter() {
-                            let mut conway_value = Vec::new();
-                            for (inner_key, inner_val) in val.into_iter() {
-                                conway_value
-                                    .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
-                            }
-                            conway_assets.push((key, conway_value.into_iter().collect()));
-                        }
-                        let conway_assets = conway_assets.into_iter().collect();
-                        Value::Multiasset(coin, conway_assets)
-                    }
-                }
-            }
-            TransactionOutput::PostAlonzo(output) => output.value.clone(),
-        },
-        MultiEraOutput::AlonzoCompatible(output, _) => {
-            let amount = output.amount.clone();
-            match amount {
-                babbage::Value::Coin(coin) => Value::Coin(coin),
-                babbage::Value::Multiasset(coin, assets) => {
-                    let mut conway_assets = Vec::new();
-                    for (key, val) in assets.into_iter() {
-                        let mut conway_value = Vec::new();
-                        for (inner_key, inner_val) in val.into_iter() {
-                            conway_value
-                                .push((inner_key, PositiveCoin::try_from(inner_val).unwrap()));
-                        }
-                        conway_assets.push((key, conway_value.into_iter().collect()));
-                    }
-                    let conway_assets = conway_assets.into_iter().collect();
-                    Value::Multiasset(coin, conway_assets)
-                }
-            }
-        }
-        _ => unimplemented!(),
-    }
+    let value = multi_era_output.value();
+    value.into_conway()
 }
 
 // The preservation of value property holds.
@@ -368,6 +325,7 @@ fn check_preservation_of_value(tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
     if let Some(m) = &tx_body.mint {
         input = conway_add_minted_non_zero(&input, m, &PostAlonzo(NegativeValue))?;
     }
+
     if !conway_values_are_equal(&input, &output) {
         return Err(PostAlonzo(PreservationOfValue));
     }
@@ -599,47 +557,53 @@ fn check_tx_ex_units(mtx: &Tx, prot_pps: &ConwayProtParams) -> ValidationResult 
 
 // Each minted / burned asset is paired with an appropriate native script or
 // Plutus script.
-fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
+fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     match &tx_body.mint {
         Some(minted_value) => {
-            let native_script_wits: Vec<NativeScript> =
-                match &mtx.transaction_witness_set.native_script {
-                    None => Vec::new(),
-                    Some(keep_raw_native_script_wits) => keep_raw_native_script_wits
-                        .iter()
-                        .map(|x| x.clone().unwrap())
-                        .collect(),
-                };
-            let v1_script_wits: Vec<PlutusScript<1>> =
-                match &mtx.transaction_witness_set.plutus_v1_script {
-                    None => Vec::new(),
-                    Some(v1_script_wits) => v1_script_wits.clone().to_vec(),
-                };
-            let v2_script_wits: Vec<PlutusScript<2>> =
-                match &mtx.transaction_witness_set.plutus_v2_script {
-                    None => Vec::new(),
-                    Some(v2_script_wits) => v2_script_wits.clone().to_vec(),
-                };
-            let v3_script_wits: Vec<PlutusScript<3>> =
-                match &mtx.transaction_witness_set.plutus_v3_script {
-                    None => Vec::new(),
-                    Some(v3_script_wits) => v3_script_wits.clone().to_vec(),
-                };
+            let native_script_wits = mtx
+                .transaction_witness_set
+                .native_script
+                .iter()
+                .flatten()
+                .map(|x| compute_native_script_hash(x));
+
+            let v1_scripts_wits = mtx
+                .transaction_witness_set
+                .plutus_v1_script
+                .iter()
+                .flatten()
+                .map(compute_plutus_v1_script_hash);
+
+            let v2_scripts_wits = mtx
+                .transaction_witness_set
+                .plutus_v2_script
+                .iter()
+                .flatten()
+                .map(compute_plutus_v2_script_hash);
+
+            let v3_scripts_wits = mtx
+                .transaction_witness_set
+                .plutus_v3_script
+                .iter()
+                .flatten()
+                .map(compute_plutus_v3_script_hash);
+
+            let ref_scripts = tx_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .filter_map(|x| get_script_hash_from_reference_input(x, utxos));
+
+            let all_scripts_wits: Vec<_> = native_script_wits
+                .chain(v1_scripts_wits)
+                .chain(v2_scripts_wits)
+                .chain(v3_scripts_wits)
+                .chain(ref_scripts)
+                .collect();
+
             for (policy, _) in minted_value.iter() {
-                if native_script_wits
-                    .iter()
-                    .all(|script| compute_native_script_hash(script) != *policy)
-                    && v1_script_wits
-                        .iter()
-                        .all(|script| compute_plutus_v1_script_hash(script) != *policy)
-                    && v2_script_wits
-                        .iter()
-                        .all(|script| compute_plutus_v2_script_hash(script) != *policy)
-                    && v3_script_wits
-                        .iter()
-                        .all(|script| compute_plutus_v3_script_hash(script) != *policy)
-                {
-                    return Err(PostAlonzo(MintingLacksPolicy));
+                if !all_scripts_wits.contains(policy) {
+                    return Err(PostAlonzo(MintingLacksPolicy(*policy)));
                 }
             }
             Ok(())
@@ -985,9 +949,9 @@ fn check_minting_policies(
                     }
                 }
             }
-            for (policy_covered, _) in minting_policies {
+            for (policy_covered, policy) in minting_policies {
                 if !policy_covered {
-                    return Err(PostAlonzo(MintingLacksPolicy));
+                    return Err(PostAlonzo(MintingLacksPolicy(policy)));
                 }
             }
             Ok(())
@@ -1026,18 +990,17 @@ fn check_input_datum_hash_in_witness_set(
     plutus_data_hash: &mut [(bool, Hash<32>)],
 ) -> ValidationResult {
     for input in &tx_body.inputs {
-        match utxos
+        let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
-            .and_then(MultiEraOutput::as_conway)
-        {
-            Some(output) => {
-                if let Some(datum_hash) = get_datum_hash(output) {
-                    find_plutus_datum_in_witness_set(&datum_hash, plutus_data_hash)?
-                }
-            }
-            None => return Err(PostAlonzo(InputNotInUTxO)),
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
+
+        // we only check for datum in the witness set if it's not an inline datum in the
+        // output (aka: DatumOption::Hash).
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
+            find_plutus_datum_in_witness_set(&hash, plutus_data_hash)?
         }
     }
+
     Ok(())
 }
 
@@ -1195,11 +1158,20 @@ fn mk_plutus_script_redeemer_pointers(
     let mut res: Vec<RedeemersKey> = Vec::new();
     let sorted_inputs: &Vec<TransactionInput> = &sort_inputs(&tx_body.inputs);
     for (index, input) in sorted_inputs.iter().enumerate() {
-        if get_script_hash_from_input(input, utxos).is_some() {
-            res.push(RedeemersKey {
-                tag: pallas_primitives::conway::RedeemerTag::Spend,
-                index: index as u32,
-            })
+        if let Some(script_hash) = get_script_hash_from_input(input, utxos) {
+            // Only create redeemer pointer for Plutus scripts, not native scripts
+            if is_phase_2_script(
+                &script_hash,
+                plutus_v1_scripts,
+                plutus_v2_scripts,
+                plutus_v3_scripts,
+                reference_scripts,
+            ) {
+                res.push(RedeemersKey {
+                    tag: pallas_primitives::conway::RedeemerTag::Spend,
+                    index: index as u32,
+                })
+            }
         }
     }
     if let Some(mint) = &tx_body.mint {

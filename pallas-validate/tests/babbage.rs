@@ -1866,7 +1866,7 @@ mod babbage_tests {
                 "Minting policy is not supported by the corresponding native script"
             ),
             Err(err) => match err {
-                PostAlonzo(PostAlonzoError::MintingLacksPolicy) => (),
+                PostAlonzo(PostAlonzoError::MintingLacksPolicy(_)) => (),
                 _ => panic!("Unexpected error ({err:?})"),
             },
         }

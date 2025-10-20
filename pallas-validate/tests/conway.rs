@@ -31,7 +31,7 @@ mod conway_tests {
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
     use pallas_primitives::{conway::PostAlonzoTransactionOutput, PositiveCoin};
-    use pallas_traverse::{MultiEraInput, MultiEraOutput};
+    use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput};
 
     use super::*;
 

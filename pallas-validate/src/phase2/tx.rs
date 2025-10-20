@@ -18,10 +18,12 @@ use pallas_primitives::{
 };
 use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
-use rug::{ops::NegAssign, Complete, Integer};
 use tracing::{debug, instrument};
 use uplc_turbo::{
-    binder::DeBruijn, bumpalo::Bump, constant::Constant, data::PlutusData as PragmaPlutusData,
+    binder::DeBruijn,
+    bumpalo::Bump,
+    constant::{Constant, Integer},
+    data::PlutusData as PragmaPlutusData,
     term::Term,
 };
 
@@ -67,16 +69,22 @@ pub fn map_pallas_data_to_pragma_data<'a>(
                 PragmaPlutusData::integer_from(arena, val)
             }
             pallas_primitives::BigInt::BigNInt(big_num_bytes) => {
-                let mut val = Integer::parse(big_num_bytes.as_slice()).unwrap().complete();
-                val.neg_assign();
+                let val = uplc_turbo::constant::integer_from_bytes_and_sign(
+                    arena,
+                    big_num_bytes.as_slice(),
+                    -1,
+                );
 
-                let val = arena.alloc(val);
                 PragmaPlutusData::integer(arena, val)
             }
             // @TODO: recheck this implementations correctness
             pallas_primitives::BigInt::BigUInt(big_num_bytes) => {
-                let val = Integer::parse(big_num_bytes.as_slice()).unwrap().complete();
-                let val = arena.alloc(val);
+                let val = uplc_turbo::constant::integer_from_bytes_and_sign(
+                    arena,
+                    big_num_bytes.as_slice(),
+                    1,
+                );
+
                 PragmaPlutusData::integer(arena, val)
             }
         },

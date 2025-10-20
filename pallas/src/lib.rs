@@ -7,7 +7,6 @@
 //! knows, maybe even a full node in the far away future).
 
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
 
 #[doc(inline)]
 #[cfg(not(target_family = "wasm"))]

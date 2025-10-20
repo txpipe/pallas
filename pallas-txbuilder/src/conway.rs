@@ -303,7 +303,7 @@ impl BuildConway for StagingTransaction {
 }
 
 impl Output {
-    pub fn build_babbage_raw(&self) -> Result<TransactionOutput, TxBuilderError> {
+    pub fn build_babbage_raw(&self) -> Result<TransactionOutput<'_>, TxBuilderError> {
         let assets = self
             .assets
             .iter()

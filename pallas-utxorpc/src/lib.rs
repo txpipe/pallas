@@ -32,6 +32,7 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
 
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
+    fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
 }
 
 #[derive(Default, Clone)]
@@ -721,6 +722,11 @@ impl<C: LedgerContext> Mapper<C> {
                 tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
+            timestamp: self
+                .ledger
+                .as_ref()
+                .and_then(|ledger| ledger.get_slot_timestamp(block.slot()))
+                .unwrap_or(0),
         }
     }
 
@@ -740,6 +746,10 @@ mod tests {
 
     impl LedgerContext for NoLedger {
         fn get_utxos(&self, _refs: &[TxoRef]) -> Option<UtxoMap> {
+            None
+        }
+
+        fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
             None
         }
     }

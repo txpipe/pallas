@@ -857,14 +857,12 @@ pub mod tests {
     }
 
     // TODO: DRY with other decode/encode roundtripss
-    /// Decode a value of type T, transform it to U and encode that again to form a roundtrip.
+    // Decode a value of type T, transform it to U and encode that again to form a roundtrip.
     fn roundtrips_with<T, U>(message_str: &str, transform: fn(T) -> U)
     where
         T: for<'b> minicbor::Decode<'b, ()> + std::fmt::Debug,
         U: std::fmt::Debug + minicbor::Encode<()>,
     {
-        use pallas_codec::minicbor;
-
         let bytes = hex::decode(message_str).unwrap_or_else(|e| panic!("bad message file: {e:?}"));
 
         let value: T =
