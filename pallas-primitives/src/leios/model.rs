@@ -127,6 +127,11 @@ impl HeaderBody {
     }
 }
 
+/// Leios transaction type
+///
+/// It saves CBOR data for hashing purposes.
+pub type LeiosTx<'a> = KeepRaw<'a, Tx<'a>>;
+
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct EndorserBlock {
     #[n(0)]
