@@ -54,10 +54,10 @@ pub struct Block<'b> {
     pub auxiliary_data_set: BTreeMap<TransactionIndex, KeepRaw<'b, AuxiliaryData>>,
 
     #[n(4)]
-    pub eb_certificate: Option<KeepRaw<'b, LeiosCertificate>>,
+    pub invalid_transactions: Option<Vec<TransactionIndex>>,
 
     #[n(5)]
-    pub invalid_transactions: Option<Vec<TransactionIndex>>,
+    pub eb_certificate: Option<KeepRaw<'b, LeiosCertificate>>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
