@@ -1723,7 +1723,9 @@ pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
 #[tokio::test]
 pub async fn local_message_notification_server_and_client_happy_path() {
     fn fake_msgs() -> Vec<DmqMsg> {
-        use pallas_network::miniprotocols::localmsgsubmission::DmqMsgPayload;
+        use pallas_network::miniprotocols::localmsgsubmission::{
+            DmqMsgOperationalCertificate, DmqMsgPayload,
+        };
 
         vec![
             DmqMsg {
@@ -1734,7 +1736,12 @@ pub async fn local_message_notification_server_and_client_happy_path() {
                     expires_at: 100,
                 },
                 kes_signature: vec![0, 1, 2, 3],
-                operational_certificate: vec![0, 1, 2, 3, 4],
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: vec![1, 2, 3],
+                    issue_number: 4,
+                    start_kes_period: 5,
+                    cert_sig: vec![6],
+                },
                 cold_verification_key: vec![0, 1, 2, 3, 4, 5],
             },
             DmqMsg {
@@ -1745,7 +1752,12 @@ pub async fn local_message_notification_server_and_client_happy_path() {
                     expires_at: 102,
                 },
                 kes_signature: vec![1, 2, 3, 4],
-                operational_certificate: vec![1, 2, 3, 4, 5],
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: vec![1, 2, 3],
+                    issue_number: 4,
+                    start_kes_period: 5,
+                    cert_sig: vec![6],
+                },
                 cold_verification_key: vec![1, 2, 3, 4, 5, 6],
             },
         ]
@@ -1851,7 +1863,9 @@ pub async fn local_message_submission_server_and_client_happy_path() {
     use pallas_network::miniprotocols::localmsgsubmission::DmqMsgValidationError;
 
     fn fake_msg() -> DmqMsg {
-        use pallas_network::miniprotocols::localmsgsubmission::DmqMsgPayload;
+        use pallas_network::miniprotocols::localmsgsubmission::{
+            DmqMsgOperationalCertificate, DmqMsgPayload,
+        };
 
         DmqMsg {
             msg_payload: DmqMsgPayload {
@@ -1861,7 +1875,12 @@ pub async fn local_message_submission_server_and_client_happy_path() {
                 expires_at: 100,
             },
             kes_signature: vec![0, 1, 2, 3],
-            operational_certificate: vec![0, 1, 2, 3, 4],
+            operational_certificate: DmqMsgOperationalCertificate {
+                kes_vk: vec![1, 2, 3],
+                issue_number: 4,
+                start_kes_period: 5,
+                cert_sig: vec![6],
+            },
             cold_verification_key: vec![0, 1, 2, 3, 4, 5],
         }
     }
