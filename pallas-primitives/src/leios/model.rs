@@ -133,6 +133,8 @@ impl HeaderBody {
 pub type LeiosTx<'a> = KeepRaw<'a, Tx<'a>>;
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[cbor(transparent)]
+#[serde(transparent)]
 pub struct EndorserBlock {
     #[n(0)]
     pub transaction_references: Vec<TxReference>,
