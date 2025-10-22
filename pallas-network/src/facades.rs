@@ -17,12 +17,13 @@ use crate::miniprotocols::{
     PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION, PROTOCOL_N2C_MSG_SUBMISSION,
     PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
     PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
-    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_LEIOS_NOTIFY, PROTOCOL_N2N_PEER_SHARING,
-    PROTOCOL_N2N_TX_SUBMISSION,
+    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
 };
 
 #[cfg(feature = "leios")]
-use crate::miniprotocols::leiosnotify;
+use crate::miniprotocols::{
+    leiosfetch, leiosnotify, PROTOCOL_N2N_LEIOS_FETCH, PROTOCOL_N2N_LEIOS_NOTIFY,
+};
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};
 
@@ -113,6 +114,8 @@ pub struct PeerClient {
     pub peersharing: peersharing::Client,
     #[cfg(feature = "leios")]
     pub leiosnotify: leiosnotify::Client,
+    #[cfg(feature = "leios")]
+    pub leiosfetch: leiosfetch::Client,
 }
 
 impl PeerClient {
@@ -130,7 +133,10 @@ impl PeerClient {
         let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
         let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+        #[cfg(feature = "leios")]
         let leiosnotify_channel = plexer.subscribe_client(PROTOCOL_N2N_LEIOS_NOTIFY);
+        #[cfg(feature = "leios")]
+        let leiosfetch_channel = plexer.subscribe_client(PROTOCOL_N2N_LEIOS_FETCH);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
         let keepalive = keepalive::Client::new(channel);
@@ -164,6 +170,8 @@ impl PeerClient {
             peersharing: peersharing::Client::new(peersharing_channel),
             #[cfg(feature = "leios")]
             leiosnotify: leiosnotify::Client::new(leiosnotify_channel),
+            #[cfg(feature = "leios")]
+            leiosfetch: leiosfetch::Client::new(leiosfetch_channel),
         };
 
         Ok(client)
@@ -239,6 +247,11 @@ impl PeerClient {
         &mut self.leiosnotify
     }
 
+    #[cfg(feature = "leios")]
+    pub fn leiosfetch(&mut self) -> &mut leiosfetch::Client {
+        &mut self.leiosfetch
+    }
+
     pub async fn abort(self) {
         self.plexer.abort().await
     }
@@ -255,6 +268,8 @@ pub struct PeerServer {
     pub peersharing: peersharing::Server,
     #[cfg(feature = "leios")]
     pub leiosnotify: leiosnotify::Server,
+    #[cfg(feature = "leios")]
+    pub leiosfetch: leiosfetch::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<(u64, n2n::VersionData)>,
 }
@@ -271,6 +286,8 @@ impl PeerServer {
         let peersharing_channel = plexer.subscribe_server(PROTOCOL_N2N_PEER_SHARING);
         #[cfg(feature = "leios")]
         let leiosnotify_channel = plexer.subscribe_server(PROTOCOL_N2N_LEIOS_NOTIFY);
+        #[cfg(feature = "leios")]
+        let leiosfetch_channel = plexer.subscribe_server(PROTOCOL_N2N_LEIOS_FETCH);
 
         let hs = handshake::N2NServer::new(hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
@@ -280,6 +297,8 @@ impl PeerServer {
         let peersharing = peersharing::Server::new(peersharing_channel);
         #[cfg(feature = "leios")]
         let leiosnotify = leiosnotify::Server::new(leiosnotify_channel);
+        #[cfg(feature = "leios")]
+        let leiosfetch = leiosfetch::Server::new(leiosfetch_channel);
 
         let plexer = plexer.spawn();
 
@@ -293,6 +312,8 @@ impl PeerServer {
             peersharing,
             #[cfg(feature = "leios")]
             leiosnotify,
+            #[cfg(feature = "leios")]
+            leiosfetch,
             accepted_address: None,
             accepted_version: None,
         }
@@ -348,6 +369,11 @@ impl PeerServer {
     #[cfg(feature = "leios")]
     pub fn leiosnotify(&mut self) -> &mut leiosnotify::Server {
         &mut self.leiosnotify
+    }
+
+    #[cfg(feature = "leios")]
+    pub fn leiosfetch(&mut self) -> &mut leiosfetch::Server {
+        &mut self.leiosfetch
     }
 
     pub fn accepted_address(&self) -> Option<&SocketAddr> {
