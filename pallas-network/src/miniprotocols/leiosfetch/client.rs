@@ -77,7 +77,11 @@ impl Client {
         if self.state() == &State::Idle
             && matches!(
                 msg,
-                BlockRequest(..) | BlockTxsRequest(..) | VoteRequest(..) | RangeRequest { .. }
+                BlockRequest(..)
+                    | BlockTxsRequest(..)
+                    | VoteRequest(..)
+                    | RangeRequest { .. }
+                    | Done
             )
         {
             Ok(())
@@ -95,7 +99,7 @@ impl Client {
             (State::Votes, VoteDelivery(..)) => Ok(()),
             (State::BlockRange, NextBlockAndTxs(..)) => Ok(()),
             (State::BlockRange, LastBlockAndTxs(..)) => Ok(()),
-            _ => Err(ClientError::InvalidOutbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 

@@ -25,7 +25,7 @@ pub enum ServerError {
     Plexer(multiplexer::Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ClientRequest {
     BlockRequest(Slot, Hash),
     BlockTxsRequest(Slot, Hash, TxMap),
@@ -96,12 +96,16 @@ impl Server {
         if self.state() == &State::Idle
             && matches!(
                 msg,
-                BlockRequest(..) | BlockTxsRequest(..) | VoteRequest(..) | RangeRequest { .. }
+                BlockRequest(..)
+                    | BlockTxsRequest(..)
+                    | VoteRequest(..)
+                    | RangeRequest { .. }
+                    | Done
             )
         {
             Ok(())
         } else {
-            Err(ServerError::InvalidOutbound)
+            Err(ServerError::InvalidInbound)
         }
     }
 

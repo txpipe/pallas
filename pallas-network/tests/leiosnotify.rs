@@ -1,6 +1,4 @@
 #![cfg(feature = "leios")]
-// use pallas_codec::utils::AnyCbor;
-// use pallas_crypto::hash::Hash;
 use pallas_network::{
     facades::{PeerClient, PeerServer},
     miniprotocols::leiosnotify,
@@ -52,7 +50,7 @@ pub async fn leiosnotify_server_and_client_happy_path() {
             let server_ln = peer_server.leiosnotify();
 
             // server receives `RequestNext` from client
-            debug!("server waiting for share request");
+            debug!("server waiting for request next");
             server_ln.recv_request_next().await.unwrap();
             assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
 
@@ -64,7 +62,7 @@ pub async fn leiosnotify_server_and_client_happy_path() {
             assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
 
             // server receives `RequestNext` from client
-            debug!("server waiting for share request");
+            debug!("server waiting for request next");
             server_ln.recv_request_next().await.unwrap();
             assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
 
@@ -76,7 +74,7 @@ pub async fn leiosnotify_server_and_client_happy_path() {
             assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
 
             // server receives `RequestNext` from client
-            debug!("server waiting for share request");
+            debug!("server waiting for request next");
             server_ln.recv_request_next().await.unwrap();
             assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
 
@@ -88,7 +86,7 @@ pub async fn leiosnotify_server_and_client_happy_path() {
             assert_eq!(*server_ln.state(), leiosnotify::State::Idle);
 
             // server receives `RequestNext` from client
-            debug!("server waiting for share request");
+            debug!("server waiting for request next");
             server_ln.recv_request_next().await.unwrap();
             assert_eq!(*server_ln.state(), leiosnotify::State::Busy);
 
