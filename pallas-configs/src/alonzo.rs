@@ -1,5 +1,8 @@
+use num_rational::Ratio;
 use serde::Deserialize;
 use std::{collections::HashMap, ops::Deref};
+
+use crate::cost_models::get_name_for_value_index;
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +36,7 @@ impl From<ExUnits> for pallas_primitives::alonzo::ExUnits {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
 pub struct Fraction {
     pub numerator: u64,
     pub denominator: u64,
@@ -44,6 +47,50 @@ impl From<Fraction> for pallas_primitives::alonzo::RationalNumber {
         Self {
             numerator: value.numerator,
             denominator: value.denominator,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Fraction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde_json::Value;
+
+        let value = serde_json::Value::deserialize(deserializer)?;
+
+        match value {
+            Value::Number(num) => {
+                if let Some(float_val) = num.as_f64() {
+                    let ratio = Ratio::approximate_float_unsigned(float_val)
+                        .ok_or_else(|| serde::de::Error::custom("Missing or invalid fraction"))?;
+
+                    Ok(Fraction {
+                        numerator: *ratio.numer(),
+                        denominator: *ratio.denom(),
+                    })
+                } else {
+                    Err(serde::de::Error::custom("Invalid number format"))
+                }
+            }
+            Value::Object(map) => {
+                let numerator = map
+                    .get("numerator")
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| serde::de::Error::custom("Missing or invalid numerator"))?;
+                let denominator = map
+                    .get("denominator")
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| serde::de::Error::custom("Missing or invalid denominator"))?;
+                Ok(Fraction {
+                    numerator,
+                    denominator,
+                })
+            }
+            _ => Err(serde::de::Error::custom(
+                "Expected number or fraction object",
+            )),
         }
     }
 }
@@ -81,7 +128,31 @@ impl From<CostModel> for Vec<i64> {
     }
 }
 
-#[derive(Deserialize, Clone)]
+impl CostModel {
+    fn from_array_with_version(arr: Vec<serde_json::Value>, language: &Language) -> Self {
+        let mut cost_map = HashMap::new();
+
+        let plutus_version = match language {
+            Language::PlutusV1 => 1,
+            Language::PlutusV2 => 2,
+        };
+
+        for (i, v) in arr.iter().enumerate() {
+            if let serde_json::Value::Number(num) = v {
+                if let Some(int_val) = num.as_i64() {
+                    let key = get_name_for_value_index(plutus_version, i as u64);
+                    if key != "unknown" {
+                        cost_map.insert(key.to_string(), int_val);
+                    }
+                }
+            }
+        }
+
+        CostModel(cost_map)
+    }
+}
+
+#[derive(Clone)]
 pub struct CostModelPerLanguage(HashMap<Language, CostModel>);
 
 impl Deref for CostModelPerLanguage {
@@ -110,6 +181,41 @@ impl From<CostModelPerLanguage> for pallas_primitives::babbage::CostModels {
             plutus_v1: value.0.remove(&Language::PlutusV1).map(Vec::<i64>::from),
             plutus_v2: value.0.remove(&Language::PlutusV2).map(Vec::<i64>::from),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for CostModelPerLanguage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde_json::Value;
+
+        let value = Value::deserialize(deserializer)?;
+        let mut result = HashMap::new();
+
+        if let Value::Object(map) = value {
+            for (language_str, cost_model_value) in map {
+                let language = match language_str.as_str() {
+                    "PlutusV1" => Language::PlutusV1,
+                    "PlutusV2" => Language::PlutusV2,
+                    _ => continue, // Skip unknown languages
+                };
+
+                let cost_model = match cost_model_value {
+                    Value::Object(_) => CostModel::deserialize(cost_model_value)
+                        .map_err(serde::de::Error::custom)?,
+                    Value::Array(arr) => CostModel::from_array_with_version(arr, &language),
+                    _ => {
+                        return Err(serde::de::Error::custom("Invalid cost model format"));
+                    }
+                };
+
+                result.insert(language, cost_model);
+            }
+        }
+
+        Ok(CostModelPerLanguage(result))
     }
 }
 
