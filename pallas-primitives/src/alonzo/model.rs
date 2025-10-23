@@ -293,7 +293,7 @@ pub struct TransactionBody {
     pub update: Option<Update>,
 
     #[n(7)]
-    pub auxiliary_data_hash: Option<Bytes>,
+    pub auxiliary_data_hash: Option<Hash<32>>,
 
     #[n(8)]
     pub validity_interval_start: Option<u64>,
@@ -424,7 +424,7 @@ pub struct WitnessSet<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `WitnessSet` instead")]
 pub type MintedWitnessSet<'b> = WitnessSet<'b>;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
 #[cbor(map, tag(259))]
 pub struct PostAlonzoAuxiliaryData {
     #[n(0)]
@@ -437,7 +437,7 @@ pub struct PostAlonzoAuxiliaryData {
     pub plutus_scripts: Option<Vec<PlutusScript<1>>>,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
 pub struct ShelleyMaAuxiliaryData {
     #[n(0)]
     pub transaction_metadata: Metadata,
@@ -446,7 +446,7 @@ pub struct ShelleyMaAuxiliaryData {
     pub auxiliary_scripts: Option<Vec<NativeScript>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
 pub enum AuxiliaryData {
     Shelley(Metadata),
     ShelleyMa(ShelleyMaAuxiliaryData),
