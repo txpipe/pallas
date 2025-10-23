@@ -1193,9 +1193,7 @@ fn mk_plutus_script_redeemer_pointers(
     }
     if let Some(withdrawals) = &tx_body.withdrawals {
         for (index, (stake_key_hash_bytes, _amount)) in withdrawals.iter().enumerate() {
-            let addr = Address::from_bytes(stake_key_hash_bytes)
-                .ok_or(PostAlonzo(InputDecoding))?;
-            if let Address::Stake(stake_addr) = addr {
+            if let Some(Address::Stake(stake_addr)) = Address::from_bytes(stake_key_hash_bytes) {
                 if stake_addr.is_script() {
                     let script_hash = stake_addr.payload().as_hash();
                     if is_phase_2_script(
