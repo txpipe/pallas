@@ -13,7 +13,9 @@ use crate::utils::{
     ValidationResult,
 };
 use itertools::Itertools;
-use pallas_addresses::{Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakePayload};
+use pallas_addresses::{
+    Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakePayload,
+};
 use pallas_codec::utils::{Bytes, KeepRaw};
 use pallas_primitives::{
     babbage,
