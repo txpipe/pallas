@@ -12,7 +12,10 @@ use crate::utils::{
     ValidationError::{self, *},
     ValidationResult,
 };
-use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
+use itertools::Itertools;
+use pallas_addresses::{
+    Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakePayload,
+};
 use pallas_codec::utils::{Bytes, KeepRaw};
 use pallas_primitives::{
     babbage,
@@ -23,6 +26,7 @@ use pallas_primitives::{
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
+use std::cmp::Ordering;
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -1129,6 +1133,7 @@ fn check_redeemers(
 
         None => Vec::new(),
     };
+
     let plutus_scripts: Vec<RedeemersKey> = mk_plutus_script_redeemer_pointers(
         plutus_v1_scripts,
         plutus_v2_scripts,
@@ -1145,6 +1150,35 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
     let mut res: Vec<TransactionInput> = unsorted_inputs.to_owned();
     res.sort();
     res
+}
+
+// Sorting function for reward accounts (withdrawals).
+fn sort_reward_accounts(a: &Bytes, b: &Bytes) -> Ordering {
+    let addr_a = Address::from_bytes(a).expect("invalid reward address in withdrawals.");
+    let addr_b = Address::from_bytes(b).expect("invalid reward address in withdrawals.");
+
+    fn network_tag(network: Network) -> u8 {
+        match network {
+            Network::Testnet => 0,
+            Network::Mainnet => 1,
+            Network::Other(tag) => tag,
+        }
+    }
+
+    if let (Address::Stake(accnt_a), Address::Stake(accnt_b)) = (addr_a, addr_b) {
+        if accnt_a.network() != accnt_b.network() {
+            return network_tag(accnt_a.network()).cmp(&network_tag(accnt_b.network()));
+        }
+
+        match (accnt_a.payload(), accnt_b.payload()) {
+            (StakePayload::Script(..), StakePayload::Stake(..)) => Ordering::Less,
+            (StakePayload::Stake(..), StakePayload::Script(..)) => Ordering::Greater,
+            (StakePayload::Script(hash_a), StakePayload::Script(hash_b)) => hash_a.cmp(hash_b),
+            (StakePayload::Stake(hash_a), StakePayload::Stake(hash_b)) => hash_a.cmp(hash_b),
+        }
+    } else {
+        unreachable!("invalid reward address in withdrawals.");
+    }
 }
 
 fn mk_plutus_script_redeemer_pointers(
@@ -1187,6 +1221,31 @@ fn mk_plutus_script_redeemer_pointers(
                     tag: pallas_primitives::conway::RedeemerTag::Mint,
                     index: index as u32,
                 })
+            }
+        }
+    }
+    if let Some(withdrawals) = &tx_body.withdrawals {
+        for (index, (stake_key_hash_bytes, _amount)) in withdrawals
+            .iter()
+            .sorted_by(|(accnt_a, _), (accnt_b, _)| sort_reward_accounts(accnt_a, accnt_b))
+            .enumerate()
+        {
+            if let Ok(Address::Stake(stake_addr)) = Address::from_bytes(stake_key_hash_bytes) {
+                if stake_addr.is_script() {
+                    let script_hash = stake_addr.payload().as_hash();
+                    if is_phase_2_script(
+                        &script_hash,
+                        plutus_v1_scripts,
+                        plutus_v2_scripts,
+                        plutus_v3_scripts,
+                        reference_scripts,
+                    ) {
+                        res.push(RedeemersKey {
+                            tag: pallas_primitives::conway::RedeemerTag::Reward,
+                            index: index as u32,
+                        })
+                    }
+                }
             }
         }
     }
