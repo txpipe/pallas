@@ -12,7 +12,7 @@ use crate::utils::{
     ValidationError::{self, *},
     ValidationResult,
 };
-use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
+use pallas_addresses::{Address, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::utils::{Bytes, KeepRaw};
 use pallas_primitives::{
     babbage,
@@ -1129,6 +1129,7 @@ fn check_redeemers(
 
         None => Vec::new(),
     };
+
     let plutus_scripts: Vec<RedeemersKey> = mk_plutus_script_redeemer_pointers(
         plutus_v1_scripts,
         plutus_v2_scripts,
@@ -1187,6 +1188,28 @@ fn mk_plutus_script_redeemer_pointers(
                     tag: pallas_primitives::conway::RedeemerTag::Mint,
                     index: index as u32,
                 })
+            }
+        }
+    }
+    if let Some(withdrawals) = &tx_body.withdrawals {
+        for (index, (stake_key_hash_bytes, _amount)) in withdrawals.iter().enumerate() {
+            let addr = Address::from_bytes(stake_key_hash_bytes).expect("Invalid stake address bytes");
+            if let Address::Stake(stake_addr) = addr {
+                if stake_addr.is_script() {
+                    let script_hash = stake_addr.payload().as_hash();
+                    if is_phase_2_script(
+                        &script_hash,
+                        plutus_v1_scripts,
+                        plutus_v2_scripts,
+                        plutus_v3_scripts,
+                        reference_scripts,
+                    ) {
+                        res.push(RedeemersKey {
+                            tag: pallas_primitives::conway::RedeemerTag::Reward,
+                            index: index as u32,
+                        })
+                    }
+                }
             }
         }
     }
