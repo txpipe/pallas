@@ -18,7 +18,8 @@ pallas-traverse = { version = "=1.0.0-alpha.2", path = "../pallas-traverse" }
 pallas-primitives = { version = "=1.0.0-alpha.2", path = "../pallas-primitives" }
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
 pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto" }
-prost-types = "0.13.1"
+pallas-configs = { version = "=1.0.0-alpha.2", path = "../pallas-configs" }
+prost-types = "0.14.1"
 pallas-validate = { version = "=1.0.0-alpha.2", path = "../pallas-validate" }
 
 [dev-dependencies]

@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Deref};
 use pallas_codec::utils::KeyValuePairs;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, conway};
-use pallas_traverse::{self as trv};
+use pallas_traverse::{self as trv, wellknown::GenesisValues};
 
 use prost_types::FieldMask;
 use trv::OriginalHash;
@@ -13,6 +13,7 @@ pub use utxorpc_spec::utxorpc::v1alpha as spec;
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
 mod certs;
+mod genesis;
 mod params;
 
 pub type TxHash = Hash<32>;
@@ -35,16 +36,36 @@ pub trait LedgerContext: Clone {
     fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Mapper<C: LedgerContext> {
     ledger: Option<C>,
+    genesis: GenesisValues,
     _mask: FieldMask,
+}
+
+impl<C: LedgerContext> Default for Mapper<C> {
+    fn default() -> Self {
+        Self {
+            ledger: None,
+            genesis: GenesisValues::default(),
+            _mask: FieldMask { paths: vec![] },
+        }
+    }
 }
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn new(ledger: C) -> Self {
         Self {
             ledger: Some(ledger),
+            genesis: GenesisValues::default(),
+            _mask: FieldMask { paths: vec![] },
+        }
+    }
+
+    pub fn new_with_genesis(ledger: C, genesis: GenesisValues) -> Self {
+        Self {
+            ledger: Some(ledger),
+            genesis,
             _mask: FieldMask { paths: vec![] },
         }
     }
@@ -53,6 +74,7 @@ impl<C: LedgerContext> Mapper<C> {
     pub fn masked(&self, mask: FieldMask) -> Self {
         Self {
             ledger: self.ledger.clone(),
+            genesis: self.genesis.clone(),
             _mask: mask,
         }
     }
@@ -722,11 +744,7 @@ impl<C: LedgerContext> Mapper<C> {
                 tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
-            timestamp: self
-                .ledger
-                .as_ref()
-                .and_then(|ledger| ledger.get_slot_timestamp(block.slot()))
-                .unwrap_or(0),
+            timestamp: block.wallclock(&self.genesis),
         }
     }
 
