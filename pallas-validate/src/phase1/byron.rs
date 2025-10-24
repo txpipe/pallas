@@ -150,7 +150,7 @@ fn check_witnesses(mtxp: &TxPayload, utxos: &UTxOs, prot_magic: &u32) -> Validat
     Ok(())
 }
 
-fn tag_witnesses(wits: &[Twit]) -> Result<Vec<(&PubKey, TaggedSignature)>, ValidationError> {
+fn tag_witnesses(wits: &[Twit]) -> Result<Vec<(&PubKey, TaggedSignature<'_>)>, ValidationError> {
     let mut res: Vec<(&PubKey, TaggedSignature)> = Vec::new();
     for wit in wits.iter() {
         match wit {

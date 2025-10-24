@@ -168,8 +168,6 @@ pub mod tests {
     where
         T: for<'b> minicbor::Decode<'b, ()> + minicbor::Encode<()> + std::fmt::Debug,
     {
-        use pallas_codec::minicbor;
-
         let bytes = hex::decode(message_str).unwrap_or_else(|e| panic!("bad message file: {e:?}"));
 
         let value: T =

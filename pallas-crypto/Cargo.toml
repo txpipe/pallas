@@ -14,12 +14,32 @@ authors = ["Nicolas Di Prima <nicolas@primetype.co.uk>", "Andrew Westberg <andre
 hex = "0.4"
 cryptoxide = { version = "0.4.4" }
 thiserror = "1.0"
-rand_core = "0.6"
+rand_core = "0.9"
+serde = { version = "1.0.143", features = ["derive"] }
 pallas-codec = { version = "=1.0.0-alpha.2", path = "../pallas-codec" }
-serde = "1.0.143"
+
+# kes dependencies
+rand = { version = "0.9", optional = true }
+rand_chacha = { version = "0.9", optional = true }
+serde_with = { version = "3.11.0", optional = true }
+ed25519-dalek = { version = "2", features = ["serde"], optional = true }
+zeroize = { version = "1.8.1", optional = true }
 
 [dev-dependencies]
+criterion = "0.7"
 itertools = "0.13"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
+proptest = "1.6"
+serde_json = "1"
 serde_test = "1.0.143"
+
+[features]
+default = []
+sk_clone_enabled = []
+kes = ["rand", "rand_chacha", "serde_with", "ed25519-dalek", "zeroize"]
+
+[[bench]]
+harness = false
+name = "summed_kes_benches"
+path = "./src/kes/summed_kes_benches.rs"

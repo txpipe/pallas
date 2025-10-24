@@ -1851,24 +1851,42 @@ pub async fn peer_sharing_server_and_client_happy_path() {
 #[tokio::test]
 pub async fn local_message_notification_server_and_client_happy_path() {
     fn fake_msgs() -> Vec<DmqMsg> {
+        use pallas_network::miniprotocols::localmsgsubmission::{
+            DmqMsgOperationalCertificate, DmqMsgPayload,
+        };
+
         vec![
             DmqMsg {
-                msg_id: vec![0, 1],
-                msg_body: vec![0, 1, 2],
-                block_number: 10,
-                ttl: 100,
+                msg_payload: DmqMsgPayload {
+                    msg_id: vec![0, 1],
+                    msg_body: vec![0, 1, 2],
+                    kes_period: 10,
+                    expires_at: 100,
+                },
                 kes_signature: vec![0, 1, 2, 3],
-                operational_certificate: vec![0, 1, 2, 3, 4],
-                kes_period: 10,
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: vec![1, 2, 3],
+                    issue_number: 4,
+                    start_kes_period: 5,
+                    cert_sig: vec![6],
+                },
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
             },
             DmqMsg {
-                msg_id: vec![1, 2],
-                msg_body: vec![1, 2, 3],
-                block_number: 11,
-                ttl: 100,
+                msg_payload: DmqMsgPayload {
+                    msg_id: vec![1, 2],
+                    msg_body: vec![1, 2, 3],
+                    kes_period: 12,
+                    expires_at: 102,
+                },
                 kes_signature: vec![1, 2, 3, 4],
-                operational_certificate: vec![1, 2, 3, 4, 5],
-                kes_period: 11,
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: vec![1, 2, 3],
+                    issue_number: 4,
+                    start_kes_period: 5,
+                    cert_sig: vec![6],
+                },
+                cold_verification_key: vec![1, 2, 3, 4, 5, 6],
             },
         ]
     }
@@ -1973,14 +1991,25 @@ pub async fn local_message_submission_server_and_client_happy_path() {
     use pallas_network::miniprotocols::localmsgsubmission::DmqMsgValidationError;
 
     fn fake_msg() -> DmqMsg {
+        use pallas_network::miniprotocols::localmsgsubmission::{
+            DmqMsgOperationalCertificate, DmqMsgPayload,
+        };
+
         DmqMsg {
-            msg_id: vec![0, 1],
-            msg_body: vec![0, 1, 2],
-            block_number: 10,
-            ttl: 100,
+            msg_payload: DmqMsgPayload {
+                msg_id: vec![0, 1],
+                msg_body: vec![0, 1, 2],
+                kes_period: 10,
+                expires_at: 100,
+            },
             kes_signature: vec![0, 1, 2, 3],
-            operational_certificate: vec![0, 1, 2, 3, 4],
-            kes_period: 10,
+            operational_certificate: DmqMsgOperationalCertificate {
+                kes_vk: vec![1, 2, 3],
+                issue_number: 4,
+                start_kes_period: 5,
+                cert_sig: vec![6],
+            },
+            cold_verification_key: vec![0, 1, 2, 3, 4, 5],
         }
     }
 

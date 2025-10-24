@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP/gRPC (from your Rust app)
+      - "4318:4318" # OTLP/HTTP (from your Rust app)
+      - "13133:13133" # health
+      - "55679:55679" # zPages
+    depends_on:
+      - desktop-viewer
+      - victoria-metrics
+
+  desktop-viewer:
+    image: davetron5000/otel-desktop-viewer:alpine-3
+    ports:
+      - "8000:8000" # UI: http://localhost:8000
+
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:latest
+    command: ["-retentionPeriod=1w"]
+    volumes:
+      - ./vm-data:/victoria-metrics-data
+    ports:
+      - "8428:8428" # UI: http://localhost:8428/vmui   Ingest: /api/v1/write
