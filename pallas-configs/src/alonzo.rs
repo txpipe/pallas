@@ -124,7 +124,9 @@ pub struct CostModel(HashMap<String, i64>);
 
 impl From<CostModel> for Vec<i64> {
     fn from(value: CostModel) -> Self {
-        value.0.into_values().collect()
+        let mut entries: Vec<_> = value.0.into_iter().collect();
+        entries.sort_by_key(|(k, _)| k.clone());
+        entries.into_iter().map(|(_, v)| v).collect()
     }
 }
 
