@@ -1,6 +1,6 @@
 pub use pallas_codec::{
     minicbor::{self, Decode, Encode},
-    utils::AnyCbor,
+    utils::{AnyCbor, Bytes},
 };
 
 pub use crate::miniprotocols::leiosnotify::{
@@ -11,9 +11,9 @@ use std::{collections::BTreeMap, fmt::Debug};
 pub use super::primitives::LeiosVote;
 
 pub type Tx = AnyCbor; // Mock Txs
-pub type TxReference = Hash;
-pub type EndorserBlock = Vec<TxReference>;
-pub type BitMap = Vec<(u16, u64)>;
+pub type TxHash = Hash;
+pub type EndorserBlock = BTreeMap<Bytes, u16>;
+pub type BitMap = u64;
 pub type TxMap = BTreeMap<u16, BitMap>;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
