@@ -1,7 +1,7 @@
 #![cfg(feature = "leios")]
 use pallas_network::{
     facades::{PeerClient, PeerServer},
-    miniprotocols::leiosfetch::{self, minicbor, AnyCbor, ClientRequest},
+    miniprotocols::leiosfetch::{self, bitmap_selection, minicbor, AnyCbor, ClientRequest},
 };
 use std::{
     net::{Ipv4Addr, SocketAddrV4},
@@ -88,7 +88,7 @@ pub async fn leiosfetch_server_and_client_happy_path() {
 
             // Server selects Txs according to map and sends
             server_lf
-                .send_block_txs(tx_selection(tx_map, &eb_tx()))
+                .send_block_txs(bitmap_selection(tx_map, &eb_tx()))
                 .await
                 .unwrap();
             assert_eq!(*server_lf.state(), leiosfetch::State::Idle);
@@ -128,27 +128,6 @@ pub async fn leiosfetch_server_and_client_happy_path() {
     });
 
     tokio::try_join!(client, server).unwrap();
-}
-
-fn bitmap_to_indices(bitmap: u64) -> Vec<usize> {
-    (0..64)
-        .rev()
-        .enumerate()
-        .filter(|(_, y)| (bitmap >> y) & 1 == 1)
-        .map(|(x, _)| x)
-        .collect()
-}
-
-fn tx_selection(tx_map: leiosfetch::TxMap, data: &[AnyCbor]) -> Vec<AnyCbor> {
-    tx_map
-        .into_iter()
-        .map(|(index, bitmap)| {
-            bitmap_to_indices(bitmap)
-                .into_iter()
-                .map(move |i| data[64 * index as usize + i].clone())
-        })
-        .flatten()
-        .collect()
 }
 
 fn eb_tx() -> Vec<AnyCbor> {
@@ -208,9 +187,3 @@ fn eb_tx() -> Vec<AnyCbor> {
     .map(|x| minicbor::decode(&x).unwrap())
     .collect()
 }
-
-// For testing purposes:
-//
-//     println!("{:?}", bitmap_to_indices(0xd000000000000002));             // [0, 1, 3, 62]
-//     println!("{:?}", bitmap_to_indices(0xe000000000000000));             // [0, 1, 2]
-//     println!("{:02X?}", tx_selection(0, 0x4000000000000000, &eb_tx()));  // [second tx]

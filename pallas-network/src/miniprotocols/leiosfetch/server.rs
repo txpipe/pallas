@@ -208,3 +208,77 @@ impl Server {
         Ok(())
     }
 }
+
+pub fn bitmap_to_indices(bitmap: u64) -> Vec<usize> {
+    (0..64)
+        .rev()
+        .enumerate()
+        .filter(|(_, y)| (bitmap >> y) & 1 == 1)
+        .map(|(x, _)| x)
+        .collect()
+}
+
+pub fn bitmap_selection<TMap: IntoIterator<Item = (u16, u64)>, Tx: Clone>(
+    tx_map: TMap,
+    data: &[Tx],
+) -> Vec<Tx> {
+    tx_map
+        .into_iter()
+        .map(|(index, bitmap)| {
+            bitmap_to_indices(bitmap)
+                .into_iter()
+                .map(move |i| data[64 * index as usize + i].clone())
+        })
+        .flatten()
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_bitmap_indices() {
+        assert_eq!(bitmap_to_indices(0xd000000000000002), vec![0, 1, 3, 62]);
+        assert_eq!(bitmap_to_indices(0xe000000000000000), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_bitmap_selection() {
+        let map = BTreeMap::<u16, u64>::from([(0, 0x5000000000000000), (1, 0x8000000000000000)]);
+        assert_eq!(
+            bitmap_selection(map, &eb_tx()),
+            [eb_tx()[1].clone(), eb_tx()[3].clone(), eb_tx()[64].clone()]
+        );
+    }
+
+    fn eb_tx() -> Vec<Vec<u8>> {
+        let mut list = vec![
+            hex::decode(
+                "58359719B92F47E7ABC8436813A42C1A5780C4ADDBF008E58E6CB8A4A3142067\
+                 E2BD47E713EBDB3672446C8DD5697D6F29477DA5ABD6F9",
+            )
+            .unwrap(),
+            hex::decode(
+                "583551C27E9FD7D03351C243B98F6E33E9D29AD62CE9061580358B9CD4754505\
+                 7B54A726322F849C5D73C01AE9881AA458F3A5F9DEA664",
+            )
+            .unwrap(),
+            hex::decode(
+                "58356764A66870461BD63041BF1028FF898BDC58E95DA9EA6E684EBCC225F97A\
+                 ECF647BC7EA72BAC069D1FF9E3E9CB59C72181585FD4F0",
+            )
+            .unwrap(),
+            hex::decode(
+                "5903E584035557626AE726D5BCE067C798B43B3DE035C3618F86CA1CF31969EB\
+                 B6711D354C445650D52E34F9E9A2057ECB363FE04FD3D5CE76B05E7C0CE7C563",
+            )
+            .unwrap(),
+        ];
+        list.append(&mut vec![vec![]; 60]);
+        list.append(&mut vec![vec![10]]);
+
+        list
+    }
+}
