@@ -52,6 +52,7 @@ async fn server(port: u16) {
 
     // server setup
 
+    info!("Server waiting for client...");
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port))
         .await
         .unwrap();
