@@ -1,0 +1,84 @@
+; conway.cddl fragments integrated to CIP draft fetched 17 Oct 2025 from cardano-scaling
+
+block = 
+  [ header                 
+  , transaction_bodies       : [* transaction_body]                   
+  , transaction_witness_sets : [* transaction_witness_set]            
+  , auxiliary_data_set       : {* transaction_index => auxiliary_data}
+  , invalid_transactions     : [* transaction_index]                  
+  , ? eb_certificate         : leios_certificate
+  ]
+
+header = [header_body, body_signature : kes_signature]
+
+header_body = 
+  [ block_number      : block_no    
+  , slot              : slot_no     
+  , prev_hash         : hash32/ nil 
+  , issuer_vkey       : vkey        
+  , vrf_vkey          : vrf_vkey    
+  , vrf_result        : vrf_cert    
+  , block_body_size   : uint .size 4
+  , block_body_hash   : hash32      
+  , ? ( announced_eb         : hash32
+      , announced_eb_size    : uint .size 4
+      )
+  , ? certified_eb           : bool
+  , operational_cert
+  , protocol_version
+  ]
+
+
+endorser_block =
+  [ transaction_references   : [* tx_reference]
+  ]
+
+; Reference structures
+tx_reference =
+  [ tx_hash                  : hash32          ; Hash of complete transaction bytes
+  , tx_size                  : uint .size 2   ; Transaction size in bytes
+  ]
+
+leios_certificate =
+  [ election_id              : election_id
+  , endorser_block_hash      : hash32
+  , persistent_voters        : [* persistent_voter_id]
+  , nonpersistent_voters     : {* pool_id => bls_signature}
+  , ? aggregate_elig_sig     : bls_signature
+  , aggregate_vote_sig       : bls_signature
+  ]
+
+leios_vote = persistent_vote / non_persistent_vote
+
+persistent_vote =
+  [ 0
+  , election_id
+  , persistent_voter_id
+  , endorser_block_hash
+  , vote_signature
+  ]
+
+non_persistent_vote =
+  [ 1
+  , election_id
+  , pool_keyhash
+  , eligibility_signature
+  , endorser_block_hash
+  , vote_signature
+  ]
+
+; approx size 136 + ⌈m/8⌉ + 76(n - m), where
+; - n = committee size
+; - m = number of persistent voters
+; (see https://github.com/input-output-hk/ouroboros-leios/blob/d5f1a9bc940e69f406c3e25c0d7d9aa58cf701f8/crypto-benchmarks.rs/Specification.md?plain=1#L106)
+bls_signature = bytes .size 48
+
+election_id = bytes .size 8
+
+persistent_voter_id = bytes .size 2
+
+endorser_block_hash = hash32
+
+vote_signature = bytes .size 48 
+
+eligibility_signature = bytes .size 48

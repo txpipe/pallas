@@ -25,3 +25,4 @@ serde = "1.0.155"
 
 [features]
 unstable = []
+leios = ["pallas-primitives/leios"]

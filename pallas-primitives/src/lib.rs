@@ -7,6 +7,9 @@ pub mod alonzo;
 pub mod babbage;
 pub mod byron;
 pub mod conway;
+
+#[cfg(feature = "leios")]
+pub mod leios;
 pub use plutus_data::*;
 
 pub use framework::*;

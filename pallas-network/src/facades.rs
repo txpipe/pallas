@@ -21,6 +21,11 @@ use crate::miniprotocols::{
     PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
 };
 
+#[cfg(feature = "leios")]
+use crate::miniprotocols::{
+    leiosfetch, leiosnotify, PROTOCOL_N2N_LEIOS_FETCH, PROTOCOL_N2N_LEIOS_NOTIFY,
+};
+
 use crate::multiplexer::{self, Bearer, RunningPlexer};
 
 #[derive(Debug, Error)]
@@ -108,6 +113,10 @@ pub struct PeerClient {
     pub blockfetch: blockfetch::Client,
     pub txsubmission: txsubmission::Client,
     pub peersharing: peersharing::Client,
+    #[cfg(feature = "leios")]
+    pub leiosnotify: leiosnotify::Client,
+    #[cfg(feature = "leios")]
+    pub leiosfetch: leiosfetch::Client,
 }
 
 impl PeerClient {
@@ -125,6 +134,10 @@ impl PeerClient {
         let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
         let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
         let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+        #[cfg(feature = "leios")]
+        let leiosnotify_channel = plexer.subscribe_client(PROTOCOL_N2N_LEIOS_NOTIFY);
+        #[cfg(feature = "leios")]
+        let leiosfetch_channel = plexer.subscribe_client(PROTOCOL_N2N_LEIOS_FETCH);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
         let keepalive = keepalive::Client::new(channel);
@@ -156,6 +169,10 @@ impl PeerClient {
             blockfetch: blockfetch::Client::new(bf_channel),
             txsubmission: txsubmission::Client::new(txsub_channel),
             peersharing: peersharing::Client::new(peersharing_channel),
+            #[cfg(feature = "leios")]
+            leiosnotify: leiosnotify::Client::new(leiosnotify_channel),
+            #[cfg(feature = "leios")]
+            leiosfetch: leiosfetch::Client::new(leiosfetch_channel),
         };
 
         Ok(client)
@@ -226,6 +243,16 @@ impl PeerClient {
         &mut self.peersharing
     }
 
+    #[cfg(feature = "leios")]
+    pub fn leiosnotify(&mut self) -> &mut leiosnotify::Client {
+        &mut self.leiosnotify
+    }
+
+    #[cfg(feature = "leios")]
+    pub fn leiosfetch(&mut self) -> &mut leiosfetch::Client {
+        &mut self.leiosfetch
+    }
+
     pub async fn abort(self) {
         self.plexer.abort().await
     }
@@ -240,6 +267,10 @@ pub struct PeerServer {
     pub txsubmission: txsubmission::Server,
     pub keepalive: keepalive::Server,
     pub peersharing: peersharing::Server,
+    #[cfg(feature = "leios")]
+    pub leiosnotify: leiosnotify::Server,
+    #[cfg(feature = "leios")]
+    pub leiosfetch: leiosfetch::Server,
     accepted_address: Option<SocketAddr>,
     accepted_version: Option<(u64, n2n::VersionData)>,
 }
@@ -254,6 +285,10 @@ impl PeerServer {
         let txsub_channel = plexer.subscribe_server(PROTOCOL_N2N_TX_SUBMISSION);
         let keepalive_channel = plexer.subscribe_server(PROTOCOL_N2N_KEEP_ALIVE);
         let peersharing_channel = plexer.subscribe_server(PROTOCOL_N2N_PEER_SHARING);
+        #[cfg(feature = "leios")]
+        let leiosnotify_channel = plexer.subscribe_server(PROTOCOL_N2N_LEIOS_NOTIFY);
+        #[cfg(feature = "leios")]
+        let leiosfetch_channel = plexer.subscribe_server(PROTOCOL_N2N_LEIOS_FETCH);
 
         let hs = handshake::N2NServer::new(hs_channel);
         let cs = chainsync::N2NServer::new(cs_channel);
@@ -261,6 +296,10 @@ impl PeerServer {
         let txsub = txsubmission::Server::new(txsub_channel);
         let keepalive = keepalive::Server::new(keepalive_channel);
         let peersharing = peersharing::Server::new(peersharing_channel);
+        #[cfg(feature = "leios")]
+        let leiosnotify = leiosnotify::Server::new(leiosnotify_channel);
+        #[cfg(feature = "leios")]
+        let leiosfetch = leiosfetch::Server::new(leiosfetch_channel);
 
         let plexer = plexer.spawn();
 
@@ -272,6 +311,10 @@ impl PeerServer {
             txsubmission: txsub,
             keepalive,
             peersharing,
+            #[cfg(feature = "leios")]
+            leiosnotify,
+            #[cfg(feature = "leios")]
+            leiosfetch,
             accepted_address: None,
             accepted_version: None,
         }
@@ -322,6 +365,16 @@ impl PeerServer {
 
     pub fn peersharing(&mut self) -> &mut peersharing::Server {
         &mut self.peersharing
+    }
+
+    #[cfg(feature = "leios")]
+    pub fn leiosnotify(&mut self) -> &mut leiosnotify::Server {
+        &mut self.leiosnotify
+    }
+
+    #[cfg(feature = "leios")]
+    pub fn leiosfetch(&mut self) -> &mut leiosfetch::Server {
+        &mut self.leiosfetch
     }
 
     pub fn accepted_address(&self) -> Option<&SocketAddr> {

@@ -6,6 +6,9 @@ use pallas_crypto::{
 };
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
+#[cfg(feature = "leios")]
+use pallas_primitives::leios;
+
 impl ComputeHash<32> for byron::EbbHead {
     fn compute_hash(&self) -> Hash<32> {
         // hash expects to have a prefix for the type of block
@@ -156,6 +159,22 @@ impl OriginalHash<32> for KeepRaw<'_, conway::TransactionBody<'_>> {
 impl ComputeHash<28> for PublicKey {
     fn compute_hash(&self) -> Hash<28> {
         Hasher::<224>::hash(&Into::<[u8; PublicKey::SIZE]>::into(*self))
+    }
+}
+
+// leios
+
+#[cfg(feature = "leios")]
+impl ComputeHash<32> for leios::Tx<'_> {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "leios")]
+impl OriginalHash<32> for leios::LeiosTx<'_> {
+    fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
     }
 }
 
