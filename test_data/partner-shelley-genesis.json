@@ -1,0 +1,114 @@
+{
+  "activeSlotsCoeff": 0.4,
+  "epochLength": 120,
+  "genDelegs": {
+    "4090c4d9554ab626a30a393ae3dd1fde40336e0515b1d4f430d6ae92": {
+      "delegate": "145375666292cb07f76d583a87e2ca670c0f0a6df9fac87b9c730e6b",
+      "vrf": "a98e88c05a5213d70a4562686afaefaaa9c1b25e5ab13502d7fb59a56c997365"
+    },
+    "4d155b0043d217ba214ac5185830c4a3a2c12138d0ce75f6ca6fdd46": {
+      "delegate": "8ebe81d6fdaea9a69e34510479ea190ca38c28fe64e282d274910427",
+      "vrf": "cf900e7709bd19d05cc3a79391df97dc57d2303193682ea2b44a79e6af47f519"
+    },
+    "bd025e4687723e07c8f011458ef72fd29a3d49ed5ebfd91913617854": {
+      "delegate": "63487d53beeb05ae2679654f0428555adf39f05745dd8bd5694b2682",
+      "vrf": "3700fc4b7df160c211fd172bde8975e9e8afb04dd10f9a1ada40c6ea0448baf4"
+    }
+  },
+  "initialFunds": {
+    "008a75c2002312f380c7ceaf3b18d5ee5aa8a3d309ef40c80fca9006b2d9267776d1289412d8d3c09599393044730deba14feb31f52b0e6ef2": 3480000000000,
+    "00207e498c990230dd7db797eaa2de8b8c9fce9b522b5a0f7d658c2974d27cb9a1a408b81239b55ec03f6e004deffcc094e7252d5c45743784": 500000000,
+    "005281ccb1fceb0a3b038602500080dd771cccd6800dc753c9786ff5d3f441c3ef7ef4a8ade039f4f4224b9ae494125bbcff284df64e8e73d8": 500000000,
+    "6029390bd65da533dc5d03f5e1bf6fd8114c41d3cefdab7aae10e4d9ef": 29993040000000000
+  },
+  "maxKESEvolutions": 64,
+  "maxLovelaceSupply": 45000000000000000,
+  "networkId": "Testnet",
+  "networkMagic": 42,
+  "protocolParams": {
+    "a0": 0.3,
+    "decentralisationParam": 0.8,
+    "eMax": 18,
+    "extraEntropy": {
+      "tag": "NeutralNonce"
+    },
+    "keyDeposit": 400000,
+    "maxBlockBodySize": 65536,
+    "maxBlockHeaderSize": 1100,
+    "maxTxSize": 16384,
+    "minFeeA": 44,
+    "minFeeB": 155381,
+    "minPoolCost": 0,
+    "minUTxOValue": 1,
+    "nOpt": 500,
+    "poolDeposit": 500000000,
+    "protocolVersion": {
+      "major": 10,
+      "minor": 0
+    },
+    "rho": 0.0022,
+    "tau": 0.05
+  },
+  "securityParam": 5,
+  "slotLength": 1,
+  "slotsPerKESPeriod": 129600,
+  "staking": {
+    "pools": {
+      "2d0de269b0996fdcd8f19f0b6d7d0bf14363984482f181a5a1ccd036": {
+        "cost": 0,
+        "margin": 0,
+        "metadata": null,
+        "owners": [],
+        "pledge": 0,
+        "publicKey": "2d0de269b0996fdcd8f19f0b6d7d0bf14363984482f181a5a1ccd036",
+        "relays": [],
+        "rewardAccount": {
+          "credential": {
+            "keyHash": "f0834f87e577f514cecdd41db9feabcc42671b4b15cd5a27924e571c"
+          },
+          "network": "Testnet"
+        },
+        "vrf": "72255c577e9fa3146e397ffeb45a187c48505a5f950216d7b1224d85dc4fbbac"
+      },
+      "3ae3d52682660d1eaffe35747911481ccc9bc7eb4ea7c5b97f22a503": {
+        "cost": 0,
+        "margin": 0,
+        "metadata": null,
+        "owners": [],
+        "pledge": 0,
+        "publicKey": "3ae3d52682660d1eaffe35747911481ccc9bc7eb4ea7c5b97f22a503",
+        "relays": [],
+        "rewardAccount": {
+          "credential": {
+            "keyHash": "62513bb8ef979efcf5a4c9164ffd9b4355ad50584bc729bcbe09bdb0"
+          },
+          "network": "Testnet"
+        },
+        "vrf": "771d4c6125b9dabb6d9136f35b2e82f5404aa4d9a852bb9e5f4f0de8481e68c4"
+      },
+      "bcf4107cca955239a101ef4a99795bd49ba4fde68ff82c913f547a7a": {
+        "cost": 0,
+        "margin": 0,
+        "metadata": null,
+        "owners": [],
+        "pledge": 0,
+        "publicKey": "bcf4107cca955239a101ef4a99795bd49ba4fde68ff82c913f547a7a",
+        "relays": [],
+        "rewardAccount": {
+          "credential": {
+            "keyHash": "65e49bf8ffe6111464a60f41b0df36d1861ed9666d17da360f38bf05"
+          },
+          "network": "Testnet"
+        },
+        "vrf": "77a49752e0586e0837093601810436500a8fff4819aef1e973582197a070475b"
+      }
+    },
+    "stake": {
+      "d27cb9a1a408b81239b55ec03f6e004deffcc094e7252d5c45743784": "3ae3d52682660d1eaffe35747911481ccc9bc7eb4ea7c5b97f22a503",
+      "d9267776d1289412d8d3c09599393044730deba14feb31f52b0e6ef2": "bcf4107cca955239a101ef4a99795bd49ba4fde68ff82c913f547a7a",
+      "f441c3ef7ef4a8ade039f4f4224b9ae494125bbcff284df64e8e73d8": "2d0de269b0996fdcd8f19f0b6d7d0bf14363984482f181a5a1ccd036"
+    }
+  },
+  "systemStart": "2024-07-01T17:49:38Z",
+  "updateQuorum": 1
+}
