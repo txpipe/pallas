@@ -164,12 +164,15 @@ pub struct Pool {
     #[serde(deserialize_with = "deserialize_rational")]
     pub margin: pallas_primitives::alonzo::RationalNumber,
     pub metadata: Option<Metadata>,
+    #[serde(default)]
     pub owners: Vec<String>,
     pub pledge: u64,
     pub public_key: String, // pool ID
     pub relays: Vec<HashMap<String, Relay>>,
     pub reward_account: RewardAccount,
     pub vrf: String,
+    #[serde(default)]
+    pub registration_deposit: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -266,5 +269,52 @@ mod tests {
     #[test]
     fn test_mainnet_json_loads() {
         load_test_data_config("mainnet");
+    }
+
+    #[test]
+    fn test_partner_staking_parses() {
+        let config = load_test_data_config("partner");
+
+        let staking = config
+            .staking
+            .expect("staking section must be present in partner genesis");
+
+        let pools = staking
+            .pools
+            .expect("staking pools should be available in partner genesis");
+        assert_eq!(pools.len(), 3);
+
+        let pool = pools
+            .get("2d0de269b0996fdcd8f19f0b6d7d0bf14363984482f181a5a1ccd036")
+            .expect("expected initial pool registration");
+
+        assert_eq!(pool.cost, 0);
+        assert_eq!(pool.pledge, 0);
+        assert_eq!(pool.owners.len(), 0);
+        assert_eq!(pool.relays.len(), 0);
+        assert_eq!(pool.reward_account.network, "Testnet");
+        match &pool.reward_account.credential {
+            Credential::KeyHash(key) => assert_eq!(
+                key,
+                "f0834f87e577f514cecdd41db9feabcc42671b4b15cd5a27924e571c"
+            ),
+            _ => panic!("expected key hash credential"),
+        }
+        assert_eq!(
+            pool.vrf,
+            "72255c577e9fa3146e397ffeb45a187c48505a5f950216d7b1224d85dc4fbbac"
+        );
+        assert_eq!(pool.margin.numerator, 0);
+
+        let stake = staking
+            .stake
+            .expect("delegation map should exist in partner genesis");
+        assert_eq!(stake.len(), 3);
+        assert_eq!(
+            stake
+                .get("f441c3ef7ef4a8ade039f4f4224b9ae494125bbcff284df64e8e73d8")
+                .expect("stake delegation should exist"),
+            "2d0de269b0996fdcd8f19f0b6d7d0bf14363984482f181a5a1ccd036"
+        );
     }
 }
