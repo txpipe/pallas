@@ -604,7 +604,7 @@ pub struct WitnessSet<'b> {
     pub plutus_v1_script: Option<NonEmptySet<PlutusScript<1>>>,
 
     #[b(4)]
-    pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
+    pub plutus_data: Option<KeepRaw<'b, NonEmptySet<KeepRaw<'b, PlutusData>>>>,
 
     #[n(5)]
     pub redeemer: Option<KeepRaw<'b, Redeemers>>,
