@@ -218,16 +218,20 @@ impl BuildConway for StagingTransaction {
         };
 
         let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(redeemers.clone());
+        let witness_set_datums = if !plutus_data.is_empty() {
+            Some(KeepRaw::from(
+                NonEmptySet::from_vec(plutus_data.clone().into_iter().map(KeepRaw::from).collect())
+                    .unwrap(),
+            ))
+        } else {
+            None
+        };
 
         let script_data_hash = self.language_view.map(|language_view| {
             let dta = pallas_primitives::conway::ScriptData {
-                redeemers: witness_set_redeemers.clone(),
-                datums: if !plutus_data.is_empty() {
-                    Some(plutus_data.clone())
-                } else {
-                    None
-                },
-                language_view,
+                redeemers: Some(witness_set_redeemers.clone()),
+                datums: witness_set_datums.clone(),
+                language_view: Some(language_view),
             };
 
             dta.hash()
@@ -266,9 +270,7 @@ impl BuildConway for StagingTransaction {
                 plutus_v1_script: NonEmptySet::from_vec(plutus_v1_script),
                 plutus_v2_script: NonEmptySet::from_vec(plutus_v2_script),
                 plutus_v3_script: NonEmptySet::from_vec(plutus_v3_script),
-                plutus_data: NonEmptySet::from_vec(
-                    plutus_data.into_iter().map(|x| x.into()).collect(),
-                ),
+                plutus_data: witness_set_datums,
                 redeemer: if redeemers.is_empty() {
                     None
                 } else {
@@ -276,7 +278,7 @@ impl BuildConway for StagingTransaction {
                 },
             }
             .into(),
-            success: true,               // TODO
+            success: true, // TODO
             auxiliary_data: self.auxiliary_data.map(KeepRaw::from).into(),
         };
 

@@ -1,5 +1,6 @@
 use super::{CostModel, PlutusData, Redeemers, WitnessSet};
 use pallas_codec::minicbor::{self, Encode};
+use pallas_codec::utils::{KeepRaw, NonEmptySet};
 use serde::{Deserialize, Serialize};
 
 pub type PlutusVersion = u8;
@@ -40,36 +41,60 @@ impl<C> Encode<C> for LanguageView {
 }
 
 #[derive(Debug, Clone)]
-pub struct ScriptData {
-    pub redeemers: Redeemers,
-    pub datums: Option<Vec<PlutusData>>,
-    pub language_view: LanguageView,
+pub struct ScriptData<'b> {
+    pub redeemers: Option<Redeemers>,
+    pub datums: Option<KeepRaw<'b, NonEmptySet<KeepRaw<'b, PlutusData>>>>,
+    pub language_view: Option<LanguageView>,
 }
 
-impl ScriptData {
+impl ScriptData<'_> {
     pub fn hash(&self) -> pallas_crypto::hash::Hash<32> {
         let mut buf = vec![];
 
-        minicbor::encode(&self.redeemers, &mut buf).unwrap(); // infallible
+        if let Some(redeemers) = &self.redeemers {
+            minicbor::encode(redeemers, &mut buf).unwrap(); // infallible
+        } else {
+            buf.push(0xa0);
+        }
 
         if let Some(datums) = &self.datums {
             minicbor::encode(datums, &mut buf).unwrap(); // infallible
         }
 
-        minicbor::encode(&self.language_view, &mut buf).unwrap(); // infallible
+        if let Some(language_view) = &self.language_view {
+            minicbor::encode(language_view, &mut buf).unwrap(); // infallible
+        } else {
+            buf.push(0xa0);
+        }
 
         pallas_crypto::hash::Hasher::<256>::hash(&buf)
     }
 }
 
-impl ScriptData {
-    pub fn build_for(witness: &WitnessSet, language_view: LanguageView) -> Option<Self> {
-        let redeemer = witness.redeemer.as_ref();
-        let plutus_data = witness.plutus_data.as_ref();
+impl<'b> ScriptData<'b> {
+    pub fn build_for(
+        witness: &WitnessSet<'b>,
+        language_view_opt: &Option<LanguageView>,
+    ) -> Option<Self> {
+        let redeemers = witness.redeemer.as_ref().map(|x| x.to_owned().unwrap());
+        let datums = witness.plutus_data.clone();
 
-        redeemer.map(|x| x.to_owned().unwrap()).map(|x| ScriptData {
-            redeemers: x,
-            datums: plutus_data.map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
+        // Only return None if both redeemers and datums are None
+        if redeemers.is_none() && datums.is_none() {
+            return None;
+        }
+
+        // When redeemers are present, include the language view
+        // When only datums are present, language view should be None (empty map in hash)
+        let language_view = if redeemers.is_some() && language_view_opt.is_some() {
+            language_view_opt.clone()
+        } else {
+            None
+        };
+
+        Some(ScriptData {
+            redeemers,
+            datums,
             language_view,
         })
     }
@@ -115,35 +140,33 @@ mod tests {
         ]
     });
 
-    const TEST_VECTORS: LazyLock<Vec<(Vec<u8>, LanguageView)>> = LazyLock::new(|| {
+    const TEST_VECTORS: LazyLock<Vec<(Vec<u8>, Option<LanguageView>)>> = LazyLock::new(|| {
         vec![
             (
                 hex::decode(include_str!("../../../test_data/conway1.tx")).unwrap(),
-                LanguageView(1, COST_MODEL_PLUTUS_V2.clone()),
+                Some(LanguageView(1, COST_MODEL_PLUTUS_V2.clone())),
             ),
             (
                 hex::decode(include_str!("../../../test_data/conway2.tx")).unwrap(),
-                LanguageView(0, COST_MODEL_PLUTUS_V1.clone()),
+                Some(LanguageView(0, COST_MODEL_PLUTUS_V1.clone())),
             ),
             (
                 hex::decode(include_str!("../../../test_data/hydra-init.tx")).unwrap(),
-                LanguageView(1, COST_MODEL_PLUTUS_V2.clone()),
+                Some(LanguageView(1, COST_MODEL_PLUTUS_V2.clone())),
+            ),
+            (
+                hex::decode(include_str!("../../../test_data/datum-only.tx")).unwrap(),
+                None,
             ),
         ]
     });
 
-    fn assert_script_data_hash_matches(bytes: &[u8], language_view: &LanguageView) {
+    fn assert_script_data_hash_matches(bytes: &[u8], language_view_opt: &Option<LanguageView>) {
         let tx: Tx = pallas_codec::minicbor::decode(bytes).unwrap();
 
         let witness = tx.transaction_witness_set.clone().unwrap();
 
-        let script_data = ScriptData {
-            redeemers: witness.redeemer.unwrap().unwrap(),
-            datums: witness
-                .plutus_data
-                .map(|x| x.iter().cloned().map(|y| y.unwrap()).collect()),
-            language_view: language_view.clone(),
-        };
+        let script_data = ScriptData::build_for(&witness, language_view_opt).unwrap();
 
         let obtained = script_data.hash();
 
@@ -154,8 +177,8 @@ mod tests {
 
     #[test]
     fn test_script_data_hash() {
-        for (bytes, language_view) in TEST_VECTORS.iter() {
-            assert_script_data_hash_matches(bytes, language_view);
+        for (bytes, language_view_opt) in TEST_VECTORS.iter() {
+            assert_script_data_hash_matches(bytes, language_view_opt);
         }
     }
 }
