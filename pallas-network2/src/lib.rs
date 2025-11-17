@@ -9,9 +9,10 @@ use futures::{
 pub mod emulation;
 
 pub mod bearer;
-pub mod behavior;
+pub mod initiator;
 pub mod interface;
 pub mod protocol;
+pub mod responder;
 
 /// A unique identifier for a peer in the network
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -35,6 +36,15 @@ impl std::str::FromStr for PeerId {
             host: host.to_string(),
             port: port.parse().unwrap(),
         })
+    }
+}
+
+impl From<std::net::SocketAddr> for PeerId {
+    fn from(addr: std::net::SocketAddr) -> Self {
+        PeerId {
+            host: addr.ip().to_string(),
+            port: addr.port(),
+        }
     }
 }
 
@@ -84,19 +94,41 @@ pub trait Message: Send + 'static + std::fmt::Debug + Sized + Clone + Debug {
 /// A low-level command to interact with the network interface
 #[derive(Debug)]
 pub enum InterfaceCommand<M: Message> {
+    /// Connect to a peer
     Connect(PeerId),
+
+    /// Send a message to a peer
     Send(PeerId, M),
+
+    /// Disconnect a peer
     Disconnect(PeerId),
+
+    /// Accept an incoming connection
+    Accept,
 }
 
 /// A low-level event from the network interface
 #[derive(Debug)]
 pub enum InterfaceEvent<M: Message> {
+    /// An outbound connection was established
     Connected(PeerId),
-    Disconnected(PeerId),
+
+    /// An inbound connection was accepted
+    Accepted(PeerId),
+
+    /// A message was sent to a peer
     Sent(PeerId, M),
+
+    /// A message was received from a peer
     Recv(PeerId, Vec<M>),
+
+    /// A peer disconnected
+    Disconnected(PeerId),
+
+    /// An error occurred
     Error(PeerId, InterfaceError),
+
+    /// The interface is idle
     Idle,
 }
 

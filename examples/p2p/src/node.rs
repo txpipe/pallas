@@ -1,14 +1,14 @@
 use std::{collections::HashSet, time::Duration};
 
 use pallas_network2::{
-    behavior::{
+    initiator::{
         AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent, PromotionBehavior,
     },
     protocol::{blockfetch::Body, chainsync::HeaderContent},
     Interface, Manager,
 };
 
-pub use pallas_network2::behavior::PromotionConfig;
+pub use pallas_network2::initiator::PromotionConfig;
 pub use pallas_network2::protocol::Point;
 pub use pallas_network2::PeerId;
 

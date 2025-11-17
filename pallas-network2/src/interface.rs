@@ -11,7 +11,7 @@ use futures::{
     stream::{FusedStream, FuturesUnordered},
 };
 
-use tokio::{sync::Mutex, time::Instant};
+use tokio::{net::TcpListener, sync::Mutex, time::Instant};
 
 use crate::{
     Channel, Interface, InterfaceCommand, InterfaceError, InterfaceEvent, Message, Payload, PeerId,
@@ -20,6 +20,7 @@ use crate::{
 
 enum InternalEvent<M: Message> {
     Connected(PeerId, Bearer),
+    Accepted(PeerId, Bearer),
     Disconnected(PeerId),
     Sent(PeerId, M),
     Recv(PeerId, Vec<M>, BearerReadHalf, ChunkBuffer),
@@ -37,6 +38,24 @@ async fn connect<M: Message>(pid: PeerId) -> InternalEvent<M> {
     match bearer {
         Ok(bearer) => InternalEvent::Connected(pid.clone(), bearer),
         Err(e) => InternalEvent::Error(pid.clone(), e),
+    }
+}
+
+async fn accept<M: Message>(listener: SharedListener) -> InternalEvent<M> {
+    let listener = listener.lock().await;
+
+    tracing::debug!("waiting for incoming connection");
+    let connection = Bearer::accept_tcp(&listener).await;
+
+    match connection {
+        Ok((bearer, addr)) => {
+            let pid = PeerId::from(addr);
+            InternalEvent::Accepted(pid, bearer)
+        }
+        Err(e) => {
+            dbg!(&e);
+            todo!("handle error accepting connection")
+        }
     }
 }
 
@@ -88,21 +107,19 @@ async fn disconnect<M: Message>(pid: PeerId, writer: SharedWriter) -> InternalEv
 
 pub type SharedWriter = Arc<Mutex<BearerWriteHalf>>;
 
+pub type SharedListener = Arc<Mutex<TcpListener>>;
+
 pub struct TcpInterface<M: Message> {
     futures: FuturesUnordered<InterfaceFuture<M>>,
     writers: HashMap<PeerId, SharedWriter>,
+    listener: SharedListener,
     clock: Instant,
 }
 
-impl<M: Message> Default for TcpInterface<M> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<M: Message> TcpInterface<M> {
-    pub fn new() -> Self {
+    pub fn new(listener: TcpListener) -> Self {
         Self {
+            listener: Arc::new(Mutex::new(listener)),
             futures: FuturesUnordered::new(),
             writers: HashMap::new(),
             clock: Instant::now(),
@@ -113,7 +130,11 @@ impl<M: Message> TcpInterface<M> {
         self.writers.get(pid).cloned()
     }
 
-    fn on_connected(&mut self, pid: PeerId, bearer: Bearer) -> InterfaceEvent<M> {
+    fn take_listener(&mut self) -> SharedListener {
+        self.listener.clone()
+    }
+
+    fn setup_peer(&mut self, pid: &PeerId, bearer: Bearer) {
         let (read, write) = bearer.into_split();
 
         // we store the writer for this peer so we can send messages to it when
@@ -125,8 +146,16 @@ impl<M: Message> TcpInterface<M> {
         // messages
         let future = recv(pid.clone(), read, HashMap::new());
         self.futures.push(Box::pin(future));
+    }
 
+    fn on_connected(&mut self, pid: PeerId, bearer: Bearer) -> InterfaceEvent<M> {
+        self.setup_peer(&pid, bearer);
         InterfaceEvent::Connected(pid)
+    }
+
+    fn on_accepted(&mut self, pid: PeerId, bearer: Bearer) -> InterfaceEvent<M> {
+        self.setup_peer(&pid, bearer);
+        InterfaceEvent::Accepted(pid)
     }
 
     fn on_disconnected(&mut self, pid: PeerId) -> InterfaceEvent<M> {
@@ -163,6 +192,7 @@ impl<M: Message> TcpInterface<M> {
     fn handle_internal_event(&mut self, event: InternalEvent<M>) -> InterfaceEvent<M> {
         match event {
             InternalEvent::Connected(pid, stream) => self.on_connected(pid, stream),
+            InternalEvent::Accepted(pid, stream) => self.on_accepted(pid, stream),
             InternalEvent::Sent(pid, msg) => self.on_sent(pid, msg),
             InternalEvent::Recv(pid, msgs, stream, buf) => self.on_recv(pid, msgs, stream, buf),
             InternalEvent::Disconnected(pid) => self.on_disconnected(pid),
@@ -176,6 +206,11 @@ impl<M: Message> Interface<M> for TcpInterface<M> {
         match cmd {
             InterfaceCommand::Connect(pid) => {
                 let future = connect(pid.clone());
+                self.futures.push(Box::pin(future));
+            }
+            InterfaceCommand::Accept => {
+                let listener = self.take_listener();
+                let future = accept(listener);
                 self.futures.push(Box::pin(future));
             }
             InterfaceCommand::Send(pid, msg) => {
@@ -193,7 +228,7 @@ impl<M: Message> Interface<M> for TcpInterface<M> {
                 let Some(stream) = self.take_writer(&pid) else {
                     tracing::warn!(%pid, "trying to disconnect a peer not connected");
 
-                    // trying to disconnect a peer is expected, it's easier for behaviors to trigger
+                    // trying to disconnect a missing peer is expected, it's easier for behaviors to trigger
                     // preventive disconnects than checking constantly for a state that might not be
                     // up-to-date. So, if we can't find a connected peer, we just go with it and
                     // assume it's ok.

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use pallas_network2::behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
 use pallas_network2::emulation::happy::HappyEmulator;
+use pallas_network2::initiator::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
 use pallas_network2::{Manager, PeerId};
 
 struct MockNode {
@@ -11,7 +11,6 @@ struct MockNode {
 
 impl MockNode {
     async fn tick(&mut self) {
-        dbg!("tick");
         let event = self.network.poll_next().await;
 
         let Some(event) = event else {

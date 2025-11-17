@@ -1,6 +1,6 @@
 use crate::{
     InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
+    responder::{AnyMessage, PeerVisitor, ResponderBehavior, ResponderState},
 };
 
 pub struct KeepaliveBehavior {
@@ -17,8 +17,8 @@ impl KeepaliveBehavior {
     pub fn send_keepalive(
         &mut self,
         pid: &PeerId,
-        peer: &InitiatorState,
-        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+        peer: &ResponderState,
+        outbound: &mut OutboundQueue<super::ResponderBehavior>,
     ) {
         if !peer.is_initialized() {
             return;
@@ -38,8 +38,8 @@ impl PeerVisitor for KeepaliveBehavior {
     fn visit_housekeeping(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         self.send_keepalive(pid, state, outbound);
     }

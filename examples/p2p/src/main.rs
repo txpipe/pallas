@@ -14,7 +14,9 @@ async fn main() {
 
     // let interface = MyEmulator::default();
 
-    let interface = pallas_network2::interface::TcpInterface::new();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:9000").await.unwrap();
+
+    let interface = pallas_network2::interface::TcpInterface::new(listener);
 
     let mut node = MyNode::new(
         MyConfig {

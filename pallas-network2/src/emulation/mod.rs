@@ -70,6 +70,13 @@ where
     }
 }
 
+fn random_pid() -> PeerId {
+    PeerId {
+        host: "127.0.0.1".to_string(),
+        port: rand::rng().random_range(10000..65535),
+    }
+}
+
 impl<M> Stream for ReplyQueue<M>
 where
     M: Message,
@@ -129,6 +136,17 @@ where
                     tokio::time::sleep(jitter).await;
                     tracing::info!(%peer_id, "emulating connected");
                     InterfaceEvent::Connected(peer_id)
+                });
+
+                self.pending.push(future);
+            }
+            InterfaceCommand::Accept => {
+                let jitter = self.rules.jitter();
+
+                let future = Box::pin(async move {
+                    tokio::time::sleep(jitter).await;
+                    tracing::info!("emulating accepted");
+                    InterfaceEvent::Accepted(random_pid())
                 });
 
                 self.pending.push(future);

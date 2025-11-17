@@ -6,7 +6,8 @@ use std::{collections::HashMap, task::Poll};
 use pallas_codec::{Fragment, minicbor};
 
 use crate::{
-    Behavior, BehaviorOutput, Channel, Message, OutboundQueue, Payload, PeerId, protocol as proto,
+    Behavior, BehaviorOutput, Channel, InterfaceCommand, Message, OutboundQueue, Payload, PeerId,
+    protocol as proto,
 };
 
 mod blockfetch;
@@ -15,7 +16,6 @@ mod connection;
 mod discovery;
 mod handshake;
 mod keepalive;
-mod promotion;
 
 pub use blockfetch::*;
 pub use chainsync::*;
@@ -23,15 +23,14 @@ pub use connection::*;
 pub use discovery::*;
 pub use handshake::*;
 pub use keepalive::*;
-pub use promotion::*;
 
 pub trait PeerVisitor {
     #[allow(unused_variables)]
-    fn visit_connected(
+    fn visit_accepted(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -40,8 +39,8 @@ pub trait PeerVisitor {
     fn visit_disconnected(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -50,8 +49,8 @@ pub trait PeerVisitor {
     fn visit_errored(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -60,8 +59,8 @@ pub trait PeerVisitor {
     fn visit_discovered(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -70,8 +69,8 @@ pub trait PeerVisitor {
     fn visit_inbound_msg(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -80,8 +79,8 @@ pub trait PeerVisitor {
     fn visit_outbound_msg(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -90,8 +89,8 @@ pub trait PeerVisitor {
     fn visit_tagged(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -100,8 +99,8 @@ pub trait PeerVisitor {
     fn visit_housekeeping(
         &mut self,
         pid: &PeerId,
-        state: &mut InitiatorState,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
+        state: &mut ResponderState,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         // default implementation does nothing
     }
@@ -187,27 +186,15 @@ pub type LastSeen = chrono::DateTime<chrono::Utc>;
 #[derive(PartialEq, Debug, Default)]
 pub enum ConnectionState {
     #[default]
-    New,
-    Connecting,
-    Connected,
+    Accepted,
     Initialized,
     Disconnected,
     Errored,
 }
 
-#[derive(PartialEq, Debug, Default, Copy, Clone)]
-pub enum PromotionTag {
-    #[default]
-    Cold,
-    Warm,
-    Hot,
-    Banned,
-}
-
 #[derive(Default, Debug)]
-pub struct InitiatorState {
+pub struct ResponderState {
     connection: ConnectionState,
-    promotion: PromotionTag,
     handshake: proto::handshake::State<proto::handshake::n2n::VersionData>,
     keepalive: proto::keepalive::State,
     peersharing: proto::peersharing::State,
@@ -216,14 +203,12 @@ pub struct InitiatorState {
     tx_submission: proto::txsubmission::State,
     violation: bool,
     error_count: u32,
-    continue_sync: bool,
 }
 
-impl InitiatorState {
+impl ResponderState {
     pub fn new() -> Self {
-        InitiatorState {
+        ResponderState {
             connection: ConnectionState::default(),
-            promotion: PromotionTag::default(),
             handshake: proto::handshake::State::default(),
             keepalive: proto::keepalive::State::default(),
             peersharing: proto::peersharing::State::default(),
@@ -232,7 +217,6 @@ impl InitiatorState {
             tx_submission: crate::protocol::txsubmission::State::default(),
             violation: false,
             error_count: 0,
-            continue_sync: false,
         }
     }
 
@@ -247,10 +231,6 @@ impl InitiatorState {
             }
             _ => None,
         }
-    }
-
-    pub fn promotion(&self) -> PromotionTag {
-        self.promotion
     }
 
     pub fn supports_peer_sharing(&self) -> bool {
@@ -337,7 +317,6 @@ impl InitiatorState {
     /// Resets the state back to its initial state, except for error count
     pub fn reset(&mut self) {
         self.connection = ConnectionState::default();
-        self.promotion = PromotionTag::default();
         self.handshake = proto::handshake::State::default();
         self.keepalive = proto::keepalive::State::default();
         self.peersharing = proto::peersharing::State::default();
@@ -346,58 +325,50 @@ impl InitiatorState {
     }
 }
 
-pub type TagFn = fn(&mut InitiatorState);
+pub type TagFn = fn(&mut ResponderState);
 
 pub type BlockRange = (proto::Point, proto::Point);
 
 #[derive(Debug)]
-pub enum InitiatorCommand {
-    IncludePeer(PeerId),
+pub enum ResponderCommand {
+    Accept,
     Housekeeping,
-    StartSync(Vec<proto::Point>),
-    ContinueSync(PeerId),
-    RequestBlocks(BlockRange),
-    SendTx(
-        PeerId,
-        proto::txsubmission::EraTxId,
-        proto::txsubmission::EraTxBody,
-    ),
+    SendIntersect(PeerId, proto::Point, proto::chainsync::Tip),
+    SendNextHeader(PeerId, proto::chainsync::HeaderContent),
+    SendRollback(PeerId, proto::Point, proto::chainsync::Tip),
+    SendStartBatch(PeerId),
+    SendBlock(PeerId, proto::blockfetch::Body),
+    SendStoptBatch(PeerId),
+    RequestTx(PeerId),
     BanPeer(PeerId),
-    DemotePeer(PeerId),
 }
 
 pub type AcceptedVersion = (u64, proto::handshake::n2n::VersionData);
 
 #[derive(Debug)]
-pub enum InitiatorEvent {
+pub enum ResponderEvent {
     PeerInitialized(PeerId, AcceptedVersion),
-    IntersectionFound(PeerId, proto::Point, proto::chainsync::Tip),
-    BlockHeaderReceived(
-        PeerId,
-        proto::chainsync::HeaderContent,
-        proto::chainsync::Tip,
-    ),
+    IntersectRequested(PeerId, Vec<proto::Point>),
+    NextHeaderRequested(PeerId),
     RollbackReceived(PeerId, proto::Point, proto::chainsync::Tip),
-    BlockBodyReceived(PeerId, proto::blockfetch::Body),
-    TxRequested(PeerId, proto::txsubmission::EraTxId),
+    BlockRangeRequested(PeerId, BlockRange),
+    TxSubmitted(PeerId, proto::txsubmission::EraTxBody),
 }
 
 #[derive(Default)]
-pub struct InitiatorBehavior {
-    pub promotion: promotion::PromotionBehavior,
+pub struct ResponderBehavior {
     pub connection: connection::ConnectionBehavior,
     pub handshake: handshake::HandshakeBehavior,
     pub keepalive: keepalive::KeepaliveBehavior,
     pub discovery: discovery::DiscoveryBehavior,
     pub blockfetch: blockfetch::BlockFetchBehavior,
     pub chainsync: chainsync::ChainSyncBehavior,
-    pub peers: HashMap<PeerId, InitiatorState>,
+    pub peers: HashMap<PeerId, ResponderState>,
     pub outbound: OutboundQueue<Self>,
 }
 
 macro_rules! all_visitors {
     ($self:ident, $pid:ident, $state:expr, $method:ident) => {
-        $self.promotion.$method($pid, $state, &mut $self.outbound);
         $self.connection.$method($pid, $state, &mut $self.outbound);
         $self.handshake.$method($pid, $state, &mut $self.outbound);
         $self.keepalive.$method($pid, $state, &mut $self.outbound);
@@ -407,7 +378,7 @@ macro_rules! all_visitors {
     };
 }
 
-impl InitiatorBehavior {
+impl ResponderBehavior {
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
     pub fn on_inbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new inbound message");
@@ -431,13 +402,13 @@ impl InitiatorBehavior {
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
-    fn on_connected(&mut self, pid: &PeerId) {
-        tracing::info!("connected");
+    fn on_accepted(&mut self, pid: &PeerId) {
+        tracing::info!("accepted");
 
         self.peers.entry(pid.clone()).and_modify(|state| {
-            state.connection = ConnectionState::Connected;
+            state.connection = ConnectionState::Accepted;
 
-            all_visitors!(self, pid, state, visit_connected);
+            all_visitors!(self, pid, state, visit_accepted);
         });
     }
 
@@ -476,49 +447,15 @@ impl InitiatorBehavior {
         });
     }
 
-    #[tracing::instrument(skip_all, fields(pid = %pid))]
-    fn on_discovered(&mut self, pid: &PeerId) {
-        let mut state = InitiatorState::new();
-
-        all_visitors!(self, pid, &mut state, visit_discovered);
-
-        self.peers.insert(pid.clone(), state);
-    }
-
-    fn move_discovered_into_promotion(&mut self) {
-        let deficit = self.promotion.peer_deficit();
-
-        if deficit == 0 {
-            return;
-        }
-
-        let new = self.discovery.drain_new_peers(deficit);
-
-        if new.is_empty() {
-            tracing::trace!("no new peers discovered");
-            return;
-        }
-
-        tracing::info!(deficit = deficit, new = new.len(), "discovered new peers",);
-
-        for pid in new {
-            if !self.peers.contains_key(&pid) {
-                self.on_discovered(&pid);
-            }
-        }
-    }
-
     #[tracing::instrument(skip_all)]
     fn housekeeping(&mut self) {
         for (pid, state) in self.peers.iter_mut() {
             all_visitors!(self, pid, state, visit_housekeeping);
         }
-
-        self.move_discovered_into_promotion();
     }
 }
 
-impl Stream for InitiatorBehavior {
+impl Stream for ResponderBehavior {
     type Item = BehaviorOutput<Self>;
 
     fn poll_next(
@@ -534,22 +471,25 @@ impl Stream for InitiatorBehavior {
     }
 }
 
-impl FusedStream for InitiatorBehavior {
+impl FusedStream for ResponderBehavior {
     fn is_terminated(&self) -> bool {
         false
     }
 }
 
-impl Behavior for InitiatorBehavior {
-    type Event = InitiatorEvent;
-    type Command = InitiatorCommand;
-    type PeerState = InitiatorState;
+impl Behavior for ResponderBehavior {
+    type Event = ResponderEvent;
+    type Command = ResponderCommand;
+    type PeerState = ResponderState;
     type Message = AnyMessage;
 
     fn handle_io(&mut self, event: crate::InterfaceEvent<Self::Message>) {
         match &event {
-            crate::InterfaceEvent::Connected(pid) => {
-                self.on_connected(pid);
+            crate::InterfaceEvent::Accepted(pid) => {
+                self.on_accepted(pid);
+            }
+            crate::InterfaceEvent::Connected(_) => {
+                unreachable!("responder behavior does not handle outbound connections");
             }
             crate::InterfaceEvent::Disconnected(pid) => {
                 self.on_disconnected(pid);
@@ -573,35 +513,36 @@ impl Behavior for InitiatorBehavior {
 
     fn execute(&mut self, cmd: Self::Command) {
         match cmd {
-            InitiatorCommand::IncludePeer(pid) => {
-                tracing::debug!("include peer command");
-                self.on_discovered(&pid);
+            ResponderCommand::Accept => {
+                tracing::debug!("accepting next connection");
+                self.outbound
+                    .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Accept));
             }
-            InitiatorCommand::StartSync(points) => {
-                tracing::debug!("start sync command");
-                self.chainsync.start(points);
+            ResponderCommand::SendIntersect(pid, points, tip) => {
+                tracing::debug!("sending intersect");
+                self.chainsync.send_intersect(pid, points, tip);
             }
-            InitiatorCommand::ContinueSync(pid) => {
+            ResponderCommand::ContinueSync(pid) => {
                 tracing::debug!("continue sync command");
                 self.on_tagged(&pid, |state| state.continue_sync = true);
             }
-            InitiatorCommand::RequestBlocks(range) => {
+            ResponderCommand::RequestBlocks(range) => {
                 tracing::debug!("request blocks command");
                 self.blockfetch.enqueue(range);
             }
-            InitiatorCommand::Housekeeping => {
+            ResponderCommand::Housekeeping => {
                 tracing::debug!("housekeeping command");
                 self.housekeeping();
             }
-            InitiatorCommand::BanPeer(pid) => {
+            ResponderCommand::BanPeer(pid) => {
                 tracing::debug!("ban peer command");
                 self.on_tagged(&pid, |state| state.promotion = PromotionTag::Banned);
             }
-            InitiatorCommand::DemotePeer(pid) => {
+            ResponderCommand::DemotePeer(pid) => {
                 tracing::debug!("demote peer command");
                 self.on_tagged(&pid, |state| state.promotion = PromotionTag::Cold);
             }
-            InitiatorCommand::SendTx(..) => todo!(),
+            ResponderCommand::SendTx(..) => todo!(),
         }
     }
 }

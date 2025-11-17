@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     OutboundQueue, PeerId,
-    behavior::{InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
+    initiator::{InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
 };
 
 impl From<crate::protocol::peersharing::PeerAddress> for PeerId {

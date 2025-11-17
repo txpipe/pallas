@@ -1,9 +1,9 @@
-use crate::behavior::PromotionTag;
+use crate::initiator::PromotionTag;
 use crate::protocol::{Point, chainsync as chainsync_proto};
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{
+    initiator::{
         AnyMessage, ConnectionState, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor,
     },
 };

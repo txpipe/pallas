@@ -1,7 +1,7 @@
 use std::{net::Ipv4Addr, time::Duration};
 
 use crate::protocol as proto;
-use crate::{PeerId, behavior::AnyMessage, emulation};
+use crate::{PeerId, emulation, initiator::AnyMessage};
 use rand::Rng;
 
 fn reply_handshake_ok(

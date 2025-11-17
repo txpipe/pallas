@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
+    initiator::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
 };
 
 pub struct DiscoveryConfig {

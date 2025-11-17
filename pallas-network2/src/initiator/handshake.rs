@@ -1,6 +1,6 @@
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor},
+    initiator::{AnyMessage, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor},
     protocol::MAINNET_MAGIC,
 };
 
@@ -73,7 +73,7 @@ impl HandshakeBehavior {
             return;
         };
 
-        state.connection = crate::behavior::ConnectionState::Initialized;
+        state.connection = crate::initiator::ConnectionState::Initialized;
 
         let out = BehaviorOutput::ExternalEvent(InitiatorEvent::PeerInitialized(
             pid.clone(),
@@ -85,7 +85,10 @@ impl HandshakeBehavior {
 }
 
 fn needs_handshake(peer: &InitiatorState) -> bool {
-    matches!(peer.connection, crate::behavior::ConnectionState::Connected)
+    matches!(
+        peer.connection,
+        crate::initiator::ConnectionState::Connected
+    )
 }
 
 impl PeerVisitor for HandshakeBehavior {
