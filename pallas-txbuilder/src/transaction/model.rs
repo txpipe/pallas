@@ -3,7 +3,10 @@ use pallas_crypto::{
     hash::{Hash, Hasher},
     key::ed25519,
 };
-use pallas_primitives::{conway::{self, AuxiliaryData}, Fragment, NonEmptySet};
+use pallas_primitives::{
+    conway::{self, AuxiliaryData},
+    Fragment, NonEmptySet,
+};
 
 use std::{collections::HashMap, ops::Deref};
 
@@ -383,8 +386,6 @@ impl StagingTransaction {
         self.auxiliary_data = None;
         self
     }
-
-
 }
 
 // TODO: Don't want our wrapper types in fields public

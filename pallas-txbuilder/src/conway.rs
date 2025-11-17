@@ -1,18 +1,5 @@
 use std::ops::Deref;
 
-use pallas_codec::utils::CborWrap;
-use pallas_crypto::hash::Hash;
-use pallas_primitives::{
-    conway::{
-        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
-        PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
-        ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
-        WitnessSet,
-    },
-    Fragment, NonEmptySet, PositiveCoin,
-};
-use pallas_traverse::ComputeHash;
-use pallas_primitives::KeepRaw;
 use crate::{
     transaction::{
         model::{
@@ -23,6 +10,19 @@ use crate::{
     },
     TxBuilderError,
 };
+use pallas_codec::utils::CborWrap;
+use pallas_crypto::hash::Hash;
+use pallas_primitives::KeepRaw;
+use pallas_primitives::{
+    conway::{
+        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
+        PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
+        ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
+        WitnessSet,
+    },
+    Fragment, NonEmptySet, PositiveCoin,
+};
+use pallas_traverse::ComputeHash;
 
 pub trait BuildConway {
     fn build_conway_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
