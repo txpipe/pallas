@@ -5,10 +5,13 @@ version = "1.0.0-alpha.2"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
-documentation = "https://docs.rs/pallas-upstream"
+documentation = "https://docs.rs/pallas"
 license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>", "Pi Lanningham <pi.lanningham@gmail.com>"]
+authors = [
+    "Santiago Carmuega <santiago@carmuega.me>",
+    "Pi Lanningham <pi.lanningham@gmail.com>",
+]
 
 [dependencies]
 byteorder = "1.4.3"
@@ -19,7 +22,14 @@ pallas-crypto = { version = "=1.0.0-alpha.2", path = "../pallas-crypto" }
 rand = "0.8.5"
 socket2 = "0.5.5"
 thiserror = "1.0.31"
-tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros"] }
+tokio = { version = "1", features = [
+    "rt",
+    "net",
+    "io-util",
+    "time",
+    "sync",
+    "macros",
+] }
 tracing = "0.1.37"
 
 [dev-dependencies]
