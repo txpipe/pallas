@@ -394,7 +394,7 @@ impl<'a> TxInfo<'a> {
         }
     }
 
-    pub fn inputs(&self) -> &[TxInInfo] {
+    pub fn inputs(&self) -> &[TxInInfo<'_>] {
         match self {
             TxInfo::V1(info) => &info.inputs,
             TxInfo::V2(info) => &info.inputs,
@@ -967,7 +967,7 @@ pub fn from_alonzo_value(value: &alonzo::Value) -> Value {
     }
 }
 
-pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutput {
+pub fn from_alonzo_output(output: &alonzo::TransactionOutput) -> TransactionOutput<'_> {
     TransactionOutput::PostAlonzo(
         PostAlonzoTransactionOutput {
             address: output.address.clone(),
