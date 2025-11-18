@@ -196,10 +196,11 @@ pub enum MultiEraGovAction<'b> {
     Conway(Box<Cow<'b, conway::GovAction>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub enum MultiEraSigners<'b> {
     NotApplicable,
+    #[default]
     Empty,
     AlonzoCompatible(&'b alonzo::RequiredSigners),
 }
