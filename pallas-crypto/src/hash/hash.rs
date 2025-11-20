@@ -86,6 +86,7 @@ impl<C, const BYTES: usize> minicbor::Encode<C> for Hash<BYTES> {
 }
 
 impl<'a, C, const BYTES: usize> minicbor::Decode<'a, C> for Hash<BYTES> {
+    #[cfg(not(feature = "relaxed"))]
     fn decode(
         d: &mut minicbor::Decoder<'a>,
         _ctx: &mut C,
@@ -100,6 +101,22 @@ impl<'a, C, const BYTES: usize> minicbor::Decode<'a, C> for Hash<BYTES> {
             //       (in fact cbor is not good at it at all anyway)
             Err(minicbor::decode::Error::message("Invalid hash size"))
         }
+    }
+
+    #[cfg(feature = "relaxed")]
+    fn decode(
+        d: &mut minicbor::Decoder<'a>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        let bytes = d.bytes()?;
+
+        if bytes.len() != BYTES {
+            dbg!(hex::encode(bytes));
+        }
+
+        let mut hash = [0; BYTES];
+        hash.copy_from_slice(&bytes[..BYTES]);
+        Ok(Self::new(hash))
     }
 }
 
