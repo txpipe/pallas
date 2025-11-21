@@ -690,7 +690,7 @@ pub use crate::alonzo::AuxiliaryData;
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Block<'b> {
     #[n(0)]
-    pub header: KeepRaw<'b, Header>,
+    pub header: KeepRaw<'b, Header<'b>>,
 
     #[b(1)]
     pub transaction_bodies: Vec<KeepRaw<'b, TransactionBody<'b>>>,
