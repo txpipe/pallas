@@ -3,12 +3,6 @@ use pallas_primitives::alonzo;
 
 use crate::MultiEraSigners;
 
-impl Default for MultiEraSigners<'_> {
-    fn default() -> Self {
-        Self::Empty
-    }
-}
-
 impl MultiEraSigners<'_> {
     pub fn as_alonzo(&self) -> Option<&alonzo::RequiredSigners> {
         match self {

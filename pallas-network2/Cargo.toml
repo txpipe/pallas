@@ -1,7 +1,14 @@
 [package]
 name = "pallas-network2"
-version = "0.1.0"
+description = "Ouroboros networking stack for P2P interactions"
+version = "1.0.0-alpha.2"
 edition = "2024"
+repository = "https://github.com/txpipe/pallas"
+homepage = "https://github.com/txpipe/pallas"
+documentation = "https://docs.rs/pallas"
+license = "Apache-2.0"
+readme = "README.md"
+authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 publish = false
 
 [dependencies]

@@ -1,18 +1,5 @@
 use std::ops::Deref;
 
-use pallas_codec::utils::CborWrap;
-use pallas_crypto::hash::Hash;
-use pallas_primitives::{
-    conway::{
-        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
-        PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
-        ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
-        WitnessSet,
-    },
-    Fragment, NonEmptySet, PositiveCoin,
-};
-use pallas_traverse::ComputeHash;
-
 use crate::{
     transaction::{
         model::{
@@ -23,6 +10,19 @@ use crate::{
     },
     TxBuilderError,
 };
+use pallas_codec::utils::CborWrap;
+use pallas_crypto::hash::Hash;
+use pallas_primitives::KeepRaw;
+use pallas_primitives::{
+    conway::{
+        DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
+        PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
+        ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
+        WitnessSet,
+    },
+    Fragment, NonEmptySet, PositiveCoin,
+};
+use pallas_traverse::ComputeHash;
 
 pub trait BuildConway {
     fn build_conway_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
@@ -218,16 +218,20 @@ impl BuildConway for StagingTransaction {
         };
 
         let witness_set_redeemers = pallas_primitives::conway::Redeemers::List(redeemers.clone());
+        let witness_set_datums = if !plutus_data.is_empty() {
+            Some(KeepRaw::from(
+                NonEmptySet::from_vec(plutus_data.clone().into_iter().map(KeepRaw::from).collect())
+                    .unwrap(),
+            ))
+        } else {
+            None
+        };
 
         let script_data_hash = self.language_view.map(|language_view| {
             let dta = pallas_primitives::conway::ScriptData {
-                redeemers: witness_set_redeemers.clone(),
-                datums: if !plutus_data.is_empty() {
-                    Some(plutus_data.clone())
-                } else {
-                    None
-                },
-                language_view,
+                redeemers: Some(witness_set_redeemers.clone()),
+                datums: witness_set_datums.clone(),
+                language_view: Some(language_view),
             };
 
             dta.hash()
@@ -266,9 +270,7 @@ impl BuildConway for StagingTransaction {
                 plutus_v1_script: NonEmptySet::from_vec(plutus_v1_script),
                 plutus_v2_script: NonEmptySet::from_vec(plutus_v2_script),
                 plutus_v3_script: NonEmptySet::from_vec(plutus_v3_script),
-                plutus_data: NonEmptySet::from_vec(
-                    plutus_data.into_iter().map(|x| x.into()).collect(),
-                ),
+                plutus_data: witness_set_datums,
                 redeemer: if redeemers.is_empty() {
                     None
                 } else {
@@ -276,15 +278,15 @@ impl BuildConway for StagingTransaction {
                 },
             }
             .into(),
-            success: true,               // TODO
-            auxiliary_data: None.into(), // TODO
+            success: true, // TODO
+            auxiliary_data: self.auxiliary_data.map(KeepRaw::from).into(),
         };
 
         // TODO: pallas auxiliary_data_hash should be Hash<32> not Bytes
         pallas_tx.transaction_body.auxiliary_data_hash = pallas_tx
             .auxiliary_data
             .clone()
-            .map(|ad| ad.compute_hash().to_vec().into())
+            .map(|ad| ad.compute_hash())
             .into();
 
         Ok(BuiltTransaction {

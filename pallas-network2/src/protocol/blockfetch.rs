@@ -23,18 +23,13 @@ pub enum Message {
     BatchDone,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum State {
+    #[default]
     Idle,
     Busy(Range),
     Streaming(Option<Body>),
     Done,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 impl State {

@@ -13,7 +13,7 @@ use crate::utils::{
     ValidationResult,
 };
 use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
-use pallas_codec::utils::{Bytes, KeepRaw};
+use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     babbage,
     conway::{
@@ -669,7 +669,7 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
         &plutus_v3_scripts,
         &reference_scripts,
     )?;
-    let plutus_data = tx_wits.plutus_data.clone().map(|data| data.to_vec());
+    let plutus_data = tx_wits.plutus_data.clone();
     check_datums(tx_body, utxos, &plutus_data)?;
     check_redeemers(
         &plutus_v1_scripts,
@@ -964,7 +964,7 @@ fn check_minting_policies(
 fn check_datums(
     tx_body: &TransactionBody,
     utxos: &UTxOs,
-    option_plutus_data: &Option<Vec<KeepRaw<PlutusData>>>,
+    option_plutus_data: &Option<KeepRaw<NonEmptySet<KeepRaw<PlutusData>>>>,
 ) -> ValidationResult {
     let mut plutus_data_hashes: Vec<(bool, Hash<32>)> = match option_plutus_data {
         Some(plutus_data) => plutus_data
@@ -1563,7 +1563,7 @@ fn check_script_data_hash(
 
     let expected = pallas_primitives::conway::ScriptData::build_for(
         &mtx.transaction_witness_set,
-        language_view,
+        &Some(language_view),
     )
     .ok_or(PostAlonzo(ScriptIntegrityHash))?
     .hash();

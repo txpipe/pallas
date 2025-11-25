@@ -1,5 +1,5 @@
 use pallas_primitives::{conway::Language, TransactionInput};
-use uplc_turbo::{
+use pallas_uplc::{
     binder::DeBruijn,
     flat::FlatDecodeError,
     machine::{self, ExBudget},

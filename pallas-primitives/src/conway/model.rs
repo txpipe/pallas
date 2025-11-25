@@ -333,7 +333,7 @@ pub struct TransactionBody<'a> {
     pub withdrawals: Option<BTreeMap<RewardAccount, Coin>>,
 
     #[n(7)]
-    pub auxiliary_data_hash: Option<Bytes>,
+    pub auxiliary_data_hash: Option<Hash<32>>,
 
     #[n(8)]
     pub validity_interval_start: Option<u64>,
@@ -604,7 +604,7 @@ pub struct WitnessSet<'b> {
     pub plutus_v1_script: Option<NonEmptySet<PlutusScript<1>>>,
 
     #[b(4)]
-    pub plutus_data: Option<NonEmptySet<KeepRaw<'b, PlutusData>>>,
+    pub plutus_data: Option<KeepRaw<'b, NonEmptySet<KeepRaw<'b, PlutusData>>>>,
 
     #[n(5)]
     pub redeemer: Option<KeepRaw<'b, Redeemers>>,
@@ -793,6 +793,9 @@ mod tests {
             include_str!("../../../test_data/conway3.block"),
             // interesting block with extreme values
             include_str!("../../../test_data/conway4.block"),
+            // peculiar block with hash-size issue
+            #[cfg(feature = "relaxed")]
+            include_str!("../../../test_data/conway8.block"),
         ];
 
         for (idx, block_str) in test_blocks.iter().enumerate() {

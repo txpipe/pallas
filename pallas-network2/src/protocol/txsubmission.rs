@@ -32,20 +32,15 @@ pub enum Message {
     Done,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum State {
+    #[default]
     Init,
     Idle,
     TxIdsNonBlocking,
     TxIdsBlocking,
     Txs,
     Done,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self::Init
-    }
 }
 
 impl State {

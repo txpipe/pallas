@@ -18,14 +18,11 @@ use pallas_primitives::{
 };
 use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
-use tracing::{debug, instrument};
-use uplc_turbo::{
-    binder::DeBruijn,
-    bumpalo::Bump,
-    constant::{Constant, Integer},
-    data::PlutusData as PragmaPlutusData,
+use pallas_uplc::{
+    binder::DeBruijn, bumpalo::Bump, constant::Constant, data::PlutusData as PragmaPlutusData,
     term::Term,
 };
+use tracing::{debug, instrument};
 
 #[derive(Debug)]
 pub struct TxEvalResult {
@@ -69,7 +66,7 @@ pub fn map_pallas_data_to_pragma_data<'a>(
                 PragmaPlutusData::integer_from(arena, val)
             }
             pallas_primitives::BigInt::BigNInt(big_num_bytes) => {
-                let val = uplc_turbo::constant::integer_from_bytes_and_sign(
+                let val = pallas_uplc::constant::integer_from_bytes_and_sign(
                     arena,
                     big_num_bytes.as_slice(),
                     -1,
@@ -79,7 +76,7 @@ pub fn map_pallas_data_to_pragma_data<'a>(
             }
             // @TODO: recheck this implementations correctness
             pallas_primitives::BigInt::BigUInt(big_num_bytes) => {
-                let val = uplc_turbo::constant::integer_from_bytes_and_sign(
+                let val = pallas_uplc::constant::integer_from_bytes_and_sign(
                     arena,
                     big_num_bytes.as_slice(),
                     1,
@@ -168,7 +165,7 @@ fn execute_script(
         pallas_codec::minicbor::decode(&script_bytes)
             .map_err(pallas_codec::minicbor::decode::Error::from)?;
 
-    let program = uplc_turbo::flat::decode(&arena, &flat)?;
+    let program = pallas_uplc::flat::decode(&arena, &flat)?;
 
     let program = match script_context {
         ScriptContext::V1V2 { .. } => if let Some(datum_term) = datum_term {

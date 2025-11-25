@@ -611,7 +611,7 @@ impl DmqClient {
 
         let mut client = Self::new(bearer);
 
-        let versions = handshake::n2c::VersionTable::v10_and_above(magic);
+        let versions = handshake::n2c::VersionTable::dmq(magic);
 
         let handshake = client
             .handshake()
@@ -668,7 +668,7 @@ impl DmqClient {
 
         let plexer = plexer.spawn();
 
-        let versions = handshake::n2c::VersionTable::v15_with_query(magic);
+        let versions = handshake::n2c::VersionTable::dmq(magic);
         let mut client = handshake::Client::new(hs_channel);
 
         let handshake = client
@@ -756,7 +756,7 @@ impl DmqServer {
 
         let accepted_version = client
             .handshake()
-            .handshake(n2c::VersionTable::v10_and_above(magic))
+            .handshake(n2c::VersionTable::dmq(magic))
             .await
             .map_err(Error::HandshakeProtocol)?;
 

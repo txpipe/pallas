@@ -73,13 +73,11 @@ pub const PROTOCOL_N2C_TX_MONITOR: u16 = 9;
 
 /// Protocol channel number for node-to-client local message submission
 /// This protocol is available only on the DMQ node.
-// TODO: use the final mini-protocol number once available
-pub const PROTOCOL_N2C_MSG_SUBMISSION: u16 = 1;
+pub const PROTOCOL_N2C_MSG_SUBMISSION: u16 = 14;
 
 /// Protocol channel number for node-to-client local message notification
 /// This protocol is available only on the DMQ node.
-// TODO: use the final mini-protocol number once available
-pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 = 2;
+pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 = 15;
 
 /// Protocol value that defines max segment length
 pub const MAX_SEGMENT_PAYLOAD_LENGTH: usize = 65535;
