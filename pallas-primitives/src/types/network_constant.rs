@@ -25,7 +25,7 @@ pub const SANCHONET_MAGIC: u64 = 4;
 /// Bitflag for client-side version of a known protocol
 /// # Example
 /// ```
-/// use pallas_network::miniprotocols::*;
+/// use pallas_primitives::types::network_constant::*;
 /// let channel = PROTOCOL_CLIENT | PROTOCOL_N2N_HANDSHAKE;
 /// ```
 pub const PROTOCOL_CLIENT: u16 = 0x0;
@@ -33,7 +33,7 @@ pub const PROTOCOL_CLIENT: u16 = 0x0;
 /// Bitflag for server-side version of a known protocol
 /// # Example
 /// ```
-/// use pallas_network::miniprotocols::*;
+/// use pallas_primitives::types::network_constant::*;
 /// let channel = PROTOCOL_SERVER | PROTOCOL_N2N_CHAIN_SYNC;
 /// ```
 pub const PROTOCOL_SERVER: u16 = 0x8000;
