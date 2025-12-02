@@ -19,7 +19,7 @@ pub type TxCount = u16;
 pub type TxSizeInBytes = u32;
 
 // The bytes of a txId, tagged with an era number
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EraTxId(pub u16, pub Vec<u8>);
 
 // The bytes of a transaction, with an era number and some raw CBOR
