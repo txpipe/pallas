@@ -645,7 +645,7 @@ impl<C> minicbor::Encode<C> for DRepVotingThresholds {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[cbor(map)]
 pub struct PseudoTransactionBody<T1> {
     #[n(0)]
@@ -1141,7 +1141,7 @@ impl<C> minicbor::Encode<C> for GovActionId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum PseudoTransactionOutput<T> {
     Legacy(LegacyTransactionOutput),
     PostAlonzo(T),
@@ -1432,7 +1432,7 @@ pub type PlutusV2Script = PlutusScript<2>;
 pub type PlutusV3Script = PlutusScript<3>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum PseudoScript<T1> {
     NativeScript(T1),
     PlutusV1Script(PlutusScript<1>),

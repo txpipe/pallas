@@ -371,7 +371,7 @@ impl<'b> From<MintedTransactionOutput<'b>> for TransactionOutput {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[cbor(map)]
 pub struct PseudoPostAlonzoTransactionOutput<T1, T2, T3> {
     #[n(0)]
@@ -499,7 +499,7 @@ pub struct PostAlonzoAuxiliaryData {
 }
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum PseudoDatumOption<T1> {
     Hash(DatumHash),
     Data(CborWrap<T1>),
