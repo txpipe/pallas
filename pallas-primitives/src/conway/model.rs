@@ -645,7 +645,7 @@ impl<C> minicbor::Encode<C> for DRepVotingThresholds {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct PseudoTransactionBody<T1> {
     #[n(0)]
@@ -1279,7 +1279,7 @@ pub struct RedeemersValue {
     pub ex_units: ExUnits,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Redeemers {
     List(MaybeIndefArray<Redeemer>),
     Map(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>),
@@ -1324,7 +1324,7 @@ impl<C> minicbor::Encode<C> for Redeemers {
 
 pub use crate::alonzo::BootstrapWitness;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct WitnessSet {
     #[n(0)]
