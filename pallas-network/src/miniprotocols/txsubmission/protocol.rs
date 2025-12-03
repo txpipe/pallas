@@ -26,7 +26,7 @@ pub struct EraTxId(pub u16, pub Vec<u8>);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EraTxBody(pub u16, pub Vec<u8>);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TxIdAndSize<TxID>(pub TxID, pub TxSizeInBytes);
 
 #[derive(Error, Debug)]
@@ -50,7 +50,7 @@ pub enum Error {
     Plexer(multiplexer::Error),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message<TxId, TxBody> {
     Init,
     RequestTxIds(Blocking, TxCount, TxCount),
