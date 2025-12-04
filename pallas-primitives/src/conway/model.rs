@@ -645,7 +645,7 @@ impl<C> minicbor::Encode<C> for DRepVotingThresholds {
     }
 }
 
-#[derive(Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[cbor(map)]
 pub struct PseudoTransactionBody<T1> {
     #[n(0)]
@@ -1141,7 +1141,7 @@ impl<C> minicbor::Encode<C> for GovActionId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum PseudoTransactionOutput<T> {
     Legacy(LegacyTransactionOutput),
     PostAlonzo(T),
@@ -1279,7 +1279,7 @@ pub struct RedeemersValue {
     pub ex_units: ExUnits,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Redeemers {
     List(MaybeIndefArray<Redeemer>),
     Map(NonEmptyKeyValuePairs<RedeemersKey, RedeemersValue>),
@@ -1324,7 +1324,7 @@ impl<C> minicbor::Encode<C> for Redeemers {
 
 pub use crate::alonzo::BootstrapWitness;
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct WitnessSet {
     #[n(0)]
@@ -1432,7 +1432,7 @@ pub type PlutusV2Script = PlutusScript<2>;
 pub type PlutusV3Script = PlutusScript<3>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum PseudoScript<T1> {
     NativeScript(T1),
     PlutusV1Script(PlutusScript<1>),
@@ -1581,7 +1581,7 @@ impl<'b> From<MintedBlock<'b>> for Block {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct PseudoTx<T1, T2, T3>
 where
     T1: std::clone::Clone,

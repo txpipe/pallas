@@ -2,7 +2,7 @@ use std::{fmt::Debug, ops::Deref};
 
 use crate::miniprotocols::Point;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Tip(pub Point, pub u64);
 
 pub type IntersectResponse = (Option<Point>, Tip);

@@ -1,5 +1,5 @@
 use thiserror::Error;
-
+use serde::{Deserialize, Serialize};
 use crate::multiplexer;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -19,14 +19,14 @@ pub type TxCount = u16;
 pub type TxSizeInBytes = u32;
 
 // The bytes of a txId, tagged with an era number
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EraTxId(pub u16, pub Vec<u8>);
 
 // The bytes of a transaction, with an era number and some raw CBOR
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EraTxBody(pub u16, pub Vec<u8>);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxIdAndSize<TxID>(pub TxID, pub TxSizeInBytes);
 
 #[derive(Error, Debug)]
@@ -50,7 +50,7 @@ pub enum Error {
     Plexer(multiplexer::Error),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Message<TxId, TxBody> {
     Init,
     RequestTxIds(Blocking, TxCount, TxCount),
