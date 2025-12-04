@@ -2,7 +2,7 @@ use std::{fmt::Debug, ops::Deref};
 
 use crate::miniprotocols::Point;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Tip(pub Point, pub u64);
 
 pub type IntersectResponse = (Option<Point>, Tip);
@@ -17,7 +17,7 @@ pub enum State {
 }
 
 /// A generic chain-sync message for either header or block content
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message<C> {
     RequestNext,
     AwaitReply,
@@ -29,14 +29,14 @@ pub enum Message<C> {
     Done,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeaderContent {
     pub variant: u8,
     pub byron_prefix: Option<(u8, u64)>,
     pub cbor: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockContent(pub Vec<u8>);
 
 impl Deref for BlockContent {
@@ -53,5 +53,5 @@ impl From<BlockContent> for Vec<u8> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkippedContent;
