@@ -1581,7 +1581,7 @@ impl<'b> From<MintedBlock<'b>> for Block {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
+#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug, PartialEq)]
 pub struct PseudoTx<T1, T2, T3>
 where
     T1: std::clone::Clone,
