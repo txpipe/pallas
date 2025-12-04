@@ -68,16 +68,16 @@ pub struct HeaderBody {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
-pub struct Header {
-    #[n(0)]
-    pub header_body: HeaderBody,
+pub struct Header<'b> {
+    #[b(0)]
+    pub header_body: KeepRaw<'b, HeaderBody>,
 
     #[n(1)]
     pub body_signature: Bytes,
 }
 
-#[deprecated(since = "1.0.0-alpha", note = "use `KeepRaw<'_, Header>` instead")]
-pub type MintedHeader<'a> = KeepRaw<'a, Header>;
+#[deprecated(since = "1.0.0-alpha", note = "use `KeepRaw<'_, Header<'_>>` instead")]
+pub type MintedHeader<'a> = KeepRaw<'a, Header<'a>>;
 
 pub type Multiasset<A> = BTreeMap<PolicyId, BTreeMap<AssetName, A>>;
 
@@ -469,7 +469,7 @@ codec_by_datatype! {
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct Block<'b> {
     #[n(0)]
-    pub header: KeepRaw<'b, Header>,
+    pub header: KeepRaw<'b, Header<'b>>,
 
     #[b(1)]
     pub transaction_bodies: Vec<KeepRaw<'b, TransactionBody>>,
