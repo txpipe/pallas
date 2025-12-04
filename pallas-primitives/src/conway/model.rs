@@ -708,7 +708,7 @@ pub struct Block<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug)]
+#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug, PartialEq)]
 pub struct Tx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
@@ -722,6 +722,8 @@ pub struct Tx<'b> {
     #[n(3)]
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
+
+impl Eq for Tx<'_> {}
 
 #[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
