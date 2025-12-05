@@ -220,20 +220,20 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_conway_pparams_update(&self, x: &conway::ProtocolParamUpdate) -> u5c::PParams {
         u5c::PParams {
-            coins_per_utxo_byte: x.ada_per_utxo_byte.map(|v| u64_to_bigint(v)).flatten(),
+            coins_per_utxo_byte: x.ada_per_utxo_byte.and_then(u64_to_bigint),
             max_tx_size: x.max_transaction_size.unwrap_or_default(),
-            min_fee_coefficient: x.minfee_a.map(|v| u64_to_bigint(v.into())).flatten(),
-            min_fee_constant: x.minfee_b.map(|v| u64_to_bigint(v.into())).flatten(),
+            min_fee_coefficient: x.minfee_a.and_then(u64_to_bigint),
+            min_fee_constant: x.minfee_b.and_then(u64_to_bigint),
             max_block_body_size: x.max_block_body_size.unwrap_or_default(),
             max_block_header_size: x.max_block_header_size.unwrap_or_default(),
-            stake_key_deposit: x.key_deposit.map(|v| u64_to_bigint(v)).flatten(),
-            pool_deposit: x.pool_deposit.map(|v| u64_to_bigint(v)).flatten(),
+            stake_key_deposit: x.key_deposit.and_then(u64_to_bigint),
+            pool_deposit: x.pool_deposit.and_then(u64_to_bigint),
             pool_retirement_epoch_bound: x.maximum_epoch.unwrap_or_default(),
             desired_number_of_pools: x.desired_number_of_stake_pools.unwrap_or_default(),
             pool_influence: x.pool_pledge_influence.clone().map(rational_number_to_u5c),
             monetary_expansion: x.expansion_rate.clone().map(rational_number_to_u5c),
             treasury_expansion: x.treasury_growth_rate.clone().map(rational_number_to_u5c),
-            min_pool_cost: x.min_pool_cost.map(|v| u64_to_bigint(v)).flatten(),
+            min_pool_cost: x.min_pool_cost.and_then(u64_to_bigint),
             protocol_version: None,
             max_value_size: x.max_value_size.unwrap_or_default(),
             collateral_percentage: x.collateral_percentage.unwrap_or_default(),
@@ -294,11 +294,8 @@ impl<C: LedgerContext> Mapper<C> {
             governance_action_validity_period: x
                 .governance_action_validity_period
                 .unwrap_or_default(),
-            governance_action_deposit: x
-                .governance_action_deposit
-                .map(|v| u64_to_bigint(v))
-                .flatten(),
-            drep_deposit: x.drep_deposit.map(|v| u64_to_bigint(v)).flatten(),
+            governance_action_deposit: x.governance_action_deposit.and_then(u64_to_bigint),
+            drep_deposit: x.drep_deposit.and_then(u64_to_bigint),
             drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default(),
         }
     }
