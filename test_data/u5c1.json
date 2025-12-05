@@ -12,12 +12,18 @@
           ],
           "collateralReturn": {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
-            "coin": "59270328",
+            "coin": {
+              "int": "59270328"
+            },
             "datum": {}
           },
-          "totalCollateral": "3000000"
+          "totalCollateral": {
+            "int": "3000000"
+          }
         },
-        "fee": "563497",
+        "fee": {
+          "int": "563497"
+        },
         "hash": "f2+5xs5tbcDzXGQlY2aofkCQCgG+2jHBMZJGak8Mlnw=",
         "inputs": [
           {
@@ -83,7 +89,9 @@
         "outputs": [
           {
             "address": "Mfrm3x8oY2wZ8gAzRA4tqtjakpZ5yjpenNprbb5khSAImz2J9aqUrcCtC5Efl2d8hwCSXEvmKQ9b",
-            "coin": "637339775",
+            "coin": {
+              "int": "637339775"
+            },
             "datum": {
               "hash": "WCYIFet5wOgWhQLb5cbnOsD6N7V/4rBYL3ZXeMnGNVA=",
               "originalCbor": "Q9h5gA==",
@@ -98,13 +106,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "FXBpFUMr+S6jWFqkaLUHuQ5CfcTv/q4x7lz0Dg=="
               }
             ],
-            "coin": "3000000",
+            "coin": {
+              "int": "3000000"
+            },
             "datum": {
               "hash": "mpd/XF6AGFKV77fOzChROXlmYkLJ3at4Iv83nHx027s=",
               "originalCbor": "nwAAAAAA/w==",
@@ -147,13 +159,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "Wjy09S+zoAq1q+YggGGGI4Ecyvq5x2DQtobkTA=="
               }
             ],
-            "coin": "3000000",
+            "coin": {
+              "int": "3000000"
+            },
             "datum": {
               "hash": "Q9T1UnbDXv4tYbEbTytDtf1LdXoOP4e/nG1FXd2+uzc=",
               "originalCbor": "nxsAAC3LVuAZLRsAAAAITgr4TRsACSN/avLOMxsAAAHrlL1zPxsAAAACgqZEBxsAPbnA94KguJ/CSgefvDEvXfe7dYXCTD+h6FprRAAAAAAAAP8bAAABijORrmAbAAABijOcHkCfGwAAL7jtvCk+GwAJI39q8s4z/xoALcbA/w==",
@@ -248,13 +264,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -308,13 +328,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -368,13 +392,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -428,13 +456,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -488,13 +520,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -548,13 +584,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -608,13 +648,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -668,13 +712,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -728,13 +776,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -788,13 +840,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -848,13 +904,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -908,13 +968,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -968,13 +1032,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -1028,13 +1096,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -1088,13 +1160,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263639",
+            "coin": {
+              "int": "3149189263639"
+            },
             "datum": {
               "hash": "7f2rM8MlEb/GS6grSW3qco5P6LC97yeszBupjnwhe9g=",
               "originalCbor": "n58AAAAAAP8ahOCvhP8=",
@@ -1148,13 +1224,17 @@
               {
                 "assets": [
                   {
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "eAcgnOyfecn2z1vqKreCbm5GtqdYOjN7fiD7Ng=="
               }
             ],
-            "coin": "3149189263649",
+            "coin": {
+              "int": "3149189263649"
+            },
             "datum": {
               "hash": "yhvdF5d1SstwoyxjWtq0n3r//7TfDSe0k+14I3B/fCE=",
               "originalCbor": "n58AAAAAAP8ahOCvkf8=",
@@ -1204,12 +1284,16 @@
           },
           {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
-            "coin": "975057",
+            "coin": {
+              "int": "975057"
+            },
             "datum": {}
           },
           {
             "address": "YbHy8gqHgaO6ln2Me1Bo0h15noCdzOIvZRZ51mE=",
-            "coin": "975058",
+            "coin": {
+              "int": "975058"
+            },
             "datum": {}
           }
         ],
@@ -1244,8 +1328,14 @@
       },
       {
         "auxiliary": {},
-        "collateral": {},
-        "fee": "193832",
+        "collateral": {
+          "totalCollateral": {
+            "int": "0"
+          }
+        },
+        "fee": {
+          "int": "193832"
+        },
         "hash": "Q4pYaWXOmKtokrUTtgdM3ef6a6qLA6OuCbw2LYz/Q0A=",
         "inputs": [
           {
@@ -1270,21 +1360,29 @@
                 "assets": [
                   {
                     "name": "R1JBVklUWQ==",
-                    "outputCoin": "2"
+                    "outputCoin": {
+                      "int": "2"
+                    }
                   },
                   {
                     "name": "U0FURUxMSVRF",
-                    "outputCoin": "5"
+                    "outputCoin": {
+                      "int": "5"
+                    }
                   },
                   {
                     "name": "U1BBQ0U=",
-                    "outputCoin": "3"
+                    "outputCoin": {
+                      "int": "3"
+                    }
                   }
                 ],
                 "policyId": "J+7hlYjJl8pU0xN/ZK/lWhjfz5Bi+oOnJL8jVw=="
               }
             ],
-            "coin": "19070000",
+            "coin": {
+              "int": "19070000"
+            },
             "datum": {}
           }
         ],
@@ -1387,12 +1485,18 @@
           ],
           "collateralReturn": {
             "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
-            "coin": "4526384",
+            "coin": {
+              "int": "4526384"
+            },
             "datum": {}
           },
-          "totalCollateral": "473616"
+          "totalCollateral": {
+            "int": "473616"
+          }
         },
-        "fee": "315744",
+        "fee": {
+          "int": "315744"
+        },
         "hash": "DyjVTKHeL/3r5CW3/4HSAHgiXmcqkof5YjW+5ELSdRI=",
         "inputs": [
           {
@@ -1425,13 +1529,17 @@
                 "assets": [
                   {
                     "name": "UE9SS1lJU0xBTkQyNjEz",
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "zkpJRmutVC7wxmKNYax7vBZX6zJneMt0wRbVnw=="
               }
             ],
-            "coin": "1331790",
+            "coin": {
+              "int": "1331790"
+            },
             "datum": {
               "hash": "wLd4Sun9luNq5ergDxq1VytUAhPx2OPXJ97CUcV47Dk=",
               "payload": {
@@ -1715,7 +1823,9 @@
           },
           {
             "address": "AdvIO1ZRD7CFGoF/uIOsoV6AbvR9PmLsl1c+TO1W7DAFSIAhxcRh6X2sb8T277WRuBxWRWBmAGr9",
-            "coin": "56301735",
+            "coin": {
+              "int": "56301735"
+            },
             "datum": {}
           }
         ],
@@ -2304,12 +2414,18 @@
           ],
           "collateralReturn": {
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
-            "coin": "46874014",
+            "coin": {
+              "int": "46874014"
+            },
             "datum": {}
           },
-          "totalCollateral": "604283"
+          "totalCollateral": {
+            "int": "604283"
+          }
         },
-        "fee": "402855",
+        "fee": {
+          "int": "402855"
+        },
         "hash": "zHhIocwnjYSvvwVQ6CIAK/n+kDKlPY4StZ7VBY2dDLs=",
         "inputs": [
           {
@@ -2343,7 +2459,9 @@
           {
             "assets": [
               {
-                "mintCoin": "5000000000",
+                "mintCoin": {
+                  "int": "5000000000"
+                },
                 "name": "VFVOQQ=="
               }
             ],
@@ -2371,13 +2489,17 @@
                 "assets": [
                   {
                     "name": "bG9yZCB0dW5h",
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
               }
             ],
-            "coin": "1775720",
+            "coin": {
+              "int": "1775720"
+            },
             "datum": {
               "hash": "agvcqDxPMbtXviNmblIum0FcAsnXty5rSPJm6BVHEzg=",
               "originalCbor": "2HmfC1ggAAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu734FGf//GgBHiIAbAAABijOYMlgAn1ggAAAFkEbSMXZfTAy9oGY+wgHfcKkdpr4yRu/r/9Bu735YIAAAAVHImSz0noBYSm01dq8ta527np4j+9B/5Pi8v2yqWCAAAAFRyJks9J6AWEptNXavLWudu56eI/vQf+T4vL9sqv//",
@@ -2445,18 +2567,24 @@
                 "assets": [
                   {
                     "name": "VFVOQQ==",
-                    "outputCoin": "5000000000"
+                    "outputCoin": {
+                      "int": "5000000000"
+                    }
                   }
                 ],
                 "policyId": "J5+ELDPu2QVLnjxwzWo7MimCWcJLeLiVy0HZGg=="
               }
             ],
-            "coin": "1172320",
+            "coin": {
+              "int": "1172320"
+            },
             "datum": {}
           },
           {
             "address": "AYWtgPzNBzkpvzTsDi+F+GKxjwYgLc9fyACQvSbJYUpzo0v3d+qDVCPWQbGhbQCdvjY49oDQlkUo",
-            "coin": "45903122",
+            "coin": {
+              "int": "45903122"
+            },
             "datum": {}
           }
         ],
@@ -2673,8 +2801,14 @@
             }
           ]
         },
-        "collateral": {},
-        "fee": "706993",
+        "collateral": {
+          "totalCollateral": {
+            "int": "0"
+          }
+        },
+        "fee": {
+          "int": "706993"
+        },
         "hash": "buQc+A5oZkqeGggrvJ3EFzcPdz0qnBXOQR0T4GWLPOc=",
         "inputs": [
           {
@@ -2686,7 +2820,9 @@
           {
             "assets": [
               {
-                "mintCoin": "1",
+                "mintCoin": {
+                  "int": "1"
+                },
                 "name": "VGhlUHJpbmNlNTg1"
               }
             ],
@@ -2701,18 +2837,24 @@
                 "assets": [
                   {
                     "name": "VGhlUHJpbmNlNTg1",
-                    "outputCoin": "1"
+                    "outputCoin": {
+                      "int": "1"
+                    }
                   }
                 ],
                 "policyId": "vdHTdcBYmGybw3TPjsf734BC4OOUby+j68UJnw=="
               }
             ],
-            "coin": "1172320",
+            "coin": {
+              "int": "1172320"
+            },
             "datum": {}
           },
           {
             "address": "YdZAfjoj7nXOnSrW4gXMuXOt/kL/Ji6YOn15hPE=",
-            "coin": "8120687",
+            "coin": {
+              "int": "8120687"
+            },
             "datum": {}
           }
         ],
@@ -2777,8 +2919,14 @@
             }
           ]
         },
-        "collateral": {},
-        "fee": "184729",
+        "collateral": {
+          "totalCollateral": {
+            "int": "0"
+          }
+        },
+        "fee": {
+          "int": "184729"
+        },
         "hash": "bnQjjPhKjNHzCe+wZ3R/jeoJ3RhArr7uLM5xFFTRDTA=",
         "inputs": [
           {
@@ -2789,7 +2937,9 @@
         "outputs": [
           {
             "address": "EaZcpYpOnHVfqDAXPSpcrtRYrAxz+X23+q4ufjtSVjxUEL/2oNQ8zrt8N+H2n16yYFUlIa3/M7nC",
-            "coin": "24000000",
+            "coin": {
+              "int": "24000000"
+            },
             "datum": {
               "hash": "RWHeROwzpN7HciNvE3fbGOxm3n9Fv6SXz3Cml/2TQmc=",
               "payload": {
@@ -2925,7 +3075,9 @@
           },
           {
             "address": "AetFDxwWdAZLqHxlpey+eo6C1tAsjc6/nVQdtj20fykvFlUEcyFK44MqfWEIDI1LO8HDIpsm+2mw",
-            "coin": "166261084",
+            "coin": {
+              "int": "166261084"
+            },
             "datum": {}
           }
         ],

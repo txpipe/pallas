@@ -2,7 +2,7 @@ use pallas_primitives::{alonzo::Language, conway};
 use pallas_validate::utils::MultiEraProtocolParameters;
 use utxorpc_spec::utxorpc::v1alpha::cardano as u5c;
 
-use crate::{rational_number_to_u5c, LedgerContext, Mapper};
+use crate::{rational_number_to_u5c, u64_to_bigint, LedgerContext, Mapper};
 
 fn execution_prices_to_u5c(value: pallas_primitives::ExUnitPrices) -> u5c::ExPrices {
     u5c::ExPrices {
@@ -25,16 +25,16 @@ impl<C: LedgerContext> Mapper<C> {
                 max_tx_size: params.max_transaction_size.into(),
                 max_block_body_size: params.max_block_body_size.into(),
                 max_block_header_size: params.max_block_header_size.into(),
-                min_fee_coefficient: params.minfee_a.into(),
-                min_fee_constant: params.minfee_b.into(),
-                coins_per_utxo_byte: params.ada_per_utxo_byte,
-                stake_key_deposit: params.key_deposit,
-                pool_deposit: params.pool_deposit,
+                min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
+                min_fee_constant: u64_to_bigint(params.minfee_b.into()),
+                coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
+                stake_key_deposit: u64_to_bigint(params.key_deposit),
+                pool_deposit: u64_to_bigint(params.pool_deposit),
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                 pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                 monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
                 treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
-                min_pool_cost: params.min_pool_cost,
+                min_pool_cost: u64_to_bigint(params.min_pool_cost),
                 protocol_version: Some(u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
                     minor: params.protocol_version.1 as u32,
@@ -66,15 +66,15 @@ impl<C: LedgerContext> Mapper<C> {
                 max_tx_size: params.max_transaction_size.into(),
                 max_block_body_size: params.max_block_body_size.into(),
                 max_block_header_size: params.max_block_header_size.into(),
-                min_fee_coefficient: params.minfee_a.into(),
-                min_fee_constant: params.minfee_b.into(),
-                stake_key_deposit: params.key_deposit,
-                pool_deposit: params.pool_deposit,
+                min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
+                min_fee_constant: u64_to_bigint(params.minfee_b.into()),
+                stake_key_deposit: u64_to_bigint(params.key_deposit),
+                pool_deposit: u64_to_bigint(params.pool_deposit),
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                 pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                 monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
                 treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
-                min_pool_cost: params.min_pool_cost,
+                min_pool_cost: u64_to_bigint(params.min_pool_cost),
                 protocol_version: Some(u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
                     minor: params.protocol_version.1 as u32,
@@ -85,16 +85,16 @@ impl<C: LedgerContext> Mapper<C> {
                 max_tx_size: params.max_transaction_size.into(),
                 max_block_body_size: params.max_block_body_size.into(),
                 max_block_header_size: params.max_block_header_size.into(),
-                min_fee_coefficient: params.minfee_a.into(),
-                min_fee_constant: params.minfee_b.into(),
-                coins_per_utxo_byte: params.ada_per_utxo_byte,
-                stake_key_deposit: params.key_deposit,
-                pool_deposit: params.pool_deposit,
+                min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
+                min_fee_constant: u64_to_bigint(params.minfee_b.into()),
+                coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
+                stake_key_deposit: u64_to_bigint(params.key_deposit),
+                pool_deposit: u64_to_bigint(params.pool_deposit),
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                 pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                 monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
                 treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
-                min_pool_cost: params.min_pool_cost,
+                min_pool_cost: u64_to_bigint(params.min_pool_cost),
                 protocol_version: u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
                     minor: params.protocol_version.1 as u32,
@@ -134,16 +134,16 @@ impl<C: LedgerContext> Mapper<C> {
                 max_tx_size: params.max_transaction_size.into(),
                 max_block_body_size: params.max_block_body_size.into(),
                 max_block_header_size: params.max_block_header_size.into(),
-                min_fee_coefficient: params.minfee_a.into(),
-                min_fee_constant: params.minfee_b.into(),
-                coins_per_utxo_byte: params.ada_per_utxo_byte,
-                stake_key_deposit: params.key_deposit,
-                pool_deposit: params.pool_deposit,
+                min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
+                min_fee_constant: u64_to_bigint(params.minfee_b.into()),
+                coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
+                stake_key_deposit: u64_to_bigint(params.key_deposit),
+                pool_deposit: u64_to_bigint(params.pool_deposit),
                 desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                 pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                 monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
                 treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
-                min_pool_cost: params.min_pool_cost,
+                min_pool_cost: u64_to_bigint(params.min_pool_cost),
                 protocol_version: u5c::ProtocolVersion {
                     major: params.protocol_version.0 as u32,
                     minor: params.protocol_version.1 as u32,
@@ -194,8 +194,8 @@ impl<C: LedgerContext> Mapper<C> {
                 min_committee_size: params.min_committee_size as u32,
                 committee_term_limit: params.committee_term_limit,
                 governance_action_validity_period: params.governance_action_validity_period,
-                governance_action_deposit: params.governance_action_deposit,
-                drep_deposit: params.drep_deposit,
+                governance_action_deposit: u64_to_bigint(params.governance_action_deposit),
+                drep_deposit: u64_to_bigint(params.drep_deposit),
                 drep_inactivity_period: params.drep_inactivity_period,
                 cost_models: u5c::CostModels {
                     plutus_v1: params
@@ -220,20 +220,20 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_conway_pparams_update(&self, x: &conway::ProtocolParamUpdate) -> u5c::PParams {
         u5c::PParams {
-            coins_per_utxo_byte: x.ada_per_utxo_byte.unwrap_or_default(),
+            coins_per_utxo_byte: x.ada_per_utxo_byte.map(|v| u64_to_bigint(v)).flatten(),
             max_tx_size: x.max_transaction_size.unwrap_or_default(),
-            min_fee_coefficient: x.minfee_a.unwrap_or_default(),
-            min_fee_constant: x.minfee_b.unwrap_or_default(),
+            min_fee_coefficient: x.minfee_a.map(|v| u64_to_bigint(v.into())).flatten(),
+            min_fee_constant: x.minfee_b.map(|v| u64_to_bigint(v.into())).flatten(),
             max_block_body_size: x.max_block_body_size.unwrap_or_default(),
             max_block_header_size: x.max_block_header_size.unwrap_or_default(),
-            stake_key_deposit: x.key_deposit.unwrap_or_default(),
-            pool_deposit: x.pool_deposit.unwrap_or_default(),
+            stake_key_deposit: x.key_deposit.map(|v| u64_to_bigint(v)).flatten(),
+            pool_deposit: x.pool_deposit.map(|v| u64_to_bigint(v)).flatten(),
             pool_retirement_epoch_bound: x.maximum_epoch.unwrap_or_default(),
             desired_number_of_pools: x.desired_number_of_stake_pools.unwrap_or_default(),
             pool_influence: x.pool_pledge_influence.clone().map(rational_number_to_u5c),
             monetary_expansion: x.expansion_rate.clone().map(rational_number_to_u5c),
             treasury_expansion: x.treasury_growth_rate.clone().map(rational_number_to_u5c),
-            min_pool_cost: x.min_pool_cost.unwrap_or_default(),
+            min_pool_cost: x.min_pool_cost.map(|v| u64_to_bigint(v)).flatten(),
             protocol_version: None,
             max_value_size: x.max_value_size.unwrap_or_default(),
             collateral_percentage: x.collateral_percentage.unwrap_or_default(),
@@ -294,8 +294,11 @@ impl<C: LedgerContext> Mapper<C> {
             governance_action_validity_period: x
                 .governance_action_validity_period
                 .unwrap_or_default(),
-            governance_action_deposit: x.governance_action_deposit.unwrap_or_default(),
-            drep_deposit: x.drep_deposit.unwrap_or_default(),
+            governance_action_deposit: x
+                .governance_action_deposit
+                .map(|v| u64_to_bigint(v))
+                .flatten(),
+            drep_deposit: x.drep_deposit.map(|v| u64_to_bigint(v)).flatten(),
             drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default(),
         }
     }
