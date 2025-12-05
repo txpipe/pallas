@@ -284,13 +284,9 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
         let quantity = if let Some(v) = x.output_coin() {
-            Some(u5c::asset::Quantity::OutputCoin(u5c::BigInt {
-                big_int: Some(u5c::big_int::BigInt::Int(v as i64)),
-            }))
+            u64_to_bigint(v).map(u5c::asset::Quantity::OutputCoin)
         } else if let Some(v) = x.mint_coin() {
-            Some(u5c::asset::Quantity::MintCoin(u5c::BigInt {
-                big_int: Some(u5c::big_int::BigInt::Int(v)),
-            }))
+            i64_to_bigint(v).map(u5c::asset::Quantity::MintCoin)
         } else {
             None
         };
