@@ -31,9 +31,17 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
 }
 
 fn u64_to_bigint(value: u64) -> Option<u5c::BigInt> {
-    Some(u5c::BigInt {
-        big_int: Some(u5c::big_int::BigInt::Int(value as i64)),
-    })
+    if value <= i64::MAX as u64 {
+        Some(u5c::BigInt {
+            big_int: Some(u5c::big_int::BigInt::Int(value as i64)),
+        })
+    } else {
+        Some(u5c::BigInt {
+            big_int: Some(u5c::big_int::BigInt::BigUInt(
+                value.to_be_bytes().to_vec().into(),
+            )),
+        })
+    }
 }
 
 fn i64_to_bigint(value: i64) -> Option<u5c::BigInt> {
