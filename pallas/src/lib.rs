@@ -9,6 +9,7 @@
 #![warn(missing_docs)]
 
 #[doc(inline)]
+#[cfg(not(target_family = "wasm"))]
 pub use pallas_network as network;
 
 pub mod ledger {
@@ -52,6 +53,7 @@ pub mod interop {
     pub use pallas_utxorpc as utxorpc;
 
     #[cfg(feature = "pallas-hardano")]
+    #[cfg(not(target_family = "wasm"))]
     pub mod hardano {
         //! Interoperability with the Haskell Cardano node
 
@@ -67,6 +69,7 @@ pub mod storage {
     //! Storage engines for chain-related persistence
 
     #[cfg(feature = "pallas-hardano")]
+    #[cfg(not(target_family = "wasm"))]
     #[doc(inline)]
     // WARNING: this is deprecated, use `pallas::interop::hardano::storage` instead.
     // Since deprecation notices don't work for re-exports we don't have a way to notify users.
