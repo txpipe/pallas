@@ -24,6 +24,8 @@ const PROTOCOL_V14: u64 = 32782;
 const PROTOCOL_V15: u64 = 32783;
 const PROTOCOL_V16: u64 = 32784;
 
+const PROTOCOL_DMQ_V1: u64 = 4097;
+
 impl VersionTable {
     pub fn v1_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
@@ -76,6 +78,14 @@ impl VersionTable {
 
     pub fn v15_with_query(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V15, VersionData(network_magic, Some(true)))]
+            .into_iter()
+            .collect::<HashMap<u64, VersionData>>();
+
+        VersionTable { values }
+    }
+
+    pub fn dmq(network_magic: u64) -> VersionTable {
+        let values = vec![(PROTOCOL_DMQ_V1, VersionData(network_magic, Some(false)))]
             .into_iter()
             .collect::<HashMap<u64, VersionData>>();
 
