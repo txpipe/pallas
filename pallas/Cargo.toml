@@ -30,3 +30,4 @@ unstable = ["hardano", "pallas-traverse/unstable"]
 # pallas-validate feature flags
 phase2 = ["pallas-validate/phase2"]
 relaxed = ["pallas-primitives/relaxed", "pallas-crypto/relaxed"]
+vrf = ["pallas-crypto/vrf"]

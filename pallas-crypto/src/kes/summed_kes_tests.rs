@@ -47,6 +47,8 @@ mod test {
 
         #[test]
         fn two_msgs_have_different_signature_with_one_skey(((mut sk_bytes,_pk),msg1,msg2) in (secret_public_key_bytes(), payload(),payload())) {
+            prop_assume!(msg1 != msg2);
+
             let mut sk_bytes1 = [0u8; Sum6Kes::SIZE + 4];
             sk_bytes1.copy_from_slice(&sk_bytes);
             let sk = Sum6Kes::from_bytes(&mut sk_bytes);
@@ -70,6 +72,8 @@ mod test {
 
         #[test]
         fn simple_verification_fails_for_other_msg(((mut sk_bytes,pk),msg1,msg2) in (secret_public_key_bytes(), payload(), payload())) {
+            prop_assume!(msg1 != msg2);
+
             let sk = Sum6Kes::from_bytes(&mut sk_bytes);
             let sig = sk?.sign(&msg1);
             let err_str = String::from("signature error: Verification equation was not satisfied");
