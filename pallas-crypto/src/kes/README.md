@@ -11,7 +11,8 @@ This library defines macros to generate KES algorithms with different depths. We
 algorithms up to depth 7. However, if you require a higher depth key, feel free to open an
 issue/PR.
 
-This module requires the `kes` feature flag.
+This module requires the `kes` feature flag. VRF support (draft-03 and draft-13) now lives
+alongside KES under the `vrf` feature; Cardano currently uses KES Sum6 and VRF draft-03.
 
 ## Library usage
 
