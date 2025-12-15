@@ -127,7 +127,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn redeemers(&self) -> Vec<MultiEraRedeemer> {
+    pub fn redeemers(&self) -> Vec<MultiEraRedeemer<'_>> {
         match self {
             Self::Byron(_) => vec![],
             Self::AlonzoCompatible(x, _) => x
@@ -158,26 +158,26 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn find_spend_redeemer(&self, input_order: u32) -> Option<MultiEraRedeemer> {
+    pub fn find_spend_redeemer(&self, input_order: u32) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers().into_iter().find(|r| {
             r.tag() == pallas_primitives::conway::RedeemerTag::Spend && r.index() == input_order
         })
     }
 
-    pub fn find_mint_redeemer(&self, mint_order: u32) -> Option<MultiEraRedeemer> {
+    pub fn find_mint_redeemer(&self, mint_order: u32) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers().into_iter().find(|r| {
             r.tag() == pallas_primitives::conway::RedeemerTag::Mint && r.index() == mint_order
         })
     }
 
-    pub fn find_withdrawal_redeemer(&self, withdrawal_order: u32) -> Option<MultiEraRedeemer> {
+    pub fn find_withdrawal_redeemer(&self, withdrawal_order: u32) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers().into_iter().find(|r| {
             r.tag() == pallas_primitives::conway::RedeemerTag::Reward
                 && r.index() == withdrawal_order
         })
     }
 
-    pub fn find_certificate_redeemer(&self, certificate_order: u32) -> Option<MultiEraRedeemer> {
+    pub fn find_certificate_redeemer(&self, certificate_order: u32) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers().into_iter().find(|r| {
             r.tag() == pallas_primitives::conway::RedeemerTag::Cert
                 && r.index() == certificate_order

@@ -123,7 +123,7 @@ impl<'b> MultiEraBlock<'b> {
     }
 
     /// Builds a vec with the Txs of the block
-    pub fn txs(&self) -> Vec<MultiEraTx> {
+    pub fn txs(&self) -> Vec<MultiEraTx<'_>> {
         match self {
             MultiEraBlock::AlonzoCompatible(x, era) => support::clone_alonzo_txs(x)
                 .into_iter()
@@ -179,7 +179,7 @@ impl<'b> MultiEraBlock<'b> {
     }
 
     /// Returns any block-level param update proposals (byron-specific)
-    pub fn update(&self) -> Option<MultiEraUpdate> {
+    pub fn update(&self) -> Option<MultiEraUpdate<'_>> {
         match self {
             MultiEraBlock::Byron(x) => {
                 if let Some(up) = x.body.upd_payload.proposal.deref() {
@@ -196,28 +196,28 @@ impl<'b> MultiEraBlock<'b> {
         }
     }
 
-    pub fn as_alonzo(&self) -> Option<&alonzo::MintedBlock> {
+    pub fn as_alonzo(&self) -> Option<&alonzo::MintedBlock<'_>> {
         match self {
             MultiEraBlock::AlonzoCompatible(x, _) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::MintedBlock> {
+    pub fn as_babbage(&self) -> Option<&babbage::MintedBlock<'_>> {
         match self {
             MultiEraBlock::Babbage(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_byron(&self) -> Option<&byron::MintedBlock> {
+    pub fn as_byron(&self) -> Option<&byron::MintedBlock<'_>> {
         match self {
             MultiEraBlock::Byron(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_conway(&self) -> Option<&conway::MintedBlock> {
+    pub fn as_conway(&self) -> Option<&conway::MintedBlock<'_>> {
         match self {
             MultiEraBlock::Conway(x) => Some(x),
             _ => None,
