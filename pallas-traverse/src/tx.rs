@@ -111,7 +111,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn outputs(&self) -> Vec<MultiEraOutput> {
+    pub fn outputs(&self) -> Vec<MultiEraOutput<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
@@ -140,7 +140,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn output_at(&self, index: usize) -> Option<MultiEraOutput> {
+    pub fn output_at(&self, index: usize) -> Option<MultiEraOutput<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
@@ -168,7 +168,7 @@ impl<'b> MultiEraTx<'b> {
     /// Return the transaction inputs
     ///
     /// NOTE: It is possible for this to return duplicates before some point in the chain history. See https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
-    pub fn inputs(&self) -> Vec<MultiEraInput> {
+    pub fn inputs(&self) -> Vec<MultiEraInput<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
@@ -202,7 +202,7 @@ impl<'b> MultiEraTx<'b> {
     /// To process inputs we need a set (no duplicates) and lexicographical
     /// order (hash#idx). This function will take the raw inputs and apply a
     /// sort following these requirements.
-    pub fn inputs_sorted_set(&self) -> Vec<MultiEraInput> {
+    pub fn inputs_sorted_set(&self) -> Vec<MultiEraInput<'_>> {
         let mut raw = self.inputs();
         raw.sort_by_key(|x| x.lexicographical_key());
         raw.dedup_by_key(|x| x.lexicographical_key());
@@ -210,7 +210,7 @@ impl<'b> MultiEraTx<'b> {
         raw
     }
 
-    pub fn mints_sorted_set(&self) -> Vec<MultiEraPolicyAssets> {
+    pub fn mints_sorted_set(&self) -> Vec<MultiEraPolicyAssets<'_>> {
         let mut raw = self.mints();
 
         raw.sort_by_key(|m| *m.policy());
@@ -240,7 +240,7 @@ impl<'b> MultiEraTx<'b> {
     ///
     /// NOTE: It is possible for this to return duplicates. See
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
-    pub fn reference_inputs(&self) -> Vec<MultiEraInput> {
+    pub fn reference_inputs(&self) -> Vec<MultiEraInput<'_>> {
         match self {
             MultiEraTx::Conway(x) => x
                 .transaction_body
@@ -260,7 +260,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn certs(&self) -> Vec<MultiEraCert> {
+    pub fn certs(&self) -> Vec<MultiEraCert<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
@@ -287,7 +287,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn update(&self) -> Option<MultiEraUpdate> {
+    pub fn update(&self) -> Option<MultiEraUpdate<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
@@ -304,7 +304,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn mints(&self) -> Vec<MultiEraPolicyAssets> {
+    pub fn mints(&self) -> Vec<MultiEraPolicyAssets<'_>> {
         match self {
             MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
@@ -335,7 +335,7 @@ impl<'b> MultiEraTx<'b> {
     ///
     /// NOTE: It is possible for this to return duplicates. See
     /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
-    pub fn collateral(&self) -> Vec<MultiEraInput> {
+    pub fn collateral(&self) -> Vec<MultiEraInput<'_>> {
         match self {
             MultiEraTx::Byron(_) => vec![],
             MultiEraTx::AlonzoCompatible(x, _) => x
@@ -362,7 +362,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn collateral_return(&self) -> Option<MultiEraOutput> {
+    pub fn collateral_return(&self) -> Option<MultiEraOutput<'_>> {
         match self {
             MultiEraTx::Babbage(x) => x
                 .transaction_body
@@ -392,7 +392,7 @@ impl<'b> MultiEraTx<'b> {
     /// depending on the validity of the Tx. If the Tx is valid, this method
     /// will return the list of inputs. If the tx is invalid, it will return the
     /// collateral.
-    pub fn consumes(&self) -> Vec<MultiEraInput> {
+    pub fn consumes(&self) -> Vec<MultiEraInput<'_>> {
         let consumed = match self.is_valid() {
             true => self.inputs(),
             false => self.collateral(),
@@ -415,7 +415,7 @@ impl<'b> MultiEraTx<'b> {
     /// collateral return if one is present or an empty list if not. Note that
     /// the collateral return output index is defined as the next available
     /// index after the txouts (Babbage spec, ch 4).
-    pub fn produces(&self) -> Vec<(usize, MultiEraOutput)> {
+    pub fn produces(&self) -> Vec<(usize, MultiEraOutput<'_>)> {
         match self.is_valid() {
             true => self.outputs().into_iter().enumerate().collect(),
             false => self
@@ -435,7 +435,7 @@ impl<'b> MultiEraTx<'b> {
     /// for invalid transactions it returns None except for if the index points
     /// to the collateral-return output and one is present in the transaction,
     /// in which case it returns the collateral-return output.
-    pub fn produces_at(&self, index: usize) -> Option<MultiEraOutput> {
+    pub fn produces_at(&self, index: usize) -> Option<MultiEraOutput<'_>> {
         match self.is_valid() {
             true => self.output_at(index),
             false => {
@@ -453,11 +453,11 @@ impl<'b> MultiEraTx<'b> {
     /// Helper method to yield all of the UTxO that the Tx requires in order to
     /// be fulfilled. This includes normal inputs, reference inputs and
     /// collateral.
-    pub fn requires(&self) -> Vec<MultiEraInput> {
+    pub fn requires(&self) -> Vec<MultiEraInput<'_>> {
         [self.inputs(), self.reference_inputs(), self.collateral()].concat()
     }
 
-    pub fn withdrawals(&self) -> MultiEraWithdrawals {
+    pub fn withdrawals(&self) -> MultiEraWithdrawals<'_> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => match &x.transaction_body.withdrawals {
                 Some(x) => MultiEraWithdrawals::AlonzoCompatible(x),
@@ -529,7 +529,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn metadata(&self) -> MultiEraMeta {
+    pub fn metadata(&self) -> MultiEraMeta<'_> {
         match self.aux_data() {
             Some(x) => match x.deref() {
                 alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
@@ -546,7 +546,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn required_signers(&self) -> MultiEraSigners {
+    pub fn required_signers(&self) -> MultiEraSigners<'_> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
                 .transaction_body
@@ -597,28 +597,28 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::MintedTx> {
+    pub fn as_babbage(&self) -> Option<&babbage::MintedTx<'_>> {
         match self {
             MultiEraTx::Babbage(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_alonzo(&self) -> Option<&alonzo::MintedTx> {
+    pub fn as_alonzo(&self) -> Option<&alonzo::MintedTx<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_byron(&self) -> Option<&byron::MintedTxPayload> {
+    pub fn as_byron(&self) -> Option<&byron::MintedTxPayload<'_>> {
         match self {
             MultiEraTx::Byron(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_conway(&self) -> Option<&conway::MintedTx> {
+    pub fn as_conway(&self) -> Option<&conway::MintedTx<'_>> {
         match self {
             MultiEraTx::Conway(x) => Some(x),
             _ => None,

@@ -189,10 +189,11 @@ pub enum MultiEraUpdate<'b> {
     Conway(Box<Cow<'b, conway::Update>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub enum MultiEraSigners<'b> {
     NotApplicable,
+    #[default]
     Empty,
     AlonzoCompatible(&'b alonzo::RequiredSigners),
 }

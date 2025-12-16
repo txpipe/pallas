@@ -325,7 +325,7 @@ pub fn aux_data_from_babbage_minted_tx<'a>(mtx: &'a BabbageMintedTx) -> Option<&
 pub fn get_val_size_in_words(val: &Value) -> u64 {
     let mut tx_buf: Vec<u8> = Vec::new();
     let _ = encode(val, &mut tx_buf);
-    (tx_buf.len() as u64 + 7) / 8 // ceiling of the result of dividing
+    (tx_buf.len() as u64).div_ceil(8) // ceiling of the result of dividing
 }
 
 pub fn compute_native_script_hash(script: &NativeScript) -> PolicyId {

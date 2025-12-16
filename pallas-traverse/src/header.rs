@@ -146,14 +146,14 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    pub fn as_alonzo(&self) -> Option<&alonzo::MintedHeader> {
+    pub fn as_alonzo(&self) -> Option<&alonzo::MintedHeader<'_>> {
         match self {
             MultiEraHeader::ShelleyCompatible(x) => Some(x.deref().deref()),
             _ => None,
         }
     }
 
-    pub fn as_babbage(&self) -> Option<&babbage::MintedHeader> {
+    pub fn as_babbage(&self) -> Option<&babbage::MintedHeader<'_>> {
         match self {
             MultiEraHeader::BabbageCompatible(x) => Some(x.deref().deref()),
             _ => None,
