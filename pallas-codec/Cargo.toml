@@ -1,7 +1,7 @@
 [package]
 name = "pallas-codec"
 description = "Pallas common CBOR encoding interface and utilities"
-version = "0.33.0"
+version = "0.34.0"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
