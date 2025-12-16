@@ -177,7 +177,10 @@ impl<'b> MultiEraTx<'b> {
         })
     }
 
-    pub fn find_certificate_redeemer(&self, certificate_order: u32) -> Option<MultiEraRedeemer<'_>> {
+    pub fn find_certificate_redeemer(
+        &self,
+        certificate_order: u32,
+    ) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers().into_iter().find(|r| {
             r.tag() == pallas_primitives::conway::RedeemerTag::Cert
                 && r.index() == certificate_order

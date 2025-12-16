@@ -1,6 +1,6 @@
-use thiserror::Error;
-use serde::{Deserialize, Serialize};
 use crate::multiplexer;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
