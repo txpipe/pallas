@@ -12,8 +12,9 @@ authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
 exclude = ["tests/data/*"]
 
 [dependencies]
-dashu-int = "0.4.1"
-dashu-base = "0.4.1"
+num-integer = "0.1"
+num-bigint = "0.4"
+num-traits = "0.2"
 regex = "1.10.5"
 thiserror = "1.0.61"
 
