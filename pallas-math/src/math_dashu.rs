@@ -40,14 +40,23 @@ impl PartialOrd for Decimal {
 
 impl Display for Decimal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let is_negative = self.data < ZERO.value;
+        let (mut temp_q, mut temp_r) = (&self.data).div_rem(&self.precision_multiplier);
+
+        if is_negative {
+            f.write_str("-")?;
+        }
+
+        if temp_q < ZERO.value {
+            temp_q = temp_q.neg();
+        }
+        if temp_r < ZERO.value {
+            temp_r = temp_r.neg();
+        }
         write!(
             f,
-            "{}",
-            print_fixedp(
-                &self.data,
-                &self.precision_multiplier,
-                self.precision as usize,
-            )
+            "{temp_q}.{temp_r:0width$}",
+            width = self.precision as usize
         )
     }
 }
@@ -390,35 +399,6 @@ impl FixedPrecision for Decimal {
         result.data -= &self.data % &self.precision_multiplier;
         result
     }
-}
-
-fn print_fixedp(n: &IBig, precision: &IBig, width: usize) -> String {
-    let (mut temp_q, mut temp_r) = n.div_rem(precision);
-
-    let is_negative_q = temp_q < ZERO.value;
-    let is_negative_r = temp_r < ZERO.value;
-
-    if is_negative_q {
-        temp_q = temp_q.abs();
-    }
-    if is_negative_r {
-        temp_r = temp_r.abs();
-    }
-
-    let mut s = String::new();
-    if is_negative_q || is_negative_r {
-        s.push('-');
-    }
-    s.push_str(&temp_q.to_string());
-    s.push('.');
-    let r = temp_r.to_string();
-    let r_len = r.len();
-    // fill with zeroes up to width for the fractional part
-    if r_len < width {
-        s.push_str(&"0".repeat(width - r_len));
-    }
-    s.push_str(&r);
-    s
 }
 
 struct Constant {
