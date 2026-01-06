@@ -30,6 +30,26 @@ fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::Rati
     }
 }
 
+fn u64_to_bigint(value: u64) -> Option<u5c::BigInt> {
+    if value <= i64::MAX as u64 {
+        Some(u5c::BigInt {
+            big_int: Some(u5c::big_int::BigInt::Int(value as i64)),
+        })
+    } else {
+        Some(u5c::BigInt {
+            big_int: Some(u5c::big_int::BigInt::BigUInt(
+                value.to_be_bytes().to_vec().into(),
+            )),
+        })
+    }
+}
+
+fn i64_to_bigint(value: i64) -> Option<u5c::BigInt> {
+    Some(u5c::BigInt {
+        big_int: Some(u5c::big_int::BigInt::Int(value)),
+    })
+}
+
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
     fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
@@ -193,7 +213,7 @@ impl<C: LedgerContext> Mapper<C> {
     ) -> u5c::TxOutput {
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
-            coin: x.value().coin(),
+            coin: u64_to_bigint(x.value().coin()),
             // TODO: this is wrong, we're crating a new item for each asset even if they share
             // the same policy id. We need to adjust Pallas' interface to make this mapping more
             // ergonomic.
@@ -255,7 +275,7 @@ impl<C: LedgerContext> Mapper<C> {
     ) -> u5c::Withdrawal {
         u5c::Withdrawal {
             reward_account: Vec::from(x.0).into(),
-            coin: x.1,
+            coin: u64_to_bigint(x.1),
             redeemer: tx
                 .find_withdrawal_redeemer(order)
                 .map(|x| self.map_redeemer(&x)),
@@ -263,10 +283,16 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
+        let quantity = if let Some(v) = x.output_coin() {
+            u64_to_bigint(v).map(u5c::asset::Quantity::OutputCoin)
+        } else if let Some(v) = x.mint_coin() {
+            i64_to_bigint(v).map(u5c::asset::Quantity::MintCoin)
+        } else {
+            None
+        };
         u5c::Asset {
             name: x.name().to_vec().into(),
-            output_coin: x.output_coin().unwrap_or_default(),
-            mint_coin: x.mint_coin().unwrap_or_default(),
+            quantity,
         }
     }
 
@@ -458,7 +484,7 @@ impl<C: LedgerContext> Mapper<C> {
                             .iter()
                             .map(|(k, v)| u5c::WithdrawalAmount {
                                 reward_account: k.to_vec().into(),
-                                coin: *v,
+                                coin: u64_to_bigint(*v),
                             })
                             .collect(),
                         policy_hash: match script {
@@ -523,7 +549,7 @@ impl<C: LedgerContext> Mapper<C> {
 
     pub fn map_gov_proposal(&self, x: &trv::MultiEraProposal) -> u5c::GovernanceActionProposal {
         u5c::GovernanceActionProposal {
-            deposit: x.deposit(),
+            deposit: u64_to_bigint(x.deposit()),
             reward_account: x.reward_account().to_vec().into(),
             gov_action: x
                 .as_conway()
@@ -687,10 +713,10 @@ impl<C: LedgerContext> Mapper<C> {
                 collateral_return: tx
                     .collateral_return()
                     .map(|x| self.map_tx_output(&x, Some(tx))),
-                total_collateral: tx.total_collateral().unwrap_or_default(),
+                total_collateral: u64_to_bigint(tx.total_collateral().unwrap_or_default()),
             }
             .into(),
-            fee: tx.fee().unwrap_or_default(),
+            fee: u64_to_bigint(tx.fee().unwrap_or_default()),
             validity: u5c::TxValidity {
                 start: tx.validity_start().unwrap_or_default(),
                 ttl: tx.ttl().unwrap_or_default(),
