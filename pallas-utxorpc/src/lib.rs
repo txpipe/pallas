@@ -53,6 +53,7 @@ fn i64_to_bigint(value: i64) -> Option<u5c::BigInt> {
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
     fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
+    fn get_historical_utxos(&self, refs: &[TxoRef], slot_hint: Option<u64>) -> Option<UtxoMap>;
 }
 
 #[derive(Default, Clone)]
@@ -635,10 +636,25 @@ impl<C: LedgerContext> Mapper<C> {
         inputs.chain(collateral).chain(reference_inputs).collect()
     }
 
-    pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
-        let resolved = self.ledger.as_ref().and_then(|ctx| {
+    pub fn map_tx(&self, tx: &trv::MultiEraTx, slot_hint: Option<u64>) -> u5c::Tx {
+        let resolved = self.ledger.as_ref().map(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
-            ctx.get_utxos(to_resolve.as_slice())
+
+            let mut utxos = ctx.get_utxos(to_resolve.as_slice()).unwrap_or_default();
+
+            let missing_refs: Vec<_> = to_resolve
+                .iter()
+                .filter(|r| !utxos.contains_key(r))
+                .copied()
+                .collect();
+
+            if !missing_refs.is_empty() {
+                if let Some(historical) = ctx.get_historical_utxos(&missing_refs, slot_hint) {
+                    utxos.extend(historical);
+                }
+            }
+
+            utxos
         });
 
         u5c::Tx {
@@ -745,7 +761,11 @@ impl<C: LedgerContext> Mapper<C> {
             }
             .into(),
             body: u5c::BlockBody {
-                tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
+                tx: block
+                    .txs()
+                    .iter()
+                    .map(|x| self.map_tx(x, Some(block.slot())))
+                    .collect(),
             }
             .into(),
             timestamp: self
@@ -776,6 +796,10 @@ mod tests {
         }
 
         fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+            None
+        }
+
+        fn get_historical_utxos(&self, _: &[TxoRef], _: Option<u64>) -> Option<UtxoMap> {
             None
         }
     }
