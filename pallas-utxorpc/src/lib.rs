@@ -53,7 +53,7 @@ fn i64_to_bigint(value: i64) -> Option<u5c::BigInt> {
 pub trait LedgerContext: Clone {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
     fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
-    fn get_historical_utxos(&self, refs: &[TxoRef], slot_hint: Option<u64>) -> Option<UtxoMap>;
+    fn get_historical_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
 }
 
 #[derive(Default, Clone)]
@@ -636,7 +636,7 @@ impl<C: LedgerContext> Mapper<C> {
         inputs.chain(collateral).chain(reference_inputs).collect()
     }
 
-    pub fn map_tx(&self, tx: &trv::MultiEraTx, slot_hint: Option<u64>) -> u5c::Tx {
+    pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
         let resolved = self.ledger.as_ref().map(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
 
@@ -649,7 +649,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .collect();
 
             if !missing_refs.is_empty() {
-                if let Some(historical) = ctx.get_historical_utxos(&missing_refs, slot_hint) {
+                if let Some(historical) = ctx.get_historical_utxos(&missing_refs) {
                     utxos.extend(historical);
                 }
             }
@@ -761,11 +761,7 @@ impl<C: LedgerContext> Mapper<C> {
             }
             .into(),
             body: u5c::BlockBody {
-                tx: block
-                    .txs()
-                    .iter()
-                    .map(|x| self.map_tx(x, Some(block.slot())))
-                    .collect(),
+                tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
             }
             .into(),
             timestamp: self
@@ -799,7 +795,7 @@ mod tests {
             None
         }
 
-        fn get_historical_utxos(&self, _: &[TxoRef], _: Option<u64>) -> Option<UtxoMap> {
+        fn get_historical_utxos(&self, _: &[TxoRef]) -> Option<UtxoMap> {
             None
         }
     }
