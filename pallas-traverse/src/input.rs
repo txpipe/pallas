@@ -63,8 +63,8 @@ impl<'b> MultiEraInput<'b> {
     }
 
     /// Returns the key used for lexicographical ordering of the input
-    pub fn lexicographical_key(&self) -> String {
-        format!("{}#{}", self.hash(), self.index())
+    pub fn lexicographical_key(&self) -> (Hash<32>, u64) {
+        (*self.hash(), self.index())
     }
 
     pub fn hash(&self) -> &Hash<32> {
