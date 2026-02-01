@@ -162,9 +162,9 @@ const V1_NAMES: [&str; 166] = [
     "unListData-memory-arguments",
     "unMapData-cpu-arguments",
     "unMapData-memory-arguments",
-    "verifyEd25519Signature-cpu-arguments-intercept",
-    "verifyEd25519Signature-cpu-arguments-slope",
-    "verifyEd25519Signature-memory-arguments",
+    "verifySignature-cpu-arguments-intercept",
+    "verifySignature-cpu-arguments-slope",
+    "verifySignature-memory-arguments",
 ];
 
 const V2_NAMES: [&str; 175] = [
