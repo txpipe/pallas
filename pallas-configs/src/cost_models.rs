@@ -656,3 +656,12 @@ pub fn get_name_for_value_index(plutus_version: u64, value_index: u64) -> &'stat
         "unknown"
     }
 }
+
+pub fn get_names_for_version(plutus_version: u64) -> &'static [&'static str] {
+    match plutus_version {
+        1 => &V1_NAMES,
+        2 => &V2_NAMES,
+        3 => &V3_NAMES,
+        _ => &[],
+    }
+}

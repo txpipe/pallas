@@ -2,8 +2,6 @@ use num_rational::Ratio;
 use serde::Deserialize;
 use std::{collections::HashMap, ops::Deref};
 
-use crate::cost_models::get_name_for_value_index;
-
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPrices {
@@ -119,36 +117,73 @@ impl From<Language> for pallas_primitives::babbage::Language {
     }
 }
 
-#[derive(Deserialize, Clone)]
-pub struct CostModel(HashMap<String, i64>);
+#[derive(Clone)]
+pub struct CostModel(Language, Vec<i64>);
 
 impl From<CostModel> for Vec<i64> {
     fn from(value: CostModel) -> Self {
-        value.0.into_values().collect()
+        value.1
+    }
+}
+
+impl From<CostModel> for HashMap<String, i64> {
+    fn from(value: CostModel) -> Self {
+        let keys = crate::cost_models::get_names_for_version(match value.0 {
+            Language::PlutusV1 => 1,
+            Language::PlutusV2 => 2,
+        });
+        let values = value.1;
+        keys.iter()
+            .zip(values)
+            .map(|(k, v)| (k.to_string(), v))
+            .collect()
     }
 }
 
 impl CostModel {
-    fn from_array_with_version(arr: Vec<serde_json::Value>, language: &Language) -> Self {
-        let mut cost_map = HashMap::new();
-
+    fn from_array_with_language(arr: Vec<serde_json::Value>, language: Language) -> Self {
         let plutus_version = match language {
             Language::PlutusV1 => 1,
             Language::PlutusV2 => 2,
         };
+        let names = crate::cost_models::get_names_for_version(plutus_version);
+        let mut values = vec![0; names.len()];
 
-        for (i, v) in arr.iter().enumerate() {
+        for (i, v) in arr.into_iter().enumerate() {
+            if i >= values.len() {
+                break;
+            }
             if let serde_json::Value::Number(num) = v {
                 if let Some(int_val) = num.as_i64() {
-                    let key = get_name_for_value_index(plutus_version, i as u64);
-                    if key != "unknown" {
-                        cost_map.insert(key.to_string(), int_val);
-                    }
+                    values[i] = int_val;
                 }
             }
         }
 
-        CostModel(cost_map)
+        CostModel(language, values)
+    }
+
+    fn from_object_with_language(
+        map: serde_json::Map<String, serde_json::Value>,
+        language: Language,
+    ) -> Result<Self, &'static str> {
+        let plutus_version = match language {
+            Language::PlutusV1 => 1,
+            Language::PlutusV2 => 2,
+        };
+        let names = crate::cost_models::get_names_for_version(plutus_version);
+        let mut values = Vec::with_capacity(names.len());
+
+        for name in names {
+            let value = match map.get(*name) {
+                Some(serde_json::Value::Number(num)) => num.as_i64().unwrap_or_default(),
+                Some(_) => return Err("Invalid cost model value type"),
+                None => 0,
+            };
+            values.push(value);
+        }
+
+        Ok(CostModel(language, values))
     }
 }
 
@@ -203,9 +238,11 @@ impl<'de> Deserialize<'de> for CostModelPerLanguage {
                 };
 
                 let cost_model = match cost_model_value {
-                    Value::Object(_) => CostModel::deserialize(cost_model_value)
-                        .map_err(serde::de::Error::custom)?,
-                    Value::Array(arr) => CostModel::from_array_with_version(arr, &language),
+                    Value::Object(map) => {
+                        CostModel::from_object_with_language(map, language.clone())
+                            .map_err(serde::de::Error::custom)?
+                    }
+                    Value::Array(arr) => CostModel::from_array_with_language(arr, language.clone()),
                     _ => {
                         return Err(serde::de::Error::custom("Invalid cost model format"));
                     }
