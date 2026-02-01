@@ -13,9 +13,9 @@ const V1_NAMES: [&str; 166] = [
     "appendString-memory-arguments-slope",
     "bData-cpu-arguments",
     "bData-memory-arguments",
-    "blake2b_256-cpu-arguments-intercept",
-    "blake2b_256-cpu-arguments-slope",
-    "blake2b_256-memory-arguments",
+    "blake2b-cpu-arguments-intercept",
+    "blake2b-cpu-arguments-slope",
+    "blake2b-memory-arguments",
     "cekApplyCost-exBudgetCPU",
     "cekApplyCost-exBudgetMemory",
     "cekBuiltinCost-exBudgetCPU",
@@ -162,9 +162,9 @@ const V1_NAMES: [&str; 166] = [
     "unListData-memory-arguments",
     "unMapData-cpu-arguments",
     "unMapData-memory-arguments",
-    "verifyEd25519Signature-cpu-arguments-intercept",
-    "verifyEd25519Signature-cpu-arguments-slope",
-    "verifyEd25519Signature-memory-arguments",
+    "verifySignature-cpu-arguments-intercept",
+    "verifySignature-cpu-arguments-slope",
+    "verifySignature-memory-arguments",
 ];
 
 const V2_NAMES: [&str; 175] = [
@@ -654,5 +654,14 @@ pub fn get_name_for_value_index(plutus_version: u64, value_index: u64) -> &'stat
         V3_NAMES[value_index as usize]
     } else {
         "unknown"
+    }
+}
+
+pub fn get_names_for_version(plutus_version: u64) -> &'static [&'static str] {
+    match plutus_version {
+        1 => &V1_NAMES,
+        2 => &V2_NAMES,
+        3 => &V3_NAMES,
+        _ => &[],
     }
 }
