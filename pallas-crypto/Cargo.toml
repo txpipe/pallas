@@ -20,6 +20,7 @@ thiserror = "1.0"
 rand_core = "0.9"
 serde = { version = "1.0.143", features = ["derive"] }
 pallas-codec = { version = "=1.0.0-alpha.3", path = "../pallas-codec" }
+cardano-crypto = { version = "=1.0.6", optional = true, features = ["vrf"] }
 
 # kes dependencies
 rand = { version = "0.9", optional = true }
@@ -42,6 +43,7 @@ default = []
 sk_clone_enabled = []
 kes = ["rand", "rand_chacha", "serde_with", "ed25519-dalek", "zeroize"]
 relaxed = []
+vrf = ["cardano-crypto/vrf"]
 
 [[bench]]
 harness = false
