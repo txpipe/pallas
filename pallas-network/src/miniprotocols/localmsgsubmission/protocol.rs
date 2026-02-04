@@ -52,13 +52,61 @@ pub struct DmqMsgOperationalCertificate {
     pub cert_sig: Vec<u8>,
 }
 
-/// Reject reason.
+/// Rejection reason
+///
+/// The CBOR encoding follows this CDDL specification:
+/// ```cddl
+/// reason = invalid / alreadyReceived / expired / other
+///
+/// invalid         = [0, tstr]
+/// alreadyReceived = [1]
+/// expired         = [2]
+/// other           = [3, tstr]
+/// ```
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct DmqMsgValidationError(pub String);
+pub enum DmqMsgRejectReason {
+    /// The message is invalid.
+    Invalid(String),
+    /// The message has already been received and processed.
+    AlreadyReceived,
+    /// The message has expired.
+    Expired,
+    /// Other rejection reason.
+    Other(String),
+}
+
+impl std::fmt::Display for DmqMsgRejectReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DmqMsgRejectReason::Invalid(reason) => write!(f, "Invalid: {}", reason),
+            DmqMsgRejectReason::AlreadyReceived => write!(f, "Already received"),
+            DmqMsgRejectReason::Expired => write!(f, "Expired"),
+            DmqMsgRejectReason::Other(reason) => write!(f, "Other: {}", reason),
+        }
+    }
+}
+
+/// A DMQ message validation error.
+///
+/// This wraps a [DmqMsgRejectReason] according to CIP-137 specification.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DmqMsgValidationError(pub DmqMsgRejectReason);
+
+impl From<DmqMsgRejectReason> for DmqMsgValidationError {
+    fn from(reason: DmqMsgRejectReason) -> DmqMsgValidationError {
+        DmqMsgValidationError(reason)
+    }
+}
 
 impl From<String> for DmqMsgValidationError {
-    fn from(string: String) -> DmqMsgValidationError {
-        DmqMsgValidationError(string)
+    fn from(s: String) -> Self {
+        DmqMsgValidationError(DmqMsgRejectReason::Other(s))
+    }
+}
+
+impl std::fmt::Display for DmqMsgValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

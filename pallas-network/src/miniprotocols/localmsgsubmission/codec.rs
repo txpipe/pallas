@@ -2,7 +2,7 @@ use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
 use crate::miniprotocols::localmsgsubmission::DmqMsgOperationalCertificate;
 
-use super::{DmqMsg, DmqMsgPayload, DmqMsgValidationError};
+use super::{DmqMsg, DmqMsgPayload, DmqMsgRejectReason, DmqMsgValidationError};
 
 impl<'b> Decode<'b, ()> for DmqMsg {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
@@ -100,9 +100,75 @@ impl Encode<()> for DmqMsgOperationalCertificate {
     }
 }
 
+impl<'b, C> Decode<'b, C> for DmqMsgRejectReason {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
+        let len = d.array()?;
+        let expected_len = len.ok_or_else(|| {
+            decode::Error::message(
+                "Could not decode DmqMsgRejectReason: expected definite length array",
+            )
+        })?;
+
+        if expected_len == 0 {
+            return Err(decode::Error::message(
+                "Could not decode DmqMsgRejectReason: empty array is not valid",
+            ));
+        }
+
+        let tag: u8 = d.u8()?;
+        match (tag, expected_len) {
+            (0, 2) => {
+                let reason = d.str()?.to_string();
+                Ok(DmqMsgRejectReason::Invalid(reason))
+            }
+            (1, 1) => Ok(DmqMsgRejectReason::AlreadyReceived),
+            (2, 1) => Ok(DmqMsgRejectReason::Expired),
+            (3, 2) => {
+                let reason = d.str()?.to_string();
+                Ok(DmqMsgRejectReason::Other(reason))
+            }
+            (tag, len) => Err(decode::Error::message(format!(
+                "Could not decode DmqMsgRejectReason: unknown tag {} with length {}",
+                tag, len
+            ))),
+        }
+    }
+}
+
+impl<C> Encode<C> for DmqMsgRejectReason {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            DmqMsgRejectReason::Invalid(reason) => {
+                e.array(2)?;
+                e.u8(0)?;
+                e.str(reason)?;
+            }
+            DmqMsgRejectReason::AlreadyReceived => {
+                e.array(1)?;
+                e.u8(1)?;
+            }
+            DmqMsgRejectReason::Expired => {
+                e.array(1)?;
+                e.u8(2)?;
+            }
+            DmqMsgRejectReason::Other(reason) => {
+                e.array(2)?;
+                e.u8(3)?;
+                e.str(reason)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl<'b, C> Decode<'b, C> for DmqMsgValidationError {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
-        Ok(DmqMsgValidationError(d.str()?.to_string()))
+        let reason = DmqMsgRejectReason::decode(d, _ctx)?;
+        Ok(DmqMsgValidationError(reason))
     }
 }
 
@@ -112,8 +178,7 @@ impl<C> Encode<C> for DmqMsgValidationError {
         e: &mut Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
-        e.str(&self.0)?;
-
+        self.0.encode(e, _ctx)?;
         Ok(())
     }
 }
@@ -262,5 +327,54 @@ mod tests {
         let mut decoder = Decoder::new(&msg_cbor);
         let msg_decoded = DmqMsg::decode(&mut decoder, &mut ()).unwrap();
         assert_eq!(msg, msg_decoded);
+    }
+
+    #[test]
+    fn dmq_msg_reject_reason_invalid() {
+        let reason = DmqMsgRejectReason::Invalid(
+            "InvalidKESSignature (KESPeriod 0) (KESPeriod 0)".to_string(),
+        );
+        let encoded = minicbor::to_vec(&reason).unwrap();
+
+        let decoded: DmqMsgRejectReason = minicbor::decode(&encoded).unwrap();
+        assert_eq!(decoded, reason);
+    }
+
+    #[test]
+    fn dmq_msg_reject_reason_already_received() {
+        let reason = DmqMsgRejectReason::AlreadyReceived;
+        let encoded = minicbor::to_vec(&reason).unwrap();
+
+        let decoded: DmqMsgRejectReason = minicbor::decode(&encoded).unwrap();
+        assert_eq!(decoded, reason);
+    }
+
+    #[test]
+    fn dmq_msg_reject_reason_expired() {
+        let reason = DmqMsgRejectReason::Expired;
+        let encoded = minicbor::to_vec(&reason).unwrap();
+
+        let decoded: DmqMsgRejectReason = minicbor::decode(&encoded).unwrap();
+        assert_eq!(decoded, reason);
+    }
+
+    #[test]
+    fn dmq_msg_reject_reason_other() {
+        let reason = DmqMsgRejectReason::Other("custom error".to_string());
+        let encoded = minicbor::to_vec(&reason).unwrap();
+
+        let decoded: DmqMsgRejectReason = minicbor::decode(&encoded).unwrap();
+        assert_eq!(decoded, reason);
+    }
+
+    #[test]
+    fn dmq_msg_validation_error() {
+        let error = DmqMsgValidationError(DmqMsgRejectReason::Invalid(
+            "InvalidKESSignature".to_string(),
+        ));
+        let encoded = minicbor::to_vec(&error).unwrap();
+
+        let decoded: DmqMsgValidationError = minicbor::decode(&encoded).unwrap();
+        assert_eq!(decoded, error);
     }
 }
