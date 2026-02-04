@@ -1,6 +1,7 @@
 use hex::FromHex;
 use pallas_codec::utils::{AnyCbor, AnyUInt, Bytes, KeyValuePairs, Nullable, TagWrap};
 use pallas_crypto::hash::Hash;
+use pallas_network::miniprotocols::localmsgsubmission::DmqMsgRejectReason;
 use pallas_network::miniprotocols::localstate::queries_v16::{
     self, Addr, Addrs, ChainBlockNumber, Fraction, GenesisConfig, PoolMetadata, PoolParams,
     RationalNumber, Relay, Snapshots, StakeAddr, Stakes, SystemStart, UnitInterval, Value,
@@ -1919,7 +1920,7 @@ pub async fn local_message_submission_server_and_client_happy_path() {
 
             server_msg
                 .send_submit_tx_response(localtxsubmission::Response::Rejected(
-                    DmqMsgValidationError("fake error".to_string()),
+                    DmqMsgValidationError(DmqMsgRejectReason::Other("fake error".to_string())),
                 ))
                 .await
                 .unwrap();
@@ -1959,7 +1960,9 @@ pub async fn local_message_submission_server_and_client_happy_path() {
         assert_eq!(*client_msg.state(), localtxsubmission::State::Idle);
         assert_eq!(
             response,
-            localtxsubmission::Response::Rejected(DmqMsgValidationError("fake error".to_string()))
+            localtxsubmission::Response::Rejected(DmqMsgValidationError(
+                DmqMsgRejectReason::Other("fake error".to_string())
+            ))
         );
 
         // client sends done to server
