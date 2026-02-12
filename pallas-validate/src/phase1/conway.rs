@@ -1324,8 +1324,6 @@ fn check_vkey_input_wits(
                         }
                         ShelleyPaymentPart::Script(_) => {}
                     }
-                } else if multi_era_output.as_byron().is_some() {
-                    return Err(PostAlonzo(InputDecoding));
                 } else {
                     return Err(PostAlonzo(InputDecoding));
                 }
