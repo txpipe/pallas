@@ -617,8 +617,8 @@ fn check_well_formedness(_tx_body: &TransactionBody, _mtx: &Tx) -> ValidationRes
 }
 
 fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
-    let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let tx_body: &TransactionBody = &mtx.transaction_body;
+    let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
     let tx_wits: &WitnessSet = &mtx.transaction_witness_set;
     let vkey_wits: &Option<Vec<VKeyWitness>> = &Some(
         tx_wits
@@ -1293,17 +1293,41 @@ fn check_vkey_input_wits(
     for input in inputs_and_collaterals.iter() {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
             Some(multi_era_output) => {
-                if let Some(babbage_output) = MultiEraOutput::as_conway(multi_era_output) {
-                    let address: &Bytes = match babbage_output {
-                        TransactionOutput::Legacy(output) => &output.address,
-                        TransactionOutput::PostAlonzo(output) => &output.address,
-                    };
-                    match get_payment_part(address).ok_or(PostAlonzo(InputDecoding))? {
+                // Try to get address from Conway output first
+                let address: Option<Bytes> = if let Some(conway_output) =
+                    MultiEraOutput::as_conway(multi_era_output)
+                {
+                    match conway_output {
+                        TransactionOutput::Legacy(output) => Some(output.address.clone()),
+                        TransactionOutput::PostAlonzo(output) => Some(output.address.clone()),
+                    }
+                } else if let Some(alonzo_output) = multi_era_output.as_alonzo() {
+                    // Alonzo, Mary, Allegra, Shelley
+                    Some(alonzo_output.address.clone())
+                } else if let Some(babbage_output) = multi_era_output.as_babbage() {
+                    // Babbage
+                    match babbage_output {
+                        babbage::TransactionOutput::Legacy(output) => Some(output.address.clone()),
+                        babbage::TransactionOutput::PostAlonzo(output) => {
+                            Some(output.address.clone())
+                        }
+                    }
+                } else {
+                    // Byron outputs are handled separately below
+                    None
+                };
+
+                if let Some(address) = address {
+                    match get_payment_part(&address).ok_or(PostAlonzo(InputDecoding))? {
                         ShelleyPaymentPart::Key(payment_key_hash) => {
                             check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
                         }
-                        ShelleyPaymentPart::Script(_) => (),
+                        ShelleyPaymentPart::Script(_) => {}
                     }
+                } else if multi_era_output.as_byron().is_some() {
+                    return Err(PostAlonzo(InputDecoding));
+                } else {
+                    return Err(PostAlonzo(InputDecoding));
                 }
             }
             None => return Err(PostAlonzo(InputNotInUTxO)),
@@ -1317,8 +1341,9 @@ fn check_vk_wit(
     wits: &mut [(bool, VKeyWitness)],
     data_to_verify: &[u8],
 ) -> ValidationResult {
-    for (vkey_wit_covered, vkey_wit) in wits {
-        if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *payment_key_hash {
+    for (vkey_wit_covered, vkey_wit) in wits.iter_mut() {
+        let vkey_hash = pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey);
+        if vkey_hash == *payment_key_hash {
             if !verify_signature(vkey_wit, data_to_verify) {
                 return Err(PostAlonzo(VKWrongSignature));
             } else {
