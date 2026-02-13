@@ -41,7 +41,7 @@ pub struct StagingTransaction {
     pub script_data_hash: Option<Bytes32>,
     pub signature_amount_override: Option<u8>,
     pub change_address: Option<Address>,
-    pub language_view: Option<pallas_primitives::conway::LanguageView>,
+    pub language_views: Option<pallas_primitives::conway::LanguageViews>,
     pub auxiliary_data: Option<AuxiliaryData>,
     // pub certificates: TODO
     // pub withdrawals: TODO
@@ -288,14 +288,28 @@ impl StagingTransaction {
         self
     }
 
-    pub fn language_view(mut self, plutus_version: ScriptKind, cost_model: Vec<i64>) -> Self {
-        self.language_view = match plutus_version {
-            ScriptKind::PlutusV1 => Some(pallas_primitives::conway::LanguageView(0, cost_model)),
-            ScriptKind::PlutusV2 => Some(pallas_primitives::conway::LanguageView(1, cost_model)),
-            ScriptKind::PlutusV3 => Some(pallas_primitives::conway::LanguageView(2, cost_model)),
-            ScriptKind::Native => None,
-        };
+    pub fn language_views(
+        mut self,
+        views: pallas_primitives::conway::LanguageViews,
+    ) -> Self {
+        self.language_views = Some(views);
+        self
+    }
 
+    pub fn add_language(mut self, plutus_version: ScriptKind, cost_model: Vec<i64>) -> Self {
+        let version = match plutus_version {
+            ScriptKind::PlutusV1 => 0,
+            ScriptKind::PlutusV2 => 1,
+            ScriptKind::PlutusV3 => 2,
+            ScriptKind::Native => return self,
+        };
+        let mut map = self
+            .language_views
+            .as_ref()
+            .map(|v| v.0.clone())
+            .unwrap_or_default();
+        map.insert(version, cost_model);
+        self.language_views = Some(pallas_primitives::conway::LanguageViews(map));
         self
     }
 

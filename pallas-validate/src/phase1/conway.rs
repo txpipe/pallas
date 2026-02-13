@@ -17,7 +17,7 @@ use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     babbage,
     conway::{
-        DatumOption, Language, LanguageView, Mint, Redeemers, RedeemersKey, RequiredSigners,
+        DatumOption, Language, LanguageViews, Mint, Redeemers, RedeemersKey, RequiredSigners,
         ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
@@ -1511,17 +1511,17 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
             }
         }
     }
-    if !v1_scripts && !v2_scripts && !v3_scripts {
-        vec![]
-    } else if v1_scripts && !v2_scripts && !v3_scripts {
-        vec![Language::PlutusV1]
-    } else if !v1_scripts && v2_scripts && !v3_scripts {
-        vec![Language::PlutusV2]
-    } else if !v1_scripts && !v2_scripts && v3_scripts {
-        vec![Language::PlutusV3]
-    } else {
-        vec![Language::PlutusV1, Language::PlutusV2]
+    let mut langs = vec![];
+    if v1_scripts {
+        langs.push(Language::PlutusV1);
     }
+    if v2_scripts {
+        langs.push(Language::PlutusV2);
+    }
+    if v3_scripts {
+        langs.push(Language::PlutusV3);
+    }
+    langs
 }
 
 // The metadata of the transaction is valid.
@@ -1557,13 +1557,13 @@ fn check_script_data_hash(
         }
     };
 
-    let Some(language_view) = cost_model_for_tx(&tx_languages, prot_pps) else {
+    let Some(language_views) = cost_model_for_tx(&tx_languages, prot_pps) else {
         return Err(PostAlonzo(ScriptIntegrityHash));
     };
 
     let expected = pallas_primitives::conway::ScriptData::build_for(
         &mtx.transaction_witness_set,
-        &Some(language_view),
+        &Some(language_views),
     )
     .ok_or(PostAlonzo(ScriptIntegrityHash))?
     .hash();
@@ -1578,14 +1578,16 @@ fn check_script_data_hash(
 fn cost_model_for_tx(
     tx_languages: &[Language],
     prot_pps: &ConwayProtParams,
-) -> Option<LanguageView> {
-    let lang = itertools::max(tx_languages.iter())?;
-
-    let costs = match lang {
-        Language::PlutusV1 => prot_pps.cost_models_for_script_languages.plutus_v1.clone(),
-        Language::PlutusV2 => prot_pps.cost_models_for_script_languages.plutus_v2.clone(),
-        Language::PlutusV3 => prot_pps.cost_models_for_script_languages.plutus_v3.clone(),
-    };
-
-    costs.map(|costs| LanguageView(lang.clone() as u8, costs))
+) -> Option<LanguageViews> {
+    let cost_models = &prot_pps.cost_models_for_script_languages;
+    let mut map = std::collections::BTreeMap::new();
+    for lang in tx_languages {
+        let costs = match lang {
+            Language::PlutusV1 => cost_models.plutus_v1.clone()?,
+            Language::PlutusV2 => cost_models.plutus_v2.clone()?,
+            Language::PlutusV3 => cost_models.plutus_v3.clone()?,
+        };
+        map.insert(lang.clone() as u8, costs);
+    }
+    Some(LanguageViews(map))
 }
