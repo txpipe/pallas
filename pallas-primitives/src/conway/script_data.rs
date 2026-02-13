@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::{CostModel, PlutusData, Redeemers, WitnessSet};
 use pallas_codec::minicbor::{self, Encode};
 use pallas_codec::utils::{KeepRaw, NonEmptySet};
@@ -5,38 +7,51 @@ use serde::{Deserialize, Serialize};
 
 pub type PlutusVersion = u8;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LanguageView(pub PlutusVersion, pub CostModel);
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LanguageViews(pub BTreeMap<PlutusVersion, CostModel>);
 
-impl<C> Encode<C> for LanguageView {
+impl FromIterator<(PlutusVersion, CostModel)> for LanguageViews {
+    fn from_iter<I: IntoIterator<Item = (PlutusVersion, CostModel)>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl<C> Encode<C> for LanguageViews {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        match self.0 {
-            0 => {
-                let mut inner = vec![];
-                let mut sub = minicbor::Encoder::new(&mut inner);
+        let order: Vec<u8> = self.0.keys().copied().collect();
+        let mut canonical_order: Vec<u8> = order.into_iter().filter(|&k| k != 0).collect();
+        canonical_order.sort();
+        // PlutusV1 is CBOR encoded as 0x4100 so it goes last
+        if self.0.contains_key(&0) {
+            canonical_order.push(0);
+        }
 
-                sub.begin_array().unwrap();
-                for v in self.1.iter() {
-                    sub.encode_with(v, ctx).unwrap();
+        e.map(self.0.len() as u64)?;
+        for lang in canonical_order {
+            let cost_model = self.0.get(&lang).unwrap();
+            match lang {
+                0 => {
+                    let mut inner = vec![];
+                    let mut sub = minicbor::Encoder::new(&mut inner);
+                    sub.begin_array().unwrap();
+                    for v in cost_model.iter() {
+                        sub.encode_with(v, ctx).unwrap();
+                    }
+                    sub.end().unwrap();
+                    e.bytes(&minicbor::to_vec(0).unwrap())?;
+                    e.bytes(&inner)?;
                 }
-                sub.end().unwrap();
-
-                e.map(1)?;
-                e.bytes(&minicbor::to_vec(0).unwrap())?;
-                e.bytes(&inner)?;
-                Ok(())
-            }
-            _ => {
-                e.map(1)?;
-                e.encode(self.0)?;
-                e.encode(&self.1)?;
-                Ok(())
+                _ => {
+                    e.encode(lang)?;
+                    e.encode(cost_model)?;
+                }
             }
         }
+        Ok(())
     }
 }
 
@@ -44,7 +59,7 @@ impl<C> Encode<C> for LanguageView {
 pub struct ScriptData<'b> {
     pub redeemers: Option<Redeemers>,
     pub datums: Option<KeepRaw<'b, NonEmptySet<KeepRaw<'b, PlutusData>>>>,
-    pub language_view: Option<LanguageView>,
+    pub language_views: Option<LanguageViews>,
 }
 
 impl ScriptData<'_> {
@@ -61,8 +76,8 @@ impl ScriptData<'_> {
             minicbor::encode(datums, &mut buf).unwrap(); // infallible
         }
 
-        if let Some(language_view) = &self.language_view {
-            minicbor::encode(language_view, &mut buf).unwrap(); // infallible
+        if let Some(language_views) = &self.language_views {
+            minicbor::encode(language_views, &mut buf).unwrap(); // infallible
         } else {
             buf.push(0xa0);
         }
@@ -74,20 +89,17 @@ impl ScriptData<'_> {
 impl<'b> ScriptData<'b> {
     pub fn build_for(
         witness: &WitnessSet<'b>,
-        language_view_opt: &Option<LanguageView>,
+        language_views_opt: &Option<LanguageViews>,
     ) -> Option<Self> {
         let redeemers = witness.redeemer.as_ref().map(|x| x.to_owned().unwrap());
         let datums = witness.plutus_data.clone();
 
-        // Only return None if both redeemers and datums are None
         if redeemers.is_none() && datums.is_none() {
             return None;
         }
 
-        // When redeemers are present, include the language view
-        // When only datums are present, language view should be None (empty map in hash)
-        let language_view = if redeemers.is_some() && language_view_opt.is_some() {
-            language_view_opt.clone()
+        let language_views = if redeemers.is_some() && language_views_opt.is_some() {
+            language_views_opt.clone()
         } else {
             None
         };
@@ -95,7 +107,7 @@ impl<'b> ScriptData<'b> {
         Some(ScriptData {
             redeemers,
             datums,
-            language_view,
+            language_views,
         })
     }
 }
@@ -108,7 +120,7 @@ mod tests {
 
     use super::*;
 
-    const COST_MODEL_PLUTUS_V1: LazyLock<Vec<i64>> = LazyLock::new(|| {
+    static COST_MODEL_PLUTUS_V1: LazyLock<Vec<i64>> = LazyLock::new(|| {
         vec![
             100788, 420, 1, 1, 1000, 173, 0, 1, 1000, 59957, 4, 1, 11183, 32, 201305, 8356, 4,
             16000, 100, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 100, 100,
