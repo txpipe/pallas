@@ -288,10 +288,7 @@ impl StagingTransaction {
         self
     }
 
-    pub fn language_views(
-        mut self,
-        views: pallas_primitives::conway::LanguageViews,
-    ) -> Self {
+    pub fn language_views(mut self, views: pallas_primitives::conway::LanguageViews) -> Self {
         self.language_views = Some(views);
         self
     }
