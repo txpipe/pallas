@@ -76,7 +76,6 @@ impl Bearer {
         tcp_keepalive = tcp_keepalive.with_interval(tokio::time::Duration::from_secs(20));
         sock_ref.set_tcp_keepalive(&tcp_keepalive)?;
         sock_ref.set_tcp_nodelay(true)?;
-        sock_ref.set_linger(Some(std::time::Duration::from_secs(0)))?;
 
         Ok(())
     }
@@ -84,6 +83,9 @@ impl Bearer {
     pub async fn connect_tcp(addr: impl tcp::ToSocketAddrs) -> Result<Self, tokio::io::Error> {
         let stream = tcp::TcpStream::connect(addr).await?;
         Self::configure_tcp(&stream)?;
+        // Aggressive linger avoids TIME_WAIT accumulation when connecting to many nodes
+        socket2::SockRef::from(&stream)
+            .set_linger(Some(std::time::Duration::from_secs(0)))?;
         Ok(Self::Tcp(stream))
     }
 
@@ -197,7 +199,8 @@ impl BearerReadHalf {
     where
         M: Message,
     {
-        let (channel, chunk) = self.read_segment().await?;
+        let (raw_channel, chunk) = self.read_segment().await?;
+        let channel = raw_channel & !crate::protocol::PROTOCOL_SERVER;
 
         let previous = partial_chunks.remove(&channel);
 
@@ -282,11 +285,17 @@ impl BearerWriteHalf {
         Ok(())
     }
 
-    pub async fn write_message<M>(&mut self, msg: M, timestamp: Timestamp) -> IOResult<()>
+    pub async fn write_message<M>(
+        &mut self,
+        msg: M,
+        timestamp: Timestamp,
+        mode: u16,
+    ) -> IOResult<()>
     where
         M: Message,
     {
         let (channel, chunks) = msg.into_chunks();
+        let channel = channel | mode;
 
         for chunk in chunks {
             self.write_segment(channel, timestamp, &chunk).await?;

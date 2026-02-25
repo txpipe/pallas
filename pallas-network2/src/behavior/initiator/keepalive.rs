@@ -1,7 +1,9 @@
 use crate::{
     InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
+    behavior::AnyMessage,
 };
+
+use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 
 pub struct KeepaliveBehavior {
     token: u16,

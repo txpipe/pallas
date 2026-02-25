@@ -1,8 +1,10 @@
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor},
+    behavior::AnyMessage,
     protocol::MAINNET_MAGIC,
 };
+
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
 pub struct Config {
     supported_version: crate::protocol::handshake::n2n::VersionTable,

@@ -31,3 +31,4 @@ default = ["emulation"]
 blueprint = []
 
 [dev-dependencies]
+tokio = { version = "1.45.1", features = ["full", "test-util"] }
