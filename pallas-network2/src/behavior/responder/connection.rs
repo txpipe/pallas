@@ -22,6 +22,7 @@ pub struct ConnectionResponder {
     config: ConnectionResponderConfig,
     pub(crate) banned_peers: HashSet<PeerId>,
     connections_per_ip: HashMap<String, usize>,
+    accepted_peers: HashSet<PeerId>,
     active_peers: usize,
 
     // metrics
@@ -65,6 +66,7 @@ impl ConnectionResponder {
             config,
             banned_peers: HashSet::new(),
             connections_per_ip: HashMap::new(),
+            accepted_peers: HashSet::new(),
             active_peers: 0,
             active_peers_gauge,
             connections_accepted_counter,
@@ -109,7 +111,7 @@ impl ResponderPeerVisitor for ConnectionResponder {
             );
             self.connections_rejected_counter.add(1, &[]);
             outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
-        } else {
+        } else if self.accepted_peers.insert(pid.clone()) {
             self.active_peers += 1;
             self.active_peers_gauge
                 .record(self.active_peers as u64, &[]);
@@ -130,9 +132,11 @@ impl ResponderPeerVisitor for ConnectionResponder {
             }
         }
 
-        self.active_peers = self.active_peers.saturating_sub(1);
-        self.active_peers_gauge
-            .record(self.active_peers as u64, &[]);
+        if self.accepted_peers.remove(pid) {
+            self.active_peers = self.active_peers.saturating_sub(1);
+            self.active_peers_gauge
+                .record(self.active_peers as u64, &[]);
+        }
     }
 
     fn visit_errored(

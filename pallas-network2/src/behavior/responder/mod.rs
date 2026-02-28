@@ -296,6 +296,10 @@ impl ResponderBehavior {
         self.peers.entry(pid.clone()).and_modify(|state| {
             state.apply_msg(msg);
 
+            if state.violation {
+                return;
+            }
+
             // Dispatch only to the visitor that owns the inbound message's
             // protocol.  The previous `all_visitors!` call triggered every
             // visitor on every message, which caused duplicate responses
@@ -366,6 +370,8 @@ impl ResponderBehavior {
 
             all_visitors!(self, pid, state, visit_disconnected);
         });
+
+        self.peers.remove(pid);
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]

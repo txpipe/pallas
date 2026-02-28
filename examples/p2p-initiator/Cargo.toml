@@ -2,6 +2,7 @@
 name = "p2p-initiator"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
 pallas-network2 = { path = "../../pallas-network2" }

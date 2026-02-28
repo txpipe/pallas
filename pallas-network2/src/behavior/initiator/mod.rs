@@ -252,6 +252,9 @@ impl InitiatorState {
         self.keepalive = proto::keepalive::State::default();
         self.peersharing = proto::peersharing::State::default();
         self.blockfetch = proto::blockfetch::State::default();
+        self.chainsync = proto::chainsync::State::default();
+        self.tx_submission = proto::txsubmission::State::default();
+        self.continue_sync = false;
         self.violation = false;
     }
 }
@@ -507,7 +510,9 @@ impl Behavior for InitiatorBehavior {
                 tracing::debug!("demote peer command");
                 self.on_tagged(&pid, |state| state.promotion = PromotionTag::Cold);
             }
-            InitiatorCommand::SendTx(..) => todo!(),
+            InitiatorCommand::SendTx(..) => {
+                tracing::warn!("SendTx not yet implemented");
+            }
         }
     }
 }
