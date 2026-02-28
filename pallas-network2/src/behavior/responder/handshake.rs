@@ -89,12 +89,11 @@ impl HandshakeResponder {
                         "refusing handshake: network magic mismatch"
                     );
                     self.handshakes_refused_counter.add(1, &[]);
-                    let msg = handshake_proto::Message::Refuse(
-                        handshake_proto::RefuseReason::Refused(
+                    let msg =
+                        handshake_proto::Message::Refuse(handshake_proto::RefuseReason::Refused(
                             version,
                             "network magic mismatch".to_string(),
-                        ),
-                    );
+                        ));
                     outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                         pid.clone(),
                         AnyMessage::Handshake(msg),

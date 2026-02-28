@@ -82,9 +82,10 @@ impl TxSubmissionResponder {
     ) {
         if let txsubmission_proto::State::Txs(txs) = &state.tx_submission {
             for tx in txs {
-                outbound.push_ready(BehaviorOutput::ExternalEvent(
-                    ResponderEvent::TxReceived(pid.clone(), tx.clone()),
-                ));
+                outbound.push_ready(BehaviorOutput::ExternalEvent(ResponderEvent::TxReceived(
+                    pid.clone(),
+                    tx.clone(),
+                )));
             }
         }
     }
