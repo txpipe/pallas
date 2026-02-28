@@ -16,9 +16,11 @@ exporters:
     tls:
       insecure: true
 
-  # Metrics -> VictoriaMetrics (Prometheus Remote Write)
-  prometheusremotewrite/vm:
-    endpoint: http://victoria-metrics:8428/api/v1/write
+  # Metrics -> VictoriaMetrics (native OTLP ingestion)
+  otlphttp/vm:
+    endpoint: http://victoria-metrics:8428/opentelemetry
+    tls:
+      insecure: true
 
   # Local stdout for quick sanity checks
   debug:
@@ -40,7 +42,7 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheusremotewrite/vm, debug]
+      exporters: [otlphttp/vm, debug]
     logs:
       receivers: [otlp]
       exporters: [debug]

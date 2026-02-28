@@ -1,5 +1,5 @@
 [package]
-name = "p2p-client"
+name = "p2p-initiator"
 version = "0.1.0"
 edition = "2021"
 

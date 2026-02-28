@@ -1,3 +1,5 @@
+mod otel;
+
 use std::{net::Ipv4Addr, time::Duration};
 
 use pallas_network2::{
@@ -136,12 +138,7 @@ impl MockResponderNode {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
+    otel::setup_otel();
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await

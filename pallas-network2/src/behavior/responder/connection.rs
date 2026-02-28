@@ -25,6 +25,13 @@ pub struct ConnectionResponder {
     config: ConnectionResponderConfig,
     pub(crate) banned_peers: HashSet<PeerId>,
     connections_per_ip: HashMap<String, usize>,
+    active_peers: usize,
+
+    // metrics
+    active_peers_gauge: opentelemetry::metrics::Gauge<u64>,
+    connections_accepted_counter: opentelemetry::metrics::Counter<u64>,
+    connections_rejected_counter: opentelemetry::metrics::Counter<u64>,
+    peers_banned_counter: opentelemetry::metrics::Counter<u64>,
 }
 
 impl Default for ConnectionResponder {
@@ -35,10 +42,37 @@ impl Default for ConnectionResponder {
 
 impl ConnectionResponder {
     pub fn new(config: ConnectionResponderConfig) -> Self {
+        let meter = opentelemetry::global::meter("pallas-network2");
+
+        let active_peers_gauge = meter
+            .u64_gauge("responder_active_peers")
+            .with_description("Current active responder peer count")
+            .build();
+
+        let connections_accepted_counter = meter
+            .u64_counter("responder_connections_accepted")
+            .with_description("Total accepted responder connections")
+            .build();
+
+        let connections_rejected_counter = meter
+            .u64_counter("responder_connections_rejected")
+            .with_description("Responder connections rejected (too many per IP)")
+            .build();
+
+        let peers_banned_counter = meter
+            .u64_counter("responder_peers_banned")
+            .with_description("Total responder peers banned")
+            .build();
+
         Self {
             config,
             banned_peers: HashSet::new(),
             connections_per_ip: HashMap::new(),
+            active_peers: 0,
+            active_peers_gauge,
+            connections_accepted_counter,
+            connections_rejected_counter,
+            peers_banned_counter,
         }
     }
 
@@ -76,7 +110,12 @@ impl ResponderPeerVisitor for ConnectionResponder {
                 max = self.config.max_connections_per_ip,
                 "too many connections from IP, disconnecting"
             );
+            self.connections_rejected_counter.add(1, &[]);
             outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
+        } else {
+            self.active_peers += 1;
+            self.active_peers_gauge.record(self.active_peers as u64, &[]);
+            self.connections_accepted_counter.add(1, &[]);
         }
     }
 
@@ -92,6 +131,9 @@ impl ResponderPeerVisitor for ConnectionResponder {
                 self.connections_per_ip.remove(&pid.host);
             }
         }
+
+        self.active_peers = self.active_peers.saturating_sub(1);
+        self.active_peers_gauge.record(self.active_peers as u64, &[]);
     }
 
     fn visit_errored(
@@ -115,6 +157,7 @@ impl ResponderPeerVisitor for ConnectionResponder {
         if self.needs_ban(pid, state) {
             tracing::warn!("banning misbehaving responder peer");
             self.banned_peers.insert(pid.clone());
+            self.peers_banned_counter.add(1, &[]);
             outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
             return;
         }

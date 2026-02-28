@@ -12,6 +12,10 @@ pub struct HandshakeResponderConfig {
 
 pub struct HandshakeResponder {
     config: HandshakeResponderConfig,
+
+    // metrics
+    handshakes_completed_counter: opentelemetry::metrics::Counter<u64>,
+    handshakes_refused_counter: opentelemetry::metrics::Counter<u64>,
 }
 
 impl Default for HandshakeResponder {
@@ -36,7 +40,23 @@ impl Default for HandshakeResponder {
 
 impl HandshakeResponder {
     pub fn new(config: HandshakeResponderConfig) -> Self {
-        Self { config }
+        let meter = opentelemetry::global::meter("pallas-network2");
+
+        let handshakes_completed_counter = meter
+            .u64_counter("responder_handshakes_completed")
+            .with_description("Successful responder handshakes")
+            .build();
+
+        let handshakes_refused_counter = meter
+            .u64_counter("responder_handshakes_refused")
+            .with_description("Refused responder handshakes (version mismatch)")
+            .build();
+
+        Self {
+            config,
+            handshakes_completed_counter,
+            handshakes_refused_counter,
+        }
     }
 
     fn try_accept_handshake(
@@ -68,6 +88,7 @@ impl HandshakeResponder {
                 )));
 
                 state.connection = ConnectionState::Initialized;
+                self.handshakes_completed_counter.add(1, &[]);
 
                 outbound.push_ready(BehaviorOutput::ExternalEvent(
                     ResponderEvent::PeerInitialized(pid.clone(), (version, data)),
@@ -75,6 +96,7 @@ impl HandshakeResponder {
             }
             None => {
                 tracing::warn!("refusing handshake: no common version");
+                self.handshakes_refused_counter.add(1, &[]);
 
                 let our_versions: Vec<u64> =
                     self.config.supported_version.values.keys().copied().collect();

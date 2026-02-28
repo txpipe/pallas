@@ -5,8 +5,25 @@ use crate::{
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
-#[derive(Default)]
-pub struct ChainSyncResponder;
+pub struct ChainSyncResponder {
+    // metrics
+    chainsync_requests_counter: opentelemetry::metrics::Counter<u64>,
+}
+
+impl Default for ChainSyncResponder {
+    fn default() -> Self {
+        let meter = opentelemetry::global::meter("pallas-network2");
+
+        let chainsync_requests_counter = meter
+            .u64_counter("responder_chainsync_requests")
+            .with_description("Total chainsync header requests served")
+            .build();
+
+        Self {
+            chainsync_requests_counter,
+        }
+    }
+}
 
 impl ChainSyncResponder {
     fn check_requests(
@@ -28,6 +45,7 @@ impl ChainSyncResponder {
             }
             chainsync_proto::State::CanAwait | chainsync_proto::State::MustReply => {
                 tracing::debug!("next header requested");
+                self.chainsync_requests_counter.add(1, &[]);
                 outbound.push_ready(BehaviorOutput::ExternalEvent(
                     ResponderEvent::NextHeaderRequested(pid.clone()),
                 ));

@@ -85,11 +85,20 @@ pub struct ResponderState {
     pub(crate) tx_submission: proto::txsubmission::State,
     pub(crate) violation: bool,
     pub(crate) error_count: u32,
+    pub(crate) violations_counter: Option<opentelemetry::metrics::Counter<u64>>,
 }
 
 impl ResponderState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_violations_counter(
+        mut self,
+        counter: opentelemetry::metrics::Counter<u64>,
+    ) -> Self {
+        self.violations_counter = Some(counter);
+        self
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -105,6 +114,12 @@ impl ResponderState {
         }
     }
 
+    fn record_violation(&self, protocol: &'static str) {
+        if let Some(counter) = &self.violations_counter {
+            counter.add(1, &[opentelemetry::KeyValue::new("protocol", protocol)]);
+        }
+    }
+
     pub fn apply_msg(&mut self, msg: &AnyMessage) {
         match msg {
             AnyMessage::Handshake(msg) => {
@@ -113,6 +128,7 @@ impl ResponderState {
                 let Ok(new) = result else {
                     tracing::warn!("handshake violation");
                     self.violation = true;
+                    self.record_violation("handshake");
                     return;
                 };
 
@@ -124,6 +140,7 @@ impl ResponderState {
                 let Ok(new) = result else {
                     tracing::warn!("keepalive violation");
                     self.violation = true;
+                    self.record_violation("keepalive");
                     return;
                 };
 
@@ -135,6 +152,7 @@ impl ResponderState {
                 let Ok(new) = result else {
                     tracing::warn!("peer sharing violation");
                     self.violation = true;
+                    self.record_violation("peersharing");
                     return;
                 };
 
@@ -146,6 +164,7 @@ impl ResponderState {
                 let Ok(new) = result else {
                     tracing::warn!("block fetch violation");
                     self.violation = true;
+                    self.record_violation("blockfetch");
                     return;
                 };
 
@@ -157,6 +176,7 @@ impl ResponderState {
                 let Ok(new) = result else {
                     tracing::warn!("chain sync violation");
                     self.violation = true;
+                    self.record_violation("chainsync");
                     return;
                 };
 
@@ -168,6 +188,7 @@ impl ResponderState {
                 let Ok(new) = result else {
                     tracing::warn!("tx submission violation");
                     self.violation = true;
+                    self.record_violation("txsubmission");
                     return;
                 };
 
@@ -214,7 +235,6 @@ pub enum ResponderEvent {
     TxReceived(PeerId, proto::txsubmission::EraTxBody),
 }
 
-#[derive(Default)]
 pub struct ResponderBehavior {
     pub connection: connection::ConnectionResponder,
     pub handshake: handshake::HandshakeResponder,
@@ -225,6 +245,33 @@ pub struct ResponderBehavior {
     pub txsubmission: txsubmission::TxSubmissionResponder,
     pub peers: HashMap<PeerId, ResponderState>,
     pub outbound: OutboundQueue<Self>,
+
+    // metrics
+    pub violations_counter: opentelemetry::metrics::Counter<u64>,
+}
+
+impl Default for ResponderBehavior {
+    fn default() -> Self {
+        let meter = opentelemetry::global::meter("pallas-network2");
+
+        let violations_counter = meter
+            .u64_counter("responder_protocol_violations")
+            .with_description("Protocol violations by type")
+            .build();
+
+        Self {
+            connection: Default::default(),
+            handshake: Default::default(),
+            keepalive: Default::default(),
+            chainsync: Default::default(),
+            blockfetch: Default::default(),
+            peersharing: Default::default(),
+            txsubmission: Default::default(),
+            peers: Default::default(),
+            outbound: Default::default(),
+            violations_counter,
+        }
+    }
 }
 
 
@@ -292,7 +339,8 @@ impl ResponderBehavior {
     fn on_connected(&mut self, pid: &PeerId) {
         tracing::info!("responder: peer connected");
 
-        let mut state = ResponderState::new();
+        let mut state =
+            ResponderState::new().with_violations_counter(self.violations_counter.clone());
         state.connection = ConnectionState::Connected;
 
         all_visitors!(self, pid, &mut state, visit_connected);
