@@ -11,7 +11,6 @@ use pallas_network2::{Manager, PeerId};
 struct TestResponderNode {
     network: Manager<MockInitiatorInterface, ResponderBehavior, AnyMessage>,
     initialized_peers: HashSet<PeerId>,
-    #[allow(dead_code)]
     disconnected_peers: HashSet<PeerId>,
     mock_slot: u64,
 }
@@ -41,6 +40,11 @@ impl TestResponderNode {
             ResponderEvent::PeerInitialized(pid, (version, _data)) => {
                 tracing::info!(%pid, version, "peer initialized");
                 self.initialized_peers.insert(pid);
+            }
+
+            ResponderEvent::PeerDisconnected(pid) => {
+                tracing::info!(%pid, "peer disconnected");
+                self.disconnected_peers.insert(pid);
             }
 
             ResponderEvent::IntersectionRequested(pid, _points) => {
@@ -109,7 +113,7 @@ async fn all_peers_complete_protocol_flow() {
         loop {
             node.tick().await;
 
-            if node.initialized_peers.len() == num_peers as usize {
+            if node.disconnected_peers.len() == num_peers as usize {
                 break;
             }
         }
@@ -118,12 +122,18 @@ async fn all_peers_complete_protocol_flow() {
 
     assert!(
         result.is_ok(),
-        "test timed out waiting for peers to initialize"
+        "test timed out waiting for protocol flow to complete"
     );
 
     assert_eq!(
         node.initialized_peers.len(),
         num_peers as usize,
         "expected all peers to initialize"
+    );
+
+    assert_eq!(
+        node.disconnected_peers.len(),
+        num_peers as usize,
+        "expected all peers to disconnect after completing protocol flow"
     );
 }

@@ -75,13 +75,36 @@ impl HandshakeResponder {
             .iter()
             .filter(|(num, _)| self.config.supported_version.values.contains_key(num))
             .max_by_key(|(num, _)| *num)
-            .map(|(num, data)| (*num, data.clone()));
+            .map(|(num, peer_data)| {
+                let our_data = &self.config.supported_version.values[num];
+                (*num, peer_data.clone(), our_data.clone())
+            });
 
         match negotiated {
-            Some((version, data)) => {
+            Some((version, peer_data, our_data)) => {
+                if peer_data.network_magic != our_data.network_magic {
+                    tracing::warn!(
+                        peer_magic = peer_data.network_magic,
+                        our_magic = our_data.network_magic,
+                        "refusing handshake: network magic mismatch"
+                    );
+                    self.handshakes_refused_counter.add(1, &[]);
+                    let msg = handshake_proto::Message::Refuse(
+                        handshake_proto::RefuseReason::Refused(
+                            version,
+                            "network magic mismatch".to_string(),
+                        ),
+                    );
+                    outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                        pid.clone(),
+                        AnyMessage::Handshake(msg),
+                    )));
+                    return;
+                }
+
                 tracing::info!(version, "accepting handshake");
 
-                let msg = handshake_proto::Message::Accept(version, data.clone());
+                let msg = handshake_proto::Message::Accept(version, our_data.clone());
                 outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                     pid.clone(),
                     AnyMessage::Handshake(msg),
@@ -91,7 +114,7 @@ impl HandshakeResponder {
                 self.handshakes_completed_counter.add(1, &[]);
 
                 outbound.push_ready(BehaviorOutput::ExternalEvent(
-                    ResponderEvent::PeerInitialized(pid.clone(), (version, data)),
+                    ResponderEvent::PeerInitialized(pid.clone(), (version, our_data)),
                 ));
             }
             None => {

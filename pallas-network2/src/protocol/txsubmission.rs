@@ -39,7 +39,7 @@ pub enum State {
     Idle,
     TxIdsNonBlocking,
     TxIdsBlocking,
-    Txs,
+    Txs(Vec<EraTxBody>),
     Done,
 }
 
@@ -52,7 +52,7 @@ impl State {
             },
             State::Idle => match msg {
                 Message::RequestTxIds(..) => Ok(State::TxIdsBlocking),
-                Message::RequestTxs(..) => Ok(State::Txs),
+                Message::RequestTxs(..) => Ok(State::Txs(Vec::new())),
                 _ => Err(Error::InvalidInbound),
             },
             State::TxIdsNonBlocking => match msg {
@@ -64,8 +64,8 @@ impl State {
 
                 _ => Err(Error::InvalidInbound),
             },
-            State::Txs => match msg {
-                Message::ReplyTxs(..) => Ok(State::Txs),
+            State::Txs(_) => match msg {
+                Message::ReplyTxs(txs) => Ok(State::Txs(txs.clone())),
 
                 _ => Err(Error::InvalidInbound),
             },

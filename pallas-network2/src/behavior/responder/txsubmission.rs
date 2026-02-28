@@ -1,9 +1,9 @@
 use crate::{
-    InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
     protocol::txsubmission as txsubmission_proto,
 };
 
-use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState};
+use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
 pub struct TxSubmissionResponderConfig {
     pub max_tx_request: u16,
@@ -76,15 +76,16 @@ impl TxSubmissionResponder {
 
     fn try_extract_txs(
         &self,
-        _pid: &PeerId,
+        pid: &PeerId,
         state: &ResponderState,
-        _outbound: &mut OutboundQueue<ResponderBehavior>,
+        outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
-        if let txsubmission_proto::State::Txs = &state.tx_submission {
-            // The state machine stays in Txs after ReplyTxs, so we can't easily
-            // detect new replies. For now, this is a placeholder for when the
-            // protocol state machine supports extracting received tx data.
-            tracing::trace!("tx submission in Txs state");
+        if let txsubmission_proto::State::Txs(txs) = &state.tx_submission {
+            for tx in txs {
+                outbound.push_ready(BehaviorOutput::ExternalEvent(
+                    ResponderEvent::TxReceived(pid.clone(), tx.clone()),
+                ));
+            }
         }
     }
 }

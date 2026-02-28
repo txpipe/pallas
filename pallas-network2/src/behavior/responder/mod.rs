@@ -228,6 +228,7 @@ pub enum ResponderCommand {
 #[derive(Debug)]
 pub enum ResponderEvent {
     PeerInitialized(PeerId, AcceptedVersion),
+    PeerDisconnected(PeerId),
     IntersectionRequested(PeerId, Vec<proto::Point>),
     NextHeaderRequested(PeerId),
     BlockRangeRequested(PeerId, BlockRange),
@@ -372,6 +373,10 @@ impl ResponderBehavior {
         });
 
         self.peers.remove(pid);
+
+        self.outbound.push_ready(BehaviorOutput::ExternalEvent(
+            ResponderEvent::PeerDisconnected(pid.clone()),
+        ));
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid))]
