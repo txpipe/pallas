@@ -54,6 +54,10 @@ impl MockResponderNode {
                 tracing::info!(%pid, version, "peer initialized");
             }
 
+            ResponderEvent::PeerDisconnected(pid) => {
+                tracing::info!(%pid, "peer disconnected");
+            }
+
             ResponderEvent::IntersectionRequested(pid, points) => {
                 tracing::info!(%pid, num_points = points.len(), "intersection requested");
 
