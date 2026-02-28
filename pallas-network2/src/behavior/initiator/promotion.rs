@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
-use crate::{
-    OutboundQueue, PeerId,
-    behavior::{InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag},
-};
+use crate::{OutboundQueue, PeerId};
+
+use super::{InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag};
 
 impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
     fn from(addr: crate::protocol::peersharing::PeerAddress) -> Self {

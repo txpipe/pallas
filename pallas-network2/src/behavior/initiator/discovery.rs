@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
-use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{AnyMessage, InitiatorBehavior, InitiatorState, PeerVisitor},
-};
+use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
+
+use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 
 pub struct DiscoveryConfig {
     pub high_water_mark: u8,

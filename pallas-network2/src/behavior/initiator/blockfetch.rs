@@ -4,11 +4,10 @@ use crate::protocol::blockfetch as blockfetch_proto;
 
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::{
-        AnyMessage, BlockRange, ConnectionState, InitiatorBehavior, InitiatorEvent, InitiatorState,
-        PeerVisitor,
-    },
+    behavior::{AnyMessage, BlockRange, ConnectionState},
 };
+
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
 pub type BlockFetchConfig = ();
 
