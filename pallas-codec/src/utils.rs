@@ -858,9 +858,9 @@ where
 
         let inner: Vec<T> = d.decode_with(ctx)?;
 
-        // if inner.is_empty() {
-        //     return Err(Error::message("decoding empty set as NonEmptySet"));
-        // }
+        if inner.is_empty() {
+            return Err(Error::message("decoding empty set as NonEmptySet"));
+        }
 
         Ok(Self(inner))
     }
@@ -998,7 +998,7 @@ impl From<&AnyUInt> for u64 {
 /// Introduced in Conway
 /// positive_coin = 1 .. 18446744073709551615
 #[derive(
-    Encode, Decode, Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize,
+    Encode, Debug, PartialEq, Copy, Clone, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize,
 )]
 #[serde(transparent)]
 #[cbor(transparent)]
@@ -1015,6 +1015,17 @@ impl TryFrom<u64> for PositiveCoin {
         Ok(Self(value))
     }
 }
+
+impl<'b, C> minicbor::Decode<'b, C> for PositiveCoin {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let n = d.decode_with(ctx)?;
+        if n == 0 {
+            return Err(minicbor::decode::Error::message("PositiveCoin must not be 0"));
+        }
+        Ok(PositiveCoin(n))
+    }
+}
+
 
 impl From<PositiveCoin> for u64 {
     fn from(value: PositiveCoin) -> Self {
