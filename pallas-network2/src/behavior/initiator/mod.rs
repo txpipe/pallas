@@ -438,7 +438,8 @@ impl Stream for InitiatorBehavior {
 
         match poll {
             Poll::Ready(Some(x)) => Poll::Ready(Some(x)),
-            _ => Poll::Pending,
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
         }
     }
 }

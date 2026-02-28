@@ -344,6 +344,10 @@ impl ResponderBehavior {
         self.peers.entry(pid.clone()).and_modify(|state| {
             state.apply_msg(msg);
 
+            if state.violation {
+                return;
+            }
+
             all_visitors!(self, pid, state, visit_outbound_msg);
         });
     }
@@ -494,7 +498,8 @@ impl Stream for ResponderBehavior {
 
         match poll {
             Poll::Ready(Some(x)) => Poll::Ready(Some(x)),
-            _ => Poll::Pending,
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
         }
     }
 }

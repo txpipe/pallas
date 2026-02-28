@@ -99,6 +99,13 @@ impl ResponderPeerVisitor for ConnectionResponder {
         _state: &mut ResponderState,
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
+        if self.banned_peers.contains(pid) {
+            tracing::debug!(peer = %pid, "rejecting connection from banned peer");
+            self.connections_rejected_counter.add(1, &[]);
+            outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
+            return;
+        }
+
         let count = self.connections_per_ip.entry(pid.host.clone()).or_insert(0);
         *count += 1;
 
