@@ -498,7 +498,7 @@ impl Stream for ResponderBehavior {
 
         match poll {
             Poll::Ready(Some(x)) => Poll::Ready(Some(x)),
-            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Ready(None) => Poll::Pending,
             Poll::Pending => Poll::Pending,
         }
     }
