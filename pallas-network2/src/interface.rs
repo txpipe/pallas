@@ -192,10 +192,7 @@ impl<M: Message> TcpConnectionPool<M> {
         self.futures.push(Box::pin(future));
     }
 
-    fn poll_next_event(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<InterfaceEvent<M>>> {
+    fn poll_next_event(&mut self, cx: &mut Context<'_>) -> Poll<Option<InterfaceEvent<M>>> {
         let event = self.futures.poll_next_unpin(cx);
 
         match event {
@@ -266,9 +263,7 @@ impl<M: Message> Stream for TcpInterface<M> {
 // TcpListenerInterface — inbound connections via a bound TCP listener
 // ---------------------------------------------------------------------------
 
-async fn accept_tcp<M: Message>(
-    listener: Arc<tokio::net::TcpListener>,
-) -> InternalEvent<M> {
+async fn accept_tcp<M: Message>(listener: Arc<tokio::net::TcpListener>) -> InternalEvent<M> {
     match Bearer::accept_tcp(&listener).await {
         Ok((bearer, addr)) => {
             let pid = PeerId {

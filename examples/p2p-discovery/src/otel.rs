@@ -16,7 +16,11 @@ use tracing_subscriber::{EnvFilter, Layer as _};
 fn get_resource() -> Resource {
     static RESOURCE: OnceLock<Resource> = OnceLock::new();
     RESOURCE
-        .get_or_init(|| Resource::builder().with_service_name("pallas-p2p-discovery").build())
+        .get_or_init(|| {
+            Resource::builder()
+                .with_service_name("pallas-p2p-discovery")
+                .build()
+        })
         .clone()
 }
 

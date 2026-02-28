@@ -1,7 +1,4 @@
-use crate::{
-    InterfaceCommand, OutboundQueue, PeerId,
-    behavior::AnyMessage,
-};
+use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 

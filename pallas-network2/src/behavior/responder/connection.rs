@@ -1,9 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    InterfaceCommand, OutboundQueue, PeerId,
-    behavior::ConnectionState,
-};
+use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::ConnectionState};
 
 use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState};
 
@@ -114,7 +111,8 @@ impl ResponderPeerVisitor for ConnectionResponder {
             outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
         } else {
             self.active_peers += 1;
-            self.active_peers_gauge.record(self.active_peers as u64, &[]);
+            self.active_peers_gauge
+                .record(self.active_peers as u64, &[]);
             self.connections_accepted_counter.add(1, &[]);
         }
     }
@@ -133,7 +131,8 @@ impl ResponderPeerVisitor for ConnectionResponder {
         }
 
         self.active_peers = self.active_peers.saturating_sub(1);
-        self.active_peers_gauge.record(self.active_peers as u64, &[]);
+        self.active_peers_gauge
+            .record(self.active_peers as u64, &[]);
     }
 
     fn visit_errored(

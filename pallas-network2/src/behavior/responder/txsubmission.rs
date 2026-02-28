@@ -1,6 +1,5 @@
 use crate::{
-    InterfaceCommand, OutboundQueue, PeerId,
-    behavior::AnyMessage,
+    InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
     protocol::txsubmission as txsubmission_proto,
 };
 
@@ -12,9 +11,7 @@ pub struct TxSubmissionResponderConfig {
 
 impl Default for TxSubmissionResponderConfig {
     fn default() -> Self {
-        Self {
-            max_tx_request: 10,
-        }
+        Self { max_tx_request: 10 }
     }
 }
 
@@ -70,11 +67,7 @@ impl TxSubmissionResponder {
         }
 
         tracing::debug!("requesting tx ids");
-        let msg = txsubmission_proto::Message::RequestTxIds(
-            true,
-            0,
-            self.config.max_tx_request,
-        );
+        let msg = txsubmission_proto::Message::RequestTxIds(true, 0, self.config.max_tx_request);
         outbound.push_ready(InterfaceCommand::Send(
             pid.clone(),
             AnyMessage::TxSubmission(msg),

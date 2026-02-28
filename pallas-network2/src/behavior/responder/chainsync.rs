@@ -1,7 +1,4 @@
-use crate::{
-    BehaviorOutput, OutboundQueue, PeerId,
-    protocol::chainsync as chainsync_proto,
-};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, protocol::chainsync as chainsync_proto};
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 

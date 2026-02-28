@@ -1,6 +1,5 @@
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::AnyMessage,
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
     protocol::MAINNET_MAGIC,
 };
 

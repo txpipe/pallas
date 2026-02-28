@@ -1,7 +1,4 @@
-use crate::{
-    BehaviorOutput, OutboundQueue, PeerId,
-    protocol::peersharing as peersharing_proto,
-};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, protocol::peersharing as peersharing_proto};
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 

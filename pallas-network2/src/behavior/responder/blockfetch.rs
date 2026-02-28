@@ -1,7 +1,4 @@
-use crate::{
-    BehaviorOutput, OutboundQueue, PeerId,
-    protocol::blockfetch as blockfetch_proto,
-};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, protocol::blockfetch as blockfetch_proto};
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 

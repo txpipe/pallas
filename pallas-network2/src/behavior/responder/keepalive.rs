@@ -1,6 +1,5 @@
 use crate::{
-    InterfaceCommand, OutboundQueue, PeerId,
-    behavior::AnyMessage,
+    InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
     protocol::keepalive as keepalive_proto,
 };
 

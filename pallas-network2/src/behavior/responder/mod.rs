@@ -274,7 +274,6 @@ impl Default for ResponderBehavior {
     }
 }
 
-
 macro_rules! all_visitors {
     ($self:ident, $pid:ident, $state:expr, $method:ident) => {
         $self.connection.$method($pid, $state, &mut $self.outbound);
@@ -283,7 +282,9 @@ macro_rules! all_visitors {
         $self.chainsync.$method($pid, $state, &mut $self.outbound);
         $self.blockfetch.$method($pid, $state, &mut $self.outbound);
         $self.peersharing.$method($pid, $state, &mut $self.outbound);
-        $self.txsubmission.$method($pid, $state, &mut $self.outbound);
+        $self
+            .txsubmission
+            .$method($pid, $state, &mut $self.outbound);
     };
 }
 
@@ -300,25 +301,32 @@ impl ResponderBehavior {
             // visitor on every message, which caused duplicate responses
             // (e.g. multiple ResponseKeepAlive) when several mini-protocol
             // messages arrived in quick succession.
-            self.connection.visit_inbound_msg(pid, state, &mut self.outbound);
+            self.connection
+                .visit_inbound_msg(pid, state, &mut self.outbound);
             match msg {
                 AnyMessage::Handshake(_) => {
-                    self.handshake.visit_inbound_msg(pid, state, &mut self.outbound);
+                    self.handshake
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
                 AnyMessage::KeepAlive(_) => {
-                    self.keepalive.visit_inbound_msg(pid, state, &mut self.outbound);
+                    self.keepalive
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
                 AnyMessage::ChainSync(_) => {
-                    self.chainsync.visit_inbound_msg(pid, state, &mut self.outbound);
+                    self.chainsync
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
                 AnyMessage::BlockFetch(_) => {
-                    self.blockfetch.visit_inbound_msg(pid, state, &mut self.outbound);
+                    self.blockfetch
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
                 AnyMessage::PeerSharing(_) => {
-                    self.peersharing.visit_inbound_msg(pid, state, &mut self.outbound);
+                    self.peersharing
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
                 AnyMessage::TxSubmission(_) => {
-                    self.txsubmission.visit_inbound_msg(pid, state, &mut self.outbound);
+                    self.txsubmission
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
             }
         });
@@ -386,9 +394,11 @@ impl ResponderBehavior {
         tip: proto::chainsync::Tip,
     ) {
         let msg = proto::chainsync::Message::IntersectFound(point, tip);
-        self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-            InterfaceCommand::Send(pid.clone(), AnyMessage::ChainSync(msg)),
-        ));
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                pid.clone(),
+                AnyMessage::ChainSync(msg),
+            )));
     }
 
     fn provide_header(
@@ -398,56 +408,54 @@ impl ResponderBehavior {
         tip: proto::chainsync::Tip,
     ) {
         let msg = proto::chainsync::Message::RollForward(header, tip);
-        self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-            InterfaceCommand::Send(pid.clone(), AnyMessage::ChainSync(msg)),
-        ));
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                pid.clone(),
+                AnyMessage::ChainSync(msg),
+            )));
     }
 
-    fn provide_rollback(
-        &mut self,
-        pid: &PeerId,
-        point: proto::Point,
-        tip: proto::chainsync::Tip,
-    ) {
+    fn provide_rollback(&mut self, pid: &PeerId, point: proto::Point, tip: proto::chainsync::Tip) {
         let msg = proto::chainsync::Message::RollBackward(point, tip);
-        self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-            InterfaceCommand::Send(pid.clone(), AnyMessage::ChainSync(msg)),
-        ));
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                pid.clone(),
+                AnyMessage::ChainSync(msg),
+            )));
     }
 
     fn provide_blocks(&mut self, pid: &PeerId, blocks: Vec<proto::blockfetch::Body>) {
         // Send StartBatch
-        self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-            InterfaceCommand::Send(
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                 pid.clone(),
                 AnyMessage::BlockFetch(proto::blockfetch::Message::StartBatch),
-            ),
-        ));
+            )));
 
         // Send each block
         for block in blocks {
-            self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-                InterfaceCommand::Send(
+            self.outbound
+                .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                     pid.clone(),
                     AnyMessage::BlockFetch(proto::blockfetch::Message::Block(block)),
-                ),
-            ));
+                )));
         }
 
         // Send BatchDone
-        self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-            InterfaceCommand::Send(
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                 pid.clone(),
                 AnyMessage::BlockFetch(proto::blockfetch::Message::BatchDone),
-            ),
-        ));
+            )));
     }
 
     fn provide_peers(&mut self, pid: &PeerId, peers: Vec<proto::peersharing::PeerAddress>) {
         let msg = proto::peersharing::Message::SharePeers(peers);
-        self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
-            InterfaceCommand::Send(pid.clone(), AnyMessage::PeerSharing(msg)),
-        ));
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                pid.clone(),
+                AnyMessage::PeerSharing(msg),
+            )));
     }
 
     fn ban_peer(&mut self, pid: &PeerId) {

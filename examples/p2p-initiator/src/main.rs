@@ -1,13 +1,12 @@
 use std::time::Duration;
 
 use pallas_network2::{
-    Manager,
     behavior::{
-        AnyMessage,
         initiator::{InitiatorBehavior, InitiatorCommand, InitiatorEvent},
+        AnyMessage,
     },
     interface::TcpInterface,
-    protocol as proto,
+    protocol as proto, Manager,
 };
 use tokio::{select, time::Interval};
 
@@ -41,8 +40,7 @@ impl ClientNode {
                     tip_slot = tip.1,
                     "intersection found"
                 );
-                self.network
-                    .execute(InitiatorCommand::ContinueSync(pid));
+                self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
 
             InitiatorEvent::BlockHeaderReceived(pid, header, tip) => {
@@ -52,8 +50,7 @@ impl ClientNode {
                     tip_slot = tip.1,
                     "header received"
                 );
-                self.network
-                    .execute(InitiatorCommand::ContinueSync(pid));
+                self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
 
             InitiatorEvent::RollbackReceived(pid, point, tip) => {
@@ -63,8 +60,7 @@ impl ClientNode {
                     tip_slot = tip.1,
                     "rollback received"
                 );
-                self.network
-                    .execute(InitiatorCommand::ContinueSync(pid));
+                self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
 
             other => {
@@ -106,10 +102,9 @@ async fn main() {
     let mut node = ClientNode::new();
 
     // Add the responder peer and start syncing from Origin
-    node.network
-        .execute(InitiatorCommand::IncludePeer(
-            "127.0.0.1:3000".parse().unwrap(),
-        ));
+    node.network.execute(InitiatorCommand::IncludePeer(
+        "127.0.0.1:3000".parse().unwrap(),
+    ));
     node.network
         .execute(InitiatorCommand::StartSync(vec![proto::Point::Origin]));
 

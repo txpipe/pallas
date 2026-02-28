@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
-    behavior::AnyMessage,
-};
+use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 

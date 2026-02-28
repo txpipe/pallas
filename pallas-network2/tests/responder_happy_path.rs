@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use pallas_network2::behavior::responder::{ResponderBehavior, ResponderCommand, ResponderEvent};
 use pallas_network2::behavior::AnyMessage;
+use pallas_network2::behavior::responder::{ResponderBehavior, ResponderCommand, ResponderEvent};
 use pallas_network2::emulation::initiator_mock::MockInitiatorInterface;
 use pallas_network2::protocol::{self as proto, chainsync, peersharing};
 use pallas_network2::{Manager, PeerId};
@@ -116,7 +116,10 @@ async fn all_peers_complete_protocol_flow() {
     })
     .await;
 
-    assert!(result.is_ok(), "test timed out waiting for peers to initialize");
+    assert!(
+        result.is_ok(),
+        "test timed out waiting for peers to initialize"
+    );
 
     assert_eq!(
         node.initialized_peers.len(),

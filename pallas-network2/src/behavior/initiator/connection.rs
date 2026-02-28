@@ -1,7 +1,4 @@
-use crate::{
-    InterfaceCommand, OutboundQueue, PeerId,
-    behavior::ConnectionState,
-};
+use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::ConnectionState};
 
 use super::{InitiatorBehavior, InitiatorState, PeerVisitor, PromotionTag};
 

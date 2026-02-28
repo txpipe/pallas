@@ -98,8 +98,13 @@ impl HandshakeResponder {
                 tracing::warn!("refusing handshake: no common version");
                 self.handshakes_refused_counter.add(1, &[]);
 
-                let our_versions: Vec<u64> =
-                    self.config.supported_version.values.keys().copied().collect();
+                let our_versions: Vec<u64> = self
+                    .config
+                    .supported_version
+                    .values
+                    .keys()
+                    .copied()
+                    .collect();
 
                 let msg = handshake_proto::Message::Refuse(
                     handshake_proto::RefuseReason::VersionMismatch(our_versions),

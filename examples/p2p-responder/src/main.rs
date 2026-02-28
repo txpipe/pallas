@@ -5,8 +5,8 @@ use std::{net::Ipv4Addr, time::Duration};
 use pallas_network2::{
     behavior::{
         responder::{
-            ResponderBehavior, ResponderCommand, ResponderEvent,
             connection::{ConnectionResponder, ConnectionResponderConfig},
+            ResponderBehavior, ResponderCommand, ResponderEvent,
         },
         AnyMessage,
     },

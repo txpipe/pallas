@@ -84,8 +84,7 @@ impl Bearer {
         let stream = tcp::TcpStream::connect(addr).await?;
         Self::configure_tcp(&stream)?;
         // Aggressive linger avoids TIME_WAIT accumulation when connecting to many nodes
-        socket2::SockRef::from(&stream)
-            .set_linger(Some(std::time::Duration::from_secs(0)))?;
+        socket2::SockRef::from(&stream).set_linger(Some(std::time::Duration::from_secs(0)))?;
         Ok(Self::Tcp(stream))
     }
 

@@ -1,10 +1,4 @@
-use std::{
-    collections::HashMap,
-    future::Future,
-    pin::Pin,
-    task::Poll,
-    time::Duration,
-};
+use std::{collections::HashMap, future::Future, pin::Pin, task::Poll, time::Duration};
 
 use futures::{
     Stream, StreamExt,
@@ -16,8 +10,7 @@ use crate::{
     Interface, InterfaceCommand, InterfaceEvent, PeerId,
     behavior::AnyMessage,
     protocol::{
-        self as proto, MAINNET_MAGIC,
-        blockfetch, chainsync, handshake, keepalive, peersharing,
+        self as proto, MAINNET_MAGIC, blockfetch, chainsync, handshake, keepalive, peersharing,
     },
 };
 
