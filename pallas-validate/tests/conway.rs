@@ -1187,6 +1187,7 @@ mod conway_tests {
 
                 plutus_v2: None,
                 plutus_v3: None,
+                plutus_v4: None,
                 unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
@@ -1532,6 +1533,7 @@ mod conway_tests {
                     281145, 18848, 0, 1, 180194, 159, 1, 1, 158519, 8942, 0, 1, 159378, 8813, 0, 1,
                     107490, 3298, 1, 106057, 655, 1, 1964219, 24520, 3,
                 ]),
+                plutus_v4: None,
                 unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {
@@ -1715,6 +1717,7 @@ mod conway_tests {
                     281145, 18848, 0, 1, 180194, 159, 1, 1, 158519, 8942, 0, 1, 159378, 8813, 0, 1,
                     107490, 3298, 1, 106057, 655, 1, 1964219, 24520, 3,
                 ]),
+                plutus_v4: None,
                 unknown: BTreeMap::default(),
             },
             execution_costs: pallas_primitives::ExUnitPrices {

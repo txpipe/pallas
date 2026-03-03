@@ -775,6 +775,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
         let mut plutus_v1 = None;
         let mut plutus_v2 = None;
         let mut plutus_v3 = None;
+        let mut plutus_v4 = None;
         let mut unknown: Vec<(u64, CostModel)> = Vec::new();
 
         for (k, v) in models.iter() {
@@ -782,6 +783,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
                 0 => plutus_v1 = Some(v.clone()),
                 1 => plutus_v2 = Some(v.clone()),
                 2 => plutus_v3 = Some(v.clone()),
+                3 => plutus_v4 = Some(v.clone()),
                 _ => unknown.push((*k, v.clone())),
             }
         }
@@ -790,8 +792,40 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
             plutus_v1,
             plutus_v2,
             plutus_v3,
+            plutus_v4,
             unknown: unknown.into(),
         })
+    }
+}
+
+impl<C> minicbor::Encode<C> for FieldedRewardAccount {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        let network: u8 = self.network.clone().into();
+
+        let hash = match &self.stake_credential {
+            StakeCredential::ScriptHash(hash) | StakeCredential::AddrKeyhash(hash) => hash,
+        };
+
+        let mut bytes: [u8; 29] = [0u8; 29];
+
+        bytes[0] = network;
+        bytes[1..].copy_from_slice(hash.as_ref());
+
+        e.bytes(&bytes)?;
+        Ok(())
+    }
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for FieldedRewardAccount {
+    fn decode(
+        d: &mut minicbor::Decoder<'b>,
+        _ctx: &mut C,
+    ) -> Result<Self, minicbor::decode::Error> {
+        Ok(d.bytes()?.into())
     }
 }
 
