@@ -39,8 +39,9 @@ use pallas_network::miniprotocols::localtxsubmission::{
     ConwayDelegPredFailure, ConwayGovCertPredFailure, ConwayGovPredFailure, ConwayLedgerFailure,
     ConwayTxCert, ConwayUtxoWPredFailure, DeltaCoin, DisplayAddress, DisplayCoin, DisplayOSet,
     DisplayPolicyId, DisplayScriptHash, DisplayVotingProcedures, EpochNo, FailureDescription,
-    KeyHash, Mismatch, OHashMap, PlutusPurpose, SMaybe, SafeHash, ShelleyPoolPredFailure, SlotNo,
-    TagMismatchDescription, TxOutSource, Utxo, UtxoFailure, UtxosFailure, VKey, ValidityInterval,
+    KeyHash, Mismatch, MismatchArr, OHashMap, PlutusPurpose, SMaybe, SafeHash,
+    ShelleyPoolPredFailure, SlotNo, TagMismatchDescription, TxOutSource, Utxo, UtxoFailure,
+    UtxosFailure, VKey, ValidityInterval,
 };
 
 use super::{
@@ -80,7 +81,12 @@ impl HaskellDisplay for ConwayLedgerFailure {
                 format!("ConwayTxRefScriptsSizeTooBig ({})", as_mismatch(s2, s1))
             }
             MempoolFailure(e) => format!("ConwayMempoolFailure {}", e.to_haskell_str()),
-            U8(v) => format!("U8 {v}"),
+            WithdrawalsMissingAccounts(w) => {
+                format!("ConwayWithdrawalsMissingAccounts ({})", w.to_haskell_str())
+            }
+            IncompleteWithdrawals(w) => {
+                format!("ConwayIncompleteWithdrawals ({})", w.to_haskell_str())
+            }
         }
     }
 }
@@ -132,7 +138,7 @@ impl HaskellDisplay for ConwayCertsPredFailure {
 
         match self {
             WithdrawalsNotInRewardsCERTS(m) => {
-                format!("WithdrawalsNotInRewardsCERTS {}", m.to_haskell_str_p())
+                format!("WithdrawalsNotInRewardsCERTS ({})", m.as_withdrawals())
             }
             CertFailure(e) => format!("CertFailure {}", e.to_haskell_str_p()),
         }
@@ -168,6 +174,13 @@ impl HaskellDisplay for ShelleyPoolPredFailure {
                     "PoolMedataHashTooBig {} {}",
                     kh.to_haskell_str_p(),
                     size.to_haskell_str_p()
+                )
+            }
+            VRFKeyHashAlreadyRegistered(kh, vrf_hash) => {
+                format!(
+                    "VRFKeyHashAlreadyRegistered {} {}",
+                    kh.to_haskell_str_p(),
+                    vrf_hash.to_haskell_str_p()
                 )
             }
         }
@@ -231,6 +244,14 @@ impl HaskellDisplay for ConwayUtxoWPredFailure {
             }
             MalformedReferenceScripts(set) => {
                 format!("(MalformedReferenceScripts {})", set.to_haskell_str_p())
+            }
+            ScriptIntegrityHashMismatch(m, extra) => {
+                format!(
+                    "(ScriptIntegrityHashMismatch (Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}) {})",
+                    m.0.to_haskell_str(),
+                    m.1.to_haskell_str(),
+                    extra.to_haskell_str_p()
+                )
             }
         }
     }
@@ -315,6 +336,9 @@ impl HaskellDisplay for ConwayGovPredFailure {
                     "TreasuryWithdrawalReturnAccountsDoNotExist {}",
                     s.to_haskell_str_p()
                 )
+            }
+            UnelectedCommitteeVoters(s) => {
+                format!("UnelectedCommitteeVoters {}", s.to_haskell_str_p())
             }
         }
     }
@@ -459,6 +483,10 @@ impl HaskellDisplay for ConwayContextError {
                 "TreasuryDonationFieldNotSupported ({})",
                 display_coin.to_haskell_str()
             ),
+            ReferenceInputsNotDisjointFromInputs(inputs) => format!(
+                "ReferenceInputsNotDisjointFromInputs ({})",
+                inputs.to_haskell_str()
+            ),
         }
         .to_string()
     }
@@ -534,6 +562,7 @@ impl HaskellDisplay for Language {
             PlutusV1 => "PlutusV1".to_string(),
             PlutusV2 => "PlutusV2".to_string(),
             PlutusV3 => "PlutusV3".to_string(),
+            PlutusV4 => "PlutusV4".to_string(),
         }
     }
 }
@@ -594,6 +623,12 @@ impl HaskellDisplay for ConwayDelegPredFailure {
                 "DelegateeStakePoolNotRegisteredDELEG ({})",
                 hash.to_haskell_str()
             ),
+            DepositIncorrectDELEG(m) => {
+                format!("DepositIncorrectDELEG ({})", as_mismatch(&m.1, &m.0))
+            }
+            RefundIncorrectDELEG(m) => {
+                format!("RefundIncorrectDELEG ({})", as_mismatch(&m.1, &m.0))
+            }
         }
     }
 }
@@ -609,6 +644,15 @@ impl HaskellDisplay for TransactionInput {
 }
 
 impl<T> HaskellDisplay for Mismatch<T>
+where
+    T: HaskellDisplay,
+{
+    fn to_haskell_str(&self) -> String {
+        as_mismatch(&self.1, &self.0)
+    }
+}
+
+impl<T> HaskellDisplay for MismatchArr<T>
 where
     T: HaskellDisplay,
 {
@@ -761,6 +805,7 @@ fn is_primitive<T: 'static>() -> bool {
         || std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
         || std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>()
         || std::any::TypeId::of::<T>() == std::any::TypeId::of::<String>()
+        || std::any::TypeId::of::<T>() == std::any::TypeId::of::<Bytes>()
 }
 impl HaskellDisplay for DRep {
     fn to_haskell_str(&self) -> String {
@@ -868,7 +913,7 @@ impl HaskellDisplay for PParamsUpdate {
             self.max_transaction_size.to_haskell_str(),
             self.max_block_header_size.to_haskell_str(),
             self.key_deposit.as_display_coin(),
-            self.pool_deposit.as_display_coin(),
+            self.pool_deposit.as_compact_coin(),
             self.maximum_epoch.as_epoch_interval(),
             self.desired_number_of_stake_pools.to_haskell_str(),
             self.pool_pledge_influence.to_haskell_str_p(),
@@ -890,7 +935,7 @@ impl HaskellDisplay for PParamsUpdate {
             self.committee_term_limit.as_epoch_interval(),
             self.governance_action_validity_period.as_epoch_interval(),
             self.governance_action_deposit.as_display_coin(),
-            self.drep_deposit.as_display_coin(),
+            self.drep_deposit.as_compact_coin(),
             self.drep_inactivity_period.as_epoch_interval(),
             self.minfee_refscript_cost_per_byte.to_haskell_str_p()
         )
@@ -1502,6 +1547,41 @@ impl AsDisplayCoin for Coin {
         format!("Coin {}", self.to_haskell_str())
     }
 }
+trait AsWithdrawals {
+    fn as_withdrawals(&self) -> String;
+}
+
+impl AsWithdrawals for OHashMap<FieldedRewardAccount, DisplayCoin> {
+    fn as_withdrawals(&self) -> String {
+        format!("Withdrawals {{unWithdrawals = {}}}", self.to_haskell_str())
+    }
+}
+
+trait AsCompactCoin {
+    fn as_compact_coin(&self) -> String;
+}
+
+impl AsCompactCoin for Option<u64> {
+    fn as_compact_coin(&self) -> String {
+        match self {
+            Option::Some(v) => format!("SJust (CompactCoin {{unCompactCoin = {}}})", v),
+            _ => "SNothing".to_string(),
+        }
+    }
+}
+
+impl AsCompactCoin for Option<Coin> {
+    fn as_compact_coin(&self) -> String {
+        match self {
+            Option::Some(v) => format!(
+                "SJust (CompactCoin {{unCompactCoin = {}}})",
+                v.to_haskell_str()
+            ),
+            _ => "SNothing".to_string(),
+        }
+    }
+}
+
 trait AsEpochInterval {
     fn as_epoch_interval(&self) -> String;
 }
@@ -1790,7 +1870,7 @@ impl HaskellDisplay for PseudoScript<NativeScript> {
     fn to_haskell_str(&self) -> String {
         use PseudoScript::*;
         match self {
-            NativeScript(ns) => format!("TimelockScript {}", ns.to_haskell_str()),
+            NativeScript(ns) => format!("NativeScript {}", ns.to_haskell_str()),
             PlutusV1Script(ps) => format!(
                 "PlutusScript PlutusV1 {}",
                 Hasher::<224>::hash_tagged(ps.0.as_slice(), 1).as_script_hash()
@@ -1813,17 +1893,17 @@ impl HaskellDisplay for NativeScript {
 
         let str = match self {
             ScriptPubkey(key_hash) => {
-                format!("Signature ({})", key_hash.as_key_hash())
+                format!("TimelockSignature ({})", key_hash.as_key_hash())
             }
-            ScriptAll(vec) => format!("AllOf ({})", vec.as_strict_seq()),
-            ScriptAny(vec) => format!("AnyOf ({})", vec.as_strict_seq()),
-            ScriptNOfK(m, vec) => format!("MOfN {} ({})", m, vec.as_strict_seq()),
-            InvalidBefore(slot_no) => format!("TimeStart ({})", slot_no.as_slot_no()),
-            InvalidHereafter(slot_no) => format!("TimeExpire ({})", slot_no.as_slot_no()),
+            ScriptAll(vec) => format!("TimelockAllOf ({})", vec.as_strict_seq()),
+            ScriptAny(vec) => format!("TimelockAnyOf ({})", vec.as_strict_seq()),
+            ScriptNOfK(m, vec) => format!("TimelockMOf {} ({})", m, vec.as_strict_seq()),
+            InvalidBefore(slot_no) => format!("TimelockTimeStart ({})", slot_no.as_slot_no()),
+            InvalidHereafter(slot_no) => format!("TimelockTimeExpire ({})", slot_no.as_slot_no()),
         };
 
         format!(
-            "TimelockConstr {} ({})",
+            "MkTimelock {} ({})",
             str,
             Hasher::<256>::hash_cbor(self).as_blake2b256()
         )
@@ -2693,6 +2773,7 @@ impl HaskellDisplay for CostModels {
             display_cost_model(1, &self.plutus_v1),
             display_cost_model(2, &self.plutus_v2),
             display_cost_model(3, &self.plutus_v3),
+            display_cost_model(4, &self.plutus_v4),
         ]
         .into_iter()
         .flatten()

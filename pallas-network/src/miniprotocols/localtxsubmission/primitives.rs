@@ -103,6 +103,8 @@ pub enum Language {
     PlutusV2,
     #[n(2)]
     PlutusV3,
+    #[n(3)]
+    PlutusV4,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

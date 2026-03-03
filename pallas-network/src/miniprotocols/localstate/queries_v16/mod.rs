@@ -324,6 +324,9 @@ pub struct CostModels {
     #[n(2)]
     pub plutus_v3: Option<CostModel>,
 
+    #[n(3)]
+    pub plutus_v4: Option<CostModel>,
+
     #[cbor(skip)]
     pub unknown: KeyValuePairs<u64, CostModel>,
 }
