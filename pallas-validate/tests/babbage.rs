@@ -21,8 +21,8 @@ mod babbage_tests {
     use pallas_validate::{
         phase1::validate_txs,
         utils::{
-            AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
-            PostAlonzoError, UTxOs, ValidationError::*,
+            values_are_equal, AccountState, BabbageProtParams, CertState, Environment,
+            MultiEraProtocolParameters, PostAlonzoError, UTxOs, ValidationError::*,
         },
     };
     use std::borrow::Cow;
@@ -1394,6 +1394,15 @@ mod babbage_tests {
                 _ => panic!("Unexpected error ({err:?})"),
             },
         }
+    }
+
+    #[test]
+    fn preservation_of_value_allows_empty_multiasset_to_equal_coin() {
+        let coin = Value::Coin(10);
+        let empty_multiasset = Value::Multiasset(10, std::collections::BTreeMap::new());
+
+        assert!(values_are_equal(&coin, &empty_multiasset));
+        assert!(values_are_equal(&empty_multiasset, &coin));
     }
 
     #[test]
