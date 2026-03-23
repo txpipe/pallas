@@ -2,6 +2,7 @@
 
 use pallas_crypto::hash::Hash;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::hash::Hash as StdHash;
 use std::ops::Deref;
 // required for derive attrs to work
@@ -634,8 +635,27 @@ pub struct FieldedRewardAccount {
     pub stake_credential: StakeCredential,
 }
 
-impl From<&[u8]> for FieldedRewardAccount {
-    fn from(bytes: &[u8]) -> Self {
+#[derive(Debug)]
+pub struct InvalidRewardAccount(pub usize);
+
+impl fmt::Display for InvalidRewardAccount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid reward account length: expected 29, got {}",
+            self.0
+        )
+    }
+}
+
+impl TryFrom<&[u8]> for FieldedRewardAccount {
+    type Error = InvalidRewardAccount;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        if bytes.len() != 29 {
+            return Err(InvalidRewardAccount(bytes.len()));
+        }
+
         let network = if bytes[0] & 0b00000001 != 0 {
             Network::Mainnet
         } else {
@@ -644,16 +664,16 @@ impl From<&[u8]> for FieldedRewardAccount {
 
         let mut hash = [0; 28];
         hash.copy_from_slice(&bytes[1..29]);
-        let stake_credential = if &bytes[0] & 0b00010000 != 0 {
+        let stake_credential = if bytes[0] & 0b00010000 != 0 {
             StakeCredential::ScriptHash(hash.into())
         } else {
             StakeCredential::AddrKeyhash(hash.into())
         };
 
-        FieldedRewardAccount {
+        Ok(FieldedRewardAccount {
             network,
             stake_credential,
-        }
+        })
     }
 }
 

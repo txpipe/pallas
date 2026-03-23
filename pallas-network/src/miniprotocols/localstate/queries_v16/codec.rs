@@ -804,7 +804,11 @@ impl<C> minicbor::Encode<C> for FieldedRewardAccount {
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        let network: u8 = self.network.clone().into();
+        let mut prefix: u8 = self.network.clone().into();
+
+        if matches!(self.stake_credential, StakeCredential::ScriptHash(_)) {
+            prefix |= 0b0001_0000;
+        }
 
         let hash = match &self.stake_credential {
             StakeCredential::ScriptHash(hash) | StakeCredential::AddrKeyhash(hash) => hash,
@@ -812,7 +816,7 @@ impl<C> minicbor::Encode<C> for FieldedRewardAccount {
 
         let mut bytes: [u8; 29] = [0u8; 29];
 
-        bytes[0] = network;
+        bytes[0] = prefix;
         bytes[1..].copy_from_slice(hash.as_ref());
 
         e.bytes(&bytes)?;
@@ -825,7 +829,8 @@ impl<'b, C> minicbor::Decode<'b, C> for FieldedRewardAccount {
         d: &mut minicbor::Decoder<'b>,
         _ctx: &mut C,
     ) -> Result<Self, minicbor::decode::Error> {
-        Ok(d.bytes()?.into())
+        let bytes = d.bytes()?;
+        FieldedRewardAccount::try_from(bytes).map_err(minicbor::decode::Error::message)
     }
 }
 

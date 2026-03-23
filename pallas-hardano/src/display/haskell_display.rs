@@ -393,6 +393,8 @@ impl HaskellDisplay for UtxoFailure {
                 format!("(CollateralContainsNonADA {})", value.to_haskell_str_p())
             }
             NoCollateralInputs => "NoCollateralInputs".to_string(),
+            // as_mismatch order: (supplied, expected). The transaction supplies
+            // `actual` collateral inputs, the ledger expects at most `max`.
             TooManyCollateralInputs(actual, max) => {
                 format!("(TooManyCollateralInputs ({}))", as_mismatch(actual, max))
             }
@@ -526,12 +528,43 @@ impl HaskellDisplay for BabbageContextError {
 impl HaskellDisplay for DecoderError {
     fn to_haskell_str(&self) -> String {
         match self {
-            DecoderError::DeserialiseFailure(str, failure) => format!(
+            DecoderError::DeserialiseFailure(s, failure) => format!(
                 "DecoderErrorDeserialiseFailure {} {}",
-                str.to_haskell_str(),
+                s.to_haskell_str(),
                 failure.to_haskell_str_p()
             ),
-            _ => format!("DecoderError ({:?})", self),
+            DecoderError::CanonicityViolation(s) => {
+                format!("DecoderErrorCanonicityViolation {}", s.to_haskell_str())
+            }
+            DecoderError::Custom(s1, s2) => {
+                format!(
+                    "DecoderErrorCustom {} {}",
+                    s1.to_haskell_str(),
+                    s2.to_haskell_str()
+                )
+            }
+            DecoderError::EmptyList(s) => {
+                format!("DecoderErrorEmptyList {}", s.to_haskell_str())
+            }
+            DecoderError::Leftover(s, bytes) => {
+                format!(
+                    "DecoderErrorLeftover {} \"{}\"",
+                    s.to_haskell_str(),
+                    hex::encode(bytes)
+                )
+            }
+            DecoderError::SizeMismatch(s, expected, actual) => {
+                format!(
+                    "DecoderErrorSizeMismatch {} {} {}",
+                    s.to_haskell_str(),
+                    expected,
+                    actual
+                )
+            }
+            DecoderError::UnknownTag(s, tag) => {
+                format!("DecoderErrorUnknownTag {} {}", s.to_haskell_str(), tag)
+            }
+            DecoderError::Void => "DecoderErrorVoid".to_string(),
         }
     }
 }
@@ -669,17 +702,6 @@ where
         "Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}",
         supplied.to_haskell_str(),
         expected.to_haskell_str()
-    )
-}
-
-pub fn as_mismatch_p<T>(expected: &T, supplied: &T) -> String
-where
-    T: HaskellDisplay,
-{
-    format!(
-        "Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}",
-        supplied.to_haskell_str_p(),
-        expected.to_haskell_str_p()
     )
 }
 
@@ -1561,15 +1583,6 @@ trait AsCompactCoin {
     fn as_compact_coin(&self) -> String;
 }
 
-impl AsCompactCoin for Option<u64> {
-    fn as_compact_coin(&self) -> String {
-        match self {
-            Option::Some(v) => format!("SJust (CompactCoin {{unCompactCoin = {}}})", v),
-            _ => "SNothing".to_string(),
-        }
-    }
-}
-
 impl AsCompactCoin for Option<Coin> {
     fn as_compact_coin(&self) -> String {
         match self {
@@ -2273,6 +2286,9 @@ impl HaskellDisplay for SlotNo {
 
 trait AsSlotNo {
     fn as_slot_no(&self) -> String;
+}
+
+trait AsSlotNo32 {
     fn as_slot_no32(&self) -> String;
 }
 
@@ -2280,6 +2296,9 @@ impl AsSlotNo for u64 {
     fn as_slot_no(&self) -> String {
         format!("SlotNo {self}")
     }
+}
+
+impl AsSlotNo32 for u64 {
     fn as_slot_no32(&self) -> String {
         format!("SlotNo32 {}", self)
     }
@@ -2289,13 +2308,6 @@ impl AsSlotNo for SMaybe<u64> {
     fn as_slot_no(&self) -> String {
         match self {
             SMaybe::Some(v) => format!("SJust (SlotNo {v})"),
-            _ => "SNothing".to_string(),
-        }
-    }
-
-    fn as_slot_no32(&self) -> String {
-        match self {
-            SMaybe::Some(v) => format!("SJust (SlotNo32 {})", v),
             _ => "SNothing".to_string(),
         }
     }

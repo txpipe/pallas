@@ -742,8 +742,16 @@ where
 
         let transaction_body = d.decode_with(ctx)?;
         let transaction_witness_set = d.decode_with(ctx)?;
-        let success = d.decode_with(ctx).unwrap_or(true);
-        let auxiliary_data = d.decode_with(ctx).unwrap_or(Nullable::Null);
+        let success = match d.decode_with(ctx) {
+            Ok(v) => v,
+            Err(e) if e.is_end_of_input() => true,
+            Err(e) => return Err(e),
+        };
+        let auxiliary_data = match d.decode_with(ctx) {
+            Ok(v) => v,
+            Err(e) if e.is_end_of_input() => Nullable::Null,
+            Err(e) => return Err(e),
+        };
 
         Ok(Self {
             transaction_body,

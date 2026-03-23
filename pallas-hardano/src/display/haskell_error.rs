@@ -13,23 +13,23 @@ pub fn wrap_error_response(error: TxValidationError) -> TxSubmitFail {
 }
 
 /// Generates Haskell 'identical' string for the error response
-pub fn as_node_submit_error(error: TxValidationError) -> String {
-    serde_json::to_string(&wrap_error_response(error)).unwrap()
+pub fn as_node_submit_error(error: TxValidationError) -> Result<String, serde_json::Error> {
+    serde_json::to_string(&wrap_error_response(error))
 }
 
 /// Generates Haskell 'similar' string for the error response in case of decode failure
 /// Only difference will be the provided decode failure message, Rust vs Haskell
-pub fn as_cbor_decode_failure(message: String, position: u64) -> String {
+pub fn as_cbor_decode_failure(message: String, position: u64) -> Result<String, serde_json::Error> {
     let inner_errors = vec![DecoderError::DeserialiseFailure(
         "Shelley Tx".to_string(),
         DeserialiseFailure(position, message),
     )];
     let error = TxSubmitFail::TxSubmitFail(TxCmdError::TxReadError(inner_errors));
-    serde_json::to_string(&error).unwrap()
+    serde_json::to_string(&error)
 }
 
-pub fn serialize_error(error: TxValidationError) -> serde_json::Value {
-    serde_json::to_value(wrap_error_response(error)).unwrap()
+pub fn serialize_error(error: TxValidationError) -> Result<serde_json::Value, serde_json::Error> {
+    serde_json::to_value(wrap_error_response(error))
 }
 
 /// https://github.com/IntersectMBO/cardano-node/blob/9dbf0b141e67ec2dfd677c77c63b1673cf9c5f3e/cardano-submit-api/src/Cardano/TxSubmit/Types.hs#L54
@@ -147,14 +147,14 @@ fn test_submit_api_serialization() {
     let error = decode_error("81820681820764f0aab883");
 
     assert_eq!("{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}", 
-    as_node_submit_error(error));
+    as_node_submit_error(error).unwrap());
 }
 
 #[test]
 #[allow(non_snake_case)]
 fn test_submit_api_decode_failure() {
     assert_eq!( "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxReadError\",\"contents\":[\"DecoderErrorDeserialiseFailure \\\"Shelley Tx\\\" (DeserialiseFailure 0 (\\\"expected list len or indef\\\"))\"]}}",   
-      as_cbor_decode_failure("expected list len or indef".to_string(), 0));
+      as_cbor_decode_failure("expected list len or indef".to_string(), 0).unwrap());
 }
 
 #[cfg(test)]
