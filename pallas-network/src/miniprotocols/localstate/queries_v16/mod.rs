@@ -636,27 +636,43 @@ pub struct FieldedRewardAccount {
 }
 
 #[derive(Debug)]
-pub struct InvalidRewardAccount(pub usize);
+pub enum InvalidRewardAccount {
+    InvalidLength(usize),
+    InvalidHeaderType(u8),
+}
 
 impl fmt::Display for InvalidRewardAccount {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "invalid reward account length: expected 29, got {}",
-            self.0
-        )
+        match self {
+            Self::InvalidLength(len) => {
+                write!(f, "invalid reward account length: expected 29, got {len}")
+            }
+            Self::InvalidHeaderType(header) => {
+                write!(f, "invalid reward account header type: 0x{header:02x}")
+            }
+        }
     }
 }
+
+impl std::error::Error for InvalidRewardAccount {}
 
 impl TryFrom<&[u8]> for FieldedRewardAccount {
     type Error = InvalidRewardAccount;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() != 29 {
-            return Err(InvalidRewardAccount(bytes.len()));
+            return Err(InvalidRewardAccount::InvalidLength(bytes.len()));
         }
 
-        let network = if bytes[0] & 0b00000001 != 0 {
+        // Header byte layout: [type(4 bits) | network(4 bits)]
+        // Upper nibble must be 0b1110 (key hash) or 0b1111 (script hash)
+        // per CIP-19 reward account address format.
+        let header_type = bytes[0] >> 4;
+        if !matches!(header_type, 0b1110 | 0b1111) {
+            return Err(InvalidRewardAccount::InvalidHeaderType(bytes[0]));
+        }
+
+        let network = if bytes[0] & 0b0000_0001 != 0 {
             Network::Mainnet
         } else {
             Network::Testnet
@@ -664,7 +680,7 @@ impl TryFrom<&[u8]> for FieldedRewardAccount {
 
         let mut hash = [0; 28];
         hash.copy_from_slice(&bytes[1..29]);
-        let stake_credential = if bytes[0] & 0b00010000 != 0 {
+        let stake_credential = if header_type == 0b1111 {
             StakeCredential::ScriptHash(hash.into())
         } else {
             StakeCredential::AddrKeyhash(hash.into())

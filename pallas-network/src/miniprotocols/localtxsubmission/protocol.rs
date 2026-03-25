@@ -265,7 +265,7 @@ pub struct Utxo(pub OHashMap<TransactionInput, TransactionOutput>);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OHashMap<K, V>(pub Vec<(K, V)>);
 
-#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 #[cbor(index_only)]
 pub enum Network {
     #[n(0)]

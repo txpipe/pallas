@@ -804,15 +804,16 @@ impl<C> minicbor::Encode<C> for FieldedRewardAccount {
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        let mut prefix: u8 = self.network.clone().into();
+        let (hash, is_script) = match &self.stake_credential {
+            StakeCredential::ScriptHash(h) => (h, true),
+            StakeCredential::AddrKeyhash(h) => (h, false),
+        };
 
-        if matches!(self.stake_credential, StakeCredential::ScriptHash(_)) {
+        // Network yields 0 (testnet) or 1 (mainnet), always fits in the lower nibble.
+        let mut prefix: u8 = 0b1110_0000 | u8::from(self.network);
+        if is_script {
             prefix |= 0b0001_0000;
         }
-
-        let hash = match &self.stake_credential {
-            StakeCredential::ScriptHash(hash) | StakeCredential::AddrKeyhash(hash) => hash,
-        };
 
         let mut bytes: [u8; 29] = [0u8; 29];
 
@@ -915,5 +916,97 @@ pub mod tests {
             minicbor::to_vec(result).unwrap_or_else(|e| panic!("error encoding cbor: {e:?}"));
 
         assert_eq!(hex::encode(bytes), hex::encode(bytes2));
+    }
+
+    #[test]
+    fn test_fielded_reward_account_header_bytes() {
+        use super::{FieldedRewardAccount, InvalidRewardAccount, StakeCredential};
+        use crate::miniprotocols::localtxsubmission::Network;
+        use pallas_crypto::hash::Hash;
+
+        let zero_hash: Hash<28> = [0u8; 28].into();
+
+        // Mainnet + KeyHash → 0xE1
+        let acc = FieldedRewardAccount {
+            network: Network::Mainnet,
+            stake_credential: StakeCredential::AddrKeyhash(zero_hash),
+        };
+        let encoded = minicbor::to_vec(&acc).unwrap();
+        // CBOR bytes tag + 29 bytes payload; first payload byte is the header
+        let payload = &encoded[2..]; // skip CBOR major type + length
+        assert_eq!(payload[0], 0xE1);
+
+        // Mainnet + ScriptHash → 0xF1
+        let acc = FieldedRewardAccount {
+            network: Network::Mainnet,
+            stake_credential: StakeCredential::ScriptHash(zero_hash),
+        };
+        let encoded = minicbor::to_vec(&acc).unwrap();
+        let payload = &encoded[2..];
+        assert_eq!(payload[0], 0xF1);
+
+        // Testnet + KeyHash → 0xE0
+        let acc = FieldedRewardAccount {
+            network: Network::Testnet,
+            stake_credential: StakeCredential::AddrKeyhash(zero_hash),
+        };
+        let encoded = minicbor::to_vec(&acc).unwrap();
+        let payload = &encoded[2..];
+        assert_eq!(payload[0], 0xE0);
+
+        // Testnet + ScriptHash → 0xF0
+        let acc = FieldedRewardAccount {
+            network: Network::Testnet,
+            stake_credential: StakeCredential::ScriptHash(zero_hash),
+        };
+        let encoded = minicbor::to_vec(&acc).unwrap();
+        let payload = &encoded[2..];
+        assert_eq!(payload[0], 0xF0);
+    }
+
+    #[test]
+    fn test_fielded_reward_account_roundtrip() {
+        use super::{FieldedRewardAccount, StakeCredential};
+        use crate::miniprotocols::localtxsubmission::Network;
+        use pallas_crypto::hash::Hash;
+
+        let hash: Hash<28> = [0xAB; 28].into();
+
+        for (network, credential) in [
+            (Network::Mainnet, StakeCredential::AddrKeyhash(hash)),
+            (Network::Mainnet, StakeCredential::ScriptHash(hash)),
+            (Network::Testnet, StakeCredential::AddrKeyhash(hash)),
+            (Network::Testnet, StakeCredential::ScriptHash(hash)),
+        ] {
+            let original = FieldedRewardAccount {
+                network,
+                stake_credential: credential,
+            };
+            let encoded = minicbor::to_vec(&original).unwrap();
+            let decoded: FieldedRewardAccount = minicbor::decode(&encoded).unwrap();
+            assert_eq!(original, decoded);
+        }
+    }
+
+    #[test]
+    fn test_fielded_reward_account_rejects_invalid_header() {
+        use super::{FieldedRewardAccount, InvalidRewardAccount};
+
+        // Old buggy encoding: 0x01 (mainnet, no type nibble)
+        let mut bad_bytes = [0u8; 29];
+        bad_bytes[0] = 0x01;
+        let err = FieldedRewardAccount::try_from(bad_bytes.as_slice()).unwrap_err();
+        assert!(matches!(err, InvalidRewardAccount::InvalidHeaderType(_)));
+
+        // Wrong length
+        let short = [0xE1; 10];
+        let err = FieldedRewardAccount::try_from(short.as_slice()).unwrap_err();
+        assert!(matches!(err, InvalidRewardAccount::InvalidLength(10)));
+
+        // Shelley payment address type (0x00) should be rejected
+        let mut shelley_header = [0u8; 29];
+        shelley_header[0] = 0x01; // type 0b0000, mainnet
+        let err = FieldedRewardAccount::try_from(shelley_header.as_slice()).unwrap_err();
+        assert!(matches!(err, InvalidRewardAccount::InvalidHeaderType(_)));
     }
 }
