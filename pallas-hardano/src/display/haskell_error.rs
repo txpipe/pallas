@@ -7,7 +7,7 @@ use super::haskell_display::HaskellDisplay;
 
 /// Mimicks the json data structure of the error response from the cardano-submit-api
 pub fn wrap_error_response(error: TxValidationError) -> TxSubmitFail {
-    TxSubmitFail::TxSubmitFail(TxCmdError::TxCmdTxSubmitValidationError(
+    TxSubmitFail::TxSubmitFail(TxCmdError::SubmitValidationError(
         TxValidationErrorInCardanoMode::TxValidationErrorInCardanoMode(error),
     ))
 }
@@ -24,7 +24,7 @@ pub fn as_cbor_decode_failure(message: String, position: u64) -> Result<String, 
         "Shelley Tx".to_string(),
         DeserialiseFailure(position, message),
     )];
-    let error = TxSubmitFail::TxSubmitFail(TxCmdError::TxReadError(inner_errors));
+    let error = TxSubmitFail::TxSubmitFail(TxCmdError::ReadError(inner_errors));
     serde_json::to_string(&error)
 }
 
@@ -47,10 +47,12 @@ pub enum TxSubmitFail {
 #[derive(Debug, Serialize)]
 #[serde(tag = "tag", content = "contents")]
 pub enum TxCmdError {
+    #[serde(rename = "TxCmdSocketEnvError")]
     SocketEnvError(String),
-    #[serde(serialize_with = "use_haskell_display", rename = "TxCmdTxReadError")]
-    TxReadError(Vec<DecoderError>),
-    TxCmdTxSubmitValidationError(TxValidationErrorInCardanoMode),
+    #[serde(rename = "TxCmdTxReadError")]
+    ReadError(Vec<DecoderError>),
+    #[serde(rename = "TxCmdTxSubmitValidationError")]
+    SubmitValidationError(TxValidationErrorInCardanoMode),
 }
 
 /// https://github.com/IntersectMBO/cardano-api/blob/d7c62a04ebf18d194a6ea70e6765eb7691d57668/cardano-api/internal/Cardano/Api/InMode.hs#L259
@@ -70,7 +72,7 @@ pub struct EraMismatch {
 }
 
 /// https://github.com/IntersectMBO/cardano-base/blob/391a2c5cfd30d2234097e000dbd8d9db21ef94d7/cardano-binary/src/Cardano/Binary/FromCBOR.hs#L90
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum DecoderError {
     CanonicityViolation(String),
     Custom(String, String),
@@ -81,8 +83,15 @@ pub enum DecoderError {
     UnknownTag(String, u8),
     Void,
 }
+
+impl Serialize for DecoderError {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_haskell_str())
+    }
+}
+
 /// https://hackage.haskell.org/package/serialise-0.2.6.1/docs/Codec-Serialise.html#t:DeserialiseFailure
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct DeserialiseFailure(pub u64, pub String);
 
 //

@@ -920,7 +920,7 @@ pub mod tests {
 
     #[test]
     fn test_fielded_reward_account_header_bytes() {
-        use super::{FieldedRewardAccount, InvalidRewardAccount, StakeCredential};
+        use super::{FieldedRewardAccount, StakeCredential};
         use crate::miniprotocols::localtxsubmission::Network;
         use pallas_crypto::hash::Hash;
 
