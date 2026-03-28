@@ -102,3 +102,109 @@ impl PeerVisitor for BlockFetchBehavior {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::{Point, blockfetch as bf};
+    use crate::OutboundQueue;
+    use futures::StreamExt;
+
+    fn make_peer() -> PeerId {
+        PeerId {
+            host: "10.0.0.1".to_string(),
+            port: 3001,
+        }
+    }
+
+    fn drain_outputs(
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
+        let mut outputs = Vec::new();
+        let waker = futures::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        loop {
+            match outbound.futures.poll_next_unpin(&mut cx) {
+                std::task::Poll::Ready(Some(output)) => outputs.push(output),
+                _ => break,
+            }
+        }
+
+        outputs
+    }
+
+    #[test]
+    fn enqueue_adds_to_queue() {
+        let mut bf = BlockFetchBehavior::new(());
+        let range = (Point::Origin, Point::new(100, vec![0xAA; 32]));
+
+        bf.enqueue(range);
+        assert_eq!(bf.requests.len(), 1);
+
+        bf.enqueue((Point::Origin, Point::Origin));
+        assert_eq!(bf.requests.len(), 2);
+    }
+
+    #[test]
+    fn dispatch_block_emits_event_when_streaming() {
+        let bf = BlockFetchBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.blockfetch = bf::State::Streaming(Some(vec![0xBE; 64]));
+
+        bf.dispatch_block(&pid, &state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_event = outputs.iter().any(|o| {
+            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::BlockBodyReceived(..)))
+        });
+        assert!(has_event, "should emit BlockBodyReceived");
+    }
+
+    #[test]
+    fn dispatch_block_noop_when_idle() {
+        let bf = BlockFetchBehavior::new(());
+        let pid = make_peer();
+        let state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        // Default state is Idle
+        bf.dispatch_block(&pid, &state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert!(outputs.is_empty());
+    }
+
+    #[test]
+    fn housekeeping_dispatches_request_for_available_peer() {
+        let mut bf = BlockFetchBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        let range = (Point::Origin, Point::new(100, vec![0xAA; 32]));
+        bf.enqueue(range);
+
+        // Peer must be Initialized + blockfetch Idle
+        state.connection = ConnectionState::Initialized;
+        state.blockfetch = bf::State::Idle;
+
+        bf.visit_housekeeping(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_request = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::BlockFetch(bf::Message::RequestRange(_))
+                ))
+            )
+        });
+        assert!(has_request, "should send RequestRange");
+        assert!(bf.requests.is_empty(), "request should be consumed from queue");
+    }
+}

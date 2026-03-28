@@ -110,3 +110,109 @@ impl PeerVisitor for HandshakeBehavior {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::behavior::ConnectionState;
+    use crate::protocol::handshake;
+    use crate::OutboundQueue;
+    use futures::StreamExt;
+
+    fn make_peer() -> PeerId {
+        PeerId {
+            host: "10.0.0.1".to_string(),
+            port: 3001,
+        }
+    }
+
+    fn drain_outputs(
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
+        let mut outputs = Vec::new();
+        let waker = futures::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        loop {
+            match outbound.futures.poll_next_unpin(&mut cx) {
+                std::task::Poll::Ready(Some(output)) => outputs.push(output),
+                _ => break,
+            }
+        }
+
+        outputs
+    }
+
+    #[test]
+    fn propose_sent_on_connect() {
+        let mut hs = HandshakeBehavior::default();
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        hs.visit_connected(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert_eq!(outputs.len(), 1);
+
+        let is_propose = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::Handshake(handshake::Message::Propose(_))
+                ))
+            )
+        });
+        assert!(is_propose, "should send a Propose message on connect");
+    }
+
+    #[test]
+    fn accepted_handshake_sets_initialized() {
+        let mut hs = HandshakeBehavior::default();
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        // Put state into Done(Accepted) as if the handshake completed
+        let version_data = crate::protocol::handshake::n2n::VersionData::new(
+            MAINNET_MAGIC,
+            false,
+            Some(1),
+            Some(false),
+        );
+        state.handshake =
+            handshake::State::Done(handshake::DoneState::Accepted(13, version_data));
+        state.connection = ConnectionState::Connected;
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        assert_eq!(
+            state.connection,
+            ConnectionState::Initialized,
+            "connection should be set to Initialized after accepted handshake"
+        );
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_init_event = outputs.iter().any(|o| {
+            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::PeerInitialized(..)))
+        });
+        assert!(has_init_event, "should emit PeerInitialized event");
+    }
+
+    #[test]
+    fn non_connected_state_skips_confirmation() {
+        let mut hs = HandshakeBehavior::default();
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        // State is Initialized (not Connected), so needs_handshake returns false
+        state.connection = ConnectionState::Initialized;
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert!(outputs.is_empty(), "should not produce output when not in Connected state");
+    }
+}

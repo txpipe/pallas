@@ -166,3 +166,187 @@ impl PeerVisitor for ChainSyncBehavior {
         self.request_intersection(pid, intersection, outbound);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::chainsync::{Data, HeaderContent, State as CsState, Tip};
+    use crate::OutboundQueue;
+    use futures::StreamExt;
+
+    fn make_peer() -> PeerId {
+        PeerId {
+            host: "10.0.0.1".to_string(),
+            port: 3001,
+        }
+    }
+
+    fn drain_outputs(
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
+        let mut outputs = Vec::new();
+        let waker = futures::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        loop {
+            match outbound.futures.poll_next_unpin(&mut cx) {
+                std::task::Poll::Ready(Some(output)) => outputs.push(output),
+                _ => break,
+            }
+        }
+
+        outputs
+    }
+
+    fn mock_tip() -> Tip {
+        Tip(Point::new(100, vec![0xAA; 32]), 100)
+    }
+
+    fn mock_header() -> HeaderContent {
+        HeaderContent {
+            variant: 1,
+            byron_prefix: None,
+            cbor: vec![0xBE; 32],
+        }
+    }
+
+    #[test]
+    fn drain_content_emits_header_event() {
+        let cs = ChainSyncBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.chainsync = CsState::Idle(Data::Content(mock_header(), mock_tip()));
+
+        cs.drain_data(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_event = outputs.iter().any(|o| {
+            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::BlockHeaderReceived(..)))
+        });
+        assert!(has_event);
+    }
+
+    #[test]
+    fn drain_rollback_emits_rollback_event() {
+        let cs = ChainSyncBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.chainsync = CsState::Idle(Data::Rollback(Point::Origin, mock_tip()));
+
+        cs.drain_data(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_event = outputs.iter().any(|o| {
+            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::RollbackReceived(..)))
+        });
+        assert!(has_event);
+    }
+
+    #[test]
+    fn drain_intersection_emits_found_event() {
+        let cs = ChainSyncBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.chainsync = CsState::Idle(Data::Intersection(Point::Origin, mock_tip()));
+
+        cs.drain_data(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_event = outputs.iter().any(|o| {
+            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::IntersectionFound(..)))
+        });
+        assert!(has_event);
+    }
+
+    #[test]
+    fn no_intersection_sets_violation() {
+        let cs = ChainSyncBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.chainsync = CsState::Idle(Data::NoIntersection(mock_tip()));
+
+        cs.drain_data(&pid, &mut state, &mut outbound);
+
+        assert!(state.violation, "NoIntersection should set violation flag");
+    }
+
+    #[test]
+    fn housekeeping_starts_sync_for_hot_initialized_peer() {
+        let mut cs = ChainSyncBehavior::new(());
+        cs.start(vec![Point::Origin]);
+
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.connection = ConnectionState::Initialized;
+        state.promotion = PromotionTag::Hot;
+        // chainsync default is Idle(New) → is_new() returns true → not syncing
+
+        cs.visit_housekeeping(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_find = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::ChainSync(chainsync_proto::Message::FindIntersect(_))
+                ))
+            )
+        });
+        assert!(has_find, "should send FindIntersect for Hot+Initialized peer");
+    }
+
+    #[test]
+    fn housekeeping_skips_non_hot_peer() {
+        let mut cs = ChainSyncBehavior::new(());
+        cs.start(vec![Point::Origin]);
+
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.connection = ConnectionState::Initialized;
+        state.promotion = PromotionTag::Warm; // Not Hot
+
+        cs.visit_housekeeping(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert!(outputs.is_empty(), "should not start sync for Warm peer");
+    }
+
+    #[test]
+    fn tagged_requests_next_when_continue_sync() {
+        let mut cs = ChainSyncBehavior::new(());
+        let pid = make_peer();
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        // Peer is syncing (not new) and idle with drained data
+        state.chainsync = CsState::Idle(Data::Drained);
+        state.continue_sync = true;
+
+        cs.visit_tagged(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_next = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::ChainSync(chainsync_proto::Message::RequestNext)
+                ))
+            )
+        });
+        assert!(has_next, "should send RequestNext when continue_sync is set");
+    }
+}

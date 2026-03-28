@@ -246,3 +246,206 @@ impl PeerVisitor for PromotionBehavior {
         self.categorize_peer(pid, state);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_peer(id: u8) -> PeerId {
+        PeerId {
+            host: format!("10.0.0.{}", id),
+            port: 3000 + id as u16,
+        }
+    }
+
+    #[test]
+    fn max_warm_peers_respected() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 100,
+            max_warm_peers: 2,
+            max_hot_peers: 10,
+            max_error_count: 5,
+        });
+
+        // Discover 5 peers (all land in cold)
+        for i in 1..=5 {
+            let pid = make_peer(i);
+            let mut state = InitiatorState::new();
+            promo.on_peer_discovered(&pid, &mut state);
+        }
+        assert_eq!(promo.cold_peers.len(), 5);
+
+        // categorize_peer should promote at most 2 to warm
+        let peers: Vec<PeerId> = promo.cold_peers.iter().cloned().collect();
+        for pid in &peers {
+            let mut state = InitiatorState::new();
+            state.promotion = PromotionTag::Cold;
+            promo.categorize_peer(&pid, &mut state);
+        }
+
+        assert!(
+            promo.warm_peers.len() <= 2,
+            "warm_peers ({}) should not exceed max_warm_peers (2)",
+            promo.warm_peers.len()
+        );
+    }
+
+    #[test]
+    fn max_hot_peers_respected() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 100,
+            max_warm_peers: 10,
+            max_hot_peers: 1,
+            max_error_count: 5,
+        });
+
+        // Put 3 peers directly into warm with initialized state
+        for i in 1..=3 {
+            let pid = make_peer(i);
+            promo.warm_peers.insert(pid);
+        }
+
+        let peers: Vec<PeerId> = promo.warm_peers.iter().cloned().collect();
+        for pid in &peers {
+            let mut state = InitiatorState::new();
+            state.connection = crate::behavior::ConnectionState::Initialized;
+            state.promotion = PromotionTag::Warm;
+            promo.categorize_peer(&pid, &mut state);
+        }
+
+        assert!(
+            promo.hot_peers.len() <= 1,
+            "hot_peers ({}) should not exceed max_hot_peers (1)",
+            promo.hot_peers.len()
+        );
+    }
+
+    #[test]
+    fn max_peers_caps_total() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 3,
+            max_warm_peers: 10,
+            max_hot_peers: 10,
+            max_error_count: 5,
+        });
+
+        for i in 1..=5 {
+            let pid = make_peer(i);
+            let mut state = InitiatorState::new();
+            promo.on_peer_discovered(&pid, &mut state);
+        }
+
+        let total =
+            promo.cold_peers.len() + promo.warm_peers.len() + promo.hot_peers.len();
+
+        assert!(
+            total <= 3,
+            "total tracked peers ({}) should not exceed max_peers (3)",
+            total
+        );
+    }
+
+    #[test]
+    fn peer_deficit_reflects_current_count() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 10,
+            max_warm_peers: 10,
+            max_hot_peers: 10,
+            max_error_count: 5,
+        });
+
+        for i in 1..=7 {
+            let pid = make_peer(i);
+            let mut state = InitiatorState::new();
+            promo.on_peer_discovered(&pid, &mut state);
+        }
+
+        assert_eq!(promo.peer_deficit(), 3);
+    }
+
+    #[test]
+    fn ban_peer_removes_from_all_sets() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = make_peer(1);
+
+        promo.warm_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        promo.ban_peer(&pid, &mut state);
+
+        assert!(promo.banned_peers.contains(&pid));
+        assert!(!promo.warm_peers.contains(&pid));
+        assert_eq!(state.promotion, PromotionTag::Banned);
+    }
+
+    #[test]
+    fn demote_banned_peer_is_noop() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = make_peer(1);
+
+        promo.banned_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        state.promotion = PromotionTag::Banned;
+        promo.demote_peer(&pid, &mut state);
+
+        assert!(
+            promo.banned_peers.contains(&pid),
+            "banned peer should remain banned after demote"
+        );
+        assert!(
+            !promo.cold_peers.contains(&pid),
+            "banned peer should not appear in cold_peers"
+        );
+    }
+
+    #[test]
+    fn rediscovered_banned_peer_stays_banned() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = make_peer(1);
+
+        promo.banned_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        promo.on_peer_discovered(&pid, &mut state);
+
+        assert!(promo.banned_peers.contains(&pid));
+        assert!(!promo.cold_peers.contains(&pid));
+    }
+
+    #[test]
+    fn violation_triggers_ban() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = make_peer(1);
+
+        promo.warm_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        state.violation = true;
+        promo.categorize_peer(&pid, &mut state);
+
+        assert!(promo.banned_peers.contains(&pid));
+    }
+
+    #[test]
+    fn error_count_exceeding_max_triggers_ban() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_error_count: 1,
+            ..PromotionConfig::default()
+        });
+        let pid = make_peer(1);
+
+        promo.warm_peers.insert(pid.clone());
+
+        // error_count = 1, not > 1 → no ban
+        let mut state = InitiatorState::new();
+        state.error_count = 1;
+        promo.categorize_peer(&pid, &mut state);
+        assert!(!promo.banned_peers.contains(&pid));
+
+        // error_count = 2 > 1 → ban
+        state.error_count = 2;
+        promo.categorize_peer(&pid, &mut state);
+        assert!(promo.banned_peers.contains(&pid));
+    }
+}
