@@ -16,6 +16,7 @@ const PROTOCOL_V14: u64 = 14;
 const PEER_SHARING_DISABLED: u8 = 0;
 
 impl VersionTable {
+    /// Builds a version table for v4 and above (deprecated, delegates to v7).
     #[deprecated(note = "no longer supported by spec")]
     pub fn v4_and_above(network_magic: u64) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
@@ -23,6 +24,7 @@ impl VersionTable {
         Self::v7_and_above(network_magic)
     }
 
+    /// Builds a version table for v6 and above (deprecated, delegates to v7).
     #[deprecated(note = "no longer supported by spec")]
     pub fn v6_and_above(network_magic: u64) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
@@ -30,6 +32,7 @@ impl VersionTable {
         Self::v7_and_above(network_magic)
     }
 
+    /// Builds a version table containing only versions 7 through 10.
     pub fn v7_to_v10(network_magic: u64) -> VersionTable {
         let values = vec![
             (
@@ -55,10 +58,12 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table for v7 and above with query mode disabled.
     pub fn v7_and_above(network_magic: u64) -> VersionTable {
         Self::v7_and_above_with_query(network_magic, false)
     }
 
+    /// Builds a version table for v7 and above, optionally enabling query mode.
     pub fn v7_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
         let values = vec![
             (
@@ -120,10 +125,12 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table for v11 and above with query mode disabled.
     pub fn v11_and_above(network_magic: u64) -> VersionTable {
         Self::v11_and_above_with_query(network_magic, false)
     }
 
+    /// Builds a version table for v11 and above, optionally enabling query mode.
     pub fn v11_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
         let values = vec![
             (
@@ -170,15 +177,21 @@ impl VersionTable {
     }
 }
 
+/// Version-specific data exchanged during a node-to-node handshake.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData {
+    /// The network magic identifying the Cardano network.
     pub network_magic: u64,
+    /// Whether the initiator operates in diffusion-only mode.
     pub initiator_only_diffusion_mode: bool,
+    /// Peer sharing configuration (available from protocol v11+).
     pub peer_sharing: Option<u8>,
+    /// Whether this is a query-only connection (available from protocol v11+).
     pub query: Option<bool>,
 }
 
 impl VersionData {
+    /// Creates new version data with the given parameters.
     pub fn new(
         network_magic: u64,
         initiator_only_diffusion_mode: bool,

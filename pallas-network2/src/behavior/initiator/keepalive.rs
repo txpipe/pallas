@@ -2,6 +2,7 @@ use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 
+/// Sub-behavior that sends periodic keepalive messages to maintain connections.
 pub struct KeepaliveBehavior {
     token: u16,
 }
@@ -13,6 +14,7 @@ impl Default for KeepaliveBehavior {
 }
 
 impl KeepaliveBehavior {
+    /// Sends a keepalive message to the peer if the protocol state allows it.
     pub fn send_keepalive(
         &mut self,
         pid: &PeerId,

@@ -35,10 +35,10 @@ pub const PROTOCOL_N2C_CHAIN_SYNC: u16 = 5;
 /// Protocol channel number for node-to-client tx-submission
 pub const PROTOCOL_N2C_TX_SUBMISSION: u16 = 6;
 
-// Protocol channel number for node-to-client state queries
+/// Protocol channel number for node-to-client state queries
 pub const PROTOCOL_N2C_STATE_QUERY: u16 = 7;
 
-// Protocol channel number for node-to-client mempool monitor
+/// Protocol channel number for node-to-client mempool monitor
 pub const PROTOCOL_N2C_TX_MONITOR: u16 = 9;
 
 /// Protocol channel number for node-to-client local message submission
@@ -54,11 +54,14 @@ pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 = 2;
 /// A point within a chain
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Point {
+    /// The genesis (origin) point of the chain.
     Origin,
+    /// A specific point identified by slot number and block header hash.
     Specific(u64, Vec<u8>),
 }
 
 impl Point {
+    /// Returns the slot number, or 0 for the origin point.
     pub fn slot_or_default(&self) -> u64 {
         match self {
             Point::Origin => 0,
@@ -77,6 +80,7 @@ impl Debug for Point {
 }
 
 impl Point {
+    /// Creates a new specific point from a slot number and block header hash.
     pub fn new(slot: u64, hash: Vec<u8>) -> Self {
         Point::Specific(slot, hash)
     }

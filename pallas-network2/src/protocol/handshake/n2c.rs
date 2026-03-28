@@ -5,6 +5,7 @@ use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 use super::NetworkMagic;
 
+/// A version table specialized for node-to-client handshakes.
 pub type VersionTable = super::VersionTable<VersionData>;
 
 const PROTOCOL_V1: u64 = 1;
@@ -25,6 +26,7 @@ const PROTOCOL_V15: u64 = 32783;
 const PROTOCOL_V16: u64 = 32784;
 
 impl VersionTable {
+    /// Builds a version table containing all N2C versions from v1 to v16.
     pub fn v1_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
             (PROTOCOL_V1, VersionData(network_magic, None)),
@@ -50,6 +52,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table containing only v10.
     pub fn only_v10(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V10, VersionData(network_magic, None))]
             .into_iter()
@@ -58,6 +61,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table containing N2C versions v10 through v16.
     pub fn v10_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
             (PROTOCOL_V10, VersionData(network_magic, None)),
@@ -74,6 +78,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table containing only v15 with query mode enabled.
     pub fn v15_with_query(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V15, VersionData(network_magic, Some(true)))]
             .into_iter()
@@ -83,10 +88,14 @@ impl VersionTable {
     }
 }
 
+/// Version-specific data exchanged during a node-to-client handshake.
+///
+/// Contains the network magic and an optional query flag (for v15+).
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData(NetworkMagic, Option<bool>);
 
 impl VersionData {
+    /// Creates new version data with the given network magic and optional query flag.
     pub fn new(magic: NetworkMagic, param: Option<bool>) -> Self {
         Self(magic, param)
     }

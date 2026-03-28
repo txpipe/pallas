@@ -5,7 +5,9 @@ use crate::{
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
+/// Configuration for the responder tx-submission sub-behavior.
 pub struct TxSubmissionResponderConfig {
+    /// Maximum number of transaction IDs to request per batch.
     pub max_tx_request: u16,
 }
 
@@ -15,6 +17,8 @@ impl Default for TxSubmissionResponderConfig {
     }
 }
 
+/// Responder sub-behavior that drives the tx-submission protocol by
+/// requesting transaction IDs and bodies from connected peers.
 pub struct TxSubmissionResponder {
     config: TxSubmissionResponderConfig,
 }
@@ -26,6 +30,7 @@ impl Default for TxSubmissionResponder {
 }
 
 impl TxSubmissionResponder {
+    /// Creates a new tx-submission responder with the given configuration.
     pub fn new(config: TxSubmissionResponderConfig) -> Self {
         Self { config }
     }

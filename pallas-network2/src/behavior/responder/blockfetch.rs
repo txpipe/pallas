@@ -2,6 +2,8 @@ use crate::{BehaviorOutput, OutboundQueue, PeerId, protocol::blockfetch as block
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
+/// Responder sub-behavior that handles block-fetch requests from peers and
+/// emits [`BlockRangeRequested`](super::ResponderEvent::BlockRangeRequested) events.
 pub struct BlockFetchResponder {
     // metrics
     blockfetch_requests_counter: opentelemetry::metrics::Counter<u64>,

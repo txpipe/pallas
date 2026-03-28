@@ -4,8 +4,11 @@ use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::ConnectionState};
 
 use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState};
 
+/// Configuration for the responder connection sub-behavior.
 pub struct ConnectionResponderConfig {
+    /// Number of errors before a peer gets banned.
     pub max_error_count: u32,
+    /// Maximum number of simultaneous connections allowed from the same IP.
     pub max_connections_per_ip: usize,
 }
 
@@ -18,6 +21,8 @@ impl Default for ConnectionResponderConfig {
     }
 }
 
+/// Responder sub-behavior that manages inbound connection lifecycle, including
+/// per-IP connection limits, banning, and disconnection of errored peers.
 pub struct ConnectionResponder {
     config: ConnectionResponderConfig,
     pub(crate) banned_peers: HashSet<PeerId>,
@@ -39,6 +44,7 @@ impl Default for ConnectionResponder {
 }
 
 impl ConnectionResponder {
+    /// Creates a new connection responder with the given configuration.
     pub fn new(config: ConnectionResponderConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 

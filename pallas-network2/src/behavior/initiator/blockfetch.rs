@@ -9,10 +9,13 @@ use crate::{
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
+/// Configuration for the block-fetch sub-behavior (currently unused).
 pub type BlockFetchConfig = ();
 
+/// A block-fetch request, defined as a range of points.
 pub type Request = BlockRange;
 
+/// Sub-behavior that manages block fetching from peers.
 pub struct BlockFetchBehavior {
     //config: BlockFetchConfig,
     requests: VecDeque<Request>,
@@ -25,17 +28,20 @@ impl Default for BlockFetchBehavior {
 }
 
 impl BlockFetchBehavior {
+    /// Creates a new block-fetch behavior with the given configuration.
     pub fn new(_config: BlockFetchConfig) -> Self {
         Self {
             requests: VecDeque::new(),
         }
     }
 
+    /// Adds a block range request to the pending queue.
     pub fn enqueue(&mut self, request: Request) {
         self.requests.push_back(request);
         tracing::info!(total = self.requests.len(), "new request");
     }
 
+    /// Sends a block range request to the specified peer.
     pub fn request_block_batch(
         &self,
         pid: &PeerId,
@@ -50,6 +56,8 @@ impl BlockFetchBehavior {
         )));
     }
 
+    /// Emits a [`BlockBodyReceived`](super::InitiatorEvent::BlockBodyReceived)
+    /// event if the peer's block-fetch state contains a new block.
     pub fn dispatch_block(
         &self,
         pid: &PeerId,

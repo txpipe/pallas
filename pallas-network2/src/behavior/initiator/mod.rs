@@ -23,7 +23,12 @@ pub use handshake::*;
 pub use keepalive::*;
 pub use promotion::*;
 
+/// A visitor trait that allows sub-behaviors to react to peer lifecycle events.
+///
+/// Each method is called by the initiator behavior at the appropriate point
+/// in a peer's lifecycle. Default implementations are no-ops.
 pub trait PeerVisitor {
+    /// Called when a TCP connection to the peer is established.
     #[allow(unused_variables)]
     fn visit_connected(
         &mut self,
@@ -34,6 +39,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when the peer has been disconnected.
     #[allow(unused_variables)]
     fn visit_disconnected(
         &mut self,
@@ -44,6 +50,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when an error occurred on the peer's connection.
     #[allow(unused_variables)]
     fn visit_errored(
         &mut self,
@@ -54,6 +61,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when a new peer has been discovered.
     #[allow(unused_variables)]
     fn visit_discovered(
         &mut self,
@@ -64,6 +72,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when a message has been received from the peer.
     #[allow(unused_variables)]
     fn visit_inbound_msg(
         &mut self,
@@ -74,6 +83,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called after a message has been sent to the peer.
     #[allow(unused_variables)]
     fn visit_outbound_msg(
         &mut self,
@@ -84,6 +94,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when a peer's state has been modified by a tag function.
     #[allow(unused_variables)]
     fn visit_tagged(
         &mut self,
@@ -94,6 +105,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called during periodic housekeeping for each tracked peer.
     #[allow(unused_variables)]
     fn visit_housekeeping(
         &mut self,
@@ -105,15 +117,22 @@ pub trait PeerVisitor {
     }
 }
 
+/// The promotion level of a peer, controlling which mini-protocols are active.
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
 pub enum PromotionTag {
+    /// Peer is known but not connected.
     #[default]
     Cold,
+    /// Peer is connected and performing basic protocols (handshake, keepalive).
     Warm,
+    /// Peer is fully active with all mini-protocols.
     Hot,
+    /// Peer has been banned and will not be connected.
     Banned,
 }
 
+/// The per-peer state tracked by the initiator behavior, including connection
+/// status and all mini-protocol state machines.
 #[derive(Default, Debug)]
 pub struct InitiatorState {
     pub(crate) connection: ConnectionState,
@@ -130,6 +149,7 @@ pub struct InitiatorState {
 }
 
 impl InitiatorState {
+    /// Creates a new initiator state with default values for all protocols.
     pub fn new() -> Self {
         InitiatorState {
             connection: ConnectionState::default(),
@@ -146,10 +166,12 @@ impl InitiatorState {
         }
     }
 
+    /// Returns true if the handshake has completed and mini-protocols are active.
     pub fn is_initialized(&self) -> bool {
         matches!(self.connection, ConnectionState::Initialized)
     }
 
+    /// Returns the accepted version data if the handshake completed successfully.
     pub fn version(&self) -> Option<proto::handshake::n2n::VersionData> {
         match &self.handshake {
             proto::handshake::State::Done(proto::handshake::DoneState::Accepted(_, data)) => {
@@ -159,10 +181,12 @@ impl InitiatorState {
         }
     }
 
+    /// Returns the current promotion level of this peer.
     pub fn promotion(&self) -> PromotionTag {
         self.promotion
     }
 
+    /// Returns true if the negotiated version supports peer sharing.
     pub fn supports_peer_sharing(&self) -> bool {
         let val = self
             .version()
@@ -173,6 +197,7 @@ impl InitiatorState {
         val > 0
     }
 
+    /// Applies a message to the corresponding mini-protocol state machine.
     pub fn apply_msg(&mut self, msg: &AnyMessage) {
         match msg {
             AnyMessage::Handshake(msg) => {
@@ -259,38 +284,61 @@ impl InitiatorState {
     }
 }
 
+/// A function that mutates an [`InitiatorState`], used for tagging operations
+/// like banning or demoting peers.
 pub type TagFn = fn(&mut InitiatorState);
 
+/// Commands that can be sent to the initiator behavior from external code.
 #[derive(Debug)]
 pub enum InitiatorCommand {
+    /// Add a new peer to be tracked and potentially connected.
     IncludePeer(PeerId),
+    /// Trigger periodic housekeeping (peer promotion, discovery, etc.).
     Housekeeping,
+    /// Begin chain synchronization from the given known points.
     StartSync(Vec<proto::Point>),
+    /// Resume chain synchronization for a specific peer.
     ContinueSync(PeerId),
+    /// Request a range of blocks to be fetched.
     RequestBlocks(BlockRange),
+    /// Submit a transaction to a specific peer.
     SendTx(
         PeerId,
         proto::txsubmission::EraTxId,
         proto::txsubmission::EraTxBody,
     ),
+    /// Ban a peer, preventing future connections.
     BanPeer(PeerId),
+    /// Demote a peer back to cold status.
     DemotePeer(PeerId),
 }
 
+/// Events emitted by the initiator behavior to external consumers.
 #[derive(Debug)]
 pub enum InitiatorEvent {
+    /// A peer completed the handshake and is ready for mini-protocols.
     PeerInitialized(PeerId, AcceptedVersion),
+    /// An intersection point was found during chain-sync.
     IntersectionFound(PeerId, proto::Point, proto::chainsync::Tip),
+    /// A new block header was received via chain-sync.
     BlockHeaderReceived(
         PeerId,
         proto::chainsync::HeaderContent,
         proto::chainsync::Tip,
     ),
+    /// A rollback was received via chain-sync.
     RollbackReceived(PeerId, proto::Point, proto::chainsync::Tip),
+    /// A block body was received via block-fetch.
     BlockBodyReceived(PeerId, proto::blockfetch::Body),
+    /// The remote peer requested a transaction via tx-submission.
     TxRequested(PeerId, proto::txsubmission::EraTxId),
 }
 
+/// The main initiator behavior that orchestrates outbound Cardano connections.
+///
+/// Manages peer lifecycle (discovery, connection, promotion) and coordinates
+/// all mini-protocol sub-behaviors (handshake, keepalive, chain-sync,
+/// block-fetch, peer-sharing, discovery).
 #[derive(Default)]
 pub struct InitiatorBehavior {
     pub promotion: promotion::PromotionBehavior,
@@ -318,6 +366,7 @@ macro_rules! all_visitors {
 
 impl InitiatorBehavior {
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes an inbound message from a peer, updating state and notifying visitors.
     pub fn on_inbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new inbound message");
 
@@ -329,6 +378,7 @@ impl InitiatorBehavior {
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes a confirmed outbound message to a peer, updating state and notifying visitors.
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 

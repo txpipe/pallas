@@ -5,10 +5,13 @@ use crate::{
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
+/// Configuration for the handshake sub-behavior.
 pub struct Config {
-    supported_version: crate::protocol::handshake::n2n::VersionTable,
+    /// The N2N version table to propose during handshakes.
+    pub supported_version: crate::protocol::handshake::n2n::VersionTable,
 }
 
+/// Sub-behavior that performs the handshake mini-protocol on new connections.
 pub struct HandshakeBehavior {
     config: Config,
 }
@@ -35,6 +38,7 @@ impl Default for HandshakeBehavior {
 }
 
 impl HandshakeBehavior {
+    /// Creates a new handshake behavior with the given configuration.
     pub fn new(config: Config) -> Self {
         Self { config }
     }

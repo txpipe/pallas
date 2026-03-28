@@ -5,45 +5,64 @@ use crate::protocol::Error;
 /// Protocol channel number for node-to-node tx-submission
 pub const CHANNEL_ID: u16 = 4;
 
+/// Whether a tx-ids request is blocking (waits for new txs) or non-blocking.
 pub type Blocking = bool;
 
+/// A count of transactions.
 pub type TxCount = u16;
 
+/// The size of a transaction in bytes.
 pub type TxSizeInBytes = u32;
 
-// The bytes of a txId, tagged with an era number
+/// A transaction identifier tagged with its era number.
 #[derive(Debug, Clone)]
 pub struct EraTxId(pub u16, pub Vec<u8>);
 
-// The bytes of a transaction, with an era number and some raw CBOR
+/// A transaction body tagged with its era number, containing raw CBOR bytes.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EraTxBody(pub u16, pub Vec<u8>);
 
+/// A transaction identifier paired with the transaction's size in bytes.
 #[derive(Debug, Clone)]
 pub struct TxIdAndSize<TxID>(pub TxID, pub TxSizeInBytes);
 
+/// A tx-submission mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// Initialize the tx-submission protocol.
     Init,
+    /// Server requests transaction IDs (blocking flag, ack count, request count).
     RequestTxIds(Blocking, TxCount, TxCount),
+    /// Client replies with transaction IDs and their sizes.
     ReplyTxIds(Vec<TxIdAndSize<EraTxId>>),
+    /// Server requests full transactions by their IDs.
     RequestTxs(Vec<EraTxId>),
+    /// Client replies with the requested transaction bodies.
     ReplyTxs(Vec<EraTxBody>),
+    /// The protocol is done.
     Done,
 }
 
+/// State machine for the tx-submission mini-protocol.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum State {
+    /// Waiting for initialization.
     #[default]
     Init,
+    /// Server has agency; can request tx IDs or full txs.
     Idle,
+    /// Waiting for a non-blocking reply with transaction IDs.
     TxIdsNonBlocking,
+    /// Waiting for a blocking reply with transaction IDs.
     TxIdsBlocking,
+    /// Waiting for a reply with full transaction bodies.
     Txs(Vec<EraTxBody>),
+    /// The protocol has terminated.
     Done,
 }
 
 impl State {
+    /// Applies a message to the current state, returning the new state.
     pub fn apply(&self, msg: &Message) -> Result<Self, Error> {
         match self {
             State::Init => match msg {

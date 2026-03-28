@@ -10,13 +10,20 @@ pub mod responder;
 // Re-export initiator types for backward compatibility
 pub use initiator::*;
 
+/// A unified message type that wraps all supported mini-protocol messages.
 #[derive(Debug, Clone)]
 pub enum AnyMessage {
+    /// A handshake protocol message.
     Handshake(proto::handshake::Message<proto::handshake::n2n::VersionData>),
+    /// A keepalive protocol message.
     KeepAlive(proto::keepalive::Message),
+    /// A chain-sync protocol message.
     ChainSync(proto::chainsync::Message<proto::chainsync::HeaderContent>),
+    /// A peer-sharing protocol message.
     PeerSharing(proto::peersharing::Message),
+    /// A block-fetch protocol message.
     BlockFetch(proto::blockfetch::Message),
+    /// A tx-submission protocol message.
     TxSubmission(proto::txsubmission::Message),
 }
 
@@ -87,19 +94,29 @@ impl Message for AnyMessage {
     }
 }
 
+/// Timestamp of the last observed activity for a peer.
 pub type LastSeen = chrono::DateTime<chrono::Utc>;
 
+/// The high-level connection state of a peer.
 #[derive(PartialEq, Debug, Default)]
 pub enum ConnectionState {
+    /// Peer was discovered but no connection attempt has been made.
     #[default]
     New,
+    /// A connection attempt is in progress.
     Connecting,
+    /// TCP connection established, handshake not yet complete.
     Connected,
+    /// Handshake completed successfully; mini-protocols are active.
     Initialized,
+    /// The peer has been disconnected.
     Disconnected,
+    /// An error occurred on this peer's connection.
     Errored,
 }
 
+/// A range of blocks defined by start and end points.
 pub type BlockRange = (proto::Point, proto::Point);
 
+/// The accepted version number and data from a successful N2N handshake.
 pub type AcceptedVersion = (u64, proto::handshake::n2n::VersionData);

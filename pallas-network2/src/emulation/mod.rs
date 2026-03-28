@@ -12,9 +12,15 @@ use crate::{Interface, InterfaceCommand, InterfaceEvent, Message, PeerId};
 pub mod happy;
 pub mod initiator_mock;
 
+/// Rules that define how the emulator responds to network commands.
+///
+/// Implement this trait to define the simulated behavior of a remote peer,
+/// including what messages to reply with and how much jitter to introduce.
 pub trait Rules {
+    /// The message type used by the emulated protocol.
     type Message: Message + Clone + 'static;
 
+    /// Enqueue reply messages for a given inbound message from a peer.
     fn reply_to(
         &self,
         pid: PeerId,
@@ -23,10 +29,12 @@ pub trait Rules {
         queue: &mut ReplyQueue<Self::Message>,
     );
 
+    /// Whether the emulator should accept a connection from the given peer.
     fn should_connect(&self, _pid: PeerId) -> bool {
         true
     }
 
+    /// Returns the random jitter duration to apply before delivering a reply.
     fn jitter(&self) -> Duration {
         Duration::from_secs(rand::rng().random_range(0..3))
     }
@@ -34,6 +42,7 @@ pub trait Rules {
 
 type ReplyFuture<M> = Pin<Box<dyn Future<Output = InterfaceEvent<M>> + Send>>;
 
+/// A queue of delayed replies to be delivered by the emulator.
 pub struct ReplyQueue<M>(FuturesUnordered<ReplyFuture<M>>)
 where
     M: Message;
@@ -46,10 +55,12 @@ where
         Self(FuturesUnordered::new())
     }
 
+    /// Pushes a raw reply future into the queue.
     pub fn push(&mut self, future: ReplyFuture<M>) {
         self.0.push(future);
     }
 
+    /// Enqueues a message reply that will be delivered after the given jitter delay.
     pub fn push_jittered_msg(&mut self, peer_id: PeerId, msg: M, jitter: Duration) {
         let future = Box::pin(async move {
             tokio::time::sleep(jitter).await;
@@ -60,6 +71,7 @@ where
         self.push(future);
     }
 
+    /// Enqueues a disconnect event that will be delivered after the given jitter delay.
     pub fn push_jittered_disconnect(&mut self, peer_id: PeerId, jitter: Duration) {
         let future = Box::pin(async move {
             tokio::time::sleep(jitter).await;
@@ -94,6 +106,11 @@ where
     }
 }
 
+/// A fake network interface that simulates peer interactions without real IO.
+///
+/// The emulator implements [`Interface`] by immediately responding to commands
+/// according to the provided [`Rules`], with configurable jitter to simulate
+/// network latency.
 pub struct Emulator<M, R>
 where
     M: Message + Clone + Send + Sync + 'static,

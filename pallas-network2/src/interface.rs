@@ -60,6 +60,8 @@ async fn send<M: Message>(
     }
 }
 
+/// Buffer of partial payload chunks keyed by channel, used to reassemble
+/// multi-segment messages.
 pub type ChunkBuffer = HashMap<Channel, Payload>;
 
 async fn recv<M: Message>(
@@ -87,6 +89,7 @@ async fn disconnect<M: Message>(pid: PeerId, writer: SharedWriter) -> InternalEv
     InternalEvent::Disconnected(pid.clone())
 }
 
+/// A thread-safe handle to a shared [`BearerWriteHalf`].
 pub type SharedWriter = Arc<Mutex<BearerWriteHalf>>;
 
 // ---------------------------------------------------------------------------
@@ -210,6 +213,10 @@ impl<M: Message> TcpConnectionPool<M> {
 // TcpInterface — outbound connections
 // ---------------------------------------------------------------------------
 
+/// A network interface that initiates outbound TCP connections to peers.
+///
+/// Implements [`Interface`] by managing a pool of TCP connections and
+/// dispatching connect/send/disconnect commands.
 pub struct TcpInterface<M: Message> {
     pool: TcpConnectionPool<M>,
 }
@@ -221,6 +228,7 @@ impl<M: Message> Default for TcpInterface<M> {
 }
 
 impl<M: Message> TcpInterface<M> {
+    /// Creates a new TCP interface for initiating outbound connections.
     pub fn new() -> Self {
         Self {
             pool: TcpConnectionPool::new(crate::protocol::PROTOCOL_CLIENT),
@@ -285,6 +293,12 @@ async fn accept_tcp<M: Message>(listener: Arc<tokio::net::TcpListener>) -> Inter
     }
 }
 
+/// A network interface that accepts inbound TCP connections from a bound
+/// listener.
+///
+/// Implements [`Interface`] by continuously accepting new connections and
+/// managing the resulting peer sessions. Outbound `Connect` commands are
+/// ignored since connections are initiated by remote peers.
 pub struct TcpListenerInterface<M: Message> {
     pool: TcpConnectionPool<M>,
     listener: Arc<tokio::net::TcpListener>,
@@ -292,6 +306,8 @@ pub struct TcpListenerInterface<M: Message> {
 }
 
 impl<M: Message> TcpListenerInterface<M> {
+    /// Creates a new listener interface that will accept connections on the
+    /// given [`TcpListener`](tokio::net::TcpListener).
     pub fn new(listener: tokio::net::TcpListener) -> Self {
         let listener = Arc::new(listener);
         let accept_fut = Box::pin(accept_tcp(Arc::clone(&listener)));
