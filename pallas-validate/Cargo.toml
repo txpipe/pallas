@@ -1,7 +1,7 @@
 [package]
 name = "pallas-validate"
 description = "Utilities for validating transactions"
-version = "1.0.0-alpha.4"
+version = "1.0.0-alpha.5"
 edition = "2021"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
@@ -11,11 +11,11 @@ readme = "README.md"
 authors = ["TxPipe <hello@txpipe.io>"]
 
 [dependencies]
-pallas-addresses = { version = "=1.0.0-alpha.4", path = "../pallas-addresses" }
-pallas-codec = { version = "=1.0.0-alpha.4", path = "../pallas-codec" }
-pallas-crypto = { version = "=1.0.0-alpha.4", path = "../pallas-crypto" }
-pallas-primitives = { version = "=1.0.0-alpha.4", path = "../pallas-primitives" }
-pallas-traverse = { version = "=1.0.0-alpha.4", path = "../pallas-traverse" }
+pallas-addresses = { version = "=1.0.0-alpha.5", path = "../pallas-addresses" }
+pallas-codec = { version = "=1.0.0-alpha.5", path = "../pallas-codec" }
+pallas-crypto = { version = "=1.0.0-alpha.5", path = "../pallas-crypto" }
+pallas-primitives = { version = "=1.0.0-alpha.5", path = "../pallas-primitives" }
+pallas-traverse = { version = "=1.0.0-alpha.5", path = "../pallas-traverse" }
 hex = "0.4"
 chrono = "0.4.39"
 thiserror = "1.0.49"
