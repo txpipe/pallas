@@ -117,36 +117,17 @@ mod tests {
     use crate::behavior::ConnectionState;
     use crate::protocol::handshake;
     use crate::OutboundQueue;
-    use futures::StreamExt;
-
-    fn make_peer() -> PeerId {
-        PeerId {
-            host: "10.0.0.1".to_string(),
-            port: 3001,
-        }
-    }
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
-        let mut outputs = Vec::new();
-        let waker = futures::task::noop_waker();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        loop {
-            match outbound.futures.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
-        }
-
-        outputs
+        outbound.drain_ready()
     }
 
     #[test]
     fn propose_sent_on_connect() {
         let mut hs = HandshakeBehavior::default();
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -170,7 +151,7 @@ mod tests {
     #[test]
     fn accepted_handshake_sets_initialized() {
         let mut hs = HandshakeBehavior::default();
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -203,7 +184,7 @@ mod tests {
     #[test]
     fn non_connected_state_skips_confirmation() {
         let mut hs = HandshakeBehavior::default();
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 

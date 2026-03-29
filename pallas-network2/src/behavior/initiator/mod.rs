@@ -521,68 +521,28 @@ impl Behavior for InitiatorBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::BehaviorOutputExt;
     use crate::protocol::{
         blockfetch as bf, chainsync as cs, handshake, keepalive, peersharing, Point, MAINNET_MAGIC,
     };
     use crate::{InterfaceError, InterfaceEvent};
+    use futures::StreamExt;
     use std::collections::HashMap;
     use std::net::Ipv4Addr;
-
-    fn make_peer(id: u8) -> PeerId {
-        PeerId {
-            host: format!("10.0.0.{}", id),
-            port: 3000 + id as u16,
-        }
-    }
 
     fn drain_outputs(behavior: &mut InitiatorBehavior) -> Vec<BehaviorOutput<InitiatorBehavior>> {
         let mut outputs = Vec::new();
         let waker = futures::task::noop_waker();
         let mut cx = std::task::Context::from_waker(&waker);
-        use futures::Stream;
 
         loop {
-            match std::pin::Pin::new(&mut *behavior).poll_next(&mut cx) {
+            match behavior.poll_next_unpin(&mut cx) {
                 std::task::Poll::Ready(Some(output)) => outputs.push(output),
                 _ => break,
             }
         }
 
         outputs
-    }
-
-    fn has_connect_for(
-        outputs: &[BehaviorOutput<InitiatorBehavior>],
-        pid: &PeerId,
-    ) -> bool {
-        outputs.iter().any(|o| {
-            matches!(
-                o,
-                BehaviorOutput::InterfaceCommand(crate::InterfaceCommand::Connect(p)) if p == pid
-            )
-        })
-    }
-
-    fn has_disconnect_for(
-        outputs: &[BehaviorOutput<InitiatorBehavior>],
-        pid: &PeerId,
-    ) -> bool {
-        outputs.iter().any(|o| {
-            matches!(
-                o,
-                BehaviorOutput::InterfaceCommand(crate::InterfaceCommand::Disconnect(p)) if p == pid
-            )
-        })
-    }
-
-    fn has_send<F>(outputs: &[BehaviorOutput<InitiatorBehavior>], pred: F) -> bool
-    where
-        F: Fn(&AnyMessage) -> bool,
-    {
-        outputs.iter().any(|o| match o {
-            BehaviorOutput::InterfaceCommand(crate::InterfaceCommand::Send(_, msg)) => pred(msg),
-            _ => false,
-        })
     }
 
     fn complete_handshake(behavior: &mut InitiatorBehavior, pid: &PeerId) {
@@ -609,7 +569,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
         behavior.execute(InitiatorCommand::Housekeeping);
@@ -629,7 +589,7 @@ mod tests {
         for _ in 0..10 {
             behavior.execute(InitiatorCommand::Housekeeping);
             let outputs = drain_outputs(&mut behavior);
-            assert!(!has_connect_for(&outputs, &pid));
+            assert!(!outputs.has_connect_for(&pid));
         }
     }
 
@@ -639,7 +599,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let pid = make_peer(2);
+        let pid = PeerId::test(2);
 
         behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
         behavior.execute(InitiatorCommand::Housekeeping);
@@ -661,7 +621,7 @@ mod tests {
 
         behavior.execute(InitiatorCommand::Housekeeping);
         let outputs = drain_outputs(&mut behavior);
-        assert!(has_disconnect_for(&outputs, &pid));
+        assert!(outputs.has_disconnect_for(&pid));
     }
 
     #[tokio::test]
@@ -677,7 +637,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let pid = make_peer(3);
+        let pid = PeerId::test(3);
 
         behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
         behavior.execute(InitiatorCommand::Housekeeping);
@@ -714,7 +674,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let pid = make_peer(10);
+        let pid = PeerId::test(10);
 
         // Start chainsync so the behavior will initiate it for hot peers
         behavior.execute(InitiatorCommand::StartSync(vec![Point::Origin]));
@@ -725,12 +685,12 @@ mod tests {
         let outputs = drain_outputs(&mut behavior);
 
         assert!(behavior.promotion.warm_peers.contains(&pid));
-        assert!(has_connect_for(&outputs, &pid));
+        assert!(outputs.has_connect_for(&pid));
 
         // Connected → handshake proposes
         behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
         let outputs = drain_outputs(&mut behavior);
-        assert!(has_send(&outputs, |m| matches!(m, AnyMessage::Handshake(handshake::Message::Propose(_)))));
+        assert!(outputs.has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Propose(_)))));
 
         // Complete handshake → Initialized
         complete_handshake(&mut behavior, &pid);
@@ -741,7 +701,7 @@ mod tests {
 
         assert!(behavior.promotion.hot_peers.contains(&pid));
         assert!(
-            has_send(&outputs, |m| matches!(m, AnyMessage::ChainSync(cs::Message::FindIntersect(_)))),
+            outputs.has_send(|m| matches!(m, AnyMessage::ChainSync(cs::Message::FindIntersect(_)))),
             "chainsync should start for hot initialized peer"
         );
     }
@@ -752,7 +712,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let pid = make_peer(11);
+        let pid = PeerId::test(11);
 
         behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
 
@@ -765,7 +725,7 @@ mod tests {
             "peer should be promoted to warm"
         );
         assert!(
-            has_connect_for(&outputs, &pid),
+            outputs.has_connect_for(&pid),
             "Connect should be issued in the same housekeeping pass"
         );
     }
@@ -776,7 +736,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let seed_pid = make_peer(12);
+        let seed_pid = PeerId::test(12);
 
         // Include and fully initialize a seed peer with peer-sharing support
         behavior.execute(InitiatorCommand::IncludePeer(seed_pid.clone()));
@@ -825,7 +785,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let pid = make_peer(13);
+        let pid = PeerId::test(13);
 
         behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
         behavior.execute(InitiatorCommand::Housekeeping);
@@ -847,7 +807,7 @@ mod tests {
             "promotion should ban the violating peer"
         );
         assert!(
-            has_disconnect_for(&outputs, &pid),
+            outputs.has_disconnect_for(&pid),
             "connection should disconnect the banned peer"
         );
     }
@@ -858,7 +818,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = InitiatorBehavior::default();
-        let pid = make_peer(14);
+        let pid = PeerId::test(14);
 
         let range = (Point::Origin, Point::new(100, vec![0xAA; 32]));
         behavior.blockfetch.enqueue(range.clone());
@@ -875,7 +835,7 @@ mod tests {
         behavior.execute(InitiatorCommand::Housekeeping);
         let outputs = drain_outputs(&mut behavior);
         assert!(
-            !has_send(&outputs, |m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
+            !outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
             "should NOT send RequestRange before handshake"
         );
 
@@ -888,7 +848,7 @@ mod tests {
         behavior.execute(InitiatorCommand::Housekeeping);
         let outputs = drain_outputs(&mut behavior);
         assert!(
-            has_send(&outputs, |m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
+            outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
             "should send RequestRange after handshake completes"
         );
     }

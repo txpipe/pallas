@@ -172,30 +172,11 @@ mod tests {
     use super::*;
     use crate::protocol::chainsync::{Data, HeaderContent, State as CsState, Tip};
     use crate::OutboundQueue;
-    use futures::StreamExt;
-
-    fn make_peer() -> PeerId {
-        PeerId {
-            host: "10.0.0.1".to_string(),
-            port: 3001,
-        }
-    }
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
-        let mut outputs = Vec::new();
-        let waker = futures::task::noop_waker();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        loop {
-            match outbound.futures.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
-        }
-
-        outputs
+        outbound.drain_ready()
     }
 
     fn mock_tip() -> Tip {
@@ -213,7 +194,7 @@ mod tests {
     #[test]
     fn drain_content_emits_header_event() {
         let cs = ChainSyncBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -231,7 +212,7 @@ mod tests {
     #[test]
     fn drain_rollback_emits_rollback_event() {
         let cs = ChainSyncBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -249,7 +230,7 @@ mod tests {
     #[test]
     fn drain_intersection_emits_found_event() {
         let cs = ChainSyncBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -267,7 +248,7 @@ mod tests {
     #[test]
     fn no_intersection_sets_violation() {
         let cs = ChainSyncBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -283,7 +264,7 @@ mod tests {
         let mut cs = ChainSyncBehavior::new(());
         cs.start(vec![Point::Origin]);
 
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -311,7 +292,7 @@ mod tests {
         let mut cs = ChainSyncBehavior::new(());
         cs.start(vec![Point::Origin]);
 
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -327,7 +308,7 @@ mod tests {
     #[test]
     fn tagged_requests_next_when_continue_sync() {
         let mut cs = ChainSyncBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 

@@ -251,13 +251,6 @@ impl PeerVisitor for PromotionBehavior {
 mod tests {
     use super::*;
 
-    fn make_peer(id: u8) -> PeerId {
-        PeerId {
-            host: format!("10.0.0.{}", id),
-            port: 3000 + id as u16,
-        }
-    }
-
     #[test]
     fn max_warm_peers_respected() {
         let mut promo = PromotionBehavior::new(PromotionConfig {
@@ -269,7 +262,7 @@ mod tests {
 
         // Discover 5 peers (all land in cold)
         for i in 1..=5 {
-            let pid = make_peer(i);
+            let pid = PeerId::test(i);
             let mut state = InitiatorState::new();
             promo.on_peer_discovered(&pid, &mut state);
         }
@@ -301,7 +294,7 @@ mod tests {
 
         // Put 3 peers directly into warm with initialized state
         for i in 1..=3 {
-            let pid = make_peer(i);
+            let pid = PeerId::test(i);
             promo.warm_peers.insert(pid);
         }
 
@@ -330,7 +323,7 @@ mod tests {
         });
 
         for i in 1..=5 {
-            let pid = make_peer(i);
+            let pid = PeerId::test(i);
             let mut state = InitiatorState::new();
             promo.on_peer_discovered(&pid, &mut state);
         }
@@ -355,7 +348,7 @@ mod tests {
         });
 
         for i in 1..=7 {
-            let pid = make_peer(i);
+            let pid = PeerId::test(i);
             let mut state = InitiatorState::new();
             promo.on_peer_discovered(&pid, &mut state);
         }
@@ -366,7 +359,7 @@ mod tests {
     #[test]
     fn ban_peer_removes_from_all_sets() {
         let mut promo = PromotionBehavior::new(PromotionConfig::default());
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         promo.warm_peers.insert(pid.clone());
 
@@ -381,7 +374,7 @@ mod tests {
     #[test]
     fn demote_banned_peer_is_noop() {
         let mut promo = PromotionBehavior::new(PromotionConfig::default());
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         promo.banned_peers.insert(pid.clone());
 
@@ -402,7 +395,7 @@ mod tests {
     #[test]
     fn rediscovered_banned_peer_stays_banned() {
         let mut promo = PromotionBehavior::new(PromotionConfig::default());
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         promo.banned_peers.insert(pid.clone());
 
@@ -416,7 +409,7 @@ mod tests {
     #[test]
     fn violation_triggers_ban() {
         let mut promo = PromotionBehavior::new(PromotionConfig::default());
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         promo.warm_peers.insert(pid.clone());
 
@@ -433,7 +426,7 @@ mod tests {
             max_error_count: 1,
             ..PromotionConfig::default()
         });
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         promo.warm_peers.insert(pid.clone());
 

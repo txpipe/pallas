@@ -120,30 +120,11 @@ mod tests {
     use crate::protocol::txsubmission::{EraTxBody, State as TxState};
     use crate::protocol::MAINNET_MAGIC;
     use crate::OutboundQueue;
-    use futures::StreamExt;
-
-    fn make_peer() -> PeerId {
-        PeerId {
-            host: "10.0.0.1".to_string(),
-            port: 3001,
-        }
-    }
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) -> Vec<BehaviorOutput<ResponderBehavior>> {
-        let mut outputs = Vec::new();
-        let waker = futures::task::noop_waker();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        loop {
-            match outbound.futures.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
-        }
-
-        outputs
+        outbound.drain_ready()
     }
 
     fn make_initialized_state() -> ResponderState {
@@ -157,7 +138,7 @@ mod tests {
     #[test]
     fn init_sent_when_initialized_and_init_state() {
         let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig::default());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = make_initialized_state();
         let mut outbound = OutboundQueue::new();
 
@@ -181,7 +162,7 @@ mod tests {
     #[test]
     fn request_tx_ids_sent_when_idle() {
         let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig { max_tx_request: 5 });
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = make_initialized_state();
         let mut outbound = OutboundQueue::new();
 
@@ -204,7 +185,7 @@ mod tests {
     #[test]
     fn txs_extracted_and_emitted() {
         let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig::default());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = make_initialized_state();
         let mut outbound = OutboundQueue::new();
 
@@ -227,7 +208,7 @@ mod tests {
     #[test]
     fn init_not_sent_when_not_initialized() {
         let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig::default());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = ResponderState::new(); // NOT initialized
         let mut outbound = OutboundQueue::new();
 
@@ -242,7 +223,7 @@ mod tests {
     #[test]
     fn max_tx_request_used_in_request() {
         let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig { max_tx_request: 42 });
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = make_initialized_state();
         let mut outbound = OutboundQueue::new();
 

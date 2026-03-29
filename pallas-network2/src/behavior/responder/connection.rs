@@ -184,6 +184,8 @@ mod tests {
     use super::*;
     use crate::OutboundQueue;
 
+    use crate::BehaviorOutputExt;
+
     fn make_peer_same_ip(id: u16) -> PeerId {
         PeerId {
             host: "10.0.0.1".to_string(),
@@ -191,41 +193,10 @@ mod tests {
         }
     }
 
-    fn make_peer(id: u8) -> PeerId {
-        PeerId {
-            host: format!("10.0.0.{}", id),
-            port: 3000 + id as u16,
-        }
-    }
-
     fn drain_outputs(
         outbound: &mut OutboundQueue<super::super::ResponderBehavior>,
     ) -> Vec<crate::BehaviorOutput<super::super::ResponderBehavior>> {
-        use futures::StreamExt;
-        let mut outputs = Vec::new();
-        let waker = futures::task::noop_waker();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        loop {
-            match outbound.futures.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
-        }
-
-        outputs
-    }
-
-    fn has_disconnect_for(
-        outputs: &[crate::BehaviorOutput<super::super::ResponderBehavior>],
-        pid: &PeerId,
-    ) -> bool {
-        outputs.iter().any(|o| {
-            matches!(
-                o,
-                crate::BehaviorOutput::InterfaceCommand(InterfaceCommand::Disconnect(p)) if p == pid
-            )
-        })
+        outbound.drain_ready()
     }
 
     #[test]
@@ -245,19 +216,19 @@ mod tests {
         let outputs = drain_outputs(&mut outbound);
 
         // Peers 4 and 5 should be disconnected
-        assert!(has_disconnect_for(&outputs, &make_peer_same_ip(4)));
-        assert!(has_disconnect_for(&outputs, &make_peer_same_ip(5)));
+        assert!(outputs.has_disconnect_for(&make_peer_same_ip(4)));
+        assert!(outputs.has_disconnect_for(&make_peer_same_ip(5)));
         // Peers 1-3 should not
-        assert!(!has_disconnect_for(&outputs, &make_peer_same_ip(1)));
-        assert!(!has_disconnect_for(&outputs, &make_peer_same_ip(2)));
-        assert!(!has_disconnect_for(&outputs, &make_peer_same_ip(3)));
+        assert!(!outputs.has_disconnect_for(&make_peer_same_ip(1)));
+        assert!(!outputs.has_disconnect_for(&make_peer_same_ip(2)));
+        assert!(!outputs.has_disconnect_for(&make_peer_same_ip(3)));
     }
 
     #[test]
     fn banned_peer_rejected_on_connect() {
         let mut conn = ConnectionResponder::new(ConnectionResponderConfig::default());
         let mut outbound = OutboundQueue::new();
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         conn.banned_peers.insert(pid.clone());
 
@@ -265,7 +236,7 @@ mod tests {
         conn.visit_connected(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
-        assert!(has_disconnect_for(&outputs, &pid));
+        assert!(outputs.has_disconnect_for(&pid));
     }
 
     #[test]
@@ -295,14 +266,14 @@ mod tests {
         conn.visit_connected(&pid4, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
-        assert!(!has_disconnect_for(&outputs, &pid4));
+        assert!(!outputs.has_disconnect_for(&pid4));
     }
 
     #[test]
     fn violation_leads_to_ban_on_housekeeping() {
         let mut conn = ConnectionResponder::new(ConnectionResponderConfig::default());
         let mut outbound = OutboundQueue::new();
-        let pid = make_peer(2);
+        let pid = PeerId::test(2);
 
         let mut state = ResponderState::new();
         state.violation = true;
@@ -311,6 +282,6 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         assert!(conn.banned_peers.contains(&pid));
-        assert!(has_disconnect_for(&outputs, &pid));
+        assert!(outputs.has_disconnect_for(&pid));
     }
 }

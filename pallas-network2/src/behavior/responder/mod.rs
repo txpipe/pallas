@@ -582,65 +582,27 @@ impl Behavior for ResponderBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::BehaviorOutputExt;
     use crate::protocol::{
         chainsync as cs, handshake, keepalive, txsubmission as txsub, Point, MAINNET_MAGIC,
     };
     use crate::InterfaceEvent;
+    use futures::StreamExt;
     use std::collections::HashMap as StdHashMap;
-
-    fn make_peer(id: u8) -> PeerId {
-        PeerId {
-            host: format!("10.0.0.{}", id),
-            port: 3000 + id as u16,
-        }
-    }
 
     fn drain_outputs(behavior: &mut ResponderBehavior) -> Vec<BehaviorOutput<ResponderBehavior>> {
         let mut outputs = Vec::new();
         let waker = futures::task::noop_waker();
         let mut cx = std::task::Context::from_waker(&waker);
-        use futures::Stream;
 
         loop {
-            match std::pin::Pin::new(&mut *behavior).poll_next(&mut cx) {
+            match behavior.poll_next_unpin(&mut cx) {
                 std::task::Poll::Ready(Some(output)) => outputs.push(output),
                 _ => break,
             }
         }
 
         outputs
-    }
-
-    fn has_disconnect_for(
-        outputs: &[BehaviorOutput<ResponderBehavior>],
-        pid: &PeerId,
-    ) -> bool {
-        outputs.iter().any(|o| {
-            matches!(
-                o,
-                BehaviorOutput::InterfaceCommand(InterfaceCommand::Disconnect(p)) if p == pid
-            )
-        })
-    }
-
-    fn has_send<F>(outputs: &[BehaviorOutput<ResponderBehavior>], pred: F) -> bool
-    where
-        F: Fn(&AnyMessage) -> bool,
-    {
-        outputs.iter().any(|o| match o {
-            BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(_, msg)) => pred(msg),
-            _ => false,
-        })
-    }
-
-    fn has_event<F>(outputs: &[BehaviorOutput<ResponderBehavior>], pred: F) -> bool
-    where
-        F: Fn(&ResponderEvent) -> bool,
-    {
-        outputs.iter().any(|o| match o {
-            BehaviorOutput::ExternalEvent(e) => pred(e),
-            _ => false,
-        })
     }
 
     fn connect_and_handshake(behavior: &mut ResponderBehavior, pid: &PeerId) {
@@ -670,20 +632,20 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = make_peer(1);
+        let pid = PeerId::test(1);
 
         connect_and_handshake(&mut behavior, &pid);
 
         behavior.execute(ResponderCommand::BanPeer(pid.clone()));
         let outputs = drain_outputs(&mut behavior);
-        assert!(has_disconnect_for(&outputs, &pid));
+        assert!(outputs.has_disconnect_for(&pid));
 
         behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
         drain_outputs(&mut behavior);
 
         behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
         let outputs = drain_outputs(&mut behavior);
-        assert!(has_disconnect_for(&outputs, &pid));
+        assert!(outputs.has_disconnect_for(&pid));
     }
 
     // ---- New: composition tests ----
@@ -694,7 +656,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = make_peer(10);
+        let pid = PeerId::test(10);
 
         // Connect
         behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
@@ -713,13 +675,13 @@ mod tests {
 
         // Should have sent Accept
         assert!(
-            has_send(&outputs, |m| matches!(m, AnyMessage::Handshake(handshake::Message::Accept(..)))),
+            outputs.has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Accept(..)))),
             "should send Accept message"
         );
 
         // Should have emitted PeerInitialized
         assert!(
-            has_event(&outputs, |e| matches!(e, ResponderEvent::PeerInitialized(p, _) if *p == pid)),
+            outputs.has_event(|e| matches!(e, ResponderEvent::PeerInitialized(p, _) if *p == pid)),
             "should emit PeerInitialized event"
         );
 
@@ -734,7 +696,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = make_peer(11);
+        let pid = PeerId::test(11);
 
         connect_and_handshake(&mut behavior, &pid);
 
@@ -745,21 +707,21 @@ mod tests {
 
         // Should get ResponseKeepAlive
         assert!(
-            has_send(&outputs, |m| matches!(m, AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42)))),
+            outputs.has_send(|m| matches!(m, AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42)))),
             "should respond with ResponseKeepAlive"
         );
 
         // Should NOT have chainsync, blockfetch, or peersharing responses
         assert!(
-            !has_send(&outputs, |m| matches!(m, AnyMessage::ChainSync(_))),
+            !outputs.has_send(|m| matches!(m, AnyMessage::ChainSync(_))),
             "should not produce chainsync output from keepalive message"
         );
         assert!(
-            !has_send(&outputs, |m| matches!(m, AnyMessage::BlockFetch(_))),
+            !outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(_))),
             "should not produce blockfetch output from keepalive message"
         );
         assert!(
-            !has_send(&outputs, |m| matches!(m, AnyMessage::PeerSharing(_))),
+            !outputs.has_send(|m| matches!(m, AnyMessage::PeerSharing(_))),
             "should not produce peersharing output from keepalive message"
         );
     }
@@ -771,7 +733,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = make_peer(12);
+        let pid = PeerId::test(12);
 
         connect_and_handshake(&mut behavior, &pid);
 
@@ -782,7 +744,7 @@ mod tests {
 
         // The violation should prevent keepalive visitor from responding
         assert!(
-            !has_send(&outputs, |m| matches!(m, AnyMessage::KeepAlive(_))),
+            !outputs.has_send(|m| matches!(m, AnyMessage::KeepAlive(_))),
             "violated peer should not get a keepalive response"
         );
 
@@ -791,7 +753,7 @@ mod tests {
         let outputs = drain_outputs(&mut behavior);
 
         assert!(
-            has_disconnect_for(&outputs, &pid),
+            outputs.has_disconnect_for(&pid),
             "violated peer should be disconnected after housekeeping"
         );
     }
@@ -802,7 +764,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = make_peer(13);
+        let pid = PeerId::test(13);
 
         connect_and_handshake(&mut behavior, &pid);
 
@@ -813,7 +775,7 @@ mod tests {
         let outputs = drain_outputs(&mut behavior);
 
         assert!(
-            has_event(&outputs, |e| matches!(e, ResponderEvent::IntersectionRequested(p, _) if *p == pid)),
+            outputs.has_event(|e| matches!(e, ResponderEvent::IntersectionRequested(p, _) if *p == pid)),
             "should emit IntersectionRequested event"
         );
     }
@@ -825,7 +787,7 @@ mod tests {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = make_peer(14);
+        let pid = PeerId::test(14);
 
         connect_and_handshake(&mut behavior, &pid);
 
@@ -834,7 +796,7 @@ mod tests {
         let outputs = drain_outputs(&mut behavior);
 
         assert!(
-            has_send(&outputs, |m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
+            outputs.has_send(|m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
             "should send TxSubmission Init after handshake + housekeeping"
         );
     }

@@ -103,3 +103,4 @@ pub enum ConnectionState {
 pub type BlockRange = (proto::Point, proto::Point);
 
 pub type AcceptedVersion = (u64, proto::handshake::n2n::VersionData);
+

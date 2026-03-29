@@ -108,30 +108,11 @@ mod tests {
     use super::*;
     use crate::protocol::{Point, blockfetch as bf};
     use crate::OutboundQueue;
-    use futures::StreamExt;
-
-    fn make_peer() -> PeerId {
-        PeerId {
-            host: "10.0.0.1".to_string(),
-            port: 3001,
-        }
-    }
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
-        let mut outputs = Vec::new();
-        let waker = futures::task::noop_waker();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        loop {
-            match outbound.futures.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
-        }
-
-        outputs
+        outbound.drain_ready()
     }
 
     #[test]
@@ -149,7 +130,7 @@ mod tests {
     #[test]
     fn dispatch_block_emits_event_when_streaming() {
         let bf = BlockFetchBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -167,7 +148,7 @@ mod tests {
     #[test]
     fn dispatch_block_noop_when_idle() {
         let bf = BlockFetchBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -181,7 +162,7 @@ mod tests {
     #[test]
     fn housekeeping_dispatches_request_for_available_peer() {
         let mut bf = BlockFetchBehavior::new(());
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 

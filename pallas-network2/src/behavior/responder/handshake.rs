@@ -155,31 +155,12 @@ impl ResponderPeerVisitor for HandshakeResponder {
 mod tests {
     use super::*;
     use crate::OutboundQueue;
-    use futures::StreamExt;
     use std::collections::HashMap;
-
-    fn make_peer() -> PeerId {
-        PeerId {
-            host: "10.0.0.1".to_string(),
-            port: 3001,
-        }
-    }
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) -> Vec<BehaviorOutput<ResponderBehavior>> {
-        let mut outputs = Vec::new();
-        let waker = futures::task::noop_waker();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        loop {
-            match outbound.futures.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
-        }
-
-        outputs
+        outbound.drain_ready()
     }
 
     fn make_version_data(magic: u64) -> handshake_proto::n2n::VersionData {
@@ -210,7 +191,7 @@ mod tests {
     fn accepts_highest_common_version() {
         // We support v13, v14. Peer proposes v12, v13, v14.
         let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC), (14, MAINNET_MAGIC)]);
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -237,7 +218,7 @@ mod tests {
     fn refuses_no_common_version() {
         // We support v13. Peer proposes v7, v8.
         let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC)]);
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -266,7 +247,7 @@ mod tests {
     fn refuses_magic_mismatch() {
         // We support v13 with mainnet magic. Peer proposes v13 with different magic.
         let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC)]);
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
@@ -294,7 +275,7 @@ mod tests {
     #[test]
     fn accepted_handshake_emits_initialized_event() {
         let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC)]);
-        let pid = make_peer();
+        let pid = PeerId::test(1);
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
