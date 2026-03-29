@@ -4,9 +4,7 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 
 use pallas_network2::behavior::responder::{ResponderBehavior, ResponderCommand, ResponderEvent};
-use pallas_network2::behavior::{
-    AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent,
-};
+use pallas_network2::behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent};
 use pallas_network2::interface::{TcpInterface, TcpListenerInterface};
 use pallas_network2::protocol::Point;
 use pallas_network2::{Manager, PeerId};
@@ -79,11 +77,7 @@ impl ResponderNode {
                     }
                     ResponderEvent::NextHeaderRequested(pid) => {
                         let (header, tip) = chain.next_header();
-                        manager.execute(ResponderCommand::ProvideHeader(
-                            pid.clone(),
-                            header,
-                            tip,
-                        ));
+                        manager.execute(ResponderCommand::ProvideHeader(pid.clone(), header, tip));
                     }
                     ResponderEvent::BlockRangeRequested(pid, _) => {
                         manager.execute(ResponderCommand::ProvideBlocks(
@@ -92,8 +86,7 @@ impl ResponderNode {
                         ));
                     }
                     ResponderEvent::PeersRequested(pid, _) => {
-                        manager
-                            .execute(ResponderCommand::ProvidePeers(pid.clone(), vec![]));
+                        manager.execute(ResponderCommand::ProvidePeers(pid.clone(), vec![]));
                     }
                     ResponderEvent::TxReceived(pid, _) => {
                         tracing::info!(%pid, "responder: tx received");

@@ -122,7 +122,7 @@ impl PeerVisitor for DiscoveryBehavior {
 mod tests {
     use super::*;
     use crate::behavior::ConnectionState;
-    use crate::protocol::{handshake, peersharing, MAINNET_MAGIC};
+    use crate::protocol::{MAINNET_MAGIC, handshake, peersharing};
     use std::net::Ipv4Addr;
 
     fn make_initialized_peer_sharing_state() -> InitiatorState {
@@ -154,7 +154,9 @@ mod tests {
     #[test]
     fn drain_returns_up_to_count() {
         let mut disc = DiscoveryBehavior {
-            config: DiscoveryConfig { high_water_mark: 100 },
+            config: DiscoveryConfig {
+                high_water_mark: 100,
+            },
             discovered: HashSet::new(),
         };
 
@@ -192,7 +194,9 @@ mod tests {
     #[test]
     fn needs_more_peers_when_below_mark() {
         let disc = DiscoveryBehavior {
-            config: DiscoveryConfig { high_water_mark: 10 },
+            config: DiscoveryConfig {
+                high_water_mark: 10,
+            },
             discovered: HashSet::new(),
         };
 

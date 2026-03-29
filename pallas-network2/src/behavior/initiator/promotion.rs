@@ -328,8 +328,7 @@ mod tests {
             promo.on_peer_discovered(&pid, &mut state);
         }
 
-        let total =
-            promo.cold_peers.len() + promo.warm_peers.len() + promo.hot_peers.len();
+        let total = promo.cold_peers.len() + promo.warm_peers.len() + promo.hot_peers.len();
 
         assert!(
             total <= 3,

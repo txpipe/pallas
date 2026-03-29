@@ -521,10 +521,10 @@ impl Behavior for InitiatorBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::BehaviorOutputExt;
     use crate::protocol::{
-        blockfetch as bf, chainsync as cs, handshake, keepalive, peersharing, Point, MAINNET_MAGIC,
+        MAINNET_MAGIC, Point, blockfetch as bf, chainsync as cs, handshake, keepalive, peersharing,
     };
+    use crate::testing::BehaviorOutputExt;
     use crate::{InterfaceError, InterfaceEvent};
     use futures::StreamExt;
     use std::collections::HashMap;
@@ -687,7 +687,10 @@ mod tests {
         // Connected → handshake proposes
         behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
         let outputs = drain_outputs(&mut behavior);
-        assert!(outputs.has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Propose(_)))));
+        assert!(
+            outputs
+                .has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Propose(_))))
+        );
 
         // Complete handshake → Initialized
         complete_handshake(&mut behavior, &pid);
@@ -767,12 +770,22 @@ mod tests {
         drain_outputs(&mut behavior);
 
         // The discovered peers should now be tracked
-        let discovered_1 = PeerId { host: "192.168.1.1".to_string(), port: 3000 };
-        let discovered_2 = PeerId { host: "192.168.1.2".to_string(), port: 3001 };
+        let discovered_1 = PeerId {
+            host: "192.168.1.1".to_string(),
+            port: 3000,
+        };
+        let discovered_2 = PeerId {
+            host: "192.168.1.2".to_string(),
+            port: 3001,
+        };
 
         assert!(
-            behavior.peers.contains_key(&discovered_1) || behavior.peers.contains_key(&discovered_2),
-            "at least one discovered peer should be tracked after housekeeping"
+            behavior.peers.contains_key(&discovered_1),
+            "discovered peer 1 should be tracked after housekeeping"
+        );
+        assert!(
+            behavior.peers.contains_key(&discovered_2),
+            "discovered peer 2 should be tracked after housekeeping"
         );
     }
 
@@ -832,7 +845,8 @@ mod tests {
         behavior.execute(InitiatorCommand::Housekeeping);
         let outputs = drain_outputs(&mut behavior);
         assert!(
-            !outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
+            !outputs
+                .has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
             "should NOT send RequestRange before handshake"
         );
 

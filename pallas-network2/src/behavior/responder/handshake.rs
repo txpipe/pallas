@@ -178,7 +178,9 @@ mod tests {
         })
     }
 
-    fn make_proposed_table(versions: Vec<(u64, u64)>) -> handshake_proto::VersionTable<handshake_proto::n2n::VersionData> {
+    fn make_proposed_table(
+        versions: Vec<(u64, u64)>,
+    ) -> handshake_proto::VersionTable<handshake_proto::n2n::VersionData> {
         let values: HashMap<u64, handshake_proto::n2n::VersionData> = versions
             .into_iter()
             .map(|(num, magic)| (num, make_version_data(magic)))
@@ -195,9 +197,11 @@ mod tests {
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
-        state.handshake = handshake_proto::State::Confirm(
-            make_proposed_table(vec![(12, MAINNET_MAGIC), (13, MAINNET_MAGIC), (14, MAINNET_MAGIC)]),
-        );
+        state.handshake = handshake_proto::State::Confirm(make_proposed_table(vec![
+            (12, MAINNET_MAGIC),
+            (13, MAINNET_MAGIC),
+            (14, MAINNET_MAGIC),
+        ]));
 
         hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
 
@@ -210,7 +214,11 @@ mod tests {
             _ => None,
         });
 
-        assert_eq!(accepted_version, Some(14), "should accept highest common version");
+        assert_eq!(
+            accepted_version,
+            Some(14),
+            "should accept highest common version"
+        );
         assert_eq!(state.connection, ConnectionState::Initialized);
     }
 
@@ -222,9 +230,10 @@ mod tests {
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
-        state.handshake = handshake_proto::State::Confirm(
-            make_proposed_table(vec![(7, MAINNET_MAGIC), (8, MAINNET_MAGIC)]),
-        );
+        state.handshake = handshake_proto::State::Confirm(make_proposed_table(vec![
+            (7, MAINNET_MAGIC),
+            (8, MAINNET_MAGIC),
+        ]));
 
         hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
 
@@ -279,15 +288,17 @@ mod tests {
         let mut state = ResponderState::new();
         let mut outbound = OutboundQueue::new();
 
-        state.handshake = handshake_proto::State::Confirm(
-            make_proposed_table(vec![(13, MAINNET_MAGIC)]),
-        );
+        state.handshake =
+            handshake_proto::State::Confirm(make_proposed_table(vec![(13, MAINNET_MAGIC)]));
 
         hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
         let has_event = outputs.iter().any(|o| {
-            matches!(o, BehaviorOutput::ExternalEvent(ResponderEvent::PeerInitialized(..)))
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(ResponderEvent::PeerInitialized(..))
+            )
         });
         assert!(has_event, "should emit PeerInitialized event");
     }

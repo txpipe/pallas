@@ -115,11 +115,11 @@ impl ResponderPeerVisitor for TxSubmissionResponder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::OutboundQueue;
     use crate::behavior::ConnectionState;
+    use crate::protocol::MAINNET_MAGIC;
     use crate::protocol::handshake;
     use crate::protocol::txsubmission::{EraTxBody, State as TxState};
-    use crate::protocol::MAINNET_MAGIC;
-    use crate::OutboundQueue;
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<ResponderBehavior>,
@@ -161,7 +161,8 @@ mod tests {
 
     #[test]
     fn request_tx_ids_sent_when_idle() {
-        let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig { max_tx_request: 5 });
+        let mut txsub =
+            TxSubmissionResponder::new(TxSubmissionResponderConfig { max_tx_request: 5 });
         let pid = PeerId::test(1);
         let mut state = make_initialized_state();
         let mut outbound = OutboundQueue::new();
@@ -174,12 +175,20 @@ mod tests {
         let req = outputs.iter().find_map(|o| match o {
             BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
                 _,
-                AnyMessage::TxSubmission(txsubmission_proto::Message::RequestTxIds(blocking, _, count)),
+                AnyMessage::TxSubmission(txsubmission_proto::Message::RequestTxIds(
+                    blocking,
+                    _,
+                    count,
+                )),
             )) => Some((*blocking, *count)),
             _ => None,
         });
 
-        assert_eq!(req, Some((true, 5)), "should send RequestTxIds with max_tx_request=5");
+        assert_eq!(
+            req,
+            Some((true, 5)),
+            "should send RequestTxIds with max_tx_request=5"
+        );
     }
 
     #[test]
@@ -199,7 +208,12 @@ mod tests {
         let outputs = drain_outputs(&mut outbound);
         let tx_events: Vec<_> = outputs
             .iter()
-            .filter(|o| matches!(o, BehaviorOutput::ExternalEvent(ResponderEvent::TxReceived(..))))
+            .filter(|o| {
+                matches!(
+                    o,
+                    BehaviorOutput::ExternalEvent(ResponderEvent::TxReceived(..))
+                )
+            })
             .collect();
 
         assert_eq!(tx_events.len(), 2, "should emit TxReceived for each tx");
@@ -217,12 +231,16 @@ mod tests {
         txsub.visit_housekeeping(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
-        assert!(outputs.is_empty(), "should not send Init when not initialized");
+        assert!(
+            outputs.is_empty(),
+            "should not send Init when not initialized"
+        );
     }
 
     #[test]
     fn max_tx_request_used_in_request() {
-        let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig { max_tx_request: 42 });
+        let mut txsub =
+            TxSubmissionResponder::new(TxSubmissionResponderConfig { max_tx_request: 42 });
         let pid = PeerId::test(1);
         let mut state = make_initialized_state();
         let mut outbound = OutboundQueue::new();

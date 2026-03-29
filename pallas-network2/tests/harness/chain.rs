@@ -1,4 +1,4 @@
-use pallas_network2::protocol::{blockfetch, chainsync, Point};
+use pallas_network2::protocol::{Point, blockfetch, chainsync};
 
 /// A mock chain data provider for test responder nodes.
 ///

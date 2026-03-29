@@ -582,11 +582,11 @@ impl Behavior for ResponderBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::BehaviorOutputExt;
-    use crate::protocol::{
-        chainsync as cs, handshake, keepalive, txsubmission as txsub, Point, MAINNET_MAGIC,
-    };
     use crate::InterfaceEvent;
+    use crate::protocol::{
+        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, txsubmission as txsub,
+    };
+    use crate::testing::BehaviorOutputExt;
     use futures::StreamExt;
     use std::collections::HashMap as StdHashMap;
 
@@ -672,7 +672,8 @@ mod tests {
 
         // Should have sent Accept
         assert!(
-            outputs.has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Accept(..)))),
+            outputs
+                .has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Accept(..)))),
             "should send Accept message"
         );
 
@@ -704,7 +705,10 @@ mod tests {
 
         // Should get ResponseKeepAlive
         assert!(
-            outputs.has_send(|m| matches!(m, AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42)))),
+            outputs.has_send(|m| matches!(
+                m,
+                AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42))
+            )),
             "should respond with ResponseKeepAlive"
         );
 
@@ -772,7 +776,9 @@ mod tests {
         let outputs = drain_outputs(&mut behavior);
 
         assert!(
-            outputs.has_event(|e| matches!(e, ResponderEvent::IntersectionRequested(p, _) if *p == pid)),
+            outputs.has_event(
+                |e| matches!(e, ResponderEvent::IntersectionRequested(p, _) if *p == pid)
+            ),
             "should emit IntersectionRequested event"
         );
     }

@@ -170,8 +170,8 @@ impl PeerVisitor for ChainSyncBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::chainsync::{Data, HeaderContent, State as CsState, Tip};
     use crate::OutboundQueue;
+    use crate::protocol::chainsync::{Data, HeaderContent, State as CsState, Tip};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
@@ -204,7 +204,10 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         let has_event = outputs.iter().any(|o| {
-            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::BlockHeaderReceived(..)))
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(InitiatorEvent::BlockHeaderReceived(..))
+            )
         });
         assert!(has_event);
     }
@@ -222,7 +225,10 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         let has_event = outputs.iter().any(|o| {
-            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::RollbackReceived(..)))
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(InitiatorEvent::RollbackReceived(..))
+            )
         });
         assert!(has_event);
     }
@@ -240,7 +246,10 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         let has_event = outputs.iter().any(|o| {
-            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::IntersectionFound(..)))
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(InitiatorEvent::IntersectionFound(..))
+            )
         });
         assert!(has_event);
     }
@@ -284,7 +293,10 @@ mod tests {
                 ))
             )
         });
-        assert!(has_find, "should send FindIntersect for Hot+Initialized peer");
+        assert!(
+            has_find,
+            "should send FindIntersect for Hot+Initialized peer"
+        );
     }
 
     #[test]
@@ -328,6 +340,9 @@ mod tests {
                 ))
             )
         });
-        assert!(has_next, "should send RequestNext when continue_sync is set");
+        assert!(
+            has_next,
+            "should send RequestNext when continue_sync is set"
+        );
     }
 }

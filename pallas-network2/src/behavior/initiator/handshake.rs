@@ -114,9 +114,9 @@ impl PeerVisitor for HandshakeBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::OutboundQueue;
     use crate::behavior::ConnectionState;
     use crate::protocol::handshake;
-    use crate::OutboundQueue;
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
@@ -162,8 +162,7 @@ mod tests {
             Some(1),
             Some(false),
         );
-        state.handshake =
-            handshake::State::Done(handshake::DoneState::Accepted(13, version_data));
+        state.handshake = handshake::State::Done(handshake::DoneState::Accepted(13, version_data));
         state.connection = ConnectionState::Connected;
 
         hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
@@ -176,7 +175,10 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         let has_init_event = outputs.iter().any(|o| {
-            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::PeerInitialized(..)))
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(InitiatorEvent::PeerInitialized(..))
+            )
         });
         assert!(has_init_event, "should emit PeerInitialized event");
     }
@@ -194,6 +196,9 @@ mod tests {
         hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
-        assert!(outputs.is_empty(), "should not produce output when not in Connected state");
+        assert!(
+            outputs.is_empty(),
+            "should not produce output when not in Connected state"
+        );
     }
 }

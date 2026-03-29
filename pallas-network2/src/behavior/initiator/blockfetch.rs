@@ -106,8 +106,8 @@ impl PeerVisitor for BlockFetchBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{Point, blockfetch as bf};
     use crate::OutboundQueue;
+    use crate::protocol::{Point, blockfetch as bf};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
@@ -140,7 +140,10 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         let has_event = outputs.iter().any(|o| {
-            matches!(o, BehaviorOutput::ExternalEvent(InitiatorEvent::BlockBodyReceived(..)))
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(InitiatorEvent::BlockBodyReceived(..))
+            )
         });
         assert!(has_event, "should emit BlockBodyReceived");
     }
@@ -186,6 +189,9 @@ mod tests {
             )
         });
         assert!(has_request, "should send RequestRange");
-        assert!(bf.requests.is_empty(), "request should be consumed from queue");
+        assert!(
+            bf.requests.is_empty(),
+            "request should be consumed from queue"
+        );
     }
 }

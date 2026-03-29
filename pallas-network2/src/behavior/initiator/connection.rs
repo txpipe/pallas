@@ -7,6 +7,7 @@ fn needs_connection(peer: &InitiatorState) -> bool {
         ConnectionState::Connected => false,
         ConnectionState::Connecting => false,
         ConnectionState::Initialized => false,
+        ConnectionState::Errored => false,
         _ => match peer.promotion {
             PromotionTag::Warm => true,
             PromotionTag::Hot => true,
@@ -160,5 +161,12 @@ mod tests {
     fn hot_initialized_stays_connected() {
         let s = state_with(ConnectionState::Initialized, PromotionTag::Hot);
         assert!(!needs_disconnect(&s));
+    }
+
+    #[test]
+    fn errored_warm_does_not_reconnect() {
+        let s = state_with(ConnectionState::Errored, PromotionTag::Warm);
+        assert!(!needs_connection(&s));
+        assert!(needs_disconnect(&s));
     }
 }
