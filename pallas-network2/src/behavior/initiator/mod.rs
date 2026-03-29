@@ -521,7 +521,7 @@ impl Behavior for InitiatorBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::BehaviorOutputExt;
+    use crate::testing::BehaviorOutputExt;
     use crate::protocol::{
         blockfetch as bf, chainsync as cs, handshake, keepalive, peersharing, Point, MAINNET_MAGIC,
     };
@@ -535,11 +535,8 @@ mod tests {
         let waker = futures::task::noop_waker();
         let mut cx = std::task::Context::from_waker(&waker);
 
-        loop {
-            match behavior.poll_next_unpin(&mut cx) {
-                std::task::Poll::Ready(Some(output)) => outputs.push(output),
-                _ => break,
-            }
+        while let std::task::Poll::Ready(Some(output)) = behavior.poll_next_unpin(&mut cx) {
+            outputs.push(output);
         }
 
         outputs

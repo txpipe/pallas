@@ -184,7 +184,7 @@ mod tests {
     use super::*;
     use crate::OutboundQueue;
 
-    use crate::BehaviorOutputExt;
+    use crate::testing::BehaviorOutputExt;
 
     fn make_peer_same_ip(id: u16) -> PeerId {
         PeerId {

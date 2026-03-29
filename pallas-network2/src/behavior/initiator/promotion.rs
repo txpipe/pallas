@@ -273,7 +273,7 @@ mod tests {
         for pid in &peers {
             let mut state = InitiatorState::new();
             state.promotion = PromotionTag::Cold;
-            promo.categorize_peer(&pid, &mut state);
+            promo.categorize_peer(pid, &mut state);
         }
 
         assert!(
@@ -303,7 +303,7 @@ mod tests {
             let mut state = InitiatorState::new();
             state.connection = crate::behavior::ConnectionState::Initialized;
             state.promotion = PromotionTag::Warm;
-            promo.categorize_peer(&pid, &mut state);
+            promo.categorize_peer(pid, &mut state);
         }
 
         assert!(
