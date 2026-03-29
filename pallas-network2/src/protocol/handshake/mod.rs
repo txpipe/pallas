@@ -11,47 +11,65 @@ pub mod n2n;
 /// Protocol channel number for node-to-node handshakes
 pub const CHANNEL_ID: u16 = 0;
 
+/// A table of protocol versions and their associated data, proposed during the
+/// handshake.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VersionTable<T>
 where
     T: Debug + Clone,
 {
+    /// Map from version number to version-specific data.
     pub values: HashMap<u64, T>,
 }
 
+/// The network magic number used to distinguish Cardano networks.
 pub type NetworkMagic = u64;
 
+/// A protocol version number used during the handshake.
 pub type VersionNumber = u64;
 
+/// A handshake mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message<D>
 where
     D: Debug + Clone,
 {
+    /// Propose a set of supported protocol versions.
     Propose(VersionTable<D>),
+    /// Accept a specific version.
     Accept(VersionNumber, D),
+    /// Refuse the handshake with a reason.
     Refuse(RefuseReason),
+    /// Reply to a version query with the supported versions.
     QueryReply(VersionTable<D>),
 }
 
+/// The terminal state of a completed handshake.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DoneState<D>
 where
     D: Debug + Clone,
 {
+    /// The handshake was accepted with the given version and data.
     Accepted(VersionNumber, D),
+    /// The handshake was rejected.
     Rejected(RefuseReason),
+    /// A query reply was received instead of a normal handshake.
     QueryReply(VersionTable<D>),
 }
 
+/// State machine for the handshake mini-protocol.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum State<D>
 where
     D: Debug + Clone,
 {
+    /// Waiting for a version proposal to be sent.
     #[default]
     Propose,
+    /// A proposal was sent; waiting for confirmation from the remote peer.
     Confirm(VersionTable<D>),
+    /// The handshake has completed.
     Done(DoneState<D>),
 }
 
@@ -59,6 +77,7 @@ impl<D> State<D>
 where
     D: Debug + Clone,
 {
+    /// Applies a message to the current state, returning the new state.
     pub fn apply(&self, msg: &Message<D>) -> Result<Self, Error> {
         match self {
             State::Propose => match msg {
@@ -76,10 +95,14 @@ where
     }
 }
 
+/// The reason why a handshake was refused by the remote peer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RefuseReason {
+    /// No mutually supported version was found.
     VersionMismatch(Vec<VersionNumber>),
+    /// The version data could not be decoded.
     HandshakeDecodeError(VersionNumber, String),
+    /// The peer explicitly refused the connection.
     Refused(VersionNumber, String),
 }
 

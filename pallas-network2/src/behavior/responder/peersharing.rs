@@ -2,6 +2,8 @@ use crate::{BehaviorOutput, OutboundQueue, PeerId, protocol::peersharing as peer
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
+/// Responder sub-behavior that handles peer-sharing requests and emits
+/// [`PeersRequested`](super::ResponderEvent::PeersRequested) events.
 pub struct PeerSharingResponder {
     // metrics
     peersharing_requests_counter: opentelemetry::metrics::Counter<u64>,

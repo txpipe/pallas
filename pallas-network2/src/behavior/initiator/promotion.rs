@@ -19,11 +19,16 @@ impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
     }
 }
 
+/// Configuration for the peer promotion sub-behavior.
 #[derive(Debug)]
 pub struct PromotionConfig {
+    /// Maximum total number of tracked peers (cold + warm + hot).
     pub max_peers: usize,
+    /// Maximum number of warm (connected but not fully active) peers.
     pub max_warm_peers: usize,
+    /// Maximum number of hot (fully active) peers.
     pub max_hot_peers: usize,
+    /// Number of errors before a peer gets banned.
     pub max_error_count: u32,
 }
 
@@ -38,11 +43,17 @@ impl Default for PromotionConfig {
     }
 }
 
+/// Sub-behavior that manages peer promotion between cold, warm, hot, and banned
+/// states based on connection health and configured limits.
 pub struct PromotionBehavior {
     config: PromotionConfig,
+    /// Set of cold (known but not connected) peers.
     pub cold_peers: HashSet<PeerId>,
+    /// Set of warm (connected, handshake done) peers.
     pub warm_peers: HashSet<PeerId>,
+    /// Set of hot (fully active, running all mini-protocols) peers.
     pub hot_peers: HashSet<PeerId>,
+    /// Set of banned peers that will not be connected.
     pub banned_peers: HashSet<PeerId>,
 
     // metrics
@@ -59,6 +70,7 @@ impl Default for PromotionBehavior {
 }
 
 impl PromotionBehavior {
+    /// Creates a new promotion behavior with the given configuration.
     pub fn new(config: PromotionConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 
@@ -109,6 +121,7 @@ impl PromotionBehavior {
             .record(self.banned_peers.len() as u64, &[]);
     }
 
+    /// Returns how many more peers can be added before reaching `max_peers`.
     pub fn peer_deficit(&self) -> usize {
         self.config.max_peers - self.total_peers()
     }
@@ -151,6 +164,7 @@ impl PromotionBehavior {
         }
     }
 
+    /// Bans a peer, removing it from all promotion sets.
     pub fn ban_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         tracing::warn!("banning peer");
 
@@ -163,6 +177,7 @@ impl PromotionBehavior {
         peer.promotion = PromotionTag::Banned;
     }
 
+    /// Demotes a peer back to cold status (unless banned).
     pub fn demote_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         tracing::warn!("demoting peer");
 
@@ -201,6 +216,7 @@ impl PromotionBehavior {
         }
     }
 
+    /// Adds a newly discovered peer to the cold set if capacity allows.
     pub fn on_peer_discovered(&mut self, pid: &PeerId, state: &mut InitiatorState) {
         if self.banned_peers.contains(pid) {
             tracing::warn!("skipping discovered peer, already banned");

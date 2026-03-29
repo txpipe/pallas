@@ -12,28 +12,43 @@ pub const CHANNEL_ID: u16 = 2;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip(pub Point, pub u64);
 
+/// The response to a `FindIntersect` request: an optional intersection point
+/// and the current tip.
 pub type IntersectResponse = (Option<Point>, Tip);
 
 /// A generic chain-sync message for either header or block content
 #[derive(Debug, Clone)]
 pub enum Message<C> {
+    /// Client requests the next update from the server.
     RequestNext,
+    /// Server instructs the client to wait for new data.
     AwaitReply,
+    /// Server sends new content (header or block) with the current tip.
     RollForward(C, Tip),
+    /// Server signals a rollback to a previous point.
     RollBackward(Point, Tip),
+    /// Client requests the server to find an intersection from the given points.
     FindIntersect(Vec<Point>),
+    /// Server found an intersection at the given point.
     IntersectFound(Point, Tip),
+    /// Server could not find an intersection.
     IntersectNotFound(Tip),
+    /// The protocol is done.
     Done,
 }
 
+/// The content of a block header received during chain-sync.
 #[derive(Debug, Clone)]
 pub struct HeaderContent {
+    /// The era variant (0 = Byron, 1+ = Shelley and beyond).
     pub variant: u8,
+    /// Byron-specific prefix data, present only for era variant 0.
     pub byron_prefix: Option<(u8, u64)>,
+    /// The raw CBOR-encoded header bytes.
     pub cbor: Vec<u8>,
 }
 
+/// The content of a full block received during chain-sync, as raw CBOR bytes.
 #[derive(Debug)]
 pub struct BlockContent(pub Vec<u8>);
 
@@ -51,28 +66,43 @@ impl From<BlockContent> for Vec<u8> {
     }
 }
 
+/// A placeholder for chain-sync content that is decoded but not retained.
 #[derive(Debug)]
 pub struct SkippedContent;
 
+/// Data carried in the idle state of the chain-sync protocol, representing the
+/// most recent result.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Data<C> {
+    /// Initial state, no data received yet.
     New,
+    /// An intersection was found at the given point.
     Intersection(Point, Tip),
+    /// No intersection could be found.
     NoIntersection(Tip),
+    /// New content was received (roll forward).
     Content(C, Tip),
+    /// A rollback occurred to the given point.
     Rollback(Point, Tip),
+    /// The data has been consumed.
     Drained,
 }
 
+/// State machine for the chain-sync mini-protocol.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State<C>
 where
     C: Debug + Clone,
 {
+    /// Client has agency; contains the latest data or initial state.
     Idle(Data<C>),
+    /// Waiting for a response that may be an `AwaitReply`.
     CanAwait,
+    /// Waiting for a response that must arrive immediately.
     MustReply,
+    /// Waiting for an intersection response for the given points.
     Intersect(Vec<Point>),
+    /// The protocol has terminated.
     Done,
 }
 
@@ -80,18 +110,23 @@ impl<C> State<C>
 where
     C: Debug + Clone,
 {
+    /// Returns true if this is the initial idle state with no data.
     pub fn is_new(&self) -> bool {
         matches!(self, Self::Idle(Data::New))
     }
 
+    /// Returns true if the idle data has already been consumed.
     pub fn is_drained(&self) -> bool {
         matches!(self, Self::Idle(Data::Drained))
     }
 
+    /// Returns true if the state machine is in any idle sub-state.
     pub fn is_idle(&self) -> bool {
         matches!(self, Self::Idle(_))
     }
 
+    /// Takes the idle data out, replacing it with [`Data::Drained`]. Returns
+    /// `None` if not in an idle state.
     pub fn drain(&mut self) -> Option<Data<C>> {
         let Self::Idle(data) = self else {
             return None;
@@ -127,6 +162,7 @@ impl<C> State<C>
 where
     C: Debug + Clone,
 {
+    /// Applies a message to the current state, returning the new state.
     pub fn apply(&self, msg: &Message<C>) -> Result<Self, Error> {
         match self {
             State::Idle(_) => match msg {

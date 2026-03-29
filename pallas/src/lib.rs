@@ -11,6 +11,10 @@
 #[doc(inline)]
 pub use pallas_network as network;
 
+#[cfg(feature = "network2")]
+#[doc(inline)]
+pub use pallas_network2 as network2;
+
 pub mod ledger {
     //! Ledger primitives and cbor codecs for different Cardano eras
 

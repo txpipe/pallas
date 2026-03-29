@@ -7,10 +7,12 @@ use crate::{
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, PromotionTag};
 
+/// Configuration for the chain-sync sub-behavior (currently unused).
 pub type ChainSyncConfig = ();
 
 type Intersection = Vec<Point>;
 
+/// Sub-behavior that manages chain synchronization with peers.
 pub struct ChainSyncBehavior {
     //config: ChainSyncConfig,
     intersection: Option<Intersection>,
@@ -23,14 +25,17 @@ impl Default for ChainSyncBehavior {
 }
 
 impl ChainSyncBehavior {
+    /// Creates a new chain-sync behavior.
     pub fn new(_config: ChainSyncConfig) -> Self {
         Self { intersection: None }
     }
 
+    /// Sets the known intersection points to start chain synchronization.
     pub fn start(&mut self, intersection: Intersection) {
         self.intersection = Some(intersection);
     }
 
+    /// Sends a `FindIntersect` message to the peer with the known points.
     pub fn request_intersection(
         &self,
         pid: &PeerId,
@@ -47,6 +52,7 @@ impl ChainSyncBehavior {
         )));
     }
 
+    /// Sends a `RequestNext` message to continue chain synchronization.
     pub fn request_next(
         &self,
         pid: &PeerId,
@@ -62,6 +68,8 @@ impl ChainSyncBehavior {
         )));
     }
 
+    /// Drains any pending chain-sync data from the peer state and emits the
+    /// corresponding external events.
     pub fn drain_data(
         &self,
         pid: &PeerId,

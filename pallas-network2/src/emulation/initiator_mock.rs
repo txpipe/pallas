@@ -32,6 +32,8 @@ pub struct MockInitiatorInterface {
 }
 
 impl MockInitiatorInterface {
+    /// Creates a new mock interface that will simulate `num_peers` initiator
+    /// peers, each sending up to `max_headers_per_peer` chain-sync headers.
     pub fn new(num_peers: u16, max_headers_per_peer: u32) -> Self {
         let pending = FuturesUnordered::new();
 

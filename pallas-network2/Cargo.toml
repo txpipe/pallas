@@ -1,7 +1,7 @@
 [package]
 name = "pallas-network2"
 description = "Ouroboros networking stack for P2P interactions"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.5"
 edition = "2024"
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"

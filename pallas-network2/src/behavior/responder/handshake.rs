@@ -6,10 +6,14 @@ use crate::{
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
+/// Configuration for the responder handshake sub-behavior.
 pub struct HandshakeResponderConfig {
+    /// The N2N version table to use when accepting handshakes.
     pub supported_version: handshake_proto::n2n::VersionTable,
 }
 
+/// Responder sub-behavior that accepts or refuses incoming handshakes by
+/// negotiating the highest common protocol version.
 pub struct HandshakeResponder {
     config: HandshakeResponderConfig,
 
@@ -39,6 +43,7 @@ impl Default for HandshakeResponder {
 }
 
 impl HandshakeResponder {
+    /// Creates a new handshake responder with the given configuration.
     pub fn new(config: HandshakeResponderConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 

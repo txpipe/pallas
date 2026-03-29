@@ -18,7 +18,10 @@ pub mod keepalive;
 pub mod peersharing;
 pub mod txsubmission;
 
+/// A visitor trait that allows responder sub-behaviors to react to peer
+/// lifecycle events. Default implementations are no-ops.
 pub trait ResponderPeerVisitor {
+    /// Called when a TCP connection from the peer is established.
     #[allow(unused_variables)]
     fn visit_connected(
         &mut self,
@@ -28,6 +31,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called when the peer has been disconnected.
     #[allow(unused_variables)]
     fn visit_disconnected(
         &mut self,
@@ -37,6 +41,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called when an error occurred on the peer's connection.
     #[allow(unused_variables)]
     fn visit_errored(
         &mut self,
@@ -46,6 +51,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called when a message has been received from the peer.
     #[allow(unused_variables)]
     fn visit_inbound_msg(
         &mut self,
@@ -55,6 +61,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called after a message has been sent to the peer.
     #[allow(unused_variables)]
     fn visit_outbound_msg(
         &mut self,
@@ -64,6 +71,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called during periodic housekeeping for each tracked peer.
     #[allow(unused_variables)]
     fn visit_housekeeping(
         &mut self,
@@ -74,6 +82,8 @@ pub trait ResponderPeerVisitor {
     }
 }
 
+/// The per-peer state tracked by the responder behavior, including connection
+/// status and all mini-protocol state machines.
 #[derive(Default, Debug)]
 pub struct ResponderState {
     pub(crate) connection: ConnectionState,
@@ -89,10 +99,12 @@ pub struct ResponderState {
 }
 
 impl ResponderState {
+    /// Creates a new responder state with default values for all protocols.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Attaches an OpenTelemetry counter for tracking protocol violations.
     pub fn with_violations_counter(
         mut self,
         counter: opentelemetry::metrics::Counter<u64>,
@@ -101,10 +113,12 @@ impl ResponderState {
         self
     }
 
+    /// Returns true if the handshake has completed and mini-protocols are active.
     pub fn is_initialized(&self) -> bool {
         matches!(self.connection, ConnectionState::Initialized)
     }
 
+    /// Returns the accepted version data if the handshake completed successfully.
     pub fn version(&self) -> Option<proto::handshake::n2n::VersionData> {
         match &self.handshake {
             proto::handshake::State::Done(proto::handshake::DoneState::Accepted(_, data)) => {
@@ -120,6 +134,7 @@ impl ResponderState {
         }
     }
 
+    /// Applies a message to the corresponding mini-protocol state machine.
     pub fn apply_msg(&mut self, msg: &AnyMessage) {
         match msg {
             AnyMessage::Handshake(msg) => {
@@ -197,6 +212,7 @@ impl ResponderState {
         }
     }
 
+    /// Resets the state back to its initial values, except for error count.
     pub fn reset(&mut self) {
         self.connection = ConnectionState::default();
         self.handshake = proto::handshake::State::default();
@@ -209,33 +225,55 @@ impl ResponderState {
     }
 }
 
+/// Commands that can be sent to the responder behavior from external code.
 #[derive(Debug)]
 pub enum ResponderCommand {
+    /// Trigger periodic housekeeping.
     Housekeeping,
+    /// Provide an intersection result to a peer's chain-sync request.
     ProvideIntersection(PeerId, proto::Point, proto::chainsync::Tip),
+    /// Send a block header to a peer via chain-sync (roll forward).
     ProvideHeader(
         PeerId,
         proto::chainsync::HeaderContent,
         proto::chainsync::Tip,
     ),
+    /// Send a rollback to a peer via chain-sync.
     ProvideRollback(PeerId, proto::Point, proto::chainsync::Tip),
+    /// Send a batch of block bodies to a peer via block-fetch.
     ProvideBlocks(PeerId, Vec<proto::blockfetch::Body>),
+    /// Send a list of peer addresses to a peer via peer-sharing.
     ProvidePeers(PeerId, Vec<proto::peersharing::PeerAddress>),
+    /// Ban a peer and disconnect them.
     BanPeer(PeerId),
+    /// Disconnect a peer gracefully.
     DisconnectPeer(PeerId),
 }
 
+/// Events emitted by the responder behavior to external consumers.
 #[derive(Debug)]
 pub enum ResponderEvent {
+    /// A peer completed the handshake and is ready for mini-protocols.
     PeerInitialized(PeerId, AcceptedVersion),
+    /// A peer has been disconnected.
     PeerDisconnected(PeerId),
+    /// A peer requested an intersection for chain-sync.
     IntersectionRequested(PeerId, Vec<proto::Point>),
+    /// A peer requested the next block header via chain-sync.
     NextHeaderRequested(PeerId),
+    /// A peer requested a range of blocks via block-fetch.
     BlockRangeRequested(PeerId, BlockRange),
+    /// A peer requested peer addresses via peer-sharing.
     PeersRequested(PeerId, u8),
+    /// A transaction was received from a peer via tx-submission.
     TxReceived(PeerId, proto::txsubmission::EraTxBody),
 }
 
+/// The main responder behavior that handles inbound Cardano connections.
+///
+/// Manages peer lifecycle for connections accepted via a TCP listener and
+/// coordinates all mini-protocol sub-behaviors (handshake, keepalive,
+/// chain-sync, block-fetch, peer-sharing, tx-submission).
 pub struct ResponderBehavior {
     pub connection: connection::ConnectionResponder,
     pub handshake: handshake::HandshakeResponder,
@@ -291,6 +329,8 @@ macro_rules! all_visitors {
 
 impl ResponderBehavior {
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes an inbound message from a peer, updating state and notifying
+    /// the relevant protocol visitor.
     pub fn on_inbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new inbound message");
 
@@ -338,6 +378,8 @@ impl ResponderBehavior {
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes a confirmed outbound message to a peer, updating state and
+    /// notifying visitors.
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 

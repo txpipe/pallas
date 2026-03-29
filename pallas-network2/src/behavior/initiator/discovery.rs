@@ -4,7 +4,9 @@ use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::A
 
 use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 
+/// Configuration for the peer discovery sub-behavior.
 pub struct DiscoveryConfig {
+    /// Maximum number of discovered peers to accumulate before stopping requests.
     pub high_water_mark: u8,
 }
 
@@ -30,6 +32,7 @@ fn peer_is_available(peer: &InitiatorState) -> bool {
         )
 }
 
+/// Sub-behavior that discovers new peers via the peer-sharing mini-protocol.
 #[derive(Default)]
 pub struct DiscoveryBehavior {
     config: DiscoveryConfig,
@@ -52,6 +55,8 @@ impl DiscoveryBehavior {
         outbound.push_ready(out);
     }
 
+    /// Extracts discovered peer addresses from the peer-sharing response, if
+    /// available.
     pub fn try_take_peers(&mut self, peer: &mut InitiatorState) {
         if let crate::protocol::peersharing::State::Idle(
             crate::protocol::peersharing::IdleState::Response(peers),
@@ -69,6 +74,7 @@ impl DiscoveryBehavior {
         }
     }
 
+    /// Takes up to `count` discovered peers out of the internal pool.
     pub fn drain_new_peers(&mut self, count: usize) -> HashSet<PeerId> {
         let selected: HashSet<_> = self.discovered.iter().take(count).cloned().collect();
 

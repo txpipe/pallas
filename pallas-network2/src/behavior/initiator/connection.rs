@@ -31,9 +31,12 @@ fn needs_disconnect(peer: &InitiatorState) -> bool {
     }
 }
 
+/// Configuration for the connection sub-behavior (currently empty).
 #[derive(Debug, Default)]
 pub struct ConnectionConfig {}
 
+/// Sub-behavior that manages TCP connection lifecycle (connect/disconnect)
+/// based on peer promotion status.
 pub struct ConnectionBehavior {
     _config: ConnectionConfig,
 
@@ -48,6 +51,7 @@ impl Default for ConnectionBehavior {
 }
 
 impl ConnectionBehavior {
+    /// Creates a new connection behavior with the given configuration.
     pub fn new(config: ConnectionConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 

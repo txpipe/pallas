@@ -22,6 +22,7 @@ pallas-configs = { version = "=1.0.0-alpha.5", path = "../pallas-configs/" }
 pallas-txbuilder = { version = "=1.0.0-alpha.5", path = "../pallas-txbuilder/" }
 pallas-validate = { version = "=1.0.0-alpha.5", path = "../pallas-validate/" }
 pallas-hardano = { version = "=1.0.0-alpha.5", path = "../pallas-hardano/", optional = true }
+pallas-network2 = { version = "=1.0.0-alpha.5", path = "../pallas-network2/", optional = true }
 
 [features]
 hardano = ["pallas-hardano"]
@@ -30,3 +31,9 @@ unstable = ["hardano", "pallas-traverse/unstable"]
 # pallas-validate feature flags
 phase2 = ["pallas-validate/phase2"]
 relaxed = ["pallas-primitives/relaxed", "pallas-crypto/relaxed"]
+
+# network 2
+network2 = ["dep:pallas-network2"]
+
+[package.metadata.docs.rs]
+all-features = true
