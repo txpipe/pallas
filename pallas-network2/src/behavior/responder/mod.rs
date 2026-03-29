@@ -620,3 +620,229 @@ impl Behavior for ResponderBehavior {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::InterfaceEvent;
+    use crate::protocol::{
+        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, txsubmission as txsub,
+    };
+    use crate::testing::BehaviorOutputExt;
+    use futures::StreamExt;
+    use std::collections::HashMap as StdHashMap;
+
+    fn drain_outputs(behavior: &mut ResponderBehavior) -> Vec<BehaviorOutput<ResponderBehavior>> {
+        let mut outputs = Vec::new();
+        let waker = futures::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        while let std::task::Poll::Ready(Some(output)) = behavior.poll_next_unpin(&mut cx) {
+            outputs.push(output);
+        }
+
+        outputs
+    }
+
+    fn connect_and_handshake(behavior: &mut ResponderBehavior, pid: &PeerId) {
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(behavior);
+
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let mut values = StdHashMap::new();
+        values.insert(13u64, version_data.clone());
+        let version_table = handshake::VersionTable { values };
+
+        let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![propose]));
+        drain_outputs(behavior);
+
+        let accept = AnyMessage::Handshake(handshake::Message::Accept(13, version_data));
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), accept));
+        drain_outputs(behavior);
+    }
+
+    // ---- Kept: genuinely cross-cutting ----
+
+    #[tokio::test]
+    async fn ban_peer_disconnects_and_prevents_reconnect() {
+        // Composition: command dispatch → connection banned set → reconnect rejection
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(1);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        behavior.execute(ResponderCommand::BanPeer(pid.clone()));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(outputs.has_disconnect_for(&pid));
+
+        behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(outputs.has_disconnect_for(&pid));
+    }
+
+    // ---- New: composition tests ----
+
+    #[tokio::test]
+    async fn full_responder_lifecycle_connect_to_initialized() {
+        // Composition: on_connected → handshake negotiation → Initialized → PeerInitialized event
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(10);
+
+        // Connect
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        // Peer sends Propose → our handshake visitor sends Accept + PeerInitialized
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let mut values = StdHashMap::new();
+        values.insert(13u64, version_data.clone());
+        let version_table = handshake::VersionTable { values };
+
+        let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![propose]));
+        let outputs = drain_outputs(&mut behavior);
+
+        // Should have sent Accept
+        assert!(
+            outputs
+                .has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Accept(..)))),
+            "should send Accept message"
+        );
+
+        // Should have emitted PeerInitialized
+        assert!(
+            outputs.has_event(|e| matches!(e, ResponderEvent::PeerInitialized(p, _) if *p == pid)),
+            "should emit PeerInitialized event"
+        );
+
+        // Peer should be initialized
+        let state = behavior.peers.get(&pid).unwrap();
+        assert_eq!(state.connection, ConnectionState::Initialized);
+    }
+
+    #[tokio::test]
+    async fn inbound_keepalive_routed_to_keepalive_only() {
+        // Composition: per-protocol dispatch routes to correct visitor
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(11);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Feed a KeepAlive request
+        let ka_msg = AnyMessage::KeepAlive(keepalive::Message::KeepAlive(42));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![ka_msg]));
+        let outputs = drain_outputs(&mut behavior);
+
+        // Should get ResponseKeepAlive
+        assert!(
+            outputs.has_send(|m| matches!(
+                m,
+                AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42))
+            )),
+            "should respond with ResponseKeepAlive"
+        );
+
+        // Should NOT have chainsync, blockfetch, or peersharing responses
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::ChainSync(_))),
+            "should not produce chainsync output from keepalive message"
+        );
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(_))),
+            "should not produce blockfetch output from keepalive message"
+        );
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::PeerSharing(_))),
+            "should not produce peersharing output from keepalive message"
+        );
+    }
+
+    #[tokio::test]
+    async fn violation_aborts_inbound_dispatch() {
+        // Composition: apply_msg sets violation → dispatch short-circuits →
+        //              housekeeping → connection bans + disconnects
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(12);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Feed a protocol-violating keepalive message (response without request)
+        let bad_msg = AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(99));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![bad_msg]));
+        let outputs = drain_outputs(&mut behavior);
+
+        // The violation should prevent keepalive visitor from responding
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::KeepAlive(_))),
+            "violated peer should not get a keepalive response"
+        );
+
+        // Housekeeping should ban and disconnect
+        behavior.execute(ResponderCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_disconnect_for(&pid),
+            "violated peer should be disconnected after housekeeping"
+        );
+    }
+
+    #[tokio::test]
+    async fn chainsync_request_emits_event_for_application() {
+        // Composition: inbound message → apply_msg → chainsync visitor → external event
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(13);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Feed a FindIntersect message
+        let points = vec![Point::Origin, Point::new(42, vec![0xBB; 32])];
+        let find_msg = AnyMessage::ChainSync(cs::Message::FindIntersect(points.clone()));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![find_msg]));
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_event(
+                |e| matches!(e, ResponderEvent::IntersectionRequested(p, _) if *p == pid)
+            ),
+            "should emit IntersectionRequested event"
+        );
+    }
+
+    #[tokio::test]
+    async fn txsubmission_initialized_on_housekeeping_after_handshake() {
+        // Composition: handshake sets Initialized → housekeeping →
+        //              txsubmission detects Init state → sends Init message
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(14);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Housekeeping should trigger txsubmission Init
+        behavior.execute(ResponderCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_send(|m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
+            "should send TxSubmission Init after handshake + housekeeping"
+        );
+    }
+}

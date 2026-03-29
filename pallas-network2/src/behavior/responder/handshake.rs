@@ -155,3 +155,156 @@ impl ResponderPeerVisitor for HandshakeResponder {
         self.try_accept_handshake(pid, state, outbound);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::OutboundQueue;
+    use std::collections::HashMap;
+
+    fn drain_outputs(
+        outbound: &mut OutboundQueue<ResponderBehavior>,
+    ) -> Vec<BehaviorOutput<ResponderBehavior>> {
+        outbound.drain_ready()
+    }
+
+    fn make_version_data(magic: u64) -> handshake_proto::n2n::VersionData {
+        handshake_proto::n2n::VersionData::new(magic, false, Some(1), Some(false))
+    }
+
+    fn make_responder_with_versions(versions: Vec<(u64, u64)>) -> HandshakeResponder {
+        let values: HashMap<u64, handshake_proto::n2n::VersionData> = versions
+            .into_iter()
+            .map(|(num, magic)| (num, make_version_data(magic)))
+            .collect();
+
+        HandshakeResponder::new(HandshakeResponderConfig {
+            supported_version: handshake_proto::n2n::VersionTable { values },
+        })
+    }
+
+    fn make_proposed_table(
+        versions: Vec<(u64, u64)>,
+    ) -> handshake_proto::VersionTable<handshake_proto::n2n::VersionData> {
+        let values: HashMap<u64, handshake_proto::n2n::VersionData> = versions
+            .into_iter()
+            .map(|(num, magic)| (num, make_version_data(magic)))
+            .collect();
+
+        handshake_proto::VersionTable { values }
+    }
+
+    #[test]
+    fn accepts_highest_common_version() {
+        // We support v13, v14. Peer proposes v12, v13, v14.
+        let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC), (14, MAINNET_MAGIC)]);
+        let pid = PeerId::test(1);
+        let mut state = ResponderState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.handshake = handshake_proto::State::Confirm(make_proposed_table(vec![
+            (12, MAINNET_MAGIC),
+            (13, MAINNET_MAGIC),
+            (14, MAINNET_MAGIC),
+        ]));
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let accepted_version = outputs.iter().find_map(|o| match o {
+            BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                _,
+                AnyMessage::Handshake(handshake_proto::Message::Accept(v, _)),
+            )) => Some(*v),
+            _ => None,
+        });
+
+        assert_eq!(
+            accepted_version,
+            Some(14),
+            "should accept highest common version"
+        );
+        assert_eq!(state.connection, ConnectionState::Initialized);
+    }
+
+    #[test]
+    fn refuses_no_common_version() {
+        // We support v13. Peer proposes v7, v8.
+        let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC)]);
+        let pid = PeerId::test(1);
+        let mut state = ResponderState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.handshake = handshake_proto::State::Confirm(make_proposed_table(vec![
+            (7, MAINNET_MAGIC),
+            (8, MAINNET_MAGIC),
+        ]));
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_refuse = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::Handshake(handshake_proto::Message::Refuse(
+                        handshake_proto::RefuseReason::VersionMismatch(_)
+                    ))
+                ))
+            )
+        });
+        assert!(has_refuse, "should refuse with VersionMismatch");
+    }
+
+    #[test]
+    fn refuses_magic_mismatch() {
+        // We support v13 with mainnet magic. Peer proposes v13 with different magic.
+        let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC)]);
+        let pid = PeerId::test(1);
+        let mut state = ResponderState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.handshake = handshake_proto::State::Confirm(
+            make_proposed_table(vec![(13, 999999)]), // wrong magic
+        );
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_refuse = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::Handshake(handshake_proto::Message::Refuse(
+                        handshake_proto::RefuseReason::Refused(..)
+                    ))
+                ))
+            )
+        });
+        assert!(has_refuse, "should refuse with magic mismatch");
+    }
+
+    #[test]
+    fn accepted_handshake_emits_initialized_event() {
+        let mut hs = make_responder_with_versions(vec![(13, MAINNET_MAGIC)]);
+        let pid = PeerId::test(1);
+        let mut state = ResponderState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.handshake =
+            handshake_proto::State::Confirm(make_proposed_table(vec![(13, MAINNET_MAGIC)]));
+
+        hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        let has_event = outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::ExternalEvent(ResponderEvent::PeerInitialized(..))
+            )
+        });
+        assert!(has_event, "should emit PeerInitialized event");
+    }
+}

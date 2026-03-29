@@ -7,6 +7,7 @@ fn needs_connection(peer: &InitiatorState) -> bool {
         ConnectionState::Connected => false,
         ConnectionState::Connecting => false,
         ConnectionState::Initialized => false,
+        ConnectionState::Errored => false,
         _ => match peer.promotion {
             PromotionTag::Warm => true,
             PromotionTag::Hot => true,
@@ -100,5 +101,76 @@ impl PeerVisitor for ConnectionBehavior {
             tracing::info!("disconnecting errored peer");
             outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state_with(connection: ConnectionState, promotion: PromotionTag) -> InitiatorState {
+        let mut s = InitiatorState::new();
+        s.connection = connection;
+        s.promotion = promotion;
+        s
+    }
+
+    // --- needs_connection tests ---
+
+    #[test]
+    fn warm_new_needs_connection() {
+        let s = state_with(ConnectionState::New, PromotionTag::Warm);
+        assert!(needs_connection(&s));
+    }
+
+    #[test]
+    fn hot_disconnected_needs_connection() {
+        let s = state_with(ConnectionState::Disconnected, PromotionTag::Hot);
+        assert!(needs_connection(&s));
+    }
+
+    #[test]
+    fn cold_does_not_connect() {
+        let s = state_with(ConnectionState::New, PromotionTag::Cold);
+        assert!(!needs_connection(&s));
+    }
+
+    #[test]
+    fn banned_does_not_connect() {
+        let s = state_with(ConnectionState::Disconnected, PromotionTag::Banned);
+        assert!(!needs_connection(&s));
+    }
+
+    #[test]
+    fn already_connected_does_not_reconnect() {
+        let s = state_with(ConnectionState::Connected, PromotionTag::Warm);
+        assert!(!needs_connection(&s));
+    }
+
+    // --- needs_disconnect tests ---
+
+    #[test]
+    fn errored_needs_disconnect() {
+        let s = state_with(ConnectionState::Errored, PromotionTag::Warm);
+        assert!(needs_disconnect(&s));
+    }
+
+    #[test]
+    fn cold_initialized_needs_disconnect() {
+        let s = state_with(ConnectionState::Initialized, PromotionTag::Cold);
+        assert!(needs_disconnect(&s));
+    }
+
+    #[test]
+    fn hot_initialized_stays_connected() {
+        let s = state_with(ConnectionState::Initialized, PromotionTag::Hot);
+        assert!(!needs_disconnect(&s));
+    }
+
+    #[test]
+    fn errored_warm_does_not_reconnect() {
+        let s = state_with(ConnectionState::Errored, PromotionTag::Warm);
+        assert!(!needs_connection(&s));
+        assert!(needs_disconnect(&s));
     }
 }
