@@ -20,8 +20,8 @@ use pallas_traverse::MultiEraTx;
 use pallas_validate::{
     phase1::validate_txs,
     utils::{
-        AccountState, CertState, ConwayProtParams, Environment, MultiEraProtocolParameters,
-        PostAlonzoError, UTxOs, ValidationError::*,
+        conway_values_are_equal, AccountState, CertState, ConwayProtParams, Environment,
+        MultiEraProtocolParameters, PostAlonzoError, UTxOs, ValidationError::*,
     },
 };
 
@@ -31,7 +31,7 @@ mod conway_tests {
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
     use pallas_primitives::{conway::PostAlonzoTransactionOutput, PositiveCoin};
-    use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput};
+    use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
     use super::*;
 
@@ -532,6 +532,15 @@ mod conway_tests {
                 _ => panic!("Unexpected error ({err:?})"),
             },
         }
+    }
+
+    #[test]
+    fn preservation_of_value_allows_empty_multiasset_to_equal_coin() {
+        let coin = Value::Coin(10);
+        let empty_multiasset = Value::Multiasset(10, std::collections::BTreeMap::new());
+
+        assert!(conway_values_are_equal(&coin, &empty_multiasset));
+        assert!(conway_values_are_equal(&empty_multiasset, &coin));
     }
 
     #[test]
