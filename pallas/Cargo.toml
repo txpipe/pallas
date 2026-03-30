@@ -22,7 +22,7 @@ pallas-configs = { version = "=1.0.0-alpha.6", path = "../pallas-configs/" }
 pallas-txbuilder = { version = "=1.0.0-alpha.6", path = "../pallas-txbuilder/" }
 pallas-validate = { version = "=1.0.0-alpha.6", path = "../pallas-validate/" }
 pallas-hardano = { version = "=1.0.0-alpha.6", path = "../pallas-hardano/", optional = true }
-pallas-network2 = { version = "=1.0.0-alpha.5", path = "../pallas-network2/", optional = true }
+pallas-network2 = { version = "=1.0.0-alpha.6", path = "../pallas-network2/", optional = true }
 
 [features]
 hardano = ["pallas-hardano"]
