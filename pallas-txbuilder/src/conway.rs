@@ -227,11 +227,11 @@ impl BuildConway for StagingTransaction {
             None
         };
 
-        let script_data_hash = self.language_view.map(|language_view| {
+        let script_data_hash = self.language_views.as_ref().map(|language_views| {
             let dta = pallas_primitives::conway::ScriptData {
                 redeemers: Some(witness_set_redeemers.clone()),
                 datums: witness_set_datums.clone(),
-                language_view: Some(language_view),
+                language_views: Some(language_views.clone()),
             };
 
             dta.hash()
