@@ -40,17 +40,17 @@ impl PartialOrd for Decimal {
 
 impl Display for Decimal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let is_negative = self.data < ZERO.value;
+        let is_negative = self.data < *ZERO;
         let (mut temp_q, mut temp_r) = (&self.data).div_rem(&self.precision_multiplier);
 
         if is_negative {
             f.write_str("-")?;
         }
 
-        if temp_q < ZERO.value {
+        if temp_q < *ZERO {
             temp_q = temp_q.neg();
         }
-        if temp_r < ZERO.value {
+        if temp_r < *ZERO {
             temp_r = temp_r.neg();
         }
         write!(
@@ -377,7 +377,7 @@ impl FixedPrecision for Decimal {
     fn floor(&self) -> Self {
         let mut result = self.clone();
         let remainder = &self.data % &self.precision_multiplier;
-        if self.data.sign() == Sign::Negative && remainder != ZERO.value {
+        if self.data.sign() == Sign::Negative && remainder != *ZERO {
             result.data -= &self.precision_multiplier;
         }
         result.data -= remainder;
@@ -387,7 +387,7 @@ impl FixedPrecision for Decimal {
     fn ceil(&self) -> Self {
         let mut result = self.clone();
         let remainder = &self.data % &self.precision_multiplier;
-        if self.data.sign() == Sign::Positive && remainder != ZERO.value {
+        if self.data.sign() == Sign::Positive && remainder != *ZERO {
             result.data += &self.precision_multiplier;
         }
         result.data -= remainder;
@@ -401,33 +401,16 @@ impl FixedPrecision for Decimal {
     }
 }
 
-struct Constant {
-    value: IBig,
-}
-
-impl Constant {
-    pub fn new(init: fn() -> IBig) -> Constant {
-        Constant { value: init() }
-    }
-}
-
-unsafe impl Sync for Constant {}
-unsafe impl Send for Constant {}
-
 static DIGITS_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?\d+$").unwrap());
-static TEN: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| IBig::from(10)));
-static PRECISION: LazyLock<Constant> =
-    LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34)));
-static EPS: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| TEN.value.clone().pow(34 - 24)));
-static ONE: LazyLock<Constant> =
-    LazyLock::new(|| Constant::new(|| IBig::from(1) * &PRECISION.value));
-static ZERO: LazyLock<Constant> = LazyLock::new(|| Constant::new(|| IBig::from(0)));
-static E: LazyLock<Constant> = LazyLock::new(|| {
-    Constant::new(|| {
-        let mut e = IBig::from(0);
-        ref_exp(&mut e, &ONE.value);
-        e
-    })
+static TEN: LazyLock<IBig> = LazyLock::new(|| IBig::from(10));
+static PRECISION: LazyLock<IBig> = LazyLock::new(|| TEN.pow(34));
+static EPS: LazyLock<IBig> = LazyLock::new(|| TEN.pow(34 - 24));
+static ONE: LazyLock<IBig> = LazyLock::new(|| IBig::ONE * &*PRECISION);
+static ZERO: LazyLock<IBig> = LazyLock::new(|| IBig::ZERO);
+static E: LazyLock<IBig> = LazyLock::new(|| {
+    let mut e = IBig::from(0);
+    ref_exp(&mut e, &ONE);
+    e
 });
 
 fn div_round_ceil(x: &IBig, y: &IBig) -> IBig {
@@ -443,22 +426,22 @@ fn div_round_ceil(x: &IBig, y: &IBig) -> IBig {
 /// and then calls the continued fraction approximation function.
 fn ref_exp(rop: &mut IBig, x: &IBig) -> i32 {
     let mut iterations = 0;
-    match x.cmp(&ZERO.value) {
+    match x.cmp(&ZERO) {
         Ordering::Equal => {
             // rop = 1
-            rop.clone_from(&ONE.value);
+            rop.clone_from(&ONE);
         }
         Ordering::Less => {
             let x_ = -x;
             let mut temp = IBig::from(0);
             iterations = ref_exp(&mut temp, &x_);
             // rop = 1 / temp
-            div(rop, &ONE.value, &temp);
+            div(rop, &ONE, &temp);
         }
         Ordering::Greater => {
-            let n_exponent = div_round_ceil(x, &PRECISION.value);
+            let n_exponent = div_round_ceil(x, &PRECISION);
             let x_ = x / &n_exponent;
-            iterations = mp_exp_taylor(rop, 1000, &x_, &EPS.value);
+            iterations = mp_exp_taylor(rop, 1000, &x_, &EPS);
 
             // rop = rop.pow(n)
             let n_exponent_i64: i64 = i64::try_from(&n_exponent).expect("n_exponent to_i64 failed");
@@ -482,8 +465,8 @@ pub fn div(rop: &mut IBig, x: &IBig, y: &IBig) {
     let mut temp: IBig;
     div_qr(&mut temp_q, &mut temp_r, x, y);
 
-    temp = &temp_q * &PRECISION.value;
-    temp_r = &temp_r * &PRECISION.value;
+    temp = &temp_q * &*PRECISION;
+    temp_r = &temp_r * &*PRECISION;
     let temp_r2 = temp_r.clone();
     div_qr(&mut temp_q, &mut temp_r, &temp_r2, y);
 
@@ -493,9 +476,9 @@ pub fn div(rop: &mut IBig, x: &IBig, y: &IBig) {
 
 /// Taylor / MacLaurin series approximation
 fn mp_exp_taylor(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) -> i32 {
-    let mut divisor = ONE.value.clone();
-    let mut last_x = ONE.value.clone();
-    rop.clone_from(&ONE.value);
+    let mut divisor = ONE.clone();
+    let mut last_x = ONE.clone();
+    rop.clone_from(&ONE);
     let mut n = 0;
     while n < max_n {
         let mut next_x = x * &last_x;
@@ -507,7 +490,7 @@ fn mp_exp_taylor(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) -> i32 {
             break;
         }
 
-        divisor += &ONE.value;
+        divisor += &*ONE;
         *rop = &*rop + &next_x;
         last_x.clone_from(&next_x);
         n += 1;
@@ -519,8 +502,8 @@ fn mp_exp_taylor(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) -> i32 {
 pub(crate) fn scale(rop: &mut IBig) {
     let mut temp = IBig::from(0);
     let mut a = IBig::from(0);
-    div_qr(&mut a, &mut temp, rop, &PRECISION.value);
-    if *rop < ZERO.value && temp != ZERO.value {
+    div_qr(&mut a, &mut temp, rop, &PRECISION);
+    if *rop < *ZERO && temp != *ZERO {
         a -= IBig::ONE;
     }
     *rop = a;
@@ -529,7 +512,7 @@ pub(crate) fn scale(rop: &mut IBig) {
 /// Integer power internal function
 fn ipow_(rop: &mut IBig, x: &IBig, n: i64) {
     if n == 0 {
-        rop.clone_from(&ONE.value);
+        rop.clone_from(&ONE);
     } else if n % 2 == 0 {
         let mut res = IBig::from(0);
         ipow_(&mut res, x, n / 2);
@@ -548,7 +531,7 @@ fn ipow(rop: &mut IBig, x: &IBig, n: i64) {
     if n < 0 {
         let mut temp = IBig::from(0);
         ipow_(&mut temp, x, -n);
-        div(rop, &ONE.value, &temp);
+        div(rop, &ONE, &temp);
     } else {
         ipow_(rop, x, n);
     }
@@ -572,12 +555,12 @@ fn mp_ln_n(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) {
     let mut n = 1;
 
     let mut a: IBig;
-    let mut b = ONE.value.clone();
+    let mut b = ONE.clone();
 
-    let mut an_m2 = ONE.value.clone();
+    let mut an_m2 = ONE.clone();
     let mut bn_m2 = IBig::from(0);
     let mut an_m1 = IBig::from(0);
-    let mut bn_m1 = ONE.value.clone();
+    let mut bn_m1 = ONE.clone();
 
     let mut curr_a = 1;
 
@@ -619,7 +602,7 @@ fn mp_ln_n(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) {
         an_m1.clone_from(&a_);
         bn_m1.clone_from(&b_);
 
-        b += &ONE.value;
+        b += &*ONE;
     }
 
     *rop = convergent;
@@ -627,9 +610,9 @@ fn mp_ln_n(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) {
 
 fn find_e(x: &IBig) -> i64 {
     let mut x_: IBig = IBig::from(0);
-    let mut x__: IBig = E.value.clone();
+    let mut x__: IBig = E.clone();
 
-    div(&mut x_, &ONE.value, &E.value);
+    div(&mut x_, &ONE, &E);
 
     let mut l = -1;
     let mut u = 1;
@@ -647,7 +630,7 @@ fn find_e(x: &IBig) -> i64 {
     while l + 1 != u {
         let mid = l + ((u - l) / 2);
 
-        ipow(&mut x_, &E.value, mid);
+        ipow(&mut x_, &E, mid);
         if x < &x_ {
             u = mid;
         } else {
@@ -663,22 +646,22 @@ fn find_e(x: &IBig) -> i64 {
 fn ref_ln(rop: &mut IBig, x: &IBig) -> bool {
     let mut factor = IBig::from(0);
     let mut x_ = IBig::from(0);
-    if x <= &ZERO.value {
+    if x <= &ZERO {
         return false;
     }
 
     let n = find_e(x);
 
     *rop = IBig::from(n);
-    *rop = &*rop * &PRECISION.value;
+    *rop = &*rop * &*PRECISION;
     ref_exp(&mut factor, rop);
 
     div(&mut x_, x, &factor);
 
-    x_ = &x_ - &ONE.value;
+    x_ = &x_ - &*ONE;
 
     let x_2 = x_.clone();
-    mp_ln_n(&mut x_, 1000, &x_2, &EPS.value);
+    mp_ln_n(&mut x_, 1000, &x_2, &EPS);
     *rop = &*rop + &x_;
 
     true
@@ -688,25 +671,25 @@ fn ref_pow(rop: &mut IBig, base: &IBig, exponent: &IBig) {
     /* x^y = exp(y * ln x) */
     let mut tmp: IBig = IBig::from(0);
 
-    if exponent == &ZERO.value || base == &ONE.value {
+    if exponent == &*ZERO || base == &*ONE {
         // any base to the power of zero is one, or 1 to any power is 1
-        *rop = ONE.value.clone();
+        *rop = ONE.clone();
         return;
     }
-    if exponent == &ONE.value {
+    if exponent == &*ONE {
         // any base to the power of one is the base
         *rop = base.clone();
         return;
     }
-    if base == &ZERO.value && exponent > &ZERO.value {
+    if base == &*ZERO && exponent > &ZERO {
         // zero to any positive power is zero
-        *rop = &ZERO.value * &PRECISION.value;
+        *rop = &*ZERO * &*PRECISION;
         return;
     }
-    if base == &ZERO.value && exponent < &ZERO.value {
+    if base == &*ZERO && exponent < &ZERO {
         panic!("zero to a negative power is undefined");
     }
-    if base < &ZERO.value {
+    if base < &ZERO {
         // negate the base and calculate the power
         let neg_base = base.neg();
         let ref_ln = ref_ln(&mut tmp, &neg_base);
@@ -715,7 +698,7 @@ fn ref_pow(rop: &mut IBig, base: &IBig, exponent: &IBig) {
         scale(&mut tmp);
         let mut tmp_rop = IBig::from(0);
         ref_exp(&mut tmp_rop, &tmp);
-        let (_, rem) = (exponent / &PRECISION.value).div_rem(&IBig::from(2));
+        let (_, rem) = (exponent / &*PRECISION).div_rem(&IBig::from(2));
         // check if rem is even
         *rop = if rem == IBig::ZERO { tmp_rop } else { -tmp_rop };
     } else {
@@ -745,7 +728,7 @@ fn ref_exp_cmp(
     bound_x: i64,
     compare: &IBig,
 ) -> ExpCmpOrdering {
-    rop.clone_from(&ONE.value);
+    rop.clone_from(&ONE);
     let mut n = 0u64;
     let mut divisor: IBig;
     let mut next_x: IBig;
@@ -754,16 +737,16 @@ fn ref_exp_cmp(
     let mut lower: IBig;
     let mut error_term: IBig;
 
-    divisor = ONE.value.clone();
+    divisor = ONE.clone();
     error = x.clone();
 
     let mut estimate = ExpOrdering::UNKNOWN;
     while n < max_n {
         next_x = error.clone();
-        if (&next_x).abs() < (&EPS.value).abs() {
+        if (&next_x).abs() < (&*EPS).abs() {
             break;
         }
-        divisor += &ONE.value;
+        divisor += &*ONE;
 
         // update error estimation, this is initially bound_x * x and in general
         // bound_x * x^(n+1)/(n + 1)!  we use `error` to store the x^n part and a
