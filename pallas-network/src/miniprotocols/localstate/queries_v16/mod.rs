@@ -639,6 +639,7 @@ pub struct FieldedRewardAccount {
 pub enum InvalidRewardAccount {
     InvalidLength(usize),
     InvalidHeaderType(u8),
+    InvalidNetwork(u8),
 }
 
 impl fmt::Display for InvalidRewardAccount {
@@ -649,6 +650,9 @@ impl fmt::Display for InvalidRewardAccount {
             }
             Self::InvalidHeaderType(header) => {
                 write!(f, "invalid reward account header type: 0x{header:02x}")
+            }
+            Self::InvalidNetwork(network) => {
+                write!(f, "invalid reward account network id: 0x{network:01x}")
             }
         }
     }
@@ -672,10 +676,10 @@ impl TryFrom<&[u8]> for FieldedRewardAccount {
             return Err(InvalidRewardAccount::InvalidHeaderType(bytes[0]));
         }
 
-        let network = if bytes[0] & 0b0000_0001 != 0 {
-            Network::Mainnet
-        } else {
-            Network::Testnet
+        let network = match bytes[0] & 0b0000_1111 {
+            0 => Network::Testnet,
+            1 => Network::Mainnet,
+            other => return Err(InvalidRewardAccount::InvalidNetwork(other)),
         };
 
         let mut hash = [0; 28];
