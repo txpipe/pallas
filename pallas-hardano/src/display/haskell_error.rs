@@ -7,18 +7,29 @@ use super::haskell_display::HaskellDisplay;
 
 /// Mimicks the json data structure of the error response from the cardano-submit-api
 pub fn wrap_error_response(error: TxValidationError) -> TxSubmitFail {
-    TxSubmitFail::TxSubmitFail(TxCmdError::TxCmdTxSubmitValidationError(
+    TxSubmitFail::TxSubmitFail(TxCmdError::SubmitValidationError(
         TxValidationErrorInCardanoMode::TxValidationErrorInCardanoMode(error),
     ))
 }
 
-/// Generates Haskell identical string for the error response
-pub fn as_node_submit_error(error: TxValidationError) -> String {
-    serde_json::to_string(&wrap_error_response(error)).unwrap()
+/// Generates Haskell 'identical' string for the error response
+pub fn as_node_submit_error(error: TxValidationError) -> Result<String, serde_json::Error> {
+    serde_json::to_string(&wrap_error_response(error))
 }
 
-pub fn serialize_error(error: TxValidationError) -> serde_json::Value {
-    serde_json::to_value(wrap_error_response(error)).unwrap()
+/// Generates Haskell 'similar' string for the error response in case of decode failure
+/// Only difference will be the provided decode failure message, Rust vs Haskell
+pub fn as_cbor_decode_failure(message: String, position: u64) -> Result<String, serde_json::Error> {
+    let inner_errors = vec![DecoderError::DeserialiseFailure(
+        "Shelley Tx".to_string(),
+        DeserialiseFailure(position, message),
+    )];
+    let error = TxSubmitFail::TxSubmitFail(TxCmdError::ReadError(inner_errors));
+    serde_json::to_string(&error)
+}
+
+pub fn serialize_error(error: TxValidationError) -> Result<serde_json::Value, serde_json::Error> {
+    serde_json::to_value(wrap_error_response(error))
 }
 
 /// https://github.com/IntersectMBO/cardano-node/blob/9dbf0b141e67ec2dfd677c77c63b1673cf9c5f3e/cardano-submit-api/src/Cardano/TxSubmit/Types.hs#L54
@@ -36,9 +47,12 @@ pub enum TxSubmitFail {
 #[derive(Debug, Serialize)]
 #[serde(tag = "tag", content = "contents")]
 pub enum TxCmdError {
+    #[serde(rename = "TxCmdSocketEnvError")]
     SocketEnvError(String),
-    TxReadError(Vec<DecoderError>),
-    TxCmdTxSubmitValidationError(TxValidationErrorInCardanoMode),
+    #[serde(rename = "TxCmdTxReadError")]
+    ReadError(Vec<DecoderError>),
+    #[serde(rename = "TxCmdTxSubmitValidationError")]
+    SubmitValidationError(TxValidationErrorInCardanoMode),
 }
 
 /// https://github.com/IntersectMBO/cardano-api/blob/d7c62a04ebf18d194a6ea70e6765eb7691d57668/cardano-api/internal/Cardano/Api/InMode.hs#L259
@@ -57,9 +71,28 @@ pub struct EraMismatch {
     other: String,  // Era of the block, header, transaction, or query.
 }
 
-/// TODO: Implement DecoderError errors from the Haskell codebase.
-/// Lots of errors, skipping for now. https://github.com/IntersectMBO/cardano-base/blob/391a2c5cfd30d2234097e000dbd8d9db21ef94d7/cardano-binary/src/Cardano/Binary/FromCBOR.hs#L90
-type DecoderError = String;
+/// https://github.com/IntersectMBO/cardano-base/blob/391a2c5cfd30d2234097e000dbd8d9db21ef94d7/cardano-binary/src/Cardano/Binary/FromCBOR.hs#L90
+#[derive(Debug)]
+pub enum DecoderError {
+    CanonicityViolation(String),
+    Custom(String, String),
+    DeserialiseFailure(String, DeserialiseFailure),
+    EmptyList(String),
+    Leftover(String, Vec<u8>),
+    SizeMismatch(String, u64, u64),
+    UnknownTag(String, u8),
+    Void,
+}
+
+impl Serialize for DecoderError {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_haskell_str())
+    }
+}
+
+/// https://hackage.haskell.org/package/serialise-0.2.6.1/docs/Codec-Serialise.html#t:DeserialiseFailure
+#[derive(Debug)]
+pub struct DeserialiseFailure(pub u64, pub String);
 
 //
 // Haskell JSON serializations
@@ -83,7 +116,6 @@ enum TxValidationErrorJson {
 }
 
 /// This is copy of ApplyTxError from pallas-network/src/miniprotocols/localtxsubmission/primitives.rs for Haskell json serialization
-
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 #[serde(remote = "ApplyTxError")]
 struct ApplyTxErrorJson(
@@ -108,9 +140,10 @@ enum ShelleyBasedEraJson {
     Conway,
 }
 
-fn use_haskell_display<S>(fails: &[ConwayLedgerFailure], serializer: S) -> Result<S::Ok, S::Error>
+fn use_haskell_display<S, T>(fails: &[T], serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
+    T: HaskellDisplay,
 {
     let fails_str = fails.iter().map(|fail| fail.to_haskell_str());
     serializer.collect_seq(fails_str)
@@ -122,7 +155,15 @@ where
 fn test_submit_api_serialization() {
     let error = decode_error("81820681820764f0aab883");
 
-    assert_eq!("{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}", as_node_submit_error(error));
+    assert_eq!("{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}", 
+    as_node_submit_error(error).unwrap());
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn test_submit_api_decode_failure() {
+    assert_eq!( "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxReadError\",\"contents\":[\"DecoderErrorDeserialiseFailure \\\"Shelley Tx\\\" (DeserialiseFailure 0 (\\\"expected list len or indef\\\"))\"]}}",   
+      as_cbor_decode_failure("expected list len or indef".to_string(), 0).unwrap());
 }
 
 #[cfg(test)]

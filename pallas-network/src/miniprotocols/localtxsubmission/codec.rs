@@ -291,6 +291,10 @@ impl<'b, C> Decode<'b, C> for ShelleyPoolPredFailure {
                 d.decode_with(ctx)?,
                 d.decode_with(ctx)?,
             )),
+            6 => Ok(VRFKeyHashAlreadyRegistered(
+                d.decode_with(ctx)?,
+                d.decode_with(ctx)?,
+            )),
             _ => Err(decode::Error::message(format!(
                 "unknown error tag while decoding ShelleyPoolPredFailure: {tag}"
             ))),
@@ -322,6 +326,36 @@ where
         e: &mut Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
+        e.encode_with(&self.0, ctx)?;
+        e.encode_with(&self.1, ctx)?;
+        Ok(())
+    }
+}
+
+/// Mismatch encoded as a CBOR array `[supplied, expected]` (Haskell wraps the
+/// pair in an enclosing array for certain variants).
+impl<'b, T, C> Decode<'b, C> for super::MismatchArr<T>
+where
+    T: Decode<'b, C>,
+{
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        d.array()?;
+        let t0 = d.decode_with(ctx)?;
+        let t1 = d.decode_with(ctx)?;
+        Ok(super::MismatchArr(t0, t1))
+    }
+}
+
+impl<T, C> Encode<C> for super::MismatchArr<T>
+where
+    T: Encode<C>,
+{
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
         e.encode_with(&self.0, ctx)?;
         e.encode_with(&self.1, ctx)?;
         Ok(())
@@ -2501,7 +2535,6 @@ mod tests {
                 buffer.drain(0..pos);
                 Ok(Some(msg))
             }
-            Err(err) if err.is_end_of_input() => Ok(None),
             Err(err) => Err(Error::Decoding(err.to_string())),
         }
     }
