@@ -15,7 +15,7 @@ exclude = ["tests/data/*"]
 dashu-int = "0.4.1"
 dashu-base = "0.4.1"
 regex = "1.10.5"
-thiserror = "1.0.61"
+thiserror = "2.0.18"
 
 [dev-dependencies]
 proptest = "1.5"
