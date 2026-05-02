@@ -14,7 +14,15 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }
 utxorpc-spec = { version = "0.19", default-features = false, features = [
     "utxorpc-v1alpha-cardano",
+    "utxorpc-v1alpha-query",
+    "utxorpc-v1alpha-submit",
+    "utxorpc-v1alpha-sync",
+    "utxorpc-v1alpha-watch",
     "utxorpc-v1beta-cardano",
+    "utxorpc-v1beta-query",
+    "utxorpc-v1beta-submit",
+    "utxorpc-v1beta-sync",
+    "utxorpc-v1beta-watch",
 ] }
 
 pallas-traverse = { version = "=1.0.0-alpha.6", path = "../pallas-traverse" }
