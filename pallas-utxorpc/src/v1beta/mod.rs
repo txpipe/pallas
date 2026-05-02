@@ -38,9 +38,7 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1beta::cardan
 // ---- v1beta-specific bodies for methods that diverge from v1alpha -----------
 
 impl<C: LedgerContext> Mapper<C> {
-    pub fn map_native_script(
-        x: &pallas_primitives::alonzo::NativeScript,
-    ) -> u5c::NativeScript {
+    pub fn map_native_script(x: &pallas_primitives::alonzo::NativeScript) -> u5c::NativeScript {
         let inner = match x {
             babbage::NativeScript::ScriptPubkey(x) => {
                 u5c::native_script::NativeScript::ScriptPubkeyHash(x.to_vec().into())
@@ -402,12 +400,14 @@ impl<C: LedgerContext> Mapper<C> {
                 )
                 .into(),
             }),
-            conway::Voter::DRepScript(hash) => u5c::voter_votes::Voter::Drep(u5c::StakeCredential {
-                stake_credential: u5c::stake_credential::StakeCredential::ScriptHash(
-                    hash.to_vec().into(),
-                )
-                .into(),
-            }),
+            conway::Voter::DRepScript(hash) => {
+                u5c::voter_votes::Voter::Drep(u5c::StakeCredential {
+                    stake_credential: u5c::stake_credential::StakeCredential::ScriptHash(
+                        hash.to_vec().into(),
+                    )
+                    .into(),
+                })
+            }
             conway::Voter::StakePoolKey(hash) => u5c::voter_votes::Voter::Spo(hash.to_vec().into()),
         }
     }

@@ -7,9 +7,7 @@ macro_rules! impl_cardano_mapper_shared {
     ($u5c:path) => {
         use $u5c as u5c;
 
-        fn rational_number_to_u5c(
-            value: pallas_primitives::RationalNumber,
-        ) -> u5c::RationalNumber {
+        fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
             u5c::RationalNumber {
                 numerator: value.numerator as i32,
                 denominator: value.denominator as u32,
@@ -66,10 +64,7 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            pub fn map_redeemer(
-                &self,
-                x: &pallas_traverse::MultiEraRedeemer,
-            ) -> u5c::Redeemer {
+            pub fn map_redeemer(&self, x: &pallas_traverse::MultiEraRedeemer) -> u5c::Redeemer {
                 u5c::Redeemer {
                     purpose: self.map_purpose(&x.tag()).into(),
                     payload: self.map_plutus_datum(x.data()).into(),
@@ -94,7 +89,8 @@ macro_rules! impl_cardano_mapper_shared {
                     .as_ref()
                     .and_then(|x| x.get(&as_txref))
                     .and_then(|(era, cbor)| {
-                        let o = pallas_traverse::MultiEraOutput::decode(*era, cbor.as_slice()).ok()?;
+                        let o =
+                            pallas_traverse::MultiEraOutput::decode(*era, cbor.as_slice()).ok()?;
                         Some(self.map_tx_output(&o, Some(tx)))
                     })
             }
@@ -142,10 +138,7 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            pub fn map_any_script(
-                &self,
-                x: &pallas_primitives::conway::ScriptRef,
-            ) -> u5c::Script {
+            pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {
                 use pallas_primitives::conway;
                 match x {
                     conway::ScriptRef::NativeScript(x) => u5c::Script {
@@ -231,10 +224,7 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            fn collect_all_scripts(
-                &self,
-                tx: &pallas_traverse::MultiEraTx,
-            ) -> Vec<u5c::Script> {
+            fn collect_all_scripts(&self, tx: &pallas_traverse::MultiEraTx) -> Vec<u5c::Script> {
                 use std::ops::Deref;
                 let ns = tx
                     .native_scripts()
@@ -301,10 +291,7 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            pub fn map_plutus_bigint(
-                &self,
-                x: &pallas_primitives::alonzo::BigInt,
-            ) -> u5c::BigInt {
+            pub fn map_plutus_bigint(&self, x: &pallas_primitives::alonzo::BigInt) -> u5c::BigInt {
                 use pallas_primitives::babbage;
                 let inner = match x {
                     babbage::BigInt::Int(x) => u5c::big_int::BigInt::Int(i128::from(x.0) as i64),
@@ -376,28 +363,32 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            pub fn map_metadatum(
-                x: &pallas_primitives::alonzo::Metadatum,
-            ) -> u5c::Metadatum {
+            pub fn map_metadatum(x: &pallas_primitives::alonzo::Metadatum) -> u5c::Metadatum {
                 use pallas_primitives::babbage;
                 let inner = match x {
-                    babbage::Metadatum::Int(x) => u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64),
+                    babbage::Metadatum::Int(x) => {
+                        u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64)
+                    }
                     babbage::Metadatum::Bytes(x) => {
                         u5c::metadatum::Metadatum::Bytes(Vec::<u8>::from(x.clone()).into())
                     }
                     babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
-                    babbage::Metadatum::Array(x) => u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
-                        items: x.iter().map(|x| Self::map_metadatum(x)).collect(),
-                    }),
-                    babbage::Metadatum::Map(x) => u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
-                        pairs: x
-                            .iter()
-                            .map(|(k, v)| u5c::MetadatumPair {
-                                key: Self::map_metadatum(k).into(),
-                                value: Self::map_metadatum(v).into(),
-                            })
-                            .collect(),
-                    }),
+                    babbage::Metadatum::Array(x) => {
+                        u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
+                            items: x.iter().map(|x| Self::map_metadatum(x)).collect(),
+                        })
+                    }
+                    babbage::Metadatum::Map(x) => {
+                        u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
+                            pairs: x
+                                .iter()
+                                .map(|(k, v)| u5c::MetadatumPair {
+                                    key: Self::map_metadatum(k).into(),
+                                    value: Self::map_metadatum(v).into(),
+                                })
+                                .collect(),
+                        })
+                    }
                 };
 
                 u5c::Metadatum {
@@ -439,10 +430,7 @@ macro_rules! impl_cardano_mapper_shared {
                 ns.chain(p1).collect()
             }
 
-            fn find_related_inputs(
-                &self,
-                tx: &pallas_traverse::MultiEraTx,
-            ) -> Vec<$crate::TxoRef> {
+            fn find_related_inputs(&self, tx: &pallas_traverse::MultiEraTx) -> Vec<$crate::TxoRef> {
                 let inputs = tx
                     .inputs()
                     .into_iter()
@@ -499,10 +487,14 @@ macro_rules! impl_cardano_mapper_shared {
                 use pallas_primitives::{alonzo, babbage};
                 let inner = match x {
                     alonzo::Certificate::StakeRegistration(a) => {
-                        u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
+                        u5c::certificate::Certificate::StakeRegistration(
+                            self.map_stake_credential(a),
+                        )
                     }
                     alonzo::Certificate::StakeDeregistration(a) => {
-                        u5c::certificate::Certificate::StakeDeregistration(self.map_stake_credential(a))
+                        u5c::certificate::Certificate::StakeDeregistration(
+                            self.map_stake_credential(a),
+                        )
                     }
                     alonzo::Certificate::StakeDelegation(a, b) => {
                         u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
@@ -520,24 +512,26 @@ macro_rules! impl_cardano_mapper_shared {
                         pool_owners,
                         relays,
                         pool_metadata,
-                    } => u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
-                        operator: operator.to_vec().into(),
-                        vrf_keyhash: vrf_keyhash.to_vec().into(),
-                        pledge: u64_to_bigint(*pledge),
-                        cost: u64_to_bigint(*cost),
-                        margin: u5c::RationalNumber {
-                            numerator: margin.numerator as i32,
-                            denominator: margin.denominator as u32,
-                        }
-                        .into(),
-                        reward_account: reward_account.to_vec().into(),
-                        pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
-                        relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                        pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
-                            url: x.url.clone(),
-                            hash: x.hash.to_vec().into(),
-                        }),
-                    }),
+                    } => {
+                        u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
+                            operator: operator.to_vec().into(),
+                            vrf_keyhash: vrf_keyhash.to_vec().into(),
+                            pledge: u64_to_bigint(*pledge),
+                            cost: u64_to_bigint(*cost),
+                            margin: u5c::RationalNumber {
+                                numerator: margin.numerator as i32,
+                                denominator: margin.denominator as u32,
+                            }
+                            .into(),
+                            reward_account: reward_account.to_vec().into(),
+                            pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
+                            relays: relays.iter().map(|x| self.map_relay(x)).collect(),
+                            pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
+                                url: x.url.clone(),
+                                hash: x.hash.to_vec().into(),
+                            }),
+                        })
+                    }
                     alonzo::Certificate::PoolRetirement(a, b) => {
                         u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
                             pool_keyhash: a.to_vec().into(),
@@ -545,11 +539,13 @@ macro_rules! impl_cardano_mapper_shared {
                         })
                     }
                     alonzo::Certificate::GenesisKeyDelegation(a, b, c) => {
-                        u5c::certificate::Certificate::GenesisKeyDelegation(u5c::GenesisKeyDelegationCert {
-                            genesis_hash: a.to_vec().into(),
-                            genesis_delegate_hash: b.to_vec().into(),
-                            vrf_keyhash: c.to_vec().into(),
-                        })
+                        u5c::certificate::Certificate::GenesisKeyDelegation(
+                            u5c::GenesisKeyDelegationCert {
+                                genesis_hash: a.to_vec().into(),
+                                genesis_delegate_hash: b.to_vec().into(),
+                                vrf_keyhash: c.to_vec().into(),
+                            },
+                        )
                     }
                     alonzo::Certificate::MoveInstantaneousRewardsCert(a) => {
                         u5c::certificate::Certificate::MirCert(u5c::MirCert {
@@ -591,8 +587,12 @@ macro_rules! impl_cardano_mapper_shared {
                 use pallas_primitives::conway;
                 u5c::DRep {
                     drep: match x {
-                        conway::DRep::Key(x) => u5c::d_rep::Drep::AddrKeyHash(x.to_vec().into()).into(),
-                        conway::DRep::Script(x) => u5c::d_rep::Drep::ScriptHash(x.to_vec().into()).into(),
+                        conway::DRep::Key(x) => {
+                            u5c::d_rep::Drep::AddrKeyHash(x.to_vec().into()).into()
+                        }
+                        conway::DRep::Script(x) => {
+                            u5c::d_rep::Drep::ScriptHash(x.to_vec().into()).into()
+                        }
                         conway::DRep::Abstain => u5c::d_rep::Drep::Abstain(true).into(),
                         conway::DRep::NoConfidence => u5c::d_rep::Drep::NoConfidence(true).into(),
                     },
@@ -608,10 +608,14 @@ macro_rules! impl_cardano_mapper_shared {
                 use pallas_primitives::conway;
                 let inner = match x {
                     conway::Certificate::StakeRegistration(a) => {
-                        u5c::certificate::Certificate::StakeRegistration(self.map_stake_credential(a))
+                        u5c::certificate::Certificate::StakeRegistration(
+                            self.map_stake_credential(a),
+                        )
                     }
                     conway::Certificate::StakeDeregistration(a) => {
-                        u5c::certificate::Certificate::StakeDeregistration(self.map_stake_credential(a))
+                        u5c::certificate::Certificate::StakeDeregistration(
+                            self.map_stake_credential(a),
+                        )
                     }
                     conway::Certificate::StakeDelegation(a, b) => {
                         u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
@@ -629,24 +633,26 @@ macro_rules! impl_cardano_mapper_shared {
                         pool_owners,
                         relays,
                         pool_metadata,
-                    } => u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
-                        operator: operator.to_vec().into(),
-                        vrf_keyhash: vrf_keyhash.to_vec().into(),
-                        pledge: u64_to_bigint(*pledge),
-                        cost: u64_to_bigint(*cost),
-                        margin: u5c::RationalNumber {
-                            numerator: margin.numerator as i32,
-                            denominator: margin.denominator as u32,
-                        }
-                        .into(),
-                        reward_account: reward_account.to_vec().into(),
-                        pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
-                        relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                        pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
-                            url: x.url.clone(),
-                            hash: x.hash.to_vec().into(),
-                        }),
-                    }),
+                    } => {
+                        u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
+                            operator: operator.to_vec().into(),
+                            vrf_keyhash: vrf_keyhash.to_vec().into(),
+                            pledge: u64_to_bigint(*pledge),
+                            cost: u64_to_bigint(*cost),
+                            margin: u5c::RationalNumber {
+                                numerator: margin.numerator as i32,
+                                denominator: margin.denominator as u32,
+                            }
+                            .into(),
+                            reward_account: reward_account.to_vec().into(),
+                            pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
+                            relays: relays.iter().map(|x| self.map_relay(x)).collect(),
+                            pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
+                                url: x.url.clone(),
+                                hash: x.hash.to_vec().into(),
+                            }),
+                        })
+                    }
                     conway::Certificate::PoolRetirement(a, b) => {
                         u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
                             pool_keyhash: a.to_vec().into(),
@@ -693,23 +699,33 @@ macro_rules! impl_cardano_mapper_shared {
                         })
                     }
                     conway::Certificate::StakeVoteRegDeleg(stake_cred, pool_id, drep, coin) => {
-                        u5c::certificate::Certificate::StakeVoteRegDelegCert(u5c::StakeVoteRegDelegCert {
-                            stake_credential: self.map_stake_credential(stake_cred).into(),
-                            pool_keyhash: pool_id.to_vec().into(),
-                            drep: self.map_drep(drep).into(),
-                            coin: u64_to_bigint(*coin),
-                        })
+                        u5c::certificate::Certificate::StakeVoteRegDelegCert(
+                            u5c::StakeVoteRegDelegCert {
+                                stake_credential: self.map_stake_credential(stake_cred).into(),
+                                pool_keyhash: pool_id.to_vec().into(),
+                                drep: self.map_drep(drep).into(),
+                                coin: u64_to_bigint(*coin),
+                            },
+                        )
                     }
                     conway::Certificate::AuthCommitteeHot(cold_cred, hot_cred) => {
-                        u5c::certificate::Certificate::AuthCommitteeHotCert(u5c::AuthCommitteeHotCert {
-                            committee_cold_credential: self.map_stake_credential(cold_cred).into(),
-                            committee_hot_credential: self.map_stake_credential(hot_cred).into(),
-                        })
+                        u5c::certificate::Certificate::AuthCommitteeHotCert(
+                            u5c::AuthCommitteeHotCert {
+                                committee_cold_credential: self
+                                    .map_stake_credential(cold_cred)
+                                    .into(),
+                                committee_hot_credential: self
+                                    .map_stake_credential(hot_cred)
+                                    .into(),
+                            },
+                        )
                     }
                     conway::Certificate::ResignCommitteeCold(cold_cred, anchor) => {
                         u5c::certificate::Certificate::ResignCommitteeColdCert(
                             u5c::ResignCommitteeColdCert {
-                                committee_cold_credential: self.map_stake_credential(cold_cred).into(),
+                                committee_cold_credential: self
+                                    .map_stake_credential(cold_cred)
+                                    .into(),
                                 anchor: anchor.clone().map(|a| u5c::Anchor {
                                     url: a.url,
                                     content_hash: a.content_hash.to_vec().into(),
@@ -762,7 +778,9 @@ macro_rules! impl_cardano_mapper_shared {
                     pallas_traverse::MultiEraCert::AlonzoCompatible(x) => {
                         self.map_alonzo_compatible_cert(x, tx, order).into()
                     }
-                    pallas_traverse::MultiEraCert::Conway(x) => self.map_conway_cert(x, tx, order).into(),
+                    pallas_traverse::MultiEraCert::Conway(x) => {
+                        self.map_conway_cert(x, tx, order).into()
+                    }
                     _ => None,
                 }
             }
@@ -790,7 +808,9 @@ macro_rules! impl_cardano_mapper_shared {
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
-                        treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
+                        treasury_expansion: Some(rational_number_to_u5c(
+                            params.treasury_growth_rate,
+                        )),
                         min_pool_cost: u64_to_bigint(params.min_pool_cost),
                         protocol_version: Some(u5c::ProtocolVersion {
                             major: params.protocol_version.0 as u32,
@@ -829,7 +849,9 @@ macro_rules! impl_cardano_mapper_shared {
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
-                        treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
+                        treasury_expansion: Some(rational_number_to_u5c(
+                            params.treasury_growth_rate,
+                        )),
                         min_pool_cost: u64_to_bigint(params.min_pool_cost),
                         protocol_version: Some(u5c::ProtocolVersion {
                             major: params.protocol_version.0 as u32,
@@ -849,7 +871,9 @@ macro_rules! impl_cardano_mapper_shared {
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
-                        treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
+                        treasury_expansion: Some(rational_number_to_u5c(
+                            params.treasury_growth_rate,
+                        )),
                         min_pool_cost: u64_to_bigint(params.min_pool_cost),
                         protocol_version: u5c::ProtocolVersion {
                             major: params.protocol_version.0 as u32,
@@ -898,7 +922,9 @@ macro_rules! impl_cardano_mapper_shared {
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
-                        treasury_expansion: Some(rational_number_to_u5c(params.treasury_growth_rate)),
+                        treasury_expansion: Some(rational_number_to_u5c(
+                            params.treasury_growth_rate,
+                        )),
                         min_pool_cost: u64_to_bigint(params.min_pool_cost),
                         protocol_version: u5c::ProtocolVersion {
                             major: params.protocol_version.0 as u32,
@@ -920,12 +946,18 @@ macro_rules! impl_cardano_mapper_shared {
                         )),
                         pool_voting_thresholds: Some(u5c::VotingThresholds {
                             thresholds: vec![
-                                rational_number_to_u5c(params.pool_voting_thresholds.motion_no_confidence),
-                                rational_number_to_u5c(params.pool_voting_thresholds.committee_normal),
+                                rational_number_to_u5c(
+                                    params.pool_voting_thresholds.motion_no_confidence,
+                                ),
+                                rational_number_to_u5c(
+                                    params.pool_voting_thresholds.committee_normal,
+                                ),
                                 rational_number_to_u5c(
                                     params.pool_voting_thresholds.committee_no_confidence,
                                 ),
-                                rational_number_to_u5c(params.pool_voting_thresholds.hard_fork_initiation),
+                                rational_number_to_u5c(
+                                    params.pool_voting_thresholds.hard_fork_initiation,
+                                ),
                                 rational_number_to_u5c(
                                     params.pool_voting_thresholds.security_voting_threshold,
                                 ),
@@ -933,18 +965,36 @@ macro_rules! impl_cardano_mapper_shared {
                         }),
                         drep_voting_thresholds: Some(u5c::VotingThresholds {
                             thresholds: vec![
-                                rational_number_to_u5c(params.drep_voting_thresholds.motion_no_confidence),
-                                rational_number_to_u5c(params.drep_voting_thresholds.committee_normal),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.motion_no_confidence,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.committee_normal,
+                                ),
                                 rational_number_to_u5c(
                                     params.drep_voting_thresholds.committee_no_confidence,
                                 ),
-                                rational_number_to_u5c(params.drep_voting_thresholds.update_constitution),
-                                rational_number_to_u5c(params.drep_voting_thresholds.hard_fork_initiation),
-                                rational_number_to_u5c(params.drep_voting_thresholds.pp_network_group),
-                                rational_number_to_u5c(params.drep_voting_thresholds.pp_economic_group),
-                                rational_number_to_u5c(params.drep_voting_thresholds.pp_technical_group),
-                                rational_number_to_u5c(params.drep_voting_thresholds.pp_governance_group),
-                                rational_number_to_u5c(params.drep_voting_thresholds.treasury_withdrawal),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.update_constitution,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.hard_fork_initiation,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.pp_network_group,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.pp_economic_group,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.pp_technical_group,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.pp_governance_group,
+                                ),
+                                rational_number_to_u5c(
+                                    params.drep_voting_thresholds.treasury_withdrawal,
+                                ),
                             ],
                         }),
                         min_committee_size: params.min_committee_size as u32,
@@ -998,15 +1048,14 @@ macro_rules! impl_cardano_mapper_shared {
                     max_value_size: x.max_value_size.unwrap_or_default(),
                     collateral_percentage: x.collateral_percentage.unwrap_or_default(),
                     max_collateral_inputs: x.max_collateral_inputs.unwrap_or_default(),
-                    cost_models: x
-                        .cost_models_for_script_languages
-                        .clone()
-                        .map(|cm| u5c::CostModels {
+                    cost_models: x.cost_models_for_script_languages.clone().map(|cm| {
+                        u5c::CostModels {
                             plutus_v1: cm.plutus_v1.map(|values| u5c::CostModel { values }),
                             plutus_v2: cm.plutus_v2.map(|values| u5c::CostModel { values }),
                             plutus_v3: cm.plutus_v3.map(|values| u5c::CostModel { values }),
                             ..Default::default()
-                        }),
+                        }
+                    }),
                     prices: x.execution_costs.clone().map(|p| u5c::ExPrices {
                         memory: Some(rational_number_to_u5c(p.mem_price)),
                         steps: Some(rational_number_to_u5c(p.step_price)),

@@ -60,10 +60,7 @@ mod cross_version_compat {
 
     #[test]
     fn pparams_wire_compatible() {
-        assert_wire_compat::<v1a::PParams, v1b::PParams>(
-            "PParams",
-            v1a::PParams::default(),
-        );
+        assert_wire_compat::<v1a::PParams, v1b::PParams>("PParams", v1a::PParams::default());
     }
 
     #[test]
@@ -84,10 +81,7 @@ mod cross_version_compat {
 
     #[test]
     fn metadata_wire_compatible() {
-        assert_wire_compat::<v1a::Metadata, v1b::Metadata>(
-            "Metadata",
-            v1a::Metadata::default(),
-        );
+        assert_wire_compat::<v1a::Metadata, v1b::Metadata>("Metadata", v1a::Metadata::default());
     }
 
     #[test]

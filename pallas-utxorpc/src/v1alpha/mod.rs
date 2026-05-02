@@ -38,9 +38,7 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1alpha::carda
 // ---- v1alpha-specific bodies for methods that diverge from v1beta -----------
 
 impl<C: LedgerContext> Mapper<C> {
-    pub fn map_native_script(
-        x: &pallas_primitives::alonzo::NativeScript,
-    ) -> u5c::NativeScript {
+    pub fn map_native_script(x: &pallas_primitives::alonzo::NativeScript) -> u5c::NativeScript {
         let inner = match x {
             babbage::NativeScript::ScriptPubkey(x) => {
                 u5c::native_script::NativeScript::ScriptPubkey(x.to_vec().into())
