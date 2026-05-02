@@ -12,7 +12,10 @@ authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }
-utxorpc-spec = { version = "0.19", default-features = false }
+utxorpc-spec = { version = "0.19", default-features = false, features = [
+    "utxorpc-v1alpha-cardano",
+    "utxorpc-v1beta-cardano",
+] }
 
 pallas-traverse = { version = "=1.0.0-alpha.6", path = "../pallas-traverse" }
 pallas-primitives = { version = "=1.0.0-alpha.6", path = "../pallas-primitives" }
@@ -20,11 +23,6 @@ pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
 pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto" }
 prost-types = "0.13.1"
 pallas-validate = { version = "=1.0.0-alpha.6", path = "../pallas-validate" }
-
-[features]
-default = ["v1alpha"]
-v1alpha = ["utxorpc-spec/utxorpc-v1alpha-cardano"]
-v1beta = ["utxorpc-spec/utxorpc-v1beta-cardano"]
 
 [dev-dependencies]
 hex = "0.4.3"

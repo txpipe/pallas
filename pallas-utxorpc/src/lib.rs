@@ -4,18 +4,11 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::alonzo;
 use pallas_traverse as trv;
 
-#[cfg(any(feature = "v1alpha", feature = "v1beta"))]
 #[macro_use]
 mod shared;
 
-#[cfg(feature = "v1alpha")]
 pub mod v1alpha;
-
-#[cfg(feature = "v1beta")]
 pub mod v1beta;
-
-#[cfg(feature = "v1alpha")]
-pub use v1alpha::{spec, Mapper};
 
 pub type TxHash = Hash<32>;
 pub type TxoIndex = u32;
@@ -38,7 +31,7 @@ pub trait LedgerContext: Clone {
 /// Block / Tx / TxOutput / Asset / Multiasset / Datum / WitnessSet / GovernanceAction
 /// are intentionally NOT checked here — they are known to diverge between
 /// versions, which is why those mappers live in per-version files.
-#[cfg(all(test, feature = "v1alpha", feature = "v1beta"))]
+#[cfg(test)]
 mod cross_version_compat {
     use prost::Message;
 
