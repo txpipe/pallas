@@ -466,7 +466,8 @@ mod tests {
             let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
             let current = serde_json::json!(mapper.map_block(&block));
 
-            if std::env::var("REGEN_V1BETA_SNAPSHOT").is_ok() {
+            // Set REGENERATE_SNAPSHOTS=1 to overwrite the snapshot file in place.
+            if std::env::var("REGENERATE_SNAPSHOTS").is_ok() {
                 let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("../test_data/u5c_v1beta.json");
                 std::fs::write(&path, serde_json::to_string_pretty(&current).unwrap()).unwrap();

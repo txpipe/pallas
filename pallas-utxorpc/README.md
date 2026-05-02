@@ -23,3 +23,21 @@ the v1alpha mapper.
 Both features are additive — enable both to use the two mappers in the same
 binary. With neither enabled the crate compiles down to just `LedgerContext`
 and the shared type aliases.
+
+## Snapshot tests
+
+Each version has a snapshot test that decodes a fixed Babbage block and
+compares the mapper output to a JSON file under `test_data/`:
+
+- `test_data/u5c_v1alpha.json`
+- `test_data/u5c_v1beta.json`
+
+To overwrite both snapshots with the current mapper output, set
+`REGENERATE_SNAPSHOTS=1`:
+
+```sh
+REGENERATE_SNAPSHOTS=1 cargo test -p pallas-utxorpc --features v1beta
+```
+
+When the variable is unset (the normal case), the tests assert against the
+checked-in JSON files.
