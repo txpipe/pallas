@@ -51,7 +51,7 @@ impl<C: LedgerContext> Mapper<C> {
                 })
             }
             babbage::NativeScript::ScriptAny(x) => {
-                u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
+                u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
                     items: x.iter().map(|x| Self::map_native_script(x)).collect(),
                 })
             }
