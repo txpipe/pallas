@@ -17,7 +17,7 @@ pallas-traverse = { version = "=1.0.0-alpha.6", path = "../pallas-traverse/" }
 pallas-addresses = { version = "=1.0.0-alpha.6", path = "../pallas-addresses/" }
 pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto/" }
 pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec/" }
-pallas-utxorpc = { version = "=1.0.0-alpha.6", path = "../pallas-utxorpc/" }
+pallas-utxorpc = { version = "=1.0.0-alpha.6", path = "../pallas-utxorpc/", default-features = false }
 pallas-configs = { version = "=1.0.0-alpha.6", path = "../pallas-configs/" }
 pallas-txbuilder = { version = "=1.0.0-alpha.6", path = "../pallas-txbuilder/" }
 pallas-validate = { version = "=1.0.0-alpha.6", path = "../pallas-validate/" }
@@ -25,6 +25,8 @@ pallas-hardano = { version = "=1.0.0-alpha.6", path = "../pallas-hardano/", opti
 pallas-network2 = { version = "=1.0.0-alpha.6", path = "../pallas-network2/", optional = true }
 
 [features]
+default = ["u5c-v1alpha"]
+
 hardano = ["pallas-hardano"]
 unstable = ["hardano", "pallas-traverse/unstable"]
 
@@ -34,6 +36,10 @@ relaxed = ["pallas-primitives/relaxed", "pallas-crypto/relaxed"]
 
 # network 2
 network2 = ["dep:pallas-network2"]
+
+# pallas-utxorpc spec versions
+u5c-v1alpha = ["pallas-utxorpc/v1alpha"]
+u5c-v1beta = ["pallas-utxorpc/v1beta"]
 
 [package.metadata.docs.rs]
 all-features = true
