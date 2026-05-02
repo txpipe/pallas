@@ -2,8 +2,8 @@ use thiserror::Error;
 
 use super::primitives::{Certificate, Credential, Language, StakeCredential, Voter};
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, GovAction, GovActionId, PolicyId, ProposalProcedure, ProtocolVersion, ScriptHash,
-    TransactionInput, TransactionOutput, Value, Vote,
+    Anchor, BigInt, FieldedRewardAccount, GovAction, GovActionId, PolicyId, ProposalProcedure,
+    ProtocolVersion, ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
 };
 pub use crate::miniprotocols::localstate::queries_v16::{Coin, ExUnits, TaggedSet};
 use crate::multiplexer;
@@ -103,7 +103,7 @@ pub type PlutusPurposeItem = PlutusPurpose<
     TransactionInput,
     PolicyId,
     ConwayTxCert,
-    DisplayRewardAccount,
+    FieldedRewardAccount,
     Voter,
     ProposalProcedure,
 >;
@@ -176,6 +176,8 @@ pub enum ConwayContextError {
     ProposalProceduresFieldNotSupported(#[n(0)] DisplayOSet<ProposalProcedure>),
     #[n(14)]
     TreasuryDonationFieldNotSupported(#[n(0)] DisplayCoin),
+    #[n(15)]
+    ReferenceInputsNotDisjointFromInputs(#[n(0)] Vec<TransactionInput>),
 }
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
@@ -263,7 +265,7 @@ pub struct Utxo(pub OHashMap<TransactionInput, TransactionOutput>);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OHashMap<K, V>(pub Vec<(K, V)>);
 
-#[derive(Encode, Decode, Debug, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 #[cbor(index_only)]
 pub enum Network {
     #[n(0)]
@@ -272,19 +274,17 @@ pub enum Network {
     Mainnet,
 }
 
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct DeltaCoin(#[n(0)] pub i32);
-
-#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
-#[cbor(transparent)]
-pub struct DisplayRewardAccount(#[n(0)] pub Bytes);
-
-impl From<&Bytes> for DisplayRewardAccount {
-    fn from(bytes: &Bytes) -> Self {
-        DisplayRewardAccount(bytes.to_owned())
+impl From<Network> for u8 {
+    fn from(value: Network) -> u8 {
+        match value {
+            Network::Mainnet => 1,
+            Network::Testnet => 0,
+        }
     }
 }
+#[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
+#[cbor(transparent)]
+pub struct DeltaCoin(#[n(0)] pub BigInt);
 
 pub type Slot = u64;
 
@@ -308,7 +308,7 @@ pub enum UtxoFailure {
     #[n(2)]
     OutsideValidityIntervalUTxO(#[n(0)] ValidityInterval, #[n(1)] Slot),
     #[n(3)]
-    MaxTxSizeUTxO(#[n(0)] i64, #[n(1)] i64),
+    MaxTxSizeUTxO(#[n(0)] BigInt, #[n(1)] BigInt),
     #[n(4)]
     InputSetEmptyUTxO,
     #[n(5)]
@@ -318,7 +318,7 @@ pub enum UtxoFailure {
     #[n(7)]
     WrongNetwork(#[n(0)] Network, #[n(1)] Set<DisplayAddress>),
     #[n(8)]
-    WrongNetworkWithdrawal(#[n(0)] Network, #[n(1)] Set<DisplayRewardAccount>),
+    WrongNetworkWithdrawal(#[n(0)] Network, #[n(1)] Set<FieldedRewardAccount>),
     #[n(9)]
     OutputTooSmallUTxO(#[n(0)] Array<TransactionOutput>),
     #[n(10)]
@@ -338,7 +338,7 @@ pub enum UtxoFailure {
     #[n(17)]
     OutsideForecast(#[n(0)] Slot),
     #[n(18)]
-    TooManyCollateralInputs(#[n(0)] u16, #[n(1)] u16),
+    TooManyCollateralInputs(#[n(0)] u64, #[n(1)] u64),
     #[n(19)]
     NoCollateralInputs,
     #[n(20)]
@@ -411,6 +411,8 @@ pub enum ConwayUtxoWPredFailure {
     MalformedScriptWitnesses(#[n(0)] Set<ScriptHash>),
     #[n(17)]
     MalformedReferenceScripts(#[n(0)] Set<ScriptHash>),
+    #[n(18)]
+    ScriptIntegrityHashMismatch(#[n(0)] MismatchArr<SMaybe<SafeHash>>, #[n(1)] SMaybe<Bytes>),
 }
 
 #[derive(Debug, Decode, Encode, Hash, PartialEq, Eq, Clone)]
@@ -430,14 +432,17 @@ pub struct DisplayPolicyId(#[n(0)] pub PolicyId);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Mismatch<T>(pub T, pub T);
 
+/// Like `Mismatch<T>` but encoded as a CBOR array `[supplied, expected]`
+/// (Haskell wraps the Mismatch pair in an enclosing array for some variants).
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct MismatchArr<T>(pub T, pub T);
+
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(transparent)]
 pub struct EpochNo(#[n(0)] pub u64);
 
 /// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs#L138-L153)
 /// in the Haskell sources.
-///
-/// The `u8` variant appears for backward compatibility.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
@@ -457,14 +462,16 @@ pub enum ConwayLedgerFailure {
     #[n(7)]
     MempoolFailure(#[n(0)] String),
     #[n(8)]
-    U8(#[n(0)] u8),
+    WithdrawalsMissingAccounts(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),
+    #[n(9)]
+    IncompleteWithdrawals(#[n(0)] OHashMap<FieldedRewardAccount, MismatchArr<DisplayCoin>>),
 }
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Certs.hs#L113
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
 pub enum ConwayCertsPredFailure {
     #[n(0)]
-    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<DisplayRewardAccount, DisplayCoin>),
+    WithdrawalsNotInRewardsCERTS(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),
     #[n(1)]
     CertFailure(#[n(0)] ConwayCertPredFailure),
 }
@@ -482,6 +489,7 @@ pub enum ConwayCertPredFailure {
 }
 
 // Reminder, encoding of this enum should be custom, see decoder for info.
+// Haskell tags: 0, 1, (skip 2 — removed WrongCertificateTypePOOL), 3, 4, 5, 6
 #[derive(Debug, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
 pub enum ShelleyPoolPredFailure {
@@ -489,12 +497,14 @@ pub enum ShelleyPoolPredFailure {
     StakePoolNotRegisteredOnKeyPOOL(#[n(0)] KeyHash),
     #[n(1)]
     StakePoolRetirementWrongEpochPOOL(#[n(0)] Mismatch<EpochNo>, #[n(1)] Mismatch<EpochNo>),
-    #[n(2)]
-    StakePoolCostTooLowPOOL(#[n(0)] Mismatch<DisplayCoin>),
     #[n(3)]
-    WrongNetworkPOOL(#[n(0)] Mismatch<Network>, #[n(1)] KeyHash),
+    StakePoolCostTooLowPOOL(#[n(0)] Mismatch<DisplayCoin>),
     #[n(4)]
+    WrongNetworkPOOL(#[n(0)] Mismatch<Network>, #[n(1)] KeyHash),
+    #[n(5)]
     PoolMedataHashTooBig(#[n(0)] KeyHash, #[n(1)] i64),
+    #[n(6)]
+    VRFKeyHashAlreadyRegistered(#[n(0)] KeyHash, #[n(1)] Bytes),
 }
 
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/GovCert.hs#L118C6-L118C30
@@ -531,6 +541,10 @@ pub enum ConwayDelegPredFailure {
     DelegateeDRepNotRegisteredDELEG(#[n(0)] Credential),
     #[n(6)]
     DelegateeStakePoolNotRegisteredDELEG(#[n(0)] KeyHash),
+    #[n(7)]
+    DepositIncorrectDELEG(#[n(0)] MismatchArr<DisplayCoin>),
+    #[n(8)]
+    RefundIncorrectDELEG(#[n(0)] MismatchArr<DisplayCoin>),
 }
 
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Gov.hs#L164
@@ -542,9 +556,9 @@ pub enum ConwayGovPredFailure {
     #[n(1)]
     MalformedProposal(#[n(0)] GovAction),
     #[n(2)]
-    ProposalProcedureNetworkIdMismatch(#[n(0)] DisplayRewardAccount, #[n(1)] Network),
+    ProposalProcedureNetworkIdMismatch(#[n(0)] FieldedRewardAccount, #[n(1)] Network),
     #[n(3)]
-    TreasuryWithdrawalsNetworkIdMismatch(#[n(0)] Set<DisplayRewardAccount>, #[n(1)] Network),
+    TreasuryWithdrawalsNetworkIdMismatch(#[n(0)] Set<FieldedRewardAccount>, #[n(1)] Network),
     #[n(4)]
     ProposalDepositIncorrect(#[n(0)] DisplayCoin, #[n(1)] DisplayCoin),
     #[n(5)]
@@ -577,9 +591,11 @@ pub enum ConwayGovPredFailure {
     #[n(15)]
     ZeroTreasuryWithdrawals(#[n(0)] GovAction),
     #[n(16)]
-    ProposalReturnAccountDoesNotExist(#[n(0)] DisplayRewardAccount),
+    ProposalReturnAccountDoesNotExist(#[n(0)] FieldedRewardAccount),
     #[n(17)]
-    TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<DisplayRewardAccount>),
+    TreasuryWithdrawalReturnAccountsDoNotExist(#[n(0)] Vec<FieldedRewardAccount>),
+    #[n(18)]
+    UnelectedCommitteeVoters(#[n(0)] Vec<Credential>),
 }
 
 /// Reject reason. It can be a pair of an era number and a sequence of errors,

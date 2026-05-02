@@ -166,6 +166,9 @@ pub struct CostModels {
     #[n(2)]
     pub plutus_v3: Option<CostModel>,
 
+    #[n(3)]
+    pub plutus_v4: Option<CostModel>,
+
     #[cbor(skip)]
     pub unknown: BTreeMap<u64, CostModel>,
 }
@@ -177,6 +180,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
         let mut plutus_v1 = None;
         let mut plutus_v2 = None;
         let mut plutus_v3 = None;
+        let mut plutus_v4 = None;
         let mut unknown: Vec<(u64, CostModel)> = Vec::new();
 
         for (k, v) in models.iter() {
@@ -184,6 +188,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
                 0 => plutus_v1 = Some(v.clone()),
                 1 => plutus_v2 = Some(v.clone()),
                 2 => plutus_v3 = Some(v.clone()),
+                3 => plutus_v4 = Some(v.clone()),
                 _ => unknown.push((*k, v.clone())),
             }
         }
@@ -192,6 +197,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
             plutus_v1,
             plutus_v2,
             plutus_v3,
+            plutus_v4,
             unknown: unknown.into_iter().collect(),
         })
     }
@@ -708,7 +714,7 @@ pub struct Block<'b> {
 #[deprecated(since = "1.0.0-alpha", note = "use `Block` instead")]
 pub type MintedBlock<'b> = Block<'b>;
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Encode, Debug, PartialEq)]
 pub struct Tx<'b> {
     #[b(0)]
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
@@ -724,6 +730,37 @@ pub struct Tx<'b> {
 }
 
 impl Eq for Tx<'_> {}
+
+impl<'b, C> minicbor::Decode<'b, C> for Tx<'b>
+where
+    KeepRaw<'b, TransactionBody<'b>>: minicbor::Decode<'b, C>,
+    KeepRaw<'b, WitnessSet<'b>>: minicbor::Decode<'b, C>,
+    Nullable<KeepRaw<'b, AuxiliaryData>>: minicbor::Decode<'b, C>,
+{
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        d.array()?;
+
+        let transaction_body = d.decode_with(ctx)?;
+        let transaction_witness_set = d.decode_with(ctx)?;
+        let success = match d.decode_with(ctx) {
+            Ok(v) => v,
+            Err(e) if e.is_end_of_input() => true,
+            Err(e) => return Err(e),
+        };
+        let auxiliary_data = match d.decode_with(ctx) {
+            Ok(v) => v,
+            Err(e) if e.is_end_of_input() => Nullable::Null,
+            Err(e) => return Err(e),
+        };
+
+        Ok(Self {
+            transaction_body,
+            transaction_witness_set,
+            success,
+            auxiliary_data,
+        })
+    }
+}
 
 #[deprecated(since = "1.0.0-alpha", note = "use `Tx` instead")]
 pub type MintedTx<'b> = Tx<'b>;
