@@ -9,19 +9,25 @@ in:
   including the v1beta-only types (`BootstrapWitness`, `VoterVotes`,
   `VotingProcedure`, `Vote`).
 
-Callers must pick a version explicitly — the crate root no longer
-re-exports either `Mapper` or `spec`. Migration from earlier releases:
+For back-compat with pre-v1beta releases, the default `u5c-v1alpha-compat`
+feature re-exports v1alpha at the crate root, so `pallas_utxorpc::Mapper`
+and `pallas_utxorpc::spec` keep resolving to v1alpha:
 
 ```rust
-// before
-use pallas_utxorpc::Mapper;
+use pallas_utxorpc::Mapper;          // default-features on: same as v1alpha::Mapper
+use pallas_utxorpc::v1alpha::Mapper; // always available, regardless of features
+use pallas_utxorpc::v1beta::Mapper;  // always available, regardless of features
+```
 
-// now
-use pallas_utxorpc::v1alpha::Mapper;  // or v1beta::Mapper
+Disable the compat shim to force callers onto explicit version paths:
+
+```toml
+pallas-utxorpc = { version = "...", default-features = false }
 ```
 
 Shared infrastructure (`LedgerContext`, `TxHash`, `TxoIndex`, `TxoRef`,
-`Cbor`, `EraCbor`, `UtxoMap`, `DatumMap`) stays at the crate root.
+`Cbor`, `EraCbor`, `UtxoMap`, `DatumMap`) stays at the crate root and is
+unaffected by the feature flag.
 
 ## Snapshot tests
 

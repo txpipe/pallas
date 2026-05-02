@@ -10,6 +10,9 @@ mod shared;
 pub mod v1alpha;
 pub mod v1beta;
 
+#[cfg(feature = "u5c-v1alpha-compat")]
+pub use v1alpha::{spec, Mapper};
+
 pub type TxHash = Hash<32>;
 pub type TxoIndex = u32;
 pub type TxoRef = (TxHash, TxoIndex);

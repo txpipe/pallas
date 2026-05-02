@@ -24,6 +24,13 @@ pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto" }
 prost-types = "0.13.1"
 pallas-validate = { version = "=1.0.0-alpha.6", path = "../pallas-validate" }
 
+[features]
+default = ["u5c-v1alpha-compat"]
+# Re-export v1alpha as the root `pallas_utxorpc::{Mapper, spec}` for
+# back-compat with pre-v1beta releases. Opt out with default-features = false
+# to force callers onto explicit `v1alpha::Mapper` / `v1beta::Mapper` paths.
+u5c-v1alpha-compat = []
+
 [dev-dependencies]
 hex = "0.4.3"
 serde_json = "1.0.120"
