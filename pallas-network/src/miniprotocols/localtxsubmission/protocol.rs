@@ -467,9 +467,7 @@ pub enum ConwayLedgerFailure {
     /// The map value `(supplied, expected)` mirrors the upstream
     /// `Mismatch RelEQ Coin`, encoded as a 2-element CBOR array.
     #[n(9)]
-    IncompleteWithdrawals(
-        #[n(0)] OHashMap<DisplayRewardAccount, (DisplayCoin, DisplayCoin)>,
-    ),
+    IncompleteWithdrawals(#[n(0)] OHashMap<DisplayRewardAccount, (DisplayCoin, DisplayCoin)>),
 }
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Certs.hs#L113
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]

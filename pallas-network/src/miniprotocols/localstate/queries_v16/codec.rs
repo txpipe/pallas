@@ -906,9 +906,7 @@ pub mod tests {
     /// agreement with a live node should be confirmed at integration time.
     #[test]
     fn test_post_v16_block_queries_roundtrip() {
-        use crate::miniprotocols::localstate::queries_v16::{
-            BlockQuery, LedgerPeerSnapshotKind,
-        };
+        use crate::miniprotocols::localstate::queries_v16::{BlockQuery, LedgerPeerSnapshotKind};
         use crate::miniprotocols::localtxsubmission::TaggedSet;
 
         let cases = vec![
@@ -939,29 +937,41 @@ pub mod tests {
     /// upstream `encodeWord8` calls for BlockQuery dispatch tags.
     #[test]
     fn test_post_v16_block_queries_wire_shape() {
-        use crate::miniprotocols::localstate::queries_v16::{
-            BlockQuery, LedgerPeerSnapshotKind,
-        };
+        use crate::miniprotocols::localstate::queries_v16::{BlockQuery, LedgerPeerSnapshotKind};
+        use crate::miniprotocols::localtxsubmission::{SMaybe, TaggedSet};
 
         // [34] — legacy single-element form (NodeToClient v11–v14)
         let bytes = minicbor::to_vec(BlockQuery::GetBigLedgerPeerSnapshot).unwrap();
         assert_eq!(hex::encode(bytes), "811822");
 
         // [34, 0] — v15+ form, peer-kind = All
-        let bytes =
-            minicbor::to_vec(BlockQuery::GetLedgerPeerSnapshot(LedgerPeerSnapshotKind::All))
-                .unwrap();
+        let bytes = minicbor::to_vec(BlockQuery::GetLedgerPeerSnapshot(
+            LedgerPeerSnapshotKind::All,
+        ))
+        .unwrap();
         assert_eq!(hex::encode(bytes), "82182200");
 
         // [34, 1] — v15+ form, peer-kind = Big
-        let bytes =
-            minicbor::to_vec(BlockQuery::GetLedgerPeerSnapshot(LedgerPeerSnapshotKind::Big))
-                .unwrap();
+        let bytes = minicbor::to_vec(BlockQuery::GetLedgerPeerSnapshot(
+            LedgerPeerSnapshotKind::Big,
+        ))
+        .unwrap();
         assert_eq!(hex::encode(bytes), "82182201");
+
+        // [36, SMaybe::None=[]] — GetPoolDistr2, no pool filter
+        let bytes = minicbor::to_vec(BlockQuery::GetPoolDistr2(SMaybe::None)).unwrap();
+        assert_eq!(hex::encode(bytes), "82182480");
 
         // [37] — GetStakeDistribution2, no payload
         let bytes = minicbor::to_vec(BlockQuery::GetStakeDistribution2).unwrap();
         assert_eq!(hex::encode(bytes), "811825");
+
+        // [39, TaggedSet::empty=tag(258)[]] — GetDRepsDelegations, empty DRep set
+        let bytes = minicbor::to_vec(BlockQuery::GetDRepsDelegations(TaggedSet::from(
+            std::collections::BTreeSet::new(),
+        )))
+        .unwrap();
+        assert_eq!(hex::encode(bytes), "821827d9010280");
     }
 
     // TODO: DRY with other decode/encode roundtripss

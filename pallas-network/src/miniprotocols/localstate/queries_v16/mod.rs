@@ -1310,3 +1310,49 @@ block_query_no_args! {
     GetProposedPParamsUpdates,
     ProposedPPUpdates,
 }
+
+// --- NodeToClient v15+ / v21+ / v23 helpers ----------------------------------
+//
+// The wrappers below mirror the legacy helpers above (`get_big_ledger_snapshot`,
+// `get_pool_distr`, `get_stake_distribution`) but build the post-V_16 BlockQuery
+// variants negotiated against cardano-node 10.x. The legacy helpers are kept as
+// is for back-compat with older peers; these new helpers are what callers should
+// use against a NodeToClient v23-capable node (the cardano-node 10.7.x line that
+// targets the van Rossem hard fork).
+
+block_query_with_args! {
+    #[doc = "NodeToClient v15+ unified peer-snapshot query (`GetLedgerPeerSnapshot'` upstream)."]
+    #[doc = ""]
+    #[doc = "Pass `LedgerPeerSnapshotKind::Big` for the post-V_16 equivalent of [`get_big_ledger_snapshot`],"]
+    #[doc = "or `LedgerPeerSnapshotKind::All` to fetch every ledger peer."]
+    get_ledger_peer_snapshot,
+    GetLedgerPeerSnapshot,
+    (kind : LedgerPeerSnapshotKind),
+    LedgerPeerSnapshot,
+}
+
+block_query_with_args! {
+    #[doc = "NodeToClient v21+ replacement for [`get_pool_distr`]; same request payload, post-Conway PoolDistr shape."]
+    get_pool_distr_v2,
+    GetPoolDistr2,
+    (val : SMaybe<Pools>),
+    PoolDistr,
+}
+
+block_query_no_args! {
+    #[doc = "NodeToClient v21+ replacement for [`get_stake_distribution`]; no payload, post-Conway shape."]
+    get_stake_distribution_v2,
+    GetStakeDistribution2,
+    StakeDistribution,
+}
+
+block_query_with_args! {
+    #[doc = "NodeToClient v23+ (van Rossem). Fetches the staking-credential delegations of the given DReps."]
+    #[doc = ""]
+    #[doc = "The response is the era-CBOR encoding of `Map DRep (Set (Credential 'Staking))` and is returned"]
+    #[doc = "opaquely as [`AnyCbor`] until a typed model lands."]
+    get_dreps_delegations,
+    GetDRepsDelegations,
+    (dreps : TaggedSet<DRep>),
+    AnyCbor,
+}
