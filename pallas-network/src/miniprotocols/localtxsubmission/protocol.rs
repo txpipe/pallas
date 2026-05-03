@@ -434,10 +434,13 @@ pub struct Mismatch<T>(pub T, pub T);
 #[cbor(transparent)]
 pub struct EpochNo(#[n(0)] pub u64);
 
-/// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs#L138-L153)
+/// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs)
 /// in the Haskell sources.
 ///
-/// The `u8` variant appears for backward compatibility.
+/// Tags 8 (`WithdrawalsMissingAccounts`) and 9 (`IncompleteWithdrawals`) were
+/// added in the cardano-ledger 10.7 release line as part of the van Rossem
+/// hard fork (protocol version 11) preparatory work — they replace the prior
+/// `U8(u8)` catch-all that occupied tag 8.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
@@ -456,8 +459,17 @@ pub enum ConwayLedgerFailure {
     TxRefScriptsSizeTooBig(#[n(0)] i64, #[n(1)] i64),
     #[n(7)]
     MempoolFailure(#[n(0)] String),
+    /// Withdrawals that reference accounts not present in the rewards UTxO.
+    /// Wraps the upstream `Withdrawals = Map RewardAccount Coin`.
     #[n(8)]
-    U8(#[n(0)] u8),
+    WithdrawalsMissingAccounts(#[n(0)] OHashMap<DisplayRewardAccount, DisplayCoin>),
+    /// Withdrawals that do not drain the full balance of their reward account.
+    /// The map value `(supplied, expected)` mirrors the upstream
+    /// `Mismatch RelEQ Coin`, encoded as a 2-element CBOR array.
+    #[n(9)]
+    IncompleteWithdrawals(
+        #[n(0)] OHashMap<DisplayRewardAccount, (DisplayCoin, DisplayCoin)>,
+    ),
 }
 // https://github.com/IntersectMBO/cardano-ledger/blob/33e90ea03447b44a389985ca2b158568e5f4ad65/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Certs.hs#L113
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]

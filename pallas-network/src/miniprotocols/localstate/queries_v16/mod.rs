@@ -70,7 +70,33 @@ pub enum BlockQuery {
     GetProposals(TaggedSet<GovActionId>),
     GetRatifyState,
     GetFuturePParams,
+    /// Legacy (NodeToClient v11–v14) form of `GetBigLedgerPeerSnapshot`,
+    /// encoded as a single-element array `[34]`. v15+ servers expect the
+    /// two-element form, see `GetLedgerPeerSnapshot`.
     GetBigLedgerPeerSnapshot,
+    /// NodeToClient v15+ unified peer snapshot query. Encoded as
+    /// `[34, kind]` where `kind = 0` (All) or `1` (Big). Introduced as
+    /// `GetLedgerPeerSnapshot'` upstream and finalised at NodeToClient v23
+    /// where the on-the-wire CBOR encoding of `LedgerPeerSnapshot` itself
+    /// also changed (van Rossem hard fork).
+    GetLedgerPeerSnapshot(LedgerPeerSnapshotKind),
+    /// NodeToClient v21+ replacement for `GetPoolDistr`. Same request payload,
+    /// returns the post-Conway `PoolDistr` shape.
+    GetPoolDistr2(SMaybe<Pools>),
+    /// NodeToClient v21+ replacement for `GetStakeDistribution`. No payload.
+    GetStakeDistribution2,
+    /// NodeToClient v23+ (van Rossem). Fetches the staking-credential
+    /// delegations of the given DReps.
+    GetDRepsDelegations(TaggedSet<DRep>),
+}
+
+/// Discriminator for `GetLedgerPeerSnapshot`. Mirrors the upstream
+/// `SingLedgerPeerSnapshotKind` (`SingAllLedgerPeers` / `SingBigLedgerPeers`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum LedgerPeerSnapshotKind {
+    All = 0,
+    Big = 1,
 }
 
 pub type Credential = StakeAddr;
