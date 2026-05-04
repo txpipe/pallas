@@ -657,7 +657,6 @@ pub fn get_data_info(witness_set: &WitnessSet) -> Vec<(DatumHash, PlutusData)> {
         .as_deref()
         .map(|s| {
             s.iter()
-                .cloned()
                 .map(|d| (d.original_hash(), d.clone().unwrap()))
                 .sorted()
                 .collect()

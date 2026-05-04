@@ -108,7 +108,7 @@ mod tests {
 
     use super::*;
 
-    const COST_MODEL_PLUTUS_V1: LazyLock<Vec<i64>> = LazyLock::new(|| {
+    static COST_MODEL_PLUTUS_V1: LazyLock<Vec<i64>> = LazyLock::new(|| {
         vec![
             100788, 420, 1, 1, 1000, 173, 0, 1, 1000, 59957, 4, 1, 11183, 32, 201305, 8356, 4,
             16000, 100, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 16000, 100, 100, 100,
@@ -140,7 +140,7 @@ mod tests {
         ]
     });
 
-    const TEST_VECTORS: LazyLock<Vec<(Vec<u8>, Option<LanguageView>)>> = LazyLock::new(|| {
+    static TEST_VECTORS: LazyLock<Vec<(Vec<u8>, Option<LanguageView>)>> = LazyLock::new(|| {
         vec![
             (
                 hex::decode(include_str!("../../../test_data/conway1.tx")).unwrap(),

@@ -17,21 +17,21 @@ use pallas_codec::utils::{Bytes, CborWrap};
 use pallas_crypto::hash::Hash;
 
 // Type aliases to reduce complexity
-type BabbageTxOutInfo<'a> = (
+pub type BabbageTxOutInfo<'a> = (
     String, // address in string format
     Value,
     Option<pallas_primitives::babbage::DatumOption<'a>>,
     Option<CborWrap<pallas_primitives::babbage::ScriptRef<'a>>>,
 );
 
-type ConwayTxOutInfo<'a> = (
+pub type ConwayTxOutInfo<'a> = (
     String, // address in string format
     pallas_primitives::conway::Value,
     Option<pallas_primitives::conway::DatumOption<'a>>,
     Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
 );
 
-type ConwayTxOutInfoMut<'a> = (
+pub type ConwayTxOutInfoMut<'a> = (
     String, // address in string format
     pallas_primitives::conway::Value,
     Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption<'a>>>,
@@ -39,27 +39,27 @@ type ConwayTxOutInfoMut<'a> = (
     Vec<u8>, // Placeholder for CBOR data.
 );
 
-type AlonzoCollateralInfo = (
+pub type AlonzoCollateralInfo = (
     String, // address in string format
     Value,
     Option<Hash<32>>,
 );
 
-type BabbageCollateralInfo<'a> = (
+pub type BabbageCollateralInfo<'a> = (
     String, // address in string format
     Value,
     Option<pallas_primitives::babbage::DatumOption<'a>>,
     Option<CborWrap<pallas_primitives::babbage::ScriptRef<'a>>>,
 );
 
-type ConwayCollateralInfo<'a> = (
+pub type ConwayCollateralInfo<'a> = (
     String, // address in string format
     pallas_primitives::conway::Value,
     Option<pallas_primitives::conway::DatumOption<'a>>,
     Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
 );
 
-type ConwayCollateralInfoMut<'a> = (
+pub type ConwayCollateralInfoMut<'a> = (
     String, // address in string format
     pallas_primitives::conway::Value,
     Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption<'a>>>,
@@ -67,21 +67,21 @@ type ConwayCollateralInfoMut<'a> = (
     Vec<u8>, // Placeholder for CBOR data.
 );
 
-type BabbageRefInputInfo<'a> = (
+pub type BabbageRefInputInfo<'a> = (
     String, // address in string format
     Value,
     Option<pallas_primitives::babbage::DatumOption<'a>>,
     Option<CborWrap<pallas_primitives::babbage::ScriptRef<'a>>>,
 );
 
-type ConwayRefInputInfo<'a> = (
+pub type ConwayRefInputInfo<'a> = (
     String, // address in string format
     pallas_primitives::conway::Value,
     Option<pallas_primitives::conway::DatumOption<'a>>,
     Option<CborWrap<pallas_primitives::conway::ScriptRef<'a>>>,
 );
 
-type ConwayRefInputInfoMut<'a> = (
+pub type ConwayRefInputInfoMut<'a> = (
     String, // address in string format
     pallas_primitives::conway::Value,
     Option<pallas_codec::utils::KeepRaw<'a, pallas_primitives::conway::DatumOption<'a>>>,
