@@ -162,8 +162,7 @@ fn execute_script(
         .map(|d| plutus_data_to_pragma_term(&arena, d));
 
     let flat: pallas_codec::minicbor::bytes::ByteVec =
-        pallas_codec::minicbor::decode(&script_bytes)
-            .map_err(pallas_codec::minicbor::decode::Error::from)?;
+        pallas_codec::minicbor::decode(script_bytes)?;
 
     let program = pallas_uplc::flat::decode(&arena, &flat)?;
 
@@ -185,16 +184,10 @@ fn execute_script(
         // a non-error result is enough success criteria for v1v2
         ScriptContext::V1V2 { .. } => result.term.is_ok(),
         // v3 requires the result to be ok and the term to be a unit
-        ScriptContext::V3 { .. } => match result.term {
-            Ok(term) => match term {
-                Term::Constant(constant) => match constant {
-                    Constant::Unit => true,
-                    _ => false,
-                },
-                _ => false,
-            },
-            Err(_) => false,
-        },
+        ScriptContext::V3 { .. } => matches!(
+            result.term,
+            Ok(Term::Constant(constant)) if matches!(*constant, Constant::Unit)
+        ),
     };
 
     Ok(TxEvalResult {

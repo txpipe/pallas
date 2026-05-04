@@ -878,9 +878,7 @@ pub mod tests {
                         panic!("error decoding cbor from query message: {e:?}")
                     });
                     match request {
-                        Request::GetSystemStart => {
-                            return Message::Query(AnyCbor::from_encode(request))
-                        }
+                        Request::GetSystemStart => Message::Query(AnyCbor::from_encode(request)),
                         _ => panic!("unexpected query type"),
                     }
                 }
@@ -893,7 +891,7 @@ pub mod tests {
                     let result = minicbor::decode::<SystemStart>(&cbor[..]).unwrap_or_else(|e| {
                         panic!("error decoding cbor from query message: {e:?}")
                     });
-                    return Message::Result(AnyCbor::from_encode(result));
+                    Message::Result(AnyCbor::from_encode(result))
                 }
                 _ => panic!("unexpected message type"),
             });

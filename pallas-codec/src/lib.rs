@@ -77,9 +77,7 @@ mod tests {
     }
 
     #[cfg(test)]
-    pub fn roundtrip_codec<T: Encode<()> + for<'a> Decode<'a, ()> + std::fmt::Debug>(
-        query: T,
-    ) -> () {
+    pub fn roundtrip_codec<T: Encode<()> + for<'a> Decode<'a, ()> + std::fmt::Debug>(query: T) {
         let mut cbor = Vec::new();
         match encode(query, &mut cbor) {
             Ok(_) => (),

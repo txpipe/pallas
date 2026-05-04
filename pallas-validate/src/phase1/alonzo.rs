@@ -222,28 +222,21 @@ fn check_collaterals_assets(
         Some(collaterals) => {
             for collateral in collaterals {
                 match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
-                    Some(multi_era_output) => match MultiEraOutput::as_alonzo(multi_era_output) {
-                        Some(TransactionOutput {
-                            amount: Value::Coin(n),
-                            ..
-                        }) => {
+                    Some(multi_era_output) => {
+                        if let Some(TransactionOutput { amount, .. }) =
+                            MultiEraOutput::as_alonzo(multi_era_output)
+                        {
+                            let (Value::Coin(n) | Value::Multiasset(n, _)) = amount;
                             if *n * 100 < fee_percentage {
                                 return Err(Alonzo(CollateralMinLovelace));
                             }
-                        }
-                        Some(TransactionOutput {
-                            amount: Value::Multiasset(n, multi_assets),
-                            ..
-                        }) => {
-                            if *n * 100 < fee_percentage {
-                                return Err(Alonzo(CollateralMinLovelace));
-                            }
-                            if !multi_assets.is_empty() {
-                                return Err(Alonzo(NonLovelaceCollateral));
+                            if let Value::Multiasset(_, multi_assets) = amount {
+                                if !multi_assets.is_empty() {
+                                    return Err(Alonzo(NonLovelaceCollateral));
+                                }
                             }
                         }
-                        None => (),
-                    },
+                    }
                     None => return Err(Alonzo(CollateralNotInUTxO)),
                 }
             }

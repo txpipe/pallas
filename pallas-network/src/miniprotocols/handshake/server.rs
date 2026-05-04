@@ -129,7 +129,7 @@ where
         // find highest intersect with our version table (TODO: improve)
         let mut versions = versions.values.into_iter().collect::<Vec<(u64, D)>>();
 
-        versions.sort_by(|a, b| b.0.cmp(&a.0));
+        versions.sort_by_key(|v| std::cmp::Reverse(v.0));
 
         for (ver_num, ver_data) in versions.clone() {
             for (client_ver_num, client_ver_data) in client_versions.clone() {
