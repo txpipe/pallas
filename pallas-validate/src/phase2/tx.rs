@@ -18,10 +18,16 @@ use pallas_primitives::{
 };
 use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
-use pallas_uplc::{
-    binder::DeBruijn, bumpalo::Bump, constant::Constant, data::PlutusData as PragmaPlutusData,
+use amaru_uplc::{
+    arena::Arena,
+    binder::DeBruijn,
+    bumpalo::Bump,
+    constant::Constant,
+    data::PlutusData as PragmaPlutusData,
+    machine::PlutusVersion,
     term::Term,
 };
+use num_bigint::{BigInt, Sign};
 use tracing::{debug, instrument};
 
 #[derive(Debug)]
@@ -34,7 +40,8 @@ pub struct TxEvalResult {
 }
 
 pub fn map_pallas_data_to_pragma_data<'a>(
-    arena: &'a Bump,
+    arena: &'a Arena,
+    bump: &'a Bump,
     data: &'a PlutusData,
 ) -> &'a PragmaPlutusData<'a> {
     match data {
@@ -42,21 +49,22 @@ pub fn map_pallas_data_to_pragma_data<'a>(
             let fields = constr
                 .fields
                 .iter()
-                .map(|f| map_pallas_data_to_pragma_data(arena, f));
+                .map(|f| map_pallas_data_to_pragma_data(arena, bump, f));
 
-            let fields = arena.alloc_slice_fill_iter(fields);
+            let fields: &[&PragmaPlutusData<'a>] = bump.alloc_slice_fill_iter(fields);
 
             PragmaPlutusData::constr(arena, convert_tag_to_constr(constr.tag).unwrap(), fields)
         }
         PlutusData::Map(key_value_pairs) => {
             let key_value_pairs = key_value_pairs.iter().map(|(k, v)| {
                 (
-                    map_pallas_data_to_pragma_data(arena, k),
-                    map_pallas_data_to_pragma_data(arena, v),
+                    map_pallas_data_to_pragma_data(arena, bump, k),
+                    map_pallas_data_to_pragma_data(arena, bump, v),
                 )
             });
 
-            let key_value_pairs = arena.alloc_slice_fill_iter(key_value_pairs);
+            let key_value_pairs: &[(&PragmaPlutusData<'a>, &PragmaPlutusData<'a>)] =
+                bump.alloc_slice_fill_iter(key_value_pairs);
 
             PragmaPlutusData::map(arena, key_value_pairs)
         }
@@ -66,35 +74,32 @@ pub fn map_pallas_data_to_pragma_data<'a>(
                 PragmaPlutusData::integer_from(arena, val)
             }
             pallas_primitives::BigInt::BigNInt(big_num_bytes) => {
-                let val = pallas_uplc::constant::integer_from_bytes_and_sign(
-                    arena,
+                let val = arena.alloc_integer(BigInt::from_bytes_be(
+                    Sign::Minus,
                     big_num_bytes.as_slice(),
-                    -1,
-                );
+                ));
 
                 PragmaPlutusData::integer(arena, val)
             }
-            // @TODO: recheck this implementations correctness
             pallas_primitives::BigInt::BigUInt(big_num_bytes) => {
-                let val = pallas_uplc::constant::integer_from_bytes_and_sign(
-                    arena,
+                let val = arena.alloc_integer(BigInt::from_bytes_be(
+                    Sign::Plus,
                     big_num_bytes.as_slice(),
-                    1,
-                );
+                ));
 
                 PragmaPlutusData::integer(arena, val)
             }
         },
         PlutusData::BoundedBytes(bounded_bytes) => {
-            let bounded_bytes = arena.alloc(bounded_bytes.as_slice());
+            let bounded_bytes: &[u8] = bump.alloc_slice_copy(bounded_bytes.as_slice());
             PragmaPlutusData::byte_string(arena, bounded_bytes)
         }
         PlutusData::Array(maybe_indef_array) => {
             let items = maybe_indef_array
                 .iter()
-                .map(|x| map_pallas_data_to_pragma_data(arena, x));
+                .map(|x| map_pallas_data_to_pragma_data(arena, bump, x));
 
-            let items = arena.alloc_slice_fill_iter(items);
+            let items: &[&PragmaPlutusData<'a>] = bump.alloc_slice_fill_iter(items);
 
             PragmaPlutusData::list(arena, items)
         }
@@ -102,15 +107,16 @@ pub fn map_pallas_data_to_pragma_data<'a>(
 }
 
 pub fn plutus_data_to_pragma_term<'a>(
-    arena: &'a Bump,
+    arena: &'a Arena,
+    bump: &'a Bump,
     data: &'a PlutusData,
 ) -> &'a Term<'a, DeBruijn> {
-    Term::data(arena, map_pallas_data_to_pragma_data(arena, data))
+    Term::data(arena, map_pallas_data_to_pragma_data(arena, bump, data))
 }
 
 pub fn eval_tx(
     tx: &MultiEraTx,
-    _pparams: &MultiEraProtocolParameters, // For Cost Models
+    pparams: &MultiEraProtocolParameters, // For Cost Models
     utxos: &UtxoMap,
     slot_config: &SlotConfig,
 ) -> Result<Vec<TxEvalResult>, Error> {
@@ -129,11 +135,22 @@ pub fn eval_tx(
 
     let lookup_table = DataLookupTable::from_transaction(tx, &utxos);
 
+    let protocol_version_major = pparams.protocol_version() as u32;
+
     let redeemers = tx.redeemers();
 
     let redeemers = redeemers
         .iter()
-        .map(|r| eval_redeemer(r, tx, &utxos, &lookup_table, slot_config))
+        .map(|r| {
+            eval_redeemer(
+                r,
+                tx,
+                &utxos,
+                &lookup_table,
+                slot_config,
+                protocol_version_major,
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(redeemers)
@@ -144,27 +161,30 @@ fn execute_script(
     script_bytes: &[u8],
     datum: Option<PlutusData>,
     redeemer: &Redeemer,
+    plutus_version: PlutusVersion,
+    protocol_version_major: u32,
 ) -> Result<TxEvalResult, Error> {
     let script_context = tx_info
         .into_script_context(redeemer, datum.as_ref())
         .ok_or_else(|| Error::ScriptContextBuildError)?;
 
-    let arena = Bump::with_capacity(1_024_000);
+    let bump = Bump::with_capacity(1_024_000);
+    let arena = Arena::new();
 
     let script_context_data = script_context.to_plutus_data();
-    let script_context_term = plutus_data_to_pragma_term(&arena, &script_context_data);
+    let script_context_term = plutus_data_to_pragma_term(&arena, &bump, &script_context_data);
 
     let redeemer_data = redeemer.to_plutus_data();
-    let redeemer_term = plutus_data_to_pragma_term(&arena, &redeemer_data);
+    let redeemer_term = plutus_data_to_pragma_term(&arena, &bump, &redeemer_data);
 
     let datum_term = datum
         .as_ref()
-        .map(|d| plutus_data_to_pragma_term(&arena, d));
+        .map(|d| plutus_data_to_pragma_term(&arena, &bump, d));
 
     let flat: pallas_codec::minicbor::bytes::ByteVec =
         pallas_codec::minicbor::decode(script_bytes)?;
 
-    let program = pallas_uplc::flat::decode(&arena, &flat)?;
+    let program = amaru_uplc::flat::decode(&arena, &flat, plutus_version, protocol_version_major)?;
 
     let program = match script_context {
         ScriptContext::V1V2 { .. } => if let Some(datum_term) = datum_term {
@@ -178,7 +198,7 @@ fn execute_script(
         ScriptContext::V3 { .. } => program.apply(&arena, script_context_term),
     };
 
-    let result = program.eval(&arena);
+    let result = program.eval_version(&arena, plutus_version);
 
     let success = match script_context {
         // a non-error result is enough success criteria for v1v2
@@ -210,6 +230,7 @@ pub fn eval_redeemer(
     utxos: &[ResolvedInput],
     lookup_table: &DataLookupTable,
     slot_config: &SlotConfig,
+    protocol_version_major: u32,
 ) -> Result<TxEvalResult, Error> {
     // TODO: trickle down the use of MultiEraX structs instead of dealing with
     // primitives directly. For now, we'll just downcast to Conway era.
@@ -227,6 +248,8 @@ pub fn eval_redeemer(
             script.as_ref(),
             datum,
             &redeemer,
+            PlutusVersion::V1,
+            protocol_version_major,
         )?),
 
         (ScriptVersion::V2(script), datum) => Ok(execute_script(
@@ -234,6 +257,8 @@ pub fn eval_redeemer(
             script.as_ref(),
             datum,
             &redeemer,
+            PlutusVersion::V2,
+            protocol_version_major,
         )?),
 
         (ScriptVersion::V3(script), datum) => Ok(execute_script(
@@ -241,6 +266,8 @@ pub fn eval_redeemer(
             script.as_ref(),
             datum,
             &redeemer,
+            PlutusVersion::V3,
+            protocol_version_major,
         )?),
     }
 }
