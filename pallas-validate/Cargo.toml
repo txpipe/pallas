@@ -18,7 +18,7 @@ pallas-primitives = { version = "=1.0.0-alpha.6", path = "../pallas-primitives" 
 pallas-traverse = { version = "=1.0.0-alpha.6", path = "../pallas-traverse" }
 hex = "0.4"
 chrono = "0.4.39"
-thiserror = "1.0.49"
+thiserror = "2.0.18"
 serde = { version = "1.0.136", features = ["derive"] }
 itertools = "0.14.0"
 tracing = "0.1.41"
