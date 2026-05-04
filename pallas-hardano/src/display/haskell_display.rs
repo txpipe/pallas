@@ -86,7 +86,12 @@ impl HaskellDisplay for ConwayLedgerFailure {
                 )
             }
             MempoolFailure(e) => format!("ConwayMempoolFailure {}", e.to_haskell_str()),
-            U8(v) => format!("U8 {v}"),
+            WithdrawalsMissingAccounts(m) => {
+                format!("ConwayWithdrawalsMissingAccounts {}", m.to_haskell_str_p())
+            }
+            IncompleteWithdrawals(m) => {
+                format!("ConwayIncompleteWithdrawals {}", m.to_haskell_str_p())
+            }
         }
     }
 }
