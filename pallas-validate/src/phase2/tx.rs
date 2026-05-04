@@ -1,16 +1,12 @@
 use crate::utils::{MultiEraProtocolParameters, UtxoMap};
 
 use super::{
-    script_context::{ScriptContext, TxInfo, TxInfoV1},
-    to_plutus_data::ToPlutusData,
-};
-
-use super::{
     error::Error,
     script_context::{
-        find_script, DataLookupTable, ResolvedInput, ScriptVersion, SlotConfig, TxInfoV2, TxInfoV3,
+        find_script, DataLookupTable, ResolvedInput, ScriptContext, ScriptVersion, SlotConfig,
+        TxInfo, TxInfoV1, TxInfoV2, TxInfoV3,
     },
-    to_plutus_data::convert_tag_to_constr,
+    to_plutus_data::ToPlutusData,
 };
 use pallas_primitives::{
     conway::{Redeemer, RedeemerTag},
@@ -19,15 +15,9 @@ use pallas_primitives::{
 use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
 use amaru_uplc::{
-    arena::Arena,
-    binder::DeBruijn,
-    bumpalo::Bump,
-    constant::Constant,
-    data::PlutusData as PragmaPlutusData,
-    machine::PlutusVersion,
-    term::Term,
+    arena::Arena, binder::DeBruijn, bumpalo::Bump, constant::Constant,
+    data::PlutusData as PragmaPlutusData, machine::PlutusVersion, term::Term,
 };
-use num_bigint::{BigInt, Sign};
 use tracing::{debug, instrument};
 
 #[derive(Debug)]
@@ -39,79 +29,17 @@ pub struct TxEvalResult {
     pub logs: Vec<String>,
 }
 
-pub fn map_pallas_data_to_pragma_data<'a>(
-    arena: &'a Arena,
-    bump: &'a Bump,
-    data: &'a PlutusData,
-) -> &'a PragmaPlutusData<'a> {
-    match data {
-        PlutusData::Constr(constr) => {
-            let fields = constr
-                .fields
-                .iter()
-                .map(|f| map_pallas_data_to_pragma_data(arena, bump, f));
-
-            let fields: &[&PragmaPlutusData<'a>] = bump.alloc_slice_fill_iter(fields);
-
-            PragmaPlutusData::constr(arena, convert_tag_to_constr(constr.tag).unwrap(), fields)
-        }
-        PlutusData::Map(key_value_pairs) => {
-            let key_value_pairs = key_value_pairs.iter().map(|(k, v)| {
-                (
-                    map_pallas_data_to_pragma_data(arena, bump, k),
-                    map_pallas_data_to_pragma_data(arena, bump, v),
-                )
-            });
-
-            let key_value_pairs: &[(&PragmaPlutusData<'a>, &PragmaPlutusData<'a>)] =
-                bump.alloc_slice_fill_iter(key_value_pairs);
-
-            PragmaPlutusData::map(arena, key_value_pairs)
-        }
-        PlutusData::BigInt(big_int) => match big_int {
-            pallas_primitives::BigInt::Int(int) => {
-                let val = i128::from(*int);
-                PragmaPlutusData::integer_from(arena, val)
-            }
-            pallas_primitives::BigInt::BigNInt(big_num_bytes) => {
-                let val = arena.alloc_integer(BigInt::from_bytes_be(
-                    Sign::Minus,
-                    big_num_bytes.as_slice(),
-                ));
-
-                PragmaPlutusData::integer(arena, val)
-            }
-            pallas_primitives::BigInt::BigUInt(big_num_bytes) => {
-                let val = arena.alloc_integer(BigInt::from_bytes_be(
-                    Sign::Plus,
-                    big_num_bytes.as_slice(),
-                ));
-
-                PragmaPlutusData::integer(arena, val)
-            }
-        },
-        PlutusData::BoundedBytes(bounded_bytes) => {
-            let bounded_bytes: &[u8] = bump.alloc_slice_copy(bounded_bytes.as_slice());
-            PragmaPlutusData::byte_string(arena, bounded_bytes)
-        }
-        PlutusData::Array(maybe_indef_array) => {
-            let items = maybe_indef_array
-                .iter()
-                .map(|x| map_pallas_data_to_pragma_data(arena, bump, x));
-
-            let items: &[&PragmaPlutusData<'a>] = bump.alloc_slice_fill_iter(items);
-
-            PragmaPlutusData::list(arena, items)
-        }
-    }
-}
-
 pub fn plutus_data_to_pragma_term<'a>(
     arena: &'a Arena,
-    bump: &'a Bump,
-    data: &'a PlutusData,
+    data: &PlutusData,
 ) -> &'a Term<'a, DeBruijn> {
-    Term::data(arena, map_pallas_data_to_pragma_data(arena, bump, data))
+    // Bridge pallas PlutusData -> amaru-uplc PlutusData through CBOR. Both
+    // sides implement the same Plutus data encoding, and the upstream amaru
+    // node uses this exact pattern. Vec writer is Infallible and the bytes
+    // are fresh, so neither side can fail in practice.
+    let bytes = pallas_codec::minicbor::to_vec(data).expect("PlutusData encode");
+    let pragma_data = PragmaPlutusData::from_cbor(arena, &bytes).expect("PlutusData decode");
+    Term::data(arena, pragma_data)
 }
 
 pub fn eval_tx(
@@ -168,18 +96,17 @@ fn execute_script(
         .into_script_context(redeemer, datum.as_ref())
         .ok_or_else(|| Error::ScriptContextBuildError)?;
 
-    let bump = Bump::with_capacity(1_024_000);
-    let arena = Arena::new();
+    let arena = Arena::from_bump(Bump::with_capacity(1_024_000));
 
     let script_context_data = script_context.to_plutus_data();
-    let script_context_term = plutus_data_to_pragma_term(&arena, &bump, &script_context_data);
+    let script_context_term = plutus_data_to_pragma_term(&arena, &script_context_data);
 
     let redeemer_data = redeemer.to_plutus_data();
-    let redeemer_term = plutus_data_to_pragma_term(&arena, &bump, &redeemer_data);
+    let redeemer_term = plutus_data_to_pragma_term(&arena, &redeemer_data);
 
     let datum_term = datum
         .as_ref()
-        .map(|d| plutus_data_to_pragma_term(&arena, &bump, d));
+        .map(|d| plutus_data_to_pragma_term(&arena, d));
 
     let flat: pallas_codec::minicbor::bytes::ByteVec =
         pallas_codec::minicbor::decode(script_bytes)?;
