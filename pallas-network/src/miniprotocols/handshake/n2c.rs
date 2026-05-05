@@ -23,6 +23,13 @@ const PROTOCOL_V13: u64 = 32781;
 const PROTOCOL_V14: u64 = 32782;
 const PROTOCOL_V15: u64 = 32783;
 const PROTOCOL_V16: u64 = 32784;
+const PROTOCOL_V17: u64 = 32785;
+const PROTOCOL_V18: u64 = 32786;
+const PROTOCOL_V19: u64 = 32787;
+const PROTOCOL_V20: u64 = 32788;
+const PROTOCOL_V21: u64 = 32789;
+const PROTOCOL_V22: u64 = 32790;
+const PROTOCOL_V23: u64 = 32791;
 
 const PROTOCOL_DMQ_V1: u64 = 4097;
 
@@ -45,6 +52,13 @@ impl VersionTable {
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
             (PROTOCOL_V16, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V17, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V18, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V19, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V20, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V21, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V22, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V23, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -69,6 +83,13 @@ impl VersionTable {
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
             (PROTOCOL_V16, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V17, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V18, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V19, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V20, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V21, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V22, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V23, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
