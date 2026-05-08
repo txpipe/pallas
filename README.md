@@ -77,10 +77,9 @@ The crates are grouped below by domain.
 
 | Crates                          | Description                                                          |
 | ------------------------------- | -------------------------------------------------------------------- |
-| [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib                   |
-| [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                                      |
-| [pallas-math](/pallas-math)     | Shared mathematics functions                                         |
-| [pallas-bech32](/pallas-bech32) | Bech32 conventions for Cardano (CIP-5 prefixes, CIP-14 fingerprints) |
+| [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib |
+| [pallas-crypto](/pallas-crypto) | Shared Cryptographic primitives                    |
+| [pallas-math](/pallas-math)     | Shared mathematics functions                       |
 
 ### Network
 
@@ -113,6 +112,12 @@ The crates are grouped below by domain.
 | [pallas-hardano](/pallas-hardano) | Interoperability with implementation-specific artifacts of the Haskell Cardano node |
 | [pallas-configs](/pallas-configs) | Genesis config structs matching the Haskell node (Byron / Shelley / Alonzo / Conway) |
 | [pallas-utxorpc](/pallas-utxorpc) | Interoperability with the [UTxO RPC](https://utxorpc.org) specification             |
+
+### Utils
+
+| Crates                          | Description                                                          |
+| ------------------------------- | -------------------------------------------------------------------- |
+| [pallas-bech32](/pallas-bech32) | Bech32 conventions for Cardano (CIP-5 prefixes, CIP-14 fingerprints) |
 
 ## Examples
 
