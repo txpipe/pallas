@@ -11,20 +11,40 @@ Once this crate is thoroughly tested and adopted by downstream clients,
 
 ## Usage
 
-The control flow is the same regardless of which `Interface` /
-`Behavior` you plug in. Sketch (substitute your own values for
-`interface`, `behavior`, and any commands):
+A typical setup pairs a transport (an `Interface` impl, e.g. the
+TCP-backed `TcpInterface`) with a protocol (a `Behavior` impl, e.g. the
+node-to-node `InitiatorBehavior`) and drives both through a `Manager`.
+The `Manager` polls the interface for IO events, hands them to the
+behavior, and pushes any commands the behavior emits back at the
+interface — leaving you to consume the behavior's external events. The
+example below is illustrative (error handling and the `await` runtime
+are elided):
 
-```text
-use pallas_network2::Manager;
+```rust,ignore
+use pallas_network2::{
+    behavior::{AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent},
+    interface::TcpInterface,
+    Manager, PeerId,
+};
+
+let interface = TcpInterface::<AnyMessage>::new();
+let behavior  = InitiatorBehavior::default();
 
 let mut manager = Manager::new(interface, behavior);
 
-while let Some(event) = manager.poll_next().await {
-    // event has type `<B as Behavior>::Event`
-}
+manager.execute(InitiatorCommand::IncludePeer(
+    "relays-new.cardano-mainnet.iohk.io:3001".parse::<PeerId>().unwrap(),
+));
 
-manager.execute(command);
+while let Some(event) = manager.poll_next().await {
+    match event {
+        InitiatorEvent::PeerInitialized(pid, _) => println!("up: {pid}"),
+        InitiatorEvent::BlockHeaderReceived(pid, header, _) => {
+            println!("hdr from {pid}: {} bytes", header.cbor.len());
+        }
+        _ => {}
+    }
+}
 ```
 
 ## Overview
