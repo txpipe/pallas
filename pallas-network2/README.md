@@ -11,17 +11,20 @@ Once this crate is thoroughly tested and adopted by downstream clients,
 
 ## Usage
 
-```rust
+The control flow is the same regardless of which `Interface` /
+`Behavior` you plug in. Sketch (substitute your own values for
+`interface`, `behavior`, and any commands):
+
+```text
 use pallas_network2::Manager;
 
 let mut manager = Manager::new(interface, behavior);
 
 while let Some(event) = manager.poll_next().await {
-    // event is `<B as Behavior>::Event`
-    handle(event);
+    // event has type `<B as Behavior>::Event`
 }
 
-manager.execute(my_external_command);
+manager.execute(command);
 ```
 
 ## Overview
