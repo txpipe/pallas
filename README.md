@@ -75,6 +75,8 @@ The crates are grouped below by domain.
 
 ### Core
 
+Low-level primitives shared across the workspace — CBOR codec, cryptography, and the math routines that ledger and consensus rely on.
+
 | Crates                          | Description                                                          |
 | ------------------------------- | -------------------------------------------------------------------- |
 | [pallas-codec](/pallas-codec)   | Shared CBOR encoding / decoding using minicbor lib |
@@ -83,7 +85,7 @@ The crates are grouped below by domain.
 
 ### Network
 
-`pallas-network2` is a P2P-focused rewrite intended to eventually replace `pallas-network`. New projects should evaluate both.
+The Ouroboros networking stack — multiplexer and mini-protocols for node-to-node and node-to-client communication. `pallas-network2` is a P2P-focused rewrite intended to eventually replace `pallas-network`; new projects should evaluate both.
 
 | Crates                              | Description                                                           |
 | ----------------------------------- | --------------------------------------------------------------------- |
@@ -91,6 +93,8 @@ The crates are grouped below by domain.
 | [pallas-network2](/pallas-network2) | P2P-first rewrite of the Ouroboros networking stack                   |
 
 ### Ledger
+
+Era-aware ledger types and operations — primitives for each Cardano era, multi-era traversal helpers, address encoding, and transaction validation.
 
 | Crates                                  | Description                                                          |
 | --------------------------------------- | -------------------------------------------------------------------- |
@@ -101,6 +105,8 @@ The crates are grouped below by domain.
 
 ### Interop
 
+Bridges between Pallas and external Cardano artifacts — Haskell-node files (genesis, immutable storage) and the UTxO RPC specification.
+
 | Crates                            | Description                                                                         |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
 | [pallas-hardano](/pallas-hardano) | Interoperability with implementation-specific artifacts of the Haskell Cardano node |
@@ -108,6 +114,8 @@ The crates are grouped below by domain.
 | [pallas-utxorpc](/pallas-utxorpc) | Interoperability with the [UTxO RPC](https://utxorpc.org) specification             |
 
 ### Utils
+
+Standalone helpers — encoding conventions and higher-level builders that compose the rest of the stack.
 
 | Crates                                | Description                                                          |
 | ------------------------------------- | -------------------------------------------------------------------- |
