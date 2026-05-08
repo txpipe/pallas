@@ -98,7 +98,6 @@ The crates are grouped below by domain.
 | [pallas-primitives](/pallas-primitives) | Ledger primitives and cbor codec for the different Cardano eras      |
 | [pallas-traverse](/pallas-traverse)     | Utilities to traverse over multi-era block data                      |
 | [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                        |
-| [pallas-configs](/pallas-configs)       | Genesis config structs (Byron / Shelley / Alonzo / Conway)           |
 | [pallas-validate](/pallas-validate)     | Phase-1 and optional phase-2 (Plutus) transaction validation         |
 
 ### Tx Builder
@@ -112,6 +111,7 @@ The crates are grouped below by domain.
 | Crates                            | Description                                                                         |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
 | [pallas-hardano](/pallas-hardano) | Interoperability with implementation-specific artifacts of the Haskell Cardano node |
+| [pallas-configs](/pallas-configs) | Genesis config structs matching the Haskell node (Byron / Shelley / Alonzo / Conway) |
 | [pallas-utxorpc](/pallas-utxorpc) | Interoperability with the [UTxO RPC](https://utxorpc.org) specification             |
 
 ## Examples
