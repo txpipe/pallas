@@ -10,7 +10,7 @@ publish = false
 pallas = { path = "../../pallas" }
 hex = "0.4.3"
 log = "0.4.16"
-thiserror = "1.0.31"
+thiserror = "2.0.18"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 tokio = { version = "1.27.0", features = ["rt-multi-thread"] }
