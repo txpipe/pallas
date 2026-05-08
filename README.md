@@ -50,7 +50,7 @@ pallas
     └── txbuilder    — ergonomic transaction builder
 ```
 
-### Features
+### Feature Flags
 
 The umbrella crate exposes the following Cargo features:
 
@@ -140,22 +140,14 @@ common integration patterns:
 | [wallet](/examples/wallet)                       | Wallet key generation, BIP-39 mnemonics, address derivation          |
 | [otel](/examples/otel)                           | OpenTelemetry collector configuration for tracing the examples above |
 
-## Cardano Era Compatibility
-
-Pallas tracks every Cardano era released to date. `pallas-primitives` provides
-era-specific CBOR types, and `pallas-traverse` exposes a unified `Era` enum
-together with multi-era views over blocks, transactions, and values.
-
-| Era     | Notes                                                   |
-| ------- | ------------------------------------------------------- |
-| Byron   | Original UTxO model                                     |
-| Shelley | Native staking and delegation                           |
-| Allegra | Time-locked transactions                                |
-| Mary    | Native multi-asset support                              |
-| Alonzo  | Plutus smart contracts                                  |
-| Babbage | Reference inputs, inline datums, scripts (CIP-31/32/33) |
-| Conway  | On-chain governance (CIP-1694)                          |
-
 ## Etymology
 
 > Pallas: (Greek mythology) goddess of wisdom and useful arts and prudent warfare;
+
+## License
+
+Pallas is distributed under the terms of the [Apache License 2.0](LICENSE).
+
+## Security
+
+If you discover a security vulnerability, please follow the disclosure process described in [SECURITY.md](SECURITY.md). Do not open a public GitHub issue.
