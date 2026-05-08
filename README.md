@@ -22,26 +22,56 @@ knows, maybe even a full node in a far away future).
 
 ## Getting Started
 
-Add the umbrella crate to your project:
+For most use-cases, depend on the umbrella `pallas` crate — it re-exports every
+building block under a single, organized module tree:
 
 ```bash
 cargo add pallas
 ```
 
-Or pick a single building block:
+The hierarchy mirrors the project's domains (network, ledger, crypto, etc.) so
+you can pull in a single dependency and reach for what you need:
+
+```text
+pallas
+├── network          — Ouroboros networking stack
+├── network2         — P2P-first networking stack (feature `network2`)
+├── ledger
+│   ├── primitives   — multi-era CBOR primitives
+│   ├── traverse     — multi-era traversal helpers
+│   ├── addresses    — Cardano address codec
+│   └── validate     — phase-1 / phase-2 transaction validation
+├── crypto           — cryptographic primitives
+├── codec            — CBOR codec (minicbor)
+├── interop
+│   ├── utxorpc      — UTxO RPC interop
+│   └── hardano      — Haskell-node interop (feature `hardano`)
+└── wallet
+    └── txbuilder    — ergonomic transaction builder
+```
+
+### Features
+
+The umbrella crate exposes the following Cargo features:
+
+| Feature    | Enables                                                     |
+| ---------- | ----------------------------------------------------------- |
+| `hardano`  | Haskell-node interop (`pallas::interop::hardano`)           |
+| `phase2`   | Plutus script validation in `pallas::ledger::validate`      |
+| `network2` | Opt in to the new P2P networking stack (`pallas::network2`) |
+| `relaxed`  | Relaxed validation modes across primitives and crypto       |
+| `unstable` | Aggregates feature gates that are not yet stable            |
+
+## Unboxing
+
+If you'd rather depend on a subset, every building block is published as its
+own crate on crates.io. Pick only what you need:
 
 ```bash
 cargo add pallas-network pallas-traverse
 ```
 
-The umbrella `pallas` crate re-exports all modules behind Cargo features (see
-[Features](#features) below). End-to-end usage patterns live in the
-[`examples/`](/examples) directory — chain crawler, wallet key derivation, P2P
-initiator/responder, and node-to-node / node-to-client mini-protocols.
-
-## Unboxing
-
-The repository is organized as a Cargo workspace. Each _Pallas_ "building block" lives in its own crate. The root `pallas` crate serves as an all-in-one dependency that re-exports all of the other modules in an hierarchically organized fashion, using Cargo `features` to tailor the setup for each use-case.
+The crates are grouped below by domain.
 
 ### Core
 
@@ -73,28 +103,50 @@ The repository is organized as a Cargo workspace. Each _Pallas_ "building block"
 
 ### Tx Builder
 
-| Crates                                | Description                                |
-| ------------------------------------- | ------------------------------------------ |
-| [pallas-txbuilder](/pallas-txbuilder) | Ergonomic transaction builder              |
+| Crates                                | Description                   |
+| ------------------------------------- | ----------------------------- |
+| [pallas-txbuilder](/pallas-txbuilder) | Ergonomic transaction builder |
 
-## Interop
+### Interop
 
 | Crates                            | Description                                                                         |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
 | [pallas-hardano](/pallas-hardano) | Interoperability with implementation-specific artifacts of the Haskell Cardano node |
 | [pallas-utxorpc](/pallas-utxorpc) | Interoperability with the [UTxO RPC](https://utxorpc.org) specification             |
 
-## Features
+## Examples
 
-The umbrella `pallas` crate exposes the following Cargo features:
+The [`examples/`](/examples) directory contains runnable demonstrations of
+common integration patterns:
 
-| Feature    | Enables                                                       |
-| ---------- | ------------------------------------------------------------- |
-| `hardano`  | Haskell-node interop via `pallas-hardano`                     |
-| `phase2`   | Plutus script validation in `pallas-validate`                 |
-| `network2` | Opt in to the new P2P networking stack (`pallas-network2`)    |
-| `relaxed`  | Relaxed validation modes across primitives and crypto         |
-| `unstable` | Aggregates feature gates that are not yet stable              |
+| Example                                          | Description                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| [block-decode](/examples/block-decode)           | Decode a Byron-era block from CBOR                                   |
+| [block-download](/examples/block-download)       | Download a single block from a remote node by chain point            |
+| [crawler](/examples/crawler)                     | Consume the chain-sync mini-protocol with pluggable block/tx filters |
+| [n2n-miniprotocols](/examples/n2n-miniprotocols) | Node-to-node mini-protocols over TCP                                 |
+| [n2c-miniprotocols](/examples/n2c-miniprotocols) | Node-to-client mini-protocols over a local Unix socket               |
+| [p2p-initiator](/examples/p2p-initiator)         | Initiate a P2P connection using `pallas-network2`                    |
+| [p2p-responder](/examples/p2p-responder)         | Accept incoming P2P connections using `pallas-network2`              |
+| [p2p-discovery](/examples/p2p-discovery)         | Peer discovery using `pallas-network2`                               |
+| [wallet](/examples/wallet)                       | Wallet key generation, BIP-39 mnemonics, address derivation          |
+| [otel](/examples/otel)                           | OpenTelemetry collector configuration for tracing the examples above |
+
+## Cardano Era Compatibility
+
+Pallas tracks every Cardano era released to date. `pallas-primitives` provides
+era-specific CBOR types, and `pallas-traverse` exposes a unified `Era` enum
+together with multi-era views over blocks, transactions, and values.
+
+| Era     | Notes                                                   |
+| ------- | ------------------------------------------------------- |
+| Byron   | Original UTxO model                                     |
+| Shelley | Native staking and delegation                           |
+| Allegra | Time-locked transactions                                |
+| Mary    | Native multi-asset support                              |
+| Alonzo  | Plutus smart contracts                                  |
+| Babbage | Reference inputs, inline datums, scripts (CIP-31/32/33) |
+| Conway  | On-chain governance (CIP-1694)                          |
 
 ## Etymology
 
