@@ -12,7 +12,9 @@ use crate::utils::{
     ValidationError::{self, *},
     ValidationResult,
 };
-use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
+use pallas_addresses::{
+    Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress, StakePayload,
+};
 use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     babbage,
@@ -23,6 +25,7 @@ use pallas_primitives::{
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
+use std::cmp::Ordering;
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -1129,6 +1132,7 @@ fn check_redeemers(
 
         None => Vec::new(),
     };
+
     let plutus_scripts: Vec<RedeemersKey> = mk_plutus_script_redeemer_pointers(
         plutus_v1_scripts,
         plutus_v2_scripts,
@@ -1136,7 +1140,7 @@ fn check_redeemers(
         reference_scripts,
         tx_body,
         utxos,
-    );
+    )?;
     redeemer_key_coincide(&redeemer_key, &plutus_scripts)
 }
 
@@ -1147,6 +1151,28 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
     res
 }
 
+// Sorting function for reward accounts (withdrawals).
+fn sort_reward_accounts(a: &StakeAddress, b: &StakeAddress) -> Ordering {
+    fn network_tag(network: Network) -> u8 {
+        match network {
+            Network::Testnet => 0,
+            Network::Mainnet => 1,
+            Network::Other(tag) => tag,
+        }
+    }
+
+    if a.network() != b.network() {
+        return network_tag(a.network()).cmp(&network_tag(b.network()));
+    }
+
+    match (a.payload(), b.payload()) {
+        (StakePayload::Script(..), StakePayload::Stake(..)) => Ordering::Less,
+        (StakePayload::Stake(..), StakePayload::Script(..)) => Ordering::Greater,
+        (StakePayload::Script(hash_a), StakePayload::Script(hash_b)) => hash_a.cmp(hash_b),
+        (StakePayload::Stake(hash_a), StakePayload::Stake(hash_b)) => hash_a.cmp(hash_b),
+    }
+}
+
 fn mk_plutus_script_redeemer_pointers(
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
@@ -1154,7 +1180,7 @@ fn mk_plutus_script_redeemer_pointers(
     reference_scripts: &[PolicyId],
     tx_body: &TransactionBody,
     utxos: &UTxOs,
-) -> Vec<RedeemersKey> {
+) -> Result<Vec<RedeemersKey>, ValidationError> {
     let mut res: Vec<RedeemersKey> = Vec::new();
     let sorted_inputs: &Vec<TransactionInput> = &sort_inputs(&tx_body.inputs);
     for (index, input) in sorted_inputs.iter().enumerate() {
@@ -1190,7 +1216,34 @@ fn mk_plutus_script_redeemer_pointers(
             }
         }
     }
-    res
+    if let Some(withdrawals) = &tx_body.withdrawals {
+        let mut parsed: Vec<StakeAddress> = withdrawals
+            .keys()
+            .map(|bytes| match Address::from_bytes(bytes) {
+                Ok(Address::Stake(addr)) => Ok(addr),
+                _ => Err(PostAlonzo(InputDecoding)),
+            })
+            .collect::<Result<_, _>>()?;
+        parsed.sort_by(sort_reward_accounts);
+        for (index, stake_addr) in parsed.iter().enumerate() {
+            if stake_addr.is_script() {
+                let script_hash = stake_addr.payload().as_hash();
+                if is_phase_2_script(
+                    script_hash,
+                    plutus_v1_scripts,
+                    plutus_v2_scripts,
+                    plutus_v3_scripts,
+                    reference_scripts,
+                ) {
+                    res.push(RedeemersKey {
+                        tag: pallas_primitives::conway::RedeemerTag::Reward,
+                        index: index as u32,
+                    })
+                }
+            }
+        }
+    }
+    Ok(res)
 }
 
 // Lexicographical sorting for PolicyID's.
