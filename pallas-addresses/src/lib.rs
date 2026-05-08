@@ -17,8 +17,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("error converting from/to bech32 {0}")]
-    BadBech32(bech32::Error),
+    #[error("error decoding from bech32 {0}")]
+    BadBech32(bech32::DecodeError),
 
     #[error("error decoding base58 value")]
     BadBase58(base58::FromBase58Error),
@@ -155,7 +155,7 @@ impl ShelleyPaymentPart {
         hex::encode(bytes)
     }
 
-    pub fn to_bech32(&self) -> Result<String, Error> {
+    pub fn to_bech32(&self) -> String {
         let hrp = match self {
             Self::Key(_) => "addr_vkh",
             Self::Script(_) => "addr_shared_vkh",
@@ -225,7 +225,7 @@ impl ShelleyDelegationPart {
         };
 
         let bytes = self.to_vec();
-        encode_bech32(&bytes, hrp)
+        Ok(encode_bech32(&bytes, hrp))
     }
 
     pub fn is_script(&self) -> bool {
@@ -298,15 +298,14 @@ pub enum Address {
     Stake(StakeAddress),
 }
 
-fn encode_bech32(addr: &[u8], hrp: &str) -> Result<String, Error> {
-    let base32 = bech32::ToBase32::to_base32(&addr);
-    bech32::encode(hrp, base32, bech32::Variant::Bech32).map_err(Error::BadBech32)
+fn encode_bech32(addr: &[u8], hrp: &str) -> String {
+    let hrp = bech32::Hrp::parse(hrp).expect("hardcoded address hrp is valid");
+    bech32::encode::<bech32::Bech32>(hrp, addr).expect("address fits within bech32 limits")
 }
 
 fn decode_bech32(bech32: &str) -> Result<(String, Vec<u8>), Error> {
-    let (hrp, addr, _) = bech32::decode(bech32).map_err(Error::BadBech32)?;
-    let base10 = bech32::FromBase32::from_base32(&addr).map_err(Error::BadBech32)?;
-    Ok((hrp, base10))
+    let (hrp, addr) = bech32::decode(bech32).map_err(Error::BadBech32)?;
+    Ok((hrp.to_string(), addr))
 }
 
 fn parse_network(header: u8) -> Network {
@@ -512,7 +511,7 @@ impl ShelleyAddress {
     pub fn to_bech32(&self) -> Result<String, Error> {
         let hrp = self.hrp()?;
         let bytes = self.to_vec();
-        encode_bech32(&bytes, hrp)
+        Ok(encode_bech32(&bytes, hrp))
     }
 
     /// Indicates if either the payment or delegation part is a script
@@ -599,7 +598,7 @@ impl StakeAddress {
     pub fn to_bech32(&self) -> Result<String, Error> {
         let hrp = self.hrp()?;
         let bytes = self.to_vec();
-        encode_bech32(&bytes, hrp)
+        Ok(encode_bech32(&bytes, hrp))
     }
 
     pub fn is_script(&self) -> bool {
