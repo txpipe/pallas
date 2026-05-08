@@ -75,7 +75,7 @@ The crates are grouped below by domain.
 
 ### Core
 
-Low-level primitives shared across the workspace — CBOR codec, cryptography, and the math routines that ledger and consensus rely on.
+Foundational primitives with no Cardano-specific semantics. Every higher layer in the workspace depends on them.
 
 | Crates                          | Description                                                          |
 | ------------------------------- | -------------------------------------------------------------------- |
@@ -85,7 +85,7 @@ Low-level primitives shared across the workspace — CBOR codec, cryptography, a
 
 ### Network
 
-The Ouroboros networking stack — multiplexer and mini-protocols for node-to-node and node-to-client communication. `pallas-network2` is a P2P-focused rewrite intended to eventually replace `pallas-network`; new projects should evaluate both.
+Wire-level implementation of the Ouroboros mini-protocols used to communicate with other Cardano nodes. `pallas-network2` is a P2P-focused rewrite intended to eventually replace `pallas-network`; new projects should evaluate both.
 
 | Crates                              | Description                                                           |
 | ----------------------------------- | --------------------------------------------------------------------- |
@@ -94,7 +94,7 @@ The Ouroboros networking stack — multiplexer and mini-protocols for node-to-no
 
 ### Ledger
 
-Era-aware ledger types and operations — primitives for each Cardano era, multi-era traversal helpers, address encoding, and transaction validation.
+Cardano's on-chain data model: how transactions, blocks, addresses, and ledger state are represented, traversed, and validated across eras.
 
 | Crates                                  | Description                                                          |
 | --------------------------------------- | -------------------------------------------------------------------- |
@@ -105,7 +105,7 @@ Era-aware ledger types and operations — primitives for each Cardano era, multi
 
 ### Interop
 
-Bridges between Pallas and external Cardano artifacts — Haskell-node files (genesis, immutable storage) and the UTxO RPC specification.
+Adapters for systems built outside Pallas — file formats, RPC schemas, and other implementations that Pallas-based code needs to consume or produce.
 
 | Crates                            | Description                                                                         |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
@@ -115,7 +115,7 @@ Bridges between Pallas and external Cardano artifacts — Haskell-node files (ge
 
 ### Utils
 
-Standalone helpers — encoding conventions and higher-level builders that compose the rest of the stack.
+Optional, self-contained conveniences. Each crate stands alone; pull one in only when you need that specific affordance.
 
 | Crates                                | Description                                                          |
 | ------------------------------------- | -------------------------------------------------------------------- |
