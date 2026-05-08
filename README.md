@@ -85,7 +85,7 @@ Foundational primitives with no Cardano-specific semantics. Every higher layer i
 
 ### Network
 
-Wire-level implementation of the Ouroboros mini-protocols used to communicate with other Cardano nodes. `pallas-network2` is a P2P-focused rewrite intended to eventually replace `pallas-network`; new projects should evaluate both.
+Wire-level implementation of the Ouroboros mini-protocols used to communicate with other Cardano nodes.
 
 | Crates                              | Description                                                           |
 | ----------------------------------- | --------------------------------------------------------------------- |
@@ -105,7 +105,7 @@ Cardano's on-chain data model: how transactions, blocks, addresses, and ledger s
 
 ### Interop
 
-Adapters for systems built outside Pallas — file formats, RPC schemas, and other implementations that Pallas-based code needs to consume or produce.
+Adapters for systems built outside Pallas — file formats, RPC schemas, etc.
 
 | Crates                            | Description                                                                         |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
