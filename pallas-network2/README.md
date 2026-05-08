@@ -1,5 +1,55 @@
 # Pallas Network 2
 
-An implementation of the Ouroboros networking stack. The `pallas-network2` crate is a new take on the whole networking approach that prioritizes P2P operations over the _client-server_ approach used in the prior version.
+A new take on the Ouroboros networking stack that prioritises P2P
+operation over the *client / server* shape used by `pallas-network`. The
+public API is split between an `Interface` (where IO happens) and a
+`Behavior` (the business logic), reconciled by a `Manager` — a layout
+inspired by libp2p's swarm.
 
-At some point, once this new version is thoroughly tested and adopted by downstream clients, `network2` will replace the original one. 
+Once this crate is thoroughly tested and adopted by downstream clients,
+`network2` is intended to replace the original `pallas-network`.
+
+## Usage
+
+```rust
+use pallas_network2::Manager;
+
+let mut manager = Manager::new(interface, behavior);
+
+while let Some(event) = manager.poll_next().await {
+    // event is `<B as Behavior>::Event`
+    handle(event);
+}
+
+manager.execute(my_external_command);
+```
+
+## Overview
+
+- `Manager` — drives a paired `Interface` + `Behavior`. `poll_next` advances
+  IO and the behavior; `execute` forwards an external command to the
+  behavior.
+- `Interface` trait — the IO side. Receives `InterfaceCommand` (Connect /
+  Send / Disconnect) and yields `InterfaceEvent` (Connected / Disconnected /
+  Sent / Recv / Error / Idle).
+- `Behavior` trait — the protocol logic. Defines its own `Event`,
+  `Command`, `PeerState`, and `Message`, and emits `BehaviorOutput`s.
+- `Message` trait — describes a mini-protocol message (channel id +
+  payload encoding).
+- `OutboundQueue` — convenience queue of pending `BehaviorOutput`s ready
+  to be polled by the manager.
+- `PeerId`, `Channel`, `Payload`, `MAX_SEGMENT_PAYLOAD_LENGTH` — the
+  primitive vocabulary.
+
+### Modules
+
+- `bearer` — low-level transport for reading and writing multiplexed segments.
+- `interface` — `Interface` implementations for TCP connections.
+- `behavior` — opinionated `Behavior` implementations for Cardano stacks.
+- `protocol` — the Ouroboros mini-protocol definitions (handshake,
+  chainsync, blockfetch, …).
+
+## Feature flags
+
+- `emulation` — enables the `emulation` module, an in-memory test harness
+  for exercising behaviors without real network IO.
