@@ -99,12 +99,6 @@ The crates are grouped below by domain.
 | [pallas-addresses](/pallas-addresses)   | Encode / decode Cardano addresses of any type                        |
 | [pallas-validate](/pallas-validate)     | Phase-1 and optional phase-2 (Plutus) transaction validation         |
 
-### Tx Builder
-
-| Crates                                | Description                   |
-| ------------------------------------- | ----------------------------- |
-| [pallas-txbuilder](/pallas-txbuilder) | Ergonomic transaction builder |
-
 ### Interop
 
 | Crates                            | Description                                                                         |
@@ -115,9 +109,10 @@ The crates are grouped below by domain.
 
 ### Utils
 
-| Crates                          | Description                                                          |
-| ------------------------------- | -------------------------------------------------------------------- |
-| [pallas-bech32](/pallas-bech32) | Bech32 conventions for Cardano (CIP-5 prefixes, CIP-14 fingerprints) |
+| Crates                                | Description                                                          |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| [pallas-bech32](/pallas-bech32)       | Bech32 conventions for Cardano (CIP-5 prefixes, CIP-14 fingerprints) |
+| [pallas-txbuilder](/pallas-txbuilder) | Ergonomic transaction builder                                        |
 
 ## Examples
 
