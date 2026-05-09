@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 use std::fmt::Debug;
 use thiserror::*;
 use tracing::debug;
@@ -102,7 +102,7 @@ impl Client {
 
     pub async fn send_keepalive_request(&mut self) -> Result<(), ClientError> {
         // generate random cookie value
-        let cookie = rand::thread_rng().gen::<Cookie>();
+        let cookie = rand::rng().random::<Cookie>();
         let msg = Message::KeepAlive(cookie);
         self.send_message(&msg).await?;
         self.0 = State::Server(cookie);
