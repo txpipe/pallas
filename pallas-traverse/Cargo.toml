@@ -16,7 +16,7 @@ pallas-addresses = { version = "=1.0.0-alpha.6", path = "../pallas-addresses" }
 pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto" }
 pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
 hex = "0.4.3"
-thiserror = "1.0.31"
+thiserror = "2.0.18"
 paste = "1.0.14"
 itertools = "0.13.0"
 

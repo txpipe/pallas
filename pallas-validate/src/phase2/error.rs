@@ -57,7 +57,7 @@ pub enum Error {
     CostModelNotFound(Language),
     #[error("unsupported era, please use Conway")]
     WrongEra(),
-    #[error("decoding error\n{:>13} {0}", "Decoder error")]
+    #[error("decoding error\n{:>13} {}", "Decoder error", .0)]
     DecodeError(#[from] pallas_codec::minicbor::decode::Error),
     #[error("byron address not allowed when PlutusV2 scripts are present")]
     ByronAddressNotAllowed,

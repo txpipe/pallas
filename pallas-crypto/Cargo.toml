@@ -16,7 +16,7 @@ authors = [
 [dependencies]
 hex = "0.4"
 cryptoxide = { version = "0.4.4" }
-thiserror = "1.0"
+thiserror = "2.0"
 rand_core = "0.9"
 serde = { version = "1.0.143", features = ["derive"] }
 pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
