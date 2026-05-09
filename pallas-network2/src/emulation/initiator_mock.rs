@@ -4,7 +4,7 @@ use futures::{
     Stream, StreamExt,
     stream::{FusedStream, FuturesUnordered},
 };
-use rand::Rng;
+use rand::RngExt;
 
 use crate::{
     Interface, InterfaceCommand, InterfaceEvent, PeerId,
