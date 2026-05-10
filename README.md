@@ -143,9 +143,9 @@ common integration patterns:
 ## Minimum Supported Rust Version
 
 Pallas's MSRV is **Rust 1.88**. CI verifies the entire workspace builds with
-that toolchain (using the locked dependency graph) on every change. The floor
-is set by transitive dependencies (currently `serde_with` / `darling`); edition
-2024, used by `pallas-network2`, contributes a hard floor of 1.85.
+that toolchain on every change. The floor is set by transitive dependencies
+(currently `serde_with` / `darling`); edition 2024, used by `pallas-network2`,
+contributes a hard floor of 1.85.
 
 Bumping the MSRV is treated as a breaking change: it happens only in minor
 version bumps (or in `0.x` / `1.0.0-alpha.x` while we are pre-stable), is
