@@ -1,0 +1,33 @@
+# cargo-release config — local "bump + tag" flow.
+# CI publishes to crates.io on tag push (see .github/workflows/release.yml).
+#
+# Usage:
+#   cargo release <level> --execute       # bump, commit, tag (stays local)
+#   git push --follow-tags                # push branch + tag → triggers release
+# where <level> is one of: patch | minor | major | rc | beta | alpha | <version>.
+
+# All publishable workspace members share a single version.
+shared-version = true
+
+# One commit for the whole release rather than one per crate.
+consolidate-commits = true
+
+# crates.io publish happens in CI, not from a developer laptop.
+publish = false
+
+# Don't push automatically — leaves the bump commit and tag local so they
+# can be reviewed before `git push --follow-tags` triggers the release.
+push = false
+
+# Tag format must match the trigger pattern in .github/workflows/release.yml ("v*").
+tag-name = "v{{version}}"
+tag-message = "Release v{{version}}"
+pre-release-commit-message = "chore: release v{{version}}"
+
+# Rewrite the `=X.Y.Z` inter-crate constraints in [workspace.dependencies]
+# to the new version on each release.
+dependent-version = "upgrade"
+
+# Regenerate CHANGELOG.md before tagging so the tag points at a commit that
+# already contains the new release notes. Requires `git-cliff` on PATH locally.
+pre-release-hook = ["git-cliff", "--tag", "v{{version}}", "-o", "CHANGELOG.md"]
