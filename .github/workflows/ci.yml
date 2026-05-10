@@ -69,7 +69,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo build --workspace --all-targets --locked
+        run: cargo build --workspace --all-targets
       - name: Test
         run: cargo test --workspace
       - name: Test blueprint feature

@@ -9,7 +9,7 @@ pub type PrimaryIndex = super::primary::Reader;
 use crate::storage::immutable::{primary, secondary};
 
 // See https://input-output-hk.github.io/ouroboros-consensus/pdfs/report.pdf, section 8.2.2
-binary_layout::define_layout!(layout, BigEndian, {
+binary_layout::binary_layout!(layout, BigEndian, {
     block_offset: u64,
     header_offset: u16,
     header_size: u16,
