@@ -1,29 +1,29 @@
 [package]
 name = "pallas-network2"
 description = "Ouroboros networking stack for P2P interactions"
-version = "1.0.0-alpha.6"
+version.workspace = true
 edition = "2024"
 rust-version.workspace = true
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 futures = "0.3.31"
 trait-variant = "0.1.2"
-rand = { version = "0.10.1", optional = true }
+rand = { workspace = true, optional = true }
 tokio = { version = "1.45.1", optional = true, features = ["full"] }
-pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
-chrono = "0.4.41"
+pallas-codec.workspace = true
+chrono.workspace = true
 opentelemetry = "0.30.0"
-tracing = "0.1.41"
-byteorder = "1.5.0"
-socket2 = "0.6.0"
-thiserror = "2.0.16"
-hex = "0.4.3"
+tracing.workspace = true
+byteorder.workspace = true
+socket2.workspace = true
+thiserror.workspace = true
+hex.workspace = true
 
 [features]
 emulation = ["tokio", "rand"]
