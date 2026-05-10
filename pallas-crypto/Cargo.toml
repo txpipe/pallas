@@ -47,3 +47,4 @@ relaxed = []
 harness = false
 name = "summed_kes_benches"
 path = "./src/kes/summed_kes_benches.rs"
+required-features = ["kes"]

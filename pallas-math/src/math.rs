@@ -36,7 +36,7 @@ pub trait FixedPrecision:
     /// Returns the precision of the fixed point number
     fn precision(&self) -> u64;
 
-    /// Performs the 'exp' approximation. First does the scaling of 'x' to [0,1]
+    /// Performs the 'exp' approximation. First does the scaling of 'x' to \[0,1\]
     /// and then calls the continued fraction approximation function.
     fn exp(&self) -> Self;
 

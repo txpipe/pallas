@@ -49,7 +49,7 @@ pub enum Message<Tx, Reject> {
 pub struct EraTx(pub u16, pub Vec<u8>);
 
 /// Era to be used in tx errors
-/// https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271
+/// <https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271>
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(index_only)]
 pub enum ShelleyBasedEra {

@@ -974,6 +974,7 @@ pub mod tests {
 
     // TODO: DRY with other decode/encode roundtripss
     // Decode a value of type T, transform it to U and encode that again to form a roundtrip.
+    #[cfg(feature = "blueprint")]
     fn roundtrips_with<T, U>(message_str: &str, transform: fn(T) -> U)
     where
         T: for<'b> minicbor::Decode<'b, ()> + std::fmt::Debug,

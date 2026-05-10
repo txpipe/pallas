@@ -170,7 +170,7 @@ impl<'b> MultiEraTx<'b> {
 
     /// Return the transaction inputs
     ///
-    /// NOTE: It is possible for this to return duplicates before some point in the chain history. See https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
+    /// NOTE: It is possible for this to return duplicates before some point in the chain history. See <https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7>
     pub fn inputs(&self) -> Vec<MultiEraInput<'_>> {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x
@@ -242,7 +242,7 @@ impl<'b> MultiEraTx<'b> {
     /// Return the transaction reference inputs
     ///
     /// NOTE: It is possible for this to return duplicates. See
-    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
+    /// <https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7>
     pub fn reference_inputs(&self) -> Vec<MultiEraInput<'_>> {
         match self {
             MultiEraTx::Conway(x) => x
@@ -337,7 +337,7 @@ impl<'b> MultiEraTx<'b> {
     /// Return the transaction collateral inputs
     ///
     /// NOTE: It is possible for this to return duplicates. See
-    /// https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7
+    /// <https://github.com/input-output-hk/cardano-ledger/commit/a342b74f5db3d3a75eae3e2abe358a169701b1e7>
     pub fn collateral(&self) -> Vec<MultiEraInput<'_>> {
         match self {
             MultiEraTx::Byron(_) => vec![],

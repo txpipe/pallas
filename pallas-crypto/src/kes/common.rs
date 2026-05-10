@@ -2,9 +2,9 @@
 use crate::hash::Hasher;
 use crate::kes::errors::Error;
 use ed25519_dalek as ed25519;
+use rand_chacha::ChaCha20Rng;
 use rand_core::Rng;
 use rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::convert::TryInto;

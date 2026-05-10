@@ -6,13 +6,13 @@
 //! transactions.
 //!
 //! However, only the [`SecretKeyExtended`] can be used for HD derivation
-//! (using [ed25519_bip32] or otherwise).
+//! (using `ed25519_bip32` or otherwise).
 
 use crate::memsec::Scrubbed as _;
 use cryptoxide::ed25519::{
     self, EXTENDED_KEY_LENGTH, PRIVATE_KEY_LENGTH, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH,
 };
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, Rng};
 use std::{any::type_name, convert::TryFrom, fmt, str::FromStr};
 use thiserror::Error;
 
@@ -22,8 +22,7 @@ pub struct SecretKey([u8; Self::SIZE]);
 
 /// Ed25519 Extended Secret Key
 ///
-/// unlike [`SecretKey`], an extended key can be derived see
-/// [`pallas_crypto::derivation`]
+/// unlike [`SecretKey`], an extended key supports HD derivation.
 #[derive(Clone)]
 pub struct SecretKeyExtended([u8; Self::SIZE]);
 
@@ -85,9 +84,9 @@ impl_size_zero!(Signature, SIGNATURE_LENGTH);
 
 impl SecretKey {
     /// generate a new [`SecretKey`] with the given random number generator
-    pub fn new<Rng>(mut rng: Rng) -> Self
+    pub fn new<R>(mut rng: R) -> Self
     where
-        Rng: RngCore + CryptoRng,
+        R: Rng + CryptoRng,
     {
         let mut s = Self::zero();
         rng.fill_bytes(&mut s.0);
@@ -168,9 +167,9 @@ impl SecretKey {
 impl SecretKeyExtended {
     /// generate a new [`SecretKeyExtended`] with the given random number
     /// generator
-    pub fn new<Rng>(mut rng: Rng) -> Self
+    pub fn new<R>(mut rng: R) -> Self
     where
-        Rng: RngCore + CryptoRng,
+        R: Rng + CryptoRng,
     {
         let mut s = Self::zero();
         rng.fill_bytes(&mut s.0);
