@@ -1,15 +1,15 @@
 [package]
 name = "pallas-utxorpc"
 description = "Pallas interoperability with the UTxORPC spec"
-version = "1.0.0-alpha.6"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 rust-version.workspace = true
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas-utxorpc"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
 # utxorpc-spec = { path = "../../../utxorpc/spec/gen/rust" }
@@ -26,12 +26,12 @@ utxorpc-spec = { version = "0.19", default-features = false, features = [
     "utxorpc-v1beta-watch",
 ] }
 
-pallas-traverse = { version = "=1.0.0-alpha.6", path = "../pallas-traverse" }
-pallas-primitives = { version = "=1.0.0-alpha.6", path = "../pallas-primitives" }
-pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
-pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto" }
+pallas-traverse.workspace = true
+pallas-primitives.workspace = true
+pallas-codec.workspace = true
+pallas-crypto.workspace = true
 prost-types = "0.13.1"
-pallas-validate = { version = "=1.0.0-alpha.6", path = "../pallas-validate" }
+pallas-validate.workspace = true
 
 [features]
 default = ["u5c-v1alpha-compat"]
@@ -41,7 +41,7 @@ default = ["u5c-v1alpha-compat"]
 u5c-v1alpha-compat = []
 
 [dev-dependencies]
-hex = "0.4.3"
-serde_json = "1.0.120"
+hex.workspace = true
+serde_json.workspace = true
 pretty_assertions = "1.4.0"
 prost = "0.13"

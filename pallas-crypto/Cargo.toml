@@ -1,41 +1,38 @@
 [package]
 name = "pallas-crypto"
 description = "Cryptographic primitives for Cardano"
-version = "1.0.0-alpha.6"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 rust-version.workspace = true
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
 documentation = "https://docs.rs/pallas-crypto"
-license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Nicolas Di Prima <nicolas@primetype.co.uk>",
-    "Andrew Westberg <andrewwestberg@gmail.com>",
-]
+authors.workspace = true
 
 [dependencies]
-hex = "0.4"
+hex.workspace = true
 cryptoxide = { version = "0.4.4" }
-thiserror = "2.0"
+thiserror.workspace = true
 rand_core = "0.10"
-serde = { version = "1.0.143", features = ["derive"] }
-pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
+serde.workspace = true
+pallas-codec.workspace = true
 
 # kes dependencies
-rand = { version = "0.10", optional = true }
+rand = { workspace = true, optional = true }
 rand_chacha = { version = "0.10", optional = true }
-serde_with = { version = "3.11.0", optional = true }
+serde_with = { workspace = true, optional = true }
 ed25519-dalek = { version = "2", features = ["serde"], optional = true }
 zeroize = { version = "1.8.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.7"
-itertools = "0.13"
+itertools.workspace = true
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
-proptest = "1.6"
-serde_json = "1"
+proptest.workspace = true
+serde_json.workspace = true
 serde_test = "1.0.143"
 
 [features]

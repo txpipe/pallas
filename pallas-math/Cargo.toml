@@ -1,22 +1,22 @@
 [package]
 name = "pallas-math"
 description = "Mathematics functions for Cardano"
-version = "1.0.0-alpha.6"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 rust-version.workspace = true
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
 documentation = "https://docs.rs/pallas-math"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Andrew Westberg <andrewwestberg@gmail.com>"]
+authors.workspace = true
 exclude = ["tests/data/*"]
 
 [dependencies]
 dashu-int = "0.4.1"
 dashu-base = "0.4.1"
 regex = "1.10.5"
-thiserror = "2.0.18"
+thiserror.workspace = true
 
 [dev-dependencies]
-proptest = "1.5"
+proptest.workspace = true

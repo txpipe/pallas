@@ -1,32 +1,31 @@
 [package]
 name = "pallas-hardano"
 description = "Pallas interoperability with the Haskel Cardano node implementation"
-version = "1.0.0-alpha.6"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 rust-version.workspace = true
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas-hardano"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-thiserror = "2.0.18"
+thiserror.workspace = true
 binary-layout = "4.0.2"
 tap = "1.0.1"
-tracing = "0.1.40"
-pallas-traverse = { version = "=1.0.0-alpha.6", path = "../pallas-traverse" }
-pallas-network = { version = "=1.0.0-alpha.6", path = "../pallas-network" }
-pallas-addresses = { version = "=1.0.0-alpha.6", path = "../pallas-addresses" }
-pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto" }
-pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
+tracing.workspace = true
+pallas-traverse.workspace = true
+pallas-network.workspace = true
+pallas-addresses.workspace = true
+pallas-crypto.workspace = true
+pallas-codec.workspace = true
 
-serde = { version = "1.0.218", features = ["derive"] }
-hex = "0.4.3"
-serde_with = "3.12.0"
-serde_json = "1.0.140"
+serde.workspace = true
+hex.workspace = true
+serde_with.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 tracing-subscriber = "0.3.17"
-hex = "0.4.3"

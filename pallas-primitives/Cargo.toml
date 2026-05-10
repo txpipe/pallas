@@ -1,28 +1,25 @@
 [package]
 name = "pallas-primitives"
 description = "Ledger primitives and cbor codec for the different Cardano eras"
-version = "1.0.0-alpha.6"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 rust-version.workspace = true
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
 documentation = "https://docs.rs/pallas-primitives"
-license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-    "Lucas Rosa <x@rvcas.dev>",
-]
+authors.workspace = true
 
 [dependencies]
-hex = "0.4.3"
-pallas-crypto = { version = "=1.0.0-alpha.6", path = "../pallas-crypto" }
-pallas-codec = { version = "=1.0.0-alpha.6", path = "../pallas-codec" }
-serde = { version = "1.0.136", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.79", optional = true }
+hex.workspace = true
+pallas-crypto.workspace = true
+pallas-codec.workspace = true
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 [dev-dependencies]
-proptest = { version = "1.7.0", features = ["alloc"] }
+proptest = { workspace = true, features = ["alloc"] }
 test-case = "3.3.1"
 
 [features]
