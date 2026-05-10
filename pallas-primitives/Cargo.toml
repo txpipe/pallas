@@ -9,10 +9,7 @@ homepage.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/pallas-primitives"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-    "Lucas Rosa <x@rvcas.dev>",
-]
+authors.workspace = true
 
 [dependencies]
 hex.workspace = true

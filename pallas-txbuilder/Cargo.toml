@@ -9,7 +9,7 @@ homepage.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/pallas-txbuilder"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>", "Cainã Costa <me@cfcosta.com>"]
+authors.workspace = true
 
 [dependencies]
 pallas-codec.workspace = true

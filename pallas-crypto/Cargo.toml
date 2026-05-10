@@ -9,10 +9,7 @@ homepage.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/pallas-crypto"
 readme = "README.md"
-authors = [
-    "Nicolas Di Prima <nicolas@primetype.co.uk>",
-    "Andrew Westberg <andrewwestberg@gmail.com>",
-]
+authors.workspace = true
 
 [dependencies]
 hex.workspace = true
