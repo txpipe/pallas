@@ -3,6 +3,7 @@ name = "pallas-hardano"
 description = "Pallas interoperability with the Haskel Cardano node implementation"
 version = "1.0.0-alpha.6"
 edition = "2021"
+rust-version.workspace = true
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas-hardano"

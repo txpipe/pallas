@@ -3,6 +3,7 @@ name = "pallas-network2"
 description = "Ouroboros networking stack for P2P interactions"
 version = "1.0.0-alpha.6"
 edition = "2024"
+rust-version.workspace = true
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas"
