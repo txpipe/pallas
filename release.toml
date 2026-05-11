@@ -28,6 +28,5 @@ pre-release-commit-message = "chore: release v{{version}}"
 # to the new version on each release.
 dependent-version = "upgrade"
 
-# Regenerate CHANGELOG.md before tagging so the tag points at a commit that
-# already contains the new release notes. Requires `git-cliff` on PATH locally.
-pre-release-hook = ["git-cliff", "--tag", "v{{version}}", "-o", "CHANGELOG.md"]
+# CHANGELOG.md is generated via a pre-release-hook in pallas/Cargo.toml
+# so that only the root changelog is updated, not per-crate changelogs.

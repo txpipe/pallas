@@ -36,5 +36,19 @@ relaxed = ["pallas-primitives/relaxed", "pallas-crypto/relaxed"]
 # network 2
 network2 = ["dep:pallas-network2"]
 
+[package.metadata.release]
+pre-release-hook = [
+    "git",
+    "cliff",
+    "--workdir",
+    "..",
+    "--config",
+    "cliff.toml",
+    "-o",
+    "../CHANGELOG.md",
+    "--tag",
+    "{{version}}",
+]
+
 [package.metadata.docs.rs]
 all-features = true

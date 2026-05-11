@@ -66,13 +66,3 @@ pallas-validate = { version = "=1.0.0-alpha.6", path = "pallas-validate" }
 [workspace.metadata.release]
 push = false
 publish = false
-tag-name = "v{{version}}"
-pre-release-commit-message = "release: v{{version}}"
-pre-release-hook = [
-    "git",
-    "cliff",
-    "-o",
-    "CHANGELOG.md",
-    "--tag",
-    "{{version}}",
-]
