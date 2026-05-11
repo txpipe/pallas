@@ -48,15 +48,15 @@
 //! | [`p2p-discovery`]     | Peer discovery using `pallas-network2`                               |
 //! | [`wallet`]            | Wallet key generation, BIP-39 mnemonics, address derivation          |
 //!
-//! [`block-decode`]: https://github.com/txpipe/pallas/tree/main/examples/block-decode
-//! [`block-download`]: https://github.com/txpipe/pallas/tree/main/examples/block-download
-//! [`crawler`]: https://github.com/txpipe/pallas/tree/main/examples/crawler
-//! [`n2n-miniprotocols`]: https://github.com/txpipe/pallas/tree/main/examples/n2n-miniprotocols
-//! [`n2c-miniprotocols`]: https://github.com/txpipe/pallas/tree/main/examples/n2c-miniprotocols
-//! [`p2p-initiator`]: https://github.com/txpipe/pallas/tree/main/examples/p2p-initiator
-//! [`p2p-responder`]: https://github.com/txpipe/pallas/tree/main/examples/p2p-responder
-//! [`p2p-discovery`]: https://github.com/txpipe/pallas/tree/main/examples/p2p-discovery
-//! [`wallet`]: https://github.com/txpipe/pallas/tree/main/examples/wallet
+//! [`block-decode`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/block-decode
+//! [`block-download`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/block-download
+//! [`crawler`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/crawler
+//! [`n2n-miniprotocols`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/n2n-miniprotocols
+//! [`n2c-miniprotocols`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/n2c-miniprotocols
+//! [`p2p-initiator`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/p2p-initiator
+//! [`p2p-responder`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/p2p-responder
+//! [`p2p-discovery`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/p2p-discovery
+//! [`wallet`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples/wallet
 //!
 //! # Feature flags
 //!
@@ -84,7 +84,7 @@
 //!
 //! [`pallas-network`]: https://crates.io/crates/pallas-network
 //! [`pallas-primitives`]: https://crates.io/crates/pallas-primitives
-//! [`examples/`]: https://github.com/txpipe/pallas/tree/main/examples
+//! [`examples/`]: https://github.com/txpipe/pallas/tree/99febf968342dc59c51b9a060ff17d3157e2902b/examples
 //! [license]: https://github.com/txpipe/pallas/blob/main/LICENSE
 //! [security]: https://github.com/txpipe/pallas/blob/main/SECURITY.md
 
