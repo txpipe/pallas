@@ -1,28 +1,28 @@
 //! Utilities required for Babbage-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, aux_data_from_babbage_tx, compute_native_script_hash,
-    compute_plutus_v1_script_hash, compute_plutus_v2_script_hash, empty_value, get_babbage_tx_size,
-    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
-    is_byron_address, lovelace_diff_or_fail, mk_alonzo_vk_wits_check_list, values_are_equal,
-    verify_signature, BabbageProtParams,
+    BabbageProtParams,
     PostAlonzoError::*,
     UTxOs,
     ValidationError::{self, *},
-    ValidationResult,
+    ValidationResult, add_minted_value, add_values, aux_data_from_babbage_tx,
+    compute_native_script_hash, compute_plutus_v1_script_hash, compute_plutus_v2_script_hash,
+    empty_value, get_babbage_tx_size, get_lovelace_from_alonzo_val, get_payment_part,
+    get_shelley_address, get_val_size_in_words, is_byron_address, lovelace_diff_or_fail,
+    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
 };
 use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
-    minicbor::{encode, Encoder},
+    minicbor::{Encoder, encode},
     utils::{Bytes, KeepRaw},
 };
 use pallas_primitives::{
+    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput,
     alonzo::{RedeemerPointer, RedeemerTag},
     babbage::{
         DatumOption, Language, Mint, Redeemer, RequiredSigners, ScriptRef, TransactionBody,
         TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
-    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::ops::Deref;
@@ -268,11 +268,10 @@ fn check_collaterals_assets(
                 return Err(PostAlonzo(CollateralMinLovelace));
             }
             // The balance matches exactly the collateral annotated in the transaction body.
-            if let Some(annotated_collateral) = &tx_body.total_collateral {
-                if paid_collateral != *annotated_collateral {
+            if let Some(annotated_collateral) = &tx_body.total_collateral
+                && paid_collateral != *annotated_collateral {
                     return Err(PostAlonzo(CollateralAnnotation));
                 }
-            }
         }
         None => return Err(PostAlonzo(CollateralMissing)),
     }
@@ -395,11 +394,10 @@ fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> Valid
 // The network ID of the transaction body is either undefined or equal to the
 // global network ID.
 fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
-    if let Some(tx_network_id) = tx_body.network_id {
-        if u8::from(tx_network_id) != *network_id {
+    if let Some(tx_network_id) = tx_body.network_id
+        && u8::from(tx_network_id) != *network_id {
             return Err(PostAlonzo(TxWrongNetworkID));
         }
-    }
     Ok(())
 }
 
@@ -856,28 +854,25 @@ fn check_remaining_datums(
 fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     // Look for hash in transaction (regular) outputs
     for output in tx_body.outputs.iter() {
-        if let Some(datum_hash) = get_datum_hash(output) {
-            if *hash == datum_hash {
+        if let Some(datum_hash) = get_datum_hash(output)
+            && *hash == datum_hash {
                 return Ok(());
             }
-        }
     }
     // Look for hash in collateral return output
     if let Some(babbage_output) = &tx_body.collateral_return {
         match babbage_output.deref() {
             TransactionOutput::Legacy(output) => {
-                if let Some(datum_hash) = &output.datum_hash {
-                    if *hash == *datum_hash {
+                if let Some(datum_hash) = &output.datum_hash
+                    && *hash == *datum_hash {
                         return Ok(());
                     }
-                }
             }
             TransactionOutput::PostAlonzo(output) => {
-                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
-                    if *hash == *datum_hash {
+                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref()
+                    && *hash == *datum_hash {
                         return Ok(());
                     }
-                }
             }
         }
     }
@@ -889,18 +884,16 @@ fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
                 .and_then(MultiEraOutput::as_babbage)
             {
                 Some(TransactionOutput::Legacy(output)) => {
-                    if let Some(datum_hash) = &output.datum_hash {
-                        if *hash == *datum_hash {
+                    if let Some(datum_hash) = &output.datum_hash
+                        && *hash == *datum_hash {
                             return Ok(());
                         }
-                    }
                 }
                 Some(TransactionOutput::PostAlonzo(output)) => {
-                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
-                        if *hash == *datum_hash {
+                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref()
+                        && *hash == *datum_hash {
                             return Ok(());
                         }
-                    }
                 }
                 _ => (),
             }
@@ -1269,30 +1262,26 @@ fn any_reference_inputs(reference_inputs: &Option<Vec<TransactionInput>>) -> boo
 fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
     let mut v1_scripts: bool = false;
     let mut v2_scripts: bool = false;
-    if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script {
-        if !v1_scripts_vec.is_empty() {
+    if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script
+        && !v1_scripts_vec.is_empty() {
             v1_scripts = true
         }
-    }
-    if let Some(v2_scripts_vec) = &mtx.transaction_witness_set.plutus_v2_script {
-        if !v2_scripts_vec.is_empty() {
+    if let Some(v2_scripts_vec) = &mtx.transaction_witness_set.plutus_v2_script
+        && !v2_scripts_vec.is_empty() {
             v2_scripts = true;
         }
-    }
     if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
         for ref_input in reference_inputs.iter() {
             if let Some(TransactionOutput::PostAlonzo(output)) = utxos
                 .get(&MultiEraInput::from_alonzo_compatible(ref_input))
                 .and_then(MultiEraOutput::as_babbage)
-            {
-                if let Some(script_ref_cborwrap) = &output.script_ref {
+                && let Some(script_ref_cborwrap) = &output.script_ref {
                     match script_ref_cborwrap.clone().unwrap() {
                         ScriptRef::PlutusV1Script(_) => v1_scripts = true,
                         ScriptRef::PlutusV2Script(_) => v2_scripts = true,
                         _ => (),
                     }
                 }
-            }
         }
     }
     if !v1_scripts && !v2_scripts {
