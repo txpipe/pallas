@@ -597,10 +597,10 @@ mod tests {
                 }
             }
 
-            if let Some(last_hash) = last_hash {
-                if let Some(expected) = block.header().previous_hash() {
-                    assert_eq!(last_hash, expected)
-                }
+            if let Some(last_hash) = last_hash
+                && let Some(expected) = block.header().previous_hash()
+            {
+                assert_eq!(last_hash, expected)
             }
 
             last_slot = Some(block.slot());
