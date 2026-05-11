@@ -445,9 +445,11 @@ pub type UnitInterval = RationalNumber;
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct VrfCert(
     /// VRF output bytes.
-    #[n(0)] pub Bytes,
+    #[n(0)]
+    pub Bytes,
     /// VRF proof bytes.
-    #[n(1)] pub Bytes,
+    #[n(1)]
+    pub Bytes,
 );
 
 /// Hash of a VRF verification key (Blake2b-256).
