@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
+[package.metadata.release]
+release = false
+
 [dependencies]
 pallas-network2 = { path = "../../pallas-network2" }
 tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros", "time"] }
