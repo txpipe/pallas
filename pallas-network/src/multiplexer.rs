@@ -26,16 +26,23 @@ use tokio::io::{ReadHalf, WriteHalf};
 
 const HEADER_LEN: usize = 8;
 
+/// Wall-clock microseconds since the multiplexer started, used to stamp segments.
 pub type Timestamp = u32;
 
+/// Raw bytes of a single segment payload.
 pub type Payload = Vec<u8>;
 
+/// Mini-protocol channel identifier (16-bit).
 pub type Protocol = u16;
 
+/// 8-byte segment header that prefixes every multiplexed payload.
 #[derive(Debug)]
 pub struct Header {
+    /// Mini-protocol channel that owns the segment.
     pub protocol: Protocol,
+    /// Wall-clock microseconds since the multiplexer started.
     pub timestamp: Timestamp,
+    /// Length in bytes of the payload that follows this header.
     pub payload_len: u16,
 }
 
@@ -64,17 +71,24 @@ impl From<Header> for [u8; 8] {
     }
 }
 
+/// A single segment: header plus its raw payload bytes.
 pub struct Segment {
+    /// Segment header (protocol, timestamp, length).
     pub header: Header,
+    /// Raw payload bytes.
     pub payload: Payload,
 }
 
+/// Underlying transport carrying multiplexed segments.
 pub enum Bearer {
+    /// TCP socket (node-to-node).
     Tcp(tcp::TcpStream),
 
+    /// Unix domain socket (node-to-client on Unix).
     #[cfg(unix)]
     Unix(unix::UnixStream),
 
+    /// Windows named pipe (node-to-client on Windows).
     #[cfg(windows)]
     NamedPipe(NamedPipeClient),
 }
@@ -92,12 +106,15 @@ impl Bearer {
         Ok(())
     }
 
+    /// Connect a TCP bearer to `addr`, applying the default keep-alive and
+    /// no-delay socket settings.
     pub async fn connect_tcp(addr: impl tcp::ToSocketAddrs) -> Result<Self, tokio::io::Error> {
         let stream = tcp::TcpStream::connect(addr).await?;
         Self::configure_tcp(&stream)?;
         Ok(Self::Tcp(stream))
     }
 
+    /// Same as [`Self::connect_tcp`] but aborts with `TimedOut` after `timeout`.
     pub async fn connect_tcp_timeout(
         addr: impl tcp::ToSocketAddrs,
         timeout: std::time::Duration,
@@ -108,18 +125,21 @@ impl Bearer {
         }
     }
 
+    /// Accept the next TCP connection from `listener` as a bearer.
     pub async fn accept_tcp(listener: &tcp::TcpListener) -> IOResult<(Self, std::net::SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Self::configure_tcp(&stream)?;
         Ok((Self::Tcp(stream), addr))
     }
 
+    /// Connect a Unix-domain bearer to `path`.
     #[cfg(unix)]
     pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
         let stream = unix::UnixStream::connect(path).await?;
         Ok(Self::Unix(stream))
     }
 
+    /// Accept the next Unix-domain connection from `listener` as a bearer.
     #[cfg(unix)]
     pub async fn accept_unix(
         listener: &unix::UnixListener,
@@ -128,12 +148,14 @@ impl Bearer {
         Ok((Self::Unix(stream), addr))
     }
 
+    /// Connect to a Windows named pipe as a bearer.
     #[cfg(windows)]
     pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> IOResult<Self> {
         let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
         Ok(Self::NamedPipe(client))
     }
 
+    /// Split the bearer into independent read and write halves.
     pub fn into_split(self) -> (BearerReadHalf, BearerWriteHalf) {
         match self {
             Bearer::Tcp(x) => {
@@ -159,12 +181,16 @@ impl Bearer {
     }
 }
 
+/// Read half of a split [`Bearer`].
 pub enum BearerReadHalf {
+    /// TCP read half.
     Tcp(tcp::tcp::OwnedReadHalf),
 
+    /// Unix-domain read half.
     #[cfg(unix)]
     Unix(unix::unix::OwnedReadHalf),
 
+    /// Named-pipe read half (Windows).
     #[cfg(windows)]
     NamedPipe(ReadHalf<NamedPipeClient>),
 }
@@ -183,12 +209,16 @@ impl BearerReadHalf {
     }
 }
 
+/// Write half of a split [`Bearer`].
 pub enum BearerWriteHalf {
+    /// TCP write half.
     Tcp(tcp::tcp::OwnedWriteHalf),
 
+    /// Unix-domain write half.
     #[cfg(unix)]
     Unix(unix::unix::OwnedWriteHalf),
 
+    /// Named-pipe write half (Windows).
     #[cfg(windows)]
     NamedPipe(WriteHalf<NamedPipeClient>),
 }
@@ -219,32 +249,42 @@ impl BearerWriteHalf {
     }
 }
 
+/// Errors produced by the multiplexer and its agent channels.
 #[derive(Debug, Error)]
 pub enum Error {
+    /// The bearer returned EOF before a segment could be fully read.
     #[error("no data available in bearer to complete segment")]
     EmptyBearer,
 
+    /// Underlying bearer I/O error.
     #[error("bearer I/O error")]
     BearerIo(tokio::io::Error),
 
+    /// Failed to decode a message off the wire.
     #[error("failure to encode channel message")]
     Decoding(String),
 
+    /// Failed to encode a message for the wire.
     #[error("failure to decode channel message")]
     Encoding(String),
 
+    /// Agent could not push an outbound chunk to the muxer for `Protocol`.
     #[error("agent failed to enqueue chunk for protocol {0}")]
     AgentEnqueue(Protocol, Payload),
 
+    /// Agent could not pull an inbound chunk from the demuxer.
     #[error("agent failed to dequeue chunk")]
     AgentDequeue,
 
+    /// Demuxer could not deliver an inbound chunk to the subscribed agent.
     #[error("plexer failed to dumux chunk for protocol {0}")]
     PlexerDemux(Protocol, Payload),
 
+    /// Muxer could not write a chunk to the bearer.
     #[error("plexer failed to mux chunk")]
     PlexerMux,
 
+    /// Aborting the spawned muxer / demuxer tasks failed.
     #[error("failure to abort the plexer threads")]
     AbortFailure,
 }
@@ -254,14 +294,17 @@ type Egress = HashMap<Protocol, EgressChannel>;
 
 const EGRESS_MSG_QUEUE_BUFFER: usize = 100;
 
+/// Reads segments off the bearer and dispatches them to subscribed agents.
 pub struct Demuxer(BearerReadHalf, Egress);
 
 impl Demuxer {
+    /// Build a demuxer over the read half of a bearer.
     pub fn new(bearer: BearerReadHalf) -> Self {
         let egress = HashMap::new();
         Self(bearer, egress)
     }
 
+    /// Read the next segment off the bearer and return its `(protocol, payload)`.
     pub async fn read_segment(&mut self) -> Result<(Protocol, Payload), Error> {
         trace!("waiting for segment header");
         let mut buf = vec![0u8; HEADER_LEN];
@@ -291,6 +334,8 @@ impl Demuxer {
         Ok(())
     }
 
+    /// Register an agent's interest in a protocol channel and return the
+    /// receiver it will pull inbound payloads from.
     pub fn subscribe(&mut self, protocol: Protocol) -> tokio::sync::mpsc::Receiver<Payload> {
         let (sender, recv) = tokio::sync::mpsc::channel(EGRESS_MSG_QUEUE_BUFFER);
 
@@ -301,12 +346,14 @@ impl Demuxer {
         recv
     }
 
+    /// Read one segment and dispatch it. Returns `Ok` after a single iteration.
     pub async fn tick(&mut self) -> Result<(), Error> {
         let (protocol, payload) = self.read_segment().await?;
         trace!(protocol, "demux happening");
         self.demux(protocol, payload).await
     }
 
+    /// Run the demux loop until an error occurs.
     pub async fn run(&mut self) -> Result<(), Error> {
         loop {
             if let Err(err) = self.tick().await {
@@ -325,9 +372,11 @@ type Clock = Instant;
 
 const INGRESS_MSG_QUEUE_BUFFER: usize = 100;
 
+/// Collects payloads from all agents and writes them to the bearer as segments.
 pub struct Muxer(BearerWriteHalf, Clock, Ingress);
 
 impl Muxer {
+    /// Build a muxer over the write half of a bearer.
     pub fn new(bearer: BearerWriteHalf) -> Self {
         let ingress = tokio::sync::mpsc::channel(INGRESS_MSG_QUEUE_BUFFER);
         let clock = Instant::now();
@@ -350,6 +399,7 @@ impl Muxer {
         Ok(())
     }
 
+    /// Write a single `(protocol, payload)` pair to the bearer as one segment.
     pub async fn mux(&mut self, msg: (Protocol, Payload)) -> Result<(), Error> {
         self.write_segment(msg.0, &msg.1)
             .await
@@ -366,10 +416,12 @@ impl Muxer {
         Ok(())
     }
 
+    /// Clone the ingress sender so an agent can push outbound payloads here.
     pub fn clone_sender(&self) -> tokio::sync::mpsc::Sender<(Protocol, Payload)> {
         self.2 .0.clone()
     }
 
+    /// Take one queued message and write it as a segment.
     pub async fn tick(&mut self) -> Result<(), Error> {
         let msg = self.2 .1.recv().await;
 
@@ -381,6 +433,7 @@ impl Muxer {
         Ok(())
     }
 
+    /// Run the mux loop until an error occurs.
     pub async fn run(&mut self) -> Result<(), Error> {
         loop {
             if let Err(err) = self.tick().await {
@@ -393,6 +446,8 @@ impl Muxer {
 type ToPlexerPort = tokio::sync::mpsc::Sender<(Protocol, Payload)>;
 type FromPlexerPort = tokio::sync::mpsc::Receiver<Payload>;
 
+/// Bidirectional channel exposed to a mini-protocol agent: send raw chunks out
+/// through the muxer and receive inbound chunks from the demuxer.
 pub struct AgentChannel {
     protocol: Protocol,
     to_plexer: ToPlexerPort,
@@ -424,6 +479,7 @@ impl AgentChannel {
         }
     }
 
+    /// Push an outbound chunk to the muxer for this protocol.
     pub async fn enqueue_chunk(&mut self, chunk: Payload) -> Result<(), Error> {
         self.to_plexer
             .send((self.protocol, chunk))
@@ -431,29 +487,34 @@ impl AgentChannel {
             .map_err(|SendError((protocol, payload))| Error::AgentEnqueue(protocol, payload))
     }
 
+    /// Pull the next inbound chunk for this protocol from the demuxer.
     pub async fn dequeue_chunk(&mut self) -> Result<Payload, Error> {
         self.from_plexer.recv().await.ok_or(Error::AgentDequeue)
     }
 }
 
+/// Handle to the spawned muxer and demuxer tasks of a running [`Plexer`].
 pub struct RunningPlexer {
     demuxer: JoinHandle<Result<(), Error>>,
     muxer: JoinHandle<Result<(), Error>>,
 }
 
 impl RunningPlexer {
+    /// Abort the muxer and demuxer tasks.
     pub async fn abort(self) {
         self.demuxer.abort();
         self.muxer.abort();
     }
 }
 
+/// Pairs a [`Demuxer`] and a [`Muxer`] sharing a single bearer.
 pub struct Plexer {
     demuxer: Demuxer,
     muxer: Muxer,
 }
 
 impl Plexer {
+    /// Build a plexer over the given bearer.
     pub fn new(bearer: Bearer) -> Self {
         let (r, w) = bearer.into_split();
 
@@ -463,18 +524,22 @@ impl Plexer {
         }
     }
 
+    /// Open a client-side agent channel on the given protocol id.
     pub fn subscribe_client(&mut self, protocol: Protocol) -> AgentChannel {
         let to_plexer = self.muxer.clone_sender();
         let from_plexer = self.demuxer.subscribe(protocol ^ 0x8000);
         AgentChannel::for_client(protocol, to_plexer, from_plexer)
     }
 
+    /// Open a server-side agent channel on the given protocol id.
     pub fn subscribe_server(&mut self, protocol: Protocol) -> AgentChannel {
         let to_plexer = self.muxer.clone_sender();
         let from_plexer = self.demuxer.subscribe(protocol);
         AgentChannel::for_server(protocol ^ 0x8000, to_plexer, from_plexer)
     }
 
+    /// Spawn the muxer and demuxer loops on the current Tokio runtime and
+    /// return a handle for aborting them.
     pub fn spawn(self) -> RunningPlexer {
         let mut demuxer = self.demuxer;
         let mut muxer = self.muxer;
@@ -518,6 +583,7 @@ pub struct ChannelBuffer {
 }
 
 impl ChannelBuffer {
+    /// Wrap a raw [`AgentChannel`] in a message-aware buffer.
     pub fn new(channel: AgentChannel) -> Self {
         Self {
             channel,
@@ -571,6 +637,7 @@ impl ChannelBuffer {
         }
     }
 
+    /// Discard the buffer and return the underlying raw channel.
     pub fn unwrap(self) -> AgentChannel {
         self.channel
     }

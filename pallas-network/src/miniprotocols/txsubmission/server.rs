@@ -8,9 +8,13 @@ use super::{
 };
 use crate::multiplexer;
 
+/// Decoded inbound reply from the peer.
 pub enum Reply<TxId, TxBody> {
+    /// Peer returned available `(id, size)` pairs in response to `RequestTxIds`.
     TxIds(Vec<TxIdAndSize<TxId>>),
+    /// Peer returned full transaction bodies in response to `RequestTxs`.
     Txs(Vec<TxBody>),
+    /// Peer chose to terminate the protocol.
     Done,
 }
 
@@ -32,6 +36,7 @@ impl<TxId, TxBody> GenericServer<TxId, TxBody>
 where
     Message<TxId, TxBody>: Fragment,
 {
+    /// Build a server over a freshly subscribed agent channel.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Init,
@@ -41,10 +46,12 @@ where
         )
     }
 
+    /// Current state-machine state.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// True if the protocol has terminated.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
@@ -90,6 +97,7 @@ where
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -98,6 +106,7 @@ where
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
@@ -106,6 +115,7 @@ where
         Ok(msg)
     }
 
+    /// Wait for the client's opening `Init` and transition to `Idle`.
     pub async fn wait_for_init(&mut self) -> Result<(), Error> {
         if self.0 != State::Init {
             return Err(Error::AlreadyInitialized);
@@ -118,6 +128,8 @@ where
         Ok(())
     }
 
+    /// Acknowledge `acknowledge` previously announced ids and request up to
+    /// `count` new ones; `blocking` controls whether the client may wait.
     pub async fn acknowledge_and_request_tx_ids(
         &mut self,
         blocking: Blocking,
@@ -134,6 +146,7 @@ where
         Ok(())
     }
 
+    /// Request the full bodies for a set of previously announced tx ids.
     pub async fn request_txs(&mut self, ids: Vec<TxId>) -> Result<(), Error> {
         let msg = Message::RequestTxs(ids);
         self.send_message(&msg).await?;
@@ -142,6 +155,7 @@ where
         Ok(())
     }
 
+    /// Wait for the client's next reply (ids, bodies, or done).
     pub async fn receive_next_reply(&mut self) -> Result<Reply<TxId, TxBody>, Error> {
         match self.recv_message().await? {
             Message::ReplyTxIds(ids_and_sizes) => {

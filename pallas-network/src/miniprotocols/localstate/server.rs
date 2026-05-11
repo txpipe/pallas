@@ -6,42 +6,55 @@ use super::{AcquireFailure, Message, State};
 use crate::miniprotocols::Point;
 use crate::multiplexer;
 
+/// Errors produced by the local-state-query server agent.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
 
-/// Request received from the client to acquire the ledger
+/// Request received from the client to acquire the ledger.
 pub struct ClientAcquireRequest(pub Option<Point>);
 
-/// Request received from the client when in the Acquired state
+/// Request received from the client while in the Acquired state.
 #[derive(Debug)]
 pub enum ClientQueryRequest {
+    /// Drop the current snapshot and acquire a new one.
     ReAcquire(Option<Point>),
+    /// Run a query against the current snapshot.
     Query(AnyCbor),
+    /// Release the current snapshot.
     Release,
 }
 
+/// Local-state-query server agent.
 pub struct GenericServer(State, multiplexer::ChannelBuffer);
 
 impl GenericServer {
+    /// Build a server over a freshly subscribed agent channel.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
+    /// Current state-machine state.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// True if the protocol has terminated.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
@@ -86,6 +99,7 @@ impl GenericServer {
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -94,6 +108,7 @@ impl GenericServer {
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
@@ -102,6 +117,7 @@ impl GenericServer {
         Ok(msg)
     }
 
+    /// Reject the pending acquire with the given reason.
     pub async fn send_failure(&mut self, reason: AcquireFailure) -> Result<(), Error> {
         let msg = Message::Failure(reason);
         self.send_message(&msg).await?;
@@ -110,6 +126,7 @@ impl GenericServer {
         Ok(())
     }
 
+    /// Confirm the pending acquire.
     pub async fn send_acquired(&mut self) -> Result<(), Error> {
         let msg = Message::Acquired;
         self.send_message(&msg).await?;
@@ -118,6 +135,7 @@ impl GenericServer {
         Ok(())
     }
 
+    /// Reply to the pending query with the given CBOR-encoded result.
     pub async fn send_result(&mut self, response: AnyCbor) -> Result<(), Error> {
         let msg = Message::Result(response);
         self.send_message(&msg).await?;
@@ -126,10 +144,8 @@ impl GenericServer {
         Ok(())
     }
 
-    /// Receive a message from the Client when the protocol is in the Idle state
-    ///
-    /// Returns the client's request to acquire the ledger or None if a Done
-    /// message was received from the client causing the protocol to finish.
+    /// Wait for the next request while the protocol is in the `Idle` state.
+    /// Returns `None` if the client terminated the protocol.
     pub async fn recv_while_idle(&mut self) -> Result<Option<ClientAcquireRequest>, Error> {
         match self.recv_message().await? {
             Message::Acquire(point) => {
@@ -144,6 +160,7 @@ impl GenericServer {
         }
     }
 
+    /// Wait for the next request while the protocol is in the `Acquired` state.
     pub async fn recv_while_acquired(&mut self) -> Result<ClientQueryRequest, Error> {
         match self.recv_message().await? {
             Message::ReAcquire(point) => {
@@ -163,4 +180,5 @@ impl GenericServer {
     }
 }
 
+/// Concrete local-state-query server (default instantiation).
 pub type Server = GenericServer;

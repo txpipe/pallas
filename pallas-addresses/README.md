@@ -12,8 +12,8 @@ follows [CIP-19](https://cips.cardano.org/cips/cip19/).
 use pallas_addresses::Address;
 
 let addr = Address::from_bech32(
-    "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8\
-     ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp",
+    "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3\
+     n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x",
 )?;
 
 match addr {

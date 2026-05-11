@@ -46,9 +46,13 @@ impl DmqMsgPayload {
 /// The representation of an operational certificate in a DMQ message.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsgOperationalCertificate {
+    /// KES verification key being certified.
     pub kes_vk: Vec<u8>,
+    /// Monotonic certificate issue number (rotates on key reuse).
     pub issue_number: u64,
+    /// KES period the certificate becomes valid in.
     pub start_kes_period: u64,
+    /// Cold-key signature over the rest of the certificate.
     pub cert_sig: Vec<u8>,
 }
 

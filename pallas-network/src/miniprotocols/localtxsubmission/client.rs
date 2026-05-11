@@ -187,8 +187,11 @@ where
     }
 }
 
+/// Server's reply to a transaction submission.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Response<Reject> {
+    /// Transaction was accepted into the mempool.
     Accepted,
+    /// Transaction was rejected; carries the rejection reason.
     Rejected(Reject),
 }

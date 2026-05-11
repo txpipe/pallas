@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
 
+/// N2N-specific instantiation of the generic handshake version table.
 pub type VersionTable = super::protocol::VersionTable<VersionData>;
 
 const PROTOCOL_V7: u64 = 7;
@@ -16,6 +17,7 @@ const PROTOCOL_V14: u64 = 14;
 const PEER_SHARING_DISABLED: u8 = 0;
 
 impl VersionTable {
+    /// Deprecated: forwards to [`Self::v7_and_above`] for backward compatibility.
     #[deprecated(note = "no longer supported by spec")]
     pub fn v4_and_above(network_magic: u64) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
@@ -23,6 +25,7 @@ impl VersionTable {
         Self::v7_and_above(network_magic)
     }
 
+    /// Deprecated: forwards to [`Self::v7_and_above`] for backward compatibility.
     #[deprecated(note = "no longer supported by spec")]
     pub fn v6_and_above(network_magic: u64) -> VersionTable {
         // Older versions are not supported anymore (removed from network-spec.pdf).
@@ -30,6 +33,7 @@ impl VersionTable {
         Self::v7_and_above(network_magic)
     }
 
+    /// Build a version table offering N2N protocol versions 7 through 10.
     pub fn v7_to_v10(network_magic: u64) -> VersionTable {
         let values = vec![
             (
@@ -55,10 +59,12 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Build a version table offering N2N versions 7 and up with `query=false`.
     pub fn v7_and_above(network_magic: u64) -> VersionTable {
         Self::v7_and_above_with_query(network_magic, false)
     }
 
+    /// Build a version table offering N2N versions 7 and up with the given query flag.
     pub fn v7_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
         let values = vec![
             (
@@ -120,10 +126,12 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Build a version table offering N2N versions 11 and up with `query=false`.
     pub fn v11_and_above(network_magic: u64) -> VersionTable {
         Self::v11_and_above_with_query(network_magic, false)
     }
 
+    /// Build a version table offering N2N versions 11 and up with the given query flag.
     pub fn v11_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
         let values = vec![
             (
@@ -170,15 +178,21 @@ impl VersionTable {
     }
 }
 
+/// Per-version payload for the N2N handshake.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData {
+    /// Network identifier (mainnet / testnet / …).
     pub network_magic: u64,
+    /// Whether the peer is initiator-only (no responder duties).
     pub initiator_only_diffusion_mode: bool,
+    /// Peer-sharing capability flag, when negotiated.
     pub peer_sharing: Option<u8>,
+    /// Whether this exchange is a query-mode handshake.
     pub query: Option<bool>,
 }
 
 impl VersionData {
+    /// Build a [`VersionData`] from its individual fields.
     pub fn new(
         network_magic: u64,
         initiator_only_diffusion_mode: bool,

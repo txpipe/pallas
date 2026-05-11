@@ -46,8 +46,7 @@ pallas
 ├── interop
 │   ├── utxorpc      — UTxO RPC interop
 │   └── hardano      — Haskell-node interop (feature `hardano`)
-└── wallet
-    └── txbuilder    — ergonomic transaction builder
+└── txbuilder        — ergonomic transaction builder
 ```
 
 ### Feature Flags

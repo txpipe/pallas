@@ -6,6 +6,7 @@ use tracing::{debug, warn};
 use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
 use crate::multiplexer;
 
+/// Handshake server agent generic over the version-data payload type.
 pub struct Server<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
 
 impl<D> Server<D>
@@ -13,6 +14,7 @@ where
     D: std::fmt::Debug + Clone + std::cmp::PartialEq,
     Message<D>: Fragment,
 {
+    /// Build a server over a freshly subscribed agent channel.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Propose,
@@ -21,14 +23,17 @@ where
         )
     }
 
+    /// Current state-machine state.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// True if the protocol has terminated.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
 
+    /// True if the server holds agency in the current state.
     pub fn has_agency(&self) -> bool {
         matches!(self.state(), State::Confirm)
     }
@@ -64,6 +69,7 @@ where
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message<D>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -72,6 +78,7 @@ where
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message<D>, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
@@ -80,6 +87,7 @@ where
         Ok(msg)
     }
 
+    /// Receive the client's `Propose` message and return the offered versions.
     pub async fn receive_proposed_versions(&mut self) -> Result<VersionTable<D>, Error> {
         match self.recv_message().await? {
             Message::Propose(v) => {
@@ -90,6 +98,7 @@ where
         }
     }
 
+    /// Send an `Accept` confirming the given version and payload.
     pub async fn accept_version(
         &mut self,
         version: VersionNumber,
@@ -102,6 +111,7 @@ where
         Ok(())
     }
 
+    /// Send a `Refuse` with the given reason.
     pub async fn refuse(&mut self, reason: RefuseReason) -> Result<(), Error> {
         let message = Message::Refuse(reason);
         self.send_message(&message).await?;
@@ -174,11 +184,14 @@ where
         Ok(None)
     }
 
+    /// Discard the protocol wrapper and return the raw agent channel.
     pub fn unwrap(self) -> multiplexer::AgentChannel {
         self.1.unwrap()
     }
 }
 
+/// Node-to-node handshake server.
 pub type N2NServer = Server<super::n2n::VersionData>;
 
+/// Node-to-client handshake server.
 pub type N2CServer = Server<super::n2c::VersionData>;

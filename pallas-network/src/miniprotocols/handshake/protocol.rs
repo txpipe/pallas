@@ -5,29 +5,37 @@ use thiserror::*;
 
 use crate::multiplexer;
 
+/// Errors produced by the handshake protocol.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
 
+/// Map of protocol version numbers to their version-specific payload.
 #[derive(Debug, Clone)]
 pub struct VersionTable<T>
 where
     T: Debug + Clone,
 {
+    /// Underlying version → version-data map.
     pub values: HashMap<u64, T>,
 }
 
@@ -70,18 +78,25 @@ where
     }
 }
 
+/// Network identifier exchanged at handshake (mainnet, testnet, …).
 pub type NetworkMagic = u64;
 
+/// Numeric protocol version, where higher means more recent.
 pub type VersionNumber = u64;
 
+/// Handshake protocol message.
 #[derive(Debug)]
 pub enum Message<D>
 where
     D: Debug + Clone,
 {
+    /// Initiator → responder: offered versions and their payloads.
     Propose(VersionTable<D>),
+    /// Responder → initiator: accepted version plus the agreed payload.
     Accept(VersionNumber, D),
+    /// Responder → initiator: handshake refused for a stated reason.
     Refuse(RefuseReason),
+    /// Responder → initiator: query-mode response listing supported versions.
     QueryReply(VersionTable<D>),
 }
 
@@ -153,17 +168,25 @@ where
     }
 }
 
+/// Handshake state-machine state.
 #[derive(Debug, PartialEq, Eq)]
 pub enum State {
+    /// Initiator side: waiting to send `Propose`.
     Propose,
+    /// Responder side: waiting to send `Accept`/`Refuse`/`QueryReply`.
     Confirm,
+    /// Protocol terminated.
     Done,
 }
 
+/// Reason a responder gave for refusing the handshake.
 #[derive(Debug)]
 pub enum RefuseReason {
+    /// None of the offered versions overlap with the responder's set.
     VersionMismatch(Vec<VersionNumber>),
+    /// The version-data payload for the chosen version failed to decode.
     HandshakeDecodeError(VersionNumber, String),
+    /// The responder refused the chosen version with an explanatory message.
     Refused(VersionNumber, String),
 }
 

@@ -29,12 +29,16 @@ impl Default for RollbackBuffer {
     }
 }
 
+/// Result of attempting a rollback against the buffer.
 pub enum RollbackEffect {
+    /// Rollback point was within the buffer; orphaned points were dropped.
     Handled,
+    /// Rollback point was older than anything in the buffer; the whole buffer was cleared.
     OutOfScope,
 }
 
 impl RollbackBuffer {
+    /// Create an empty buffer.
     pub fn new() -> Self {
         Self {
             points: VecDeque::new(),

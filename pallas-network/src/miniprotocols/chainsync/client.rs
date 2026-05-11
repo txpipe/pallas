@@ -8,34 +8,47 @@ use crate::multiplexer;
 
 use super::{BlockContent, HeaderContent, IntersectResponse, Message, State, Tip};
 
+/// Errors produced by the chain-sync client agent.
 #[derive(Error, Debug)]
 pub enum ClientError {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    /// None of the points offered by the client are on the server's chain.
     #[error("no intersection point found")]
     IntersectionNotFound,
 
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
 
+/// Outcome of a single `request_next` step.
 #[derive(Debug)]
 pub enum NextResponse<CONTENT> {
+    /// Chain advances with new content.
     RollForward(CONTENT, Tip),
+    /// Chain rolls back to the given point.
     RollBackward(Point, Tip),
+    /// No update is available yet; the server is awaiting one.
     Await,
 }
 
+/// Chain-sync client agent generic over the content type (`HeaderContent` for
+/// node-to-node, `BlockContent` for node-to-client).
 pub struct Client<O>(State, multiplexer::ChannelBuffer, PhantomData<O>)
 where
     Message<O>: Fragment;
@@ -216,6 +229,7 @@ where
         self.recv_intersect_response().await
     }
 
+    /// Send a `RequestNext` message and transition to `CanAwait`.
     pub async fn send_request_next(&mut self) -> Result<(), ClientError> {
         let msg = Message::RequestNext;
         self.send_message(&msg).await?;
@@ -324,6 +338,7 @@ where
         point.ok_or(ClientError::IntersectionNotFound)
     }
 
+    /// Send a `Done` message and terminate the protocol.
     pub async fn send_done(&mut self) -> Result<(), ClientError> {
         let msg = Message::Done;
         self.send_message(&msg).await?;
@@ -333,6 +348,8 @@ where
     }
 }
 
+/// Node-to-node chain-sync client (streams `HeaderContent`).
 pub type N2NClient = Client<HeaderContent>;
 
+/// Node-to-client chain-sync client (streams whole `BlockContent`).
 pub type N2CClient = Client<BlockContent>;

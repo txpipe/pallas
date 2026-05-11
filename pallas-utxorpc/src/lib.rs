@@ -1,3 +1,66 @@
+//! Map Pallas ledger types onto the [UTxORPC] Cardano protobuf schema.
+//!
+//! Both spec versions are always compiled in side by side, so a caller can
+//! choose `v1alpha` or `v1beta` per call site without juggling features.
+//!
+//! [UTxORPC]: https://utxorpc.org
+//!
+//! # Usage
+//!
+//! ```
+//! use pallas_utxorpc::Mapper;          // default features: alias for v1alpha::Mapper
+//! use pallas_utxorpc::v1alpha::Mapper as V1Alpha;
+//! use pallas_utxorpc::v1beta::Mapper as V1Beta;
+//! ```
+//!
+//! For back-compat with pre-v1beta releases, the default
+//! `u5c-v1alpha-compat` feature re-exports `v1alpha` at the crate root, so
+//! `pallas_utxorpc::Mapper` and `pallas_utxorpc::spec` keep resolving to
+//! v1alpha. Disable the compat shim to force callers onto explicit version
+//! paths:
+//!
+//! ```toml
+//! pallas-utxorpc = { version = "...", default-features = false }
+//! ```
+//!
+//! # Overview
+//!
+//! - [`v1alpha`] — `Mapper` returning
+//!   `utxorpc_spec::utxorpc::v1alpha::cardano::*`.
+//! - [`v1beta`] — `Mapper` returning
+//!   `utxorpc_spec::utxorpc::v1beta::cardano::*`, including the v1beta-only
+//!   types (`BootstrapWitness`, `VoterVotes`, `VotingProcedure`, `Vote`).
+//! - Crate-root infrastructure ([`LedgerContext`], [`TxHash`], [`TxoIndex`],
+//!   [`TxoRef`], [`Cbor`], [`EraCbor`], [`UtxoMap`], [`DatumMap`]) is
+//!   shared across versions and unaffected by the feature flag.
+//!
+//! # Feature flags
+//!
+//! - `u5c-v1alpha-compat` *(default)* — re-export [`v1alpha::Mapper`] and
+//!   [`v1alpha::spec`] at the crate root for back-compat with pre-v1beta
+//!   callers.
+//!
+//! # Testing
+//!
+//! Each version has a snapshot test that decodes a fixed Babbage block and
+//! compares the mapper output against a JSON file under `test_data/`
+//! (`u5c_v1alpha.json`, `u5c_v1beta.json`). To overwrite both snapshots with
+//! the current mapper output:
+//!
+//! ```sh
+//! REGENERATE_SNAPSHOTS=1 cargo test -p pallas-utxorpc
+//! ```
+//!
+//! When the variable is unset (the normal case), the tests assert against
+//! the checked-in JSON files.
+//!
+//! # Usage as part of `pallas`
+//!
+//! When depending on the umbrella [`pallas`] crate, this crate is re-exported
+//! as `pallas::interop::utxorpc`.
+//!
+//! [`pallas`]: https://crates.io/crates/pallas
+
 use std::collections::HashMap;
 
 use pallas_crypto::hash::Hash;
@@ -7,22 +70,36 @@ use pallas_traverse as trv;
 #[macro_use]
 mod shared;
 
+/// Mappers and types for the `v1alpha` UTxO RPC schema.
 pub mod v1alpha;
+/// Mappers and types for the `v1beta` UTxO RPC schema.
 pub mod v1beta;
 
 #[cfg(feature = "u5c-v1alpha-compat")]
 pub use v1alpha::{spec, Mapper};
 
+/// 32-byte transaction hash.
 pub type TxHash = Hash<32>;
+/// Index of an output within a transaction.
 pub type TxoIndex = u32;
+/// Reference to a single transaction output: `(tx_hash, output_index)`.
 pub type TxoRef = (TxHash, TxoIndex);
+/// Raw CBOR bytes for an on-chain artifact.
 pub type Cbor = Vec<u8>;
+/// CBOR bytes tagged with the era they were produced in.
 pub type EraCbor = (trv::Era, Cbor);
+/// Resolved UTxO set keyed by output reference.
 pub type UtxoMap = HashMap<TxoRef, EraCbor>;
+/// Plutus datums keyed by their 32-byte hash.
 pub type DatumMap = HashMap<Hash<32>, alonzo::PlutusData>;
 
+/// Side-channel a UTxO RPC mapper uses to resolve information that is not
+/// inlined in the transaction or block being mapped (referenced UTxOs, slot
+/// timestamps, etc.).
 pub trait LedgerContext: Clone {
+    /// Resolve a set of output references to their on-chain CBOR.
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap>;
+    /// Resolve a slot number to its wall-clock timestamp (UNIX seconds).
     fn get_slot_timestamp(&self, slot: u64) -> Option<u64>;
 }
 

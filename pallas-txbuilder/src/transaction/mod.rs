@@ -11,6 +11,7 @@ pub enum TransactionStatus {
     Built,
 }
 
+/// Fixed-length 32-byte buffer (transaction hashes, datum hashes, public keys).
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct Bytes32(pub [u8; 32]);
 
@@ -23,6 +24,7 @@ type Signature = Bytes64;
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Hash28(pub [u8; 28]);
 
+/// Owned variable-length byte buffer used for asset names, datum payloads, etc.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Bytes(pub Vec<u8>);
 

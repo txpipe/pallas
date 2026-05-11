@@ -1,13 +1,53 @@
-//! Interact with Cardano addresses of any type
+//! Encode and decode Cardano addresses of every kind.
 //!
-//! This module contains utilities to decode / encode Cardano addresses from /
-//! to different formats. The entry point to most of the methods is the
-//! [Address] enum, which holds the decoded values of either a Byron, Shelley or
-//! Stake address.
+//! Byron, Shelley payment, and stake addresses are all parsed through the same
+//! [`Address`] entry point: feed it a bech32 / base58 / hex string (or raw
+//! bytes), match on the variant, and inspect the network, payment credential,
+//! delegation, or pointer parts. Address shape follows
+//! [CIP-19](https://cips.cardano.org/cips/cip19/).
 //!
-//! For more information regarding Cardano addresses and their formats, please refer to [CIP-19](https://cips.cardano.org/cips/cip19/).
+//! # Usage
+//!
+//! ```
+//! use pallas_addresses::Address;
+//!
+//! let addr = Address::from_bech32(
+//!     "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3\
+//!      n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x",
+//! )?;
+//!
+//! match addr {
+//!     Address::Byron(b)   => println!("byron:   {}", b.to_base58()),
+//!     Address::Shelley(s) => println!("shelley: {} on {:?}", s.to_bech32()?, s.network()),
+//!     Address::Stake(s)   => println!("stake:   {}", s.to_bech32()?),
+//! }
+//! # Ok::<_, pallas_addresses::Error>(())
+//! ```
+//!
+//! # Overview
+//!
+//! - [`Address`] — top-level decoded form, dispatching to the three variants.
+//! - [`ByronAddress`], [`ShelleyAddress`], [`StakeAddress`] — per-kind
+//!   decoded representations.
+//! - [`ShelleyPaymentPart`], [`ShelleyDelegationPart`], [`StakePayload`],
+//!   [`Pointer`] — the structural pieces that make up a Shelley / stake
+//!   address.
+//! - [`Network`] — Mainnet / Testnet / `Other(u8)` discriminator parsed from
+//!   the address header.
+//! - [`byron`] submodule — Byron-specific structures and CBOR helpers.
+//! - [`varuint`] submodule — variable-length integer codec used by stake
+//!   pointers.
+//!
+//! # Usage as part of `pallas`
+//!
+//! When depending on the umbrella [`pallas`] crate, this crate is re-exported
+//! as `pallas::ledger::addresses`.
+//!
+//! [`pallas`]: https://crates.io/crates/pallas
 
+/// Byron-era addresses (base58, CBOR-encoded).
 pub mod byron;
+/// Variable-length unsigned integer codec used inside Shelley pointer addresses.
 pub mod varuint;
 
 use std::{fmt::Display, io::Cursor, str::FromStr};
@@ -15,57 +55,78 @@ use std::{fmt::Display, io::Cursor, str::FromStr};
 use pallas_crypto::hash::Hash;
 use thiserror::Error;
 
+/// Errors produced while decoding or encoding a Cardano address.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Failed to decode a bech32 string.
     #[error("error decoding from bech32 {0}")]
     BadBech32(bech32::DecodeError),
 
+    /// Failed to decode a base58 string.
     #[error("error decoding base58 value")]
     BadBase58(base58::FromBase58Error),
 
+    /// Failed to decode a hexadecimal string.
     #[error("error decoding hex value")]
     BadHex,
 
+    /// The input string does not match any recognized address format.
     #[error("unknown or bad string format for address {0}")]
     UnknownStringFormat(String),
 
+    /// The address byte sequence is empty and has no header byte.
     #[error("address header not found")]
     MissingHeader,
 
+    /// The address header byte does not match any defined Cardano address type.
     #[error("address header is invalid {0:08b}")]
     InvalidHeader(u8),
 
+    /// The requested operation does not apply to Byron addresses.
     #[error("invalid operation for Byron address")]
     InvalidForByron,
 
+    /// The requested operation does not apply to this address content.
     #[error("invalid operation for address content")]
     InvalidForContent,
 
+    /// The Byron address payload is not valid CBOR.
     #[error("invalid CBOR for Byron address {0}")]
     InvalidByronCbor(pallas_codec::minicbor::decode::Error),
 
+    /// The network nibble in the header does not map to a known bech32 HRP.
     #[error("unkown hrp for network {0:08b}")]
     UnknownNetworkHrp(u8),
 
+    /// An embedded hash had an unexpected byte length.
     #[error("invalid hash size {0}")]
     InvalidHashSize(usize),
 
+    /// The total address byte length is shorter than required by its type.
     #[error("invalid address length {0}")]
     InvalidAddressLength(usize),
 
+    /// The pointer payload of a Shelley pointer address could not be parsed.
     #[error("invalid pointer data")]
     InvalidPointerData,
 
+    /// A variable-length uint inside a pointer address failed to decode.
     #[error("variable-length uint error: {0}")]
     VarUintError(varuint::Error),
 }
 
+/// Hash of a payment verification key (Blake2b-224).
 pub type PaymentKeyHash = Hash<28>;
+/// Hash of a stake verification key (Blake2b-224).
 pub type StakeKeyHash = Hash<28>;
+/// Hash of a script (Blake2b-224).
 pub type ScriptHash = Hash<28>;
 
+/// Absolute slot number on the Cardano chain.
 pub type Slot = u64;
+/// Index of a transaction within a block.
 pub type TxIdx = u64;
+/// Index of a certificate within a transaction.
 pub type CertIdx = u64;
 
 /// An on-chain pointer to a stake key
@@ -83,10 +144,12 @@ fn slice_to_hash(slice: &[u8]) -> Result<Hash<28>, Error> {
 }
 
 impl Pointer {
+    /// Build a pointer from its three components.
     pub fn new(slot: Slot, tx_idx: TxIdx, cert_idx: CertIdx) -> Self {
         Pointer(slot, tx_idx, cert_idx)
     }
 
+    /// Parse a pointer from its variable-length byte encoding.
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         let mut cursor = Cursor::new(bytes);
         let a = varuint::read(&mut cursor).map_err(Error::VarUintError)?;
@@ -96,6 +159,7 @@ impl Pointer {
         Ok(Pointer(a, b, c))
     }
 
+    /// Encode the pointer as its variable-length byte representation.
     pub fn to_vec(&self) -> Vec<u8> {
         let mut cursor = Cursor::new(vec![]);
         varuint::write(&mut cursor, self.0);
@@ -105,36 +169,43 @@ impl Pointer {
         cursor.into_inner()
     }
 
+    /// Slot number component of the pointer.
     pub fn slot(&self) -> u64 {
         self.0
     }
 
+    /// Transaction index component of the pointer.
     pub fn tx_idx(&self) -> u64 {
         self.1
     }
 
+    /// Certificate index component of the pointer.
     pub fn cert_idx(&self) -> u64 {
         self.2
     }
 }
 
-/// The payment part of a Shelley address
+/// The payment part of a Shelley address.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum ShelleyPaymentPart {
+    /// Payment is controlled by a verification key with the given hash.
     Key(PaymentKeyHash),
+    /// Payment is controlled by a script with the given hash.
     Script(ScriptHash),
 }
 
 impl ShelleyPaymentPart {
+    /// Build a key-hash payment part.
     pub fn key_hash(hash: Hash<28>) -> Self {
         Self::Key(hash)
     }
 
+    /// Build a script-hash payment part.
     pub fn script_hash(hash: Hash<28>) -> Self {
         Self::Script(hash)
     }
 
-    /// Get a reference to the inner hash of this address part
+    /// Get a reference to the inner hash of this address part.
     pub fn as_hash(&self) -> &Hash<28> {
         match self {
             Self::Key(x) => x,
@@ -142,7 +213,7 @@ impl ShelleyPaymentPart {
         }
     }
 
-    /// Encodes this address as a sequence of bytes
+    /// Encodes this address part as its 28 raw bytes.
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
             Self::Key(x) => x.to_vec(),
@@ -150,11 +221,13 @@ impl ShelleyPaymentPart {
         }
     }
 
+    /// Encode the payment part as a lowercase hexadecimal string.
     pub fn to_hex(&self) -> String {
         let bytes = self.to_vec();
         hex::encode(bytes)
     }
 
+    /// Encode the payment part as a bech32 string under its CIP-5 HRP.
     pub fn to_bech32(&self) -> String {
         let hrp = match self {
             Self::Key(_) => "addr_vkh",
@@ -164,36 +237,43 @@ impl ShelleyPaymentPart {
         encode_bech32(&bytes, hrp)
     }
 
-    /// Indicates if this is the hash of a script
+    /// Indicates if this is the hash of a script.
     pub fn is_script(&self) -> bool {
         matches!(self, Self::Script(_))
     }
 }
 
-/// The delegation part of a Shelley address
+/// The delegation part of a Shelley address.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum ShelleyDelegationPart {
+    /// Delegation is controlled by a stake key with the given hash.
     Key(StakeKeyHash),
+    /// Delegation is controlled by a script with the given hash.
     Script(ScriptHash),
+    /// Delegation is identified by a pointer to a stake-key registration.
     Pointer(Pointer),
+    /// Address has no delegation part (enterprise address).
     Null,
 }
 
 impl ShelleyDelegationPart {
+    /// Build a key-hash delegation part.
     pub fn key_hash(hash: Hash<28>) -> Self {
         Self::Key(hash)
     }
 
+    /// Build a script-hash delegation part.
     pub fn script_hash(hash: Hash<28>) -> Self {
         Self::Script(hash)
     }
 
+    /// Build a pointer delegation part by parsing its variable-length encoding.
     pub fn from_pointer(bytes: &[u8]) -> Result<Self, Error> {
         let pointer = Pointer::parse(bytes)?;
         Ok(Self::Pointer(pointer))
     }
 
-    /// Get a reference to the inner hash of this address part
+    /// Get a reference to the inner hash of this address part, if it carries one.
     pub fn as_hash(&self) -> Option<&Hash<28>> {
         match self {
             Self::Key(x) => Some(x),
@@ -203,6 +283,7 @@ impl ShelleyDelegationPart {
         }
     }
 
+    /// Encode the delegation part as its raw byte representation.
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
             Self::Key(x) => x.to_vec(),
@@ -212,11 +293,13 @@ impl ShelleyDelegationPart {
         }
     }
 
+    /// Encode the delegation part as a lowercase hexadecimal string.
     pub fn to_hex(&self) -> String {
         let bytes = self.to_vec();
         hex::encode(bytes)
     }
 
+    /// Encode the delegation part as a bech32 string under its CIP-5 HRP.
     pub fn to_bech32(&self) -> Result<String, Error> {
         let hrp = match self {
             Self::Key(_) => "stake_vkh",
@@ -228,6 +311,7 @@ impl ShelleyDelegationPart {
         Ok(encode_bech32(&bytes, hrp))
     }
 
+    /// Indicates if this is the hash of a script.
     pub fn is_script(&self) -> bool {
         matches!(self, ShelleyDelegationPart::Script(_))
     }
@@ -242,11 +326,12 @@ impl StakePayload {
         slice_to_hash(bytes).map(StakePayload::Script)
     }
 
+    /// Indicates if this is the hash of a script.
     pub fn is_script(&self) -> bool {
         matches!(self, StakePayload::Script(_))
     }
 
-    /// Get a reference to the inner hash of this address part
+    /// Get a reference to the inner hash of this address part.
     pub fn as_hash(&self) -> &Hash<28> {
         match self {
             StakePayload::Stake(x) => x,
@@ -255,11 +340,14 @@ impl StakePayload {
     }
 }
 
-/// The network tag of an address
+/// The network tag of an address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub enum Network {
+    /// The Cardano testnet (network id 0).
     Testnet,
+    /// The Cardano mainnet (network id 1).
     Mainnet,
+    /// Any other network id (custom or unrecognized).
     Other(u8),
 }
 
@@ -273,28 +361,33 @@ impl From<u8> for Network {
     }
 }
 
-/// A decoded Shelley address
+/// A decoded Shelley address.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub struct ShelleyAddress(Network, ShelleyPaymentPart, ShelleyDelegationPart);
 
-/// The payload of a Stake address
+/// The payload of a stake address.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum StakePayload {
+    /// Stake credential controlled by a verification-key hash.
     Stake(StakeKeyHash),
+    /// Stake credential controlled by a script hash.
     Script(ScriptHash),
 }
 
-/// A decoded Stake address
+/// A decoded stake address.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub struct StakeAddress(Network, StakePayload);
 
 pub use byron::ByronAddress;
 
-/// A decoded Cardano address of any type
+/// A decoded Cardano address of any type.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
 pub enum Address {
+    /// A Byron-era base58/CBOR address.
     Byron(ByronAddress),
+    /// A Shelley-era payment address.
     Shelley(ShelleyAddress),
+    /// A stake address.
     Stake(StakeAddress),
 }
 
@@ -429,10 +522,12 @@ fn bech32_to_address(bech32: &str) -> Result<Address, Error> {
 }
 
 impl Network {
+    /// True if this is the Cardano mainnet.
     pub fn is_mainnet(&self) -> bool {
         matches!(self, Network::Mainnet)
     }
 
+    /// Numeric network id encoded in the address header.
     pub fn value(&self) -> u8 {
         match self {
             Network::Testnet => 0,
@@ -443,6 +538,7 @@ impl Network {
 }
 
 impl ShelleyAddress {
+    /// Build a Shelley address from its network, payment, and delegation parts.
     pub fn new(
         network: Network,
         payment: ShelleyPaymentPart,
@@ -451,12 +547,12 @@ impl ShelleyAddress {
         Self(network, payment, delegation)
     }
 
-    /// Gets the network assoaciated with this address
+    /// Gets the network associated with this address.
     pub fn network(&self) -> Network {
         self.0
     }
 
-    /// Gets a numeric id describing the type of the address
+    /// Gets a numeric id describing the type of the address.
     pub fn typeid(&self) -> u8 {
         match (&self.1, &self.2) {
             (ShelleyPaymentPart::Key(_), ShelleyDelegationPart::Key(_)) => 0b0000,
@@ -470,6 +566,7 @@ impl ShelleyAddress {
         }
     }
 
+    /// Combine the type id and network nibbles into the address header byte.
     pub fn to_header(&self) -> u8 {
         let type_id = self.typeid();
         let type_id = type_id << 4;
@@ -478,15 +575,17 @@ impl ShelleyAddress {
         type_id | network
     }
 
+    /// Get a reference to the payment part of this address.
     pub fn payment(&self) -> &ShelleyPaymentPart {
         &self.1
     }
 
+    /// Get a reference to the delegation part of this address.
     pub fn delegation(&self) -> &ShelleyDelegationPart {
         &self.2
     }
 
-    /// Gets the bech32 human-readable-part for this address
+    /// Gets the bech32 human-readable-part for this address.
     pub fn hrp(&self) -> Result<&'static str, Error> {
         match &self.0 {
             Network::Testnet => Ok("addr_test"),
@@ -495,6 +594,7 @@ impl ShelleyAddress {
         }
     }
 
+    /// Encode the address as its raw byte representation (header + payload).
     pub fn to_vec(&self) -> Vec<u8> {
         let header = self.to_header();
         let payment = self.1.to_vec();
@@ -503,18 +603,20 @@ impl ShelleyAddress {
         [&[header], payment.as_slice(), delegation.as_slice()].concat()
     }
 
+    /// Encode the address as a lowercase hexadecimal string.
     pub fn to_hex(&self) -> String {
         let bytes = self.to_vec();
         hex::encode(bytes)
     }
 
+    /// Encode the address as a bech32 string under its network HRP.
     pub fn to_bech32(&self) -> Result<String, Error> {
         let hrp = self.hrp()?;
         let bytes = self.to_vec();
         Ok(encode_bech32(&bytes, hrp))
     }
 
-    /// Indicates if either the payment or delegation part is a script
+    /// Indicates if either the payment or delegation part is a script.
     pub fn has_script(&self) -> bool {
         self.payment().is_script() || self.delegation().is_script()
     }
@@ -544,16 +646,17 @@ impl AsRef<[u8]> for StakePayload {
 }
 
 impl StakeAddress {
+    /// Build a stake address from its network and payload.
     pub fn new(network: Network, payload: StakePayload) -> Self {
         Self(network, payload)
     }
 
-    /// Gets the network assoaciated with this address
+    /// Gets the network associated with this address.
     pub fn network(&self) -> Network {
         self.0
     }
 
-    /// Gets a numeric id describing the type of the address
+    /// Gets a numeric id describing the type of the address.
     pub fn typeid(&self) -> u8 {
         match &self.1 {
             StakePayload::Stake(_) => 0b1110,
@@ -561,7 +664,7 @@ impl StakeAddress {
         }
     }
 
-    /// Builds the header for this address
+    /// Builds the header byte for this address.
     pub fn to_header(&self) -> u8 {
         let type_id = self.typeid();
         let type_id = type_id << 4;
@@ -570,12 +673,12 @@ impl StakeAddress {
         type_id | network
     }
 
-    /// Gets the payload of this address
+    /// Gets the payload of this address.
     pub fn payload(&self) -> &StakePayload {
         &self.1
     }
 
-    /// Gets the bech32 human-readable-part for this address
+    /// Gets the bech32 human-readable-part for this address.
     pub fn hrp(&self) -> Result<&'static str, Error> {
         match &self.0 {
             Network::Testnet => Ok("stake_test"),
@@ -584,23 +687,27 @@ impl StakeAddress {
         }
     }
 
+    /// Encode the address as its raw byte representation (header + payload).
     pub fn to_vec(&self) -> Vec<u8> {
         let header = self.to_header();
 
         [&[header], self.1.as_ref()].concat()
     }
 
+    /// Encode the address as a lowercase hexadecimal string.
     pub fn to_hex(&self) -> String {
         let bytes = self.to_vec();
         hex::encode(bytes)
     }
 
+    /// Encode the address as a bech32 string under its network HRP.
     pub fn to_bech32(&self) -> Result<String, Error> {
         let hrp = self.hrp()?;
         let bytes = self.to_vec();
         Ok(encode_bech32(&bytes, hrp))
     }
 
+    /// Indicates if this stake address is controlled by a script.
     pub fn is_script(&self) -> bool {
         self.payload().is_script()
     }
@@ -621,12 +728,12 @@ impl Address {
         bech32_to_address(bech32)
     }
 
-    // Tries to decode the raw bytes of an address
+    /// Tries to decode the raw bytes of an address.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         bytes_to_address(bytes)
     }
 
-    // Tries to parse a hex value into an Address
+    /// Tries to parse a hex value into an Address.
     pub fn from_hex(bytes: &str) -> Result<Self, Error> {
         let bytes = hex::decode(bytes).map_err(|_| Error::BadHex)?;
         bytes_to_address(&bytes)
@@ -676,6 +783,7 @@ impl Address {
         }
     }
 
+    /// Encode the address as its raw byte representation.
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
             Address::Byron(x) => x.to_vec(),
@@ -684,6 +792,7 @@ impl Address {
         }
     }
 
+    /// Encode the address as a lowercase hexadecimal string.
     pub fn to_hex(&self) -> String {
         match self {
             Address::Byron(x) => x.to_hex(),
