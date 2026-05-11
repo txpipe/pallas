@@ -82,7 +82,7 @@ pub use pallas_codec::utils::{
 };
 pub use pallas_crypto::hash::Hash;
 
-use pallas_codec::minicbor::{self, data::Tag, Decode, Encode};
+use pallas_codec::minicbor::{self, Decode, Encode, data::Tag};
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeMap;

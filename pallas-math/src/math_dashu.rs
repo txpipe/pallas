@@ -2,7 +2,7 @@
 # Cardano Math functions using the num-bigint crate
  */
 
-use crate::math::{Error, ExpCmpOrdering, ExpOrdering, FixedPrecision, DEFAULT_PRECISION};
+use crate::math::{DEFAULT_PRECISION, Error, ExpCmpOrdering, ExpOrdering, FixedPrecision};
 use dashu_base::{Abs, DivRem, Sign};
 use dashu_int::{IBig, UBig};
 use regex::Regex;

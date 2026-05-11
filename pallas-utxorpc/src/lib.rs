@@ -76,7 +76,7 @@ pub mod v1alpha;
 pub mod v1beta;
 
 #[cfg(feature = "u5c-v1alpha-compat")]
-pub use v1alpha::{spec, Mapper};
+pub use v1alpha::{Mapper, spec};
 
 /// 32-byte transaction hash.
 pub type TxHash = Hash<32>;

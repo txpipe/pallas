@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 
 use pallas_network::multiplexer::{Bearer, Plexer};
-use rand::{distr::Uniform, RngExt};
+use rand::{RngExt, distr::Uniform};
 use tokio::net::TcpListener;
 
 async fn setup_passive_muxer<const P: u16>() -> Plexer {

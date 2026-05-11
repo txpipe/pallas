@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pallas_codec::minicbor::data::Type;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 use super::protocol::NetworkMagic;
 

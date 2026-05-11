@@ -1,5 +1,5 @@
 use super::*;
-use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::Tag, decode, encode};
 
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
@@ -244,7 +244,7 @@ impl<'b> Decode<'b, ()> for BlockQuery {
                         n => {
                             return Err(decode::Error::message(format!(
                                 "unknown LedgerPeerSnapshot kind tag: {n}"
-                            )))
+                            )));
                         }
                     };
                     Ok(Self::GetLedgerPeerSnapshot(kind))
@@ -848,8 +848,8 @@ pub mod tests {
     #[cfg(feature = "blueprint")]
     fn test_api_example_roundtrip() {
         use crate::miniprotocols::localstate::{
-            queries_v16::{Request, SystemStart},
             Message,
+            queries_v16::{Request, SystemStart},
         };
         use pallas_codec::utils::AnyCbor;
 

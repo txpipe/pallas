@@ -1,6 +1,6 @@
 pub type Error = Box<dyn std::error::Error>;
 
-use pallas_codec::minicbor::{decode, to_vec, Decode, Encode};
+use pallas_codec::minicbor::{Decode, Encode, decode, to_vec};
 
 pub trait Fragment<'a>
 where

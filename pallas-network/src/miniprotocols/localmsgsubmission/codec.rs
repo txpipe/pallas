@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 use crate::miniprotocols::localmsgsubmission::DmqMsgOperationalCertificate;
 

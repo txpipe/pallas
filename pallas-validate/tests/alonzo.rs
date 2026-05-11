@@ -38,7 +38,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -86,8 +88,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -101,42 +105,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -146,7 +162,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -216,7 +234,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("01f64b141bfa7761c00a48a137b15d433af02c9275dbf52ea95566b59cb4f05ecc9fd8c9066ef7fd907db854c76caf6462b132ce133dc7cc44"),
+                String::from(
+                    "01f64b141bfa7761c00a48a137b15d433af02c9275dbf52ea95566b59cb4f05ecc9fd8c9066ef7fd907db854c76caf6462b132ce133dc7cc44",
+                ),
                 Value::Coin(3224834468),
                 None,
             )],
@@ -249,7 +269,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -324,7 +346,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -368,7 +392,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -413,7 +439,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -465,8 +493,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -480,42 +510,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -525,7 +567,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -584,8 +628,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -599,42 +645,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -644,7 +702,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -695,8 +755,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -710,48 +772,62 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
             ],
         );
-        let old_address: Address = match hex::decode(String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da")) {
+        let old_address: Address = match hex::decode(String::from(
+            "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+        )) {
             Ok(bytes_vec) => Address::from_bytes(bytes_vec.as_slice()).unwrap(),
             _ => panic!("Unable to parse collateral input address"),
         };
@@ -828,8 +904,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -843,42 +921,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -888,7 +978,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Multiasset(
                     5000000,
                     [(
@@ -898,8 +990,10 @@ mod alonzo_tests {
                         [(
                             Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                             1000,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
             )],
@@ -949,8 +1043,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -964,42 +1060,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1009,7 +1117,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1047,7 +1157,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1117,7 +1229,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1160,7 +1274,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1210,8 +1326,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -1225,42 +1343,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1270,7 +1400,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1311,7 +1443,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1365,8 +1499,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -1380,42 +1516,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1425,7 +1573,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1473,7 +1623,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1516,7 +1668,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -1579,8 +1733,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -1594,42 +1750,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1639,7 +1807,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1695,8 +1865,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -1710,42 +1882,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1755,7 +1939,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1862,8 +2048,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -1877,42 +2065,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -1922,7 +2122,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -1978,8 +2180,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -1993,42 +2197,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2038,7 +2254,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2100,8 +2318,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -2115,42 +2335,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2160,7 +2392,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2223,8 +2457,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -2238,42 +2474,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2283,7 +2531,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],
@@ -2328,7 +2578,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("01f64b141bfa7761c00a48a137b15d433af02c9275dbf52ea95566b59cb4f05ecc9fd8c9066ef7fd907db854c76caf6462b132ce133dc7cc44"),
+                String::from(
+                    "01f64b141bfa7761c00a48a137b15d433af02c9275dbf52ea95566b59cb4f05ecc9fd8c9066ef7fd907db854c76caf6462b132ce133dc7cc44",
+                ),
                 Value::Coin(3224834468),
                 None,
             )],
@@ -2365,7 +2617,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -2404,7 +2658,9 @@ mod alonzo_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00"),
+                String::from(
+                    "018c9ae79bca586ac36dcfdbbf4d2826c685a6969411c338c14973cc7f7bdb37706cd03711fe64747f8cfcfd574c7445cc0378781e77a8cc00",
+                ),
                 Value::Coin(1549646822),
                 None,
             )],
@@ -2457,8 +2713,10 @@ mod alonzo_tests {
                             [(
                                 Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                                 1,
-                            )].into(),
-                        )].into(),
+                            )]
+                            .into(),
+                        )]
+                        .into(),
                     ),
                     Some(
                         hex::decode(
@@ -2472,42 +2730,54 @@ mod alonzo_tests {
                 (
                     // (tx hash, tx output index):
                     // (d2f9764fa93ae5bcabbb65c7a2f97d1e31188064ae3d2ba1462114453928dd99, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (9fab354c2825376a943e505d13a3861e4d9ad3e177028d7bb2bbabce5453fa11, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (3077a999b1d22cb1a4e5ee485adbde6a4596704a96384fbc9727028b8b28ba47, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b231aca45a38add7378d2ed7a0822626fee3396821e8791a5af5926807db962d, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(29792207),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (11579a841b3c7a64aa057c9adf993ef42520570450499b0a724c7ef706b2a435, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(61233231),
                     None,
                 ),
                 (
                     // (tx hash, tx output index):
                     // (b857f98162b753d117464c499d53bbbfec5aa38b94bd624e295a7e3fddc77130, 0)
-                    String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                    String::from(
+                        "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                    ),
                     Value::Coin(20292207),
                     None,
                 ),
@@ -2517,7 +2787,9 @@ mod alonzo_tests {
             &mtx.transaction_body,
             &mut utxos,
             &[(
-                String::from("01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da"),
+                String::from(
+                    "01c81ffcbc08ff49965d74f90c391541ff1cc2b043ffe41c81d840be8729f2ae5ed49a1734823ba37fd09923f5f7d494ae0efa23dd98ce02da",
+                ),
                 Value::Coin(5000000),
                 None,
             )],

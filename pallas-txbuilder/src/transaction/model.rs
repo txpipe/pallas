@@ -4,8 +4,8 @@ use pallas_crypto::{
     key::ed25519,
 };
 use pallas_primitives::{
-    conway::{self, AuxiliaryData},
     Fragment, NonEmptySet,
+    conway::{self, AuxiliaryData},
 };
 
 use std::{collections::HashMap, ops::Deref};

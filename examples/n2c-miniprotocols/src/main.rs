@@ -7,13 +7,12 @@ use pallas::{
     network::{
         facades::NodeClient,
         miniprotocols::{
-            chainsync,
+            PRE_PRODUCTION_MAGIC, Point, chainsync,
             localstate::queries_v16::{
                 self, Addr, Addrs, Coin, Credential, DRep, Either, GovActionId, StakeAddr,
                 TransactionInput,
             },
             localtxsubmission::SMaybe,
-            Point, PRE_PRODUCTION_MAGIC,
         },
     },
 };

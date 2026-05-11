@@ -58,10 +58,11 @@ pub(crate) fn haskell_show_string(s: &str) -> String {
                     result.push_str(abbreviation);
 
                     // Insert \& if next character would be confusing
-                    if let Some(&next_c) = chars.peek() {
-                        if abbreviation == "SO" && next_c == 'H' {
-                            result.push_str("\\&");
-                        }
+                    if let Some(&next_c) = chars.peek()
+                        && abbreviation == "SO"
+                        && next_c == 'H'
+                    {
+                        result.push_str("\\&");
                     }
                 } else if c <= '\x7F' {
                     // Control characters without abbreviation (use octal escape)
@@ -71,10 +72,10 @@ pub(crate) fn haskell_show_string(s: &str) -> String {
                     result.push_str(&escape_seq);
 
                     // Insert \& if next character is an octal digit
-                    if let Some(&next_c) = chars.peek() {
-                        if is_oct_digit(next_c) {
-                            result.push_str("\\&");
-                        }
+                    if let Some(&next_c) = chars.peek()
+                        && is_oct_digit(next_c)
+                    {
+                        result.push_str("\\&");
                     }
                 } else {
                     // Characters with code > 127 (use decimal escape)
@@ -83,10 +84,10 @@ pub(crate) fn haskell_show_string(s: &str) -> String {
                     result.push_str(&code.to_string());
 
                     // Insert \& if next character is a decimal digit
-                    if let Some(&next_c) = chars.peek() {
-                        if next_c.is_ascii_digit() {
-                            result.push_str("\\&");
-                        }
+                    if let Some(&next_c) = chars.peek()
+                        && next_c.is_ascii_digit()
+                    {
+                        result.push_str("\\&");
                     }
                 }
             }

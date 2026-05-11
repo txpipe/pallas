@@ -4,8 +4,8 @@ use crate::multiplexer;
 use pallas_codec::Fragment;
 
 use super::{
-    protocol::{Error, Message, State, TxIdAndSize},
     EraTxBody, EraTxId,
+    protocol::{Error, Message, State, TxIdAndSize},
 };
 
 /// Decoded inbound request from the server, indicating what to reply with next.

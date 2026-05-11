@@ -2,7 +2,7 @@ use pallas_codec::Fragment;
 
 use crate::{miniprotocols::localmsgsubmission::DmqMsg, multiplexer};
 
-use super::{protocol::Error, Message, State};
+use super::{Message, State, protocol::Error};
 
 /// Decoded inbound request from the DMQ client.
 #[derive(Debug, PartialEq, Eq)]

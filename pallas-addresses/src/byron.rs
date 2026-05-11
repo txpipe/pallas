@@ -1,5 +1,5 @@
 use pallas_codec::{
-    minicbor::{self, bytes::ByteVec, Decode, Encode},
+    minicbor::{self, Decode, Encode, bytes::ByteVec},
     utils::{OrderPreservingProperties, TagWrap},
 };
 

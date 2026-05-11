@@ -1,4 +1,4 @@
-use crate::{wellknown::GenesisValues, MultiEraBlock};
+use crate::{MultiEraBlock, wellknown::GenesisValues};
 
 pub type Epoch = u64;
 
