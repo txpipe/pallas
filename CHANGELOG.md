@@ -2,12 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [1.0.0] - 2026-05-11
 
 ### 🚀 Features
 
 - *(utxorpc)* Add v1beta spec support alongside v1alpha (#745)
 - Prep for van Rossem hard fork (#747)
+- Bump rust edition to 2024 (#770)
 
 ### 🐛 Bug Fixes
 
@@ -24,10 +25,13 @@ All notable changes to this project will be documented in this file.
 
 - Tidy per-crate READMEs onto a common structure (#759)
 - Improve root readme (#760)
+- Add missing docstrings across the board (#769)
+- Use permalinks for examples in docstrings
 
 ### 🔧 Continuous Integration
 
 - Improve github workflow
+- Switch release workflow to cargo-release split flow (#768)
 
 ### 🧪 Testing
 
@@ -40,6 +44,8 @@ All notable changes to this project will be documented in this file.
 - Fix lints, rustdoc, and feature gates across workspace (#764)
 - Declare MSRV (1.88) and verify in CI (#765)
 - Hoist common cargo metadata and dependencies to workspace (#766)
+- Replace git-chglog automation with git-cliff (#767)
+- Don't release example crates
 
 ### Build
 
@@ -48,6 +54,10 @@ All notable changes to this project will be documented in this file.
 - *(deps)* Update thiserror requirement from 1.0.39 to 2.0.18 (#743)
 - *(deps)* Update socket2 requirement from 0.5.5 to 0.6.3 (#741)
 - *(deps)* Update rand requirement from 0.8.5 to 0.10.1 (#742)
+
+### Hore
+
+- Move git-cliff hook to single location
 
 ## [1.0.0-alpha.6] - 2026-03-30
 
