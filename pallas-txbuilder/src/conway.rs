@@ -24,7 +24,14 @@ use pallas_primitives::{
 };
 use pallas_traverse::ComputeHash;
 
+/// Conway-era build step: converts a [`StagingTransaction`] into a
+/// [`BuiltTransaction`] with no automatic fee/ex-units calculation.
 pub trait BuildConway {
+    /// Build the transaction using exactly the fields the caller has populated.
+    ///
+    /// "Raw" means no balancing: fees, collateral, and execution units must
+    /// already be set on the staging transaction. Returns
+    /// [`TxBuilderError`] if any field is malformed.
     fn build_conway_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
 
     // fn build_babbage(staging_tx: StagingTransaction, resolver: (), params: ()) ->
@@ -305,6 +312,7 @@ impl BuildConway for StagingTransaction {
 }
 
 impl Output {
+    /// Convert this staging output into its Babbage / post-Alonzo on-wire form.
     pub fn build_babbage_raw(&self) -> Result<TransactionOutput<'_>, TxBuilderError> {
         let assets = self
             .assets

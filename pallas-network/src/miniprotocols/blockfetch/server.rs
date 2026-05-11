@@ -4,24 +4,31 @@ use crate::multiplexer;
 
 use super::{Body, Message, Range, State};
 
+/// Errors produced by the block-fetch server agent.
 #[derive(Error, Debug)]
 pub enum ServerError {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the multiplexer")]
     Plexer(multiplexer::Error),
 }
 
+/// Block range a client just asked the server to serve.
 #[derive(Debug)]
 pub struct BlockRequest(pub Range);
 
@@ -96,6 +103,7 @@ impl Server {
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message) -> Result<(), ServerError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -107,6 +115,7 @@ impl Server {
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message, ServerError> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(ServerError::Plexer)?;
@@ -115,6 +124,7 @@ impl Server {
         Ok(msg)
     }
 
+    /// Tell the client a batch is starting; transition to `Streaming`.
     pub async fn send_start_batch(&mut self) -> Result<(), ServerError> {
         let msg = Message::StartBatch;
         self.send_message(&msg).await?;
@@ -123,6 +133,7 @@ impl Server {
         Ok(())
     }
 
+    /// Tell the client no blocks are available for the requested range.
     pub async fn send_no_blocks(&mut self) -> Result<(), ServerError> {
         let msg = Message::NoBlocks;
         self.send_message(&msg).await?;
@@ -131,6 +142,7 @@ impl Server {
         Ok(())
     }
 
+    /// Stream a single block body to the client.
     pub async fn send_block(&mut self, body: Body) -> Result<(), ServerError> {
         let msg = Message::Block { body };
         self.send_message(&msg).await?;
@@ -138,6 +150,7 @@ impl Server {
         Ok(())
     }
 
+    /// Signal end-of-batch and transition back to `Idle`.
     pub async fn send_batch_done(&mut self) -> Result<(), ServerError> {
         let msg = Message::BatchDone;
         self.send_message(&msg).await?;

@@ -4,35 +4,45 @@ use thiserror::*;
 use super::protocol::*;
 use crate::multiplexer;
 
+/// Errors produced by the tx-monitor client agent.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
 
+/// Tx-monitor client agent.
 pub struct Client(State, multiplexer::ChannelBuffer);
 
 impl Client {
+    /// Build a client over a freshly subscribed agent channel.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
+    /// Current state-machine state.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// True if the protocol has terminated.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
@@ -85,6 +95,7 @@ impl Client {
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -93,6 +104,7 @@ impl Client {
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
@@ -119,6 +131,7 @@ impl Client {
         }
     }
 
+    /// Acquire a fresh mempool snapshot and return the slot it was taken at.
     pub async fn acquire(&mut self) -> Result<Slot, Error> {
         self.send_acquire().await?;
         self.recv_while_acquiring().await
@@ -142,6 +155,7 @@ impl Client {
         }
     }
 
+    /// Ask whether a transaction with the given id is in the current snapshot.
     pub async fn query_has_tx(&mut self, id: TxId) -> Result<bool, Error> {
         self.send_request_has_tx(id).await?;
         self.recv_while_requesting_has_tx().await
@@ -165,6 +179,7 @@ impl Client {
         }
     }
 
+    /// Iterate to the next transaction in the snapshot.
     pub async fn query_next_tx(&mut self) -> Result<Option<Tx>, Error> {
         self.send_request_next_tx().await?;
         self.recv_while_requesting_next_tx().await
@@ -190,11 +205,13 @@ impl Client {
         }
     }
 
+    /// Ask for the mempool's current size and capacity.
     pub async fn query_size_and_capacity(&mut self) -> Result<MempoolSizeAndCapacity, Error> {
         self.send_request_size_and_capacity().await?;
         self.recv_while_requesting_size_and_capacity().await
     }
 
+    /// Release the current snapshot and return to the idle state.
     pub async fn release(&mut self) -> Result<(), Error> {
         let msg = Message::Release;
         self.send_message(&msg).await?;

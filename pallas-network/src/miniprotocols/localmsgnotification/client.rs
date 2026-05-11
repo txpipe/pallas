@@ -4,6 +4,7 @@ use crate::{miniprotocols::localmsgsubmission::DmqMsg, multiplexer};
 
 use super::{protocol::Error, Message, State};
 
+/// Server reply to a request: messages plus a `has_more` flag (always `false` for blocking requests).
 #[derive(Debug, PartialEq, Eq)]
 pub struct Reply(pub Vec<DmqMsg>, pub bool);
 
@@ -16,14 +17,17 @@ impl Client
 where
     Message: Fragment,
 {
+    /// Build a client over a freshly subscribed agent channel.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(State::Idle, multiplexer::ChannelBuffer::new(channel))
     }
 
+    /// Current state-machine state.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// True if the protocol has terminated.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
@@ -67,6 +71,7 @@ where
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -75,6 +80,7 @@ where
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
@@ -83,6 +89,7 @@ where
         Ok(msg)
     }
 
+    /// Ask the server to return queued messages without blocking.
     pub async fn send_request_messages_non_blocking(&mut self) -> Result<(), Error> {
         let msg = Message::RequestMessagesNonBlocking;
         self.send_message(&msg).await?;
@@ -91,6 +98,7 @@ where
         Ok(())
     }
 
+    /// Ask the server to block until at least one message is available.
     pub async fn send_request_messages_blocking(&mut self) -> Result<(), Error> {
         let msg = Message::RequestMessagesBlocking;
         self.send_message(&msg).await?;
@@ -99,6 +107,7 @@ where
         Ok(())
     }
 
+    /// Wait for the server's reply (blocking or non-blocking).
     pub async fn recv_next_reply(&mut self) -> Result<Reply, Error> {
         match self.recv_message().await? {
             Message::ReplyMessagesNonBlocking(msgs, has_more) => {
@@ -115,6 +124,7 @@ where
         }
     }
 
+    /// Terminate the protocol.
     pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::ClientDone;
         self.send_message(&msg).await?;

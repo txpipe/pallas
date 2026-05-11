@@ -8,30 +8,40 @@ use crate::multiplexer;
 
 use super::{BlockContent, HeaderContent, Message, State, Tip};
 
+/// Errors produced by the chain-sync server agent.
 #[derive(Error, Debug)]
 pub enum ServerError {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the channel")]
     Plexer(multiplexer::Error),
 }
 
+/// Decoded inbound request the server needs to react to.
 #[derive(Debug)]
 pub enum ClientRequest {
+    /// Client asked the server to find an intersection in the given list of points.
     Intersect(Vec<Point>),
+    /// Client asked for the next chain update.
     RequestNext,
 }
 
+/// Chain-sync server agent generic over the content type.
 pub struct Server<O>(State, multiplexer::ChannelBuffer, PhantomData<O>)
 where
     Message<O>: Fragment;
@@ -287,6 +297,8 @@ where
     }
 }
 
+/// Node-to-node chain-sync server (sends `HeaderContent`).
 pub type N2NServer = Server<HeaderContent>;
 
+/// Node-to-client chain-sync server (sends whole `BlockContent`).
 pub type N2CServer = Server<BlockContent>;
