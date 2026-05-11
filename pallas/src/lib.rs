@@ -47,7 +47,6 @@
 //! | [`p2p-responder`]     | Accept incoming P2P connections using `pallas-network2`              |
 //! | [`p2p-discovery`]     | Peer discovery using `pallas-network2`                               |
 //! | [`wallet`]            | Wallet key generation, BIP-39 mnemonics, address derivation          |
-//! | [`otel`]              | OpenTelemetry collector configuration for tracing the examples above |
 //!
 //! [`block-decode`]: https://github.com/txpipe/pallas/tree/main/examples/block-decode
 //! [`block-download`]: https://github.com/txpipe/pallas/tree/main/examples/block-download
@@ -58,7 +57,6 @@
 //! [`p2p-responder`]: https://github.com/txpipe/pallas/tree/main/examples/p2p-responder
 //! [`p2p-discovery`]: https://github.com/txpipe/pallas/tree/main/examples/p2p-discovery
 //! [`wallet`]: https://github.com/txpipe/pallas/tree/main/examples/wallet
-//! [`otel`]: https://github.com/txpipe/pallas/tree/main/examples/otel
 //!
 //! # Feature flags
 //!

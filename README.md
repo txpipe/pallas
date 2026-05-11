@@ -137,7 +137,6 @@ common integration patterns:
 | [p2p-responder](/examples/p2p-responder)         | Accept incoming P2P connections using `pallas-network2`              |
 | [p2p-discovery](/examples/p2p-discovery)         | Peer discovery using `pallas-network2`                               |
 | [wallet](/examples/wallet)                       | Wallet key generation, BIP-39 mnemonics, address derivation          |
-| [otel](/examples/otel)                           | OpenTelemetry collector configuration for tracing the examples above |
 
 ## Minimum Supported Rust Version
 
