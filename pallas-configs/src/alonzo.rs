@@ -154,9 +154,10 @@ impl CostModel {
                 break;
             }
             if let serde_json::Value::Number(num) = v
-                && let Some(int_val) = num.as_i64() {
-                    values[i] = int_val;
-                }
+                && let Some(int_val) = num.as_i64()
+            {
+                values[i] = int_val;
+            }
         }
 
         CostModel(language, values)

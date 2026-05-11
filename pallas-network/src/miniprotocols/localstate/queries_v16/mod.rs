@@ -17,10 +17,10 @@ pub mod primitives;
 
 pub use primitives::{PoolMetadata, Relay};
 
+use crate::miniprotocols::Point;
 use crate::miniprotocols::localtxsubmission::primitives::{
     CommitteeColdCredential, CommitteeHotCredential, ScriptRef,
 };
-use crate::miniprotocols::Point;
 
 use crate::miniprotocols::localtxsubmission::SMaybe;
 

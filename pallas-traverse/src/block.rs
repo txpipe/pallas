@@ -5,7 +5,7 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
 use crate::{
-    probe, support, Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx, MultiEraUpdate,
+    Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx, MultiEraUpdate, probe, support,
 };
 
 type BlockWrapper<T> = (u16, T);

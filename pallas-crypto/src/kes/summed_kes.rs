@@ -5,7 +5,7 @@
 //! while maintaining code simplicity, and a smaller crate to facilitate audit and maintenance.
 
 use crate::kes::common::{Depth, Seed};
-use crate::kes::common::{PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE};
+use crate::kes::common::{INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, PublicKey, SIGMA_SIZE};
 use crate::kes::errors::Error;
 use crate::kes::single_kes::{Sum0CompactKes, Sum0CompactKesSig, Sum0Kes, Sum0KesSig};
 use crate::kes::traits::{KesCompactSig, KesSig, KesSk};

@@ -1,26 +1,26 @@
 use std::ops::Deref;
 
 use crate::{
+    TxBuilderError,
     transaction::{
+        Bytes, Bytes32, TransactionStatus,
         model::{
             BuilderEra, BuiltTransaction, DatumKind, ExUnits, Output, RedeemerPurpose, ScriptKind,
             StagingTransaction,
         },
-        Bytes, Bytes32, TransactionStatus,
     },
-    TxBuilderError,
 };
 use pallas_codec::utils::CborWrap;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::KeepRaw;
 use pallas_primitives::{
+    Fragment, NonEmptySet, PositiveCoin,
     conway::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
         PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
         ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
         WitnessSet,
     },
-    Fragment, NonEmptySet, PositiveCoin,
 };
 use pallas_traverse::ComputeHash;
 

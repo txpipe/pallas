@@ -3,14 +3,14 @@ use std::{collections::HashMap, ops::Deref, str::FromStr};
 
 use pallas_addresses::Address as PallasAddress;
 use serde::{
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{self, Visitor},
     ser::SerializeMap,
-    Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use super::{
-    model::{Address, Input, MintAssets, OutputAssets, RedeemerPurpose},
     Bytes, Bytes32, Bytes64, Hash28,
+    model::{Address, Input, MintAssets, OutputAssets, RedeemerPurpose},
 };
 
 impl Serialize for Bytes32 {
@@ -395,9 +395,9 @@ mod tests {
     use std::str::FromStr;
 
     use pallas_addresses::Address as PallasAddress;
-    use pallas_primitives::{babbage::PlutusData, Fragment, MaybeIndefArray};
+    use pallas_primitives::{Fragment, MaybeIndefArray, babbage::PlutusData};
 
-    use crate::transaction::{model::*, Bytes64, DatumBytes, DatumHash, Hash28, TransactionStatus};
+    use crate::transaction::{Bytes64, DatumBytes, DatumHash, Hash28, TransactionStatus, model::*};
 
     use super::*;
 

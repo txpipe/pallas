@@ -5,8 +5,8 @@ use std::{
 };
 
 use pallas_addresses::{
-    byron::{AddrAttrProperty, AddrType, AddressPayload},
     ByronAddress, Pointer, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart,
+    byron::{AddrAttrProperty, AddrType, AddressPayload},
 };
 use pallas_codec::{
     minicbor::bytes::ByteVec,
@@ -19,18 +19,18 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_network::miniprotocols::{
     handshake::NetworkMagic,
     localstate::queries_v16::{
-        primitives::Bytes, Anchor, AssetName, BoundedBytes, Constitution, CostModel, CostModels,
-        DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, GovAction, GovActionId,
+        Anchor, AssetName, BoundedBytes, Constitution, CostModel, CostModels, DRep,
+        DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, GovAction, GovActionId,
         PParamsUpdate, PlutusData, PolicyId, PoolMetadata, PoolVotingThresholds, ProposalProcedure,
         ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, TransactionInput,
-        TransactionOutput, Value, Vote,
+        TransactionOutput, Value, Vote, primitives::Bytes,
     },
     localtxsubmission::{
+        Coin, ConwayCertsPredFailure, ExUnits, Network, VotingProcedure,
         primitives::{
             Certificate, CommitteeColdCredential, Credential, KeyValuePairs, Language, Multiasset,
             NativeScript, PoolKeyhash, PseudoScript, StakeCredential, Voter,
         },
-        Coin, ConwayCertsPredFailure, ExUnits, Network, VotingProcedure,
     },
 };
 
@@ -1880,7 +1880,7 @@ impl HaskellDisplay for Utxo {
     fn to_haskell_str(&self) -> String {
         let result = self
             .0
-             .0
+            .0
             .iter()
             .map(|item| {
                 format!(
@@ -2097,8 +2097,8 @@ impl AsDatumHash for DatumHash {
 
 impl HaskellDisplay for PlutusData {
     fn to_haskell_str(&self) -> String {
-        use pallas_network::miniprotocols::localstate::queries_v16::BigInt as Big;
         use PlutusData::*;
+        use pallas_network::miniprotocols::localstate::queries_v16::BigInt as Big;
 
         match self {
             Constr(constr) => constr.fields.to_haskell_str(),
@@ -2288,10 +2288,10 @@ impl HaskellDisplay for Certificate {
         match self {
             StakeRegistration(cred) => {
                 format!("ConwayRegCert {} SNothing", cred.to_haskell_str_p())
-            },
+            }
             StakeDeregistration(cred) => {
                 format!("ConwayUnRegCert {} SNothing", cred.to_haskell_str_p())
-            },
+            }
             StakeDelegation(cred, hash) => format!(
                 "ConwayDelegCert {} ({})",
                 cred.to_haskell_str_p(),
@@ -2358,7 +2358,7 @@ impl HaskellDisplay for Certificate {
                     drep.to_haskell_str_p(),
                     coin.as_display_coin()
                 )
-            },
+            }
             StakeVoteRegDeleg(cred, hash, drep, coin) => format!(
                 "ConwayRegDelegCert {} ({} {}) ({})",
                 cred.to_haskell_str_p(),

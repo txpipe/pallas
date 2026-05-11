@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 /// N2N-specific instantiation of the generic handshake version table.
 pub type VersionTable = super::protocol::VersionTable<VersionData>;

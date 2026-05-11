@@ -1,6 +1,6 @@
 use pallas::network::{
     facades::PeerClient,
-    miniprotocols::{Point, MAINNET_MAGIC},
+    miniprotocols::{MAINNET_MAGIC, Point},
 };
 
 #[tokio::main]

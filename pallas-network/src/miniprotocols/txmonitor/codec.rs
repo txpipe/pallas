@@ -1,5 +1,5 @@
 use super::protocol::*;
-use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Encode, Encoder, decode, encode};
 
 impl Encode<()> for Message {
     fn encode<W: encode::Write>(

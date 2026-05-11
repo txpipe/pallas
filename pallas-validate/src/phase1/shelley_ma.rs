@@ -1,14 +1,13 @@
 //! Utilities required for ShelleyMA-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, aux_data_from_alonzo_tx, empty_value, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
-    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature, AccountState, CertPointer,
-    CertState, DState, PState, PoolParam,
+    AccountState, CertPointer, CertState, DState, PState, PoolParam,
     ShelleyMAError::*,
     ShelleyProtParams, UTxOs,
     ValidationError::{self, *},
-    ValidationResult,
+    ValidationResult, add_minted_value, add_values, aux_data_from_alonzo_tx, empty_value,
+    get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
+    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
 };
 use pallas_addresses::{PaymentKeyHash, ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::minicbor::encode;
@@ -28,7 +27,7 @@ use pallas_primitives::{
     byron::TxOut,
 };
 use pallas_traverse::{
-    time::Slot, wellknown::GenesisValues, Era, MultiEraInput, MultiEraOutput, OriginalHash,
+    Era, MultiEraInput, MultiEraOutput, OriginalHash, time::Slot, wellknown::GenesisValues,
 };
 
 use std::{cmp::max, collections::HashMap, ops::Deref};
@@ -617,7 +616,7 @@ fn check_genesis_key_delegation(
     let fod = ds
         .fut_gen_delegs
         .iter()
-        .filter(|kv| kv.0 .1 != *gkh)
+        .filter(|kv| kv.0.1 != *gkh)
         .map(|kv| kv.1)
         .collect::<Vec<_>>();
     let curr_keyhashes = cod.iter().map(|v| v.0.clone()).collect::<Vec<_>>();

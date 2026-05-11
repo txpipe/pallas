@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 use std::{collections::HashMap, fmt::Debug};
 use thiserror::*;
 

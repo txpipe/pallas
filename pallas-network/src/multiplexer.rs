@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use byteorder::{ByteOrder, NetworkEndian};
-use pallas_codec::{minicbor, Fragment};
+use pallas_codec::{Fragment, minicbor};
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinHandle;
@@ -418,12 +418,12 @@ impl Muxer {
 
     /// Clone the ingress sender so an agent can push outbound payloads here.
     pub fn clone_sender(&self) -> tokio::sync::mpsc::Sender<(Protocol, Payload)> {
-        self.2 .0.clone()
+        self.2.0.clone()
     }
 
     /// Take one queued message and write it as a segment.
     pub async fn tick(&mut self) -> Result<(), Error> {
-        let msg = self.2 .1.recv().await;
+        let msg = self.2.1.recv().await;
 
         if let Some(x) = msg {
             trace!(protocol = x.0, "mux happening");

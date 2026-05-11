@@ -48,8 +48,8 @@ mod transaction;
 
 pub use conway::BuildConway;
 pub use transaction::{
-    model::{BuiltTransaction, ExUnits, Input, Output, ScriptKind, StagingTransaction},
     Bytes, Bytes32,
+    model::{BuiltTransaction, ExUnits, Input, Output, ScriptKind, StagingTransaction},
 };
 
 /// Errors produced while staging, building, or signing a transaction.

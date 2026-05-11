@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, ops::Deref};
 
 use super::data::Data;
 use super::script_context::{
-    from_alonzo_output, ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo,
+    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, from_alonzo_output,
 };
 use pallas_addresses::{
     Address, ShelleyDelegationPart, ShelleyPaymentPart, StakeAddress, StakePayload,
@@ -11,6 +11,7 @@ use pallas_codec::utils::{
     AnyUInt, Bytes, Int, KeepRaw, KeyValuePairs, NonEmptyKeyValuePairs, Nullable, PositiveCoin,
 };
 use pallas_crypto::hash::Hash;
+use pallas_primitives::NonZeroInt;
 use pallas_primitives::conway::{
     AssetName, BigInt, Certificate, Coin, Constitution, Constr, DRep, DRepVotingThresholds,
     DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint, PlutusData, PolicyId,
@@ -18,7 +19,6 @@ use pallas_primitives::conway::{
     ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
     VotingProcedure,
 };
-use pallas_primitives::NonZeroInt;
 use pallas_traverse::ComputeHash;
 
 pub fn convert_tag_to_constr(tag: u64) -> Option<u64> {
@@ -528,7 +528,7 @@ impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, Vec<Transacti
     fn to_plutus_data(&self) -> PlutusData {
         PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
             self.0
-                 .0
+                .0
                 .iter()
                 .map(|p| WithOptionDatum(&WithZeroAdaAsset(p)).to_plutus_data())
                 .collect(),
@@ -549,7 +549,7 @@ impl ToPlutusData for WithZeroAdaAsset<'_, Vec<TransactionOutput<'_>>> {
 
 impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, TransactionOutput<'_>>> {
     fn to_plutus_data(&self) -> PlutusData {
-        match self.0 .0 {
+        match self.0.0 {
             TransactionOutput::Legacy(legacy_output) => {
                 WithOptionDatum(&WithZeroAdaAsset(&from_alonzo_output(legacy_output)))
                     .to_plutus_data()
@@ -916,8 +916,8 @@ impl<'a> ToPlutusData
     fn to_plutus_data(&self) -> PlutusData {
         PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
             self.0
-                 .0
-                 .0
+                .0
+                .0
                 .iter()
                 .map(|p| {
                     WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(p)))
@@ -933,7 +933,7 @@ impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<
         PlutusData::Array({
             pallas_codec::utils::MaybeIndefArray::Def(
                 self.0
-                     .0
+                    .0
                     .iter()
                     .map(|p| WithZeroAdaAsset(&WithWrappedTransactionId(p)).to_plutus_data())
                     .collect(),
@@ -947,8 +947,8 @@ impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, TxIn
         wrap_multiple_with_constr(
             0,
             vec![
-                WithWrappedTransactionId(&self.0 .0.out_ref).to_plutus_data(),
-                WithZeroAdaAsset(&self.0 .0.resolved).to_plutus_data(),
+                WithWrappedTransactionId(&self.0.0.out_ref).to_plutus_data(),
+                WithZeroAdaAsset(&self.0.0.resolved).to_plutus_data(),
             ],
         )
     }
@@ -961,8 +961,8 @@ impl<'a> ToPlutusData
         wrap_multiple_with_constr(
             0,
             vec![
-                WithWrappedTransactionId(&self.0 .0 .0.out_ref).to_plutus_data(),
-                WithOptionDatum(&WithZeroAdaAsset(&self.0 .0 .0.resolved)).to_plutus_data(),
+                WithWrappedTransactionId(&self.0.0.0.out_ref).to_plutus_data(),
+                WithOptionDatum(&WithZeroAdaAsset(&self.0.0.0.resolved)).to_plutus_data(),
             ],
         )
     }

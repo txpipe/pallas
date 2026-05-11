@@ -8,9 +8,10 @@ impl MultiEraTx<'_> {
     pub fn aux_plutus_v1_scripts(&self) -> &[alonzo::PlutusScript<1>] {
         if let Some(aux_data) = self.aux_data()
             && let alonzo::AuxiliaryData::PostAlonzo(x) = aux_data.deref()
-                && let Some(plutus) = &x.plutus_scripts {
-                    return plutus.as_ref();
-                }
+            && let Some(plutus) = &x.plutus_scripts
+        {
+            return plutus.as_ref();
+        }
 
         &[]
     }

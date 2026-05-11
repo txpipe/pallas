@@ -13,7 +13,7 @@ use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
     facades::{DmqClient, NodeClient, PeerClient, PeerServer},
     miniprotocols::{
-        blockfetch,
+        MAINNET_MAGIC, Point, blockfetch,
         blockfetch::BlockRequest,
         chainsync::{self, NextResponse},
         chainsync::{ClientRequest, HeaderContent, Tip},
@@ -27,7 +27,6 @@ use pallas_network::{
         peersharing::PeerAddress,
         txsubmission,
         txsubmission::{EraTxBody, TxIdAndSize},
-        Point, MAINNET_MAGIC,
     },
     multiplexer::{Bearer, Plexer},
 };
@@ -416,8 +415,8 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
             .unwrap();
 
         assert_eq!(intersect_response.0, Some(point2.clone()));
-        assert_eq!(intersect_response.1 .0, point2.clone());
-        assert_eq!(intersect_response.1 .1, 1337);
+        assert_eq!(intersect_response.1.0, point2.clone());
+        assert_eq!(intersect_response.1.1, 1337);
 
         // client sends msg request next
 
@@ -602,9 +601,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
                     ),
                 };
 
-            let addr_hex =
-"981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
-;
+            let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
             let addr = hex::decode(addr_hex).unwrap();
             let addr: Addr = addr.to_vec().into();
             let addrs: Addrs = Vec::from([addr]);
@@ -1056,9 +1053,7 @@ pub async fn local_state_query_server_and_client_happy_path() {
 
         assert_eq!(result, KeyValuePairs::from(pools));
 
-        let addr_hex =
-"981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD"
-;
+        let addr_hex = "981D186018CE18F718FB185F188918A918C7186A186518AC18DD1874186D189E188410184D186F1882184D187D18C4184F1842187F18CA18A118DD";
         let addr = hex::decode(addr_hex).unwrap();
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = Vec::from([addr]);

@@ -1,16 +1,16 @@
 use std::{collections::HashSet, time::Duration};
 
 use pallas_network2::{
+    Interface, Manager,
     behavior::{
         AnyMessage, InitiatorBehavior, InitiatorCommand, InitiatorEvent, PromotionBehavior,
     },
     protocol::{blockfetch::Body, chainsync::HeaderContent},
-    Interface, Manager,
 };
 
+pub use pallas_network2::PeerId;
 pub use pallas_network2::behavior::PromotionConfig;
 pub use pallas_network2::protocol::Point;
-pub use pallas_network2::PeerId;
 
 use pallas_crypto::hash::Hash;
 use pallas_traverse::MultiEraBlock;

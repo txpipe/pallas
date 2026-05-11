@@ -7,18 +7,18 @@ use tracing::{debug, error};
 use tokio::net::{TcpListener, ToSocketAddrs};
 
 #[cfg(unix)]
-use tokio::net::{unix::SocketAddr as UnixSocketAddr, UnixListener};
+use tokio::net::{UnixListener, unix::SocketAddr as UnixSocketAddr};
 
 use crate::miniprotocols::handshake::n2n::VersionData;
-use crate::miniprotocols::handshake::{n2c, n2n, Confirmation, VersionNumber, VersionTable};
+use crate::miniprotocols::handshake::{Confirmation, VersionNumber, VersionTable, n2c, n2n};
 
 use crate::miniprotocols::{
-    blockfetch, chainsync, handshake, keepalive, localmsgnotification, localmsgsubmission,
-    localstate, localtxsubmission, peersharing, txmonitor, txsubmission, PROTOCOL_N2C_CHAIN_SYNC,
-    PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION, PROTOCOL_N2C_MSG_SUBMISSION,
-    PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR, PROTOCOL_N2C_TX_SUBMISSION,
-    PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC, PROTOCOL_N2N_HANDSHAKE,
-    PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING, PROTOCOL_N2N_TX_SUBMISSION,
+    PROTOCOL_N2C_CHAIN_SYNC, PROTOCOL_N2C_HANDSHAKE, PROTOCOL_N2C_MSG_NOTIFICATION,
+    PROTOCOL_N2C_MSG_SUBMISSION, PROTOCOL_N2C_STATE_QUERY, PROTOCOL_N2C_TX_MONITOR,
+    PROTOCOL_N2C_TX_SUBMISSION, PROTOCOL_N2N_BLOCK_FETCH, PROTOCOL_N2N_CHAIN_SYNC,
+    PROTOCOL_N2N_HANDSHAKE, PROTOCOL_N2N_KEEP_ALIVE, PROTOCOL_N2N_PEER_SHARING,
+    PROTOCOL_N2N_TX_SUBMISSION, blockfetch, chainsync, handshake, keepalive, localmsgnotification,
+    localmsgsubmission, localstate, localtxsubmission, peersharing, txmonitor, txsubmission,
 };
 
 use crate::multiplexer::{self, Bearer, RunningPlexer};

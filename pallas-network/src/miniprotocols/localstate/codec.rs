@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Encode, Encoder, decode, encode};
 
 use super::{AcquireFailure, Message};
 

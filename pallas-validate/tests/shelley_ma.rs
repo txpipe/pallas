@@ -100,7 +100,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -231,7 +233,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83"),
+                String::from(
+                    "018e8f7a7073b8a95a4c1f1cf412b1042fca4945b89eb11754b3481b29fb2b631db76384f64dd94b47f97fc8c2a206764c17a1de7da2f70e83",
+                ),
                 Value::Coin(1_507_817_955),
                 None,
             )],
@@ -413,7 +417,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -468,7 +474,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -504,7 +512,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -532,7 +542,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -560,7 +572,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -596,7 +610,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -622,7 +638,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -681,7 +699,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -748,7 +768,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],
@@ -791,7 +813,9 @@ mod shelley_ma_tests {
         let utxos: UTxOs = mk_utxo_for_alonzo_compatible_tx(
             &mtx.transaction_body,
             &[(
-                String::from("0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef"),
+                String::from(
+                    "0129bb156d52d014bb444a14138cbee36044c6faed37d0c2d49d2358315c465cbf8c5536970e8a29bb7adcda0d663b20007d481813694c64ef",
+                ),
                 Value::Coin(2332267427205),
                 None,
             )],

@@ -1,6 +1,6 @@
 use pallas_codec::minicbor;
 use pallas_codec::minicbor::encode::Error;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 use super::{BlockContent, HeaderContent, Message, SkippedContent, Tip};
 

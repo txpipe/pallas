@@ -1,7 +1,7 @@
 use amaru_uplc::flat::FlatDecodeError;
 use pallas_primitives::{
-    conway::{ExUnits, Language},
     TransactionInput,
+    conway::{ExUnits, Language},
 };
 
 #[derive(thiserror::Error, Debug)]

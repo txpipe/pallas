@@ -122,7 +122,7 @@ macro_rules! codec_by_datatype {
 
 #[cfg(test)]
 mod tests {
-    use super::minicbor::{self, decode, encode, Decode, Encode};
+    use super::minicbor::{self, Decode, Encode, decode, encode};
 
     #[derive(Clone, Debug)]
     enum Thing {

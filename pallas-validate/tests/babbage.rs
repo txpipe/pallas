@@ -21,8 +21,8 @@ mod babbage_tests {
     use pallas_validate::{
         phase1::validate_txs,
         utils::{
-            values_are_equal, AccountState, BabbageProtParams, CertState, Environment,
-            MultiEraProtocolParameters, PostAlonzoError, UTxOs, ValidationError::*,
+            AccountState, BabbageProtParams, CertState, Environment, MultiEraProtocolParameters,
+            PostAlonzoError, UTxOs, ValidationError::*, values_are_equal,
         },
     };
     use std::borrow::Cow;
@@ -37,7 +37,9 @@ mod babbage_tests {
         let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -71,7 +73,9 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
@@ -82,7 +86,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -95,8 +101,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -104,7 +112,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -138,7 +148,9 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("119068A7A3F008803EDAC87AF1619860F2CDCDE40C26987325ACE138AD81728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
+                String::from(
+                    "119068A7A3F008803EDAC87AF1619860F2CDCDE40C26987325ACE138AD81728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D",
+                ),
                 Value::Multiasset(
                     1318860,
                     [(
@@ -148,8 +160,10 @@ mod babbage_tests {
                         [(
                             Bytes::from(hex::decode("4164614964696f7431313235").unwrap()),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 Some(DatumOption::Hash(
                     hex::decode("d75ad82787a8d45b85c156c97736d2c6525d6b3a09b5d6297d1b45c6a63bccd3")
@@ -160,7 +174,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01A7D37F1D43D1197A994D95B3CE15D9AF3B4697CC7CDF9BCD1F81688D3499AC08066B36BC6C2D86A21243B940E84DBE5CAC3FAB5F76AB9229"),
+                String::from(
+                    "01A7D37F1D43D1197A994D95B3CE15D9AF3B4697CC7CDF9BCD1F81688D3499AC08066B36BC6C2D86A21243B940E84DBE5CAC3FAB5F76AB9229",
+                ),
                 Value::Coin(231630402),
                 None,
                 None,
@@ -168,7 +184,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01a7d37f1d43d1197a994d95b3ce15d9af3b4697cc7cdf9bcd1f81688d3499ac08066b36bc6c2d86a21243b940e84dbe5cac3fab5f76ab9229"),
+            String::from(
+                "01a7d37f1d43d1197a994d95b3ce15d9af3b4697cc7cdf9bcd1f81688d3499ac08066b36bc6c2d86a21243b940e84dbe5cac3fab5f76ab9229",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -283,7 +301,9 @@ mod babbage_tests {
         ).unwrap();
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("30DAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5EDAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5E"),
+                String::from(
+                    "30DAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5EDAB18165AE50399C5E477E0CFB38D0B35B32C75F7EB150EBC7874A5E",
+                ),
                 Value::Multiasset(
                     2000000,
                     [(
@@ -291,28 +311,23 @@ mod babbage_tests {
                             .parse()
                             .unwrap(),
                         [(
-                            Bytes::from(
-                                hex::decode(
-                                    "4F7261636C65546872656164546F6B656E",
-                                )
-                                .unwrap(),
-                            ),
+                            Bytes::from(hex::decode("4F7261636C65546872656164546F6B656E").unwrap()),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
-                Some(DatumOption::Data(
-                    CborWrap(
-                        KeepRaw::<PlutusData>::decode(
-                            &mut Decoder::new(&plutus_data_cbor),
-                            &mut (),
-                        ).unwrap(),
-                    )
-                )),
+                Some(DatumOption::Data(CborWrap(
+                    KeepRaw::<PlutusData>::decode(&mut Decoder::new(&plutus_data_cbor), &mut ())
+                        .unwrap(),
+                ))),
                 None,
             ),
             (
-                String::from("0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567"),
+                String::from(
+                    "0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567",
+                ),
                 Value::Coin(86112645),
                 None,
                 None,
@@ -320,7 +335,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567"),
+            String::from(
+                "0028B3E2B8259FAABB566361635C4F8BBF31FE1388B15565F917C33C85700D57DE08040F55793195E7ED87E693DBFCF4A62CF3597B1BC93567",
+            ),
             Value::Coin(70884589),
             None,
             None,
@@ -415,7 +432,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e"),
+            String::from(
+                "0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -449,18 +468,18 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
+                String::from(
+                    "11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D",
+                ),
                 Value::Multiasset(
                     1689618,
                     [(
                         "dc8f23301b0e3d71af9ac5d1559a060271aa6cf56ac98bdaeea19e18"
                             .parse()
                             .unwrap(),
-                        [(
-                            Bytes::from(hex::decode("303734").unwrap()),
-                            1,
-                        )].into(),
-                    )].into(),
+                        [(Bytes::from(hex::decode("303734").unwrap()), 1)].into(),
+                    )]
+                    .into(),
                 ),
                 Some(DatumOption::Hash(
                     hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
@@ -471,7 +490,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01EDA33318624ADE03D53B7E954713D9E69440891F0D02E823267B610D6018DC6C7989A46EC26822425A3D2BAC60EEC2682A022740361ED957"),
+                String::from(
+                    "01EDA33318624ADE03D53B7E954713D9E69440891F0D02E823267B610D6018DC6C7989A46EC26822425A3D2BAC60EEC2682A022740361ED957",
+                ),
                 Value::Coin(5000000),
                 None,
                 None,
@@ -479,7 +500,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01eda33318624ade03d53b7e954713d9e69440891f0d02e823267b610d6018dc6c7989a46ec26822425a3d2bac60eec2682a022740361ed957"),
+            String::from(
+                "01eda33318624ade03d53b7e954713d9e69440891f0d02e823267b610d6018dc6c7989a46ec26822425a3d2bac60eec2682a022740361ed957",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -510,7 +533,9 @@ mod babbage_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -582,7 +607,9 @@ mod babbage_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -624,7 +651,9 @@ mod babbage_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -667,7 +696,9 @@ mod babbage_tests {
         let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -705,7 +736,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -716,7 +749,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -729,8 +764,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -738,7 +775,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -783,7 +822,9 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -794,7 +835,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -807,8 +850,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -816,7 +861,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -854,7 +901,9 @@ mod babbage_tests {
         let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -865,7 +914,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -878,15 +929,19 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
             ),
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
-        let old_address: Address = match hex::decode(String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd")) {
+        let old_address: Address = match hex::decode(String::from(
+            "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+        )) {
             Ok(bytes_vec) => Address::from_bytes(bytes_vec.as_slice()).unwrap(),
             _ => panic!("Unable to parse collateral input address"),
         };
@@ -952,7 +1007,9 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -963,7 +1020,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -976,14 +1035,18 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
             ),
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -994,7 +1057,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -1007,7 +1072,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Multiasset(
                 5000000,
                 [(
@@ -1017,8 +1084,10 @@ mod babbage_tests {
                     [(
                         Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                         1000,
-                    )].into(),
-                )].into(),
+                    )]
+                    .into(),
+                )]
+                .into(),
             ),
             None,
             None,
@@ -1055,7 +1124,9 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -1066,7 +1137,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -1079,8 +1152,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -1088,7 +1163,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1096,7 +1173,7 @@ mod babbage_tests {
         add_collateral_babbage(&mtx.transaction_body, &mut utxos, collateral_info);
         let mut babbage_prot_params: BabbageProtParams = mk_mainnet_params_epoch_365();
         babbage_prot_params.collateral_percentage = 728; // This value was 150 during Babbage on
-                                                         // mainnet.
+        // mainnet.
         let acnt = AccountState {
             treasury: 261_254_564_000_000,
             reserves: 0,
@@ -1127,7 +1204,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -1138,7 +1217,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -1151,8 +1232,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -1160,7 +1243,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1202,7 +1287,9 @@ mod babbage_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -1254,7 +1341,9 @@ mod babbage_tests {
         let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -1292,7 +1381,9 @@ mod babbage_tests {
         let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -1329,7 +1420,9 @@ mod babbage_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -1413,7 +1506,9 @@ mod babbage_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/babbage3.tx"));
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -1458,7 +1553,9 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3E8C4B1D396BB8132E5097F5A2F012D97900CBC496A3745DB4226CEA4CB66465")
@@ -1469,7 +1566,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -1482,8 +1581,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -1491,7 +1592,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1531,7 +1634,9 @@ mod babbage_tests {
         let mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[(
-            String::from("011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382"),
+            String::from(
+                "011be1f490912af2fc39f8e3637a2bade2ecbebefe63e8bfef10989cd6f593309a155b0ebb45ff830747e61f98e5b77feaf7529ce9df351382",
+            ),
             Value::Coin(103324335),
             None,
             None,
@@ -1630,7 +1735,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e"),
+            String::from(
+                "0121316dbc84420a5ee7461438483564c41fae876029319b3ee641fe4422339411d2df4c9c7c50b3d8f88db98d475e9d1bccd4244b412fbe5e",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1675,18 +1782,18 @@ mod babbage_tests {
         let metx: MultiEraTx = MultiEraTx::from_babbage(&mtx);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D"),
+                String::from(
+                    "11A55F409501BF65805BB0DC76F6F9AE90B61E19ED870BC0025681360881728E7ED4CF324E1323135E7E6D931F01E30792D9CDF17129CB806D",
+                ),
                 Value::Multiasset(
                     1689618,
                     [(
                         "dc8f23301b0e3d71af9ac5d1559a060271aa6cf56ac98bdaeea19e18"
                             .parse()
                             .unwrap(),
-                        [(
-                            Bytes::from(hex::decode("303734").unwrap()),
-                            1,
-                        )].into(),
-                    )].into(),
+                        [(Bytes::from(hex::decode("303734").unwrap()), 1)].into(),
+                    )]
+                    .into(),
                 ),
                 Some(DatumOption::Hash(
                     hex::decode("d5b534d58e737861bac5135b5242297b3465c146cc0ddae0bd52547c52305ee7")
@@ -1697,7 +1804,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01EDA33318624ADE03D53B7E954713D9E69440891F0D02E823267B610D6018DC6C7989A46EC26822425A3D2BAC60EEC2682A022740361ED957"),
+                String::from(
+                    "01EDA33318624ADE03D53B7E954713D9E69440891F0D02E823267B610D6018DC6C7989A46EC26822425A3D2BAC60EEC2682A022740361ED957",
+                ),
                 Value::Coin(5000000),
                 None,
                 None,
@@ -1705,7 +1814,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01eda33318624ade03d53b7e954713d9e69440891f0d02e823267b610d6018dc6c7989a46ec26822425a3d2bac60eec2682a022740361ed957"),
+            String::from(
+                "01eda33318624ade03d53b7e954713d9e69440891f0d02e823267b610d6018dc6c7989a46ec26822425a3d2bac60eec2682a022740361ed957",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1742,7 +1853,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
@@ -1753,7 +1866,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -1766,8 +1881,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -1775,7 +1892,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1818,7 +1937,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
@@ -1829,7 +1950,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -1842,8 +1965,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -1851,7 +1976,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1894,7 +2021,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
@@ -1905,7 +2034,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -1918,8 +2049,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -1927,7 +2060,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -1976,7 +2111,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
@@ -1987,7 +2124,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -2000,8 +2139,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -2009,7 +2150,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,
@@ -2061,7 +2204,9 @@ mod babbage_tests {
         let mut mtx: Tx = babbage_minted_tx_from_cbor(&cbor_bytes);
         let tx_outs_info: &[BabbageTxOutInfo] = &[
             (
-                String::from("11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d"),
+                String::from(
+                    "11a55f409501bf65805bb0dc76f6f9ae90b61e19ed870bc0025681360881728e7ed4cf324e1323135e7e6d931f01e30792d9cdf17129cb806d",
+                ),
                 Value::Coin(25000000),
                 Some(DatumOption::Hash(
                     hex::decode("3e8c4b1d396bb8132e5097f5a2f012d97900cbc496a3745db4226cea4cb66465")
@@ -2072,7 +2217,9 @@ mod babbage_tests {
                 None,
             ),
             (
-                String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+                String::from(
+                    "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+                ),
                 Value::Multiasset(
                     1795660,
                     [(
@@ -2085,8 +2232,10 @@ mod babbage_tests {
                                     .unwrap(),
                             ),
                             1,
-                        )].into(),
-                    )].into(),
+                        )]
+                        .into(),
+                    )]
+                    .into(),
                 ),
                 None,
                 None,
@@ -2094,7 +2243,9 @@ mod babbage_tests {
         ];
         let mut utxos: UTxOs = mk_utxo_for_babbage_tx(&mtx.transaction_body, tx_outs_info);
         let collateral_info: &[BabbageCollateralInfo] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Coin(5000000),
             None,
             None,

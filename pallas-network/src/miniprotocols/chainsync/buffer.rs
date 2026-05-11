@@ -1,4 +1,4 @@
-use std::collections::{vec_deque::Iter, VecDeque};
+use std::collections::{VecDeque, vec_deque::Iter};
 
 use crate::miniprotocols::Point;
 

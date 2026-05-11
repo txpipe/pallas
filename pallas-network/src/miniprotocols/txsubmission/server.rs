@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 
 use super::{
-    protocol::{Blocking, Error, Message, State, TxCount, TxIdAndSize},
     EraTxBody, EraTxId,
+    protocol::{Blocking, Error, Message, State, TxCount, TxIdAndSize},
 };
 use crate::multiplexer;
 

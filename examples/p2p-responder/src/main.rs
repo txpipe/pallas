@@ -3,16 +3,16 @@ mod otel;
 use std::{net::Ipv4Addr, time::Duration};
 
 use pallas_network2::{
+    Manager,
     behavior::{
-        responder::{
-            connection::{ConnectionResponder, ConnectionResponderConfig},
-            ResponderBehavior, ResponderCommand, ResponderEvent,
-        },
         AnyMessage,
+        responder::{
+            ResponderBehavior, ResponderCommand, ResponderEvent,
+            connection::{ConnectionResponder, ConnectionResponderConfig},
+        },
     },
     interface::TcpListenerInterface,
     protocol::{self as proto, chainsync, peersharing},
-    Manager,
 };
 use tokio::{select, time::Interval};
 

@@ -1,12 +1,13 @@
 use std::time::Duration;
 
 use pallas_network2::{
+    Manager,
     behavior::{
-        initiator::{InitiatorBehavior, InitiatorCommand, InitiatorEvent},
         AnyMessage,
+        initiator::{InitiatorBehavior, InitiatorCommand, InitiatorEvent},
     },
     interface::TcpInterface,
-    protocol as proto, Manager,
+    protocol as proto,
 };
 use tokio::{select, time::Interval};
 

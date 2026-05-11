@@ -198,9 +198,9 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
                     && let ShelleyPaymentPart::Script(_) =
                         get_payment_part(&alonzo_comp_output.address)
                             .ok_or(Alonzo(InputDecoding))?
-                    {
-                        return Err(Alonzo(CollateralNotVKeyLocked));
-                    }
+                {
+                    return Err(Alonzo(CollateralNotVKeyLocked));
+                }
             }
             None => return Err(Alonzo(CollateralNotInUTxO)),
         }
@@ -229,9 +229,10 @@ fn check_collaterals_assets(
                                 return Err(Alonzo(CollateralMinLovelace));
                             }
                             if let Value::Multiasset(_, multi_assets) = amount
-                                && !multi_assets.is_empty() {
-                                    return Err(Alonzo(NonLovelaceCollateral));
-                                }
+                                && !multi_assets.is_empty()
+                            {
+                                return Err(Alonzo(NonLovelaceCollateral));
+                            }
                         }
                     }
                     None => return Err(Alonzo(CollateralNotInUTxO)),
@@ -341,9 +342,10 @@ fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> Valid
 // global network ID.
 fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
     if let Some(tx_network_id) = tx_body.network_id
-        && u8::from(tx_network_id) != *network_id {
-            return Err(Alonzo(TxWrongNetworkID));
-        }
+        && u8::from(tx_network_id) != *network_id
+    {
+        return Err(Alonzo(TxWrongNetworkID));
+    }
     Ok(())
 }
 
@@ -495,9 +497,10 @@ fn check_datums_from_witness_set_in_inputs_or_outputs(
 fn find_datum(datum: &KeepRaw<PlutusData>, outputs: &[TransactionOutput]) -> ValidationResult {
     for output in outputs {
         if let Some(hash) = output.datum_hash
-            && pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor()) == hash {
-                return Ok(());
-            }
+            && pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor()) == hash
+        {
+            return Ok(());
+        }
     }
     Err(Alonzo(UnneededDatum))
 }

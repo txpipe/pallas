@@ -122,7 +122,10 @@ where
 fn test_submit_api_serialization() {
     let error = decode_error("81820681820764f0aab883");
 
-    assert_eq!("{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}", as_node_submit_error(error));
+    assert_eq!(
+        "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}",
+        as_node_submit_error(error)
+    );
 }
 
 #[cfg(test)]

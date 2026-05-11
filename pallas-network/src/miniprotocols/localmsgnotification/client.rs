@@ -2,7 +2,7 @@ use pallas_codec::Fragment;
 
 use crate::{miniprotocols::localmsgsubmission::DmqMsg, multiplexer};
 
-use super::{protocol::Error, Message, State};
+use super::{Message, State, protocol::Error};
 
 /// Server reply to a request: messages plus a `has_more` flag (always `false` for blocking requests).
 #[derive(Debug, PartialEq, Eq)]
