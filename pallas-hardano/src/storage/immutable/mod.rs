@@ -82,11 +82,11 @@ fn chunk_binary_search<ChunkT, PointT>(
 ///
 /// Fuzzy Search allows a block to be found by an "expected slot#" without
 /// knowing precisely which block is being retrieved.
-fn iterate_till_point(
-    iter: impl Iterator<Item = FallibleBlock>,
+fn iterate_till_point<T: Iterator<Item = FallibleBlock>>(
+    iter: T,
     slot: u64,
     block_hash: &[u8],
-) -> Result<impl Iterator<Item = FallibleBlock>, Error> {
+) -> Result<impl Iterator<Item = FallibleBlock> + use<T>, Error> {
     let mut iter = iter.peekable();
     match iter.peek() {
         Some(Ok(block_data)) => {

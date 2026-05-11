@@ -2,7 +2,7 @@
 name = "pallas-network2"
 description = "Ouroboros networking stack for P2P interactions"
 version.workspace = true
-edition = "2024"
+edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true

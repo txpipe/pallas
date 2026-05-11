@@ -190,7 +190,7 @@ impl BuildConway for StagingTransaction {
                     .map_err(|_| TxBuilderError::MalformedDatum)?;
 
                 match purpose {
-                    RedeemerPurpose::Spend(ref txin) => {
+                    RedeemerPurpose::Spend(txin) => {
                         let index = inputs
                             .iter()
                             .position(|x| {
