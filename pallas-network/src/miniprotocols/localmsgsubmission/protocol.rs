@@ -5,6 +5,9 @@ use pallas_codec::minicbor;
 /// A message to be sent by the local message submission protocol.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsg {
+    /// The message id.
+    pub msg_id: Vec<u8>,
+
     /// The payload of the message.
     pub msg_payload: DmqMsgPayload,
 
@@ -23,9 +26,6 @@ pub struct DmqMsg {
 /// Important: This message is not signed and should not be considered final.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DmqMsgPayload {
-    /// The message id.
-    pub msg_id: Vec<u8>,
-
     /// The message body.
     pub msg_body: Vec<u8>,
 
@@ -121,13 +121,12 @@ mod tests {
     #[test]
     fn dmq_msg_payload_bytes_to_sign_golden() {
         let payload = DmqMsgPayload {
-            msg_id: vec![1, 2, 3],
             msg_body: vec![4, 5, 6],
             kes_period: 7,
             expires_at: 14,
         };
 
         let bytes = payload.bytes_to_sign().unwrap();
-        assert_eq!(vec![132, 67, 1, 2, 3, 67, 4, 5, 6, 7, 14], bytes);
+        assert_eq!(vec![131, 67, 4, 5, 6, 7, 14], bytes);
     }
 }
