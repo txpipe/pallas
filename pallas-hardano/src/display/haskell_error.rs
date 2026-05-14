@@ -71,7 +71,7 @@ pub struct EraMismatch {
     other: String,  // Era of the block, header, transaction, or query.
 }
 
-/// https://github.com/IntersectMBO/cardano-base/blob/391a2c5cfd30d2234097e000dbd8d9db21ef94d7/cardano-binary/src/Cardano/Binary/FromCBOR.hs#L90
+/// <https://github.com/IntersectMBO/cardano-base/blob/391a2c5cfd30d2234097e000dbd8d9db21ef94d7/cardano-binary/src/Cardano/Binary/FromCBOR.hs#L90>
 #[derive(Debug)]
 pub enum DecoderError {
     CanonicityViolation(String),
@@ -90,7 +90,7 @@ impl Serialize for DecoderError {
     }
 }
 
-/// https://hackage.haskell.org/package/serialise-0.2.6.1/docs/Codec-Serialise.html#t:DeserialiseFailure
+/// <https://hackage.haskell.org/package/serialise-0.2.6.1/docs/Codec-Serialise.html#t:DeserialiseFailure>
 #[derive(Debug)]
 pub struct DeserialiseFailure(pub u64, pub String);
 
