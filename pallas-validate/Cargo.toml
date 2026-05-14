@@ -1,31 +1,31 @@
 [package]
 name = "pallas-validate"
 description = "Utilities for validating transactions"
-version = "1.0.0-alpha.5"
-edition = "2021"
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas-validate"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["TxPipe <hello@txpipe.io>"]
 
 [dependencies]
-pallas-addresses = { version = "=1.0.0-alpha.5", path = "../pallas-addresses" }
-pallas-codec = { version = "=1.0.0-alpha.5", path = "../pallas-codec" }
-pallas-crypto = { version = "=1.0.0-alpha.5", path = "../pallas-crypto" }
-pallas-primitives = { version = "=1.0.0-alpha.5", path = "../pallas-primitives" }
-pallas-traverse = { version = "=1.0.0-alpha.5", path = "../pallas-traverse" }
-hex = "0.4"
-chrono = "0.4.39"
-thiserror = "1.0.49"
-serde = { version = "1.0.136", features = ["derive"] }
-itertools = "0.14.0"
-tracing = "0.1.41"
+pallas-addresses.workspace = true
+pallas-codec.workspace = true
+pallas-crypto.workspace = true
+pallas-primitives.workspace = true
+pallas-traverse.workspace = true
+hex.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+itertools.workspace = true
+tracing.workspace = true
 
 # phase2 dependencies
-pallas-uplc = { version = "0.1.0", optional = true }
-# pallas-uplc = { git = "https://github.com/txpipe/uplc-turbo.git", rev = "bd174b3", optional = true }
+amaru-uplc = { version = "0.1.0", optional = true }
 
 [features]
-phase2 = ["pallas-uplc"]
+phase2 = ["amaru-uplc"]

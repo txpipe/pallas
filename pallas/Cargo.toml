@@ -1,27 +1,29 @@
 [package]
 name = "pallas"
 description = "Rust-native building blocks for the Cardano blockchain ecosystem."
-version = "1.0.0-alpha.5"
-edition = "2021"
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas"
-license = "Apache-2.0"
 readme = "../README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-network = { version = "=1.0.0-alpha.5", path = "../pallas-network/" }
-pallas-primitives = { version = "=1.0.0-alpha.5", path = "../pallas-primitives/" }
-pallas-traverse = { version = "=1.0.0-alpha.5", path = "../pallas-traverse/" }
-pallas-addresses = { version = "=1.0.0-alpha.5", path = "../pallas-addresses/" }
-pallas-crypto = { version = "=1.0.0-alpha.5", path = "../pallas-crypto/" }
-pallas-codec = { version = "=1.0.0-alpha.5", path = "../pallas-codec/" }
-pallas-utxorpc = { version = "=1.0.0-alpha.5", path = "../pallas-utxorpc/" }
-pallas-configs = { version = "=1.0.0-alpha.5", path = "../pallas-configs/" }
-pallas-txbuilder = { version = "=1.0.0-alpha.5", path = "../pallas-txbuilder/" }
-pallas-validate = { version = "=1.0.0-alpha.5", path = "../pallas-validate/" }
-pallas-hardano = { version = "=1.0.0-alpha.5", path = "../pallas-hardano/", optional = true }
+pallas-network.workspace = true
+pallas-primitives.workspace = true
+pallas-traverse.workspace = true
+pallas-addresses.workspace = true
+pallas-crypto.workspace = true
+pallas-codec.workspace = true
+pallas-utxorpc.workspace = true
+pallas-configs.workspace = true
+pallas-txbuilder.workspace = true
+pallas-validate.workspace = true
+pallas-hardano = { workspace = true, optional = true }
+pallas-network2 = { workspace = true, optional = true }
 
 [features]
 hardano = ["pallas-hardano"]
@@ -30,3 +32,23 @@ unstable = ["hardano", "pallas-traverse/unstable"]
 # pallas-validate feature flags
 phase2 = ["pallas-validate/phase2"]
 relaxed = ["pallas-primitives/relaxed", "pallas-crypto/relaxed"]
+
+# network 2
+network2 = ["dep:pallas-network2"]
+
+[package.metadata.release]
+pre-release-hook = [
+    "git",
+    "cliff",
+    "--workdir",
+    "..",
+    "--config",
+    "cliff.toml",
+    "-o",
+    "../CHANGELOG.md",
+    "--tag",
+    "{{version}}",
+]
+
+[package.metadata.docs.rs]
+all-features = true

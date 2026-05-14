@@ -4,13 +4,17 @@ use crate::multiplexer;
 use pallas_codec::Fragment;
 
 use super::{
-    protocol::{Error, Message, State, TxIdAndSize},
     EraTxBody, EraTxId,
+    protocol::{Error, Message, State, TxIdAndSize},
 };
 
+/// Decoded inbound request from the server, indicating what to reply with next.
 pub enum Request<TxId> {
+    /// Server is asking for `(ack, req)` tx ids in blocking mode.
     TxIds(u16, u16),
+    /// Server is asking for `(ack, req)` tx ids without blocking.
     TxIdsNonBlocking(u16, u16),
+    /// Server is asking for the full bodies of these tx ids.
     Txs(Vec<TxId>),
 }
 
@@ -32,6 +36,7 @@ impl<TxId, TxBody> GenericClient<TxId, TxBody>
 where
     Message<TxId, TxBody>: Fragment,
 {
+    /// Build a client over a freshly subscribed agent channel.
     pub fn new(channel: multiplexer::AgentChannel) -> Self {
         Self(
             State::Init,
@@ -41,10 +46,12 @@ where
         )
     }
 
+    /// Current state-machine state.
     pub fn state(&self) -> &State {
         &self.0
     }
 
+    /// True if the protocol has terminated.
     pub fn is_done(&self) -> bool {
         self.0 == State::Done
     }
@@ -90,6 +97,7 @@ where
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message<TxId, TxBody>) -> Result<(), Error> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -98,6 +106,7 @@ where
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message<TxId, TxBody>, Error> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
@@ -106,6 +115,7 @@ where
         Ok(msg)
     }
 
+    /// Send the opening `Init` message and transition to `Idle`.
     pub async fn send_init(&mut self) -> Result<(), Error> {
         let msg = Message::Init;
         self.send_message(&msg).await?;
@@ -114,6 +124,7 @@ where
         Ok(())
     }
 
+    /// Reply to a pending `RequestTxIds` with the available `(id, size)` pairs.
     pub async fn reply_tx_ids(&mut self, ids: Vec<TxIdAndSize<TxId>>) -> Result<(), Error> {
         let msg = Message::ReplyTxIds(ids);
         self.send_message(&msg).await?;
@@ -122,6 +133,7 @@ where
         Ok(())
     }
 
+    /// Reply to a pending `RequestTxs` with the full transaction bodies.
     pub async fn reply_txs(&mut self, txs: Vec<TxBody>) -> Result<(), Error> {
         let msg = Message::ReplyTxs(txs);
         self.send_message(&msg).await?;
@@ -130,6 +142,7 @@ where
         Ok(())
     }
 
+    /// Wait for the server's next `RequestTxIds` / `RequestTxs`.
     pub async fn next_request(&mut self) -> Result<Request<TxId>, Error> {
         match self.recv_message().await? {
             Message::RequestTxIds(blocking, ack, req) => match blocking {
@@ -150,6 +163,7 @@ where
         }
     }
 
+    /// Terminate the protocol.
     pub async fn send_done(&mut self) -> Result<(), Error> {
         let msg = Message::Done;
         self.send_message(&msg).await?;

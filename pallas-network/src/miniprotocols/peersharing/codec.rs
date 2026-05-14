@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 use super::protocol::*;
-use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Encode, Encoder, decode, encode};
 
 impl Encode<()> for PeerAddress {
     fn encode<W: encode::Write>(

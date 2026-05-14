@@ -2,7 +2,7 @@ use std::{net::Ipv4Addr, time::Duration};
 
 use crate::protocol as proto;
 use crate::{PeerId, behavior::AnyMessage, emulation};
-use rand::Rng;
+use rand::RngExt;
 
 fn reply_handshake_ok(
     pid: PeerId,
@@ -108,6 +108,8 @@ fn reply_block_fetch_ok(
     }
 }
 
+/// Emulation rules that always accept connections and reply successfully to all
+/// mini-protocol messages (happy path).
 #[derive(Default)]
 pub struct HappyRules;
 
@@ -137,4 +139,5 @@ impl emulation::Rules for HappyRules {
     }
 }
 
+/// A pre-configured emulator using [`HappyRules`] for testing happy-path scenarios.
 pub type HappyEmulator = emulation::Emulator<AnyMessage, HappyRules>;

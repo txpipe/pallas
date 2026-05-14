@@ -5,8 +5,8 @@ use std::{
 };
 
 use pallas_addresses::{
-    byron::{AddrAttrProperty, AddrType, AddressPayload},
     ByronAddress, Pointer, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart,
+    byron::{AddrAttrProperty, AddrType, AddressPayload},
 };
 use pallas_codec::{
     minicbor::bytes::ByteVec,
@@ -19,18 +19,18 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_network::miniprotocols::{
     handshake::NetworkMagic,
     localstate::queries_v16::{
-        primitives::Bytes, Anchor, AssetName, BigInt, BoundedBytes, Constitution, CostModel,
-        CostModels, DRep, DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices,
-        FieldedRewardAccount, GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId,
-        PoolMetadata, PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber,
-        Relay, ScriptHash, TransactionInput, TransactionOutput, Value, Vote,
+        Anchor, AssetName, BigInt, BoundedBytes, Constitution, CostModel, CostModels, DRep,
+        DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, FieldedRewardAccount,
+        GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId, PoolMetadata,
+        PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber, Relay,
+        ScriptHash, TransactionInput, TransactionOutput, Value, Vote, primitives::Bytes,
     },
     localtxsubmission::{
+        Coin, ConwayCertsPredFailure, ExUnits, Network, VotingProcedure,
         primitives::{
             Certificate, CommitteeColdCredential, Credential, KeyValuePairs, Language, Multiasset,
             NativeScript, PoolKeyhash, PseudoScript, StakeCredential, Voter,
         },
-        Coin, ConwayCertsPredFailure, ExUnits, Network, VotingProcedure,
     },
 };
 
@@ -81,11 +81,11 @@ impl HaskellDisplay for ConwayLedgerFailure {
                 format!("ConwayTxRefScriptsSizeTooBig ({})", as_mismatch(s2, s1))
             }
             MempoolFailure(e) => format!("ConwayMempoolFailure {}", e.to_haskell_str()),
-            WithdrawalsMissingAccounts(w) => {
-                format!("ConwayWithdrawalsMissingAccounts ({})", w.to_haskell_str())
+            WithdrawalsMissingAccounts(m) => {
+                format!("ConwayWithdrawalsMissingAccounts {}", m.to_haskell_str_p())
             }
-            IncompleteWithdrawals(w) => {
-                format!("ConwayIncompleteWithdrawals ({})", w.to_haskell_str())
+            IncompleteWithdrawals(m) => {
+                format!("ConwayIncompleteWithdrawals {}", m.to_haskell_str_p())
             }
         }
     }
@@ -2018,7 +2018,7 @@ impl HaskellDisplay for Utxo {
     fn to_haskell_str(&self) -> String {
         let result = self
             .0
-             .0
+            .0
             .iter()
             .map(|item| {
                 format!(
@@ -2427,10 +2427,10 @@ impl HaskellDisplay for Certificate {
         match self {
             StakeRegistration(cred) => {
                 format!("ConwayRegCert {} SNothing", cred.to_haskell_str_p())
-            },
+            }
             StakeDeregistration(cred) => {
                 format!("ConwayUnRegCert {} SNothing", cred.to_haskell_str_p())
-            },
+            }
             StakeDelegation(cred, hash) => format!(
                 "ConwayDelegCert {} ({})",
                 cred.to_haskell_str_p(),
@@ -2497,7 +2497,7 @@ impl HaskellDisplay for Certificate {
                     drep.to_haskell_str_p(),
                     coin.as_display_coin()
                 )
-            },
+            }
             StakeVoteRegDeleg(cred, hash, drep, coin) => format!(
                 "ConwayRegDelegCert {} ({} {}) ({})",
                 cred.to_haskell_str_p(),

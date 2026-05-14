@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{data::IanaTag, decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::IanaTag, decode, encode};
 
 use super::Message;
 

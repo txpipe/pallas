@@ -18,10 +18,10 @@ pub mod primitives;
 
 pub use primitives::{PoolMetadata, Relay};
 
+use crate::miniprotocols::Point;
 use crate::miniprotocols::localtxsubmission::primitives::{
     CommitteeColdCredential, CommitteeHotCredential, ScriptRef, StakeCredential,
 };
-use crate::miniprotocols::Point;
 
 use crate::miniprotocols::localtxsubmission::{Network, SMaybe};
 
@@ -71,7 +71,33 @@ pub enum BlockQuery {
     GetProposals(TaggedSet<GovActionId>),
     GetRatifyState,
     GetFuturePParams,
+    /// Legacy (NodeToClient v11–v14) form of `GetBigLedgerPeerSnapshot`,
+    /// encoded as a single-element array `[34]`. v15+ servers expect the
+    /// two-element form, see `GetLedgerPeerSnapshot`.
     GetBigLedgerPeerSnapshot,
+    /// NodeToClient v15+ unified peer snapshot query. Encoded as
+    /// `[34, kind]` where `kind = 0` (All) or `1` (Big). Introduced as
+    /// `GetLedgerPeerSnapshot'` upstream and finalised at NodeToClient v23
+    /// where the on-the-wire CBOR encoding of `LedgerPeerSnapshot` itself
+    /// also changed (van Rossem hard fork).
+    GetLedgerPeerSnapshot(LedgerPeerSnapshotKind),
+    /// NodeToClient v21+ replacement for `GetPoolDistr`. Same request payload,
+    /// returns the post-Conway `PoolDistr` shape.
+    GetPoolDistr2(SMaybe<Pools>),
+    /// NodeToClient v21+ replacement for `GetStakeDistribution`. No payload.
+    GetStakeDistribution2,
+    /// NodeToClient v23+ (van Rossem). Fetches the staking-credential
+    /// delegations of the given DReps.
+    GetDRepsDelegations(TaggedSet<DRep>),
+}
+
+/// Discriminator for `GetLedgerPeerSnapshot`. Mirrors the upstream
+/// `SingLedgerPeerSnapshotKind` (`SingAllLedgerPeers` / `SingBigLedgerPeers`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum LedgerPeerSnapshotKind {
+    All = 0,
+    Big = 1,
 }
 
 pub type Credential = StakeAddr;
@@ -226,7 +252,7 @@ pub struct CommitteeMembersState {
     pub epoch: Epoch,
 }
 
-/// DRep thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L52-L57
+/// DRep thresholds as [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/DRep.hs#L52-L57)
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum DRep {
     KeyHash(Bytes),
@@ -236,7 +262,7 @@ pub enum DRep {
 }
 
 /// Governance action id as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L167-L170),
-/// via [Transaction ID](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/TxIn.hs#L56
+/// via [Transaction ID](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/libs/cardano-ledger-core/src/Cardano/Ledger/TxIn.hs#L56)
 /// and [Action Index](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L154).
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct GovActionId {
@@ -720,7 +746,7 @@ pub enum GovAction {
     InfoAction,
 }
 
-/// Proposal procedure state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L476-L481
+/// Proposal procedure state as defined [in the Haskell sources](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Governance/Procedures.hs#L476-L481)
 #[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, PartialOrd, Ord)]
 pub struct ProposalProcedure {
     #[n(0)]
@@ -1425,4 +1451,50 @@ block_query_no_args! {
     get_proposed_pparams_updates,
     GetProposedPParamsUpdates,
     ProposedPPUpdates,
+}
+
+// --- NodeToClient v15+ / v21+ / v23 helpers ----------------------------------
+//
+// The wrappers below mirror the legacy helpers above (`get_big_ledger_snapshot`,
+// `get_pool_distr`, `get_stake_distribution`) but build the post-V_16 BlockQuery
+// variants negotiated against cardano-node 10.x. The legacy helpers are kept as
+// is for back-compat with older peers; these new helpers are what callers should
+// use against a NodeToClient v23-capable node (the cardano-node 10.7.x line that
+// targets the van Rossem hard fork).
+
+block_query_with_args! {
+    #[doc = "NodeToClient v15+ unified peer-snapshot query (`GetLedgerPeerSnapshot'` upstream)."]
+    #[doc = ""]
+    #[doc = "Pass `LedgerPeerSnapshotKind::Big` for the post-V_16 equivalent of [`get_big_ledger_snapshot`],"]
+    #[doc = "or `LedgerPeerSnapshotKind::All` to fetch every ledger peer."]
+    get_ledger_peer_snapshot,
+    GetLedgerPeerSnapshot,
+    (kind : LedgerPeerSnapshotKind),
+    LedgerPeerSnapshot,
+}
+
+block_query_with_args! {
+    #[doc = "NodeToClient v21+ replacement for [`get_pool_distr`]; same request payload, post-Conway PoolDistr shape."]
+    get_pool_distr_v2,
+    GetPoolDistr2,
+    (val : SMaybe<Pools>),
+    PoolDistr,
+}
+
+block_query_no_args! {
+    #[doc = "NodeToClient v21+ replacement for [`get_stake_distribution`]; no payload, post-Conway shape."]
+    get_stake_distribution_v2,
+    GetStakeDistribution2,
+    StakeDistribution,
+}
+
+block_query_with_args! {
+    #[doc = "NodeToClient v23+ (van Rossem). Fetches the staking-credential delegations of the given DReps."]
+    #[doc = ""]
+    #[doc = "The response is the era-CBOR encoding of `Map DRep (Set (Credential 'Staking))` and is returned"]
+    #[doc = "opaquely as [`AnyCbor`] until a typed model lands."]
+    get_dreps_delegations,
+    GetDRepsDelegations,
+    (dreps : TaggedSet<DRep>),
+    AnyCbor,
 }

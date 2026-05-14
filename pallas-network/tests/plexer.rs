@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 
 use pallas_network::multiplexer::{Bearer, Plexer};
-use rand::{distributions::Uniform, Rng};
+use rand::{RngExt, distr::Uniform};
 use tokio::net::TcpListener;
 
 async fn setup_passive_muxer<const P: u16>() -> Plexer {
@@ -27,8 +27,8 @@ async fn setup_active_muxer<const P: u16>() -> Plexer {
 }
 
 fn random_payload(size: usize) -> Vec<u8> {
-    let range = Uniform::from(0..255);
-    rand::thread_rng().sample_iter(&range).take(size).collect()
+    let range = Uniform::new(0, 255).unwrap();
+    rand::rng().sample_iter(&range).take(size).collect()
 }
 
 #[tokio::test]

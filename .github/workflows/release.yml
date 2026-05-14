@@ -1,58 +1,88 @@
 name: Release
+
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
 
 jobs:
-  cargo_publish:
-    name: Publish to Crates.io
+  verify:
+    name: Verify tag
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v4
+      - name: Tag must match workspace version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(cargo metadata --format-version=1 --no-deps \
+            | jq -r '.packages[] | select(.name == "pallas") | .version')
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Tag v$tag does not match workspace version $version"
+            exit 1
+          fi
 
-      - name: Setup Rust Toolchain
-        uses: actions-rs/toolchain@v1.0.7
+  ci:
+    name: CI
+    needs: verify
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish to crates.io
+    needs: [verify, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
         with:
-          toolchain: stable
-          override: true
-          profile: minimal
-
-      - name: Setup Cargo Plugins
-        uses: actions-rs/cargo@v1.0.3
+          submodules: true
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
         with:
-          command: install
-          args: cargo-workspaces
-
-      - name: Publish to Crates.io
+          tool: cargo-release
+      - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          cargo workspaces publish --from-git -y
+        run: cargo release publish --workspace --execute --no-confirm --allow-branch HEAD
 
   github_release:
     name: Create GitHub Release
+    needs: publish
     runs-on: ubuntu-latest
-    needs: ["cargo_publish"]
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Go
-        uses: actions/setup-go@v2
+      - name: Generate release notes
+        id: git-cliff
+        uses: orhun/git-cliff-action@v4
         with:
-          go-version: "1.16"
-
-      - name: Release Notes
-        run: |
-          go install github.com/git-chglog/git-chglog/cmd/git-chglog@v0.15.0
-          git-chglog -c .github/chglog/release.yml $(git describe --tags) > RELEASE.md
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE.md
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          body_path: RELEASE.md
+          body_path: ${{ steps.git-cliff.outputs.changelog }}
           draft: true

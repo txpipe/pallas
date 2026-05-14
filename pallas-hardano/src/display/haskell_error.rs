@@ -32,7 +32,7 @@ pub fn serialize_error(error: TxValidationError) -> Result<serde_json::Value, se
     serde_json::to_value(wrap_error_response(error))
 }
 
-/// https://github.com/IntersectMBO/cardano-node/blob/9dbf0b141e67ec2dfd677c77c63b1673cf9c5f3e/cardano-submit-api/src/Cardano/TxSubmit/Types.hs#L54
+/// <https://github.com/IntersectMBO/cardano-node/blob/9dbf0b141e67ec2dfd677c77c63b1673cf9c5f3e/cardano-submit-api/src/Cardano/TxSubmit/Types.hs#L54>
 #[derive(Debug, Serialize)]
 #[serde(tag = "tag", content = "contents")]
 pub enum TxSubmitFail {
@@ -55,7 +55,7 @@ pub enum TxCmdError {
     SubmitValidationError(TxValidationErrorInCardanoMode),
 }
 
-/// https://github.com/IntersectMBO/cardano-api/blob/d7c62a04ebf18d194a6ea70e6765eb7691d57668/cardano-api/internal/Cardano/Api/InMode.hs#L259
+/// <https://github.com/IntersectMBO/cardano-api/blob/d7c62a04ebf18d194a6ea70e6765eb7691d57668/cardano-api/internal/Cardano/Api/InMode.hs#L259>
 #[derive(Debug, Serialize)]
 #[serde(tag = "tag", content = "contents")]
 pub enum TxValidationErrorInCardanoMode {
@@ -64,7 +64,7 @@ pub enum TxValidationErrorInCardanoMode {
     EraMismatch(EraMismatch),
 }
 
-/// https://github.com/IntersectMBO/ouroboros-consensus/blob/e86b921443bd6e8ea25e7190eb7cb5788e28f4cc/ouroboros-consensus/src/ouroboros-consensus/Ouroboros/Consensus/HardFork/Combinator/AcrossEras.hs#L208
+/// <https://github.com/IntersectMBO/ouroboros-consensus/blob/e86b921443bd6e8ea25e7190eb7cb5788e28f4cc/ouroboros-consensus/src/ouroboros-consensus/Ouroboros/Consensus/HardFork/Combinator/AcrossEras.hs#L208>
 #[derive(Debug, Serialize)]
 pub struct EraMismatch {
     ledger: String, //  Name of the era of the ledger ("Byron" or "Shelley").
@@ -155,15 +155,19 @@ where
 fn test_submit_api_serialization() {
     let error = decode_error("81820681820764f0aab883");
 
-    assert_eq!("{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}", 
-    as_node_submit_error(error).unwrap());
+    assert_eq!(
+        "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxSubmitValidationError\",\"contents\":{\"tag\":\"TxValidationErrorInCardanoMode\",\"contents\":{\"kind\":\"ShelleyTxValidationError\",\"error\":[\"ConwayMempoolFailure \\\"\\\\175619\\\"\"],\"era\":\"ShelleyBasedEraConway\"}}}}",
+        as_node_submit_error(error).unwrap()
+    );
 }
 
 #[test]
 #[allow(non_snake_case)]
 fn test_submit_api_decode_failure() {
-    assert_eq!( "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxReadError\",\"contents\":[\"DecoderErrorDeserialiseFailure \\\"Shelley Tx\\\" (DeserialiseFailure 0 (\\\"expected list len or indef\\\"))\"]}}",   
-      as_cbor_decode_failure("expected list len or indef".to_string(), 0).unwrap());
+    assert_eq!(
+        "{\"tag\":\"TxSubmitFail\",\"contents\":{\"tag\":\"TxCmdTxReadError\",\"contents\":[\"DecoderErrorDeserialiseFailure \\\"Shelley Tx\\\" (DeserialiseFailure 0 (\\\"expected list len or indef\\\"))\"]}}",
+        as_cbor_decode_failure("expected list len or indef".to_string(), 0).unwrap()
+    );
 }
 
 #[cfg(test)]

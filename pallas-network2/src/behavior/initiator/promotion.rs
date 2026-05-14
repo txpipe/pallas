@@ -19,11 +19,16 @@ impl From<crate::protocol::peersharing::PeerAddress> for PeerId {
     }
 }
 
+/// Configuration for the peer promotion sub-behavior.
 #[derive(Debug)]
 pub struct PromotionConfig {
+    /// Maximum total number of tracked peers (cold + warm + hot).
     pub max_peers: usize,
+    /// Maximum number of warm (connected but not fully active) peers.
     pub max_warm_peers: usize,
+    /// Maximum number of hot (fully active) peers.
     pub max_hot_peers: usize,
+    /// Number of errors before a peer gets banned.
     pub max_error_count: u32,
 }
 
@@ -38,11 +43,17 @@ impl Default for PromotionConfig {
     }
 }
 
+/// Sub-behavior that manages peer promotion between cold, warm, hot, and banned
+/// states based on connection health and configured limits.
 pub struct PromotionBehavior {
     config: PromotionConfig,
+    /// Set of cold (known but not connected) peers.
     pub cold_peers: HashSet<PeerId>,
+    /// Set of warm (connected, handshake done) peers.
     pub warm_peers: HashSet<PeerId>,
+    /// Set of hot (fully active, running all mini-protocols) peers.
     pub hot_peers: HashSet<PeerId>,
+    /// Set of banned peers that will not be connected.
     pub banned_peers: HashSet<PeerId>,
 
     // metrics
@@ -59,6 +70,7 @@ impl Default for PromotionBehavior {
 }
 
 impl PromotionBehavior {
+    /// Creates a new promotion behavior with the given configuration.
     pub fn new(config: PromotionConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 
@@ -109,6 +121,7 @@ impl PromotionBehavior {
             .record(self.banned_peers.len() as u64, &[]);
     }
 
+    /// Returns how many more peers can be added before reaching `max_peers`.
     pub fn peer_deficit(&self) -> usize {
         self.config.max_peers - self.total_peers()
     }
@@ -151,6 +164,7 @@ impl PromotionBehavior {
         }
     }
 
+    /// Bans a peer, removing it from all promotion sets.
     pub fn ban_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         tracing::warn!("banning peer");
 
@@ -163,6 +177,7 @@ impl PromotionBehavior {
         peer.promotion = PromotionTag::Banned;
     }
 
+    /// Demotes a peer back to cold status (unless banned).
     pub fn demote_peer(&mut self, pid: &PeerId, peer: &mut InitiatorState) {
         tracing::warn!("demoting peer");
 
@@ -201,6 +216,7 @@ impl PromotionBehavior {
         }
     }
 
+    /// Adds a newly discovered peer to the cold set if capacity allows.
     pub fn on_peer_discovered(&mut self, pid: &PeerId, state: &mut InitiatorState) {
         if self.banned_peers.contains(pid) {
             tracing::warn!("skipping discovered peer, already banned");
@@ -244,5 +260,200 @@ impl PeerVisitor for PromotionBehavior {
         _: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         self.categorize_peer(pid, state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn max_warm_peers_respected() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 100,
+            max_warm_peers: 2,
+            max_hot_peers: 10,
+            max_error_count: 5,
+        });
+
+        // Discover 5 peers (all land in cold)
+        for i in 1..=5 {
+            let pid = PeerId::test(i);
+            let mut state = InitiatorState::new();
+            promo.on_peer_discovered(&pid, &mut state);
+        }
+        assert_eq!(promo.cold_peers.len(), 5);
+
+        // categorize_peer should promote at most 2 to warm
+        let peers: Vec<PeerId> = promo.cold_peers.iter().cloned().collect();
+        for pid in &peers {
+            let mut state = InitiatorState::new();
+            state.promotion = PromotionTag::Cold;
+            promo.categorize_peer(pid, &mut state);
+        }
+
+        assert!(
+            promo.warm_peers.len() <= 2,
+            "warm_peers ({}) should not exceed max_warm_peers (2)",
+            promo.warm_peers.len()
+        );
+    }
+
+    #[test]
+    fn max_hot_peers_respected() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 100,
+            max_warm_peers: 10,
+            max_hot_peers: 1,
+            max_error_count: 5,
+        });
+
+        // Put 3 peers directly into warm with initialized state
+        for i in 1..=3 {
+            let pid = PeerId::test(i);
+            promo.warm_peers.insert(pid);
+        }
+
+        let peers: Vec<PeerId> = promo.warm_peers.iter().cloned().collect();
+        for pid in &peers {
+            let mut state = InitiatorState::new();
+            state.connection = crate::behavior::ConnectionState::Initialized;
+            state.promotion = PromotionTag::Warm;
+            promo.categorize_peer(pid, &mut state);
+        }
+
+        assert!(
+            promo.hot_peers.len() <= 1,
+            "hot_peers ({}) should not exceed max_hot_peers (1)",
+            promo.hot_peers.len()
+        );
+    }
+
+    #[test]
+    fn max_peers_caps_total() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 3,
+            max_warm_peers: 10,
+            max_hot_peers: 10,
+            max_error_count: 5,
+        });
+
+        for i in 1..=5 {
+            let pid = PeerId::test(i);
+            let mut state = InitiatorState::new();
+            promo.on_peer_discovered(&pid, &mut state);
+        }
+
+        let total = promo.cold_peers.len() + promo.warm_peers.len() + promo.hot_peers.len();
+
+        assert!(
+            total <= 3,
+            "total tracked peers ({}) should not exceed max_peers (3)",
+            total
+        );
+    }
+
+    #[test]
+    fn peer_deficit_reflects_current_count() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_peers: 10,
+            max_warm_peers: 10,
+            max_hot_peers: 10,
+            max_error_count: 5,
+        });
+
+        for i in 1..=7 {
+            let pid = PeerId::test(i);
+            let mut state = InitiatorState::new();
+            promo.on_peer_discovered(&pid, &mut state);
+        }
+
+        assert_eq!(promo.peer_deficit(), 3);
+    }
+
+    #[test]
+    fn ban_peer_removes_from_all_sets() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = PeerId::test(1);
+
+        promo.warm_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        promo.ban_peer(&pid, &mut state);
+
+        assert!(promo.banned_peers.contains(&pid));
+        assert!(!promo.warm_peers.contains(&pid));
+        assert_eq!(state.promotion, PromotionTag::Banned);
+    }
+
+    #[test]
+    fn demote_banned_peer_is_noop() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = PeerId::test(1);
+
+        promo.banned_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        state.promotion = PromotionTag::Banned;
+        promo.demote_peer(&pid, &mut state);
+
+        assert!(
+            promo.banned_peers.contains(&pid),
+            "banned peer should remain banned after demote"
+        );
+        assert!(
+            !promo.cold_peers.contains(&pid),
+            "banned peer should not appear in cold_peers"
+        );
+    }
+
+    #[test]
+    fn rediscovered_banned_peer_stays_banned() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = PeerId::test(1);
+
+        promo.banned_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        promo.on_peer_discovered(&pid, &mut state);
+
+        assert!(promo.banned_peers.contains(&pid));
+        assert!(!promo.cold_peers.contains(&pid));
+    }
+
+    #[test]
+    fn violation_triggers_ban() {
+        let mut promo = PromotionBehavior::new(PromotionConfig::default());
+        let pid = PeerId::test(1);
+
+        promo.warm_peers.insert(pid.clone());
+
+        let mut state = InitiatorState::new();
+        state.violation = true;
+        promo.categorize_peer(&pid, &mut state);
+
+        assert!(promo.banned_peers.contains(&pid));
+    }
+
+    #[test]
+    fn error_count_exceeding_max_triggers_ban() {
+        let mut promo = PromotionBehavior::new(PromotionConfig {
+            max_error_count: 1,
+            ..PromotionConfig::default()
+        });
+        let pid = PeerId::test(1);
+
+        promo.warm_peers.insert(pid.clone());
+
+        // error_count = 1, not > 1 → no ban
+        let mut state = InitiatorState::new();
+        state.error_count = 1;
+        promo.categorize_peer(&pid, &mut state);
+        assert!(!promo.banned_peers.contains(&pid));
+
+        // error_count = 2 > 1 → ban
+        state.error_count = 2;
+        promo.categorize_peer(&pid, &mut state);
+        assert!(promo.banned_peers.contains(&pid));
     }
 }

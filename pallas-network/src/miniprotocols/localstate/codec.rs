@@ -1,4 +1,4 @@
-use pallas_codec::minicbor::{decode, encode, Decode, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Encode, Encoder, decode, encode};
 
 use super::{AcquireFailure, Message};
 
@@ -135,6 +135,7 @@ impl<'b> Decode<'b, ()> for Message {
 
 #[cfg(test)]
 pub mod tests {
+    #[cfg(feature = "blueprint")]
     use pallas_codec::minicbor;
 
     /// Decode/encode roundtrip tests for the localstate example queries/results.
@@ -164,6 +165,7 @@ pub mod tests {
     }
 
     // TODO: DRY with other decode/encode roundtripss
+    #[cfg(feature = "blueprint")]
     fn roundtrips<T>(message_str: &str)
     where
         T: for<'b> minicbor::Decode<'b, ()> + minicbor::Encode<()> + std::fmt::Debug,

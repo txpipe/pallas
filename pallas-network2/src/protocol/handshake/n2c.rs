@@ -5,6 +5,7 @@ use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 use super::NetworkMagic;
 
+/// A version table specialized for node-to-client handshakes.
 pub type VersionTable = super::VersionTable<VersionData>;
 
 const PROTOCOL_V1: u64 = 1;
@@ -23,8 +24,19 @@ const PROTOCOL_V13: u64 = 32781;
 const PROTOCOL_V14: u64 = 32782;
 const PROTOCOL_V15: u64 = 32783;
 const PROTOCOL_V16: u64 = 32784;
+const PROTOCOL_V17: u64 = 32785;
+const PROTOCOL_V18: u64 = 32786;
+const PROTOCOL_V19: u64 = 32787;
+const PROTOCOL_V20: u64 = 32788;
+const PROTOCOL_V21: u64 = 32789;
+const PROTOCOL_V22: u64 = 32790;
+const PROTOCOL_V23: u64 = 32791;
 
 impl VersionTable {
+    /// Builds a version table containing all N2C versions from v1 to v23.
+    ///
+    /// v17–v23 cover the cardano-node 10.x line up to and including the
+    /// 10.7.x release that targets the van Rossem hard fork.
     pub fn v1_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
             (PROTOCOL_V1, VersionData(network_magic, None)),
@@ -43,6 +55,13 @@ impl VersionTable {
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
             (PROTOCOL_V16, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V17, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V18, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V19, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V20, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V21, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V22, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V23, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -50,6 +69,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table containing only v10.
     pub fn only_v10(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V10, VersionData(network_magic, None))]
             .into_iter()
@@ -58,6 +78,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table containing N2C versions v10 through v23.
     pub fn v10_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
             (PROTOCOL_V10, VersionData(network_magic, None)),
@@ -67,6 +88,13 @@ impl VersionTable {
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
             (PROTOCOL_V16, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V17, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V18, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V19, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V20, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V21, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V22, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V23, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -74,6 +102,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Builds a version table containing only v15 with query mode enabled.
     pub fn v15_with_query(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V15, VersionData(network_magic, Some(true)))]
             .into_iter()
@@ -83,10 +112,14 @@ impl VersionTable {
     }
 }
 
+/// Version-specific data exchanged during a node-to-client handshake.
+///
+/// Contains the network magic and an optional query flag (for v15+).
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData(NetworkMagic, Option<bool>);
 
 impl VersionData {
+    /// Creates new version data with the given network magic and optional query flag.
     pub fn new(magic: NetworkMagic, param: Option<bool>) -> Self {
         Self(magic, param)
     }

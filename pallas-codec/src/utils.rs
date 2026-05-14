@@ -1,7 +1,7 @@
 use minicbor::{
+    Decode, Encode,
     data::{IanaTag, Tag, Type},
     decode::Error,
-    Decode, Encode,
 };
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, str::FromStr};
@@ -798,11 +798,7 @@ impl<T> NonEmptySet<T> {
     }
 
     pub fn from_vec(x: Vec<T>) -> Option<Self> {
-        if x.is_empty() {
-            None
-        } else {
-            Some(Self(x))
-        }
+        if x.is_empty() { None } else { Some(Self(x)) }
     }
 }
 

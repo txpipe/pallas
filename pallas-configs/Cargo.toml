@@ -1,23 +1,24 @@
 [package]
 name = "pallas-configs"
 description = "Config structs and utilities matching the Haskell implementation"
-version = "1.0.0-alpha.5"
-edition = "2021"
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas-configs"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-addresses = { version = "=1.0.0-alpha.5", path = "../pallas-addresses" }
-pallas-crypto = { version = "=1.0.0-alpha.5", path = "../pallas-crypto" }
-pallas-primitives = { version = "=1.0.0-alpha.5", path = "../pallas-primitives" }
-serde = { version = "1.0.136", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.79", optional = true }
+pallas-addresses.workspace = true
+pallas-crypto.workspace = true
+pallas-primitives.workspace = true
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 base64 = "0.22.0"
-serde_with = "3.7.0"
+serde_with.workspace = true
 num-rational = "0.4.2"
 
 [features]

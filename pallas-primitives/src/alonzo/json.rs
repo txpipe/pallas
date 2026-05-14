@@ -82,7 +82,7 @@ impl ToCanonicalJson for super::NativeScript {
 mod tests {
     use pallas_codec::minicbor;
 
-    use crate::{alonzo::Block, ToCanonicalJson};
+    use crate::{ToCanonicalJson, alonzo::Block};
 
     type BlockWrapper<'a> = (u16, Block<'a>);
 

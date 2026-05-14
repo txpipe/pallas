@@ -1,19 +1,18 @@
 //! Utilities required for Alonzo-era transaction validation.
 
 use crate::utils::{
-    add_minted_value, add_values, aux_data_from_alonzo_tx, compute_native_script_hash,
-    compute_plutus_v1_script_hash, empty_value, get_alonzo_comp_tx_size,
-    get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address, get_val_size_in_words,
-    mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
     AlonzoError::*,
     AlonzoProtParams, UTxOs,
     ValidationError::{self, *},
-    ValidationResult,
+    ValidationResult, add_minted_value, add_values, aux_data_from_alonzo_tx,
+    compute_native_script_hash, compute_plutus_v1_script_hash, empty_value,
+    get_alonzo_comp_tx_size, get_lovelace_from_alonzo_val, get_payment_part, get_shelley_address,
+    get_val_size_in_words, mk_alonzo_vk_wits_check_list, values_are_equal, verify_signature,
 };
 use hex;
 use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
 use pallas_codec::{
-    minicbor::{encode, Encoder},
+    minicbor::{Encoder, encode},
     utils::{Bytes, KeepRaw},
 };
 use pallas_crypto::hash::Hash;
@@ -195,13 +194,12 @@ fn check_collaterals_address(collaterals: &[TransactionInput], utxos: &UTxOs) ->
     for collateral in collaterals {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
             Some(multi_era_output) => {
-                if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output) {
-                    if let ShelleyPaymentPart::Script(_) =
+                if let Some(alonzo_comp_output) = MultiEraOutput::as_alonzo(multi_era_output)
+                    && let ShelleyPaymentPart::Script(_) =
                         get_payment_part(&alonzo_comp_output.address)
                             .ok_or(Alonzo(InputDecoding))?
-                    {
-                        return Err(Alonzo(CollateralNotVKeyLocked));
-                    }
+                {
+                    return Err(Alonzo(CollateralNotVKeyLocked));
                 }
             }
             None => return Err(Alonzo(CollateralNotInUTxO)),
@@ -222,28 +220,21 @@ fn check_collaterals_assets(
         Some(collaterals) => {
             for collateral in collaterals {
                 match utxos.get(&MultiEraInput::from_alonzo_compatible(collateral)) {
-                    Some(multi_era_output) => match MultiEraOutput::as_alonzo(multi_era_output) {
-                        Some(TransactionOutput {
-                            amount: Value::Coin(n),
-                            ..
-                        }) => {
+                    Some(multi_era_output) => {
+                        if let Some(TransactionOutput { amount, .. }) =
+                            MultiEraOutput::as_alonzo(multi_era_output)
+                        {
+                            let (Value::Coin(n) | Value::Multiasset(n, _)) = amount;
                             if *n * 100 < fee_percentage {
                                 return Err(Alonzo(CollateralMinLovelace));
                             }
-                        }
-                        Some(TransactionOutput {
-                            amount: Value::Multiasset(n, multi_assets),
-                            ..
-                        }) => {
-                            if *n * 100 < fee_percentage {
-                                return Err(Alonzo(CollateralMinLovelace));
-                            }
-                            if !multi_assets.is_empty() {
+                            if let Value::Multiasset(_, multi_assets) = amount
+                                && !multi_assets.is_empty()
+                            {
                                 return Err(Alonzo(NonLovelaceCollateral));
                             }
                         }
-                        None => (),
-                    },
+                    }
                     None => return Err(Alonzo(CollateralNotInUTxO)),
                 }
             }
@@ -350,10 +341,10 @@ fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> Valid
 // The network ID of the transaction body is either undefined or equal to the
 // global network ID.
 fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
-    if let Some(tx_network_id) = tx_body.network_id {
-        if u8::from(tx_network_id) != *network_id {
-            return Err(Alonzo(TxWrongNetworkID));
-        }
+    if let Some(tx_network_id) = tx_body.network_id
+        && u8::from(tx_network_id) != *network_id
+    {
+        return Err(Alonzo(TxWrongNetworkID));
     }
     Ok(())
 }
@@ -505,10 +496,10 @@ fn check_datums_from_witness_set_in_inputs_or_outputs(
 
 fn find_datum(datum: &KeepRaw<PlutusData>, outputs: &[TransactionOutput]) -> ValidationResult {
     for output in outputs {
-        if let Some(hash) = output.datum_hash {
-            if pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor()) == hash {
-                return Ok(());
-            }
+        if let Some(hash) = output.datum_hash
+            && pallas_crypto::hash::Hasher::<256>::hash(datum.raw_cbor()) == hash
+        {
+            return Ok(());
         }
     }
     Err(Alonzo(UnneededDatum))

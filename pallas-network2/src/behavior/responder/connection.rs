@@ -4,8 +4,11 @@ use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::ConnectionState};
 
 use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState};
 
+/// Configuration for the responder connection sub-behavior.
 pub struct ConnectionResponderConfig {
+    /// Number of errors before a peer gets banned.
     pub max_error_count: u32,
+    /// Maximum number of simultaneous connections allowed from the same IP.
     pub max_connections_per_ip: usize,
 }
 
@@ -18,6 +21,8 @@ impl Default for ConnectionResponderConfig {
     }
 }
 
+/// Responder sub-behavior that manages inbound connection lifecycle, including
+/// per-IP connection limits, banning, and disconnection of errored peers.
 pub struct ConnectionResponder {
     config: ConnectionResponderConfig,
     pub(crate) banned_peers: HashSet<PeerId>,
@@ -39,6 +44,7 @@ impl Default for ConnectionResponder {
 }
 
 impl ConnectionResponder {
+    /// Creates a new connection responder with the given configuration.
     pub fn new(config: ConnectionResponderConfig) -> Self {
         let meter = opentelemetry::global::meter("pallas-network2");
 
@@ -176,5 +182,112 @@ impl ResponderPeerVisitor for ConnectionResponder {
             tracing::info!("disconnecting responder peer");
             outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::OutboundQueue;
+
+    use crate::testing::BehaviorOutputExt;
+
+    fn make_peer_same_ip(id: u16) -> PeerId {
+        PeerId {
+            host: "10.0.0.1".to_string(),
+            port: 3000 + id,
+        }
+    }
+
+    fn drain_outputs(
+        outbound: &mut OutboundQueue<super::super::ResponderBehavior>,
+    ) -> Vec<crate::BehaviorOutput<super::super::ResponderBehavior>> {
+        outbound.drain_ready()
+    }
+
+    #[test]
+    fn per_ip_limit_enforced() {
+        let mut conn = ConnectionResponder::new(ConnectionResponderConfig {
+            max_error_count: 5,
+            max_connections_per_ip: 3,
+        });
+        let mut outbound = OutboundQueue::new();
+
+        for i in 1..=5 {
+            let pid = make_peer_same_ip(i);
+            let mut state = ResponderState::new();
+            conn.visit_connected(&pid, &mut state, &mut outbound);
+        }
+
+        let outputs = drain_outputs(&mut outbound);
+
+        // Peers 4 and 5 should be disconnected
+        assert!(outputs.has_disconnect_for(&make_peer_same_ip(4)));
+        assert!(outputs.has_disconnect_for(&make_peer_same_ip(5)));
+        // Peers 1-3 should not
+        assert!(!outputs.has_disconnect_for(&make_peer_same_ip(1)));
+        assert!(!outputs.has_disconnect_for(&make_peer_same_ip(2)));
+        assert!(!outputs.has_disconnect_for(&make_peer_same_ip(3)));
+    }
+
+    #[test]
+    fn banned_peer_rejected_on_connect() {
+        let mut conn = ConnectionResponder::new(ConnectionResponderConfig::default());
+        let mut outbound = OutboundQueue::new();
+        let pid = PeerId::test(1);
+
+        conn.banned_peers.insert(pid.clone());
+
+        let mut state = ResponderState::new();
+        conn.visit_connected(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert!(outputs.has_disconnect_for(&pid));
+    }
+
+    #[test]
+    fn disconnect_frees_ip_slot() {
+        let mut conn = ConnectionResponder::new(ConnectionResponderConfig {
+            max_error_count: 5,
+            max_connections_per_ip: 3,
+        });
+        let mut outbound = OutboundQueue::new();
+
+        // Fill 3 slots
+        for i in 1..=3 {
+            let pid = make_peer_same_ip(i);
+            let mut state = ResponderState::new();
+            conn.visit_connected(&pid, &mut state, &mut outbound);
+        }
+        drain_outputs(&mut outbound);
+
+        // Disconnect peer 1
+        let mut state = ResponderState::new();
+        conn.visit_disconnected(&make_peer_same_ip(1), &mut state, &mut outbound);
+        drain_outputs(&mut outbound);
+
+        // Peer 4 should be accepted (slot freed)
+        let pid4 = make_peer_same_ip(4);
+        let mut state = ResponderState::new();
+        conn.visit_connected(&pid4, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert!(!outputs.has_disconnect_for(&pid4));
+    }
+
+    #[test]
+    fn violation_leads_to_ban_on_housekeeping() {
+        let mut conn = ConnectionResponder::new(ConnectionResponderConfig::default());
+        let mut outbound = OutboundQueue::new();
+        let pid = PeerId::test(2);
+
+        let mut state = ResponderState::new();
+        state.violation = true;
+
+        conn.visit_housekeeping(&pid, &mut state, &mut outbound);
+
+        let outputs = drain_outputs(&mut outbound);
+        assert!(conn.banned_peers.contains(&pid));
+        assert!(outputs.has_disconnect_for(&pid));
     }
 }

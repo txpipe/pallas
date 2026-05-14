@@ -9,30 +9,45 @@ use super::Point;
 /// Protocol channel number for node-to-node block-fetch
 pub const CHANNEL_ID: u16 = 3;
 
+/// Raw bytes of a fetched block body.
 pub type Body = Vec<u8>;
 
+/// A range of blocks defined by two points (inclusive).
 pub type Range = (Point, Point);
 
+/// A block-fetch mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// Client requests a range of blocks.
     RequestRange(Range),
+    /// Client signals it is done fetching blocks.
     ClientDone,
+    /// Server signals the start of a batch of blocks.
     StartBatch,
+    /// Server signals that no blocks are available for the requested range.
     NoBlocks,
+    /// Server sends a single block body.
     Block(Body),
+    /// Server signals the end of a batch.
     BatchDone,
 }
 
+/// State machine for the block-fetch mini-protocol.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum State {
+    /// Client has agency; can request a range or signal done.
     #[default]
     Idle,
+    /// A range has been requested; waiting for server to start or refuse.
     Busy(Range),
+    /// Server is streaming blocks; contains the last received block if any.
     Streaming(Option<Body>),
+    /// The protocol has terminated.
     Done,
 }
 
 impl State {
+    /// Applies a message to the current state, returning the new state.
     pub fn apply(&self, msg: &Message) -> Result<Self, Error> {
         match self {
             Self::Idle => match msg {

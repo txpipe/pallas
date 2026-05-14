@@ -5,6 +5,7 @@ use crate::{
 
 use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState};
 
+/// Responder sub-behavior that automatically replies to keepalive requests.
 pub struct KeepaliveResponder {
     // metrics
     keepalive_responses_counter: opentelemetry::metrics::Counter<u64>,

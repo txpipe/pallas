@@ -2,13 +2,16 @@
 name = "pallas-wallet"
 description = "Cardano wallet utilities such as key generation"
 version = "1.0.0-alpha.1"
-edition = "2021"
+edition.workspace = true
 repository = "https://github.com/txpipe/pallas"
 homepage = "https://github.com/txpipe/pallas"
 documentation = "https://docs.rs/pallas"
 license = "Apache-2.0"
 readme = "README.md"
 authors = ["Santiago Carmuega <santiago@carmuega.me>"]
+
+[package.metadata.release]
+release = false
 
 [dependencies]
 thiserror = "1.0.49"

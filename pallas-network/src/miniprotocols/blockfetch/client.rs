@@ -6,31 +6,41 @@ use crate::multiplexer;
 
 use super::{Message, State};
 
+/// Errors produced by the block-fetch client agent.
 #[derive(Error, Debug)]
 pub enum ClientError {
+    /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
 
+    /// Tried to send while the peer holds agency.
     #[error("attempted to send message while agency is theirs")]
     AgencyIsTheirs,
 
+    /// Inbound message is not valid for the current state.
     #[error("inbound message is not valid for current state")]
     InvalidInbound,
 
+    /// Outbound message is not valid for the current state.
     #[error("outbound message is not valid for current state")]
     InvalidOutbound,
 
+    /// Server replied `NoBlocks` for the requested range.
     #[error("requested range doesn't contain any blocks")]
     NoBlocks,
 
+    /// Underlying multiplexer error.
     #[error("error while sending or receiving data through the multiplexer")]
     Plexer(multiplexer::Error),
 }
 
+/// Raw CBOR bytes of a block body.
 pub type Body = Vec<u8>;
 
+/// Inclusive `(start, end)` chain-point range.
 pub type Range = (Point, Point);
 
+/// `Some(())` if the server is about to stream blocks, `None` for empty ranges.
 pub type HasBlocks = Option<()>;
 
 /// Represents the client for the BlockFetch mini-protocol.
@@ -108,6 +118,7 @@ impl Client {
         }
     }
 
+    /// Low-level send.
     pub async fn send_message(&mut self, msg: &Message) -> Result<(), ClientError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
@@ -119,6 +130,7 @@ impl Client {
         Ok(())
     }
 
+    /// Low-level receive.
     pub async fn recv_message(&mut self) -> Result<Message, ClientError> {
         self.assert_agency_is_theirs()?;
         let msg = self.1.recv_full_msg().await.map_err(ClientError::Plexer)?;
@@ -127,6 +139,7 @@ impl Client {
         Ok(msg)
     }
 
+    /// Send a `RequestRange` for the inclusive `(start, end)` block range.
     pub async fn send_request_range(&mut self, range: (Point, Point)) -> Result<(), ClientError> {
         let msg = Message::RequestRange { range };
         self.send_message(&msg).await?;
@@ -135,6 +148,7 @@ impl Client {
         Ok(())
     }
 
+    /// Wait for the server's response to a [`Self::send_request_range`].
     pub async fn recv_while_busy(&mut self) -> Result<HasBlocks, ClientError> {
         match self.recv_message().await? {
             Message::StartBatch => {

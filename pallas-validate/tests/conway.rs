@@ -12,8 +12,8 @@ use pallas_primitives::conway::{
     TransactionBody, Tx, Value,
 };
 use pallas_primitives::{
-    conway::{DRepVotingThresholds, PoolVotingThresholds, TransactionOutput},
     Set,
+    conway::{DRepVotingThresholds, PoolVotingThresholds, TransactionOutput},
 };
 use pallas_traverse::MultiEraTx;
 
@@ -21,7 +21,7 @@ use pallas_validate::{
     phase1::validate_txs,
     utils::{
         AccountState, CertState, ConwayProtParams, Environment, MultiEraProtocolParameters,
-        PostAlonzoError, UTxOs, ValidationError::*,
+        PostAlonzoError, UTxOs, ValidationError::*, conway_values_are_equal,
     },
 };
 
@@ -30,8 +30,8 @@ mod conway_tests {
     use std::{borrow::Cow, collections::BTreeMap};
 
     use pallas_addresses::{Address, ShelleyAddress, ShelleyPaymentPart};
-    use pallas_primitives::{conway::PostAlonzoTransactionOutput, PositiveCoin};
-    use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput};
+    use pallas_primitives::{PositiveCoin, conway::PostAlonzoTransactionOutput};
+    use pallas_traverse::{MultiEraInput, MultiEraOutput};
 
     use super::*;
 
@@ -42,13 +42,10 @@ mod conway_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -86,15 +83,11 @@ mod conway_tests {
         let datum_option = minicbor::to_vec(datum_option).unwrap();
         let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(&datum_option).unwrap();
 
-        let mut tx_outs_info: Vec<(
-            String,
-            Value,
-            Option<KeepRaw<'_, DatumOption>>,
-            Option<CborWrap<ScriptRef>>,
-            Vec<u8>,
-        )> = vec![
+        let mut tx_outs_info: Vec<ConwayTxOutInfoMut> = vec![
             (
-                String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+                String::from(
+                    "005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+                ),
                 Value::Coin(2554710123),
                 None,
                 None,
@@ -112,13 +105,7 @@ mod conway_tests {
         let mut utxos: UTxOs =
             mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
-        let mut ref_info: Vec<(
-            String,
-            Value,
-            Option<KeepRaw<'_, DatumOption>>,
-            Option<CborWrap<ScriptRef>>,
-            Vec<u8>,
-        )> = vec![
+        let mut ref_info: Vec<ConwayRefInputInfoMut> = vec![
             (
                 String::from("70faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
@@ -130,14 +117,10 @@ mod conway_tests {
 
         add_codec_safe_ref_input_conway(&mtx.transaction_body, &mut utxos, &mut ref_info);
 
-        let mut collateral_info: Vec<(
-            String,
-            Value,
-            Option<KeepRaw<'_, DatumOption>>,
-            Option<CborWrap<ScriptRef>>,
-          Vec<u8>,
-        )> = vec![(
-            String::from("005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let mut collateral_info: Vec<ConwayCollateralInfoMut> = vec![(
+            String::from(
+                "005c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(2554439518),
             None,
             None,
@@ -158,7 +141,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
 
-        match validate_txs(&[metx.clone()], &env, &utxos, &mut cert_state) {
+        match validate_txs(std::slice::from_ref(&metx), &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({err:?})"),
         };
@@ -187,13 +170,7 @@ mod conway_tests {
         let datum_option = minicbor::to_vec(datum_option).unwrap();
         let datum_option: KeepRaw<'_, DatumOption> = minicbor::decode(&datum_option).unwrap();
 
-        let mut tx_outs_info: Vec<(
-            String,
-            Value,
-            Option<KeepRaw<'_, DatumOption>>,
-            Option<CborWrap<ScriptRef>>,
-            Vec<u8>,
-        )> = vec![(
+        let mut tx_outs_info: Vec<ConwayTxOutInfoMut> = vec![(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(datum_option),
@@ -204,13 +181,7 @@ mod conway_tests {
         let mut utxos: UTxOs =
             mk_codec_safe_utxo_for_conway_tx(&mtx.transaction_body, &mut tx_outs_info);
 
-        let mut ref_info: Vec<(
-            String,
-            Value,
-            Option<KeepRaw<'_, DatumOption>>,
-            Option<CborWrap<ScriptRef>>,
-            Vec<u8>,
-        )> = vec![
+        let mut ref_info: Vec<ConwayRefInputInfoMut> = vec![
             (
                 String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
                 Value::Coin(1624870),
@@ -222,14 +193,10 @@ mod conway_tests {
 
         add_codec_safe_ref_input_conway(&mtx.transaction_body, &mut utxos, &mut ref_info);
 
-        let mut collateral_info: Vec<(
-            String,
-            Value,
-            Option<KeepRaw<'_, DatumOption>>,
-            Option<CborWrap<ScriptRef>>,
-            Vec<u8>,
-        )> = vec![(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let mut collateral_info: Vec<ConwayCollateralInfoMut> = vec![(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(49731771),
             None,
             None,
@@ -251,7 +218,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
 
-        match validate_txs(&[metx.clone()], &env, &utxos, &mut cert_state) {
+        match validate_txs(std::slice::from_ref(&metx), &env, &utxos, &mut cert_state) {
             Ok(()) => (),
             Err(err) => panic!("Unexpected error ({err:?})"),
         };
@@ -273,13 +240,10 @@ mod conway_tests {
     fn empty_ins() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -306,7 +270,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Inputs set should not be empty"),
+            Ok(()) => panic!("Inputs set should not be empty"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxInsEmpty) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -336,7 +300,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "All inputs should be within the UTxO set"),
+            Ok(()) => panic!("All inputs should be within the UTxO set"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::InputNotInUTxO) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -350,13 +314,10 @@ mod conway_tests {
     fn validity_interval_lower_bound_unreached() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -383,10 +344,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(
-                false,
-                "Validity interval lower bound should have been reached"
-            ),
+            Ok(()) => panic!("Validity interval lower bound should have been reached"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockPrecedesValInt) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -400,13 +358,10 @@ mod conway_tests {
     fn validity_interval_upper_bound_surpassed() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -433,10 +388,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(
-                false,
-                "Validity interval upper bound should not have been surpassed"
-            ),
+            Ok(()) => panic!("Validity interval upper bound should not have been surpassed"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::BlockExceedsValInt) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -451,13 +403,10 @@ mod conway_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -479,7 +428,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Fee should not be below minimum"),
+            Ok(()) => panic!("Fee should not be below minimum"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::FeeBelowMin) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -493,13 +442,10 @@ mod conway_tests {
     fn preservation_of_value() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -526,12 +472,21 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Preservation of value does not hold"),
+            Ok(()) => panic!("Preservation of value does not hold"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::PreservationOfValue) => (),
                 _ => panic!("Unexpected error ({err:?})"),
             },
         }
+    }
+
+    #[test]
+    fn preservation_of_value_allows_empty_multiasset_to_equal_coin() {
+        let coin = Value::Coin(10);
+        let empty_multiasset = Value::Multiasset(10, std::collections::BTreeMap::new());
+
+        assert!(conway_values_are_equal(&coin, &empty_multiasset));
+        assert!(conway_values_are_equal(&empty_multiasset, &coin));
     }
 
     #[test]
@@ -541,13 +496,10 @@ mod conway_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -569,7 +521,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Output minimum lovelace is unreached"),
+            Ok(()) => panic!("Output minimum lovelace is unreached"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MinLovelaceUnreached) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -584,13 +536,10 @@ mod conway_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -612,7 +561,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Max value size exceeded"),
+            Ok(()) => panic!("Max value size exceeded"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxValSizeExceeded) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -626,13 +575,10 @@ mod conway_tests {
     fn tx_network_id() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -659,10 +605,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(
-                false,
-                "Transaction network ID should match environment network ID"
-            ),
+            Ok(()) => panic!("Transaction network ID should match environment network ID"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TxWrongNetworkID) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -678,12 +621,7 @@ mod conway_tests {
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(DatumOption::Data(CborWrap(
@@ -694,13 +632,10 @@ mod conway_tests {
 
         let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
 
-        let collateral_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let collateral_info: &[ConwayCollateralInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(49731771),
             None,
             None,
@@ -729,7 +664,7 @@ mod conway_tests {
 
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "No collateral inputs"),
+            Ok(()) => panic!("No collateral inputs"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMissing) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -747,12 +682,7 @@ mod conway_tests {
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(DatumOption::Data(CborWrap(
@@ -763,13 +693,10 @@ mod conway_tests {
 
         let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
 
-        let collateral_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let collateral_info: &[ConwayCollateralInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(49731771),
             None,
             None,
@@ -794,7 +721,7 @@ mod conway_tests {
 
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Number of collateral inputs should be within limits"),
+            Ok(()) => panic!("Number of collateral inputs should be within limits"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::TooManyCollaterals) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -810,12 +737,7 @@ mod conway_tests {
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(DatumOption::Data(CborWrap(
@@ -838,7 +760,9 @@ mod conway_tests {
             network_id: 1,
             acnt: Some(acnt),
         };
-        let old_address: Address = match hex::decode(String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba")) {
+        let old_address: Address = match hex::decode(String::from(
+            "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+        )) {
             Ok(bytes_vec) => Address::from_bytes(bytes_vec.as_slice()).unwrap(),
             _ => panic!("Unable to parse collateral input address"),
         };
@@ -876,7 +800,7 @@ mod conway_tests {
 
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Collateral inputs should be verification-key locked"),
+            Ok(()) => panic!("Collateral inputs should be verification-key locked"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralNotVKeyLocked) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -894,12 +818,7 @@ mod conway_tests {
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(DatumOption::Data(CborWrap(
@@ -922,27 +841,23 @@ mod conway_tests {
             network_id: 1,
             acnt: Some(acnt),
         };
-        let collateral_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd"),
+        let collateral_info: &[ConwayCollateralInfo] = &[(
+            String::from(
+                "01f1e126304308006938d2e8571842ff87302fff95a037b3fd838451b8b3c9396d0680d912487139cb7fc85aa279ea70e8cdacee4c6cae40fd",
+            ),
             Value::Multiasset(
                 5000000,
                 [(
                     "b001076b34a87e7d48ec46703a6f50f93289582ad9bdbeff7f1e3295"
-                        .parse().
-                        unwrap(),
+                        .parse()
+                        .unwrap(),
                     [(
-                        Bytes::from(
-                            hex::decode("4879706562656173747332343233")
-                                .unwrap(),
-                        ),
+                        Bytes::from(hex::decode("4879706562656173747332343233").unwrap()),
                         PositiveCoin::try_from(1000).ok().unwrap(),
-                    )].into()
-                )].into()
+                    )]
+                    .into(),
+                )]
+                .into(),
             ),
             None,
             None,
@@ -951,7 +866,7 @@ mod conway_tests {
 
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Collateral balance should contained only lovelace"),
+            Ok(()) => panic!("Collateral balance should contained only lovelace"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::NonLovelaceCollateral) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -968,12 +883,7 @@ mod conway_tests {
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(DatumOption::Data(CborWrap(
@@ -984,13 +894,10 @@ mod conway_tests {
 
         let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
 
-        let collateral_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let collateral_info: &[ConwayCollateralInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(88118796),
             None,
             None,
@@ -1014,10 +921,7 @@ mod conway_tests {
 
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(
-                false,
-                "Collateral balance should contained the minimum lovelace"
-            ),
+            Ok(()) => panic!("Collateral balance should contained the minimum lovelace"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralMinLovelace) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -1033,12 +937,7 @@ mod conway_tests {
         let mut mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let datum_bytes = cbor_to_bytes("d8799f4568656c6c6fff");
 
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
             String::from("71faae60072c45d121b6e58ae35c624693ee3dad9ea8ed765eb6f76f9f"),
             Value::Coin(2000000),
             Some(DatumOption::Data(CborWrap(
@@ -1049,13 +948,10 @@ mod conway_tests {
 
         let mut utxos: UTxOs = mk_utxo_for_conway_tx(&mtx.transaction_body, tx_outs_info);
 
-        let collateral_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let collateral_info: &[ConwayCollateralInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(100118796),
             None,
             None,
@@ -1085,7 +981,7 @@ mod conway_tests {
 
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(false, "Collateral annotation"),
+            Ok(()) => panic!("Collateral annotation"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::CollateralAnnotation) => (),
                 _ => panic!("Unexpected error ({err:?})"),
@@ -1101,13 +997,10 @@ mod conway_tests {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
-        let tx_outs_info: &[(
-            String,
-            Value,
-            Option<DatumOption>,
-            Option<CborWrap<ScriptRef>>,
-        )] = &[(
-            String::from("015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba"),
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
             Value::Coin(20000000),
             None,
             None,
@@ -1129,10 +1022,7 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
         match validate_txs(&[metx], &env, &utxos, &mut cert_state) {
-            Ok(()) => assert!(
-                false,
-                "Transaction size should not exceed the maximum allowed"
-            ),
+            Ok(()) => panic!("Transaction size should not exceed the maximum allowed"),
             Err(err) => match err {
                 PostAlonzo(PostAlonzoError::MaxTxSizeExceeded) => (),
                 _ => panic!("Unexpected error ({err:?})"),

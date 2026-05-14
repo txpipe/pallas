@@ -4,25 +4,37 @@ use pallas_codec::minicbor::{Decode, Encode, Encoder, decode, encode};
 /// Protocol channel number for node-to-node Keep-alive
 pub const CHANNEL_ID: u16 = 8;
 
+/// An opaque cookie value echoed back in keepalive responses.
 pub type Cookie = u16;
 
+/// Sub-state of the client side of the keepalive protocol.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ClientState {
+    /// No keepalive in progress.
     Empty,
+    /// A keepalive response was received with this cookie.
     Response(Cookie),
 }
 
+/// A keepalive mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// Client sends a keepalive request with a cookie.
     KeepAlive(Cookie),
+    /// Server responds with the same cookie.
     ResponseKeepAlive(Cookie),
+    /// The protocol is done.
     Done,
 }
 
+/// State machine for the keepalive mini-protocol.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
+    /// Agency belongs to the client.
     Client(ClientState),
+    /// Agency belongs to the server; contains the pending cookie.
     Server(Cookie),
+    /// The protocol has terminated.
     Done,
 }
 
@@ -33,6 +45,7 @@ impl Default for State {
 }
 
 impl State {
+    /// Applies a message to the current state, returning the new state.
     pub fn apply(&self, msg: &Message) -> Result<Self, Error> {
         match self {
             State::Client(..) => match msg {

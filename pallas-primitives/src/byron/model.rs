@@ -2,7 +2,7 @@
 //!
 //! Handcrafted, idiomatic rust artifacts based on based on the [Byron CDDL](https://github.com/input-output-hk/cardano-ledger/blob/master/eras/byron/cddl-spec/byron.cddl) file in IOHK repo.
 
-use pallas_codec::minicbor::{bytes::ByteVec, Decode, Encode};
+use pallas_codec::minicbor::{Decode, Encode, bytes::ByteVec};
 use pallas_crypto::hash::Hash;
 
 use pallas_codec::utils::{

@@ -9,12 +9,12 @@ use pallas_codec::minicbor::{self, Decode, Encode};
 pub use pallas_codec::codec_by_datatype;
 
 pub use crate::{
-    plutus_data::*, AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch,
-    ExUnitPrices, ExUnits, GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, Int, KeepRaw,
-    Metadata, Metadatum, MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript,
-    PolicyId, PoolKeyhash, PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion,
-    RationalNumber, Relay, RewardAccount, ScriptHash, StakeCredential, TransactionIndex,
-    TransactionInput, UnitInterval, VrfCert, VrfKeyhash,
+    AddrKeyhash, AssetName, Bytes, Coin, CostModel, DatumHash, DnsName, Epoch, ExUnitPrices,
+    ExUnits, GenesisDelegateHash, Genesishash, Hash, IPv4, IPv6, Int, KeepRaw, Metadata, Metadatum,
+    MetadatumLabel, NetworkId, Nonce, NonceVariant, Nullable, PlutusScript, PolicyId, PoolKeyhash,
+    PoolMetadata, PoolMetadataHash, Port, PositiveInterval, ProtocolVersion, RationalNumber, Relay,
+    RewardAccount, ScriptHash, StakeCredential, TransactionIndex, TransactionInput, UnitInterval,
+    VrfCert, VrfKeyhash, plutus_data::*,
 };
 
 use crate::BTreeMap;
@@ -509,7 +509,7 @@ pub type MintedTx<'b> = Tx<'b>;
 mod tests {
     use pallas_codec::minicbor::{self, to_vec};
 
-    use crate::{alonzo::PlutusData, Fragment};
+    use crate::{Fragment, alonzo::PlutusData};
 
     use super::{Block, Header};
 
@@ -616,7 +616,7 @@ mod tests {
             // B (B.replicate 67 105)
             "5f58406969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696969696943696969ff",
             // B B.empty
-            "40"
+            "40",
         ];
         for data_hex in datas {
             let data_bytes = hex::decode(data_hex).unwrap();

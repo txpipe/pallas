@@ -2,10 +2,9 @@
 use crate::hash::Hasher;
 use crate::kes::errors::Error;
 use ed25519_dalek as ed25519;
-use rand::RngCore;
-use rand::SeedableRng;
-use rand::TryRngCore;
 use rand_chacha::ChaCha20Rng;
+use rand_core::Rng;
+use rand_core::SeedableRng;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::convert::TryInto;
@@ -150,7 +149,7 @@ impl fmt::Display for Depth {
 
 /// Generate random array of bytes using cryptographically secure random number generator
 pub fn generate_crypto_secure_seed(seed_bytes: &mut [u8]) {
-    let mut rng = ChaCha20Rng::from_rng(&mut rand::rng()).unwrap_err();
+    let mut rng = ChaCha20Rng::from_rng(&mut rand::rng());
     rng.fill_bytes(seed_bytes);
 }
 

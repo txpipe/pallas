@@ -1,5 +1,5 @@
 use super::*;
-use pallas_codec::minicbor::{data::Tag, decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::Tag, decode, encode};
 
 impl Encode<()> for BlockQuery {
     fn encode<W: encode::Write>(
@@ -165,6 +165,25 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(34)?;
             }
+            BlockQuery::GetLedgerPeerSnapshot(kind) => {
+                e.array(2)?;
+                e.u16(34)?;
+                e.u8(*kind as u8)?;
+            }
+            BlockQuery::GetPoolDistr2(x) => {
+                e.array(2)?;
+                e.u16(36)?;
+                e.encode(x)?;
+            }
+            BlockQuery::GetStakeDistribution2 => {
+                e.array(1)?;
+                e.u16(37)?;
+            }
+            BlockQuery::GetDRepsDelegations(dreps) => {
+                e.array(2)?;
+                e.u16(39)?;
+                e.encode(dreps)?;
+            }
         }
         Ok(())
     }
@@ -172,7 +191,7 @@ impl Encode<()> for BlockQuery {
 
 impl<'b> Decode<'b, ()> for BlockQuery {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        d.array()?;
+        let len = d.array()?;
 
         match d.u16()? {
             0 => Ok(Self::GetLedgerTip),
@@ -213,8 +232,33 @@ impl<'b> Decode<'b, ()> for BlockQuery {
             31 => Ok(Self::GetProposals(d.decode()?)),
             32 => Ok(Self::GetRatifyState),
             33 => Ok(Self::GetFuturePParams),
-            34 => Ok(Self::GetBigLedgerPeerSnapshot),
-            _ => unreachable!(),
+            // Tag 34 is overloaded: legacy single-element form (v11–v14)
+            // returns the big peer snapshot only, while the v15+ form carries
+            // a peer-kind discriminator (0 = All, 1 = Big).
+            34 => match len {
+                Some(1) => Ok(Self::GetBigLedgerPeerSnapshot),
+                Some(2) => {
+                    let kind = match d.u8()? {
+                        0 => LedgerPeerSnapshotKind::All,
+                        1 => LedgerPeerSnapshotKind::Big,
+                        n => {
+                            return Err(decode::Error::message(format!(
+                                "unknown LedgerPeerSnapshot kind tag: {n}"
+                            )));
+                        }
+                    };
+                    Ok(Self::GetLedgerPeerSnapshot(kind))
+                }
+                _ => Err(decode::Error::message(
+                    "GetLedgerPeerSnapshot: unexpected array length",
+                )),
+            },
+            36 => Ok(Self::GetPoolDistr2(d.decode()?)),
+            37 => Ok(Self::GetStakeDistribution2),
+            39 => Ok(Self::GetDRepsDelegations(d.decode()?)),
+            tag => Err(decode::Error::message(format!(
+                "unknown BlockQuery tag: {tag}"
+            ))),
         }
     }
 }
@@ -844,8 +888,8 @@ pub mod tests {
     #[cfg(feature = "blueprint")]
     fn test_api_example_roundtrip() {
         use crate::miniprotocols::localstate::{
-            queries_v16::{Request, SystemStart},
             Message,
+            queries_v16::{Request, SystemStart},
         };
         use pallas_codec::utils::AnyCbor;
 
@@ -874,9 +918,7 @@ pub mod tests {
                         panic!("error decoding cbor from query message: {e:?}")
                     });
                     match request {
-                        Request::GetSystemStart => {
-                            return Message::Query(AnyCbor::from_encode(request))
-                        }
+                        Request::GetSystemStart => Message::Query(AnyCbor::from_encode(request)),
                         _ => panic!("unexpected query type"),
                     }
                 }
@@ -889,15 +931,90 @@ pub mod tests {
                     let result = minicbor::decode::<SystemStart>(&cbor[..]).unwrap_or_else(|e| {
                         panic!("error decoding cbor from query message: {e:?}")
                     });
-                    return Message::Result(AnyCbor::from_encode(result));
+                    Message::Result(AnyCbor::from_encode(result))
                 }
                 _ => panic!("unexpected message type"),
             });
         }
     }
 
+    /// Encode-then-decode roundtrip for the `BlockQuery` variants added for
+    /// the post-V_16 NodeToClient versions (up to V_23 / van Rossem).
+    /// This validates internal codec consistency only — byte-for-byte
+    /// agreement with a live node should be confirmed at integration time.
+    #[test]
+    fn test_post_v16_block_queries_roundtrip() {
+        use crate::miniprotocols::localstate::queries_v16::{BlockQuery, LedgerPeerSnapshotKind};
+        use crate::miniprotocols::localtxsubmission::TaggedSet;
+
+        let cases = vec![
+            BlockQuery::GetBigLedgerPeerSnapshot,
+            BlockQuery::GetLedgerPeerSnapshot(LedgerPeerSnapshotKind::All),
+            BlockQuery::GetLedgerPeerSnapshot(LedgerPeerSnapshotKind::Big),
+            BlockQuery::GetStakeDistribution2,
+            BlockQuery::GetDRepsDelegations(TaggedSet::from(std::collections::BTreeSet::new())),
+        ];
+
+        for q in cases {
+            let bytes = minicbor::to_vec(&q).expect("encode");
+            let decoded: BlockQuery = minicbor::decode(&bytes).expect("decode");
+            let bytes2 = minicbor::to_vec(&decoded).expect("re-encode");
+            assert_eq!(
+                hex::encode(&bytes),
+                hex::encode(&bytes2),
+                "roundtrip mismatch for {q:?}",
+            );
+        }
+    }
+
+    /// Spot-check the wire-level CBOR envelope of the new BlockQuery
+    /// variants against the upstream Haskell encoder
+    /// (`encodeShelleyQuery` in `ouroboros-consensus-cardano`).
+    /// `minicbor` writes the minimal CBOR uint encoding, so tag values
+    /// 24..=255 use the 1-byte minor type (`0x18 vv`), matching the
+    /// upstream `encodeWord8` calls for BlockQuery dispatch tags.
+    #[test]
+    fn test_post_v16_block_queries_wire_shape() {
+        use crate::miniprotocols::localstate::queries_v16::{BlockQuery, LedgerPeerSnapshotKind};
+        use crate::miniprotocols::localtxsubmission::{SMaybe, TaggedSet};
+
+        // [34] — legacy single-element form (NodeToClient v11–v14)
+        let bytes = minicbor::to_vec(BlockQuery::GetBigLedgerPeerSnapshot).unwrap();
+        assert_eq!(hex::encode(bytes), "811822");
+
+        // [34, 0] — v15+ form, peer-kind = All
+        let bytes = minicbor::to_vec(BlockQuery::GetLedgerPeerSnapshot(
+            LedgerPeerSnapshotKind::All,
+        ))
+        .unwrap();
+        assert_eq!(hex::encode(bytes), "82182200");
+
+        // [34, 1] — v15+ form, peer-kind = Big
+        let bytes = minicbor::to_vec(BlockQuery::GetLedgerPeerSnapshot(
+            LedgerPeerSnapshotKind::Big,
+        ))
+        .unwrap();
+        assert_eq!(hex::encode(bytes), "82182201");
+
+        // [36, SMaybe::None=[]] — GetPoolDistr2, no pool filter
+        let bytes = minicbor::to_vec(BlockQuery::GetPoolDistr2(SMaybe::None)).unwrap();
+        assert_eq!(hex::encode(bytes), "82182480");
+
+        // [37] — GetStakeDistribution2, no payload
+        let bytes = minicbor::to_vec(BlockQuery::GetStakeDistribution2).unwrap();
+        assert_eq!(hex::encode(bytes), "811825");
+
+        // [39, TaggedSet::empty=tag(258)[]] — GetDRepsDelegations, empty DRep set
+        let bytes = minicbor::to_vec(BlockQuery::GetDRepsDelegations(TaggedSet::from(
+            std::collections::BTreeSet::new(),
+        )))
+        .unwrap();
+        assert_eq!(hex::encode(bytes), "821827d9010280");
+    }
+
     // TODO: DRY with other decode/encode roundtripss
     // Decode a value of type T, transform it to U and encode that again to form a roundtrip.
+    #[cfg(feature = "blueprint")]
     fn roundtrips_with<T, U>(message_str: &str, transform: fn(T) -> U)
     where
         T: for<'b> minicbor::Decode<'b, ()> + std::fmt::Debug,

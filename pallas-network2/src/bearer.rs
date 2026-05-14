@@ -19,12 +19,17 @@ use crate::{Channel, Message, Payload};
 
 const HEADER_LEN: usize = 8;
 
+/// A timestamp value in microseconds, included in each segment header.
 pub type Timestamp = u32;
 
+/// The header of a multiplexed segment on the wire.
 #[derive(Debug)]
 pub struct Header {
+    /// The mini-protocol channel identifier.
     pub protocol: Channel,
+    /// Timestamp in microseconds since the connection was established.
     pub timestamp: Timestamp,
+    /// Length of the segment payload in bytes.
     pub payload_len: u16,
 }
 
@@ -53,11 +58,17 @@ impl From<Header> for [u8; 8] {
     }
 }
 
+/// A single multiplexed segment consisting of a header and payload.
 pub struct Segment {
+    /// The segment header containing channel, timestamp, and length.
     pub header: Header,
+    /// The raw payload bytes of the segment.
     pub payload: Payload,
 }
 
+/// A network bearer (transport) that can be split into read/write halves.
+///
+/// Supports TCP, Unix domain sockets, and Windows named pipes.
 pub enum Bearer {
     Tcp(tcp::TcpStream),
 
@@ -80,6 +91,7 @@ impl Bearer {
         Ok(())
     }
 
+    /// Connects to a remote peer via TCP.
     pub async fn connect_tcp(addr: impl tcp::ToSocketAddrs) -> Result<Self, tokio::io::Error> {
         let stream = tcp::TcpStream::connect(addr).await?;
         Self::configure_tcp(&stream)?;
@@ -88,6 +100,7 @@ impl Bearer {
         Ok(Self::Tcp(stream))
     }
 
+    /// Connects to a remote peer via TCP with a timeout.
     pub async fn connect_tcp_timeout(
         addr: impl tcp::ToSocketAddrs,
         timeout: std::time::Duration,
@@ -98,18 +111,21 @@ impl Bearer {
         }
     }
 
+    /// Accepts an incoming TCP connection from a listener.
     pub async fn accept_tcp(listener: &tcp::TcpListener) -> IOResult<(Self, std::net::SocketAddr)> {
         let (stream, addr) = listener.accept().await?;
         Self::configure_tcp(&stream)?;
         Ok((Self::Tcp(stream), addr))
     }
 
+    /// Connects to a remote peer via a Unix domain socket.
     #[cfg(unix)]
     pub async fn connect_unix(path: impl AsRef<std::path::Path>) -> IOResult<Self> {
         let stream = unix::UnixStream::connect(path).await?;
         Ok(Self::Unix(stream))
     }
 
+    /// Accepts an incoming connection on a Unix domain socket listener.
     #[cfg(unix)]
     pub async fn accept_unix(
         listener: &unix::UnixListener,
@@ -118,12 +134,14 @@ impl Bearer {
         Ok((Self::Unix(stream), addr))
     }
 
+    /// Connects to a Windows named pipe.
     #[cfg(windows)]
     pub fn connect_named_pipe(pipe_name: impl AsRef<std::ffi::OsStr>) -> IOResult<Self> {
         let client = tokio::net::windows::named_pipe::ClientOptions::new().open(&pipe_name)?;
         Ok(Self::NamedPipe(client))
     }
 
+    /// Splits the bearer into independent read and write halves.
     pub fn into_split(self) -> (BearerReadHalf, BearerWriteHalf) {
         match self {
             Bearer::Tcp(x) => {
@@ -149,6 +167,7 @@ impl Bearer {
     }
 }
 
+/// The read half of a split [`Bearer`].
 pub enum BearerReadHalf {
     Tcp(tcp::tcp::OwnedReadHalf),
 
@@ -172,6 +191,7 @@ impl BearerReadHalf {
         }
     }
 
+    /// Reads a single segment from the bearer, returning its channel and payload.
     pub async fn read_segment(&mut self) -> IOResult<(Channel, Payload)> {
         tracing::trace!("waiting for segment header");
 
@@ -227,6 +247,7 @@ impl BearerReadHalf {
     }
 }
 
+/// The write half of a split [`Bearer`].
 pub enum BearerWriteHalf {
     Tcp(tcp::tcp::OwnedWriteHalf),
 
@@ -262,6 +283,7 @@ impl BearerWriteHalf {
         }
     }
 
+    /// Writes a single segment (header + payload) to the bearer.
     pub async fn write_segment(
         &mut self,
         protocol: u16,
@@ -284,6 +306,7 @@ impl BearerWriteHalf {
         Ok(())
     }
 
+    /// Encodes and writes a complete message, splitting it into segments as needed.
     pub async fn write_message<M>(
         &mut self,
         msg: M,
@@ -303,6 +326,7 @@ impl BearerWriteHalf {
         Ok(())
     }
 
+    /// Shuts down the write half of the connection.
     pub async fn shutdown(&mut self) -> IOResult<()> {
         match self {
             Self::Tcp(x) => x.shutdown().await,

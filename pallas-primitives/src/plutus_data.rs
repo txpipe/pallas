@@ -1,9 +1,8 @@
 use pallas_codec::utils::{Int, KeyValuePairs};
 use pallas_codec::{
     minicbor::{
-        self,
+        self, Encode,
         data::{IanaTag, Tag},
-        Encode,
     },
     utils::MaybeIndefArray,
 };

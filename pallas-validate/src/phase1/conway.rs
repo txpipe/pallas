@@ -1,28 +1,30 @@
 //! Utilities required for Conway-era transaction validation.
 
 use crate::utils::{
-    aux_data_from_conway_tx, compute_native_script_hash, compute_plutus_v1_script_hash,
-    compute_plutus_v2_script_hash, compute_plutus_v3_script_hash, conway_add_minted_non_zero,
-    conway_add_values, conway_get_val_size_in_words, conway_lovelace_diff_or_fail,
-    conway_values_are_equal, get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part,
-    get_shelley_address, is_byron_address, mk_alonzo_vk_wits_check_list, verify_signature,
     ConwayProtParams,
     PostAlonzoError::*,
     UTxOs,
     ValidationError::{self, *},
-    ValidationResult,
+    ValidationResult, aux_data_from_conway_tx, compute_native_script_hash,
+    compute_plutus_v1_script_hash, compute_plutus_v2_script_hash, compute_plutus_v3_script_hash,
+    conway_add_minted_non_zero, conway_add_values, conway_get_val_size_in_words,
+    conway_lovelace_diff_or_fail, conway_values_are_equal, get_conway_tx_size,
+    get_lovelace_from_conway_val, get_payment_part, get_shelley_address, is_byron_address,
+    mk_alonzo_vk_wits_check_list, verify_signature,
 };
-use pallas_addresses::{ScriptHash, ShelleyAddress, ShelleyPaymentPart};
+use pallas_addresses::{
+    Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress, StakePayload,
+};
 use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
-    babbage,
+    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput, babbage,
     conway::{
-        DatumOption, Language, LanguageView, Mint, Redeemers, RedeemersKey, RequiredSigners,
+        DatumOption, Language, LanguageViews, Mint, Redeemers, RedeemersKey, RequiredSigners,
         ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value, WitnessSet,
     },
-    AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput,
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
+use std::cmp::Ordering;
 use std::ops::Deref;
 
 pub fn validate_conway_tx(
@@ -297,10 +299,10 @@ fn check_collaterals_assets(
                 return Err(PostAlonzo(CollateralMinLovelace));
             }
             // The balance matches exactly the collateral annotated in the transaction body.
-            if let Some(annotated_collateral) = &tx_body.total_collateral {
-                if paid_collateral != *annotated_collateral {
-                    return Err(PostAlonzo(CollateralAnnotation));
-                }
+            if let Some(annotated_collateral) = &tx_body.total_collateral
+                && paid_collateral != *annotated_collateral
+            {
+                return Err(PostAlonzo(CollateralAnnotation));
             }
         }
         None => return Err(PostAlonzo(CollateralMissing)),
@@ -508,10 +510,10 @@ fn check_tx_outs_network_id(tx_body: &TransactionBody, network_id: &u8) -> Valid
 // The network ID of the transaction body is either undefined or equal to the
 // global network ID.
 fn check_tx_network_id(tx_body: &TransactionBody, network_id: &u8) -> ValidationResult {
-    if let Some(tx_network_id) = tx_body.network_id {
-        if u8::from(tx_network_id) != *network_id {
-            return Err(PostAlonzo(TxWrongNetworkID));
-        }
+    if let Some(tx_network_id) = tx_body.network_id
+        && u8::from(tx_network_id) != *network_id
+    {
+        return Err(PostAlonzo(TxWrongNetworkID));
     }
     Ok(())
 }
@@ -1047,27 +1049,27 @@ fn check_remaining_datums(
 fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> ValidationResult {
     // Look for hash in transaction (regular) outputs
     for output in tx_body.outputs.iter() {
-        if let Some(datum_hash) = get_datum_hash(output) {
-            if *hash == datum_hash {
-                return Ok(());
-            }
+        if let Some(datum_hash) = get_datum_hash(output)
+            && *hash == datum_hash
+        {
+            return Ok(());
         }
     }
     // Look for hash in collateral return output
     if let Some(babbage_output) = &tx_body.collateral_return {
         match babbage_output {
             TransactionOutput::Legacy(output) => {
-                if let Some(datum_hash) = &output.datum_hash {
-                    if *hash == *datum_hash {
-                        return Ok(());
-                    }
+                if let Some(datum_hash) = &output.datum_hash
+                    && *hash == *datum_hash
+                {
+                    return Ok(());
                 }
             }
             TransactionOutput::PostAlonzo(output) => {
-                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
-                    if *hash == *datum_hash {
-                        return Ok(());
-                    }
+                if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref()
+                    && *hash == *datum_hash
+                {
+                    return Ok(());
                 }
             }
         }
@@ -1080,17 +1082,17 @@ fn find_datum(hash: &Hash<32>, tx_body: &TransactionBody, utxos: &UTxOs) -> Vali
                 .and_then(MultiEraOutput::as_conway)
             {
                 Some(TransactionOutput::Legacy(output)) => {
-                    if let Some(datum_hash) = &output.datum_hash {
-                        if *hash == *datum_hash {
-                            return Ok(());
-                        }
+                    if let Some(datum_hash) = &output.datum_hash
+                        && *hash == *datum_hash
+                    {
+                        return Ok(());
                     }
                 }
                 Some(TransactionOutput::PostAlonzo(output)) => {
-                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref() {
-                        if *hash == *datum_hash {
-                            return Ok(());
-                        }
+                    if let Some(DatumOption::Hash(datum_hash)) = &output.datum_option.as_deref()
+                        && *hash == *datum_hash
+                    {
+                        return Ok(());
                     }
                 }
                 _ => (),
@@ -1129,6 +1131,7 @@ fn check_redeemers(
 
         None => Vec::new(),
     };
+
     let plutus_scripts: Vec<RedeemersKey> = mk_plutus_script_redeemer_pointers(
         plutus_v1_scripts,
         plutus_v2_scripts,
@@ -1136,7 +1139,7 @@ fn check_redeemers(
         reference_scripts,
         tx_body,
         utxos,
-    );
+    )?;
     redeemer_key_coincide(&redeemer_key, &plutus_scripts)
 }
 
@@ -1147,6 +1150,28 @@ fn sort_inputs(unsorted_inputs: &[TransactionInput]) -> Vec<TransactionInput> {
     res
 }
 
+// Sorting function for reward accounts (withdrawals).
+fn sort_reward_accounts(a: &StakeAddress, b: &StakeAddress) -> Ordering {
+    fn network_tag(network: Network) -> u8 {
+        match network {
+            Network::Testnet => 0,
+            Network::Mainnet => 1,
+            Network::Other(tag) => tag,
+        }
+    }
+
+    if a.network() != b.network() {
+        return network_tag(a.network()).cmp(&network_tag(b.network()));
+    }
+
+    match (a.payload(), b.payload()) {
+        (StakePayload::Script(..), StakePayload::Stake(..)) => Ordering::Less,
+        (StakePayload::Stake(..), StakePayload::Script(..)) => Ordering::Greater,
+        (StakePayload::Script(hash_a), StakePayload::Script(hash_b)) => hash_a.cmp(hash_b),
+        (StakePayload::Stake(hash_a), StakePayload::Stake(hash_b)) => hash_a.cmp(hash_b),
+    }
+}
+
 fn mk_plutus_script_redeemer_pointers(
     plutus_v1_scripts: &[PolicyId],
     plutus_v2_scripts: &[PolicyId],
@@ -1154,7 +1179,7 @@ fn mk_plutus_script_redeemer_pointers(
     reference_scripts: &[PolicyId],
     tx_body: &TransactionBody,
     utxos: &UTxOs,
-) -> Vec<RedeemersKey> {
+) -> Result<Vec<RedeemersKey>, ValidationError> {
     let mut res: Vec<RedeemersKey> = Vec::new();
     let sorted_inputs: &Vec<TransactionInput> = &sort_inputs(&tx_body.inputs);
     for (index, input) in sorted_inputs.iter().enumerate() {
@@ -1190,7 +1215,34 @@ fn mk_plutus_script_redeemer_pointers(
             }
         }
     }
-    res
+    if let Some(withdrawals) = &tx_body.withdrawals {
+        let mut parsed: Vec<StakeAddress> = withdrawals
+            .keys()
+            .map(|bytes| match Address::from_bytes(bytes) {
+                Ok(Address::Stake(addr)) => Ok(addr),
+                _ => Err(PostAlonzo(InputDecoding)),
+            })
+            .collect::<Result<_, _>>()?;
+        parsed.sort_by(sort_reward_accounts);
+        for (index, stake_addr) in parsed.iter().enumerate() {
+            if stake_addr.is_script() {
+                let script_hash = stake_addr.payload().as_hash();
+                if is_phase_2_script(
+                    script_hash,
+                    plutus_v1_scripts,
+                    plutus_v2_scripts,
+                    plutus_v3_scripts,
+                    reference_scripts,
+                ) {
+                    res.push(RedeemersKey {
+                        tag: pallas_primitives::conway::RedeemerTag::Reward,
+                        index: index as u32,
+                    })
+                }
+            }
+        }
+    }
+    Ok(res)
 }
 
 // Lexicographical sorting for PolicyID's.
@@ -1502,49 +1554,48 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
     let mut v1_scripts: bool = false;
     let mut v2_scripts: bool = false;
     let mut v3_scripts: bool = false;
-    if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script {
-        if !v1_scripts_vec.is_empty() {
-            v1_scripts = true
-        }
+    if let Some(v1_scripts_vec) = &mtx.transaction_witness_set.plutus_v1_script
+        && !v1_scripts_vec.is_empty()
+    {
+        v1_scripts = true
     }
-    if let Some(v2_scripts_vec) = &mtx.transaction_witness_set.plutus_v2_script {
-        if !v2_scripts_vec.is_empty() {
-            v2_scripts = true;
-        }
+    if let Some(v2_scripts_vec) = &mtx.transaction_witness_set.plutus_v2_script
+        && !v2_scripts_vec.is_empty()
+    {
+        v2_scripts = true;
     }
-    if let Some(v3_scripts_vec) = &mtx.transaction_witness_set.plutus_v3_script {
-        if !v3_scripts_vec.is_empty() {
-            v3_scripts = true;
-        }
+    if let Some(v3_scripts_vec) = &mtx.transaction_witness_set.plutus_v3_script
+        && !v3_scripts_vec.is_empty()
+    {
+        v3_scripts = true;
     }
     if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
         for ref_input in reference_inputs.iter() {
             if let Some(TransactionOutput::PostAlonzo(output)) = utxos
                 .get(&MultiEraInput::from_alonzo_compatible(ref_input))
                 .and_then(MultiEraOutput::as_conway)
+                && let Some(script_ref_cborwrap) = &output.script_ref
             {
-                if let Some(script_ref_cborwrap) = &output.script_ref {
-                    match script_ref_cborwrap.clone().unwrap() {
-                        ScriptRef::PlutusV1Script(_) => v1_scripts = true,
-                        ScriptRef::PlutusV2Script(_) => v2_scripts = true,
-                        ScriptRef::PlutusV3Script(_) => v3_scripts = true,
-                        _ => (),
-                    }
+                match script_ref_cborwrap.clone().unwrap() {
+                    ScriptRef::PlutusV1Script(_) => v1_scripts = true,
+                    ScriptRef::PlutusV2Script(_) => v2_scripts = true,
+                    ScriptRef::PlutusV3Script(_) => v3_scripts = true,
+                    _ => (),
                 }
             }
         }
     }
-    if !v1_scripts && !v2_scripts && !v3_scripts {
-        vec![]
-    } else if v1_scripts && !v2_scripts && !v3_scripts {
-        vec![Language::PlutusV1]
-    } else if !v1_scripts && v2_scripts && !v3_scripts {
-        vec![Language::PlutusV2]
-    } else if !v1_scripts && !v2_scripts && v3_scripts {
-        vec![Language::PlutusV3]
-    } else {
-        vec![Language::PlutusV1, Language::PlutusV2]
+    let mut langs = vec![];
+    if v1_scripts {
+        langs.push(Language::PlutusV1);
     }
+    if v2_scripts {
+        langs.push(Language::PlutusV2);
+    }
+    if v3_scripts {
+        langs.push(Language::PlutusV3);
+    }
+    langs
 }
 
 // The metadata of the transaction is valid.
@@ -1580,13 +1631,13 @@ fn check_script_data_hash(
         }
     };
 
-    let Some(language_view) = cost_model_for_tx(&tx_languages, prot_pps) else {
+    let Some(language_views) = cost_model_for_tx(&tx_languages, prot_pps) else {
         return Err(PostAlonzo(ScriptIntegrityHash));
     };
 
     let expected = pallas_primitives::conway::ScriptData::build_for(
         &mtx.transaction_witness_set,
-        &Some(language_view),
+        &Some(language_views),
     )
     .ok_or(PostAlonzo(ScriptIntegrityHash))?
     .hash();
@@ -1601,14 +1652,16 @@ fn check_script_data_hash(
 fn cost_model_for_tx(
     tx_languages: &[Language],
     prot_pps: &ConwayProtParams,
-) -> Option<LanguageView> {
-    let lang = itertools::max(tx_languages.iter())?;
-
-    let costs = match lang {
-        Language::PlutusV1 => prot_pps.cost_models_for_script_languages.plutus_v1.clone(),
-        Language::PlutusV2 => prot_pps.cost_models_for_script_languages.plutus_v2.clone(),
-        Language::PlutusV3 => prot_pps.cost_models_for_script_languages.plutus_v3.clone(),
-    };
-
-    costs.map(|costs| LanguageView(lang.clone() as u8, costs))
+) -> Option<LanguageViews> {
+    let cost_models = &prot_pps.cost_models_for_script_languages;
+    let mut map = std::collections::BTreeMap::new();
+    for lang in tx_languages {
+        let costs = match lang {
+            Language::PlutusV1 => cost_models.plutus_v1.clone()?,
+            Language::PlutusV2 => cost_models.plutus_v2.clone()?,
+            Language::PlutusV3 => cost_models.plutus_v3.clone()?,
+        };
+        map.insert(lang.clone() as u8, costs);
+    }
+    Some(LanguageViews(map))
 }

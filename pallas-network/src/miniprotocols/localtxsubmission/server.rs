@@ -166,8 +166,11 @@ where
     }
 }
 
+/// Decoded inbound request from the client.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Request<Tx> {
+    /// Client submitted a transaction for evaluation.
     Submit(Tx),
+    /// Client terminated the protocol.
     Done,
 }

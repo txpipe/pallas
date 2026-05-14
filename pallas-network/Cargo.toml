@@ -1,27 +1,25 @@
 [package]
 name = "pallas-network"
 description = "Ouroboros networking stack using async IO"
-version = "1.0.0-alpha.5"
-edition = "2021"
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
 documentation = "https://docs.rs/pallas"
-license = "Apache-2.0"
 readme = "README.md"
-authors = [
-    "Santiago Carmuega <santiago@carmuega.me>",
-    "Pi Lanningham <pi.lanningham@gmail.com>",
-]
+authors.workspace = true
 
 [dependencies]
-byteorder = "1.4.3"
-hex = "0.4.3"
-itertools = "0.13.0"
-pallas-codec = { version = "=1.0.0-alpha.5", path = "../pallas-codec" }
-pallas-crypto = { version = "=1.0.0-alpha.5", path = "../pallas-crypto" }
-rand = "0.8.5"
-socket2 = "0.5.5"
-thiserror = "1.0.31"
+byteorder.workspace = true
+hex.workspace = true
+itertools.workspace = true
+pallas-codec.workspace = true
+pallas-crypto.workspace = true
+rand.workspace = true
+socket2.workspace = true
+thiserror.workspace = true
 tokio = { version = "1", features = [
     "rt",
     "net",
@@ -30,7 +28,7 @@ tokio = { version = "1", features = [
     "sync",
     "macros",
 ] }
-tracing = "0.1.37"
+tracing.workspace = true
 
 [dev-dependencies]
 tracing-subscriber = "0.3.16"

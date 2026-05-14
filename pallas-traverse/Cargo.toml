@@ -1,27 +1,28 @@
 [package]
 name = "pallas-traverse"
 description = "Utilities to traverse over multi-era block data"
-version = "1.0.0-alpha.5"
-edition = "2021"
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+authors.workspace = true
 documentation = "https://docs.rs/pallas-traverse"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>"]
 
 [dependencies]
-pallas-primitives = { version = "=1.0.0-alpha.5", path = "../pallas-primitives" }
-pallas-addresses = { version = "=1.0.0-alpha.5", path = "../pallas-addresses" }
-pallas-crypto = { version = "=1.0.0-alpha.5", path = "../pallas-crypto" }
-pallas-codec = { version = "=1.0.0-alpha.5", path = "../pallas-codec" }
-hex = "0.4.3"
-thiserror = "1.0.31"
+pallas-primitives.workspace = true
+pallas-addresses.workspace = true
+pallas-crypto.workspace = true
+pallas-codec.workspace = true
+hex.workspace = true
+thiserror.workspace = true
 paste = "1.0.14"
-itertools = "0.13.0"
+itertools.workspace = true
 
 # TODO: remove once GenesisValue moves into new genesis crate
-serde = "1.0.155"
+serde.workspace = true
 
 [features]
 unstable = []

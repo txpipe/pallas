@@ -18,7 +18,10 @@ pub mod keepalive;
 pub mod peersharing;
 pub mod txsubmission;
 
+/// A visitor trait that allows responder sub-behaviors to react to peer
+/// lifecycle events. Default implementations are no-ops.
 pub trait ResponderPeerVisitor {
+    /// Called when a TCP connection from the peer is established.
     #[allow(unused_variables)]
     fn visit_connected(
         &mut self,
@@ -28,6 +31,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called when the peer has been disconnected.
     #[allow(unused_variables)]
     fn visit_disconnected(
         &mut self,
@@ -37,6 +41,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called when an error occurred on the peer's connection.
     #[allow(unused_variables)]
     fn visit_errored(
         &mut self,
@@ -46,6 +51,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called when a message has been received from the peer.
     #[allow(unused_variables)]
     fn visit_inbound_msg(
         &mut self,
@@ -55,6 +61,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called after a message has been sent to the peer.
     #[allow(unused_variables)]
     fn visit_outbound_msg(
         &mut self,
@@ -64,6 +71,7 @@ pub trait ResponderPeerVisitor {
     ) {
     }
 
+    /// Called during periodic housekeeping for each tracked peer.
     #[allow(unused_variables)]
     fn visit_housekeeping(
         &mut self,
@@ -74,6 +82,8 @@ pub trait ResponderPeerVisitor {
     }
 }
 
+/// The per-peer state tracked by the responder behavior, including connection
+/// status and all mini-protocol state machines.
 #[derive(Default, Debug)]
 pub struct ResponderState {
     pub(crate) connection: ConnectionState,
@@ -89,10 +99,12 @@ pub struct ResponderState {
 }
 
 impl ResponderState {
+    /// Creates a new responder state with default values for all protocols.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Attaches an OpenTelemetry counter for tracking protocol violations.
     pub fn with_violations_counter(
         mut self,
         counter: opentelemetry::metrics::Counter<u64>,
@@ -101,10 +113,12 @@ impl ResponderState {
         self
     }
 
+    /// Returns true if the handshake has completed and mini-protocols are active.
     pub fn is_initialized(&self) -> bool {
         matches!(self.connection, ConnectionState::Initialized)
     }
 
+    /// Returns the accepted version data if the handshake completed successfully.
     pub fn version(&self) -> Option<proto::handshake::n2n::VersionData> {
         match &self.handshake {
             proto::handshake::State::Done(proto::handshake::DoneState::Accepted(_, data)) => {
@@ -120,6 +134,7 @@ impl ResponderState {
         }
     }
 
+    /// Applies a message to the corresponding mini-protocol state machine.
     pub fn apply_msg(&mut self, msg: &AnyMessage) {
         match msg {
             AnyMessage::Handshake(msg) => {
@@ -197,6 +212,7 @@ impl ResponderState {
         }
     }
 
+    /// Resets the state back to its initial values, except for error count.
     pub fn reset(&mut self) {
         self.connection = ConnectionState::default();
         self.handshake = proto::handshake::State::default();
@@ -209,33 +225,55 @@ impl ResponderState {
     }
 }
 
+/// Commands that can be sent to the responder behavior from external code.
 #[derive(Debug)]
 pub enum ResponderCommand {
+    /// Trigger periodic housekeeping.
     Housekeeping,
+    /// Provide an intersection result to a peer's chain-sync request.
     ProvideIntersection(PeerId, proto::Point, proto::chainsync::Tip),
+    /// Send a block header to a peer via chain-sync (roll forward).
     ProvideHeader(
         PeerId,
         proto::chainsync::HeaderContent,
         proto::chainsync::Tip,
     ),
+    /// Send a rollback to a peer via chain-sync.
     ProvideRollback(PeerId, proto::Point, proto::chainsync::Tip),
+    /// Send a batch of block bodies to a peer via block-fetch.
     ProvideBlocks(PeerId, Vec<proto::blockfetch::Body>),
+    /// Send a list of peer addresses to a peer via peer-sharing.
     ProvidePeers(PeerId, Vec<proto::peersharing::PeerAddress>),
+    /// Ban a peer and disconnect them.
     BanPeer(PeerId),
+    /// Disconnect a peer gracefully.
     DisconnectPeer(PeerId),
 }
 
+/// Events emitted by the responder behavior to external consumers.
 #[derive(Debug)]
 pub enum ResponderEvent {
+    /// A peer completed the handshake and is ready for mini-protocols.
     PeerInitialized(PeerId, AcceptedVersion),
+    /// A peer has been disconnected.
     PeerDisconnected(PeerId),
+    /// A peer requested an intersection for chain-sync.
     IntersectionRequested(PeerId, Vec<proto::Point>),
+    /// A peer requested the next block header via chain-sync.
     NextHeaderRequested(PeerId),
+    /// A peer requested a range of blocks via block-fetch.
     BlockRangeRequested(PeerId, BlockRange),
+    /// A peer requested peer addresses via peer-sharing.
     PeersRequested(PeerId, u8),
+    /// A transaction was received from a peer via tx-submission.
     TxReceived(PeerId, proto::txsubmission::EraTxBody),
 }
 
+/// The main responder behavior that handles inbound Cardano connections.
+///
+/// Manages peer lifecycle for connections accepted via a TCP listener and
+/// coordinates all mini-protocol sub-behaviors (handshake, keepalive,
+/// chain-sync, block-fetch, peer-sharing, tx-submission).
 pub struct ResponderBehavior {
     pub connection: connection::ConnectionResponder,
     pub handshake: handshake::HandshakeResponder,
@@ -291,6 +329,8 @@ macro_rules! all_visitors {
 
 impl ResponderBehavior {
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes an inbound message from a peer, updating state and notifying
+    /// the relevant protocol visitor.
     pub fn on_inbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new inbound message");
 
@@ -338,6 +378,8 @@ impl ResponderBehavior {
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes a confirmed outbound message to a peer, updating state and
+    /// notifying visitors.
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 
@@ -576,5 +618,231 @@ impl Behavior for ResponderBehavior {
                 self.disconnect_peer(&pid);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::InterfaceEvent;
+    use crate::protocol::{
+        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, txsubmission as txsub,
+    };
+    use crate::testing::BehaviorOutputExt;
+    use futures::StreamExt;
+    use std::collections::HashMap as StdHashMap;
+
+    fn drain_outputs(behavior: &mut ResponderBehavior) -> Vec<BehaviorOutput<ResponderBehavior>> {
+        let mut outputs = Vec::new();
+        let waker = futures::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        while let std::task::Poll::Ready(Some(output)) = behavior.poll_next_unpin(&mut cx) {
+            outputs.push(output);
+        }
+
+        outputs
+    }
+
+    fn connect_and_handshake(behavior: &mut ResponderBehavior, pid: &PeerId) {
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(behavior);
+
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let mut values = StdHashMap::new();
+        values.insert(13u64, version_data.clone());
+        let version_table = handshake::VersionTable { values };
+
+        let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![propose]));
+        drain_outputs(behavior);
+
+        let accept = AnyMessage::Handshake(handshake::Message::Accept(13, version_data));
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), accept));
+        drain_outputs(behavior);
+    }
+
+    // ---- Kept: genuinely cross-cutting ----
+
+    #[tokio::test]
+    async fn ban_peer_disconnects_and_prevents_reconnect() {
+        // Composition: command dispatch → connection banned set → reconnect rejection
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(1);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        behavior.execute(ResponderCommand::BanPeer(pid.clone()));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(outputs.has_disconnect_for(&pid));
+
+        behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(outputs.has_disconnect_for(&pid));
+    }
+
+    // ---- New: composition tests ----
+
+    #[tokio::test]
+    async fn full_responder_lifecycle_connect_to_initialized() {
+        // Composition: on_connected → handshake negotiation → Initialized → PeerInitialized event
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(10);
+
+        // Connect
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        // Peer sends Propose → our handshake visitor sends Accept + PeerInitialized
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let mut values = StdHashMap::new();
+        values.insert(13u64, version_data.clone());
+        let version_table = handshake::VersionTable { values };
+
+        let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![propose]));
+        let outputs = drain_outputs(&mut behavior);
+
+        // Should have sent Accept
+        assert!(
+            outputs
+                .has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Accept(..)))),
+            "should send Accept message"
+        );
+
+        // Should have emitted PeerInitialized
+        assert!(
+            outputs.has_event(|e| matches!(e, ResponderEvent::PeerInitialized(p, _) if *p == pid)),
+            "should emit PeerInitialized event"
+        );
+
+        // Peer should be initialized
+        let state = behavior.peers.get(&pid).unwrap();
+        assert_eq!(state.connection, ConnectionState::Initialized);
+    }
+
+    #[tokio::test]
+    async fn inbound_keepalive_routed_to_keepalive_only() {
+        // Composition: per-protocol dispatch routes to correct visitor
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(11);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Feed a KeepAlive request
+        let ka_msg = AnyMessage::KeepAlive(keepalive::Message::KeepAlive(42));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![ka_msg]));
+        let outputs = drain_outputs(&mut behavior);
+
+        // Should get ResponseKeepAlive
+        assert!(
+            outputs.has_send(|m| matches!(
+                m,
+                AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42))
+            )),
+            "should respond with ResponseKeepAlive"
+        );
+
+        // Should NOT have chainsync, blockfetch, or peersharing responses
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::ChainSync(_))),
+            "should not produce chainsync output from keepalive message"
+        );
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(_))),
+            "should not produce blockfetch output from keepalive message"
+        );
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::PeerSharing(_))),
+            "should not produce peersharing output from keepalive message"
+        );
+    }
+
+    #[tokio::test]
+    async fn violation_aborts_inbound_dispatch() {
+        // Composition: apply_msg sets violation → dispatch short-circuits →
+        //              housekeeping → connection bans + disconnects
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(12);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Feed a protocol-violating keepalive message (response without request)
+        let bad_msg = AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(99));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![bad_msg]));
+        let outputs = drain_outputs(&mut behavior);
+
+        // The violation should prevent keepalive visitor from responding
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::KeepAlive(_))),
+            "violated peer should not get a keepalive response"
+        );
+
+        // Housekeeping should ban and disconnect
+        behavior.execute(ResponderCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_disconnect_for(&pid),
+            "violated peer should be disconnected after housekeeping"
+        );
+    }
+
+    #[tokio::test]
+    async fn chainsync_request_emits_event_for_application() {
+        // Composition: inbound message → apply_msg → chainsync visitor → external event
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(13);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Feed a FindIntersect message
+        let points = vec![Point::Origin, Point::new(42, vec![0xBB; 32])];
+        let find_msg = AnyMessage::ChainSync(cs::Message::FindIntersect(points.clone()));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![find_msg]));
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_event(
+                |e| matches!(e, ResponderEvent::IntersectionRequested(p, _) if *p == pid)
+            ),
+            "should emit IntersectionRequested event"
+        );
+    }
+
+    #[tokio::test]
+    async fn txsubmission_initialized_on_housekeeping_after_handshake() {
+        // Composition: handshake sets Initialized → housekeeping →
+        //              txsubmission detects Init state → sends Init message
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(14);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        // Housekeeping should trigger txsubmission Init
+        behavior.execute(ResponderCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_send(|m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
+            "should send TxSubmission Init after handshake + housekeeping"
+        );
     }
 }

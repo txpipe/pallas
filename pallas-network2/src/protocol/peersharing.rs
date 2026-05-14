@@ -6,27 +6,40 @@ use crate::protocol::Error;
 /// Protocol channel number for node-to-node Peer-sharing
 pub const CHANNEL_ID: u16 = 10;
 
+/// A TCP port number.
 pub type Port = u16;
 
+/// The number of peers requested in a share request.
 pub type Amount = u8;
 
+/// A peer-sharing mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// Client requests up to the given number of peer addresses.
     ShareRequest(Amount),
+    /// Server responds with a list of peer addresses.
     SharePeers(Vec<PeerAddress>),
+    /// The protocol is done.
     Done,
 }
 
+/// Sub-state of the idle phase of the peer-sharing protocol.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum IdleState {
+    /// No peer sharing has occurred yet.
     Empty,
+    /// A response was received with the given peer addresses.
     Response(Vec<PeerAddress>),
 }
 
+/// State machine for the peer-sharing mini-protocol.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
+    /// Client has agency; can request peers or signal done.
     Idle(IdleState),
+    /// A request is in progress; waiting for the server's response.
     Busy(Amount),
+    /// The protocol has terminated.
     Done,
 }
 
@@ -36,13 +49,17 @@ impl Default for State {
     }
 }
 
+/// A peer address received via the peer-sharing protocol.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PeerAddress {
+    /// An IPv4 address and port.
     V4(Ipv4Addr, Port),
+    /// An IPv6 address and port.
     V6(Ipv6Addr, Port),
 }
 
 impl State {
+    /// Applies a message to the current state, returning the new state.
     pub fn apply(&self, msg: &Message) -> Result<Self, Error> {
         match self {
             State::Idle(..) => match msg {

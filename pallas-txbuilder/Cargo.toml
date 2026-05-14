@@ -1,22 +1,23 @@
 [package]
 name = "pallas-txbuilder"
 description = "An ergonomic Cardano transaction builder"
-version = "1.0.0-alpha.5"
-edition = "2021"
-repository = "https://github.com/txpipe/pallas"
-homepage = "https://github.com/txpipe/pallas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
 documentation = "https://docs.rs/pallas-txbuilder"
-license = "Apache-2.0"
 readme = "README.md"
-authors = ["Santiago Carmuega <santiago@carmuega.me>", "Cainã Costa <me@cfcosta.com>"]
+authors.workspace = true
 
 [dependencies]
-pallas-codec = { path = "../pallas-codec", version = "=1.0.0-alpha.5" }
-pallas-crypto = { path = "../pallas-crypto", version = "=1.0.0-alpha.5" }
-pallas-primitives = { path = "../pallas-primitives", version = "=1.0.0-alpha.5" }
-pallas-traverse = { path = "../pallas-traverse", version = "=1.0.0-alpha.5" }
-pallas-addresses = { path = "../pallas-addresses", version = "=1.0.0-alpha.5" }
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.107"
-thiserror = "1.0.44"
-hex = "0.4.3"
+pallas-codec.workspace = true
+pallas-crypto.workspace = true
+pallas-primitives.workspace = true
+pallas-traverse.workspace = true
+pallas-addresses.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+hex.workspace = true

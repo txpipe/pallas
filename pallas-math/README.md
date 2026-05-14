@@ -1,14 +1,27 @@
 # Pallas Math
 
-Crate with all the mathematics functions to support Cardano protocol:
+Fixed-precision arithmetic for the parts of the Cardano protocol that need
+to compute `ln`, `exp`, and `pow` to high precision — most notably the
+reward and pool-saturation calculations. Backed by [`dashu`] for the
+underlying big-integer representation.
 
-- [] lncf - Approximate `ln(1+x)` for `x in 0..infinty`.
-- [] cf - Compute continued fraction using max steps or bounded list of a/b factors.
-- [] bound - Simple way to find integer powers that bound x.
-- [] contract - Bisect bounds to find the smallest integer power such that `factor^n<=x<factor^(n+1)`.
-- [] find_e - find n with `e^n<=x<e^(n+1)`.
-- [] ln - Compute natural logarithm via continued fraction, first splitting integral part and then using continued fractions approximation for `ln(1+x)`.
-- [] taylor_exp - Compute `exp(x)` using Taylor expansion.
-- [] taylor_exp_cmp - Efficient way to compare the result of the Taylor expansion of the exponential function to a threshold value.
-- ...
-- ...
+[`dashu`]: https://docs.rs/dashu
+
+## Usage
+
+```rust
+use pallas_math::math::{FixedDecimal, FixedPrecision};
+
+let x = FixedDecimal::from_str("2", 34)?;   // 2.0 with 34 fractional digits
+let y = x.ln();                             // ≈ 0.6931471805599453…
+println!("ln(2) ≈ {y}");
+```
+
+## Overview
+
+- `math` — the public surface: `FixedDecimal` (the fixed-precision number
+  type) and the `FixedPrecision` trait it implements (`new`, `from_str`,
+  `precision`, `exp`, `ln`, `pow`, `exp_cmp`, `round`/`floor`/`ceil`/`trunc`).
+- `math_dashu` — `dashu`-backed implementation that `FixedDecimal` aliases.
+- `DEFAULT_PRECISION` (34), and the lazy `ZERO` / `ONE` / `MINUS_ONE`
+  constants for convenience.

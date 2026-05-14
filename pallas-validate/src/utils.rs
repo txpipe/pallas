@@ -11,15 +11,15 @@ use pallas_codec::{
 };
 use pallas_crypto::key::ed25519::{PublicKey, Signature};
 use pallas_primitives::{
-    alonzo::{Multiasset, NativeScript, Tx as AlonzoTx, VKeyWitness, Value},
-    babbage::Tx as BabbageTx,
-    conway::{Multiasset as ConwayMultiasset, Tx as ConwayTx, Value as ConwayValue},
     AddrKeyhash, AssetName, Coin, Epoch, GenesisDelegateHash, Genesishash, Hash, NetworkId,
     NonZeroInt, PlutusScript, PolicyId, PoolKeyhash, PoolMetadata, PositiveCoin, Relay,
     RewardAccount, StakeCredential, TransactionIndex, UnitInterval, VrfKeyhash,
+    alonzo::{Multiasset, NativeScript, Tx as AlonzoTx, VKeyWitness, Value},
+    babbage::Tx as BabbageTx,
+    conway::{Multiasset as ConwayMultiasset, Tx as ConwayTx, Value as ConwayValue},
 };
 
-use pallas_traverse::{time::Slot, Era, MultiEraInput, MultiEraOutput, MultiEraUpdate};
+use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraUpdate, time::Slot};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
@@ -596,8 +596,8 @@ fn conway_wrap_multiasset<T>(
 pub fn values_are_equal(first: &Value, second: &Value) -> bool {
     match (first, second) {
         (Value::Coin(f), Value::Coin(s)) => f == s,
-        (Value::Multiasset(..), Value::Coin(..)) => false,
-        (Value::Coin(..), Value::Multiasset(..)) => false,
+        (Value::Multiasset(f, fma), Value::Coin(s)) => f == s && fma.is_empty(),
+        (Value::Coin(f), Value::Multiasset(s, sma)) => f == s && sma.is_empty(),
         (Value::Multiasset(f, fma), Value::Multiasset(s, sma)) => {
             if f != s {
                 false
@@ -610,8 +610,8 @@ pub fn values_are_equal(first: &Value, second: &Value) -> bool {
 pub fn conway_values_are_equal(first: &ConwayValue, second: &ConwayValue) -> bool {
     match (first, second) {
         (ConwayValue::Coin(f), ConwayValue::Coin(s)) => f == s,
-        (ConwayValue::Multiasset(..), ConwayValue::Coin(..)) => false,
-        (ConwayValue::Coin(..), ConwayValue::Multiasset(..)) => false,
+        (ConwayValue::Multiasset(f, fma), ConwayValue::Coin(s)) => f == s && fma.is_empty(),
+        (ConwayValue::Coin(f), ConwayValue::Multiasset(s, sma)) => f == s && sma.is_empty(),
         (ConwayValue::Multiasset(f, fma), ConwayValue::Multiasset(s, sma)) => {
             if f != s {
                 false

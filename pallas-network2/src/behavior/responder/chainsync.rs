@@ -2,6 +2,8 @@ use crate::{BehaviorOutput, OutboundQueue, PeerId, protocol::chainsync as chains
 
 use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
+/// Responder sub-behavior that handles chain-sync requests from peers and
+/// emits intersection and header request events.
 pub struct ChainSyncResponder {
     // metrics
     chainsync_requests_counter: opentelemetry::metrics::Counter<u64>,

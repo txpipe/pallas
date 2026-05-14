@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use pallas_codec::minicbor::data::Type;
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 use super::protocol::NetworkMagic;
 
+/// N2C-specific instantiation of the generic handshake version table.
 pub type VersionTable = super::protocol::VersionTable<VersionData>;
 
 const PROTOCOL_V1: u64 = 1;
@@ -23,10 +24,18 @@ const PROTOCOL_V13: u64 = 32781;
 const PROTOCOL_V14: u64 = 32782;
 const PROTOCOL_V15: u64 = 32783;
 const PROTOCOL_V16: u64 = 32784;
+const PROTOCOL_V17: u64 = 32785;
+const PROTOCOL_V18: u64 = 32786;
+const PROTOCOL_V19: u64 = 32787;
+const PROTOCOL_V20: u64 = 32788;
+const PROTOCOL_V21: u64 = 32789;
+const PROTOCOL_V22: u64 = 32790;
+const PROTOCOL_V23: u64 = 32791;
 
 const PROTOCOL_DMQ_V1: u64 = 4097;
 
 impl VersionTable {
+    /// Build a version table offering every N2C version from 1 up.
     pub fn v1_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
             (PROTOCOL_V1, VersionData(network_magic, None)),
@@ -45,6 +54,13 @@ impl VersionTable {
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
             (PROTOCOL_V16, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V17, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V18, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V19, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V20, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V21, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V22, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V23, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -52,6 +68,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Build a version table offering only N2C version 10.
     pub fn only_v10(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V10, VersionData(network_magic, None))]
             .into_iter()
@@ -60,6 +77,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Build a version table offering every N2C version from 10 up.
     pub fn v10_and_above(network_magic: u64) -> VersionTable {
         let values = vec![
             (PROTOCOL_V10, VersionData(network_magic, None)),
@@ -69,6 +87,13 @@ impl VersionTable {
             (PROTOCOL_V14, VersionData(network_magic, None)),
             (PROTOCOL_V15, VersionData(network_magic, Some(false))),
             (PROTOCOL_V16, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V17, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V18, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V19, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V20, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V21, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V22, VersionData(network_magic, Some(false))),
+            (PROTOCOL_V23, VersionData(network_magic, Some(false))),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -76,6 +101,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Build a single-entry version table for N2C v15 query-mode handshake.
     pub fn v15_with_query(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_V15, VersionData(network_magic, Some(true)))]
             .into_iter()
@@ -84,6 +110,7 @@ impl VersionTable {
         VersionTable { values }
     }
 
+    /// Build a single-entry version table for the DMQ handshake.
     pub fn dmq(network_magic: u64) -> VersionTable {
         let values = vec![(PROTOCOL_DMQ_V1, VersionData(network_magic, Some(false)))]
             .into_iter()
@@ -93,10 +120,12 @@ impl VersionTable {
     }
 }
 
+/// Per-version payload for the N2C handshake: `(network_magic, query?)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VersionData(NetworkMagic, Option<bool>);
 
 impl VersionData {
+    /// Build a [`VersionData`] from its components.
     pub fn new(magic: NetworkMagic, param: Option<bool>) -> Self {
         Self(magic, param)
     }

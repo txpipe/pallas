@@ -1,30 +1,37 @@
 use std::ops::Deref;
 
 use crate::{
+    TxBuilderError,
     transaction::{
+        Bytes, Bytes32, TransactionStatus,
         model::{
             BuilderEra, BuiltTransaction, DatumKind, ExUnits, Output, RedeemerPurpose, ScriptKind,
             StagingTransaction,
         },
-        Bytes, Bytes32, TransactionStatus,
     },
-    TxBuilderError,
 };
 use pallas_codec::utils::CborWrap;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::KeepRaw;
 use pallas_primitives::{
+    Fragment, NonEmptySet, PositiveCoin,
     conway::{
         DatumOption, ExUnits as PallasExUnits, NativeScript, NetworkId, NonZeroInt, PlutusData,
         PlutusScript, PostAlonzoTransactionOutput, Redeemer, RedeemerTag,
         ScriptRef as PallasScript, TransactionBody, TransactionInput, TransactionOutput, Tx, Value,
         WitnessSet,
     },
-    Fragment, NonEmptySet, PositiveCoin,
 };
 use pallas_traverse::ComputeHash;
 
+/// Conway-era build step: converts a [`StagingTransaction`] into a
+/// [`BuiltTransaction`] with no automatic fee/ex-units calculation.
 pub trait BuildConway {
+    /// Build the transaction using exactly the fields the caller has populated.
+    ///
+    /// "Raw" means no balancing: fees, collateral, and execution units must
+    /// already be set on the staging transaction. Returns
+    /// [`TxBuilderError`] if any field is malformed.
     fn build_conway_raw(self) -> Result<BuiltTransaction, TxBuilderError>;
 
     // fn build_babbage(staging_tx: StagingTransaction, resolver: (), params: ()) ->
@@ -183,7 +190,7 @@ impl BuildConway for StagingTransaction {
                     .map_err(|_| TxBuilderError::MalformedDatum)?;
 
                 match purpose {
-                    RedeemerPurpose::Spend(ref txin) => {
+                    RedeemerPurpose::Spend(txin) => {
                         let index = inputs
                             .iter()
                             .position(|x| {
@@ -227,11 +234,11 @@ impl BuildConway for StagingTransaction {
             None
         };
 
-        let script_data_hash = self.language_view.map(|language_view| {
+        let script_data_hash = self.language_views.as_ref().map(|language_views| {
             let dta = pallas_primitives::conway::ScriptData {
                 redeemers: Some(witness_set_redeemers.clone()),
                 datums: witness_set_datums.clone(),
-                language_view: Some(language_view),
+                language_views: Some(language_views.clone()),
             };
 
             dta.hash()
@@ -305,6 +312,7 @@ impl BuildConway for StagingTransaction {
 }
 
 impl Output {
+    /// Convert this staging output into its Babbage / post-Alonzo on-wire form.
     pub fn build_babbage_raw(&self) -> Result<TransactionOutput<'_>, TxBuilderError> {
         let assets = self
             .assets

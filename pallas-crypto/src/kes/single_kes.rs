@@ -6,11 +6,11 @@ use std::convert::TryInto;
 use crate::kes::common::{PublicKey, Seed};
 use crate::kes::errors::Error;
 use crate::kes::traits::{KesCompactSig, KesSig, KesSk};
-use ed25519_dalek::{
-    Signature as EdSignature, Signer, SigningKey as EdSigningKey, VerifyingKey as EdPublicKey,
-    SIGNATURE_LENGTH,
-};
 pub use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+use ed25519_dalek::{
+    SIGNATURE_LENGTH, Signature as EdSignature, Signer, SigningKey as EdSigningKey,
+    VerifyingKey as EdPublicKey,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 

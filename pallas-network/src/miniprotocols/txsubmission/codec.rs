@@ -1,8 +1,8 @@
-use pallas_codec::minicbor::{data::IanaTag, decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::IanaTag, decode, encode};
 
 use super::{
-    protocol::{Message, TxIdAndSize},
     EraTxBody, EraTxId,
+    protocol::{Message, TxIdAndSize},
 };
 
 impl<TxId: Encode<()>> Encode<()> for TxIdAndSize<TxId> {

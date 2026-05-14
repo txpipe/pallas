@@ -3,10 +3,10 @@ use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::{
     LogExporter, MetricExporter, Protocol, SpanExporter, WithExportConfig as _,
 };
+use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::trace::SdkTracerProvider;
-use opentelemetry_sdk::Resource;
 use std::sync::OnceLock;
 use std::time::Duration;
 use tracing_subscriber::layer::SubscriberExt as _;

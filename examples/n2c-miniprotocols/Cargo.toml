@@ -1,10 +1,14 @@
 [package]
 name = "n2c-miniprotocols"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.release]
+release = false
 
 [dependencies]
 pallas = { path = "../../pallas" }

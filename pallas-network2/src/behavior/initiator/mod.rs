@@ -23,7 +23,12 @@ pub use handshake::*;
 pub use keepalive::*;
 pub use promotion::*;
 
+/// A visitor trait that allows sub-behaviors to react to peer lifecycle events.
+///
+/// Each method is called by the initiator behavior at the appropriate point
+/// in a peer's lifecycle. Default implementations are no-ops.
 pub trait PeerVisitor {
+    /// Called when a TCP connection to the peer is established.
     #[allow(unused_variables)]
     fn visit_connected(
         &mut self,
@@ -34,6 +39,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when the peer has been disconnected.
     #[allow(unused_variables)]
     fn visit_disconnected(
         &mut self,
@@ -44,6 +50,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when an error occurred on the peer's connection.
     #[allow(unused_variables)]
     fn visit_errored(
         &mut self,
@@ -54,6 +61,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when a new peer has been discovered.
     #[allow(unused_variables)]
     fn visit_discovered(
         &mut self,
@@ -64,6 +72,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when a message has been received from the peer.
     #[allow(unused_variables)]
     fn visit_inbound_msg(
         &mut self,
@@ -74,6 +83,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called after a message has been sent to the peer.
     #[allow(unused_variables)]
     fn visit_outbound_msg(
         &mut self,
@@ -84,6 +94,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called when a peer's state has been modified by a tag function.
     #[allow(unused_variables)]
     fn visit_tagged(
         &mut self,
@@ -94,6 +105,7 @@ pub trait PeerVisitor {
         // default implementation does nothing
     }
 
+    /// Called during periodic housekeeping for each tracked peer.
     #[allow(unused_variables)]
     fn visit_housekeeping(
         &mut self,
@@ -105,15 +117,22 @@ pub trait PeerVisitor {
     }
 }
 
+/// The promotion level of a peer, controlling which mini-protocols are active.
 #[derive(PartialEq, Debug, Default, Copy, Clone)]
 pub enum PromotionTag {
+    /// Peer is known but not connected.
     #[default]
     Cold,
+    /// Peer is connected and performing basic protocols (handshake, keepalive).
     Warm,
+    /// Peer is fully active with all mini-protocols.
     Hot,
+    /// Peer has been banned and will not be connected.
     Banned,
 }
 
+/// The per-peer state tracked by the initiator behavior, including connection
+/// status and all mini-protocol state machines.
 #[derive(Default, Debug)]
 pub struct InitiatorState {
     pub(crate) connection: ConnectionState,
@@ -130,6 +149,7 @@ pub struct InitiatorState {
 }
 
 impl InitiatorState {
+    /// Creates a new initiator state with default values for all protocols.
     pub fn new() -> Self {
         InitiatorState {
             connection: ConnectionState::default(),
@@ -146,10 +166,12 @@ impl InitiatorState {
         }
     }
 
+    /// Returns true if the handshake has completed and mini-protocols are active.
     pub fn is_initialized(&self) -> bool {
         matches!(self.connection, ConnectionState::Initialized)
     }
 
+    /// Returns the accepted version data if the handshake completed successfully.
     pub fn version(&self) -> Option<proto::handshake::n2n::VersionData> {
         match &self.handshake {
             proto::handshake::State::Done(proto::handshake::DoneState::Accepted(_, data)) => {
@@ -159,10 +181,12 @@ impl InitiatorState {
         }
     }
 
+    /// Returns the current promotion level of this peer.
     pub fn promotion(&self) -> PromotionTag {
         self.promotion
     }
 
+    /// Returns true if the negotiated version supports peer sharing.
     pub fn supports_peer_sharing(&self) -> bool {
         let val = self
             .version()
@@ -173,6 +197,7 @@ impl InitiatorState {
         val > 0
     }
 
+    /// Applies a message to the corresponding mini-protocol state machine.
     pub fn apply_msg(&mut self, msg: &AnyMessage) {
         match msg {
             AnyMessage::Handshake(msg) => {
@@ -259,38 +284,61 @@ impl InitiatorState {
     }
 }
 
+/// A function that mutates an [`InitiatorState`], used for tagging operations
+/// like banning or demoting peers.
 pub type TagFn = fn(&mut InitiatorState);
 
+/// Commands that can be sent to the initiator behavior from external code.
 #[derive(Debug)]
 pub enum InitiatorCommand {
+    /// Add a new peer to be tracked and potentially connected.
     IncludePeer(PeerId),
+    /// Trigger periodic housekeeping (peer promotion, discovery, etc.).
     Housekeeping,
+    /// Begin chain synchronization from the given known points.
     StartSync(Vec<proto::Point>),
+    /// Resume chain synchronization for a specific peer.
     ContinueSync(PeerId),
+    /// Request a range of blocks to be fetched.
     RequestBlocks(BlockRange),
+    /// Submit a transaction to a specific peer.
     SendTx(
         PeerId,
         proto::txsubmission::EraTxId,
         proto::txsubmission::EraTxBody,
     ),
+    /// Ban a peer, preventing future connections.
     BanPeer(PeerId),
+    /// Demote a peer back to cold status.
     DemotePeer(PeerId),
 }
 
+/// Events emitted by the initiator behavior to external consumers.
 #[derive(Debug)]
 pub enum InitiatorEvent {
+    /// A peer completed the handshake and is ready for mini-protocols.
     PeerInitialized(PeerId, AcceptedVersion),
+    /// An intersection point was found during chain-sync.
     IntersectionFound(PeerId, proto::Point, proto::chainsync::Tip),
+    /// A new block header was received via chain-sync.
     BlockHeaderReceived(
         PeerId,
         proto::chainsync::HeaderContent,
         proto::chainsync::Tip,
     ),
+    /// A rollback was received via chain-sync.
     RollbackReceived(PeerId, proto::Point, proto::chainsync::Tip),
+    /// A block body was received via block-fetch.
     BlockBodyReceived(PeerId, proto::blockfetch::Body),
+    /// The remote peer requested a transaction via tx-submission.
     TxRequested(PeerId, proto::txsubmission::EraTxId),
 }
 
+/// The main initiator behavior that orchestrates outbound Cardano connections.
+///
+/// Manages peer lifecycle (discovery, connection, promotion) and coordinates
+/// all mini-protocol sub-behaviors (handshake, keepalive, chain-sync,
+/// block-fetch, peer-sharing, discovery).
 #[derive(Default)]
 pub struct InitiatorBehavior {
     pub promotion: promotion::PromotionBehavior,
@@ -318,6 +366,7 @@ macro_rules! all_visitors {
 
 impl InitiatorBehavior {
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes an inbound message from a peer, updating state and notifying visitors.
     pub fn on_inbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new inbound message");
 
@@ -329,6 +378,7 @@ impl InitiatorBehavior {
     }
 
     #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    /// Processes a confirmed outbound message to a peer, updating state and notifying visitors.
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 
@@ -515,5 +565,352 @@ impl Behavior for InitiatorBehavior {
                 tracing::warn!("SendTx not yet implemented");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::{
+        MAINNET_MAGIC, Point, blockfetch as bf, chainsync as cs, handshake, keepalive, peersharing,
+    };
+    use crate::testing::BehaviorOutputExt;
+    use crate::{InterfaceError, InterfaceEvent};
+    use futures::StreamExt;
+    use std::collections::HashMap;
+    use std::net::Ipv4Addr;
+
+    fn drain_outputs(behavior: &mut InitiatorBehavior) -> Vec<BehaviorOutput<InitiatorBehavior>> {
+        let mut outputs = Vec::new();
+        let waker = futures::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        while let std::task::Poll::Ready(Some(output)) = behavior.poll_next_unpin(&mut cx) {
+            outputs.push(output);
+        }
+
+        outputs
+    }
+
+    fn complete_handshake(behavior: &mut InitiatorBehavior, pid: &PeerId) {
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let mut values = HashMap::new();
+        values.insert(13u64, version_data.clone());
+        let version_table = handshake::VersionTable { values };
+
+        let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), propose));
+        drain_outputs(behavior);
+
+        let accept = AnyMessage::Handshake(handshake::Message::Accept(13, version_data));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![accept]));
+        drain_outputs(behavior);
+    }
+
+    // ---- Kept: genuinely cross-cutting tests ----
+
+    #[tokio::test]
+    async fn banned_peer_not_reconnected() {
+        // Composition: violation flag → promotion ban → connection guard
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(1);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        let bad_msg = AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![bad_msg]));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        for _ in 0..10 {
+            behavior.execute(InitiatorCommand::Housekeeping);
+            let outputs = drain_outputs(&mut behavior);
+            assert!(!outputs.has_connect_for(&pid));
+        }
+    }
+
+    #[tokio::test]
+    async fn demote_peer_returns_to_cold() {
+        // Composition: handshake → promotion hot → demote tag → connection disconnect
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(2);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+        complete_handshake(&mut behavior, &pid);
+
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+        assert!(behavior.promotion.hot_peers.contains(&pid));
+
+        behavior.execute(InitiatorCommand::DemotePeer(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        let state = behavior.peers.get(&pid).unwrap();
+        assert_eq!(state.promotion, PromotionTag::Cold);
+
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+        assert!(outputs.has_disconnect_for(&pid));
+    }
+
+    #[tokio::test]
+    async fn error_count_persists_across_disconnect() {
+        // Composition: on_errored increments → on_disconnected resets but preserves
+        //              error_count → promotion bans on threshold
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior {
+            promotion: PromotionBehavior::new(PromotionConfig {
+                max_error_count: 2,
+                ..PromotionConfig::default()
+            }),
+            ..Default::default()
+        };
+        let pid = PeerId::test(3);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        for _ in 0..2 {
+            behavior.handle_io(InterfaceEvent::Error(
+                pid.clone(),
+                InterfaceError::Other("err".into()),
+            ));
+            behavior.execute(InitiatorCommand::Housekeeping);
+            drain_outputs(&mut behavior);
+            behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+            drain_outputs(&mut behavior);
+        }
+
+        assert!(!behavior.promotion.banned_peers.contains(&pid));
+
+        behavior.handle_io(InterfaceEvent::Error(
+            pid.clone(),
+            InterfaceError::Other("err".into()),
+        ));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        assert!(behavior.promotion.banned_peers.contains(&pid));
+    }
+
+    // ---- New: composition tests ----
+
+    #[tokio::test]
+    async fn full_peer_lifecycle_include_to_chainsync() {
+        // Composition: promotion → connection → handshake → promotion (warm→hot) → chainsync
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(10);
+
+        // Start chainsync so the behavior will initiate it for hot peers
+        behavior.execute(InitiatorCommand::StartSync(vec![Point::Origin]));
+
+        // Include peer → housekeeping promotes cold→warm and connects
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(behavior.promotion.warm_peers.contains(&pid));
+        assert!(outputs.has_connect_for(&pid));
+
+        // Connected → handshake proposes
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs
+                .has_send(|m| matches!(m, AnyMessage::Handshake(handshake::Message::Propose(_))))
+        );
+
+        // Complete handshake → Initialized
+        complete_handshake(&mut behavior, &pid);
+
+        // Housekeeping promotes warm→hot, chainsync starts FindIntersect
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(behavior.promotion.hot_peers.contains(&pid));
+        assert!(
+            outputs.has_send(|m| matches!(m, AnyMessage::ChainSync(cs::Message::FindIntersect(_)))),
+            "chainsync should start for hot initialized peer"
+        );
+    }
+
+    #[tokio::test]
+    async fn housekeeping_promotes_and_connects_in_same_pass() {
+        // Composition: visitor ordering — promotion runs before connection in all_visitors!
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(11);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+
+        // Single housekeeping call should both promote cold→warm AND issue Connect
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            behavior.promotion.warm_peers.contains(&pid),
+            "peer should be promoted to warm"
+        );
+        assert!(
+            outputs.has_connect_for(&pid),
+            "Connect should be issued in the same housekeeping pass"
+        );
+    }
+
+    #[tokio::test]
+    async fn discovery_feeds_into_promotion() {
+        // Composition: discovery accumulates peers → housekeeping drains → promotion adds to cold
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let seed_pid = PeerId::test(12);
+
+        // Include and fully initialize a seed peer with peer-sharing support
+        behavior.execute(InitiatorCommand::IncludePeer(seed_pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(seed_pid.clone()));
+        drain_outputs(&mut behavior);
+        complete_handshake(&mut behavior, &seed_pid);
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        // Simulate peersharing response with 2 new peers
+        let share_response = AnyMessage::PeerSharing(peersharing::Message::SharePeers(vec![
+            peersharing::PeerAddress::V4(Ipv4Addr::new(192, 168, 1, 1), 3000),
+            peersharing::PeerAddress::V4(Ipv4Addr::new(192, 168, 1, 2), 3001),
+        ]));
+
+        // We need the seed peer's peersharing state to be in the right state first.
+        // Simulate the outbound ShareRequest being sent (to move state to Busy)
+        let share_req = AnyMessage::PeerSharing(peersharing::Message::ShareRequest(10));
+        behavior.handle_io(InterfaceEvent::Sent(seed_pid.clone(), share_req));
+        drain_outputs(&mut behavior);
+
+        // Now receive the response
+        behavior.handle_io(InterfaceEvent::Recv(seed_pid.clone(), vec![share_response]));
+        drain_outputs(&mut behavior);
+
+        // Housekeeping should move discovered peers into promotion
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        // The discovered peers should now be tracked
+        let discovered_1 = PeerId {
+            host: "192.168.1.1".to_string(),
+            port: 3000,
+        };
+        let discovered_2 = PeerId {
+            host: "192.168.1.2".to_string(),
+            port: 3001,
+        };
+
+        assert!(
+            behavior.peers.contains_key(&discovered_1),
+            "discovered peer 1 should be tracked after housekeeping"
+        );
+        assert!(
+            behavior.peers.contains_key(&discovered_2),
+            "discovered peer 2 should be tracked after housekeeping"
+        );
+    }
+
+    #[tokio::test]
+    async fn violation_bans_and_disconnects() {
+        // Composition: apply_msg sets violation → promotion bans → connection disconnects
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(13);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        // Protocol violation
+        let bad_msg = AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(42));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![bad_msg]));
+
+        // Housekeeping should both ban (promotion) AND disconnect (connection)
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            behavior.promotion.banned_peers.contains(&pid),
+            "promotion should ban the violating peer"
+        );
+        assert!(
+            outputs.has_disconnect_for(&pid),
+            "connection should disconnect the banned peer"
+        );
+    }
+
+    #[tokio::test]
+    async fn blockfetch_requires_initialized_and_idle() {
+        // Composition: handshake state gates blockfetch dispatch
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(14);
+
+        let range = (Point::Origin, Point::new(100, vec![0xAA; 32]));
+        behavior.blockfetch.enqueue(range.clone());
+
+        // Include peer, promote to warm, connect (but NOT handshaked)
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+
+        // Housekeeping — peer is Connected but not Initialized, so no RequestRange
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            !outputs
+                .has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
+            "should NOT send RequestRange before handshake"
+        );
+
+        // Complete handshake → Initialized
+        complete_handshake(&mut behavior, &pid);
+
+        // Re-enqueue since housekeeping may have consumed nothing
+        // (the request is still in the queue since peer wasn't available)
+        // Housekeeping now — peer is Initialized + blockfetch Idle
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
+            "should send RequestRange after handshake completes"
+        );
     }
 }

@@ -49,7 +49,7 @@ pub enum Message<Tx, Reject> {
 pub struct EraTx(pub u16, pub Vec<u8>);
 
 /// Era to be used in tx errors
-/// https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271
+/// <https://github.com/IntersectMBO/cardano-api/blob/a0df586e3a14b98ae4771a192c09391dacb44564/cardano-api/internal/Cardano/Api/Eon/ShelleyBasedEra.hs#L271>
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(index_only)]
 pub enum ShelleyBasedEra {
@@ -441,8 +441,13 @@ pub struct MismatchArr<T>(pub T, pub T);
 #[cbor(transparent)]
 pub struct EpochNo(#[n(0)] pub u64);
 
-/// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/d30a7ae828e802e98277c82e278e570955afc273/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs#L138-L153)
+/// Conway era ledger transaction errors, corresponding to [`ConwayLedgerPredFailure`](https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Ledger.hs)
 /// in the Haskell sources.
+///
+/// Tags 8 (`WithdrawalsMissingAccounts`) and 9 (`IncompleteWithdrawals`) were
+/// added in the cardano-ledger 10.7 release line as part of the van Rossem
+/// hard fork (protocol version 11) preparatory work — they replace the prior
+/// `U8(u8)` catch-all that occupied tag 8.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Decode, Encode, Clone, Eq, PartialEq)]
 #[cbor(flat)]
@@ -461,8 +466,13 @@ pub enum ConwayLedgerFailure {
     TxRefScriptsSizeTooBig(#[n(0)] i64, #[n(1)] i64),
     #[n(7)]
     MempoolFailure(#[n(0)] String),
+    /// Withdrawals that reference accounts not present in the rewards UTxO.
+    /// Wraps the upstream `Withdrawals = Map RewardAccount Coin`.
     #[n(8)]
     WithdrawalsMissingAccounts(#[n(0)] OHashMap<FieldedRewardAccount, DisplayCoin>),
+    /// Withdrawals that do not drain the full balance of their reward account.
+    /// The `(supplied, expected)` pair mirrors the upstream `Mismatch RelEQ Coin`,
+    /// encoded as a 2-element CBOR array.
     #[n(9)]
     IncompleteWithdrawals(#[n(0)] OHashMap<FieldedRewardAccount, MismatchArr<DisplayCoin>>),
 }

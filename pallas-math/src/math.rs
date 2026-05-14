@@ -36,7 +36,7 @@ pub trait FixedPrecision:
     /// Returns the precision of the fixed point number
     fn precision(&self) -> u64;
 
-    /// Performs the 'exp' approximation. First does the scaling of 'x' to [0,1]
+    /// Performs the 'exp' approximation. First does the scaling of 'x' to \[0,1\]
     /// and then calls the continued fraction approximation function.
     fn exp(&self) -> Self;
 
@@ -463,22 +463,19 @@ mod tests {
             // println!("res.iterations: {}", res.iterations);
 
             // we compare 1/(1-p) < e^-(1-(1-f)^sigma)
-            if a < (&one - &threshold_b) && res.estimation != ExpOrdering::LT {
-                println!(
+            let threshold = &one - &threshold_b;
+            if a < threshold && res.estimation != ExpOrdering::LT {
+                panic!(
                     "wrong result should be leader {} should be more like {}",
-                    &temp,
-                    &one - &threshold_b
+                    &temp, threshold
                 );
-                assert!(false);
             }
 
-            if !(a < (&one - &threshold_b)) && res.estimation != ExpOrdering::GT {
-                println!(
+            if a >= threshold && res.estimation != ExpOrdering::GT {
+                panic!(
                     "wrong result should not be leader {} should be more like {}",
-                    &temp,
-                    &one - &threshold_b
+                    &temp, threshold
                 );
-                assert!(false);
             }
 
             assert_eq!(res.approx.to_string(), expected_approx_exp);

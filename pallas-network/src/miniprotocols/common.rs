@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use pallas_codec::minicbor::{decode, encode, Decode, Decoder, Encode, Encoder};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
 /// Well-known magic for testnet
 pub const TESTNET_MAGIC: u64 = 1097911063;
@@ -63,10 +63,10 @@ pub const PROTOCOL_N2C_CHAIN_SYNC: u16 = 5;
 /// Protocol channel number for node-to-client tx-submission
 pub const PROTOCOL_N2C_TX_SUBMISSION: u16 = 6;
 
-// Protocol channel number for node-to-client state queries
+/// Protocol channel number for node-to-client state queries
 pub const PROTOCOL_N2C_STATE_QUERY: u16 = 7;
 
-// Protocol channel number for node-to-client mempool monitor
+/// Protocol channel number for node-to-client mempool monitor
 pub const PROTOCOL_N2C_TX_MONITOR: u16 = 9;
 
 /// Protocol channel number for node-to-client local message submission
@@ -77,14 +77,17 @@ pub const PROTOCOL_N2C_MSG_SUBMISSION: u16 = 14;
 /// This protocol is available only on the DMQ node.
 pub const PROTOCOL_N2C_MSG_NOTIFICATION: u16 = 15;
 
-/// A point within a chain
+/// A point within a chain.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Point {
+    /// The chain origin (genesis), before any block exists.
     Origin,
+    /// A specific block, identified by its slot and header hash.
     Specific(u64, Vec<u8>),
 }
 
 impl Point {
+    /// Return the point's slot number, or 0 for [`Point::Origin`].
     pub fn slot_or_default(&self) -> u64 {
         match self {
             Point::Origin => 0,
@@ -103,6 +106,7 @@ impl Debug for Point {
 }
 
 impl Point {
+    /// Build a [`Point::Specific`] from a slot number and a header hash.
     pub fn new(slot: u64, hash: Vec<u8>) -> Self {
         Point::Specific(slot, hash)
     }

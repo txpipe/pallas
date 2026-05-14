@@ -4,7 +4,7 @@ use std::{
 };
 
 // See https://input-output-hk.github.io/ouroboros-consensus/pdfs/report.pdf, section 8.2.2
-binary_layout::define_layout!(layout, BigEndian, {
+binary_layout::binary_layout!(layout, BigEndian, {
     secondary_offset: u32,
 });
 

@@ -1,10 +1,14 @@
 [package]
 name = "p2p-discovery"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.release]
+release = false
 
 [dependencies]
 pallas-network2 = { path = "../../pallas-network2" }
@@ -13,8 +17,8 @@ pallas-traverse = { path = "../../pallas-traverse" }
 pallas-codec = { path = "../../pallas-codec" }
 pallas-crypto = { path = "../../pallas-crypto" }
 hex = "0.4.3"
-thiserror = "1.0.31"
-rand = "0.8"
+thiserror = "2.0.18"
+rand = "0.10"
 
 tokio = { version = "1.27.0", features = ["rt-multi-thread", "tracing"] }
 tokio-stream = "0.1.17"
