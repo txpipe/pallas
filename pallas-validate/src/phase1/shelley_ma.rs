@@ -727,15 +727,72 @@ fn eval_native_script(
         }
         NativeScript::InvalidBefore(val) => {
             match low_bnd {
-                Some(time) => val >= time,
+                // The script is satisfied when the transaction cannot be applied
+                // before `val`, i.e. its validity interval starts at or after it.
+                Some(time) => val <= time,
                 None => false, // as per mary-ledger.pdf, p.20
             }
         }
         NativeScript::InvalidHereafter(val) => {
             match upp_bnd {
-                Some(time) => val <= time,
+                // The script is satisfied when the transaction cannot be applied
+                // at or after `val`, i.e. its validity interval ends at or before it.
+                Some(time) => val >= time,
                 None => false, // as per mary-ledger.pdf, p.20
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::eval_native_script;
+    use pallas_primitives::alonzo::NativeScript;
+
+    // Evaluates `native_script` with no vkey witnesses and the given validity
+    // interval bounds (`low_bnd` is `validity_interval_start`, `upp_bnd` is `ttl`).
+    fn eval(native_script: &NativeScript, low_bnd: Option<u64>, upp_bnd: Option<u64>) -> bool {
+        eval_native_script(&Vec::new(), native_script, &low_bnd, &upp_bnd)
+    }
+
+    #[test]
+    // `InvalidBefore(n)` holds only when the transaction's validity interval
+    // starts at or after slot `n` (mary-ledger.pdf, p.20).
+    fn invalid_before() {
+        let script = NativeScript::InvalidBefore(100);
+        assert!(eval(&script, Some(150), None), "starts after the lock");
+        assert!(eval(&script, Some(100), None), "starts exactly at the lock");
+        assert!(!eval(&script, Some(50), None), "starts before the lock");
+        assert!(!eval(&script, None, None), "no lower bound");
+    }
+
+    #[test]
+    // `InvalidHereafter(n)` holds only when the transaction's validity interval
+    // ends at or before slot `n` (mary-ledger.pdf, p.20).
+    fn invalid_hereafter() {
+        let script = NativeScript::InvalidHereafter(200);
+        assert!(eval(&script, None, Some(150)), "ends before the lock");
+        assert!(eval(&script, None, Some(200)), "ends exactly at the lock");
+        assert!(!eval(&script, None, Some(250)), "ends after the lock");
+        assert!(!eval(&script, None, None), "no upper bound");
+    }
+
+    #[test]
+    // Recursion combinators must thread the bounds down to nested timelocks.
+    fn nested_timelocks() {
+        let all = NativeScript::ScriptAll(vec![
+            NativeScript::InvalidBefore(100),
+            NativeScript::InvalidHereafter(200),
+        ]);
+        assert!(eval(&all, Some(120), Some(180)), "interval within the window");
+        assert!(!eval(&all, Some(80), Some(180)), "starts too early");
+        assert!(!eval(&all, Some(120), Some(220)), "ends too late");
+
+        let any = NativeScript::ScriptAny(vec![
+            NativeScript::InvalidBefore(100),
+            NativeScript::InvalidHereafter(200),
+        ]);
+        assert!(eval(&any, Some(80), Some(180)), "satisfies the hereafter arm");
+        assert!(!eval(&any, Some(80), Some(220)), "satisfies neither arm");
     }
 }
