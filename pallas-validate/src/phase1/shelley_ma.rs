@@ -784,7 +784,10 @@ mod tests {
             NativeScript::InvalidBefore(100),
             NativeScript::InvalidHereafter(200),
         ]);
-        assert!(eval(&all, Some(120), Some(180)), "interval within the window");
+        assert!(
+            eval(&all, Some(120), Some(180)),
+            "interval within the window"
+        );
         assert!(!eval(&all, Some(80), Some(180)), "starts too early");
         assert!(!eval(&all, Some(120), Some(220)), "ends too late");
 
@@ -792,7 +795,10 @@ mod tests {
             NativeScript::InvalidBefore(100),
             NativeScript::InvalidHereafter(200),
         ]);
-        assert!(eval(&any, Some(80), Some(180)), "satisfies the hereafter arm");
+        assert!(
+            eval(&any, Some(80), Some(180)),
+            "satisfies the hereafter arm"
+        );
         assert!(!eval(&any, Some(80), Some(220)), "satisfies neither arm");
     }
 }
