@@ -15,7 +15,7 @@ authors.workspace = true
 hex.workspace = true
 pallas-crypto.workspace = true
 pallas-codec.workspace = true
-serde = { workspace = true, optional = true }
+serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -23,6 +23,6 @@ proptest = { workspace = true, features = ["alloc"] }
 test-case = "3.3.1"
 
 [features]
-json = ["serde", "serde_json"]
+json = ["serde_json"]
 default = ["json"]
 relaxed = ["pallas-crypto/relaxed"]

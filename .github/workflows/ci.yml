@@ -92,6 +92,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets ${{ matrix.flags }}
 
+  isolated-features:
+    name: Isolated no-default-features
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # A workspace-wide --no-default-features build unifies features across
+      # members, so it always pulls pallas-primitives in with `json` enabled.
+      # Check the crate in isolation to catch missing serde feature gating.
+      - run: cargo check -p pallas-primitives --no-default-features
+
   msrv:
     name: MSRV (1.88)
     runs-on: ubuntu-latest
