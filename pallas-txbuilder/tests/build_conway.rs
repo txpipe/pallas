@@ -39,6 +39,11 @@ fn hash32(b: u8) -> Hash<32> {
     Hash::<32>::from([b; 32])
 }
 
+/// Build a 28-byte hash whose every byte is `b` (for policy ids etc.).
+fn hash28(b: u8) -> Hash<28> {
+    Hash::<28>::from([b; 28])
+}
+
 fn base_address() -> PallasAddress {
     PallasAddress::from_str(ADDR_BASE).expect("fixture address must be valid")
 }
@@ -244,5 +249,83 @@ fn remove_last_signature_clears_witness_set() {
     assert!(
         tx.transaction_witness_set.vkeywitness.is_none(),
         "removing the only witness should clear the set"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Group C — determinism
+// ---------------------------------------------------------------------------
+//
+// Mint and output-asset bundles encode through `BTreeMap`-backed `Multiasset`,
+// so their order is normalised and the output is deterministic regardless of
+// the order assets were added. Redeemers, datums, and scripts are collected in
+// `HashMap` iteration order and are *not* normalised — see the #[ignore]d test.
+
+#[test]
+fn multi_asset_output_is_deterministic() {
+    let build = || {
+        StagingTransaction::new()
+            .input(Input::new(hash32(0), 0))
+            .output(
+                Output::new(base_address(), 2_000_000)
+                    .add_asset(hash28(0xaa), b"TOKEN_A".to_vec(), 5)
+                    .unwrap()
+                    .add_asset(hash28(0xbb), b"TOKEN_B".to_vec(), 7)
+                    .unwrap(),
+            )
+            .fee(180_000)
+            .build_conway_raw()
+            .unwrap()
+    };
+    assert_eq!(build().tx_bytes.0, build().tx_bytes.0);
+}
+
+#[test]
+fn mint_is_deterministic() {
+    let build = || {
+        StagingTransaction::new()
+            .input(Input::new(hash32(0), 0))
+            .output(Output::new(base_address(), 2_000_000))
+            .mint_asset(hash28(0xaa), b"A".to_vec(), 1)
+            .unwrap()
+            .mint_asset(hash28(0xbb), b"B".to_vec(), -1)
+            .unwrap()
+            .fee(180_000)
+            .build_conway_raw()
+            .unwrap()
+    };
+    assert_eq!(build().tx_bytes.0, build().tx_bytes.0);
+}
+
+/// BUG (documented, not yet fixed): datums are stored in a `HashMap` and
+/// emitted in iteration order, so a transaction with multiple datums can
+/// encode to different bytes (and a different hash) from one build to the
+/// next. Each iteration builds the staging tx *fresh* (a fresh `HashMap` is
+/// seeded differently), which is exactly how callers hit this. Un-`ignore`
+/// this once datums/redeemers/scripts are sorted before encoding.
+#[test]
+#[ignore = "datum/redeemer/script ordering is non-deterministic; fixed in a later PR"]
+fn multiple_datums_build_deterministically() {
+    // Three distinct, valid PlutusData datums (bare CBOR integers).
+    let build = || {
+        StagingTransaction::new()
+            .input(Input::new(hash32(0), 0))
+            .output(Output::new(base_address(), 2_000_000))
+            .fee(180_000)
+            .datum(vec![0x01])
+            .datum(vec![0x02])
+            .datum(vec![0x03])
+            .build_conway_raw()
+            .unwrap()
+            .tx_bytes
+            .0
+    };
+
+    let encodings: std::collections::HashSet<Vec<u8>> = (0..64).map(|_| build()).collect();
+
+    assert_eq!(
+        encodings.len(),
+        1,
+        "the same datums must always encode identically"
     );
 }
