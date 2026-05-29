@@ -79,7 +79,9 @@ fn minimal_tx() -> StagingTransaction {
 
 #[test]
 fn minimal_build_round_trips() {
-    let built = minimal_tx().build_conway_raw().expect("build should succeed");
+    let built = minimal_tx()
+        .build_conway_raw()
+        .expect("build should succeed");
 
     let tx = decode(&built.tx_bytes.0);
     let body = &tx.transaction_body;
@@ -378,10 +380,18 @@ fn mint_and_burn_round_trip() {
 
     let mint = tx.transaction_body.mint.as_ref().expect("mint present");
     let minted = mint.iter().find(|(p, _)| **p == hash28(0xaa)).unwrap();
-    assert_eq!(i64::from(minted.1.iter().next().unwrap().1), 42, "mint of 42");
+    assert_eq!(
+        i64::from(minted.1.iter().next().unwrap().1),
+        42,
+        "mint of 42"
+    );
 
     let burned = mint.iter().find(|(p, _)| **p == hash28(0xcc)).unwrap();
-    assert_eq!(i64::from(burned.1.iter().next().unwrap().1), -3, "burn of 3");
+    assert_eq!(
+        i64::from(burned.1.iter().next().unwrap().1),
+        -3,
+        "burn of 3"
+    );
 }
 
 /// Golden snapshot for the multi-asset + mint transaction.
@@ -398,5 +408,83 @@ fn asset_tx_golden() {
         hex::encode(built.tx_hash.0),
         include_str!("golden/multi_asset.hash").trim(),
         "multi-asset tx hash drifted",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Group E — script-data hash self-consistency
+// ---------------------------------------------------------------------------
+
+use pallas_primitives::conway::{LanguageViews, ScriptData};
+use pallas_txbuilder::{ExUnits, ScriptKind};
+
+/// When redeemers, datums, and cost models are all present, the
+/// `script_data_hash` the builder embeds must equal the value recomputed from
+/// the decoded witness set — the same check `pallas-primitives` runs against
+/// real on-chain transactions.
+#[test]
+fn script_data_hash_matches_recomputation() {
+    let cost_model: Vec<i64> = vec![1, 2, 3, 4];
+
+    let built = StagingTransaction::new()
+        .input(Input::new(hash32(0), 0))
+        .output(Output::new(base_address(), 2_000_000))
+        .fee(200_000)
+        .datum(vec![0x01])
+        .add_spend_redeemer(
+            Input::new(hash32(0), 0),
+            vec![0x09],
+            Some(ExUnits {
+                mem: 1_000,
+                steps: 500_000,
+            }),
+        )
+        .add_language(ScriptKind::PlutusV3, cost_model.clone())
+        .build_conway_raw()
+        .unwrap();
+
+    let tx = decode(&built.tx_bytes.0);
+    let embedded = tx
+        .transaction_body
+        .script_data_hash
+        .expect("script_data_hash must be set when redeemers/datums exist");
+
+    let views = LanguageViews::from_iter([(2u8, cost_model)]);
+    let recomputed = ScriptData::build_for(&tx.transaction_witness_set, &Some(views))
+        .expect("witness has redeemers/datums")
+        .hash();
+
+    assert_eq!(embedded, recomputed, "embedded script_data_hash is wrong");
+}
+
+/// BUG (documented, not yet fixed): the builder computes `script_data_hash`
+/// only when `language_views` is set, but the ledger requires it whenever the
+/// witness set carries datums or redeemers. A datum-only transaction (no
+/// redeemers, no cost models) therefore gets `script_data_hash = None` and is
+/// rejected by the node. `pallas_primitives::ScriptData::build_for` already
+/// handles this case; the builder should use it. Un-`ignore` once it does.
+#[test]
+#[ignore = "datum-only script_data_hash is omitted (gated on language_views); fixed in a later PR"]
+fn datum_only_sets_script_data_hash() {
+    let built = StagingTransaction::new()
+        .input(Input::new(hash32(0), 0))
+        .output(Output::new(base_address(), 2_000_000))
+        .fee(200_000)
+        .datum(vec![0x01])
+        .build_conway_raw()
+        .unwrap();
+
+    let tx = decode(&built.tx_bytes.0);
+    let embedded = tx.transaction_body.script_data_hash;
+
+    // The correct value, per primitives, for a datum-only witness set.
+    let expected = ScriptData::build_for(&tx.transaction_witness_set, &None)
+        .expect("witness has datums")
+        .hash();
+
+    assert_eq!(
+        embedded,
+        Some(expected),
+        "datum-only tx must still carry a script_data_hash"
     );
 }
