@@ -488,3 +488,245 @@ fn datum_only_sets_script_data_hash() {
         "datum-only tx must still carry a script_data_hash"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Group F — cross-check against real cardano-cli transactions
+// ---------------------------------------------------------------------------
+//
+// The fixtures under tests/vectors/ are unsigned Conway transactions produced
+// by cardano-cli and supplied by the crate maintainer. cardano-cli emits
+// plain/token outputs in the *legacy* `[address, value]` array form, whereas
+// the builder always emits the *post-Alonzo* map form — both are valid per the
+// Conway CDDL. We therefore compare semantic content (inputs, outputs, fee,
+// validity, mint, native scripts) and additionally require any output that is
+// post-Alonzo in *both* to be byte-identical.
+
+use std::collections::BTreeMap;
+
+use pallas_primitives::conway::{DatumOption, TransactionOutput};
+use pallas_txbuilder::BuiltTransaction;
+
+// Addresses and payloads lifted from the fixtures, kept as raw bytes so the
+// reconstruction is explicit rather than echoing a decoded address back.
+const ADDR_DATUM: &str = "00dd996ca1174aa2e32dbbad88046b440ff563a3cde0716a56865400c6b5c562bdedfb6d283af13b35a63556c0d4acc5ea01069f96e7975a6b";
+const ADDR_CHANGE: &str = "006864e676b09a8e5a6d8fac297f7e7f6dd9e2fae27bdd5e7b2aac24e08a49fde31d74eb97199efb297c375da5f6876596198360af927cd37a";
+const ADDR_ENTERPRISE: &str = "60f60849dabf8cca552078db2838a4f6569ee36ae2ec5ea954b907fe60";
+const INLINE_DATUM: &str = "d8799fa145627974657358383439356362343666393066643538623434656363633939623136306561343138326566313764663434636237646561633438303430656261ff";
+// `all [ invalid_before 44203 ]` — its Blake2b-224 hash is the mint policy id.
+const NATIVE_SCRIPT: &str = "820181820419acab";
+
+fn addr(hex_str: &str) -> PallasAddress {
+    PallasAddress::from_bytes(&hex::decode(hex_str).unwrap()).unwrap()
+}
+
+fn hash32_hex(h: &str) -> Hash<32> {
+    Hash::<32>::from(<[u8; 32]>::try_from(hex::decode(h).unwrap()).unwrap())
+}
+
+fn hash28_hex(h: &str) -> Hash<28> {
+    Hash::<28>::from(<[u8; 28]>::try_from(hex::decode(h).unwrap()).unwrap())
+}
+
+/// Flatten a `Multiasset`-shaped map into a sorted `(policy, name, qty)` list,
+/// converting the quantity through `f`. The policy/name key types are shared
+/// across eras (`Hash<28>` / `Bytes`); only the coin type differs (alonzo
+/// `u64`, conway `PositiveCoin` / `NonZeroInt`).
+fn flatten<A, T, F>(
+    ma: &BTreeMap<Hash<28>, BTreeMap<pallas_primitives::Bytes, A>>,
+    f: F,
+) -> Vec<(Vec<u8>, Vec<u8>, T)>
+where
+    A: Copy,
+    T: Ord,
+    F: Fn(A) -> T,
+{
+    let mut out = vec![];
+    for (policy, names) in ma {
+        for (name, amt) in names {
+            out.push((policy.to_vec(), name.to_vec(), f(*amt)));
+        }
+    }
+    out.sort();
+    out
+}
+
+/// (address, coin, sorted assets, inline datum bytes) — format-independent.
+type OutputSummary = (Vec<u8>, u64, Vec<(Vec<u8>, Vec<u8>, u64)>, Option<Vec<u8>>);
+
+fn summarize(out: &TransactionOutput) -> OutputSummary {
+    use pallas_primitives::{alonzo, conway};
+    match out {
+        TransactionOutput::PostAlonzo(o) => {
+            let (coin, assets) = match &o.value {
+                conway::Value::Coin(c) => (*c, vec![]),
+                conway::Value::Multiasset(c, ma) => (*c, flatten(ma, u64::from)),
+            };
+            let datum = match o.datum_option.as_deref() {
+                Some(DatumOption::Data(d)) => Some(d.0.raw_cbor().to_vec()),
+                _ => None,
+            };
+            (o.address.to_vec(), coin, assets, datum)
+        }
+        TransactionOutput::Legacy(o) => {
+            let (coin, assets) = match &o.amount {
+                alonzo::Value::Coin(c) => (*c, vec![]),
+                alonzo::Value::Multiasset(c, ma) => (*c, flatten(ma, |v| v)),
+            };
+            (o.address.to_vec(), coin, assets, None)
+        }
+    }
+}
+
+fn inputs_of(tx: &Tx) -> Vec<([u8; 32], u64)> {
+    let mut v: Vec<_> = tx
+        .transaction_body
+        .inputs
+        .iter()
+        .map(|i| (*i.transaction_id, i.index))
+        .collect();
+    v.sort();
+    v
+}
+
+fn mint_of(tx: &Tx) -> Vec<(Vec<u8>, Vec<u8>, i64)> {
+    tx.transaction_body
+        .mint
+        .as_ref()
+        .map(|m| flatten(m, i64::from))
+        .unwrap_or_default()
+}
+
+fn native_scripts_of(tx: &Tx) -> Vec<Vec<u8>> {
+    let mut v: Vec<Vec<u8>> = tx
+        .transaction_witness_set
+        .native_script
+        .iter()
+        .flat_map(|set| set.iter())
+        .map(|s| s.raw_cbor().to_vec())
+        .collect();
+    v.sort();
+    v
+}
+
+/// Decode `real_hex` and assert the builder's `built` is the same transaction:
+/// equal inputs, fee, validity bounds, mint, native scripts, and per-output
+/// content; plus byte-identical encoding for outputs that are post-Alonzo in
+/// both (the legacy/post-Alonzo difference is a cardano-cli choice, not ours).
+fn cross_check(real_hex: &str, built: &BuiltTransaction) {
+    let real_bytes = hex::decode(real_hex.trim()).unwrap();
+    let real = decode(&real_bytes);
+    let got = decode(&built.tx_bytes.0);
+    let (rb, gb) = (&real.transaction_body, &got.transaction_body);
+
+    assert_eq!(inputs_of(&real), inputs_of(&got), "inputs");
+    assert_eq!(rb.fee, gb.fee, "fee");
+    assert_eq!(rb.ttl, gb.ttl, "ttl");
+    assert_eq!(
+        rb.validity_interval_start, gb.validity_interval_start,
+        "validity start"
+    );
+    assert_eq!(mint_of(&real), mint_of(&got), "mint");
+    assert_eq!(native_scripts_of(&real), native_scripts_of(&got), "scripts");
+
+    assert_eq!(rb.outputs.len(), gb.outputs.len(), "output count");
+    for (i, (r, g)) in rb.outputs.iter().zip(gb.outputs.iter()).enumerate() {
+        assert_eq!(summarize(r), summarize(g), "output {i} content");
+        if let (TransactionOutput::PostAlonzo(ro), TransactionOutput::PostAlonzo(go)) = (r, g) {
+            assert_eq!(ro.raw_cbor(), go.raw_cbor(), "post-alonzo output {i} bytes");
+        }
+    }
+}
+
+/// A real datum-bearing payment: one input, an inline-datum output, change.
+#[test]
+fn reconstructs_real_datum_tx() {
+    let built = StagingTransaction::new()
+        .input(Input::new(
+            hash32_hex("d3c742ca3c01719349ff3d969651e78802f93ebae48fc9c43ca247374e372aa6"),
+            1,
+        ))
+        .output(
+            Output::new(addr(ADDR_DATUM), 1_305_930)
+                .set_inline_datum(hex::decode(INLINE_DATUM).unwrap()),
+        )
+        .output(Output::new(addr(ADDR_CHANGE), 6_787_093_941))
+        .fee(172_101)
+        .invalid_from_slot(124_418_399)
+        .valid_from_slot(1)
+        .build_conway_raw()
+        .unwrap();
+
+    cross_check(include_str!("vectors/datum_output.tx"), &built);
+}
+
+/// A real token transfer: two inputs, an inline-datum + token output, plain
+/// change, and token change.
+#[test]
+fn reconstructs_real_token_tx() {
+    let policy = hash28_hex("c35ca45f0a48f857063665fdd83b8703110fce2abb88188760c0c2ef");
+    let name =
+        hex::decode("001bc280021c22239e3a0d64bdb158e1563b2ac4b8be3a2b5d89c7ef7104790d").unwrap();
+
+    let built = StagingTransaction::new()
+        .input(Input::new(
+            hash32_hex("d3c742ca3c01719349ff3d969651e78802f93ebae48fc9c43ca247374e372aa6"),
+            1,
+        ))
+        .input(Input::new(
+            hash32_hex("df4f3e2f340764a40834d3a54d32a159f97fcdacc4d780b860e7b626b80fcf2d"),
+            2,
+        ))
+        .output(
+            Output::new(addr(ADDR_DATUM), 1_599_010)
+                .add_asset(policy, name.clone(), 12)
+                .unwrap()
+                .set_inline_datum(hex::decode(INLINE_DATUM).unwrap()),
+        )
+        .output(Output::new(addr(ADDR_CHANGE), 6_786_790_345))
+        .output(
+            Output::new(addr(ADDR_CHANGE), 2_706_249)
+                .add_asset(policy, name, 605)
+                .unwrap(),
+        )
+        .fee(182_617)
+        .invalid_from_slot(124_418_634)
+        .valid_from_slot(1)
+        .build_conway_raw()
+        .unwrap();
+
+    cross_check(include_str!("vectors/token_output.tx"), &built);
+}
+
+/// A real native-script mint: two inputs, a token output + plain change, a
+/// mint of the token, and the native-script policy in the witness set.
+#[test]
+fn reconstructs_real_native_mint_tx() {
+    let policy = hash28_hex("c65cb5e0a28be0fc30cef5c53f55bc665740062e1e24f65b7d310d21");
+    let name = hex::decode("74537461626c65").unwrap();
+
+    let built = StagingTransaction::new()
+        .input(Input::new(
+            hash32_hex("7553d538a0a00d1c6362083d1c2d262e78252993cec88631794273141c267c94"),
+            0,
+        ))
+        .input(Input::new(
+            hash32_hex("7553d538a0a00d1c6362083d1c2d262e78252993cec88631794273141c267c94"),
+            2,
+        ))
+        .output(
+            Output::new(addr(ADDR_DATUM), 1_168_010)
+                .add_asset(policy, name.clone(), 123_456_789)
+                .unwrap(),
+        )
+        .output(Output::new(addr(ADDR_ENTERPRISE), 37_061_345))
+        .mint_asset(policy, name, 123_456_789)
+        .unwrap()
+        .script(ScriptKind::Native, hex::decode(NATIVE_SCRIPT).unwrap())
+        .fee(182_485)
+        .invalid_from_slot(124_408_635)
+        .valid_from_slot(124_408_034)
+        .build_conway_raw()
+        .unwrap();
+
+    cross_check(include_str!("vectors/native_mint.tx"), &built);
+}
