@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-05-29
+
+### 🚀 Features
+
+- *(network)* Move DMQ message id out of the payload (#776)
+
+### 🐛 Bug Fixes
+
+- *(ledger)* Correct inverted native script timelock comparisons (#778)
+- Make serde a non-optional dependency of pallas-primitives (#779)
+
 ## [1.0.0] - 2026-05-11
 
 ### 🚀 Features
@@ -46,6 +57,7 @@ All notable changes to this project will be documented in this file.
 - Hoist common cargo metadata and dependencies to workspace (#766)
 - Replace git-chglog automation with git-cliff (#767)
 - Don't release example crates
+- Release v1.0.0
 
 ### Build
 
