@@ -329,3 +329,74 @@ fn multiple_datums_build_deterministically() {
         "the same datums must always encode identically"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Group D — multi-asset output and mint values
+// ---------------------------------------------------------------------------
+
+/// One output carrying lovelace + a native token, plus a mint and a burn.
+fn asset_tx() -> StagingTransaction {
+    StagingTransaction::new()
+        .input(Input::new(hash32(0), 0))
+        .output(
+            Output::new(base_address(), 2_000_000)
+                .add_asset(hash28(0xaa), b"TOKEN".to_vec(), 42)
+                .unwrap(),
+        )
+        .mint_asset(hash28(0xaa), b"TOKEN".to_vec(), 42)
+        .unwrap()
+        .mint_asset(hash28(0xcc), b"OLD".to_vec(), -3)
+        .unwrap()
+        .fee(190_000)
+}
+
+#[test]
+fn output_asset_value_round_trips() {
+    use pallas_primitives::conway::{TransactionOutput, Value};
+
+    let built = asset_tx().build_conway_raw().unwrap();
+    let tx = decode(&built.tx_bytes.0);
+
+    let TransactionOutput::PostAlonzo(out) = tx.transaction_body.outputs.first().unwrap() else {
+        panic!("expected a post-alonzo output");
+    };
+    let Value::Multiasset(coin, assets) = &out.value else {
+        panic!("expected a multiasset value");
+    };
+
+    assert_eq!(*coin, 2_000_000);
+    let policy = assets.iter().find(|(p, _)| **p == hash28(0xaa)).unwrap();
+    let (name, amount) = policy.1.iter().next().unwrap();
+    assert_eq!(name.as_slice(), b"TOKEN");
+    assert_eq!(u64::from(amount), 42);
+}
+
+#[test]
+fn mint_and_burn_round_trip() {
+    let built = asset_tx().build_conway_raw().unwrap();
+    let tx = decode(&built.tx_bytes.0);
+
+    let mint = tx.transaction_body.mint.as_ref().expect("mint present");
+    let minted = mint.iter().find(|(p, _)| **p == hash28(0xaa)).unwrap();
+    assert_eq!(i64::from(minted.1.iter().next().unwrap().1), 42, "mint of 42");
+
+    let burned = mint.iter().find(|(p, _)| **p == hash28(0xcc)).unwrap();
+    assert_eq!(i64::from(burned.1.iter().next().unwrap().1), -3, "burn of 3");
+}
+
+/// Golden snapshot for the multi-asset + mint transaction.
+#[test]
+fn asset_tx_golden() {
+    let built = asset_tx().build_conway_raw().unwrap();
+
+    assert_eq!(
+        hex::encode(&built.tx_bytes.0),
+        include_str!("golden/multi_asset.tx").trim(),
+        "multi-asset tx CBOR drifted",
+    );
+    assert_eq!(
+        hex::encode(built.tx_hash.0),
+        include_str!("golden/multi_asset.hash").trim(),
+        "multi-asset tx hash drifted",
+    );
+}
