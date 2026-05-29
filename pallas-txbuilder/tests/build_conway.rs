@@ -21,6 +21,7 @@ use std::str::FromStr;
 
 use pallas_addresses::Address as PallasAddress;
 use pallas_crypto::hash::Hash;
+use pallas_crypto::key::ed25519::SecretKeyExtended;
 use pallas_primitives::Fragment;
 use pallas_primitives::conway::Tx;
 use pallas_txbuilder::{BuildConway, Input, Output, StagingTransaction};
@@ -45,6 +46,18 @@ fn base_address() -> PallasAddress {
 /// Decode the bytes of a built transaction back into a primitives `Tx`.
 fn decode(tx_bytes: &[u8]) -> Tx<'_> {
     Tx::decode_fragment(tx_bytes).expect("built tx must decode as conway::Tx")
+}
+
+/// A deterministic extended Ed25519 signing key seeded from a single byte.
+///
+/// The 64-byte buffer is clamped to satisfy the extended-key bit tweaks so the
+/// checked `from_bytes` constructor accepts it — giving us stable, repeatable
+/// signatures with no RNG and no extra dependencies.
+fn signer(seed: u8) -> SecretKeyExtended {
+    let mut bytes = [seed; SecretKeyExtended::SIZE];
+    bytes[0] &= 0b1111_1000;
+    bytes[31] = (bytes[31] & 0b0011_1111) | 0b0100_0000;
+    SecretKeyExtended::from_bytes(bytes).expect("clamped bytes are a valid extended key")
 }
 
 // ---------------------------------------------------------------------------
@@ -110,5 +123,126 @@ fn minimal_build_golden() {
         hex::encode(built.tx_hash.0),
         include_str!("golden/minimal.hash").trim(),
         "minimal tx hash drifted",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Group B — signing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sign_embeds_one_vkey_witness() {
+    let key = signer(1);
+    let pubkey: [u8; 32] = key.public_key().as_ref().try_into().unwrap();
+
+    let signed = minimal_tx()
+        .build_conway_raw()
+        .unwrap()
+        .sign(&key)
+        .expect("signing should succeed");
+
+    // The in-memory signature map is populated.
+    let sigs = signed.signatures.as_ref().expect("signatures recorded");
+    assert_eq!(sigs.len(), 1);
+
+    // ...and the witness is embedded in the encoded bytes.
+    let tx = decode(&signed.tx_bytes.0);
+    let witnesses = tx
+        .transaction_witness_set
+        .vkeywitness
+        .as_ref()
+        .expect("vkey witness present");
+    assert_eq!(witnesses.len(), 1);
+    assert_eq!(*witnesses[0].vkey, pubkey.to_vec());
+}
+
+#[test]
+fn signing_preserves_body_hash() {
+    let built = minimal_tx().build_conway_raw().unwrap();
+    let hash_before = built.tx_hash.0;
+    let signed = built.sign(&signer(1)).unwrap();
+    assert_eq!(
+        signed.tx_hash.0, hash_before,
+        "attaching a witness must not change the body hash"
+    );
+}
+
+#[test]
+fn signing_twice_accumulates_witnesses() {
+    let signed = minimal_tx()
+        .build_conway_raw()
+        .unwrap()
+        .sign(&signer(1))
+        .unwrap()
+        .sign(&signer(2))
+        .unwrap();
+
+    let tx = decode(&signed.tx_bytes.0);
+    let witnesses = tx.transaction_witness_set.vkeywitness.as_ref().unwrap();
+    assert_eq!(witnesses.len(), 2, "two distinct signers => two witnesses");
+}
+
+#[test]
+fn add_signature_embeds_out_of_band_witness() {
+    let key = signer(3);
+    let pubkey = key.public_key();
+    let built = minimal_tx().build_conway_raw().unwrap();
+
+    // A real signature over the body hash, supplied "out of band" (the HSM /
+    // hardware-wallet flow that `add_signature` exists for).
+    let sig: [u8; 64] = key.sign(built.tx_hash.0).as_ref().try_into().unwrap();
+
+    let added = built.add_signature(pubkey, sig).expect("add_signature");
+    let tx = decode(&added.tx_bytes.0);
+    let witnesses = tx.transaction_witness_set.vkeywitness.as_ref().unwrap();
+    assert_eq!(witnesses.len(), 1);
+    let pubkey_bytes: [u8; 32] = pubkey.as_ref().try_into().unwrap();
+    assert_eq!(*witnesses[0].vkey, pubkey_bytes.to_vec());
+}
+
+#[test]
+fn remove_signature_leaves_remaining_witnesses() {
+    let keep = signer(4);
+    let drop = signer(5);
+
+    // Two witnesses, then remove one — the set stays non-empty.
+    let signed = minimal_tx()
+        .build_conway_raw()
+        .unwrap()
+        .sign(&keep)
+        .unwrap()
+        .sign(&drop)
+        .unwrap()
+        .remove_signature(drop.public_key())
+        .expect("remove_signature");
+
+    let tx = decode(&signed.tx_bytes.0);
+    let witnesses = tx.transaction_witness_set.vkeywitness.as_ref().unwrap();
+    assert_eq!(witnesses.len(), 1, "only the dropped signer is removed");
+
+    let keep_bytes: [u8; 32] = keep.public_key().as_ref().try_into().unwrap();
+    assert_eq!(*witnesses[0].vkey, keep_bytes.to_vec());
+}
+
+/// BUG (documented, not yet fixed): removing the *only* witness panics at
+/// `model.rs` because `NonEmptySet::from_vec(vec![])` returns `None` and the
+/// builder unwraps it. The correct behaviour is to clear the witness to
+/// `None`. Un-`ignore` this in the PR that fixes the panic.
+#[test]
+#[ignore = "remove_signature panics when emptying the witness set; fixed in a later PR"]
+fn remove_last_signature_clears_witness_set() {
+    let key = signer(6);
+    let signed = minimal_tx()
+        .build_conway_raw()
+        .unwrap()
+        .sign(&key)
+        .unwrap()
+        .remove_signature(key.public_key())
+        .expect("remove_signature");
+
+    let tx = decode(&signed.tx_bytes.0);
+    assert!(
+        tx.transaction_witness_set.vkeywitness.is_none(),
+        "removing the only witness should clear the set"
     );
 }
