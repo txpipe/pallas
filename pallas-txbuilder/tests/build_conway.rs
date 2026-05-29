@@ -503,7 +503,7 @@ fn datum_only_sets_script_data_hash() {
 
 use std::collections::BTreeMap;
 
-use pallas_primitives::conway::{DatumOption, TransactionOutput};
+use pallas_primitives::conway::{DatumOption, TransactionInput, TransactionOutput};
 use pallas_txbuilder::BuiltTransaction;
 
 // Addresses and payloads lifted from the fixtures, kept as raw bytes so the
@@ -577,13 +577,14 @@ fn summarize(out: &TransactionOutput) -> OutputSummary {
     }
 }
 
-fn inputs_of(tx: &Tx) -> Vec<([u8; 32], u64)> {
-    let mut v: Vec<_> = tx
-        .transaction_body
-        .inputs
-        .iter()
-        .map(|i| (*i.transaction_id, i.index))
-        .collect();
+fn sorted_inputs<'a>(it: impl Iterator<Item = &'a TransactionInput>) -> Vec<([u8; 32], u64)> {
+    let mut v: Vec<_> = it.map(|i| (*i.transaction_id, i.index)).collect();
+    v.sort();
+    v
+}
+
+fn sorted_signers<'a>(it: impl Iterator<Item = &'a Hash<28>>) -> Vec<Vec<u8>> {
+    let mut v: Vec<Vec<u8>> = it.map(|h| h.to_vec()).collect();
     v.sort();
     v
 }
@@ -618,7 +619,11 @@ fn cross_check(real_hex: &str, built: &BuiltTransaction) {
     let got = decode(&built.tx_bytes.0);
     let (rb, gb) = (&real.transaction_body, &got.transaction_body);
 
-    assert_eq!(inputs_of(&real), inputs_of(&got), "inputs");
+    assert_eq!(
+        sorted_inputs(rb.inputs.iter()),
+        sorted_inputs(gb.inputs.iter()),
+        "inputs"
+    );
     assert_eq!(rb.fee, gb.fee, "fee");
     assert_eq!(rb.ttl, gb.ttl, "ttl");
     assert_eq!(
@@ -627,6 +632,26 @@ fn cross_check(real_hex: &str, built: &BuiltTransaction) {
     );
     assert_eq!(mint_of(&real), mint_of(&got), "mint");
     assert_eq!(native_scripts_of(&real), native_scripts_of(&got), "scripts");
+    assert_eq!(
+        sorted_inputs(rb.collateral.iter().flat_map(|s| s.iter())),
+        sorted_inputs(gb.collateral.iter().flat_map(|s| s.iter())),
+        "collateral inputs"
+    );
+    assert_eq!(
+        sorted_inputs(rb.reference_inputs.iter().flat_map(|s| s.iter())),
+        sorted_inputs(gb.reference_inputs.iter().flat_map(|s| s.iter())),
+        "reference inputs"
+    );
+    assert_eq!(
+        sorted_signers(rb.required_signers.iter().flat_map(|s| s.iter())),
+        sorted_signers(gb.required_signers.iter().flat_map(|s| s.iter())),
+        "required signers"
+    );
+    assert_eq!(
+        rb.collateral_return.as_ref().map(summarize),
+        gb.collateral_return.as_ref().map(summarize),
+        "collateral return"
+    );
 
     assert_eq!(rb.outputs.len(), gb.outputs.len(), "output count");
     for (i, (r, g)) in rb.outputs.iter().zip(gb.outputs.iter()).enumerate() {
@@ -729,4 +754,114 @@ fn reconstructs_real_native_mint_tx() {
         .unwrap();
 
     cross_check(include_str!("vectors/native_mint.tx"), &built);
+}
+
+// A real Plutus reference-script spend that also burns a token. The script is
+// supplied via a reference input (not attached), with a spend redeemer and a
+// mint (burn) redeemer. Cost models are intentionally omitted: this fixture is
+// used to cross-check the structural fields the builder *can* reproduce. The
+// two things it cannot — `total_collateral` and Conway map-form redeemers (and
+// therefore a matching `script_data_hash`) — are documented by the #[ignore]d
+// tests below.
+fn plutus_spend_burn() -> StagingTransaction {
+    let spent_input = "3877ed7d4384f18810d87e81d00abd0d2e7ed9b8b52ad14243f1752a8208b574";
+    let out_addr = "6044030baceca347fca524d7155a456cd81b834ca58ec325a2abbaad5d";
+    let token_policy = hash28_hex("c65cb5e0a28be0fc30cef5c53f55bc665740062e1e24f65b7d310d21");
+    let token_name = hex::decode("74537461626c65").unwrap();
+    let burn_policy = hash28_hex("d3a7447ce5831ec873bc1c8d9e61200c6a1b3e2cc1e05c544ea027df");
+    let burn_name =
+        hex::decode("016c9ee99a7c590ef29ab5fa200519cebd4594dad59749a02d5f6f6a616c55f3").unwrap();
+
+    StagingTransaction::new()
+        .input(Input::new(hash32_hex(spent_input), 1))
+        .input(Input::new(hash32_hex(spent_input), 2))
+        .collateral_input(Input::new(
+            hash32_hex("0ae2c9fb36d3d67507707a44e9e2d4a4fc42781dea81d29d4844b5b934da8b4b"),
+            0,
+        ))
+        .reference_input(Input::new(
+            hash32_hex("faa7a21d1e3f4617179cbb4e5b410265a118d91c4fe0407e8c46f986e6964c76"),
+            1,
+        ))
+        .output(
+            Output::new(addr(out_addr), 219_302_399)
+                .add_asset(token_policy, token_name, 738)
+                .unwrap(),
+        )
+        .collateral_output(Output::new(addr(out_addr), 4_420_347))
+        .fee(386_435)
+        .disclosed_signer(hash28_hex(
+            "44030baceca347fca524d7155a456cd81b834ca58ec325a2abbaad5d",
+        ))
+        .disclosed_signer(hash28_hex(
+            "6b270324ba056f75d5916873df196c2151f68925037e1fbb481dc25c",
+        ))
+        .mint_asset(burn_policy, burn_name, -1)
+        .unwrap()
+        .add_spend_redeemer(
+            Input::new(hash32_hex(spent_input), 1),
+            hex::decode("d87980").unwrap(),
+            Some(ExUnits {
+                mem: 165_463,
+                steps: 49_513_102,
+            }),
+        )
+        .add_mint_redeemer(
+            burn_policy,
+            hex::decode(
+                "d87b9f5820016c9ee99a7c590ef29ab5fa200519cebd4594dad59749a02d5f6f6a616c55f320ff",
+            )
+            .unwrap(),
+            Some(ExUnits {
+                mem: 65_200,
+                steps: 19_554_370,
+            }),
+        )
+}
+
+#[test]
+fn reconstructs_real_plutus_spend_burn_tx() {
+    let built = plutus_spend_burn().build_conway_raw().unwrap();
+    cross_check(include_str!("vectors/plutus_spend_burn.tx"), &built);
+}
+
+/// BUG (documented, not yet fixed): the builder hardcodes `total_collateral`
+/// to `None` ([conway.rs] `total_collateral: None, // TODO`), with no setter on
+/// `StagingTransaction`. Real transactions that post collateral set it (the
+/// fixture has 579653). Un-`ignore` once a setter exists and the field is
+/// emitted.
+#[test]
+#[ignore = "total_collateral is hardcoded to None with no setter; fixed in a later PR"]
+fn plutus_tx_sets_total_collateral() {
+    let real_bytes = hex::decode(include_str!("vectors/plutus_spend_burn.tx").trim()).unwrap();
+    let real = decode(&real_bytes);
+    let built = plutus_spend_burn().build_conway_raw().unwrap();
+    let got = decode(&built.tx_bytes.0);
+
+    assert_eq!(
+        got.transaction_body.total_collateral, real.transaction_body.total_collateral,
+        "builder should reproduce total_collateral"
+    );
+}
+
+/// BUG (documented, not yet fixed): the builder always encodes redeemers in the
+/// legacy *list* form ([conway.rs] `Redeemers::List(..)`), whereas Conway
+/// cardano-cli emits the *map* form. The two hash differently, so the builder's
+/// `script_data_hash` is incompatible with cardano-cli's. Un-`ignore` once the
+/// builder emits map-form redeemers.
+#[test]
+#[ignore = "redeemers are emitted as a list, not the Conway map form; fixed in a later PR"]
+fn plutus_tx_emits_map_form_redeemers() {
+    use pallas_primitives::conway::Redeemers;
+
+    let built = plutus_spend_burn().build_conway_raw().unwrap();
+    let got = decode(&built.tx_bytes.0);
+
+    assert!(
+        matches!(
+            got.transaction_witness_set.redeemer.as_deref(),
+            Some(Redeemers::Map(_))
+        ),
+        "redeemers should be encoded as a Conway map"
+    );
 }
