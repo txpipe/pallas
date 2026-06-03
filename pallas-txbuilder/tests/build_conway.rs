@@ -265,6 +265,14 @@ fn remove_last_signature_clears_witness_set() {
 
 #[test]
 fn multi_asset_output_is_deterministic() {
+    // Every build constructs a fresh `OutputAssets` `HashMap`, and Rust re-seeds
+    // each map's hasher per instance, so the pre-encode iteration order of the
+    // bundle differs from build to build on its own — independent of the order
+    // assets were staged. Only the `BTreeMap` normalisation at encode time
+    // collapses the 64 builds to a single encoding; a dropped sort would surface
+    // here as more than one distinct encoding. Two policies, with two names
+    // under one of them, exercise both the outer (policy) and inner (asset-name)
+    // levels of the sort.
     let build = || {
         StagingTransaction::new()
             .input(Input::new(hash32(0), 0))
@@ -272,31 +280,56 @@ fn multi_asset_output_is_deterministic() {
                 Output::new(base_address(), 2_000_000)
                     .add_asset(hash28(0xaa), b"TOKEN_A".to_vec(), 5)
                     .unwrap()
+                    .add_asset(hash28(0xaa), b"TOKEN_C".to_vec(), 9)
+                    .unwrap()
                     .add_asset(hash28(0xbb), b"TOKEN_B".to_vec(), 7)
                     .unwrap(),
             )
             .fee(180_000)
             .build_conway_raw()
             .unwrap()
+            .tx_bytes
+            .0
     };
-    assert_eq!(build().tx_bytes.0, build().tx_bytes.0);
+
+    let encodings: std::collections::HashSet<Vec<u8>> = (0..64).map(|_| build()).collect();
+    assert_eq!(
+        encodings.len(),
+        1,
+        "asset bundle ordering must not affect the encoding"
+    );
 }
 
 #[test]
 fn mint_is_deterministic() {
+    // Same property for the mint field: `MintAssets` is a fresh, per-instance
+    // re-seeded `HashMap` per build, so only the `BTreeMap` normalisation at
+    // encode time keeps the 64 builds collapsing to one encoding. Two mints
+    // under one policy plus a burn under another exercise both the outer
+    // (policy) and inner (asset-name) sort.
     let build = || {
         StagingTransaction::new()
             .input(Input::new(hash32(0), 0))
             .output(Output::new(base_address(), 2_000_000))
             .mint_asset(hash28(0xaa), b"A".to_vec(), 1)
             .unwrap()
+            .mint_asset(hash28(0xaa), b"C".to_vec(), 1)
+            .unwrap()
             .mint_asset(hash28(0xbb), b"B".to_vec(), -1)
             .unwrap()
             .fee(180_000)
             .build_conway_raw()
             .unwrap()
+            .tx_bytes
+            .0
     };
-    assert_eq!(build().tx_bytes.0, build().tx_bytes.0);
+
+    let encodings: std::collections::HashSet<Vec<u8>> = (0..64).map(|_| build()).collect();
+    assert_eq!(
+        encodings.len(),
+        1,
+        "mint bundle ordering must not affect the encoding"
+    );
 }
 
 /// BUG (documented, not yet fixed): datums are stored in a `HashMap` and
@@ -367,7 +400,9 @@ fn output_asset_value_round_trips() {
     };
 
     assert_eq!(*coin, 2_000_000);
+    assert_eq!(assets.len(), 1, "exactly one policy in the bundle");
     let policy = assets.iter().find(|(p, _)| **p == hash28(0xaa)).unwrap();
+    assert_eq!(policy.1.len(), 1, "exactly one asset under the policy");
     let (name, amount) = policy.1.iter().next().unwrap();
     assert_eq!(name.as_slice(), b"TOKEN");
     assert_eq!(u64::from(amount), 42);
@@ -379,6 +414,7 @@ fn mint_and_burn_round_trip() {
     let tx = decode(&built.tx_bytes.0);
 
     let mint = tx.transaction_body.mint.as_ref().expect("mint present");
+    assert_eq!(mint.len(), 2, "exactly two policies (one mint, one burn)");
     let minted = mint.iter().find(|(p, _)| **p == hash28(0xaa)).unwrap();
     assert_eq!(
         i64::from(minted.1.iter().next().unwrap().1),
@@ -420,8 +456,11 @@ use pallas_txbuilder::{ExUnits, ScriptKind};
 
 /// When redeemers, datums, and cost models are all present, the
 /// `script_data_hash` the builder embeds must equal the value recomputed from
-/// the decoded witness set — the same check `pallas-primitives` runs against
-/// real on-chain transactions.
+/// the decoded witness set via `ScriptData::build_for`. This pins that the
+/// builder's hash is self-consistent with the redeemers/datums it actually
+/// wrote; it is *not* a cross-check against cardano-cli, since it reuses the
+/// builder's legacy list-form redeemer encoding (a Conway map-form tx hashes
+/// differently — see the `plutus_tx_emits_map_form_redeemers` #[ignore]d test).
 #[test]
 fn script_data_hash_matches_recomputation() {
     let cost_model: Vec<i64> = vec![1, 2, 3, 4];

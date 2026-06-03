@@ -21,9 +21,3 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 hex.workspace = true
-
-[dev-dependencies]
-pallas-crypto.workspace = true
-pallas-primitives.workspace = true
-pallas-addresses.workspace = true
-hex.workspace = true
