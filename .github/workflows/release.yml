@@ -60,7 +60,10 @@ jobs:
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo release publish --workspace --execute --no-confirm --allow-branch HEAD
+        # --isolated ignores [workspace.metadata.release], whose `publish = false`
+        # (kept so local `cargo release <version>` only tags) would otherwise make
+        # this a silent no-op.
+        run: cargo release publish --workspace --execute --no-confirm --allow-branch HEAD --isolated
 
   github_release:
     name: Create GitHub Release
