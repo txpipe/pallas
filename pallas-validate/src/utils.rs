@@ -128,17 +128,25 @@ pub fn empty_value() -> Value {
     Value::Multiasset(0, std::collections::BTreeMap::new())
 }
 
+fn add_lovelace(first: Coin, second: Coin, err: &ValidationError) -> Result<Coin, ValidationError> {
+    first.checked_add(second).ok_or_else(|| err.clone())
+}
+
 pub fn add_values(
     first: &Value,
     second: &Value,
     err: &ValidationError,
 ) -> Result<Value, ValidationError> {
     match (first, second) {
-        (Value::Coin(f), Value::Coin(s)) => Ok(Value::Coin(f + s)),
-        (Value::Multiasset(f, fma), Value::Coin(s)) => Ok(Value::Multiasset(f + s, fma.clone())),
-        (Value::Coin(f), Value::Multiasset(s, sma)) => Ok(Value::Multiasset(f + s, sma.clone())),
+        (Value::Coin(f), Value::Coin(s)) => Ok(Value::Coin(add_lovelace(*f, *s, err)?)),
+        (Value::Multiasset(f, fma), Value::Coin(s)) => {
+            Ok(Value::Multiasset(add_lovelace(*f, *s, err)?, fma.clone()))
+        }
+        (Value::Coin(f), Value::Multiasset(s, sma)) => {
+            Ok(Value::Multiasset(add_lovelace(*f, *s, err)?, sma.clone()))
+        }
         (Value::Multiasset(f, fma), Value::Multiasset(s, sma)) => Ok(Value::Multiasset(
-            f + s,
+            add_lovelace(*f, *s, err)?,
             coerce_to_coin(
                 &add_multiasset_values(&coerce_to_i64(fma), &coerce_to_i64(sma)),
                 err,
@@ -153,16 +161,20 @@ pub fn conway_add_values(
     err: &ValidationError,
 ) -> Result<ConwayValue, ValidationError> {
     match (first, second) {
-        (ConwayValue::Coin(f), ConwayValue::Coin(s)) => Ok(ConwayValue::Coin(f + s)),
-        (ConwayValue::Multiasset(f, fma), ConwayValue::Coin(s)) => {
-            Ok(ConwayValue::Multiasset(f + s, fma.clone()))
+        (ConwayValue::Coin(f), ConwayValue::Coin(s)) => {
+            Ok(ConwayValue::Coin(add_lovelace(*f, *s, err)?))
         }
-        (ConwayValue::Coin(f), ConwayValue::Multiasset(s, sma)) => {
-            Ok(ConwayValue::Multiasset(f + s, sma.clone()))
-        }
+        (ConwayValue::Multiasset(f, fma), ConwayValue::Coin(s)) => Ok(ConwayValue::Multiasset(
+            add_lovelace(*f, *s, err)?,
+            fma.clone(),
+        )),
+        (ConwayValue::Coin(f), ConwayValue::Multiasset(s, sma)) => Ok(ConwayValue::Multiasset(
+            add_lovelace(*f, *s, err)?,
+            sma.clone(),
+        )),
         (ConwayValue::Multiasset(f, fma), ConwayValue::Multiasset(s, sma)) => {
             Ok(ConwayValue::Multiasset(
-                f + s,
+                add_lovelace(*f, *s, err)?,
                 conway_coerce_to_coin(
                     &conway_add_multiasset_values(&coerce_to_u64(fma), &coerce_to_u64(sma)),
                     err,
@@ -380,13 +392,16 @@ fn coerce_to_u64(value: &ConwayMultiasset<PositiveCoin>) -> ConwayMultiasset<u64
 
 fn coerce_to_coin(
     value: &Multiasset<i64>,
-    _err: &ValidationError,
+    err: &ValidationError,
 ) -> Result<Multiasset<Coin>, ValidationError> {
     let mut res: Vec<(PolicyId, _)> = Vec::new();
     for (policy, assets) in value.iter() {
         let mut aa: Vec<(AssetName, Coin)> = Vec::new();
         for (asset_name, amount) in assets.iter() {
-            aa.push((asset_name.clone(), *amount as u64));
+            aa.push((
+                asset_name.clone(),
+                u64::try_from(*amount).map_err(|_| err.clone())?,
+            ));
         }
         res.push((*policy, aa.into_iter().collect()));
     }
