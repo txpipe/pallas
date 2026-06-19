@@ -1,5 +1,5 @@
 [workspace.package]
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
@@ -48,20 +48,20 @@ byteorder = "1.5.0"
 rand = "0.10.1"
 proptest = "1.7.0"
 
-pallas = { version = "=1.1.0", path = "pallas" }
-pallas-codec = { version = "=1.1.0", path = "pallas-codec" }
-pallas-crypto = { version = "=1.1.0", path = "pallas-crypto" }
-pallas-addresses = { version = "=1.1.0", path = "pallas-addresses" }
-pallas-primitives = { version = "=1.1.0", path = "pallas-primitives" }
-pallas-traverse = { version = "=1.1.0", path = "pallas-traverse" }
-pallas-network = { version = "=1.1.0", path = "pallas-network" }
-pallas-network2 = { version = "=1.1.0", path = "pallas-network2" }
-pallas-configs = { version = "=1.1.0", path = "pallas-configs" }
-pallas-txbuilder = { version = "=1.1.0", path = "pallas-txbuilder" }
-pallas-utxorpc = { version = "=1.1.0", path = "pallas-utxorpc" }
-pallas-hardano = { version = "=1.1.0", path = "pallas-hardano" }
-pallas-math = { version = "=1.1.0", path = "pallas-math" }
-pallas-validate = { version = "=1.1.0", path = "pallas-validate" }
+pallas = { version = "=1.1.1", path = "pallas" }
+pallas-codec = { version = "=1.1.1", path = "pallas-codec" }
+pallas-crypto = { version = "=1.1.1", path = "pallas-crypto" }
+pallas-addresses = { version = "=1.1.1", path = "pallas-addresses" }
+pallas-primitives = { version = "=1.1.1", path = "pallas-primitives" }
+pallas-traverse = { version = "=1.1.1", path = "pallas-traverse" }
+pallas-network = { version = "=1.1.1", path = "pallas-network" }
+pallas-network2 = { version = "=1.1.1", path = "pallas-network2" }
+pallas-configs = { version = "=1.1.1", path = "pallas-configs" }
+pallas-txbuilder = { version = "=1.1.1", path = "pallas-txbuilder" }
+pallas-utxorpc = { version = "=1.1.1", path = "pallas-utxorpc" }
+pallas-hardano = { version = "=1.1.1", path = "pallas-hardano" }
+pallas-math = { version = "=1.1.1", path = "pallas-math" }
+pallas-validate = { version = "=1.1.1", path = "pallas-validate" }
 
 [workspace.metadata.release]
 push = false

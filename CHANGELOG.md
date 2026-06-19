@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-06-19
+
+### 🐛 Bug Fixes
+
+- *(validate)* Reject invalid value arithmetic in asset aggregation (#784)
+
+### 🔧 Continuous Integration
+
+- Publish to crates.io with --isolated to override publish=false (#782)
+
+### 🧪 Testing
+
+- *(network2)* Fix flaky full_protocol_flow test by removing redundant Housekeeping (#780)
+
 ## [1.1.0] - 2026-05-29
 
 ### 🚀 Features
@@ -12,6 +26,10 @@ All notable changes to this project will be documented in this file.
 
 - *(ledger)* Correct inverted native script timelock comparisons (#778)
 - Make serde a non-optional dependency of pallas-primitives (#779)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.1.0
 
 ## [1.0.0] - 2026-05-11
 
