@@ -19,11 +19,11 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_network::miniprotocols::{
     handshake::NetworkMagic,
     localstate::queries_v16::{
-        Anchor, AssetName, BoundedBytes, Constitution, CostModel, CostModels, DRep,
-        DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, GovAction, GovActionId,
-        PParamsUpdate, PlutusData, PolicyId, PoolMetadata, PoolVotingThresholds, ProposalProcedure,
-        ProtocolVersion, RationalNumber, Relay, RewardAccount, ScriptHash, TransactionInput,
-        TransactionOutput, Value, Vote, primitives::Bytes,
+        Anchor, AssetName, BigInt, BoundedBytes, Constitution, CostModel, CostModels, DRep,
+        DRepVotingThresholds, DatumHash, DatumOption, ExUnitPrices, FieldedRewardAccount,
+        GovAction, GovActionId, PParamsUpdate, PlutusData, PolicyId, PoolMetadata,
+        PoolVotingThresholds, ProposalProcedure, ProtocolVersion, RationalNumber, Relay,
+        ScriptHash, TransactionInput, TransactionOutput, Value, Vote, primitives::Bytes,
     },
     localtxsubmission::{
         Coin, ConwayCertsPredFailure, ExUnits, Network, VotingProcedure,
@@ -38,13 +38,16 @@ use pallas_network::miniprotocols::localtxsubmission::{
     Array, BabbageContextError, CollectError, ConwayCertPredFailure, ConwayContextError,
     ConwayDelegPredFailure, ConwayGovCertPredFailure, ConwayGovPredFailure, ConwayLedgerFailure,
     ConwayTxCert, ConwayUtxoWPredFailure, DeltaCoin, DisplayAddress, DisplayCoin, DisplayOSet,
-    DisplayPolicyId, DisplayRewardAccount, DisplayScriptHash, DisplayVotingProcedures, EpochNo,
-    FailureDescription, KeyHash, Mismatch, OHashMap, PlutusPurpose, SMaybe, SafeHash,
+    DisplayPolicyId, DisplayScriptHash, DisplayVotingProcedures, EpochNo, FailureDescription,
+    KeyHash, Mismatch, MismatchArr, OHashMap, PlutusPurpose, SMaybe, SafeHash,
     ShelleyPoolPredFailure, SlotNo, TagMismatchDescription, TxOutSource, Utxo, UtxoFailure,
     UtxosFailure, VKey, ValidityInterval,
 };
 
-use super::haskells_show_string::haskell_show_string;
+use super::{
+    haskell_error::{DecoderError, DeserialiseFailure},
+    haskells_show_string::haskell_show_string,
+};
 
 /// Trait used to generated Haskell-like string representation of a type.
 pub trait HaskellDisplay {
@@ -73,24 +76,22 @@ impl HaskellDisplay for ConwayLedgerFailure {
             }
             TreasuryValueMismatch(c1, c2) => {
                 format!(
-                    "ConwayTreasuryValueMismatch {} {}",
-                    c1.to_haskell_str_p(),
-                    c2.to_haskell_str_p()
+                    "ConwayTreasuryValueMismatch {}",
+                    as_mismatch(Relation::RelEQ, c1, c2)
                 )
             }
             TxRefScriptsSizeTooBig(s1, s2) => {
                 format!(
-                    "ConwayTxRefScriptsSizeTooBig {} {}",
-                    s1.to_haskell_str_p(),
-                    s2.to_haskell_str_p()
+                    "ConwayTxRefScriptsSizeTooBig {}",
+                    as_mismatch(Relation::RelLTEQ, s2, s1)
                 )
             }
             MempoolFailure(e) => format!("ConwayMempoolFailure {}", e.to_haskell_str()),
-            WithdrawalsMissingAccounts(m) => {
-                format!("ConwayWithdrawalsMissingAccounts {}", m.to_haskell_str_p())
+            WithdrawalsMissingAccounts(w) => {
+                format!("ConwayWithdrawalsMissingAccounts ({})", w.as_withdrawals())
             }
-            IncompleteWithdrawals(m) => {
-                format!("ConwayIncompleteWithdrawals {}", m.to_haskell_str_p())
+            IncompleteWithdrawals(w) => {
+                format!("ConwayIncompleteWithdrawals {}", as_non_empty_map(w))
             }
         }
     }
@@ -107,22 +108,24 @@ impl HaskellDisplay for ConwayGovCertPredFailure {
             DRepNotRegistered(cred) => {
                 format!("ConwayDRepNotRegistered {}", cred.to_haskell_str_p())
             }
-            DRepIncorrectDeposit(expected, actual) => format!(
-                "ConwayDRepIncorrectDeposit {} {}",
-                expected.to_haskell_str_p(),
-                actual.to_haskell_str_p()
-            ),
+            DRepIncorrectDeposit(c1, c2) => {
+                format!(
+                    "ConwayDRepIncorrectDeposit {}",
+                    as_mismatch(Relation::RelEQ, c2, c1)
+                )
+            }
             CommitteeHasPreviouslyResigned(cred) => {
                 format!(
                     "ConwayCommitteeHasPreviouslyResigned {}",
                     cred.to_haskell_str_p()
                 )
             }
-            DRepIncorrectRefund(expected, actual) => format!(
-                "ConwayDRepIncorrectRefund {} {}",
-                expected.to_haskell_str_p(),
-                actual.to_haskell_str_p()
-            ),
+            DRepIncorrectRefund(v1, v2) => {
+                format!(
+                    "ConwayDRepIncorrectRefund {}",
+                    as_mismatch(Relation::RelEQ, v2, v1)
+                )
+            }
             CommitteeIsUnknown(cred) => {
                 format!("ConwayCommitteeIsUnknown {}", cred.to_haskell_str_p())
             }
@@ -147,7 +150,7 @@ impl HaskellDisplay for ConwayCertsPredFailure {
 
         match self {
             WithdrawalsNotInRewardsCERTS(m) => {
-                format!("WithdrawalsNotInRewardsCERTS {}", m.to_haskell_str_p())
+                format!("WithdrawalsNotInRewardsCERTS ({})", m.as_withdrawals())
             }
             CertFailure(e) => format!("CertFailure {}", e.to_haskell_str_p()),
         }
@@ -164,17 +167,20 @@ impl HaskellDisplay for ShelleyPoolPredFailure {
             StakePoolRetirementWrongEpochPOOL(mis1, mis2) => {
                 format!(
                     "StakePoolRetirementWrongEpochPOOL {} {}",
-                    mis1.to_haskell_str_p(),
-                    mis2.to_haskell_str_p()
+                    as_mismatch(Relation::RelGT, &mis1.1, &mis1.0),
+                    as_mismatch(Relation::RelLTEQ, &mis2.1, &mis2.0)
                 )
             }
             StakePoolCostTooLowPOOL(mis1) => {
-                format!("StakePoolCostTooLowPOOL {}", mis1.to_haskell_str_p())
+                format!(
+                    "StakePoolCostTooLowPOOL {}",
+                    as_mismatch(Relation::RelGTEQ, &mis1.1, &mis1.0)
+                )
             }
             WrongNetworkPOOL(mis1, kh) => {
                 format!(
                     "WrongNetworkPOOL {} {}",
-                    mis1.to_haskell_str_p(),
+                    as_mismatch(Relation::RelEQ, &mis1.1, &mis1.0),
                     kh.to_haskell_str_p()
                 )
             }
@@ -183,6 +189,13 @@ impl HaskellDisplay for ShelleyPoolPredFailure {
                     "PoolMedataHashTooBig {} {}",
                     kh.to_haskell_str_p(),
                     size.to_haskell_str_p()
+                )
+            }
+            VRFKeyHashAlreadyRegistered(kh, vrf_hash) => {
+                format!(
+                    "VRFKeyHashAlreadyRegistered {} {}",
+                    kh.to_haskell_str_p(),
+                    vrf_hash.to_haskell_str_p()
                 )
             }
         }
@@ -197,55 +210,63 @@ impl HaskellDisplay for ConwayUtxoWPredFailure {
             UtxoFailure(e) => format!("(UtxoFailure {})", e.to_haskell_str()),
             InvalidWitnessesUTXOW(e) => format!("(InvalidWitnessesUTXOW {})", e.to_haskell_str()),
             MissingVKeyWitnessesUTXOW(e) => {
-                format!("(MissingVKeyWitnessesUTXOW {})", e.to_haskell_str_p())
+                format!("(MissingVKeyWitnessesUTXOW {})", as_non_empty_set(e))
             }
             MissingScriptWitnessesUTXOW(e) => {
-                format!("(MissingScriptWitnessesUTXOW {})", e.to_haskell_str_p())
+                format!("(MissingScriptWitnessesUTXOW {})", as_non_empty_set(e))
             }
             ScriptWitnessNotValidatingUTXOW(e) => {
-                format!("(ScriptWitnessNotValidatingUTXOW {})", e.to_haskell_str_p())
+                format!("(ScriptWitnessNotValidatingUTXOW {})", as_non_empty_set(e))
             }
             MissingTxBodyMetadataHash(b) => {
-                format!("(MissingTxBodyMetadataHash ({}))", b.as_aux_data_hash())
+                format!("(MissingTxBodyMetadataHash ({}))", b.as_tx_aux_data_hash())
             }
-            MissingTxMetadata(e) => format!("(MissingTxMetadata ({}))", e.as_aux_data_hash()),
+            MissingTxMetadata(e) => format!("(MissingTxMetadata ({}))", e.as_tx_aux_data_hash()),
             ConflictingMetadataHash(e1, e2) => format!(
-                "(ConflictingMetadataHash ({}) ({}))",
-                e1.as_aux_data_hash(),
-                e2.as_aux_data_hash()
+                "(ConflictingMetadataHash {})",
+                as_mismatch(
+                    Relation::RelEQ,
+                    &e2.as_tx_aux_data_hash().as_is(),
+                    &e1.as_tx_aux_data_hash().as_is()
+                )
             ),
             InvalidMetadata() => "InvalidMetadata".to_string(),
             ExtraneousScriptWitnessesUTXOW(vec) => {
-                format!(
-                    "(ExtraneousScriptWitnessesUTXOW {})",
-                    vec.to_haskell_str_p()
-                )
+                format!("(ExtraneousScriptWitnessesUTXOW {})", as_non_empty_set(vec))
             }
             MissingRedeemers(e) => format!("(MissingRedeemers {})", e.to_haskell_str()),
             MissingRequiredDatums(e1, e2) => format!(
                 "(MissingRequiredDatums {} {})",
-                e1.to_haskell_str_p(),
+                as_non_empty_set(e1),
                 e2.to_haskell_str_p()
             ),
             NotAllowedSupplementalDatums(e1, e2) => format!(
                 "(NotAllowedSupplementalDatums {} {})",
-                e1.to_haskell_str_p(),
+                as_non_empty_set(e1),
                 e2.to_haskell_str_p()
             ),
-            PPViewHashesDontMatch(h1, h2) => format!(
-                "(PPViewHashesDontMatch {} {})",
-                h1.to_haskell_str_p(),
-                h2.to_haskell_str_p()
-            ),
+            PPViewHashesDontMatch(h1, h2) => {
+                format!(
+                    "(PPViewHashesDontMatch {})",
+                    as_mismatch(Relation::RelEQ, h2, h1)
+                )
+            }
             UnspendableUTxONoDatumHash(e) => {
-                format!("(UnspendableUTxONoDatumHash {})", e.to_haskell_str_p())
+                format!("(UnspendableUTxONoDatumHash {})", as_non_empty_set(e))
             }
             ExtraRedeemers(e) => format!("(ExtraRedeemers {})", e.to_haskell_str()),
             MalformedScriptWitnesses(set) => {
-                format!("(MalformedScriptWitnesses {})", set.to_haskell_str_p())
+                format!("(MalformedScriptWitnesses {})", as_non_empty_set(set))
             }
             MalformedReferenceScripts(set) => {
-                format!("(MalformedReferenceScripts {})", set.to_haskell_str_p())
+                format!("(MalformedReferenceScripts {})", as_non_empty_set(set))
+            }
+            ScriptIntegrityHashMismatch(m, extra) => {
+                format!(
+                    "(ScriptIntegrityHashMismatch {} {})",
+                    as_mismatch(Relation::RelEQ, &m.1, &m.0),
+                    extra.to_haskell_str_p()
+                )
             }
         }
     }
@@ -271,25 +292,24 @@ impl HaskellDisplay for ConwayGovPredFailure {
             TreasuryWithdrawalsNetworkIdMismatch(set, n) => {
                 format!(
                     "TreasuryWithdrawalsNetworkIdMismatch {} {}",
-                    set.to_haskell_str_p(),
+                    as_non_empty_set(set),
                     n.to_haskell_str()
                 )
             }
             ProposalDepositIncorrect(c1, c2) => {
                 format!(
-                    "ProposalDepositIncorrect {} {}",
-                    c1.to_haskell_str_p(),
-                    c2.to_haskell_str_p()
+                    "ProposalDepositIncorrect {}",
+                    as_mismatch(Relation::RelEQ, c2, c1)
                 )
             }
             DisallowedVoters(v) => {
                 format!("DisallowedVoters {}", v.to_haskell_str_p())
             }
             ConflictingCommitteeUpdate(set) => {
-                format!("ConflictingCommitteeUpdate {}", set.to_haskell_str_p())
+                format!("ConflictingCommitteeUpdate {}", as_non_empty_set(set))
             }
             ExpirationEpochTooSmall(map) => {
-                format!("ExpirationEpochTooSmall {}", map.to_haskell_str_p())
+                format!("ExpirationEpochTooSmall {}", as_non_empty_map(map))
             }
             InvalidPrevGovActionId(s) => {
                 format!("InvalidPrevGovActionId {}", s.to_haskell_str_p())
@@ -299,15 +319,18 @@ impl HaskellDisplay for ConwayGovPredFailure {
             }
             ProposalCantFollow(a, p1, p2) => {
                 format!(
-                    "ProposalCantFollow {} ({}) ({})",
+                    "ProposalCantFollow {} {}",
                     a.to_haskell_str_p(),
-                    p1.as_protocol_version(),
-                    p2.as_protocol_version()
+                    as_mismatch(
+                        Relation::RelGT,
+                        &p2.as_protocol_version().as_is(),
+                        &p1.as_protocol_version().as_is()
+                    )
                 )
             }
             InvalidPolicyHash(maybe1, maybe2) => {
                 format!(
-                    "InvalidPolicyHash {} {}",
+                    "InvalidGuardrailsScriptHash {} {}",
                     maybe1.to_haskell_str_p(),
                     maybe2.to_haskell_str_p()
                 )
@@ -333,6 +356,9 @@ impl HaskellDisplay for ConwayGovPredFailure {
                     s.to_haskell_str_p()
                 )
             }
+            UnelectedCommitteeVoters(s) => {
+                format!("UnelectedCommitteeVoters {}", s.to_haskell_str_p())
+            }
         }
     }
 }
@@ -345,27 +371,23 @@ impl HaskellDisplay for UtxoFailure {
             UtxosFailure(utxos_failure) => {
                 format!("(UtxosFailure {})", utxos_failure.to_haskell_str_p())
             }
-            BadInputsUTxO(inputs) => format!("(BadInputsUTxO {})", inputs.to_haskell_str_p()),
+            BadInputsUTxO(inputs) => format!("(BadInputsUTxO {})", as_non_empty_set(inputs)),
             OutsideValidityIntervalUTxO(interval, slot) => format!(
                 "(OutsideValidityIntervalUTxO {} ({}))",
                 interval.to_haskell_str(),
                 slot.as_slot_no()
             ),
-            MaxTxSizeUTxO(actual, max) => format!(
-                "(MaxTxSizeUTxO {} {})",
-                actual.to_haskell_str_p(),
-                max.to_haskell_str_p()
-            ),
+            MaxTxSizeUTxO(s1, s2) => {
+                format!("(MaxTxSizeUTxO {})", as_mismatch(Relation::RelLTEQ, s2, s1))
+            }
             InputSetEmptyUTxO => "InputSetEmptyUTxO".to_string(),
-            FeeTooSmallUTxO(required, provided) => format!(
-                "(FeeTooSmallUTxO {} {})",
-                required.to_haskell_str_p(),
-                provided.to_haskell_str_p()
+            FeeTooSmallUTxO(c1, c2) => format!(
+                "(FeeTooSmallUTxO {})",
+                as_mismatch(Relation::RelGTEQ, c1, c2)
             ),
             ValueNotConservedUTxO(required, provided) => format!(
-                "(ValueNotConservedUTxO {} {})",
-                required.to_haskell_str_p(),
-                provided.to_haskell_str_p()
+                "(ValueNotConservedUTxO {})",
+                Mismatch(required.to_owned(), provided.to_owned()).to_haskell_str()
             ),
             OutputTooSmallUTxO(outputs) => {
                 format!("(OutputTooSmallUTxO {})", outputs.to_haskell_str_p())
@@ -378,35 +400,43 @@ impl HaskellDisplay for UtxoFailure {
                 balance.to_haskell_str_p(),
                 required.to_haskell_str_p()
             ),
-            ScriptsNotPaidUTxO(utxo) => format!("(ScriptsNotPaidUTxO {})", utxo.to_haskell_str_p()),
-            ExUnitsTooBigUTxO(provided, max) => format!(
-                "(ExUnitsTooBigUTxO {} {})",
-                provided.to_haskell_str_p(),
-                max.to_haskell_str_p()
+            ScriptsNotPaidUTxO(utxo) => format!(
+                "(ScriptsNotPaidUTxO (NonEmptyMap ({})))",
+                utxo.as_from_list()
+            ),
+            ExUnitsTooBigUTxO(u1, u2) => format!(
+                "(ExUnitsTooBigUTxO {})",
+                as_mismatch(Relation::RelLTEQ, u1, u2)
             ),
             WrongNetwork(network, addrs) => format!(
                 "(WrongNetwork {} {})",
                 network.to_haskell_str(),
-                addrs.to_haskell_str_p()
+                as_non_empty_set(addrs)
             ),
             WrongNetworkWithdrawal(network, accounts) => format!(
                 "(WrongNetworkWithdrawal {} {})",
                 network.to_haskell_str(),
-                accounts.to_haskell_str_p()
+                as_non_empty_set(accounts)
             ),
             OutsideForecast(slot) => format!("(OutsideForecast ({}))", slot.as_slot_no()),
             CollateralContainsNonADA(value) => {
                 format!("(CollateralContainsNonADA {})", value.to_haskell_str_p())
             }
             NoCollateralInputs => "NoCollateralInputs".to_string(),
+            // as_mismatch order: (supplied, expected). The transaction supplies
+            // `actual` collateral inputs, the ledger expects at most `max`.
             TooManyCollateralInputs(actual, max) => {
-                format!("(TooManyCollateralInputs {actual} {max})")
+                format!(
+                    "(TooManyCollateralInputs {})",
+                    as_mismatch(Relation::RelLTEQ, actual, max)
+                )
             }
-            WrongNetworkInTxBody(expected, actual) => format!(
-                "(WrongNetworkInTxBody {} {})",
-                expected.to_haskell_str(),
-                actual.to_haskell_str()
-            ),
+            WrongNetworkInTxBody(n1, n2) => {
+                format!(
+                    "(WrongNetworkInTxBody {})",
+                    as_mismatch(Relation::RelEQ, n1, n2)
+                )
+            }
             IncorrectTotalCollateralField(actual, provided) => format!(
                 "(IncorrectTotalCollateralField {} {})",
                 actual.to_haskell_str_p(),
@@ -491,6 +521,10 @@ impl HaskellDisplay for ConwayContextError {
                 "TreasuryDonationFieldNotSupported ({})",
                 display_coin.to_haskell_str()
             ),
+            ReferenceInputsNotDisjointFromInputs(inputs) => format!(
+                "ReferenceInputsNotDisjointFromInputs ({})",
+                inputs.to_haskell_str()
+            ),
         }
         .to_string()
     }
@@ -527,6 +561,59 @@ impl HaskellDisplay for BabbageContextError {
     }
 }
 
+impl HaskellDisplay for DecoderError {
+    fn to_haskell_str(&self) -> String {
+        match self {
+            DecoderError::DeserialiseFailure(s, failure) => format!(
+                "DecoderErrorDeserialiseFailure {} {}",
+                s.to_haskell_str(),
+                failure.to_haskell_str_p()
+            ),
+            DecoderError::CanonicityViolation(s) => {
+                format!("DecoderErrorCanonicityViolation {}", s.to_haskell_str())
+            }
+            DecoderError::Custom(s1, s2) => {
+                format!(
+                    "DecoderErrorCustom {} {}",
+                    s1.to_haskell_str(),
+                    s2.to_haskell_str()
+                )
+            }
+            DecoderError::EmptyList(s) => {
+                format!("DecoderErrorEmptyList {}", s.to_haskell_str())
+            }
+            DecoderError::Leftover(s, bytes) => {
+                format!(
+                    "DecoderErrorLeftover {} \"{}\"",
+                    s.to_haskell_str(),
+                    hex::encode(bytes)
+                )
+            }
+            DecoderError::SizeMismatch(s, expected, actual) => {
+                format!(
+                    "DecoderErrorSizeMismatch {} {} {}",
+                    s.to_haskell_str(),
+                    expected,
+                    actual
+                )
+            }
+            DecoderError::UnknownTag(s, tag) => {
+                format!("DecoderErrorUnknownTag {} {}", s.to_haskell_str(), tag)
+            }
+            DecoderError::Void => "DecoderErrorVoid".to_string(),
+        }
+    }
+}
+impl HaskellDisplay for DeserialiseFailure {
+    fn to_haskell_str(&self) -> String {
+        format!(
+            "DeserialiseFailure {} ({})",
+            self.0.to_haskell_str(),
+            self.1.to_haskell_str()
+        )
+    }
+}
+
 impl HaskellDisplay for TxOutSource {
     fn to_haskell_str(&self) -> String {
         use TxOutSource::*;
@@ -544,6 +631,7 @@ impl HaskellDisplay for Language {
             PlutusV1 => "PlutusV1".to_string(),
             PlutusV2 => "PlutusV2".to_string(),
             PlutusV3 => "PlutusV3".to_string(),
+            PlutusV4 => "PlutusV4".to_string(),
         }
     }
 }
@@ -593,7 +681,7 @@ impl HaskellDisplay for ConwayDelegPredFailure {
                 format!("StakeKeyNotRegisteredDELEG ({})", cred.to_haskell_str())
             }
             StakeKeyHasNonZeroRewardAccountBalanceDELEG(coin) => format!(
-                "StakeKeyHasNonZeroRewardAccountBalanceDELEG ({})",
+                "StakeKeyHasNonZeroAccountBalanceDELEG ({})",
                 coin.to_haskell_str()
             ),
             DelegateeDRepNotRegisteredDELEG(cred) => format!(
@@ -604,6 +692,18 @@ impl HaskellDisplay for ConwayDelegPredFailure {
                 "DelegateeStakePoolNotRegisteredDELEG ({})",
                 hash.to_haskell_str()
             ),
+            DepositIncorrectDELEG(m) => {
+                format!(
+                    "DepositIncorrectDELEG {}",
+                    as_mismatch(Relation::RelEQ, &m.1, &m.0)
+                )
+            }
+            RefundIncorrectDELEG(m) => {
+                format!(
+                    "RefundIncorrectDELEG {}",
+                    as_mismatch(Relation::RelEQ, &m.1, &m.0)
+                )
+            }
         }
     }
 }
@@ -623,34 +723,77 @@ where
     T: HaskellDisplay,
 {
     fn to_haskell_str(&self) -> String {
-        format!(
-            "Mismatch {{mismatchSupplied = {}, mismatchExpected = {}}}",
-            self.0.to_haskell_str(),
-            self.1.to_haskell_str()
-        )
+        as_mismatch(Relation::RelEQ, &self.1, &self.0)
     }
 }
 
-impl HaskellDisplay for DisplayRewardAccount {
+impl<T> HaskellDisplay for MismatchArr<T>
+where
+    T: HaskellDisplay,
+{
     fn to_haskell_str(&self) -> String {
-        let network = if self.0[0] & 0b00000001 != 0 {
-            Network::Mainnet
-        } else {
-            Network::Testnet
-        };
+        as_mismatch(Relation::RelEQ, &self.1, &self.0)
+    }
+}
 
-        let mut hash = [0; 28];
-        hash.copy_from_slice(&self.0[1..29]);
-        let credential = if &self.0[0] & 0b00010000 != 0 {
-            StakeCredential::ScriptHash(hash.into())
-        } else {
-            StakeCredential::AddrKeyhash(hash.into())
-        };
+/// Relation phantom tag used by ledger's `Mismatch` type. Rendered inside the
+/// parentheses of the `Mismatch (..)` Haskell `Show` representation.
+#[derive(Clone, Copy)]
+pub enum Relation {
+    RelEQ,
+    RelGT,
+    RelLTEQ,
+    RelGTEQ,
+}
 
+impl Relation {
+    fn as_str(self) -> &'static str {
+        match self {
+            Relation::RelEQ => "RelEQ",
+            Relation::RelGT => "RelGT",
+            Relation::RelLTEQ => "RelLTEQ",
+            Relation::RelGTEQ => "RelGTEQ",
+        }
+    }
+}
+
+pub fn as_mismatch<T>(relation: Relation, expected: &T, supplied: &T) -> String
+where
+    T: HaskellDisplay,
+{
+    format!(
+        "Mismatch ({}) {{supplied: {}, expected: {}}}",
+        relation.as_str(),
+        supplied.to_haskell_str(),
+        expected.to_haskell_str()
+    )
+}
+
+/// Wraps a set-like field in ledger's `NonEmptySet` constructor. The inner
+/// value is rendered via `to_haskell_str_p` (yielding `(fromList [..])`), so
+/// the result is `(NonEmptySet (fromList [..]))`.
+pub fn as_non_empty_set<T>(set: &T) -> String
+where
+    T: HaskellDisplay,
+{
+    format!("(NonEmptySet {})", set.to_haskell_str_p())
+}
+
+/// Wraps a map-like field in ledger's `NonEmptyMap` constructor, yielding
+/// `(NonEmptyMap (fromList [..]))`.
+pub fn as_non_empty_map<T>(map: &T) -> String
+where
+    T: HaskellDisplay,
+{
+    format!("(NonEmptyMap {})", map.to_haskell_str_p())
+}
+
+impl HaskellDisplay for FieldedRewardAccount {
+    fn to_haskell_str(&self) -> String {
         format!(
-            "RewardAccount {{raNetwork = {}, raCredential = {}}}",
-            network.to_haskell_str(),
-            credential.to_haskell_str()
+            "AccountAddress {{aaNetworkId = {}, aaId = AccountId {{unAccountId = {}}}}}",
+            self.network.to_haskell_str(),
+            self.stake_credential.to_haskell_str()
         )
     }
 }
@@ -767,6 +910,7 @@ fn is_primitive<T: 'static>() -> bool {
         || std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
         || std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>()
         || std::any::TypeId::of::<T>() == std::any::TypeId::of::<String>()
+        || std::any::TypeId::of::<T>() == std::any::TypeId::of::<Bytes>()
 }
 impl HaskellDisplay for DRep {
     fn to_haskell_str(&self) -> String {
@@ -812,8 +956,8 @@ impl HaskellDisplay for GovAction {
                 )
             }
             TreasuryWithdrawals(a, b) => {
-                let data: KeyValuePairs<DisplayRewardAccount, DisplayCoin> =
-                    a.iter().map(|(k, v)| (k.into(), v.into())).collect();
+                let data: KeyValuePairs<FieldedRewardAccount, DisplayCoin> =
+                    a.iter().map(|(k, v)| (k.clone(), v.into())).collect();
 
                 format!(
                     "TreasuryWithdrawals {} {}",
@@ -863,26 +1007,26 @@ impl HaskellDisplay for GovAction {
 impl HaskellDisplay for PParamsUpdate {
     fn to_haskell_str(&self) -> String {
         format!(
-            "PParamsUpdate (ConwayPParams {{cppMinFeeA = {}, cppMinFeeB = {}, cppMaxBBSize = {}, cppMaxTxSize = {}, cppMaxBHSize = {}, cppKeyDeposit = {}, cppPoolDeposit = {}, \
+            "PParamsUpdate (ConwayPParams {{cppTxFeePerByte = {}, cppTxFeeFixed = {}, cppMaxBBSize = {}, cppMaxTxSize = {}, cppMaxBHSize = {}, cppKeyDeposit = {}, cppPoolDeposit = {}, \
              cppEMax = {}, cppNOpt = {}, cppA0 = {}, cppRho = {}, cppTau = {}, cppProtocolVersion = {}, cppMinPoolCost = {}, cppCoinsPerUTxOByte = {}, cppCostModels = {}, \
              cppPrices = {}, cppMaxTxExUnits = {}, cppMaxBlockExUnits = {}, cppMaxValSize = {}, cppCollateralPercentage = {}, cppMaxCollateralInputs = {}, \
              cppPoolVotingThresholds = {}, cppDRepVotingThresholds = {}, cppCommitteeMinSize = {}, cppCommitteeMaxTermLength = {}, cppGovActionLifetime = {}, \
              cppGovActionDeposit = {}, cppDRepDeposit = {}, cppDRepActivity = {}, cppMinFeeRefScriptCostPerByte = {}}})",
-            self.minfee_a.as_display_coin(),
-            self.minfee_b.as_display_coin(),
+            self.minfee_a.as_compact_coin(),
+            self.minfee_b.as_compact_coin(),
             self.max_block_body_size.to_haskell_str(),
             self.max_transaction_size.to_haskell_str(),
             self.max_block_header_size.to_haskell_str(),
-            self.key_deposit.as_display_coin(),
-            self.pool_deposit.as_display_coin(),
+            self.key_deposit.as_compact_coin(),
+            self.pool_deposit.as_compact_coin(),
             self.maximum_epoch.as_epoch_interval(),
             self.desired_number_of_stake_pools.to_haskell_str(),
             self.pool_pledge_influence.to_haskell_str_p(),
             self.expansion_rate.to_haskell_str_p(),
             self.treasury_growth_rate.to_haskell_str_p(),
             "NoUpdate",
-            self.min_pool_cost.as_display_coin(),
-            self.ada_per_utxo_byte.as_display_coin(),
+            self.min_pool_cost.as_compact_coin(),
+            self.ada_per_utxo_byte.as_compact_coin(),
             self.cost_models_for_script_languages.to_haskell_str_p(),
             self.execution_costs.to_haskell_str_p(),
             self.max_tx_ex_units.to_haskell_str_p(),
@@ -895,8 +1039,8 @@ impl HaskellDisplay for PParamsUpdate {
             self.min_committee_size.to_haskell_str(),
             self.committee_term_limit.as_epoch_interval(),
             self.governance_action_validity_period.as_epoch_interval(),
-            self.governance_action_deposit.as_display_coin(),
-            self.drep_deposit.as_display_coin(),
+            self.governance_action_deposit.as_compact_coin(),
+            self.drep_deposit.as_compact_coin(),
             self.drep_inactivity_period.as_epoch_interval(),
             self.minfee_refscript_cost_per_byte.to_haskell_str_p()
         )
@@ -961,7 +1105,7 @@ impl HaskellDisplay for RationalNumber {
 impl HaskellDisplay for Constitution {
     fn to_haskell_str(&self) -> String {
         format!(
-            "Constitution {{constitutionAnchor = {}, constitutionScript = {}}}",
+            "Constitution {{constitutionAnchor = {}, constitutionGuardrailsScriptHash = {}}}",
             self.anchor.to_haskell_str(),
             self.script.to_haskell_str_p()
         )
@@ -982,7 +1126,7 @@ impl HaskellDisplay for ProposalProcedure {
         format!(
             "ProposalProcedure {{pProcDeposit = {}, pProcReturnAddr = {}, pProcGovAction = {}, pProcAnchor = {}}}",
             self.deposit.as_display_coin(),
-            self.return_addr.as_reward_account(),
+            self.return_addr.to_haskell_str(),
             self.gov_action.to_haskell_str(),
             self.anchor.to_haskell_str()
         )
@@ -1066,6 +1210,20 @@ impl HaskellDisplay for i64 {
             self.to_string()
         } else {
             format!("({self})")
+        }
+    }
+}
+
+impl HaskellDisplay for i128 {
+    fn to_haskell_str(&self) -> String {
+        self.to_string()
+    }
+
+    fn to_haskell_str_p(&self) -> String {
+        if *self >= 0 {
+            self.to_string()
+        } else {
+            format!("({})", self)
         }
     }
 }
@@ -1219,6 +1377,10 @@ trait AsVKey {
     fn as_vkey(&self) -> String;
 }
 
+trait AsVrfKeyHash {
+    fn as_vrf_key_hash(&self) -> String;
+}
+
 trait AsScriptHashObject {
     fn as_script_hash_obj(&self) -> String;
 }
@@ -1319,6 +1481,13 @@ where
     }
 }
 
+impl AsVrfKeyHash for [u8] {
+    fn as_vrf_key_hash(&self) -> String {
+        let hex = hex::encode(self);
+        format!("VRFVerKeyHash {{unVRFVerKeyHash = \"{}\"}}", hex)
+    }
+}
+
 impl AsKeyHash for [u8] {
     fn as_key_hash(&self) -> String {
         let hex = hex::encode(self);
@@ -1403,16 +1572,6 @@ impl AsProtocolVersion for ProtocolVersion {
     }
 }
 
-trait AsRewardAccount {
-    fn as_reward_account(&self) -> String;
-}
-
-impl AsRewardAccount for RewardAccount {
-    fn as_reward_account(&self) -> String {
-        DisplayRewardAccount(self.clone()).to_haskell_str()
-    }
-}
-
 impl<T: HaskellDisplay> AsFromList for Vec<&Option<T>> {
     fn as_from_list(&self) -> String {
         let result = self
@@ -1493,6 +1652,44 @@ impl AsDisplayCoin for Coin {
         format!("Coin {}", self.to_haskell_str())
     }
 }
+trait AsWithdrawals {
+    fn as_withdrawals(&self) -> String;
+}
+
+impl AsWithdrawals for OHashMap<FieldedRewardAccount, DisplayCoin> {
+    fn as_withdrawals(&self) -> String {
+        format!("Withdrawals {{unWithdrawals = {}}}", self.to_haskell_str())
+    }
+}
+
+trait AsCompactCoin {
+    fn as_compact_coin(&self) -> String;
+}
+
+impl AsCompactCoin for Option<Coin> {
+    fn as_compact_coin(&self) -> String {
+        match self {
+            Option::Some(v) => format!(
+                "SJust (CompactCoin {{unCompactCoin = {}}})",
+                v.to_haskell_str()
+            ),
+            _ => "SNothing".to_string(),
+        }
+    }
+}
+
+impl AsCompactCoin for Option<u64> {
+    fn as_compact_coin(&self) -> String {
+        match self {
+            Option::Some(v) => format!(
+                "SJust (CompactCoin {{unCompactCoin = {}}})",
+                v.to_haskell_str()
+            ),
+            _ => "SNothing".to_string(),
+        }
+    }
+}
+
 trait AsEpochInterval {
     fn as_epoch_interval(&self) -> String;
 }
@@ -1535,6 +1732,42 @@ impl AsDisplayCoin for Option<&Coin> {
 impl HaskellDisplay for u64 {
     fn to_haskell_str(&self) -> String {
         self.to_string()
+    }
+}
+
+impl HaskellDisplay for BigInt {
+    fn to_haskell_str(&self) -> String {
+        use BigInt::*;
+
+        match self {
+            Int(i) => {
+                let value: i128 = i.0.into();
+                value.to_haskell_str()
+            }
+            BigNInt(bb) => {
+                format!("BigNInt {}", bb.to_haskell_str())
+            }
+            BigUInt(bb) => {
+                format!("BigUInt {}", bb.to_haskell_str())
+            }
+        }
+    }
+
+    fn to_haskell_str_p(&self) -> String {
+        use BigInt::*;
+
+        match self {
+            Int(i) => {
+                let value: i128 = i.0.into();
+                value.to_haskell_str_p()
+            }
+            BigNInt(bb) => {
+                format!("BigNInt {}", bb.to_haskell_str_p())
+            }
+            BigUInt(bb) => {
+                format!("BigUInt {}", bb.to_haskell_str_p())
+            }
+        }
     }
 }
 
@@ -1745,7 +1978,7 @@ impl HaskellDisplay for PseudoScript<NativeScript> {
     fn to_haskell_str(&self) -> String {
         use PseudoScript::*;
         match self {
-            NativeScript(ns) => format!("TimelockScript {}", ns.to_haskell_str()),
+            NativeScript(ns) => format!("NativeScript {}", ns.to_haskell_str()),
             PlutusV1Script(ps) => format!(
                 "PlutusScript PlutusV1 {}",
                 Hasher::<224>::hash_tagged(ps.0.as_slice(), 1).as_script_hash()
@@ -1768,17 +2001,17 @@ impl HaskellDisplay for NativeScript {
 
         let str = match self {
             ScriptPubkey(key_hash) => {
-                format!("Signature ({})", key_hash.as_key_hash())
+                format!("TimelockSignature ({})", key_hash.as_key_hash())
             }
-            ScriptAll(vec) => format!("AllOf ({})", vec.as_strict_seq()),
-            ScriptAny(vec) => format!("AnyOf ({})", vec.as_strict_seq()),
-            ScriptNOfK(m, vec) => format!("MOfN {} ({})", m, vec.as_strict_seq()),
-            InvalidBefore(slot_no) => format!("TimeStart ({})", slot_no.as_slot_no()),
-            InvalidHereafter(slot_no) => format!("TimeExpire ({})", slot_no.as_slot_no()),
+            ScriptAll(vec) => format!("TimelockAllOf ({})", vec.as_strict_seq()),
+            ScriptAny(vec) => format!("TimelockAnyOf ({})", vec.as_strict_seq()),
+            ScriptNOfK(m, vec) => format!("TimelockMOf {} ({})", m, vec.as_strict_seq()),
+            InvalidBefore(slot_no) => format!("TimelockTimeStart ({})", slot_no.as_slot_no()),
+            InvalidHereafter(slot_no) => format!("TimelockTimeExpire ({})", slot_no.as_slot_no()),
         };
 
         format!(
-            "TimelockConstr {} ({})",
+            "MkTimelock {} ({})",
             str,
             Hasher::<256>::hash_cbor(self).as_blake2b256()
         )
@@ -1876,8 +2109,11 @@ impl HaskellDisplay for OrderPreservingProperties<AddrAttrProperty> {
     }
 }
 
-impl HaskellDisplay for Utxo {
-    fn to_haskell_str(&self) -> String {
+impl AsFromList for Utxo {
+    /// Renders the inner map as `fromList [..]` (without the wrapping
+    /// constructor), with each output rendered in parenthesised form. Shared by
+    /// the `UTxO` and `NonEmptyMap` representations.
+    fn as_from_list(&self) -> String {
         let result = self
             .0
             .0
@@ -1892,7 +2128,13 @@ impl HaskellDisplay for Utxo {
             .collect::<Vec<_>>()
             .join(",");
 
-        format!("UTxO (fromList [{result}])")
+        format!("fromList [{result}]")
+    }
+}
+
+impl HaskellDisplay for Utxo {
+    fn to_haskell_str(&self) -> String {
+        format!("UTxO ({})", self.as_from_list())
     }
 }
 
@@ -2025,7 +2267,7 @@ impl HaskellDisplay for Pointer {
     fn to_haskell_str(&self) -> String {
         format!(
             "Ptr ({}) ({}) ({})",
-            self.slot().as_slot_no(),
+            self.slot().as_slot_no32(),
             self.tx_idx().as_tx_ix(),
             self.cert_idx().as_cert_ix()
         )
@@ -2098,20 +2340,11 @@ impl AsDatumHash for DatumHash {
 impl HaskellDisplay for PlutusData {
     fn to_haskell_str(&self) -> String {
         use PlutusData::*;
-        use pallas_network::miniprotocols::localstate::queries_v16::BigInt as Big;
 
         match self {
             Constr(constr) => constr.fields.to_haskell_str(),
             Map(key_value_pairs) => key_value_pairs.to_haskell_str().to_string(),
-            BigInt(big_int) => match big_int {
-                Big::Int(i) => format!("BigInt Int {}", i.to_haskell_str()),
-                Big::BigNInt(bb) => {
-                    format!("BigNInt {}", bb.to_haskell_str())
-                }
-                Big::BigUInt(bb) => {
-                    format!("BigUInt {}", bb.to_haskell_str())
-                }
-            },
+            BigInt(big_int) => big_int.to_haskell_str(),
             BoundedBytes(bb) => bb.to_haskell_str(),
             Array(arr) => format!("Array {}", arr.to_haskell_str()),
         }
@@ -2145,7 +2378,7 @@ where
 
 impl HaskellDisplay for Int {
     fn to_haskell_str(&self) -> String {
-        format!("Int {}", self.0)
+        format!("{}", self.0)
     }
 }
 
@@ -2159,9 +2392,19 @@ trait AsSlotNo {
     fn as_slot_no(&self) -> String;
 }
 
+trait AsSlotNo32 {
+    fn as_slot_no32(&self) -> String;
+}
+
 impl AsSlotNo for u64 {
     fn as_slot_no(&self) -> String {
         format!("SlotNo {self}")
+    }
+}
+
+impl AsSlotNo32 for u64 {
+    fn as_slot_no32(&self) -> String {
+        format!("SlotNo32 {}", self)
     }
 }
 
@@ -2194,7 +2437,7 @@ impl HaskellDisplay
         TransactionInput,
         PolicyId,
         ConwayTxCert,
-        DisplayRewardAccount,
+        FieldedRewardAccount,
         Voter,
         ProposalProcedure,
     >
@@ -2274,10 +2517,17 @@ impl HaskellDisplay for Relay {
 }
 impl HaskellDisplay for PoolMetadata {
     fn to_haskell_str(&self) -> String {
+        let hash_list = self
+            .hash
+            .deref()
+            .iter()
+            .map(|b| format!("0x{b:02x}"))
+            .collect::<Vec<_>>()
+            .join(", ");
         format!(
-            "PoolMetadata {{pmUrl = {}, pmHash = {}}}",
+            "PoolMetadata {{pmUrl = {}, pmHash = [{}]}}",
             self.url.as_url(),
-            self.hash.as_text()
+            hash_list
         )
     }
 }
@@ -2308,13 +2558,13 @@ impl HaskellDisplay for Certificate {
                 relays,
                 pool_metadata,
             } => format!(
-                "RegPool (PoolParams {{ppId = {}, ppVrf = {}, ppPledge = {}, ppCost = {}, ppMargin = {}, ppRewardAccount = {}, ppOwners = {}, ppRelays = {}, ppMetadata = {}}})",
+                "RegPool (StakePoolParams {{sppId = {}, sppVrf = {}, sppPledge = {}, sppCost = {}, sppMargin = {}, sppAccountAddress = {}, sppOwners = {}, sppRelays = {}, sppMetadata = {}}})",
                 operator.as_key_hash(),
-                vrf_keyhash.to_string().to_haskell_str(),
+                vrf_keyhash.as_vrf_key_hash(),
                 pledge.as_display_coin(),
                 cost.as_display_coin(),
                 margin.to_haskell_str(),
-                reward_account.as_reward_account(),
+                reward_account.to_haskell_str(),
                 pool_owners.as_key_hash(),
                 relays.as_strict_seq(),
                 pool_metadata.to_haskell_str()
@@ -2428,11 +2678,7 @@ impl HaskellDisplay for DisplayOSet<ProposalProcedure> {
 
         let mut sorted_vec = self.0.deref().clone();
 
-        sorted_vec.sort_by(|a, b| {
-            a.deposit
-                .cmp(&b.deposit)
-                .then_with(|| b.return_addr.cmp(&a.return_addr))
-        });
+        sorted_vec.sort();
 
         format!(
             "OSet {{osSSeq = {}, osSet = {}}}",
@@ -2442,34 +2688,39 @@ impl HaskellDisplay for DisplayOSet<ProposalProcedure> {
     }
 }
 
+/// Renders a `NonEmpty` list the way Haskell's `Show` instance does:
+/// `(head :| [tail0,tail1,...])`. Each element is rendered with `render`,
+/// which lets call sites control element precedence (parenthesised or not)
+/// via `to_haskell_str` vs `to_haskell_str_p`.
+fn non_empty_haskell_str<T>(items: &[T], render: impl Fn(&T) -> String) -> String {
+    match items.split_first() {
+        Some((head, tail)) => {
+            let head_str = render(head);
+            let tail_str = tail.iter().map(&render).collect::<Vec<_>>().join(",");
+            format!("({head_str} :| [{tail_str}])")
+        }
+        // `NonEmpty` can never be empty in well-formed ledger data; fall back
+        // to an empty list rather than panicking on malformed input.
+        None => "[]".to_string(),
+    }
+}
+
 impl<T> HaskellDisplay for Array<T>
 where
     T: HaskellDisplay + Clone,
 {
     fn to_haskell_str(&self) -> String {
-        let value = self
-            .0
-            .iter()
-            .map(|item| item.to_haskell_str())
-            .collect::<Vec<_>>()
-            .join(",");
-        format!("[{value}]")
+        non_empty_haskell_str(&self.0, |item| item.to_haskell_str())
     }
 
     fn to_haskell_str_p(&self) -> String {
-        let value = self
-            .0
-            .iter()
-            .map(|item| item.to_haskell_str_p())
-            .collect::<Vec<_>>()
-            .join(",");
-        format!("[{value}]")
+        non_empty_haskell_str(&self.0, |item| item.to_haskell_str_p())
     }
 }
 
 impl HaskellDisplay for DeltaCoin {
     fn to_haskell_str(&self) -> String {
-        format!("DeltaCoin {}", self.0.to_haskell_str())
+        format!("DeltaCoin {}", self.0.to_haskell_str_p())
     }
 }
 
@@ -2511,13 +2762,14 @@ impl AsAddress for Bytes {
             .to_haskell_str()
     }
 }
-trait AsAuxDataHash {
-    fn as_aux_data_hash(&self) -> String;
+
+trait AsTxAuxDataHash {
+    fn as_tx_aux_data_hash(&self) -> String;
 }
 
-impl AsAuxDataHash for Bytes {
-    fn as_aux_data_hash(&self) -> String {
-        format!("AuxiliaryDataHash {{unsafeAuxiliaryDataHash = SafeHash \"{self}\"}}")
+impl AsTxAuxDataHash for Bytes {
+    fn as_tx_aux_data_hash(&self) -> String {
+        format!("TxAuxDataHash {{unTxAuxDataHash = SafeHash \"{self}\"}}")
     }
 }
 
@@ -2649,6 +2901,7 @@ impl HaskellDisplay for CostModels {
             display_cost_model(1, &self.plutus_v1),
             display_cost_model(2, &self.plutus_v2),
             display_cost_model(3, &self.plutus_v3),
+            display_cost_model(4, &self.plutus_v4),
         ]
         .into_iter()
         .flatten()
