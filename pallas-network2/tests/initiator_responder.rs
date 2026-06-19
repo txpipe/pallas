@@ -124,7 +124,6 @@ async fn full_protocol_flow() {
     // Phase 3: blockfetch
     let range = (Point::Origin, Point::new(100, vec![0xAA; 32]));
     initiator.execute(InitiatorCommand::RequestBlocks(range));
-    initiator.execute(InitiatorCommand::Housekeeping);
 
     let events = initiator.wait_for_block().await;
     assert!(
