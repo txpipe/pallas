@@ -108,6 +108,59 @@ fn reply_block_fetch_ok(
     }
 }
 
+fn reply_leios_notify_ok(
+    pid: PeerId,
+    msg: proto::leiosnotify::Message,
+    queue: &mut emulation::ReplyQueue<AnyMessage>,
+) {
+    match msg {
+        proto::leiosnotify::Message::RequestNext => {
+            tracing::debug!("received leios notify request");
+
+            let offer = proto::leiosnotify::Message::BlockOffer(
+                proto::Point::new(1, vec![0xAB; 32]),
+                3,
+            );
+            queue.push_jittered_msg(
+                pid,
+                AnyMessage::LeiosNotify(offer),
+                Duration::from_secs(0),
+            );
+        }
+        proto::leiosnotify::Message::Done => {}
+        _ => queue.push_jittered_disconnect(pid, Duration::from_secs(0)),
+    }
+}
+
+fn reply_leios_fetch_ok(
+    pid: PeerId,
+    msg: proto::leiosfetch::Message,
+    queue: &mut emulation::ReplyQueue<AnyMessage>,
+) {
+    match msg {
+        proto::leiosfetch::Message::BlockRequest(_) => {
+            tracing::debug!("received leios block request");
+
+            let block = proto::leiosfetch::Message::Block(proto::RawCbor(b"abc".to_vec()));
+            queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(block), Duration::from_secs(0));
+        }
+        proto::leiosfetch::Message::BlockTxsRequest(..) => {
+            let txs = proto::leiosfetch::Message::BlockTxs {
+                point: None,
+                bitmaps: None,
+                txs: vec![],
+            };
+            queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(txs), Duration::from_secs(0));
+        }
+        proto::leiosfetch::Message::VotesRequest(_) => {
+            let votes = proto::leiosfetch::Message::Votes(vec![]);
+            queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(votes), Duration::from_secs(0));
+        }
+        proto::leiosfetch::Message::Done => {}
+        _ => queue.push_jittered_disconnect(pid, Duration::from_secs(0)),
+    }
+}
+
 /// Emulation rules that always accept connections and reply successfully to all
 /// mini-protocol messages (happy path).
 #[derive(Default)]
@@ -129,7 +182,10 @@ impl emulation::Rules for HappyRules {
             AnyMessage::KeepAlive(msg) => reply_keepalive_ok(pid, msg, jitter, queue),
             AnyMessage::PeerSharing(msg) => reply_peer_sharing_ok(pid, msg, jitter, queue),
             AnyMessage::BlockFetch(msg) => reply_block_fetch_ok(pid, msg, queue),
-            _ => todo!(),
+            AnyMessage::LeiosNotify(msg) => reply_leios_notify_ok(pid, msg, queue),
+            AnyMessage::LeiosFetch(msg) => reply_leios_fetch_ok(pid, msg, queue),
+            // chain-sync / tx-submission are not modelled by the happy emulator.
+            _ => queue.push_jittered_disconnect(pid, Duration::from_secs(0)),
         };
     }
 

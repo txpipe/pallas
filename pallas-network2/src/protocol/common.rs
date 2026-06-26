@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
@@ -116,5 +117,209 @@ impl<'b> Decode<'b, ()> for Point {
                 "can't decode Point from array of size",
             )),
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Leios shared wire primitives
+//
+// These types are shared across the Leios mini-protocols (`leiosnotify`,
+// `leiosfetch`). They live here next to [`Point`] following the same convention
+// used for other cross-protocol types.
+// ---------------------------------------------------------------------------
+
+/// Reference to an Endorser Block, encoded as a `[slot, eb_hash]` point.
+///
+/// Wire-compatible with the `pcommon.Point` used by the Go reference
+/// implementation for EB references.
+pub type EbId = Point;
+
+/// A pre-encoded CBOR item embedded verbatim into a message.
+///
+/// The Leios mini-protocols carry heavy payloads (EB bodies, transactions,
+/// votes) as raw CBOR spliced directly into the message array — the equivalent
+/// of Go's `cbor.RawMessage`. Note this is **not** the tag-24 ("CBOR-in-CBOR")
+/// byte-string wrapping used by [`super::blockfetch::Message::Block`] or
+/// chain-sync headers: the bytes are the encoded item itself, written and read
+/// in place. Structural decoding of the payload is deferred to higher layers
+/// (e.g. `pallas-primitives`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawCbor(pub Vec<u8>);
+
+impl<C> Encode<C> for RawCbor {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.writer_mut()
+            .write_all(&self.0)
+            .map_err(encode::Error::write)
+    }
+}
+
+impl<'b, C> Decode<'b, C> for RawCbor {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
+        let all = d.input();
+        let start = d.position();
+        d.skip()?;
+        let end = d.position();
+
+        Ok(RawCbor(all[start..end].to_vec()))
+    }
+}
+
+/// Raw CBOR of an Endorser Block body (`omap<hash32, uint16>`).
+pub type EndorserBlockCbor = RawCbor;
+
+/// Raw CBOR of a single transaction.
+pub type TxCbor = RawCbor;
+
+/// Raw CBOR of a single Leios vote (persistent or non-persistent).
+pub type VoteCbor = RawCbor;
+
+/// Raw CBOR of a Leios certificate.
+pub type CertCbor = RawCbor;
+
+/// Identifier of a vote, encoded as a `[slot, voter_id]` pair.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VoteId {
+    /// Slot of the election that produced the vote.
+    pub slot: u64,
+    /// Index identifying the voter within the election.
+    pub voter_id: u16,
+}
+
+impl Encode<()> for VoteId {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.array(2)?;
+        e.u64(self.slot)?;
+        e.u16(self.voter_id)?;
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for VoteId {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        d.array()?;
+        let slot = d.u64()?;
+        let voter_id = d.u16()?;
+
+        Ok(VoteId { slot, voter_id })
+    }
+}
+
+/// A transaction-subset selector for [`super::leiosfetch`] block-txs requests.
+///
+/// Each key indexes a 64-transaction window (window `n` covers txs
+/// `64*n .. 64*n+63`); each set bit in the `u64` value selects a transaction
+/// within that window.
+///
+/// **Wire note:** this *must* serialize as an indefinite-length CBOR map
+/// (`0xbf … 0xff`). The Leios prototype rejects a definite-length map and resets
+/// the connection. Decoding accepts either form (a [`BTreeMap`] keeps key order
+/// deterministic).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Bitmaps(pub BTreeMap<u16, u64>);
+
+impl Encode<()> for Bitmaps {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.begin_map()?;
+        for (k, v) in &self.0 {
+            e.u16(*k)?;
+            e.u64(*v)?;
+        }
+        e.end()?;
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for Bitmaps {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        // minicbor's `BTreeMap` decoder transparently handles both definite and
+        // indefinite-length maps.
+        Ok(Bitmaps(d.decode()?))
+    }
+}
+
+#[cfg(test)]
+mod leios_tests {
+    use super::*;
+    use pallas_codec::minicbor;
+
+    fn roundtrip<T>(value: &T) -> T
+    where
+        T: Encode<()> + for<'b> Decode<'b, ()>,
+    {
+        let bytes = minicbor::to_vec(value).unwrap();
+        minicbor::decode(&bytes).unwrap()
+    }
+
+    #[test]
+    fn vote_id_roundtrip() {
+        let v = VoteId {
+            slot: 123456,
+            voter_id: 42,
+        };
+        assert_eq!(roundtrip(&v), v);
+    }
+
+    #[test]
+    fn bitmaps_encode_is_indefinite() {
+        let mut m = BTreeMap::new();
+        m.insert(0u16, 0xffff_ffff_ffff_ffffu64);
+        m.insert(1u16, 0x0000_0000_0001_0000u64);
+        let bm = Bitmaps(m);
+
+        let bytes = minicbor::to_vec(&bm).unwrap();
+        // indefinite-length map marker, terminated by break
+        assert_eq!(bytes[0], 0xbf, "bitmaps must use an indefinite-length map");
+        assert_eq!(*bytes.last().unwrap(), 0xff, "must be break-terminated");
+
+        let back: Bitmaps = minicbor::decode(&bytes).unwrap();
+        assert_eq!(back, bm);
+    }
+
+    #[test]
+    fn bitmaps_decode_accepts_definite() {
+        // A definite-length map { 0: 1 } encoded as 0xa1 00 01
+        let definite = [0xa1u8, 0x00, 0x01];
+        let back: Bitmaps = minicbor::decode(&definite).unwrap();
+        assert_eq!(back.0.get(&0), Some(&1u64));
+    }
+
+    #[test]
+    fn raw_cbor_embeds_verbatim() {
+        // Encode a wrapper [1, <raw>] where <raw> is a pre-encoded array [1,2,3].
+        let inner = minicbor::to_vec([1u32, 2, 3]).unwrap();
+        let raw = RawCbor(inner.clone());
+
+        let mut buf = Vec::new();
+        let mut enc = Encoder::new(&mut buf);
+        enc.array(2).unwrap();
+        enc.u16(1).unwrap();
+        enc.encode(&raw).unwrap();
+
+        // The raw item must appear byte-for-byte (not byte-string wrapped).
+        let header = [0x82u8, 0x01]; // array(2), 1
+        assert_eq!(&buf[..2], &header);
+        assert_eq!(&buf[2..], inner.as_slice());
+
+        // And it round-trips back to the same bytes.
+        let mut dec = Decoder::new(&buf);
+        dec.array().unwrap();
+        let _: u16 = dec.u16().unwrap();
+        let back: RawCbor = dec.decode().unwrap();
+        assert_eq!(back, raw);
     }
 }

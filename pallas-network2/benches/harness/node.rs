@@ -73,6 +73,8 @@ impl ResponderNode {
                         manager.execute(ResponderCommand::ProvidePeers(pid.clone(), vec![]));
                     }
                     ResponderEvent::TxReceived(_, _) => {}
+                    // Leios responder events are not exercised by this Praos bench.
+                    _ => {}
                 }
 
                 events.push(event);

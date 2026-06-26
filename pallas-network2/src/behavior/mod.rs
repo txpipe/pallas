@@ -25,6 +25,10 @@ pub enum AnyMessage {
     BlockFetch(proto::blockfetch::Message),
     /// A tx-submission protocol message.
     TxSubmission(proto::txsubmission::Message),
+    /// A leios-notify protocol message.
+    LeiosNotify(proto::leiosnotify::Message),
+    /// A leios-fetch protocol message.
+    LeiosFetch(proto::leiosfetch::Message),
 }
 
 fn try_decode_msg<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
@@ -54,6 +58,8 @@ impl Message for AnyMessage {
             AnyMessage::PeerSharing(_) => proto::peersharing::CHANNEL_ID,
             AnyMessage::BlockFetch(_) => proto::blockfetch::CHANNEL_ID,
             AnyMessage::TxSubmission(_) => proto::txsubmission::CHANNEL_ID,
+            AnyMessage::LeiosNotify(_) => proto::leiosnotify::CHANNEL_ID,
+            AnyMessage::LeiosFetch(_) => proto::leiosfetch::CHANNEL_ID,
         }
     }
 
@@ -65,6 +71,8 @@ impl Message for AnyMessage {
             AnyMessage::PeerSharing(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
             AnyMessage::BlockFetch(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
             AnyMessage::TxSubmission(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::LeiosNotify(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::LeiosFetch(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
         }
     }
 
@@ -78,6 +86,8 @@ impl Message for AnyMessage {
             proto::txsubmission::CHANNEL_ID => {
                 try_decode_msg(payload).map(AnyMessage::TxSubmission)
             }
+            proto::leiosnotify::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::LeiosNotify),
+            proto::leiosfetch::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::LeiosFetch),
             x => {
                 tracing::warn!(channel = x, "unsupported channel, skipping payload");
                 payload.clear();
