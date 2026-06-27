@@ -1,8 +1,6 @@
 use crate::protocol::leiosnotify as notify_proto;
 
-use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
-};
+use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 

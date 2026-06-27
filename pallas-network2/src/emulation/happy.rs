@@ -117,15 +117,9 @@ fn reply_leios_notify_ok(
         proto::leiosnotify::Message::RequestNext => {
             tracing::debug!("received leios notify request");
 
-            let offer = proto::leiosnotify::Message::BlockOffer(
-                proto::Point::new(1, vec![0xAB; 32]),
-                3,
-            );
-            queue.push_jittered_msg(
-                pid,
-                AnyMessage::LeiosNotify(offer),
-                Duration::from_secs(0),
-            );
+            let offer =
+                proto::leiosnotify::Message::BlockOffer(proto::Point::new(1, vec![0xAB; 32]), 3);
+            queue.push_jittered_msg(pid, AnyMessage::LeiosNotify(offer), Duration::from_secs(0));
         }
         proto::leiosnotify::Message::Done => {}
         _ => queue.push_jittered_disconnect(pid, Duration::from_secs(0)),

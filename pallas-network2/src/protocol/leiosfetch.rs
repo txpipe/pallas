@@ -110,13 +110,9 @@ impl State {
         match self {
             State::Idle(_) => match msg {
                 Message::BlockRequest(p) => Ok(State::AwaitingBlock(p.clone())),
-                Message::BlockTxsRequest(p, b) => {
-                    Ok(State::AwaitingBlockTxs(p.clone(), b.clone()))
-                }
+                Message::BlockTxsRequest(p, b) => Ok(State::AwaitingBlockTxs(p.clone(), b.clone())),
                 Message::VotesRequest(ids) => Ok(State::AwaitingVotes(ids.clone())),
-                Message::BlockRangeRequest(s, e) => {
-                    Ok(State::AwaitingRange(s.clone(), e.clone()))
-                }
+                Message::BlockRangeRequest(s, e) => Ok(State::AwaitingRange(s.clone(), e.clone())),
                 Message::Done => Ok(State::Done),
                 _ => Err(Error::InvalidOutbound),
             },
@@ -327,7 +323,9 @@ mod tests {
     #[test]
     fn message_roundtrips() {
         roundtrip_eq(&Message::BlockRequest(point()));
-        roundtrip_eq(&Message::Block(RawCbor(minicbor::to_vec([1u8, 2]).unwrap())));
+        roundtrip_eq(&Message::Block(RawCbor(
+            minicbor::to_vec([1u8, 2]).unwrap(),
+        )));
         roundtrip_eq(&Message::BlockTxsRequest(point(), bitmaps()));
         roundtrip_eq(&Message::VotesRequest(vec![VoteId {
             slot: 5,

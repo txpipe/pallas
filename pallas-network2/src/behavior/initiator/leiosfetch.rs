@@ -3,9 +3,7 @@ use std::collections::VecDeque;
 use crate::protocol::leiosfetch as fetch_proto;
 use crate::protocol::{Bitmaps, EbId, VoteId};
 
-use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
-};
+use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 

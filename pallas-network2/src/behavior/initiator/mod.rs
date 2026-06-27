@@ -629,7 +629,8 @@ impl Behavior for InitiatorBehavior {
             }
             InitiatorCommand::FetchEb(pid, point) => {
                 tracing::debug!("fetch eb command");
-                self.leiosfetch.enqueue(pid, leiosfetch::FetchRequest::Block(point));
+                self.leiosfetch
+                    .enqueue(pid, leiosfetch::FetchRequest::Block(point));
             }
             InitiatorCommand::FetchEbTxs(pid, point, bitmaps) => {
                 tracing::debug!("fetch eb txs command");
@@ -1032,8 +1033,7 @@ mod tests {
         behavior.execute(InitiatorCommand::Housekeeping);
         let outputs = drain_outputs(&mut behavior);
         assert!(
-            outputs
-                .has_send(|m| matches!(m, AnyMessage::LeiosNotify(ln::Message::RequestNext))),
+            outputs.has_send(|m| matches!(m, AnyMessage::LeiosNotify(ln::Message::RequestNext))),
             "should request next leios notification"
         );
 
@@ -1057,8 +1057,7 @@ mod tests {
         behavior.execute(InitiatorCommand::Housekeeping);
         let outputs = drain_outputs(&mut behavior);
         assert!(
-            outputs
-                .has_send(|m| matches!(m, AnyMessage::LeiosFetch(lf::Message::BlockRequest(_)))),
+            outputs.has_send(|m| matches!(m, AnyMessage::LeiosFetch(lf::Message::BlockRequest(_)))),
             "should send a leios-fetch block request"
         );
 

@@ -26,9 +26,10 @@ impl ResponderPeerVisitor for LeiosFetchResponder {
             fetch_proto::State::AwaitingBlockTxs(point, bitmaps) => Some(
                 ResponderEvent::EbTxsRequested(pid.clone(), point.clone(), bitmaps.clone()),
             ),
-            fetch_proto::State::AwaitingVotes(ids) => {
-                Some(ResponderEvent::LeiosVotesRequested(pid.clone(), ids.clone()))
-            }
+            fetch_proto::State::AwaitingVotes(ids) => Some(ResponderEvent::LeiosVotesRequested(
+                pid.clone(),
+                ids.clone(),
+            )),
             // Range fetch is not surfaced in this first cut.
             _ => None,
         };

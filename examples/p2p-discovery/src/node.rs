@@ -143,6 +143,12 @@ impl<I: Interface<AnyMessage>> MyNode<I> {
             InitiatorEvent::TxRequested(pid, _) => {
                 tracing::info!(%pid, "tx requested");
             }
+            InitiatorEvent::EbNotification(pid, _) => {
+                tracing::info!(%pid, "leios notification received");
+            }
+            InitiatorEvent::EbFetched(pid, _) => {
+                tracing::info!(%pid, "leios fetch received");
+            }
         }
 
         self.enqueue_next_cmds();
