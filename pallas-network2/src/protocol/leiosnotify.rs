@@ -1,64 +1,21 @@
 //! LeiosNotify mini-protocol implementation.
 //!
-//! Server-push protocol by which a peer announces new Endorser Blocks (EBs) and
-//! offers their bodies, transactions and votes for eager fetching over
-//! [`super::leiosfetch`]. The client repeatedly asks for the next notification;
-//! the server replies with exactly one announcement/offer and returns to idle.
+//! Server-push protocol by which a peer announces new Endorser Blocks (EBs),
+//! offers their bodies and transactions for eager fetching over
+//! [`super::leiosfetch`], and diffuses full votes inline. The client repeatedly
+//! asks for the next notification; the server replies with exactly one
+//! announcement/offer and returns to idle.
 //!
-//! Wire format and state machine follow the `leios-notify` protocol of the Go
-//! reference implementation (protocol id 18). The CIP-0164 network chapter has
-//! drifted from the running prototype, so the prototype is treated as ground
-//! truth here.
+//! Wire format and state machine follow the authoritative `leios-notify` CDDL on
+//! the `leios-prototype` branch of cardano-blueprint (protocol id 18), which is
+//! the network spec of record while CIP-0164's network chapter stabilises.
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
-use super::{EbId, Error, RawCbor, VoteCbor, VoteId};
+use super::{EbId, Error, RawCbor, VoteCbor};
 
 /// Protocol channel number for node-to-node leios-notify.
 pub const CHANNEL_ID: u16 = 18;
-
-/// A vote carried inside a [`Message::VotesOffer`].
-///
-/// The prototype pushes full votes inline, while the dingo design offers vote
-/// ids to be pulled via [`super::leiosfetch`]. The wire shape is disambiguated
-/// by the per-vote array length: a 2-element array is a [`VoteId`], anything else
-/// is captured as a full vote (raw CBOR).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VoteOrId {
-    /// A vote identifier `[slot, voter_id]` to be fetched later.
-    Id(VoteId),
-    /// A full vote, kept as raw CBOR.
-    Full(VoteCbor),
-}
-
-impl Encode<()> for VoteOrId {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        _ctx: &mut (),
-    ) -> Result<(), encode::Error<W::Error>> {
-        match self {
-            VoteOrId::Id(id) => e.encode(id)?,
-            VoteOrId::Full(raw) => e.encode(raw)?,
-        };
-
-        Ok(())
-    }
-}
-
-impl<'b> Decode<'b, ()> for VoteOrId {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let len = {
-            let mut probe = d.probe();
-            probe.array()?
-        };
-
-        match len {
-            Some(2) => Ok(VoteOrId::Id(d.decode()?)),
-            _ => Ok(VoteOrId::Full(d.decode()?)),
-        }
-    }
-}
 
 /// A leios-notify mini-protocol message.
 #[derive(Debug, Clone)]
@@ -68,11 +25,11 @@ pub enum Message {
     /// Server announces an EB via the raw CBOR of the announcing RB header.
     BlockAnnouncement(RawCbor),
     /// Server offers an EB body it can deliver, with its size in bytes.
-    BlockOffer(EbId, u64),
+    BlockOffer(EbId, u32),
     /// Server offers the transactions of an EB it can deliver.
     BlockTxsOffer(EbId),
-    /// Server offers votes (as ids or full votes) it can deliver.
-    VotesOffer(Vec<VoteOrId>),
+    /// Server diffuses full votes inline: `[4, [vote, ...]]`.
+    Votes(Vec<VoteCbor>),
     /// Client terminates the protocol.
     Done,
 }
@@ -84,11 +41,11 @@ pub enum Notification {
     /// An EB announcement (raw CBOR of the announcing RB header).
     BlockAnnouncement(RawCbor),
     /// An EB body is available, with its size in bytes.
-    BlockOffer(EbId, u64),
+    BlockOffer(EbId, u32),
     /// The transactions of an EB are available.
     BlockTxsOffer(EbId),
-    /// Votes (ids or full votes) are available.
-    VotesOffer(Vec<VoteOrId>),
+    /// Full votes diffused inline by the server.
+    Votes(Vec<VoteCbor>),
 }
 
 /// State machine for the leios-notify mini-protocol.
@@ -128,9 +85,7 @@ impl State {
                 Message::BlockTxsOffer(p) => {
                     Ok(State::Idle(Some(Notification::BlockTxsOffer(p.clone()))))
                 }
-                Message::VotesOffer(v) => {
-                    Ok(State::Idle(Some(Notification::VotesOffer(v.clone()))))
-                }
+                Message::Votes(v) => Ok(State::Idle(Some(Notification::Votes(v.clone())))),
                 _ => Err(Error::InvalidInbound),
             },
             State::Done => Err(Error::InvalidOutbound),
@@ -164,13 +119,13 @@ impl Encode<()> for Message {
             Message::BlockOffer(point, size) => {
                 e.array(3)?.u16(2)?;
                 e.encode(point)?;
-                e.u64(*size)?;
+                e.u32(*size)?;
             }
             Message::BlockTxsOffer(point) => {
                 e.array(2)?.u16(3)?;
                 e.encode(point)?;
             }
-            Message::VotesOffer(votes) => {
+            Message::Votes(votes) => {
                 e.array(2)?.u16(4)?;
                 e.encode(votes)?;
             }
@@ -193,11 +148,11 @@ impl<'b> Decode<'b, ()> for Message {
             1 => Ok(Message::BlockAnnouncement(d.decode()?)),
             2 => {
                 let point = d.decode()?;
-                let size = d.u64()?;
+                let size = d.u32()?;
                 Ok(Message::BlockOffer(point, size))
             }
             3 => Ok(Message::BlockTxsOffer(d.decode()?)),
-            4 => Ok(Message::VotesOffer(d.decode()?)),
+            4 => Ok(Message::Votes(d.decode()?)),
             5 => Ok(Message::Done),
             _ => Err(decode::Error::message(
                 "unknown variant for leiosnotify message",
@@ -228,12 +183,9 @@ mod tests {
             Message::BlockAnnouncement(RawCbor(minicbor::to_vec([1u8, 2, 3]).unwrap())),
             Message::BlockOffer(point(), 12345),
             Message::BlockTxsOffer(point()),
-            Message::VotesOffer(vec![
-                VoteOrId::Id(VoteId {
-                    slot: 7,
-                    voter_id: 3,
-                }),
-                VoteOrId::Full(RawCbor(minicbor::to_vec([9u8, 8, 7, 6]).unwrap())),
+            Message::Votes(vec![
+                RawCbor(minicbor::to_vec([9u8, 8, 7, 6]).unwrap()),
+                RawCbor(minicbor::to_vec([5u8, 4, 3, 2]).unwrap()),
             ]),
             Message::Done,
         ];
@@ -246,23 +198,6 @@ mod tests {
                 minicbor::to_vec(msg).unwrap()
             );
         }
-    }
-
-    #[test]
-    fn votes_offer_disambiguates_id_vs_full() {
-        let msg = Message::VotesOffer(vec![
-            VoteOrId::Id(VoteId {
-                slot: 1,
-                voter_id: 2,
-            }),
-            VoteOrId::Full(RawCbor(minicbor::to_vec([10u8, 20, 30, 40]).unwrap())),
-        ]);
-        let bytes = minicbor::to_vec(&msg).unwrap();
-        let Message::VotesOffer(votes) = minicbor::decode(&bytes).unwrap() else {
-            panic!("expected VotesOffer");
-        };
-        assert!(matches!(votes[0], VoteOrId::Id(_)));
-        assert!(matches!(votes[1], VoteOrId::Full(_)));
     }
 
     #[test]

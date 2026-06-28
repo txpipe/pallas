@@ -125,9 +125,6 @@ impl MockResponderNode {
             ResponderEvent::EbTxsRequested(pid, _, _) => {
                 tracing::info!(%pid, "leios eb txs requested");
             }
-            ResponderEvent::LeiosVotesRequested(pid, _) => {
-                tracing::info!(%pid, "leios votes requested");
-            }
         }
     }
 

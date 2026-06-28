@@ -181,39 +181,6 @@ pub type VoteCbor = RawCbor;
 /// Raw CBOR of a Leios certificate.
 pub type CertCbor = RawCbor;
 
-/// Identifier of a vote, encoded as a `[slot, voter_id]` pair.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VoteId {
-    /// Slot of the election that produced the vote.
-    pub slot: u64,
-    /// Index identifying the voter within the election.
-    pub voter_id: u16,
-}
-
-impl Encode<()> for VoteId {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        _ctx: &mut (),
-    ) -> Result<(), encode::Error<W::Error>> {
-        e.array(2)?;
-        e.u64(self.slot)?;
-        e.u16(self.voter_id)?;
-
-        Ok(())
-    }
-}
-
-impl<'b> Decode<'b, ()> for VoteId {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        d.array()?;
-        let slot = d.u64()?;
-        let voter_id = d.u16()?;
-
-        Ok(VoteId { slot, voter_id })
-    }
-}
-
 /// A transaction-subset selector for [`super::leiosfetch`] block-txs requests.
 ///
 /// Each key indexes a 64-transaction window (window `n` covers txs
@@ -256,23 +223,6 @@ impl<'b> Decode<'b, ()> for Bitmaps {
 mod leios_tests {
     use super::*;
     use pallas_codec::minicbor;
-
-    fn roundtrip<T>(value: &T) -> T
-    where
-        T: Encode<()> + for<'b> Decode<'b, ()>,
-    {
-        let bytes = minicbor::to_vec(value).unwrap();
-        minicbor::decode(&bytes).unwrap()
-    }
-
-    #[test]
-    fn vote_id_roundtrip() {
-        let v = VoteId {
-            slot: 123456,
-            voter_id: 42,
-        };
-        assert_eq!(roundtrip(&v), v);
-    }
 
     #[test]
     fn bitmaps_encode_is_indefinite() {

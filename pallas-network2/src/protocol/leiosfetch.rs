@@ -1,17 +1,17 @@
 //! LeiosFetch mini-protocol implementation.
 //!
-//! Client-pull protocol for fetching Endorser Block (EB) bodies, their
-//! transactions (selected by a compact bitmap) and votes, discovered via
+//! Client-pull protocol for fetching Endorser Block (EB) bodies and their
+//! transactions (selected by a compact bitmap), discovered via
 //! [`super::leiosnotify`]. The client issues one request and the server replies
 //! with the matching response, returning to idle.
 //!
-//! Wire format and state machine follow the `leios-fetch` protocol of the Go
-//! reference implementation (protocol id 19); the running prototype is treated
-//! as ground truth where it diverges from CIP-0164.
+//! Wire format and state machine follow the authoritative `leios-fetch` CDDL on
+//! the `leios-prototype` branch of cardano-blueprint (protocol id 19), which is
+//! the network spec of record while CIP-0164's network chapter stabilises.
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
-use super::{Bitmaps, EbId, EndorserBlockCbor, Error, TxCbor, VoteCbor, VoteId};
+use super::{Bitmaps, EbId, EndorserBlockCbor, Error, TxCbor};
 
 /// Protocol channel number for node-to-node leios-fetch.
 pub const CHANNEL_ID: u16 = 19;
@@ -25,35 +25,16 @@ pub enum Message {
     Block(EndorserBlockCbor),
     /// Client requests a subset of an EB's transactions, selected by bitmap.
     BlockTxsRequest(EbId, Bitmaps),
-    /// Server delivers transactions for an EB.
-    ///
-    /// Two wire shapes are accepted for prototype interop: the 2-element dingo
-    /// form `[txs]` (point/bitmaps absent) and the 4-element prototype form
-    /// `[point, bitmaps, txs]` echoing the request.
+    /// Server delivers transactions for an EB, echoing the request's point and
+    /// bitmaps: `[3, point, bitmaps, tx_list]`.
     BlockTxs {
-        /// Echoed EB point (prototype form only).
-        point: Option<EbId>,
-        /// Echoed bitmap selector (prototype form only).
-        bitmaps: Option<Bitmaps>,
+        /// Echoed EB point.
+        point: EbId,
+        /// Echoed bitmap selector.
+        bitmaps: Bitmaps,
         /// The requested transactions, as raw CBOR.
         txs: Vec<TxCbor>,
     },
-    /// Client requests specific votes by id.
-    VotesRequest(Vec<VoteId>),
-    /// Server delivers full votes (raw CBOR).
-    Votes(Vec<VoteCbor>),
-    /// Client requests a range of EBs (catch-up). Not yet live in the prototype;
-    /// encoded/decoded for forward compatibility only.
-    BlockRangeRequest(EbId, EbId),
-    /// Server delivers the final EB+txs of a range, returning to idle.
-    ///
-    /// Note: the message tag is `7` and [`Message::NextBlockAndTxsInRange`] is
-    /// `8`, matching the Go reference implementation — the *opposite* of the
-    /// ordering in CIP-0164. Unverified against a live node (range fetch is not
-    /// yet implemented by the prototype).
-    LastBlockAndTxsInRange(EndorserBlockCbor, Vec<TxCbor>),
-    /// Server delivers an intermediate EB+txs of a range, staying in range mode.
-    NextBlockAndTxsInRange(EndorserBlockCbor, Vec<TxCbor>),
     /// Client terminates the protocol.
     Done,
 }
@@ -66,15 +47,13 @@ pub enum Response {
     Block(EndorserBlockCbor),
     /// Transactions delivered for an EB.
     BlockTxs {
-        /// Echoed EB point (prototype form only).
-        point: Option<EbId>,
-        /// Echoed bitmap selector (prototype form only).
-        bitmaps: Option<Bitmaps>,
+        /// Echoed EB point.
+        point: EbId,
+        /// Echoed bitmap selector.
+        bitmaps: Bitmaps,
         /// The delivered transactions.
         txs: Vec<TxCbor>,
     },
-    /// Full votes (raw CBOR).
-    Votes(Vec<VoteCbor>),
 }
 
 /// State machine for the leios-fetch mini-protocol.
@@ -90,10 +69,6 @@ pub enum State {
     AwaitingBlock(EbId),
     /// Server has agency; will deliver transactions for the requested EB.
     AwaitingBlockTxs(EbId, Bitmaps),
-    /// Server has agency; will deliver the requested votes.
-    AwaitingVotes(Vec<VoteId>),
-    /// Server has agency; streaming the requested range of EBs.
-    AwaitingRange(EbId, EbId),
     /// The protocol has terminated.
     Done,
 }
@@ -111,8 +86,6 @@ impl State {
             State::Idle(_) => match msg {
                 Message::BlockRequest(p) => Ok(State::AwaitingBlock(p.clone())),
                 Message::BlockTxsRequest(p, b) => Ok(State::AwaitingBlockTxs(p.clone(), b.clone())),
-                Message::VotesRequest(ids) => Ok(State::AwaitingVotes(ids.clone())),
-                Message::BlockRangeRequest(s, e) => Ok(State::AwaitingRange(s.clone(), e.clone())),
                 Message::Done => Ok(State::Done),
                 _ => Err(Error::InvalidOutbound),
             },
@@ -130,19 +103,6 @@ impl State {
                     bitmaps: bitmaps.clone(),
                     txs: txs.clone(),
                 }))),
-                _ => Err(Error::InvalidInbound),
-            },
-            State::AwaitingVotes(_) => match msg {
-                Message::Votes(v) => Ok(State::Idle(Some(Response::Votes(v.clone())))),
-                _ => Err(Error::InvalidInbound),
-            },
-            State::AwaitingRange(s, e) => match msg {
-                // Range items are not surfaced in this first cut; streaming stays
-                // in range mode until the final item returns to idle.
-                Message::NextBlockAndTxsInRange(..) => {
-                    Ok(State::AwaitingRange(s.clone(), e.clone()))
-                }
-                Message::LastBlockAndTxsInRange(..) => Ok(State::Idle(None)),
                 _ => Err(Error::InvalidInbound),
             },
             State::Done => Err(Error::InvalidOutbound),
@@ -183,41 +143,10 @@ impl Encode<()> for Message {
                 point,
                 bitmaps,
                 txs,
-            } => match (point, bitmaps) {
-                // prototype form: [3, point, bitmaps, txs]
-                (Some(point), Some(bitmaps)) => {
-                    e.array(4)?.u16(3)?;
-                    e.encode(point)?;
-                    e.encode(bitmaps)?;
-                    e.encode(txs)?;
-                }
-                // dingo form: [3, txs]
-                _ => {
-                    e.array(2)?.u16(3)?;
-                    e.encode(txs)?;
-                }
-            },
-            Message::VotesRequest(ids) => {
-                e.array(2)?.u16(4)?;
-                e.encode(ids)?;
-            }
-            Message::Votes(votes) => {
-                e.array(2)?.u16(5)?;
-                e.encode(votes)?;
-            }
-            Message::BlockRangeRequest(start, end) => {
-                e.array(3)?.u16(6)?;
-                e.encode(start)?;
-                e.encode(end)?;
-            }
-            Message::LastBlockAndTxsInRange(block, txs) => {
-                e.array(3)?.u16(7)?;
-                e.encode(block)?;
-                e.encode(txs)?;
-            }
-            Message::NextBlockAndTxsInRange(block, txs) => {
-                e.array(3)?.u16(8)?;
-                e.encode(block)?;
+            } => {
+                e.array(4)?.u16(3)?;
+                e.encode(point)?;
+                e.encode(bitmaps)?;
                 e.encode(txs)?;
             }
             Message::Done => {
@@ -231,7 +160,7 @@ impl Encode<()> for Message {
 
 impl<'b> Decode<'b, ()> for Message {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let len = d.array()?;
+        d.array()?;
         let label = d.u16()?;
 
         match label {
@@ -242,44 +171,15 @@ impl<'b> Decode<'b, ()> for Message {
                 let bitmaps = d.decode()?;
                 Ok(Message::BlockTxsRequest(point, bitmaps))
             }
-            3 => match len {
-                // dingo form: [3, txs]
-                Some(2) => Ok(Message::BlockTxs {
-                    point: None,
-                    bitmaps: None,
-                    txs: d.decode()?,
-                }),
-                // prototype form: [3, point, bitmaps, txs]
-                Some(4) => {
-                    let point = d.decode()?;
-                    let bitmaps = d.decode()?;
-                    let txs = d.decode()?;
-                    Ok(Message::BlockTxs {
-                        point: Some(point),
-                        bitmaps: Some(bitmaps),
-                        txs,
-                    })
-                }
-                _ => Err(decode::Error::message(
-                    "unexpected array length for leiosfetch BlockTxs",
-                )),
-            },
-            4 => Ok(Message::VotesRequest(d.decode()?)),
-            5 => Ok(Message::Votes(d.decode()?)),
-            6 => {
-                let start = d.decode()?;
-                let end = d.decode()?;
-                Ok(Message::BlockRangeRequest(start, end))
-            }
-            7 => {
-                let block = d.decode()?;
+            3 => {
+                let point = d.decode()?;
+                let bitmaps = d.decode()?;
                 let txs = d.decode()?;
-                Ok(Message::LastBlockAndTxsInRange(block, txs))
-            }
-            8 => {
-                let block = d.decode()?;
-                let txs = d.decode()?;
-                Ok(Message::NextBlockAndTxsInRange(block, txs))
+                Ok(Message::BlockTxs {
+                    point,
+                    bitmaps,
+                    txs,
+                })
             }
             9 => Ok(Message::Done),
             _ => Err(decode::Error::message(
@@ -327,63 +227,26 @@ mod tests {
             minicbor::to_vec([1u8, 2]).unwrap(),
         )));
         roundtrip_eq(&Message::BlockTxsRequest(point(), bitmaps()));
-        roundtrip_eq(&Message::VotesRequest(vec![VoteId {
-            slot: 5,
-            voter_id: 6,
-        }]));
-        roundtrip_eq(&Message::Votes(vec![raw([1, 2, 3]), raw([4, 5, 6])]));
-        roundtrip_eq(&Message::BlockRangeRequest(point(), point()));
-        roundtrip_eq(&Message::LastBlockAndTxsInRange(
-            raw([1, 1, 1]),
-            vec![raw([2, 2, 2])],
-        ));
-        roundtrip_eq(&Message::NextBlockAndTxsInRange(
-            raw([3, 3, 3]),
-            vec![raw([4, 4, 4])],
-        ));
+        roundtrip_eq(&Message::BlockTxs {
+            point: point(),
+            bitmaps: bitmaps(),
+            txs: vec![raw([8, 8, 8])],
+        });
         roundtrip_eq(&Message::Done);
     }
 
     #[test]
-    fn block_txs_dingo_form() {
+    fn block_txs_roundtrip() {
         let msg = Message::BlockTxs {
-            point: None,
-            bitmaps: None,
-            txs: vec![raw([7, 7, 7])],
-        };
-        let bytes = reencode(&msg);
-        // envelope is a 2-element array: [tag=3, txs]
-        assert_eq!(bytes[0], 0x82);
-        let back: Message = minicbor::decode(&bytes).unwrap();
-        assert!(matches!(
-            back,
-            Message::BlockTxs {
-                point: None,
-                bitmaps: None,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn block_txs_prototype_form() {
-        let msg = Message::BlockTxs {
-            point: Some(point()),
-            bitmaps: Some(bitmaps()),
+            point: point(),
+            bitmaps: bitmaps(),
             txs: vec![raw([8, 8, 8])],
         };
         let bytes = reencode(&msg);
-        // envelope is a 4-element array
+        // envelope is a 4-element array: [tag=3, point, bitmaps, txs]
         assert_eq!(bytes[0], 0x84);
         let back: Message = minicbor::decode(&bytes).unwrap();
-        assert!(matches!(
-            back,
-            Message::BlockTxs {
-                point: Some(_),
-                bitmaps: Some(_),
-                ..
-            }
-        ));
+        assert!(matches!(back, Message::BlockTxs { .. }));
     }
 
     #[test]
@@ -413,40 +276,6 @@ mod tests {
                 .unwrap(),
             State::AwaitingBlockTxs(point(), bitmaps())
         );
-        assert_eq!(
-            State::Idle(None)
-                .apply(&Message::VotesRequest(vec![VoteId {
-                    slot: 1,
-                    voter_id: 2
-                }]))
-                .unwrap(),
-            State::AwaitingVotes(vec![VoteId {
-                slot: 1,
-                voter_id: 2
-            }])
-        );
-    }
-
-    #[test]
-    fn range_streaming_stays_then_returns() {
-        let s = State::Idle(None)
-            .apply(&Message::BlockRangeRequest(point(), point()))
-            .unwrap();
-        assert_eq!(s, State::AwaitingRange(point(), point()));
-
-        let still = s
-            .apply(&Message::NextBlockAndTxsInRange(raw([1, 1, 1]), vec![]))
-            .unwrap();
-        assert_eq!(
-            still,
-            State::AwaitingRange(point(), point()),
-            "Next keeps streaming"
-        );
-
-        let back = still
-            .apply(&Message::LastBlockAndTxsInRange(raw([2, 2, 2]), vec![]))
-            .unwrap();
-        assert_eq!(back, State::Idle(None), "Last returns to idle");
     }
 
     #[test]

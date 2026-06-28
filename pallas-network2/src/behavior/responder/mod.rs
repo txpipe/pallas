@@ -294,17 +294,16 @@ pub enum ResponderCommand {
     /// Announce an EB to a peer via leios-notify (raw RB header CBOR).
     ProvideEbAnnouncement(PeerId, proto::RawCbor),
     /// Offer an EB body to a peer via leios-notify, with its size in bytes.
-    ProvideEbOffer(PeerId, proto::EbId, u64),
+    ProvideEbOffer(PeerId, proto::EbId, u32),
     /// Offer an EB's transactions to a peer via leios-notify.
     ProvideEbTxsOffer(PeerId, proto::EbId),
-    /// Offer votes to a peer via leios-notify.
-    ProvideVotesOffer(PeerId, Vec<proto::leiosnotify::VoteOrId>),
+    /// Diffuse full votes to a peer inline via leios-notify.
+    ProvideVotes(PeerId, Vec<proto::VoteCbor>),
     /// Deliver an EB body to a peer via leios-fetch.
     ProvideEb(PeerId, proto::EndorserBlockCbor),
-    /// Deliver EB transactions to a peer via leios-fetch.
-    ProvideEbTxs(PeerId, Vec<proto::TxCbor>),
-    /// Deliver votes to a peer via leios-fetch.
-    ProvideVotes(PeerId, Vec<proto::VoteCbor>),
+    /// Deliver EB transactions to a peer via leios-fetch, echoing the request's
+    /// point and bitmaps.
+    ProvideEbTxs(PeerId, proto::EbId, proto::Bitmaps, Vec<proto::TxCbor>),
     /// Ban a peer and disconnect them.
     BanPeer(PeerId),
     /// Disconnect a peer gracefully.
@@ -334,8 +333,6 @@ pub enum ResponderEvent {
     EbRequested(PeerId, proto::EbId),
     /// A peer requested a subset of an EB's transactions via leios-fetch.
     EbTxsRequested(PeerId, proto::EbId, proto::Bitmaps),
-    /// A peer requested votes via leios-fetch.
-    LeiosVotesRequested(PeerId, Vec<proto::VoteId>),
 }
 
 /// The main responder behavior that handles inbound Cardano connections.
@@ -719,10 +716,10 @@ impl Behavior for ResponderBehavior {
                     AnyMessage::LeiosNotify(proto::leiosnotify::Message::BlockTxsOffer(point)),
                 );
             }
-            ResponderCommand::ProvideVotesOffer(pid, votes) => {
+            ResponderCommand::ProvideVotes(pid, votes) => {
                 self.send_msg(
                     &pid,
-                    AnyMessage::LeiosNotify(proto::leiosnotify::Message::VotesOffer(votes)),
+                    AnyMessage::LeiosNotify(proto::leiosnotify::Message::Votes(votes)),
                 );
             }
             ResponderCommand::ProvideEb(pid, block) => {
@@ -731,20 +728,14 @@ impl Behavior for ResponderBehavior {
                     AnyMessage::LeiosFetch(proto::leiosfetch::Message::Block(block)),
                 );
             }
-            ResponderCommand::ProvideEbTxs(pid, txs) => {
+            ResponderCommand::ProvideEbTxs(pid, point, bitmaps, txs) => {
                 self.send_msg(
                     &pid,
                     AnyMessage::LeiosFetch(proto::leiosfetch::Message::BlockTxs {
-                        point: None,
-                        bitmaps: None,
+                        point,
+                        bitmaps,
                         txs,
                     }),
-                );
-            }
-            ResponderCommand::ProvideVotes(pid, votes) => {
-                self.send_msg(
-                    &pid,
-                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::Votes(votes)),
                 );
             }
             ResponderCommand::BanPeer(pid) => {

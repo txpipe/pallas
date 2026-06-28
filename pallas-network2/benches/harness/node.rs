@@ -76,8 +76,7 @@ impl ResponderNode {
                     // Leios responder events are not exercised by this Praos bench.
                     ResponderEvent::EbNotificationRequested(..)
                     | ResponderEvent::EbRequested(..)
-                    | ResponderEvent::EbTxsRequested(..)
-                    | ResponderEvent::LeiosVotesRequested(..) => {}
+                    | ResponderEvent::EbTxsRequested(..) => {}
                 }
 
                 events.push(event);

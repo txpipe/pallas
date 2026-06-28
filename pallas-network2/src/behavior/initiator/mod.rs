@@ -360,8 +360,6 @@ pub enum InitiatorCommand {
     FetchEb(PeerId, proto::EbId),
     /// Request a subset of an EB's transactions from a peer (leios-fetch).
     FetchEbTxs(PeerId, proto::EbId, proto::Bitmaps),
-    /// Request specific votes from a peer (leios-fetch).
-    FetchVotes(PeerId, Vec<proto::VoteId>),
     /// Ban a peer, preventing future connections.
     BanPeer(PeerId),
     /// Demote a peer back to cold status.
@@ -636,11 +634,6 @@ impl Behavior for InitiatorBehavior {
                 tracing::debug!("fetch eb txs command");
                 self.leiosfetch
                     .enqueue(pid, leiosfetch::FetchRequest::BlockTxs(point, bitmaps));
-            }
-            InitiatorCommand::FetchVotes(pid, ids) => {
-                tracing::debug!("fetch votes command");
-                self.leiosfetch
-                    .enqueue(pid, leiosfetch::FetchRequest::Votes(ids));
             }
         }
     }

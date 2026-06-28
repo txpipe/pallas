@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::protocol::leiosfetch as fetch_proto;
-use crate::protocol::{Bitmaps, EbId, VoteId};
+use crate::protocol::{Bitmaps, EbId};
 
 use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
@@ -14,11 +14,9 @@ pub enum FetchRequest {
     Block(EbId),
     /// Fetch a subset of an EB's transactions.
     BlockTxs(EbId, Bitmaps),
-    /// Fetch specific votes by id.
-    Votes(Vec<VoteId>),
 }
 
-/// Sub-behavior that fetches EB bodies, transactions and votes from peers.
+/// Sub-behavior that fetches EB bodies and transactions from peers.
 ///
 /// Requests are queued (each targeting the peer that should serve it) and sent
 /// one at a time per peer during housekeeping, when that peer is idle. Responses
@@ -46,7 +44,6 @@ impl LeiosFetchBehavior {
             FetchRequest::BlockTxs(point, bitmaps) => {
                 fetch_proto::Message::BlockTxsRequest(point.clone(), bitmaps.clone())
             }
-            FetchRequest::Votes(ids) => fetch_proto::Message::VotesRequest(ids.clone()),
         };
 
         outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(

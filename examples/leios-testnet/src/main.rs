@@ -8,10 +8,11 @@
 //! mini-protocols that ride the *same* connection as Praos once a Leios-capable
 //! handshake version is negotiated:
 //!
-//! - **leios-notify** (server-push): the relay announces / offers new EBs,
-//!   their transactions and votes. Surfaced as [`InitiatorEvent::EbNotification`].
-//! - **leios-fetch** (client-pull): we request the EB body, a subset of its
-//!   transactions, or specific votes. Surfaced as [`InitiatorEvent::EbFetched`].
+//! - **leios-notify** (server-push): the relay announces / offers new EBs and
+//!   their transactions, and diffuses full votes inline. Surfaced as
+//!   [`InitiatorEvent::EbNotification`].
+//! - **leios-fetch** (client-pull): we request the EB body or a subset of its
+//!   transactions. Surfaced as [`InitiatorEvent::EbFetched`].
 //!
 //! The only thing that "turns Leios on" is the handshake: we must propose an
 //! N2N version `>= LEIOS_MIN_VERSION` (v15, the Dijkstra era) with the testnet's
@@ -128,9 +129,6 @@ impl LeiosNode {
                 leiosfetch::Response::BlockTxs { txs, .. } => {
                     tracing::info!(%pid, count = txs.len(), "EB transactions fetched");
                 }
-                leiosfetch::Response::Votes(votes) => {
-                    tracing::info!(%pid, count = votes.len(), "votes fetched");
-                }
             },
 
             other => {
@@ -152,8 +150,8 @@ impl LeiosNode {
             leiosnotify::Notification::BlockTxsOffer(eb_id) => {
                 tracing::info!(%pid, eb = %fmt_eb(&eb_id), "EB transactions offered");
             }
-            leiosnotify::Notification::VotesOffer(votes) => {
-                tracing::info!(%pid, count = votes.len(), "votes offered");
+            leiosnotify::Notification::Votes(votes) => {
+                tracing::info!(%pid, count = votes.len(), "votes received");
             }
         }
     }

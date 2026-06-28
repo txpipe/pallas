@@ -94,8 +94,7 @@ impl ResponderNode {
                     // Leios responder events are not exercised by this harness.
                     ResponderEvent::EbNotificationRequested(..)
                     | ResponderEvent::EbRequested(..)
-                    | ResponderEvent::EbTxsRequested(..)
-                    | ResponderEvent::LeiosVotesRequested(..) => {}
+                    | ResponderEvent::EbTxsRequested(..) => {}
                 }
 
                 events.push(event);
