@@ -55,12 +55,17 @@ const LEIOS_RELAY: &str = "leios-node.play.dev.cardano.org:3001";
 /// Network magic for the Leios testnet (a nod to CIP-0164).
 const LEIOS_TESTNET_MAGIC: u64 = 164;
 
+/// Chain-sync intersection point to start following from, so we sync near the
+/// tip instead of replaying the chain from origin.
+///
+/// The Musashi testnet resets periodically; if sync stalls or the intersection
+/// is not found, replace this with a current point from the chain.
+const INTERSECT_SLOT: u64 = 2674552;
+const INTERSECT_HASH: &str = "01dc560bb3bb07a1f7c01f8f7c968c6e23d67126ee84232c43cca77ec4666e82";
+
 struct LeiosNode {
     network: Manager<TcpInterface<AnyMessage>, InitiatorBehavior, AnyMessage>,
     housekeeping_interval: Interval,
-    /// Whether we have already re-intersected at the tip. The first intersection
-    /// (at origin) only serves to learn the tip; we then re-intersect there.
-    following_tip: bool,
 }
 
 impl LeiosNode {
@@ -87,7 +92,6 @@ impl LeiosNode {
         Self {
             network,
             housekeeping_interval: tokio::time::interval(Duration::from_secs(3)),
-            following_tip: false,
         }
     }
 
@@ -108,20 +112,8 @@ impl LeiosNode {
 
             // --- Praos chain-sync (runs underneath Leios) ---
             InitiatorEvent::IntersectionFound(pid, point, tip) => {
-                let tip_slot = tip.0.slot_or_default();
-                if !self.following_tip && !matches!(tip.0, Point::Origin) {
-                    // The bootstrap intersection at origin just told us the tip;
-                    // re-intersect there so we follow live blocks instead of
-                    // replaying the whole chain.
-                    self.following_tip = true;
-                    tracing::info!(%pid, tip_slot, "re-intersecting at tip");
-                    self.network
-                        .execute(InitiatorCommand::ResyncFrom(pid, vec![tip.0]));
-                } else {
-                    self.following_tip = true;
-                    tracing::info!(%pid, ?point, tip_slot, "intersected at tip; following");
-                    self.network.execute(InitiatorCommand::ContinueSync(pid));
-                }
+                tracing::info!(%pid, ?point, tip_slot = tip.0.slot_or_default(), "intersection found");
+                self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
             InitiatorEvent::BlockHeaderReceived(pid, header, tip) => {
                 tracing::debug!(%pid, variant = header.variant, tip_block = tip.1, "header received");
@@ -223,12 +215,15 @@ async fn main() {
     );
 
     node.network.execute(InitiatorCommand::IncludePeer(peer));
-    // Bootstrap chain-sync from origin purely to learn the tip; on the first
-    // intersection we re-intersect at the tip (see `handle_event`) so we follow
-    // live blocks. The Leios overlay diffuses EBs over the same connection
-    // independently of where we are in chain-sync.
+    // Start chain-sync near the tip (not origin) so we follow live blocks without
+    // replaying the whole chain. The Leios overlay diffuses EBs over the same
+    // connection independently of where we are in chain-sync.
+    let intersect = Point::Specific(
+        INTERSECT_SLOT,
+        hex::decode(INTERSECT_HASH).expect("INTERSECT_HASH should be valid hex"),
+    );
     node.network
-        .execute(InitiatorCommand::StartSync(vec![Point::Origin]));
+        .execute(InitiatorCommand::StartSync(vec![intersect]));
 
     node.run_forever().await;
 }
