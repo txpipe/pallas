@@ -58,6 +58,9 @@ const LEIOS_TESTNET_MAGIC: u64 = 164;
 struct LeiosNode {
     network: Manager<TcpInterface<AnyMessage>, InitiatorBehavior, AnyMessage>,
     housekeeping_interval: Interval,
+    /// Whether we have already re-intersected at the tip. The first intersection
+    /// (at origin) only serves to learn the tip; we then re-intersect there.
+    following_tip: bool,
 }
 
 impl LeiosNode {
@@ -84,6 +87,7 @@ impl LeiosNode {
         Self {
             network,
             housekeeping_interval: tokio::time::interval(Duration::from_secs(3)),
+            following_tip: false,
         }
     }
 
@@ -104,15 +108,27 @@ impl LeiosNode {
 
             // --- Praos chain-sync (runs underneath Leios) ---
             InitiatorEvent::IntersectionFound(pid, point, tip) => {
-                tracing::info!(%pid, ?point, tip_slot = tip.1, "intersection found");
-                self.network.execute(InitiatorCommand::ContinueSync(pid));
+                let tip_slot = tip.0.slot_or_default();
+                if !self.following_tip && !matches!(tip.0, Point::Origin) {
+                    // The bootstrap intersection at origin just told us the tip;
+                    // re-intersect there so we follow live blocks instead of
+                    // replaying the whole chain.
+                    self.following_tip = true;
+                    tracing::info!(%pid, tip_slot, "re-intersecting at tip");
+                    self.network
+                        .execute(InitiatorCommand::ResyncFrom(pid, vec![tip.0]));
+                } else {
+                    self.following_tip = true;
+                    tracing::info!(%pid, ?point, tip_slot, "intersected at tip; following");
+                    self.network.execute(InitiatorCommand::ContinueSync(pid));
+                }
             }
             InitiatorEvent::BlockHeaderReceived(pid, header, tip) => {
-                tracing::debug!(%pid, variant = header.variant, tip_slot = tip.1, "header received");
+                tracing::debug!(%pid, variant = header.variant, tip_block = tip.1, "header received");
                 self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
             InitiatorEvent::RollbackReceived(pid, point, tip) => {
-                tracing::debug!(%pid, ?point, tip_slot = tip.1, "rollback received");
+                tracing::debug!(%pid, ?point, tip_block = tip.1, "rollback received");
                 self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
 
@@ -207,8 +223,10 @@ async fn main() {
     );
 
     node.network.execute(InitiatorCommand::IncludePeer(peer));
-    // Start Praos chain-sync from origin; the Leios overlay diffuses EBs over the
-    // same connection independently of where we are in chain-sync.
+    // Bootstrap chain-sync from origin purely to learn the tip; on the first
+    // intersection we re-intersect at the tip (see `handle_event`) so we follow
+    // live blocks. The Leios overlay diffuses EBs over the same connection
+    // independently of where we are in chain-sync.
     node.network
         .execute(InitiatorCommand::StartSync(vec![Point::Origin]));
 

@@ -348,6 +348,10 @@ pub enum InitiatorCommand {
     StartSync(Vec<proto::Point>),
     /// Resume chain synchronization for a specific peer.
     ContinueSync(PeerId),
+    /// Re-run chain-sync intersection for a specific peer using the given points,
+    /// e.g. to switch it to follow from the current tip after an initial
+    /// bootstrap intersection.
+    ResyncFrom(PeerId, Vec<proto::Point>),
     /// Request a range of blocks to be fetched.
     RequestBlocks(BlockRange),
     /// Submit a transaction to a specific peer.
@@ -605,6 +609,17 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::ContinueSync(pid) => {
                 tracing::debug!("continue sync command");
                 self.on_tagged(&pid, |state| state.continue_sync = true);
+            }
+            InitiatorCommand::ResyncFrom(pid, points) => {
+                tracing::debug!("resync from command");
+                // Re-arm the shared intersection candidates and reset this peer's
+                // chain-sync to its initial state so housekeeping issues a fresh
+                // FindIntersect for the new points.
+                self.chainsync.start(points);
+                self.on_tagged(&pid, |state| {
+                    state.chainsync = proto::chainsync::State::default();
+                    state.continue_sync = false;
+                });
             }
             InitiatorCommand::RequestBlocks(range) => {
                 tracing::debug!("request blocks command");
