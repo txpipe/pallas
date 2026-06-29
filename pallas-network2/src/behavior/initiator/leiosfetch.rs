@@ -33,6 +33,13 @@ impl LeiosFetchBehavior {
         tracing::info!(total = self.requests.len(), "new leios-fetch request");
     }
 
+    /// Drops any queued requests targeting `pid`. Called when the peer goes away
+    /// so requests don't leak or get re-sent to a later reconnection of the same
+    /// `PeerId` (which may no longer hold the offered EB).
+    fn purge(&mut self, pid: &PeerId) {
+        self.requests.retain(|(p, _)| p != pid);
+    }
+
     fn send_request(
         &self,
         pid: &PeerId,
@@ -60,9 +67,10 @@ impl LeiosFetchBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        if let Some(response) = state.leios_fetch.drain() {
+        if let Some((eb, response)) = state.leios_fetch.drain() {
             outbound.push_ready(BehaviorOutput::ExternalEvent(InitiatorEvent::EbFetched(
                 pid.clone(),
+                eb,
                 response,
             )));
         }
@@ -101,6 +109,24 @@ impl PeerVisitor for LeiosFetchBehavior {
             self.send_request(pid, &request, outbound);
         }
     }
+
+    fn visit_disconnected(
+        &mut self,
+        pid: &PeerId,
+        _state: &mut InitiatorState,
+        _outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.purge(pid);
+    }
+
+    fn visit_errored(
+        &mut self,
+        pid: &PeerId,
+        _state: &mut InitiatorState,
+        _outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.purge(pid);
+    }
 }
 
 #[cfg(test)]
@@ -124,7 +150,8 @@ mod tests {
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
-        state.leios_fetch = lf::State::Idle(Some(Response::Block(RawCbor(vec![0x01]))));
+        state.leios_fetch =
+            lf::State::Idle(Some((Point::Origin, Response::Block(RawCbor(vec![0x01])))));
 
         b.dispatch(&pid, &mut state, &mut outbound);
         assert!(drain_outputs(&mut outbound).iter().any(|o| matches!(
@@ -150,5 +177,22 @@ mod tests {
         b.visit_housekeeping(&pid, &mut state, &mut outbound);
         assert!(drain_outputs(&mut outbound).is_empty());
         assert_eq!(b.requests.len(), 1);
+    }
+
+    #[test]
+    fn disconnect_purges_queued_requests() {
+        let mut b = LeiosFetchBehavior::default();
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        b.enqueue(pid.clone(), FetchRequest::Block(Point::Origin));
+        b.enqueue(PeerId::test(2), FetchRequest::Block(Point::Origin));
+        assert_eq!(b.requests.len(), 2);
+
+        // Disconnecting pid drops only its queued request.
+        b.visit_disconnected(&pid, &mut state, &mut outbound);
+        assert_eq!(b.requests.len(), 1);
+        assert!(b.requests.iter().all(|(p, _)| p != &pid));
     }
 }

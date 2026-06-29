@@ -10,6 +10,28 @@ pub mod responder;
 // Re-export initiator types for backward compatibility
 pub use initiator::*;
 
+/// Returns the negotiated N2N protocol version number from a completed handshake.
+///
+/// Shared by `InitiatorState` and `ResponderState` so the version-gating logic
+/// lives in one place.
+pub(crate) fn accepted_version<D: std::fmt::Debug + Clone>(
+    handshake: &proto::handshake::State<D>,
+) -> Option<u64> {
+    match handshake {
+        proto::handshake::State::Done(proto::handshake::DoneState::Accepted(num, _)) => Some(*num),
+        _ => None,
+    }
+}
+
+/// Returns true if the negotiated N2N version carries the Leios overlay.
+pub(crate) fn supports_leios<D: std::fmt::Debug + Clone>(
+    handshake: &proto::handshake::State<D>,
+) -> bool {
+    accepted_version(handshake)
+        .map(|v| v >= proto::handshake::n2n::LEIOS_MIN_VERSION)
+        .unwrap_or(false)
+}
+
 /// A unified message type that wraps all supported mini-protocol messages.
 #[derive(Debug, Clone)]
 pub enum AnyMessage {

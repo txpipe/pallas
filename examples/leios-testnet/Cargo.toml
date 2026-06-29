@@ -10,6 +10,7 @@ release = false
 
 [dependencies]
 pallas-network2 = { path = "../../pallas-network2" }
+pallas-codec = { path = "../../pallas-codec" }
 hex = "0.4.3"
 tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros", "time"] }
 tracing = "0.1.41"

@@ -146,7 +146,7 @@ impl<I: Interface<AnyMessage>> MyNode<I> {
             InitiatorEvent::EbNotification(pid, _) => {
                 tracing::info!(%pid, "leios notification received");
             }
-            InitiatorEvent::EbFetched(pid, _) => {
+            InitiatorEvent::EbFetched(pid, _, _) => {
                 tracing::info!(%pid, "leios fetch received");
             }
         }

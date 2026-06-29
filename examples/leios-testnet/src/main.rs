@@ -25,8 +25,10 @@
 //! RUST_LOG=info cargo run -p leios-testnet
 //! ```
 
+use std::collections::HashMap;
 use std::time::Duration;
 
+use pallas_codec::minicbor::{Decoder, data::Type};
 use pallas_network2::{
     Manager, PeerId,
     behavior::{
@@ -38,7 +40,7 @@ use pallas_network2::{
     },
     interface::TcpInterface,
     protocol::{
-        Point,
+        Bitmaps, EbId, Point,
         handshake::n2n::{LEIOS_MIN_VERSION, VersionTable},
         leiosfetch, leiosnotify,
     },
@@ -60,12 +62,21 @@ const LEIOS_TESTNET_MAGIC: u64 = 164;
 ///
 /// The Musashi testnet resets periodically; if sync stalls or the intersection
 /// is not found, replace this with a current point from the chain.
-const INTERSECT_SLOT: u64 = 2674552;
-const INTERSECT_HASH: &str = "01dc560bb3bb07a1f7c01f8f7c968c6e23d67126ee84232c43cca77ec4666e82";
+const INTERSECT_SLOT: u64 = 2724123;
+const INTERSECT_HASH: &str = "daea7e4b9754244bceb713b269771756450d2fe19ee551f7cb24ba65fa841aeb";
+
+/// How many of an EB's transactions to fetch per request. We only request txs a
+/// peer has offered (so it holds the closure), and bound each request to one
+/// 64-tx bitmap window — requesting a whole large EB at once can exceed the
+/// relay's per-response limits. A real client pages across windows as needed.
+const MAX_TXS_PER_FETCH: usize = 64;
 
 struct LeiosNode {
     network: Manager<TcpInterface<AnyMessage>, InitiatorBehavior, AnyMessage>,
     housekeeping_interval: Interval,
+    /// Transaction count per EB, learned by decoding the EB body. Used to size a
+    /// correct tx bitmap when the peer later offers that EB's transactions.
+    eb_tx_counts: HashMap<EbId, usize>,
 }
 
 impl LeiosNode {
@@ -92,6 +103,7 @@ impl LeiosNode {
         Self {
             network,
             housekeeping_interval: tokio::time::interval(Duration::from_secs(3)),
+            eb_tx_counts: HashMap::new(),
         }
     }
 
@@ -112,15 +124,15 @@ impl LeiosNode {
 
             // --- Praos chain-sync (runs underneath Leios) ---
             InitiatorEvent::IntersectionFound(pid, point, tip) => {
-                tracing::info!(%pid, ?point, tip_slot = tip.0.slot_or_default(), "intersection found");
+                tracing::info!(%pid, ?point, tip = %fmt_eb(&tip.0), "intersection found");
                 self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
             InitiatorEvent::BlockHeaderReceived(pid, header, tip) => {
-                tracing::debug!(%pid, variant = header.variant, tip_block = tip.1, "header received");
+                tracing::info!(%pid, variant = header.variant, tip_block = tip.1, "header received");
                 self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
             InitiatorEvent::RollbackReceived(pid, point, tip) => {
-                tracing::debug!(%pid, ?point, tip_block = tip.1, "rollback received");
+                tracing::warn!(%pid, ?point, tip_block = tip.1, "rollback received");
                 self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
 
@@ -129,13 +141,22 @@ impl LeiosNode {
                 self.handle_notification(pid, notification);
             }
 
-            // --- Leios: pulled bodies / txs / votes (leios-fetch) ---
-            InitiatorEvent::EbFetched(pid, response) => match response {
+            // --- Leios: pulled bodies / txs (leios-fetch) ---
+            InitiatorEvent::EbFetched(pid, eb, response) => match response {
                 leiosfetch::Response::Block(body) => {
-                    tracing::info!(%pid, bytes = body.0.len(), "EB body fetched");
+                    // The EB body is a `{ tx_hash => size }` map; its entry count
+                    // is the EB's transaction count. Remember it so we can size a
+                    // correct tx bitmap once the peer offers the transactions.
+                    let n = eb_tx_count(&body.0);
+                    tracing::info!(%pid, eb = %fmt_eb(&eb), bytes = body.0.len(), txs = n, "EB body fetched");
+                    self.eb_tx_counts.insert(eb, n);
                 }
-                leiosfetch::Response::BlockTxs { txs, .. } => {
-                    tracing::info!(%pid, count = txs.len(), "EB transactions fetched");
+                leiosfetch::Response::BlockTxs { txs } => {
+                    let total: usize = txs.iter().map(|tx| tx.0.len()).sum();
+                    tracing::info!(%pid, eb = %fmt_eb(&eb), count = txs.len(), bytes = total, "EB transactions fetched");
+                    for (i, tx) in txs.iter().enumerate() {
+                        tracing::debug!(%pid, index = i, bytes = tx.0.len(), "  tx");
+                    }
                 }
             },
 
@@ -149,14 +170,33 @@ impl LeiosNode {
         match notification {
             leiosnotify::Notification::BlockOffer(eb_id, size) => {
                 tracing::info!(%pid, eb = %fmt_eb(&eb_id), size, "EB offered → fetching body");
-                // Showcase the notify → fetch round-trip: pull the offered body.
+                // Pull the body to learn the EB's tx count; we fetch the txs
+                // later, when the peer offers them (`BlockTxsOffer`).
                 self.network.execute(InitiatorCommand::FetchEb(pid, eb_id));
             }
             leiosnotify::Notification::BlockAnnouncement(raw) => {
                 tracing::info!(%pid, bytes = raw.0.len(), "EB announced");
             }
             leiosnotify::Notification::BlockTxsOffer(eb_id) => {
-                tracing::info!(%pid, eb = %fmt_eb(&eb_id), "EB transactions offered");
+                // The peer signals it holds this EB's transaction closure, so it
+                // can serve a BlockTxsRequest. Requesting txs a peer has NOT
+                // offered makes the prototype relay reset the connection, so we
+                // only fetch in response to this offer, sized from the body's tx
+                // count (learned when we fetched the body).
+                match self.eb_tx_counts.get(&eb_id).copied() {
+                    Some(n) if n > 0 => {
+                        let want = n.min(MAX_TXS_PER_FETCH);
+                        tracing::info!(%pid, eb = %fmt_eb(&eb_id), want, total = n, "txs offered → fetching");
+                        self.network.execute(InitiatorCommand::FetchEbTxs(
+                            pid,
+                            eb_id,
+                            Bitmaps::all(want),
+                        ));
+                    }
+                    _ => {
+                        tracing::info!(%pid, eb = %fmt_eb(&eb_id), "txs offered (body not yet fetched)");
+                    }
+                }
             }
             leiosnotify::Notification::Votes(votes) => {
                 tracing::info!(%pid, count = votes.len(), "votes received");
@@ -190,6 +230,27 @@ fn fmt_eb(eb: &Point) -> String {
     match eb {
         Point::Origin => "origin".to_string(),
         Point::Specific(slot, hash) => format!("{slot}@{}", hex::encode(hash)),
+    }
+}
+
+/// Counts the transactions in an EB body, which is a `{ tx_hash => size }` CBOR
+/// map — the number of entries is the transaction count.
+fn eb_tx_count(body: &[u8]) -> usize {
+    let mut d = Decoder::new(body);
+    match d.map() {
+        Ok(Some(n)) => n as usize,
+        // Indefinite-length map: count key/value pairs until the break marker.
+        Ok(None) => {
+            let mut n = 0;
+            while !matches!(d.datatype(), Ok(Type::Break)) {
+                if d.skip().is_err() || d.skip().is_err() {
+                    break;
+                }
+                n += 1;
+            }
+            n
+        }
+        Err(_) => 0,
     }
 }
 

@@ -178,9 +178,6 @@ pub type TxCbor = RawCbor;
 /// Raw CBOR of a single Leios vote (persistent or non-persistent).
 pub type VoteCbor = RawCbor;
 
-/// Raw CBOR of a Leios certificate.
-pub type CertCbor = RawCbor;
-
 /// A transaction-subset selector for [`super::leiosfetch`] block-txs requests.
 ///
 /// Each key indexes a 64-transaction window (window `n` covers txs
@@ -193,6 +190,44 @@ pub type CertCbor = RawCbor;
 /// deterministic).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Bitmaps(pub BTreeMap<u16, u64>);
+
+impl Bitmaps {
+    /// Selects the first `count` transactions of an EB (txs `0..count`).
+    ///
+    /// Transactions are addressed within 64-tx windows; tx `i` of a window is the
+    /// **most-significant** bit (tx 0 → bit 63), matching the wire convention.
+    /// `count == 0` selects nothing.
+    pub fn all(count: usize) -> Self {
+        let mut m = BTreeMap::new();
+        let mut remaining = count;
+        let mut window = 0u16;
+        while remaining > 0 {
+            let bits = remaining.min(64);
+            // Top `bits` bits set (MSB-first: tx 0 of the window is bit 63).
+            let mask = if bits == 64 {
+                u64::MAX
+            } else {
+                !((1u64 << (64 - bits)) - 1)
+            };
+            m.insert(window, mask);
+            remaining -= bits;
+            window += 1;
+        }
+        Bitmaps(m)
+    }
+
+    /// Selects the transactions at the given sequence indices within an EB, using
+    /// the same MSB-first 64-tx window convention as [`Bitmaps::all`].
+    pub fn from_indices(indices: impl IntoIterator<Item = usize>) -> Self {
+        let mut m = BTreeMap::new();
+        for offset in indices {
+            let window = (offset / 64) as u16;
+            let bit = 63 - (offset % 64);
+            *m.entry(window).or_insert(0) |= 1u64 << bit;
+        }
+        Bitmaps(m)
+    }
+}
 
 impl Encode<()> for Bitmaps {
     fn encode<W: encode::Write>(
@@ -223,6 +258,24 @@ impl<'b> Decode<'b, ()> for Bitmaps {
 mod leios_tests {
     use super::*;
     use pallas_codec::minicbor;
+
+    #[test]
+    fn bitmaps_all_is_msb_first() {
+        assert_eq!(Bitmaps::all(0).0.len(), 0);
+        assert_eq!(Bitmaps::all(1).0.get(&0), Some(&(1u64 << 63)));
+        assert_eq!(Bitmaps::all(64).0.get(&0), Some(&u64::MAX));
+        let two = Bitmaps::all(65);
+        assert_eq!(two.0.get(&0), Some(&u64::MAX));
+        assert_eq!(two.0.get(&1), Some(&(1u64 << 63)));
+    }
+
+    #[test]
+    fn bitmaps_from_indices_is_msb_first() {
+        // tx 0 -> window 0 bit 63; tx 65 -> window 1 bit 62.
+        let b = Bitmaps::from_indices([0usize, 65]);
+        assert_eq!(b.0.get(&0), Some(&(1u64 << 63)));
+        assert_eq!(b.0.get(&1), Some(&(1u64 << 62)));
+    }
 
     #[test]
     fn bitmaps_encode_is_indefinite() {

@@ -134,19 +134,12 @@ impl ResponderState {
 
     /// Returns the negotiated N2N protocol version, if the handshake completed.
     pub fn accepted_version(&self) -> Option<u64> {
-        match &self.handshake {
-            proto::handshake::State::Done(proto::handshake::DoneState::Accepted(num, _)) => {
-                Some(*num)
-            }
-            _ => None,
-        }
+        super::accepted_version(&self.handshake)
     }
 
     /// Returns true if the negotiated version carries the Leios overlay.
     pub fn supports_leios(&self) -> bool {
-        self.accepted_version()
-            .map(|v| v >= proto::handshake::n2n::LEIOS_MIN_VERSION)
-            .unwrap_or(false)
+        super::supports_leios(&self.handshake)
     }
 
     fn record_violation(&self, protocol: &'static str) {

@@ -39,18 +39,15 @@ pub enum Message {
     Done,
 }
 
-/// A response delivered by the server, retained in the idle state until the
-/// consumer drains it (mirrors the chain-sync `Data` idiom).
+/// A response delivered by the server, retained (with the EB it answers) in the
+/// idle state until the consumer drains it (mirrors the chain-sync `Data` idiom).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Response {
     /// An EB body (raw CBOR).
     Block(EndorserBlockCbor),
-    /// Transactions delivered for an EB.
+    /// Transactions delivered for an EB. (The echoed point/bitmaps from the wire
+    /// are dropped — the EB is carried alongside the response by the state.)
     BlockTxs {
-        /// Echoed EB point.
-        point: EbId,
-        /// Echoed bitmap selector.
-        bitmaps: Bitmaps,
         /// The delivered transactions.
         txs: Vec<TxCbor>,
     },
@@ -59,12 +56,12 @@ pub enum Response {
 /// State machine for the leios-fetch mini-protocol.
 ///
 /// The `Awaiting*` states retain the request parameters so a responder can serve
-/// them; the `Idle` state retains the delivered response until the consumer
-/// drains it.
+/// them; the `Idle` state retains the delivered response — paired with the
+/// [`EbId`] it answers — until the consumer drains it.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum State {
     /// Client has agency; can issue a request or finish.
-    Idle(Option<Response>),
+    Idle(Option<(EbId, Response)>),
     /// Server has agency; will deliver the requested EB body.
     AwaitingBlock(EbId),
     /// Server has agency; will deliver transactions for the requested EB.
@@ -89,29 +86,29 @@ impl State {
                 Message::Done => Ok(State::Done),
                 _ => Err(Error::InvalidOutbound),
             },
-            State::AwaitingBlock(_) => match msg {
-                Message::Block(b) => Ok(State::Idle(Some(Response::Block(b.clone())))),
+            State::AwaitingBlock(eb) => match msg {
+                Message::Block(b) => {
+                    Ok(State::Idle(Some((eb.clone(), Response::Block(b.clone())))))
+                }
                 _ => Err(Error::InvalidInbound),
             },
-            State::AwaitingBlockTxs(..) => match msg {
-                Message::BlockTxs {
-                    point,
-                    bitmaps,
-                    txs,
-                } => Ok(State::Idle(Some(Response::BlockTxs {
-                    point: point.clone(),
-                    bitmaps: bitmaps.clone(),
-                    txs: txs.clone(),
-                }))),
+            State::AwaitingBlockTxs(eb, _) => match msg {
+                // The wire form echoes point/bitmaps; we keep only the txs and pair
+                // them with the EB from our request state.
+                Message::BlockTxs { txs, .. } => Ok(State::Idle(Some((
+                    eb.clone(),
+                    Response::BlockTxs { txs: txs.clone() },
+                )))),
                 _ => Err(Error::InvalidInbound),
             },
             State::Done => Err(Error::InvalidOutbound),
         }
     }
 
-    /// Takes any pending response, leaving the state idle. Returns `None` if
-    /// there is nothing to drain or the protocol is not idle.
-    pub fn drain(&mut self) -> Option<Response> {
+    /// Takes any pending response (with the EB it answers), leaving the state
+    /// idle. Returns `None` if there is nothing to drain or the protocol is not
+    /// idle.
+    pub fn drain(&mut self) -> Option<(EbId, Response)> {
         match self {
             State::Idle(r) => r.take(),
             _ => None,
@@ -262,8 +259,14 @@ mod tests {
         let mut idle = State::AwaitingBlock(point())
             .apply(&Message::Block(raw([1, 2, 3])))
             .unwrap();
-        assert_eq!(idle, State::Idle(Some(Response::Block(raw([1, 2, 3])))));
-        assert_eq!(idle.drain(), Some(Response::Block(raw([1, 2, 3]))));
+        assert_eq!(
+            idle,
+            State::Idle(Some((point(), Response::Block(raw([1, 2, 3])))))
+        );
+        assert_eq!(
+            idle.drain(),
+            Some((point(), Response::Block(raw([1, 2, 3]))))
+        );
         assert_eq!(idle, State::Idle(None));
         assert_eq!(idle.drain(), None);
     }

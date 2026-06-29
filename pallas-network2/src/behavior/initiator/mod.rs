@@ -207,19 +207,12 @@ impl InitiatorState {
 
     /// Returns the negotiated N2N protocol version, if the handshake completed.
     pub fn accepted_version(&self) -> Option<u64> {
-        match &self.handshake {
-            proto::handshake::State::Done(proto::handshake::DoneState::Accepted(num, _)) => {
-                Some(*num)
-            }
-            _ => None,
-        }
+        super::accepted_version(&self.handshake)
     }
 
     /// Returns true if the negotiated version carries the Leios overlay.
     pub fn supports_leios(&self) -> bool {
-        self.accepted_version()
-            .map(|v| v >= proto::handshake::n2n::LEIOS_MIN_VERSION)
-            .unwrap_or(false)
+        super::supports_leios(&self.handshake)
     }
 
     /// Applies a message to the corresponding mini-protocol state machine.
@@ -387,8 +380,8 @@ pub enum InitiatorEvent {
     TxRequested(PeerId, proto::txsubmission::EraTxId),
     /// An EB announcement or offer was received via leios-notify.
     EbNotification(PeerId, proto::leiosnotify::Notification),
-    /// An EB body, transactions or votes were received via leios-fetch.
-    EbFetched(PeerId, proto::leiosfetch::Response),
+    /// An EB body or transactions were received via leios-fetch, for the given EB.
+    EbFetched(PeerId, proto::EbId, proto::leiosfetch::Response),
 }
 
 /// The main initiator behavior that orchestrates outbound Cardano connections.
