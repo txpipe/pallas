@@ -636,7 +636,7 @@ impl Behavior for InitiatorBehavior {
 mod tests {
     use super::*;
     use crate::protocol::{
-        MAINNET_MAGIC, Point, RawCbor, blockfetch as bf, chainsync as cs, handshake, keepalive,
+        AnyCbor, MAINNET_MAGIC, Point, blockfetch as bf, chainsync as cs, handshake, keepalive,
         leiosfetch as lf, leiosnotify as ln, peersharing,
     };
     use crate::testing::BehaviorOutputExt;
@@ -1054,7 +1054,8 @@ mod tests {
         ));
         drain_outputs(&mut behavior);
 
-        let block = AnyMessage::LeiosFetch(lf::Message::Block(RawCbor(vec![1, 2, 3])));
+        let block =
+            AnyMessage::LeiosFetch(lf::Message::Block(AnyCbor::from_raw_bytes(vec![1, 2, 3])));
         behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![block]));
         let outputs = drain_outputs(&mut behavior);
         assert!(

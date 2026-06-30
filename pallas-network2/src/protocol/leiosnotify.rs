@@ -12,13 +12,13 @@
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
-use super::{EbId, Error, RawCbor};
+use super::{AnyCbor, EbId, Error};
 
 /// Protocol channel number for node-to-node leios-notify.
 pub const CHANNEL_ID: u16 = 18;
 
 /// Raw CBOR of a single Leios vote (persistent or non-persistent).
-pub type VoteCbor = RawCbor;
+pub type VoteCbor = AnyCbor;
 
 /// A leios-notify mini-protocol message.
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ pub enum Message {
     /// Client requests the next notification.
     RequestNext,
     /// Server announces an EB via the raw CBOR of the announcing RB header.
-    BlockAnnouncement(RawCbor),
+    BlockAnnouncement(AnyCbor),
     /// Server offers an EB body it can deliver, with its size in bytes.
     BlockOffer(EbId, u32),
     /// Server offers the transactions of an EB it can deliver.
@@ -42,7 +42,7 @@ pub enum Message {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Notification {
     /// An EB announcement (raw CBOR of the announcing RB header).
-    BlockAnnouncement(RawCbor),
+    BlockAnnouncement(AnyCbor),
     /// An EB body is available, with its size in bytes.
     BlockOffer(EbId, u32),
     /// The transactions of an EB are available.
@@ -186,12 +186,14 @@ mod tests {
     fn message_roundtrips() {
         let cases = vec![
             Message::RequestNext,
-            Message::BlockAnnouncement(RawCbor(minicbor::to_vec([1u8, 2, 3]).unwrap())),
+            Message::BlockAnnouncement(AnyCbor::from_raw_bytes(
+                minicbor::to_vec([1u8, 2, 3]).unwrap(),
+            )),
             Message::BlockOffer(point(), 12345),
             Message::BlockTxsOffer(point()),
             Message::Votes(vec![
-                RawCbor(minicbor::to_vec([9u8, 8, 7, 6]).unwrap()),
-                RawCbor(minicbor::to_vec([5u8, 4, 3, 2]).unwrap()),
+                AnyCbor::from_raw_bytes(minicbor::to_vec([9u8, 8, 7, 6]).unwrap()),
+                AnyCbor::from_raw_bytes(minicbor::to_vec([5u8, 4, 3, 2]).unwrap()),
             ]),
             Message::Done,
         ];
@@ -277,7 +279,7 @@ mod tests {
             .unwrap()
             .bytes(&[0xEE; 48])
             .unwrap();
-        RawCbor(buf)
+        AnyCbor::from_raw_bytes(buf)
     }
 
     conforms!(
@@ -290,7 +292,9 @@ mod tests {
         block_announcement_conforms,
         self_contained,
         "msgLeiosBlockAnnouncement",
-        Message::BlockAnnouncement(RawCbor(minicbor::to_vec([1u8, 2, 3]).unwrap()))
+        Message::BlockAnnouncement(AnyCbor::from_raw_bytes(
+            minicbor::to_vec([1u8, 2, 3]).unwrap()
+        ))
     );
     conforms!(
         block_offer_conforms,

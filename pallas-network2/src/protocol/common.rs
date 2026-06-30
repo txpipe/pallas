@@ -122,79 +122,12 @@ impl<'b> Decode<'b, ()> for Point {
 // ---------------------------------------------------------------------------
 // Leios shared wire primitives
 //
-// These types are shared across the Leios mini-protocols (`leiosnotify`,
-// `leiosfetch`). They live here next to [`Point`] following the same convention
-// used for other cross-protocol types.
+// Reference to an Endorser Block, shared across the Leios mini-protocols
+// (`leiosnotify`, `leiosfetch`). It lives here next to [`Point`] following the
+// same convention used for other cross-protocol types. Heavy payloads (EB
+// bodies, transactions, votes) are carried as verbatim CBOR via
+// [`pallas_codec::utils::AnyCbor`] in the owning protocol modules.
 // ---------------------------------------------------------------------------
 
 /// Reference to an Endorser Block, encoded as a `[slot, eb_hash]` point.
-///
-/// Wire-compatible with the `pcommon.Point` used by the Go reference
-/// implementation for EB references.
 pub type EbId = Point;
-
-/// A pre-encoded CBOR item embedded verbatim into a message.
-///
-/// The Leios mini-protocols carry heavy payloads (EB bodies, transactions,
-/// votes) as raw CBOR spliced directly into the message array — the equivalent
-/// of Go's `cbor.RawMessage`. Note this is **not** the tag-24 ("CBOR-in-CBOR")
-/// byte-string wrapping used by [`super::blockfetch::Message::Block`] or
-/// chain-sync headers: the bytes are the encoded item itself, written and read
-/// in place. Structural decoding of the payload is deferred to higher layers
-/// (e.g. `pallas-primitives`).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawCbor(pub Vec<u8>);
-
-impl<C> Encode<C> for RawCbor {
-    fn encode<W: encode::Write>(
-        &self,
-        e: &mut Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), encode::Error<W::Error>> {
-        e.writer_mut()
-            .write_all(&self.0)
-            .map_err(encode::Error::write)
-    }
-}
-
-impl<'b, C> Decode<'b, C> for RawCbor {
-    fn decode(d: &mut Decoder<'b>, _ctx: &mut C) -> Result<Self, decode::Error> {
-        let all = d.input();
-        let start = d.position();
-        d.skip()?;
-        let end = d.position();
-
-        Ok(RawCbor(all[start..end].to_vec()))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pallas_codec::minicbor;
-
-    #[test]
-    fn raw_cbor_embeds_verbatim() {
-        // Encode a wrapper [1, <raw>] where <raw> is a pre-encoded array [1,2,3].
-        let inner = minicbor::to_vec([1u32, 2, 3]).unwrap();
-        let raw = RawCbor(inner.clone());
-
-        let mut buf = Vec::new();
-        let mut enc = Encoder::new(&mut buf);
-        enc.array(2).unwrap();
-        enc.u16(1).unwrap();
-        enc.encode(&raw).unwrap();
-
-        // The raw item must appear byte-for-byte (not byte-string wrapped).
-        let header = [0x82u8, 0x01]; // array(2), 1
-        assert_eq!(&buf[..2], &header);
-        assert_eq!(&buf[2..], inner.as_slice());
-
-        // And it round-trips back to the same bytes.
-        let mut dec = Decoder::new(&buf);
-        dec.array().unwrap();
-        let _: u16 = dec.u16().unwrap();
-        let back: RawCbor = dec.decode().unwrap();
-        assert_eq!(back, raw);
-    }
-}

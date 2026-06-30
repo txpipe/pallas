@@ -13,16 +13,16 @@ use std::collections::BTreeMap;
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
-use super::{EbId, Error, RawCbor};
+use super::{AnyCbor, EbId, Error};
 
 /// Protocol channel number for node-to-node leios-fetch.
 pub const CHANNEL_ID: u16 = 19;
 
 /// Raw CBOR of an Endorser Block body (`{ hash32 => word32 }`).
-pub type EndorserBlockCbor = RawCbor;
+pub type EndorserBlockCbor = AnyCbor;
 
 /// Raw CBOR of a single transaction.
-pub type TxCbor = RawCbor;
+pub type TxCbor = AnyCbor;
 
 /// A transaction-subset selector for leios-fetch block-txs requests.
 ///
@@ -273,10 +273,10 @@ impl<'b> Decode<'b, ()> for Message {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::Point;
     #[cfg(feature = "blueprint")]
     use crate::protocol::cddl;
     use crate::protocol::cddl::conforms;
-    use crate::protocol::{Point, RawCbor};
     use pallas_codec::minicbor;
     use std::collections::BTreeMap;
 
@@ -290,8 +290,8 @@ mod tests {
         Bitmaps(m)
     }
 
-    fn raw(bytes: [u8; 3]) -> RawCbor {
-        RawCbor(minicbor::to_vec(bytes).unwrap())
+    fn raw(bytes: [u8; 3]) -> AnyCbor {
+        AnyCbor::from_raw_bytes(minicbor::to_vec(bytes).unwrap())
     }
 
     fn reencode(msg: &Message) -> Vec<u8> {
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn message_roundtrips() {
         roundtrip_eq(&Message::BlockRequest(point()));
-        roundtrip_eq(&Message::Block(RawCbor(
+        roundtrip_eq(&Message::Block(AnyCbor::from_raw_bytes(
             minicbor::to_vec([1u8, 2]).unwrap(),
         )));
         roundtrip_eq(&Message::BlockTxsRequest(point(), bitmaps()));
@@ -428,7 +428,7 @@ mod tests {
     // with our `Encode` impl and validates the bytes against the vendored
     // cardano-blueprint leios-fetch CDDL (via the shared `cddl` helper),
     // so a spec change (tag, arity, the bitmaps shape) fails the matching test.
-    // The EB body / txs are opaque `RawCbor` here, so they are validated as `any`.
+    // The EB body / txs are opaque raw CBOR here, so they are validated as `any`.
 
     /// Turns the vendored leios-fetch CDDL into a schema cddl-rs can parse. On top
     /// of the shared preprocessing this relaxes the opaque sub-structures (the EB

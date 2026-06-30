@@ -285,7 +285,7 @@ pub enum ResponderCommand {
     /// Send a list of peer addresses to a peer via peer-sharing.
     ProvidePeers(PeerId, Vec<proto::peersharing::PeerAddress>),
     /// Announce an EB to a peer via leios-notify (raw RB header CBOR).
-    ProvideEbAnnouncement(PeerId, proto::RawCbor),
+    ProvideEbAnnouncement(PeerId, proto::AnyCbor),
     /// Offer an EB body to a peer via leios-notify, with its size in bytes.
     ProvideEbOffer(PeerId, proto::EbId, u32),
     /// Offer an EB's transactions to a peer via leios-notify.

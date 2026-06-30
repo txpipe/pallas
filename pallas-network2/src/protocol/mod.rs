@@ -15,6 +15,7 @@ pub mod peersharing;
 pub mod txsubmission;
 
 pub use common::*;
+pub use pallas_codec::utils::AnyCbor;
 
 /// Errors that can occur when applying a message to a mini-protocol state
 /// machine.

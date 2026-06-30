@@ -134,7 +134,7 @@ mod tests {
     use super::*;
     use crate::protocol::Point;
     use crate::protocol::leiosfetch::Response;
-    use crate::protocol::{RawCbor, leiosfetch as lf};
+    use crate::protocol::{AnyCbor, leiosfetch as lf};
     use crate::{OutboundQueue, behavior::ConnectionState};
 
     fn drain_outputs(
@@ -150,8 +150,10 @@ mod tests {
         let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
-        state.leios_fetch =
-            lf::State::Idle(Some((Point::Origin, Response::Block(RawCbor(vec![0x01])))));
+        state.leios_fetch = lf::State::Idle(Some((
+            Point::Origin,
+            Response::Block(AnyCbor::from_raw_bytes(vec![0x01])),
+        )));
 
         b.dispatch(&pid, &mut state, &mut outbound);
         assert!(drain_outputs(&mut outbound).iter().any(|o| matches!(

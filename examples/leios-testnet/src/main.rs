@@ -147,15 +147,15 @@ impl LeiosNode {
                     // The EB body is a `{ tx_hash => size }` map; its entry count
                     // is the EB's transaction count. Remember it so we can size a
                     // correct tx bitmap once the peer offers the transactions.
-                    let n = eb_tx_count(&body.0);
-                    tracing::info!(%pid, eb = %fmt_eb(&eb), bytes = body.0.len(), txs = n, "EB body fetched");
+                    let n = eb_tx_count(body.raw_bytes());
+                    tracing::info!(%pid, eb = %fmt_eb(&eb), bytes = body.raw_bytes().len(), txs = n, "EB body fetched");
                     self.eb_tx_counts.insert(eb, n);
                 }
                 leiosfetch::Response::BlockTxs { txs } => {
-                    let total: usize = txs.iter().map(|tx| tx.0.len()).sum();
+                    let total: usize = txs.iter().map(|tx| tx.raw_bytes().len()).sum();
                     tracing::info!(%pid, eb = %fmt_eb(&eb), count = txs.len(), bytes = total, "EB transactions fetched");
                     for (i, tx) in txs.iter().enumerate() {
-                        tracing::debug!(%pid, index = i, bytes = tx.0.len(), "  tx");
+                        tracing::debug!(%pid, index = i, bytes = tx.raw_bytes().len(), "  tx");
                     }
                 }
             },
@@ -175,7 +175,7 @@ impl LeiosNode {
                 self.network.execute(InitiatorCommand::FetchEb(pid, eb_id));
             }
             leiosnotify::Notification::BlockAnnouncement(raw) => {
-                tracing::info!(%pid, bytes = raw.0.len(), "EB announced");
+                tracing::info!(%pid, bytes = raw.raw_bytes().len(), "EB announced");
             }
             leiosnotify::Notification::BlockTxsOffer(eb_id) => {
                 // The peer signals it holds this EB's transaction closure, so it

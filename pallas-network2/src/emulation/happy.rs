@@ -135,7 +135,8 @@ fn reply_leios_fetch_ok(
         proto::leiosfetch::Message::BlockRequest(_) => {
             tracing::debug!("received leios block request");
 
-            let block = proto::leiosfetch::Message::Block(proto::RawCbor(b"abc".to_vec()));
+            let block =
+                proto::leiosfetch::Message::Block(proto::AnyCbor::from_raw_bytes(b"abc".to_vec()));
             queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(block), Duration::from_secs(0));
         }
         proto::leiosfetch::Message::BlockTxsRequest(point, bitmaps) => {
