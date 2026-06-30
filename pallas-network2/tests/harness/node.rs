@@ -91,6 +91,10 @@ impl ResponderNode {
                     ResponderEvent::TxReceived(pid, _) => {
                         tracing::info!(%pid, "responder: tx received");
                     }
+                    // Leios responder events are not exercised by this harness.
+                    ResponderEvent::EbNotificationRequested(..)
+                    | ResponderEvent::EbRequested(..)
+                    | ResponderEvent::EbTxsRequested(..) => {}
                 }
 
                 events.push(event);

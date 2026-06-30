@@ -1233,6 +1233,13 @@ pub struct AnyCbor {
 }
 
 impl AnyCbor {
+    /// Wraps already-encoded CBOR bytes verbatim, without re-encoding. Use this
+    /// to embed a pre-serialized CBOR item; contrast with [`AnyCbor::from_encode`],
+    /// which encodes a value into CBOR.
+    pub fn from_raw_bytes(inner: Vec<u8>) -> Self {
+        Self { inner }
+    }
+
     pub fn raw_bytes(&self) -> &[u8] {
         &self.inner
     }
@@ -1254,6 +1261,13 @@ impl AnyCbor {
         for<'b> T: Decode<'b, ()>,
     {
         minicbor::decode(&self.inner)
+    }
+}
+
+impl From<Vec<u8>> for AnyCbor {
+    /// Wraps already-encoded CBOR bytes verbatim (see [`AnyCbor::from_raw_bytes`]).
+    fn from(inner: Vec<u8>) -> Self {
+        Self { inner }
     }
 }
 

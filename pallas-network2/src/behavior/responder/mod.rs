@@ -15,6 +15,8 @@ pub mod chainsync;
 pub mod connection;
 pub mod handshake;
 pub mod keepalive;
+pub mod leiosfetch;
+pub mod leiosnotify;
 pub mod peersharing;
 pub mod txsubmission;
 
@@ -93,6 +95,8 @@ pub struct ResponderState {
     pub(crate) blockfetch: proto::blockfetch::State,
     pub(crate) chainsync: proto::chainsync::State<proto::chainsync::HeaderContent>,
     pub(crate) tx_submission: proto::txsubmission::State,
+    pub(crate) leios_notify: proto::leiosnotify::State,
+    pub(crate) leios_fetch: proto::leiosfetch::State,
     pub(crate) violation: bool,
     pub(crate) error_count: u32,
     pub(crate) violations_counter: Option<opentelemetry::metrics::Counter<u64>>,
@@ -126,6 +130,16 @@ impl ResponderState {
             }
             _ => None,
         }
+    }
+
+    /// Returns the negotiated N2N protocol version, if the handshake completed.
+    pub fn accepted_version(&self) -> Option<u64> {
+        super::accepted_version(&self.handshake)
+    }
+
+    /// Returns true if the negotiated version carries the Leios overlay.
+    pub fn supports_leios(&self) -> bool {
+        super::supports_leios(&self.handshake)
     }
 
     fn record_violation(&self, protocol: &'static str) {
@@ -209,6 +223,30 @@ impl ResponderState {
 
                 self.tx_submission = new;
             }
+            AnyMessage::LeiosNotify(msg) => {
+                let result = self.leios_notify.apply(msg);
+
+                let Ok(new) = result else {
+                    tracing::warn!("leios notify violation");
+                    self.violation = true;
+                    self.record_violation("leiosnotify");
+                    return;
+                };
+
+                self.leios_notify = new;
+            }
+            AnyMessage::LeiosFetch(msg) => {
+                let result = self.leios_fetch.apply(msg);
+
+                let Ok(new) = result else {
+                    tracing::warn!("leios fetch violation");
+                    self.violation = true;
+                    self.record_violation("leiosfetch");
+                    return;
+                };
+
+                self.leios_fetch = new;
+            }
         }
     }
 
@@ -221,6 +259,8 @@ impl ResponderState {
         self.blockfetch = proto::blockfetch::State::default();
         self.chainsync = proto::chainsync::State::default();
         self.tx_submission = proto::txsubmission::State::default();
+        self.leios_notify = proto::leiosnotify::State::default();
+        self.leios_fetch = proto::leiosfetch::State::default();
         self.violation = false;
     }
 }
@@ -244,6 +284,24 @@ pub enum ResponderCommand {
     ProvideBlocks(PeerId, Vec<proto::blockfetch::Body>),
     /// Send a list of peer addresses to a peer via peer-sharing.
     ProvidePeers(PeerId, Vec<proto::peersharing::PeerAddress>),
+    /// Announce an EB to a peer via leios-notify (raw RB header CBOR).
+    ProvideEbAnnouncement(PeerId, proto::AnyCbor),
+    /// Offer an EB body to a peer via leios-notify, with its size in bytes.
+    ProvideEbOffer(PeerId, proto::EbId, u32),
+    /// Offer an EB's transactions to a peer via leios-notify.
+    ProvideEbTxsOffer(PeerId, proto::EbId),
+    /// Diffuse full votes to a peer inline via leios-notify.
+    ProvideVotes(PeerId, Vec<proto::leiosnotify::VoteCbor>),
+    /// Deliver an EB body to a peer via leios-fetch.
+    ProvideEb(PeerId, proto::leiosfetch::EndorserBlockCbor),
+    /// Deliver EB transactions to a peer via leios-fetch, echoing the request's
+    /// point and bitmaps.
+    ProvideEbTxs(
+        PeerId,
+        proto::EbId,
+        proto::leiosfetch::Bitmaps,
+        Vec<proto::leiosfetch::TxCbor>,
+    ),
     /// Ban a peer and disconnect them.
     BanPeer(PeerId),
     /// Disconnect a peer gracefully.
@@ -267,6 +325,12 @@ pub enum ResponderEvent {
     PeersRequested(PeerId, u8),
     /// A transaction was received from a peer via tx-submission.
     TxReceived(PeerId, proto::txsubmission::EraTxBody),
+    /// A peer requested the next notification via leios-notify.
+    EbNotificationRequested(PeerId),
+    /// A peer requested an EB body via leios-fetch.
+    EbRequested(PeerId, proto::EbId),
+    /// A peer requested a subset of an EB's transactions via leios-fetch.
+    EbTxsRequested(PeerId, proto::EbId, proto::leiosfetch::Bitmaps),
 }
 
 /// The main responder behavior that handles inbound Cardano connections.
@@ -282,6 +346,8 @@ pub struct ResponderBehavior {
     pub blockfetch: blockfetch::BlockFetchResponder,
     pub peersharing: peersharing::PeerSharingResponder,
     pub txsubmission: txsubmission::TxSubmissionResponder,
+    pub leiosnotify: leiosnotify::LeiosNotifyResponder,
+    pub leiosfetch: leiosfetch::LeiosFetchResponder,
     pub peers: HashMap<PeerId, ResponderState>,
     pub outbound: OutboundQueue<Self>,
 
@@ -306,6 +372,8 @@ impl Default for ResponderBehavior {
             blockfetch: Default::default(),
             peersharing: Default::default(),
             txsubmission: Default::default(),
+            leiosnotify: Default::default(),
+            leiosfetch: Default::default(),
             peers: Default::default(),
             outbound: Default::default(),
             violations_counter,
@@ -324,6 +392,8 @@ macro_rules! all_visitors {
         $self
             .txsubmission
             .$method($pid, $state, &mut $self.outbound);
+        $self.leiosnotify.$method($pid, $state, &mut $self.outbound);
+        $self.leiosfetch.$method($pid, $state, &mut $self.outbound);
     };
 }
 
@@ -371,6 +441,14 @@ impl ResponderBehavior {
                 }
                 AnyMessage::TxSubmission(_) => {
                     self.txsubmission
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
+                }
+                AnyMessage::LeiosNotify(_) => {
+                    self.leiosnotify
+                        .visit_inbound_msg(pid, state, &mut self.outbound);
+                }
+                AnyMessage::LeiosFetch(_) => {
+                    self.leiosfetch
                         .visit_inbound_msg(pid, state, &mut self.outbound);
                 }
             }
@@ -515,6 +593,15 @@ impl ResponderBehavior {
             )));
     }
 
+    /// Pushes a single message to be sent to the given peer.
+    fn send_msg(&mut self, pid: &PeerId, msg: AnyMessage) {
+        self.outbound
+            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                pid.clone(),
+                msg,
+            )));
+    }
+
     fn ban_peer(&mut self, pid: &PeerId) {
         self.connection.banned_peers.insert(pid.clone());
         self.outbound.push_ready(BehaviorOutput::InterfaceCommand(
@@ -608,6 +695,46 @@ impl Behavior for ResponderBehavior {
             ResponderCommand::ProvidePeers(pid, peers) => {
                 tracing::debug!("provide peers command");
                 self.provide_peers(&pid, peers);
+            }
+            ResponderCommand::ProvideEbAnnouncement(pid, header) => {
+                self.send_msg(
+                    &pid,
+                    AnyMessage::LeiosNotify(proto::leiosnotify::Message::BlockAnnouncement(header)),
+                );
+            }
+            ResponderCommand::ProvideEbOffer(pid, point, size) => {
+                self.send_msg(
+                    &pid,
+                    AnyMessage::LeiosNotify(proto::leiosnotify::Message::BlockOffer(point, size)),
+                );
+            }
+            ResponderCommand::ProvideEbTxsOffer(pid, point) => {
+                self.send_msg(
+                    &pid,
+                    AnyMessage::LeiosNotify(proto::leiosnotify::Message::BlockTxsOffer(point)),
+                );
+            }
+            ResponderCommand::ProvideVotes(pid, votes) => {
+                self.send_msg(
+                    &pid,
+                    AnyMessage::LeiosNotify(proto::leiosnotify::Message::Votes(votes)),
+                );
+            }
+            ResponderCommand::ProvideEb(pid, block) => {
+                self.send_msg(
+                    &pid,
+                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::Block(block)),
+                );
+            }
+            ResponderCommand::ProvideEbTxs(pid, point, bitmaps, txs) => {
+                self.send_msg(
+                    &pid,
+                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::BlockTxs {
+                        point,
+                        bitmaps,
+                        txs,
+                    }),
+                );
             }
             ResponderCommand::BanPeer(pid) => {
                 tracing::debug!("ban peer command");

@@ -13,6 +13,8 @@ mod connection;
 mod discovery;
 mod handshake;
 mod keepalive;
+mod leiosfetch;
+mod leiosnotify;
 mod promotion;
 
 pub use blockfetch::*;
@@ -21,6 +23,8 @@ pub use connection::*;
 pub use discovery::*;
 pub use handshake::*;
 pub use keepalive::*;
+pub use leiosfetch::*;
+pub use leiosnotify::*;
 pub use promotion::*;
 
 /// A visitor trait that allows sub-behaviors to react to peer lifecycle events.
@@ -143,6 +147,8 @@ pub struct InitiatorState {
     pub(crate) blockfetch: proto::blockfetch::State,
     pub(crate) chainsync: proto::chainsync::State<proto::chainsync::HeaderContent>,
     pub(crate) tx_submission: proto::txsubmission::State,
+    pub(crate) leios_notify: proto::leiosnotify::State,
+    pub(crate) leios_fetch: proto::leiosfetch::State,
     pub(crate) violation: bool,
     pub(crate) error_count: u32,
     pub(crate) continue_sync: bool,
@@ -160,6 +166,8 @@ impl InitiatorState {
             blockfetch: proto::blockfetch::State::default(),
             chainsync: crate::protocol::chainsync::State::default(),
             tx_submission: crate::protocol::txsubmission::State::default(),
+            leios_notify: proto::leiosnotify::State::default(),
+            leios_fetch: proto::leiosfetch::State::default(),
             violation: false,
             error_count: 0,
             continue_sync: false,
@@ -195,6 +203,16 @@ impl InitiatorState {
             .unwrap_or(0);
 
         val > 0
+    }
+
+    /// Returns the negotiated N2N protocol version, if the handshake completed.
+    pub fn accepted_version(&self) -> Option<u64> {
+        super::accepted_version(&self.handshake)
+    }
+
+    /// Returns true if the negotiated version carries the Leios overlay.
+    pub fn supports_leios(&self) -> bool {
+        super::supports_leios(&self.handshake)
     }
 
     /// Applies a message to the corresponding mini-protocol state machine.
@@ -266,6 +284,28 @@ impl InitiatorState {
 
                 self.tx_submission = new;
             }
+            AnyMessage::LeiosNotify(msg) => {
+                let result = self.leios_notify.apply(msg);
+
+                let Ok(new) = result else {
+                    tracing::warn!("leios notify violation");
+                    self.violation = true;
+                    return;
+                };
+
+                self.leios_notify = new;
+            }
+            AnyMessage::LeiosFetch(msg) => {
+                let result = self.leios_fetch.apply(msg);
+
+                let Ok(new) = result else {
+                    tracing::warn!("leios fetch violation");
+                    self.violation = true;
+                    return;
+                };
+
+                self.leios_fetch = new;
+            }
         }
     }
 
@@ -279,6 +319,8 @@ impl InitiatorState {
         self.blockfetch = proto::blockfetch::State::default();
         self.chainsync = proto::chainsync::State::default();
         self.tx_submission = proto::txsubmission::State::default();
+        self.leios_notify = proto::leiosnotify::State::default();
+        self.leios_fetch = proto::leiosfetch::State::default();
         self.continue_sync = false;
         self.violation = false;
     }
@@ -307,6 +349,10 @@ pub enum InitiatorCommand {
         proto::txsubmission::EraTxId,
         proto::txsubmission::EraTxBody,
     ),
+    /// Request a complete EB body from a peer (leios-fetch).
+    FetchEb(PeerId, proto::EbId),
+    /// Request a subset of an EB's transactions from a peer (leios-fetch).
+    FetchEbTxs(PeerId, proto::EbId, proto::leiosfetch::Bitmaps),
     /// Ban a peer, preventing future connections.
     BanPeer(PeerId),
     /// Demote a peer back to cold status.
@@ -332,6 +378,10 @@ pub enum InitiatorEvent {
     BlockBodyReceived(PeerId, proto::blockfetch::Body),
     /// The remote peer requested a transaction via tx-submission.
     TxRequested(PeerId, proto::txsubmission::EraTxId),
+    /// An EB announcement or offer was received via leios-notify.
+    EbNotification(PeerId, proto::leiosnotify::Notification),
+    /// An EB body or transactions were received via leios-fetch, for the given EB.
+    EbFetched(PeerId, proto::EbId, proto::leiosfetch::Response),
 }
 
 /// The main initiator behavior that orchestrates outbound Cardano connections.
@@ -348,6 +398,8 @@ pub struct InitiatorBehavior {
     pub discovery: discovery::DiscoveryBehavior,
     pub blockfetch: blockfetch::BlockFetchBehavior,
     pub chainsync: chainsync::ChainSyncBehavior,
+    pub leiosnotify: leiosnotify::LeiosNotifyBehavior,
+    pub leiosfetch: leiosfetch::LeiosFetchBehavior,
     pub peers: HashMap<PeerId, InitiatorState>,
     pub outbound: OutboundQueue<Self>,
 }
@@ -361,6 +413,8 @@ macro_rules! all_visitors {
         $self.discovery.$method($pid, $state, &mut $self.outbound);
         $self.blockfetch.$method($pid, $state, &mut $self.outbound);
         $self.chainsync.$method($pid, $state, &mut $self.outbound);
+        $self.leiosnotify.$method($pid, $state, &mut $self.outbound);
+        $self.leiosfetch.$method($pid, $state, &mut $self.outbound);
     };
 }
 
@@ -564,6 +618,16 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::SendTx(..) => {
                 tracing::warn!("SendTx not yet implemented");
             }
+            InitiatorCommand::FetchEb(pid, point) => {
+                tracing::debug!("fetch eb command");
+                self.leiosfetch
+                    .enqueue(pid, leiosfetch::FetchRequest::Block(point));
+            }
+            InitiatorCommand::FetchEbTxs(pid, point, bitmaps) => {
+                tracing::debug!("fetch eb txs command");
+                self.leiosfetch
+                    .enqueue(pid, leiosfetch::FetchRequest::BlockTxs(point, bitmaps));
+            }
         }
     }
 }
@@ -572,7 +636,8 @@ impl Behavior for InitiatorBehavior {
 mod tests {
     use super::*;
     use crate::protocol::{
-        MAINNET_MAGIC, Point, blockfetch as bf, chainsync as cs, handshake, keepalive, peersharing,
+        AnyCbor, MAINNET_MAGIC, Point, blockfetch as bf, chainsync as cs, handshake, keepalive,
+        leiosfetch as lf, leiosnotify as ln, peersharing,
     };
     use crate::testing::BehaviorOutputExt;
     use crate::{InterfaceError, InterfaceEvent};
@@ -604,6 +669,23 @@ mod tests {
         drain_outputs(behavior);
 
         let accept = AnyMessage::Handshake(handshake::Message::Accept(13, version_data));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![accept]));
+        drain_outputs(behavior);
+    }
+
+    /// Completes a handshake negotiating a Leios-capable version (15).
+    fn complete_handshake_leios(behavior: &mut InitiatorBehavior, pid: &PeerId) {
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let mut values = HashMap::new();
+        values.insert(15u64, version_data.clone());
+        let version_table = handshake::VersionTable { values };
+
+        let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), propose));
+        drain_outputs(behavior);
+
+        let accept = AnyMessage::Handshake(handshake::Message::Accept(15, version_data));
         behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![accept]));
         drain_outputs(behavior);
     }
@@ -911,6 +993,74 @@ mod tests {
         assert!(
             outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
             "should send RequestRange after handshake completes"
+        );
+    }
+
+    #[tokio::test]
+    async fn leios_notify_and_fetch_flow() {
+        // Composition: handshake negotiates v15 → supports_leios → notify pull
+        // loop surfaces an offer → fetch command pulls the EB body.
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(20);
+        let eb = Point::new(7, vec![0xAB; 32]);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+        complete_handshake_leios(&mut behavior, &pid);
+        assert!(behavior.peers.get(&pid).unwrap().supports_leios());
+
+        // Housekeeping drives the notify pull loop once Leios is negotiated.
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs.has_send(|m| matches!(m, AnyMessage::LeiosNotify(ln::Message::RequestNext))),
+            "should request next leios notification"
+        );
+
+        // Server moves to Busy (our request was sent), then offers an EB.
+        behavior.handle_io(InterfaceEvent::Sent(
+            pid.clone(),
+            AnyMessage::LeiosNotify(ln::Message::RequestNext),
+        ));
+        drain_outputs(&mut behavior);
+
+        let offer = AnyMessage::LeiosNotify(ln::Message::BlockOffer(eb.clone(), 99));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![offer]));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs.has_event(|e| matches!(e, InitiatorEvent::EbNotification(..))),
+            "should surface the EB offer as an event"
+        );
+
+        // Application requests the EB body; housekeeping sends the fetch request.
+        behavior.execute(InitiatorCommand::FetchEb(pid.clone(), eb.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs.has_send(|m| matches!(m, AnyMessage::LeiosFetch(lf::Message::BlockRequest(_)))),
+            "should send a leios-fetch block request"
+        );
+
+        // Server delivers the EB body, surfaced as EbFetched.
+        behavior.handle_io(InterfaceEvent::Sent(
+            pid.clone(),
+            AnyMessage::LeiosFetch(lf::Message::BlockRequest(eb.clone())),
+        ));
+        drain_outputs(&mut behavior);
+
+        let block =
+            AnyMessage::LeiosFetch(lf::Message::Block(AnyCbor::from_raw_bytes(vec![1, 2, 3])));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![block]));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs.has_event(|e| matches!(e, InitiatorEvent::EbFetched(..))),
+            "should surface the fetched EB body as an event"
         );
     }
 }

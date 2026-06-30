@@ -32,6 +32,7 @@ members = [
   "examples/p2p-discovery",
   "examples/p2p-responder",
   "examples/p2p-initiator",
+  "examples/leios-testnet",
 ]
 
 [workspace.dependencies]

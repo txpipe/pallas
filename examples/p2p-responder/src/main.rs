@@ -116,6 +116,15 @@ impl MockResponderNode {
             ResponderEvent::TxReceived(pid, _tx) => {
                 tracing::info!(%pid, "tx received");
             }
+            ResponderEvent::EbNotificationRequested(pid) => {
+                tracing::info!(%pid, "leios notification requested");
+            }
+            ResponderEvent::EbRequested(pid, _) => {
+                tracing::info!(%pid, "leios eb requested");
+            }
+            ResponderEvent::EbTxsRequested(pid, _, _) => {
+                tracing::info!(%pid, "leios eb txs requested");
+            }
         }
     }
 

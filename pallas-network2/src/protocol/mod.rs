@@ -2,14 +2,20 @@
 
 mod common;
 
+#[cfg(test)]
+pub(crate) mod cddl;
+
 pub mod blockfetch;
 pub mod chainsync;
 pub mod handshake;
 pub mod keepalive;
+pub mod leiosfetch;
+pub mod leiosnotify;
 pub mod peersharing;
 pub mod txsubmission;
 
 pub use common::*;
+pub use pallas_codec::utils::AnyCbor;
 
 /// Errors that can occur when applying a message to a mini-protocol state
 /// machine.

@@ -118,3 +118,16 @@ impl<'b> Decode<'b, ()> for Point {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Leios shared wire primitives
+//
+// Reference to an Endorser Block, shared across the Leios mini-protocols
+// (`leiosnotify`, `leiosfetch`). It lives here next to [`Point`] following the
+// same convention used for other cross-protocol types. Heavy payloads (EB
+// bodies, transactions, votes) are carried as verbatim CBOR via
+// [`pallas_codec::utils::AnyCbor`] in the owning protocol modules.
+// ---------------------------------------------------------------------------
+
+/// Reference to an Endorser Block, encoded as a `[slot, eb_hash]` point.
+pub type EbId = Point;

@@ -12,8 +12,15 @@ const PROTOCOL_V11: u64 = 11;
 const PROTOCOL_V12: u64 = 12;
 const PROTOCOL_V13: u64 = 13;
 const PROTOCOL_V14: u64 = 14;
+const PROTOCOL_V15: u64 = 15;
 
 const PEER_SHARING_DISABLED: u8 = 0;
+
+/// Minimum N2N protocol version that carries the Leios overlay (the Dijkstra-era
+/// version 15). When a connection negotiates this version or higher, the
+/// leios-notify / leios-fetch mini-protocols are available. The version data
+/// shape is unchanged from v13/v14.
+pub const LEIOS_MIN_VERSION: u64 = PROTOCOL_V15;
 
 impl VersionTable {
     /// Builds a version table for v4 and above (deprecated, delegates to v7).
@@ -118,6 +125,15 @@ impl VersionTable {
                     Some(query),
                 ),
             ),
+            (
+                PROTOCOL_V15,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                ),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -162,6 +178,15 @@ impl VersionTable {
             ),
             (
                 PROTOCOL_V14,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                ),
+            ),
+            (
+                PROTOCOL_V15,
                 VersionData::new(
                     network_magic,
                     true,

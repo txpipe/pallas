@@ -10,6 +10,28 @@ pub mod responder;
 // Re-export initiator types for backward compatibility
 pub use initiator::*;
 
+/// Returns the negotiated N2N protocol version number from a completed handshake.
+///
+/// Shared by `InitiatorState` and `ResponderState` so the version-gating logic
+/// lives in one place.
+pub(crate) fn accepted_version<D: std::fmt::Debug + Clone>(
+    handshake: &proto::handshake::State<D>,
+) -> Option<u64> {
+    match handshake {
+        proto::handshake::State::Done(proto::handshake::DoneState::Accepted(num, _)) => Some(*num),
+        _ => None,
+    }
+}
+
+/// Returns true if the negotiated N2N version carries the Leios overlay.
+pub(crate) fn supports_leios<D: std::fmt::Debug + Clone>(
+    handshake: &proto::handshake::State<D>,
+) -> bool {
+    accepted_version(handshake)
+        .map(|v| v >= proto::handshake::n2n::LEIOS_MIN_VERSION)
+        .unwrap_or(false)
+}
+
 /// A unified message type that wraps all supported mini-protocol messages.
 #[derive(Debug, Clone)]
 pub enum AnyMessage {
@@ -25,6 +47,10 @@ pub enum AnyMessage {
     BlockFetch(proto::blockfetch::Message),
     /// A tx-submission protocol message.
     TxSubmission(proto::txsubmission::Message),
+    /// A leios-notify protocol message.
+    LeiosNotify(proto::leiosnotify::Message),
+    /// A leios-fetch protocol message.
+    LeiosFetch(proto::leiosfetch::Message),
 }
 
 fn try_decode_msg<T: Fragment>(buffer: &mut Vec<u8>) -> Option<T> {
@@ -54,6 +80,8 @@ impl Message for AnyMessage {
             AnyMessage::PeerSharing(_) => proto::peersharing::CHANNEL_ID,
             AnyMessage::BlockFetch(_) => proto::blockfetch::CHANNEL_ID,
             AnyMessage::TxSubmission(_) => proto::txsubmission::CHANNEL_ID,
+            AnyMessage::LeiosNotify(_) => proto::leiosnotify::CHANNEL_ID,
+            AnyMessage::LeiosFetch(_) => proto::leiosfetch::CHANNEL_ID,
         }
     }
 
@@ -65,6 +93,8 @@ impl Message for AnyMessage {
             AnyMessage::PeerSharing(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
             AnyMessage::BlockFetch(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
             AnyMessage::TxSubmission(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::LeiosNotify(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
+            AnyMessage::LeiosFetch(msg) => pallas_codec::minicbor::to_vec(msg).unwrap(),
         }
     }
 
@@ -78,6 +108,8 @@ impl Message for AnyMessage {
             proto::txsubmission::CHANNEL_ID => {
                 try_decode_msg(payload).map(AnyMessage::TxSubmission)
             }
+            proto::leiosnotify::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::LeiosNotify),
+            proto::leiosfetch::CHANNEL_ID => try_decode_msg(payload).map(AnyMessage::LeiosFetch),
             x => {
                 tracing::warn!(channel = x, "unsupported channel, skipping payload");
                 payload.clear();
