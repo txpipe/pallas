@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::protocol::leiosfetch as fetch_proto;
-use crate::protocol::{Bitmaps, EbId};
+use crate::protocol::EbId;
+use crate::protocol::leiosfetch::{self as fetch_proto, Bitmaps};
 
 use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 

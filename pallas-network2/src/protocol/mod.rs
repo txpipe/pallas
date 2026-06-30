@@ -2,6 +2,9 @@
 
 mod common;
 
+#[cfg(test)]
+pub(crate) mod cddl;
+
 pub mod blockfetch;
 pub mod chainsync;
 pub mod handshake;

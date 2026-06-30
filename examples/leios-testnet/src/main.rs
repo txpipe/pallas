@@ -40,7 +40,7 @@ use pallas_network2::{
     },
     interface::TcpInterface,
     protocol::{
-        Bitmaps, EbId, Point,
+        EbId, Point,
         handshake::n2n::{LEIOS_MIN_VERSION, VersionTable},
         leiosfetch, leiosnotify,
     },
@@ -190,7 +190,7 @@ impl LeiosNode {
                         self.network.execute(InitiatorCommand::FetchEbTxs(
                             pid,
                             eb_id,
-                            Bitmaps::all(want),
+                            leiosfetch::Bitmaps::all(want),
                         ));
                     }
                     _ => {

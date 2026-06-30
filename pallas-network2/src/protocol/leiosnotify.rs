@@ -12,10 +12,13 @@
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
-use super::{EbId, Error, RawCbor, VoteCbor};
+use super::{EbId, Error, RawCbor};
 
 /// Protocol channel number for node-to-node leios-notify.
 pub const CHANNEL_ID: u16 = 18;
+
+/// Raw CBOR of a single Leios vote (persistent or non-persistent).
+pub type VoteCbor = RawCbor;
 
 /// A leios-notify mini-protocol message.
 #[derive(Debug, Clone)]
@@ -165,6 +168,9 @@ impl<'b> Decode<'b, ()> for Message {
 mod tests {
     use super::*;
     use crate::protocol::Point;
+    #[cfg(feature = "blueprint")]
+    use crate::protocol::cddl;
+    use crate::protocol::cddl::conforms;
     use pallas_codec::minicbor;
 
     fn point() -> EbId {
@@ -236,4 +242,78 @@ mod tests {
             Err(Error::InvalidInbound)
         ));
     }
+
+    // --- CBOR-vs-CDDL conformance (run with `--features blueprint`) ---
+    //
+    // Each `conforms!` below emits one `#[test]` that encodes a sample message
+    // with our `Encode` impl and validates the bytes against the vendored
+    // cardano-blueprint leios-notify CDDL (via the shared `cddl` helper),
+    // so a spec change (tag, arity, the inline vote shape) fails the matching
+    // test.
+
+    /// Turns the vendored leios-notify CDDL into a schema cddl-rs can parse. This
+    /// protocol has no opaque sub-structures, so the shared preprocessing plus the
+    /// scalar prelude is all that's needed.
+    #[cfg(feature = "blueprint")]
+    fn self_contained() -> String {
+        let body = cddl::preprocess(include_str!(
+            "../../../cardano-blueprint/src/network/node-to-node/leios-notify/messages.cddl"
+        ));
+        format!("{body}\n{}", cddl::BASE_PRELUDE)
+    }
+
+    /// A conformant `vote = [slot, eb_hash, voter_id, vote_signature(.size 48)]`.
+    #[cfg(feature = "blueprint")]
+    fn vote() -> VoteCbor {
+        let mut buf = Vec::new();
+        Encoder::new(&mut buf)
+            .array(4)
+            .unwrap()
+            .u64(7)
+            .unwrap()
+            .bytes(&[0xAB; 32])
+            .unwrap()
+            .u16(3)
+            .unwrap()
+            .bytes(&[0xEE; 48])
+            .unwrap();
+        RawCbor(buf)
+    }
+
+    conforms!(
+        request_next_conforms,
+        self_contained,
+        "msgLeiosNotificationRequestNext",
+        Message::RequestNext
+    );
+    conforms!(
+        block_announcement_conforms,
+        self_contained,
+        "msgLeiosBlockAnnouncement",
+        Message::BlockAnnouncement(RawCbor(minicbor::to_vec([1u8, 2, 3]).unwrap()))
+    );
+    conforms!(
+        block_offer_conforms,
+        self_contained,
+        "msgLeiosBlockOffer",
+        Message::BlockOffer(point(), 1234)
+    );
+    conforms!(
+        block_txs_offer_conforms,
+        self_contained,
+        "msgLeiosBlockTxsOffer",
+        Message::BlockTxsOffer(point())
+    );
+    conforms!(
+        votes_conforms,
+        self_contained,
+        "msgLeiosVotes",
+        Message::Votes(vec![vote()])
+    );
+    conforms!(
+        done_conforms,
+        self_contained,
+        "msgClientDone",
+        Message::Done
+    );
 }

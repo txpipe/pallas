@@ -291,12 +291,17 @@ pub enum ResponderCommand {
     /// Offer an EB's transactions to a peer via leios-notify.
     ProvideEbTxsOffer(PeerId, proto::EbId),
     /// Diffuse full votes to a peer inline via leios-notify.
-    ProvideVotes(PeerId, Vec<proto::VoteCbor>),
+    ProvideVotes(PeerId, Vec<proto::leiosnotify::VoteCbor>),
     /// Deliver an EB body to a peer via leios-fetch.
-    ProvideEb(PeerId, proto::EndorserBlockCbor),
+    ProvideEb(PeerId, proto::leiosfetch::EndorserBlockCbor),
     /// Deliver EB transactions to a peer via leios-fetch, echoing the request's
     /// point and bitmaps.
-    ProvideEbTxs(PeerId, proto::EbId, proto::Bitmaps, Vec<proto::TxCbor>),
+    ProvideEbTxs(
+        PeerId,
+        proto::EbId,
+        proto::leiosfetch::Bitmaps,
+        Vec<proto::leiosfetch::TxCbor>,
+    ),
     /// Ban a peer and disconnect them.
     BanPeer(PeerId),
     /// Disconnect a peer gracefully.
@@ -325,7 +330,7 @@ pub enum ResponderEvent {
     /// A peer requested an EB body via leios-fetch.
     EbRequested(PeerId, proto::EbId),
     /// A peer requested a subset of an EB's transactions via leios-fetch.
-    EbTxsRequested(PeerId, proto::EbId, proto::Bitmaps),
+    EbTxsRequested(PeerId, proto::EbId, proto::leiosfetch::Bitmaps),
 }
 
 /// The main responder behavior that handles inbound Cardano connections.

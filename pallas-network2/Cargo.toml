@@ -24,11 +24,12 @@ byteorder.workspace = true
 socket2.workspace = true
 thiserror.workspace = true
 hex.workspace = true
+cddl = { version = "0.10", optional = true }
 
 [features]
 emulation = ["tokio", "rand"]
 default = ["emulation"]
-blueprint = []
+blueprint = ["dep:cddl"]
 
 [dev-dependencies]
 tokio = { version = "1.45.1", features = ["full", "test-util"] }

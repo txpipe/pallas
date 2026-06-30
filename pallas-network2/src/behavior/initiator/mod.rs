@@ -352,7 +352,7 @@ pub enum InitiatorCommand {
     /// Request a complete EB body from a peer (leios-fetch).
     FetchEb(PeerId, proto::EbId),
     /// Request a subset of an EB's transactions from a peer (leios-fetch).
-    FetchEbTxs(PeerId, proto::EbId, proto::Bitmaps),
+    FetchEbTxs(PeerId, proto::EbId, proto::leiosfetch::Bitmaps),
     /// Ban a peer, preventing future connections.
     BanPeer(PeerId),
     /// Demote a peer back to cold status.
