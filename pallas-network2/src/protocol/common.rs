@@ -169,7 +169,7 @@ impl<'b, C> Decode<'b, C> for RawCbor {
 }
 
 #[cfg(test)]
-mod leios_tests {
+mod tests {
     use super::*;
     use pallas_codec::minicbor;
 
