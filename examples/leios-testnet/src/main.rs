@@ -62,8 +62,8 @@ const LEIOS_TESTNET_MAGIC: u64 = 164;
 ///
 /// The Musashi testnet resets periodically; if sync stalls or the intersection
 /// is not found, replace this with a current point from the chain.
-const INTERSECT_SLOT: u64 = 2724123;
-const INTERSECT_HASH: &str = "daea7e4b9754244bceb713b269771756450d2fe19ee551f7cb24ba65fa841aeb";
+const INTERSECT_SLOT: u64 = 2812236;
+const INTERSECT_HASH: &str = "9d8a43aa5ddfa5e2e379ad14b38c3edf98cb6898ed480726fec9da9b68aa3d0e";
 
 /// How many of an EB's transactions to fetch per request. We only request txs a
 /// peer has offered (so it holds the closure), and bound each request to one
