@@ -5,9 +5,13 @@
 //! over leios-notify / leios-fetch — the same flow as the `leios-testnet`
 //! example, but rendered as a live TUI instead of log lines.
 //!
-//! The screen shows the Praos chain and the Leios overlay side by side, a table
-//! of recent EBs advancing through their lifecycle (offer → body → txs → votes),
-//! and a panel of the most recent log lines.
+//! The screen renders ranking blocks (RBs) and endorser blocks (EBs) as two
+//! vertically-aligned swim lanes sharing one column axis: the newest RBs define
+//! the columns (newest at the tip, right), and each EB is drawn in the column of
+//! the RB it belongs to — so the shared column *is* the connection. Each EB box
+//! shows its transaction download and vote accumulation as mini progress bars,
+//! with full figures for the selected EB in a detail strip; a log panel sits
+//! below. The EB→RB association is a slot heuristic (no on-wire link exists).
 //!
 //! Run with:
 //!
@@ -15,7 +19,7 @@
 //! cargo run -p leios-tui
 //! ```
 //!
-//! Keys: `q` quit · `↑`/`↓` scroll EBs · `f` toggle follow-tip · `c` clear log.
+//! Keys: `q` quit · `←`/`→` select EB · `f` toggle follow-tip · `c` clear log.
 
 mod dashboard;
 mod logbuf;
@@ -37,7 +41,7 @@ use pallas_network2::{
     interface::TcpInterface,
     protocol::{Point, handshake::n2n::VersionTable},
 };
-use ratatui::{DefaultTerminal, widgets::TableState};
+use ratatui::DefaultTerminal;
 use tokio::{select, time::Interval};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -52,8 +56,8 @@ const LEIOS_TESTNET_MAGIC: u64 = 164;
 /// Chain-sync intersection point, so we follow near the tip instead of replaying
 /// from origin. The testnet resets periodically; replace with a current point if
 /// the intersection is not found.
-const INTERSECT_SLOT: u64 = 2812236;
-const INTERSECT_HASH: &str = "9d8a43aa5ddfa5e2e379ad14b38c3edf98cb6898ed480726fec9da9b68aa3d0e";
+const INTERSECT_SLOT: u64 = 2889961;
+const INTERSECT_HASH: &str = "f0221534bd8fa9ec6c7b8c36348718b6a382c40cc39824681a2003af9c820eeb";
 
 struct LeiosNode {
     network: Manager<TcpInterface<AnyMessage>, InitiatorBehavior, AnyMessage>,
@@ -61,7 +65,6 @@ struct LeiosNode {
     render_interval: Interval,
     input: EventStream,
     dashboard: Dashboard,
-    table_state: TableState,
 }
 
 impl LeiosNode {
@@ -86,7 +89,6 @@ impl LeiosNode {
             render_interval: tokio::time::interval(Duration::from_millis(200)),
             input: EventStream::new(),
             dashboard,
-            table_state: TableState::default(),
         }
     }
 
@@ -108,7 +110,7 @@ impl LeiosNode {
     }
 
     async fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
-        terminal.draw(|f| ui::draw(f, &self.dashboard, &mut self.table_state))?;
+        terminal.draw(|f| ui::draw(f, &self.dashboard))?;
 
         loop {
             select! {
@@ -116,7 +118,7 @@ impl LeiosNode {
                     self.network.execute(InitiatorCommand::Housekeeping);
                 }
                 _ = self.render_interval.tick() => {
-                    terminal.draw(|f| ui::draw(f, &self.dashboard, &mut self.table_state))?;
+                    terminal.draw(|f| ui::draw(f, &self.dashboard))?;
                 }
                 evt = self.network.poll_next() => {
                     if let Some(evt) = evt {
