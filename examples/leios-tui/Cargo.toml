@@ -1,0 +1,22 @@
+[package]
+name = "leios-tui"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[package.metadata.release]
+release = false
+
+[dependencies]
+pallas-network2 = { path = "../../pallas-network2" }
+pallas-codec = { path = "../../pallas-codec" }
+pallas-crypto = { path = "../../pallas-crypto" }
+hex = "0.4.3"
+tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros", "time"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+indexmap = "2"
+futures = "0.3"
