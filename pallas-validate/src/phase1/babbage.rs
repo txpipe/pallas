@@ -471,7 +471,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> Validati
 
             dbg!(&all_scripts_wits);
 
-            for (policy, _) in minted_value.iter() {
+            for policy in minted_value.keys() {
                 if !all_scripts_wits.contains(policy) {
                     return Err(PostAlonzo(MintingLacksPolicy(*policy)));
                 }

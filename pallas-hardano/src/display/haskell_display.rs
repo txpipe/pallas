@@ -681,8 +681,8 @@ impl HaskellDisplay for ValidityInterval {
     fn to_haskell_str(&self) -> String {
         format!(
             "(ValidityInterval {{invalidBefore = {}, invalidHereafter = {}}})",
-            &self.invalid_before.as_slot_no(),
-            &self.invalid_hereafter.as_slot_no()
+            self.invalid_before.as_slot_no(),
+            self.invalid_hereafter.as_slot_no()
         )
     }
 }

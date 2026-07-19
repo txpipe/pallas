@@ -386,7 +386,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
                         .map(|x| x.clone().unwrap())
                         .collect(),
                 };
-            for (policy, _) in minted_value.iter() {
+            for policy in minted_value.keys() {
                 if native_script_wits
                     .iter()
                     .all(|script| compute_script_hash(script) != *policy)
