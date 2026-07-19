@@ -559,6 +559,8 @@ pub struct NodeServer {
     pub statequery: localstate::Server,
     /// Local-tx-submission server.
     pub localtxsubmission: localtxsubmission::Server,
+    /// Local-tx-monitor server.
+    pub txmonitor: txmonitor::Server,
     accepted_address: Option<UnixSocketAddr>,
     accpeted_version: Option<(VersionNumber, n2c::VersionData)>,
 }
@@ -573,11 +575,13 @@ impl NodeServer {
         let cs_channel = plexer.subscribe_server(PROTOCOL_N2C_CHAIN_SYNC);
         let sq_channel = plexer.subscribe_server(PROTOCOL_N2C_STATE_QUERY);
         let localtx_channel = plexer.subscribe_server(PROTOCOL_N2C_TX_SUBMISSION);
+        let txmonitor_channel = plexer.subscribe_server(PROTOCOL_N2C_TX_MONITOR);
 
         let server_hs = handshake::Server::<n2c::VersionData>::new(hs_channel);
         let server_cs = chainsync::N2CServer::new(cs_channel);
         let server_sq = localstate::Server::new(sq_channel);
         let server_localtx = localtxsubmission::Server::new(localtx_channel);
+        let server_txmonitor = txmonitor::Server::new(txmonitor_channel);
 
         let plexer = plexer.spawn();
 
@@ -587,6 +591,7 @@ impl NodeServer {
             chainsync: server_cs,
             statequery: server_sq,
             localtxsubmission: server_localtx,
+            txmonitor: server_txmonitor,
             accepted_address: None,
             accpeted_version: None,
         }
@@ -634,6 +639,11 @@ impl NodeServer {
     /// Get mutable access to the local-tx-submission server.
     pub fn localtxsubmission(&mut self) -> &mut localtxsubmission::Server {
         &mut self.localtxsubmission
+    }
+
+    /// Get mutable access to the local-tx-monitor server.
+    pub fn txmonitor(&mut self) -> &mut txmonitor::Server {
+        &mut self.txmonitor
     }
 
     /// Remote address of the accepted local client.
