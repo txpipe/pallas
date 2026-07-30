@@ -461,10 +461,13 @@ macro_rules! impl_cardano_mapper_shared {
                         tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
                     }
                     .into(),
+                    // The spec declares `Block.timestamp` as milliseconds;
+                    // `get_slot_timestamp` returns UNIX seconds.
                     timestamp: self
                         .ledger
                         .as_ref()
                         .and_then(|ledger| ledger.get_slot_timestamp(block.slot()))
+                        .map(|seconds| seconds * 1000)
                         .unwrap_or(0),
                 }
             }
