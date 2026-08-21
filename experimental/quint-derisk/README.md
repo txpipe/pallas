@@ -31,9 +31,9 @@ Requires Rust and Node (for the Quint CLI via npx):
 
 ```sh
 cd experimental/quint-derisk
-PATH="$PWD/bin:$PATH" cargo test                              # model and spike agree
-PATH="$PWD/bin:$PATH" cargo test --features mutate-fee-floor  # seeded defect: test fails
-PATH="$PWD/bin:$PATH" QUINT_VERBOSE=1 cargo test -- --nocapture  # show every step
+PATH="$PWD/bin:$PATH" cargo test --locked                              # model and spike agree
+PATH="$PWD/bin:$PATH" cargo test --locked --features mutate-fee-floor  # seeded defect: test fails
+PATH="$PWD/bin:$PATH" QUINT_VERBOSE=1 cargo test --locked -- --nocapture  # show every step
 ```
 
 Standalone model checks:

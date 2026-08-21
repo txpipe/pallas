@@ -11,7 +11,7 @@
 //! Requires the `quint` CLI on PATH (see `bin/quint` for an npx shim):
 //!
 //! ```text
-//! PATH="$PWD/bin:$PATH" cargo test --test mbt
+//! PATH="$PWD/bin:$PATH" cargo test --locked --test mbt
 //! ```
 
 use conway_utxo_quint_spike::*;
