@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# npx shim so the quint-connect harness finds a pinned quint CLI on PATH.
+exec npx --yes @informalsystems/quint@0.32.0 "$@"
