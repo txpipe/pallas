@@ -30,8 +30,6 @@ module conway_utxo {
   pure val collateralPercent = 150
   pure val maxCollateralInputs = 3
 
-  //// Transaction structure
-
   type TxIn = { txId: int, ix: int }
 
   type Tx = {
@@ -56,8 +54,6 @@ module conway_utxo {
     | NoCollateral
     | TooManyCollateral
     | InsufficientCollateral
-
-  //// State
 
   /// The live UTxO set: unspent outputs and their lovelace values.
   var utxo: TxIn -> int
@@ -93,8 +89,6 @@ module conway_utxo {
     else if (sumValues(u, tx.inputs) != produced(tx)) ValueNotConserved
     else if (tx.isScripted) collateralVerdict(u, tx)
     else Accepted
-
-  //// State transition
 
   pure def applyOutputs(u: TxIn -> int, outs: List[int], txId: int): TxIn -> int =
     outs.indices().fold(u, (acc, i) => acc.put({ txId: txId, ix: i }, outs[i]))
@@ -274,8 +268,6 @@ module conway_utxo {
     }).oneOf()
     applyTx(etx)
   }
-
-  //// Machine
 
   action init = all {
     utxo' = 0.to(4).map(i => { txId: 0, ix: i }).mapBy(_ => genesisAmount),
