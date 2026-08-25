@@ -152,7 +152,7 @@ fn check_min_fee(
     size: &u32,
     prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
-    if tx_body.fee < (prot_pps.minfee_b + prot_pps.minfee_a * size) as u64 {
+    if tx_body.fee < prot_pps.minfee_b + prot_pps.minfee_a * u64::from(*size) {
         return Err(PostAlonzo(FeeBelowMin));
     }
     Ok(())

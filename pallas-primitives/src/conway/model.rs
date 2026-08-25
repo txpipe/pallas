@@ -166,6 +166,9 @@ pub struct CostModels {
     #[n(2)]
     pub plutus_v3: Option<CostModel>,
 
+    #[n(3)]
+    pub plutus_v4: Option<CostModel>,
+
     #[cbor(skip)]
     pub unknown: BTreeMap<u64, CostModel>,
 }
@@ -177,6 +180,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
         let mut plutus_v1 = None;
         let mut plutus_v2 = None;
         let mut plutus_v3 = None;
+        let mut plutus_v4 = None;
         let mut unknown: Vec<(u64, CostModel)> = Vec::new();
 
         for (k, v) in models.iter() {
@@ -184,6 +188,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
                 0 => plutus_v1 = Some(v.clone()),
                 1 => plutus_v2 = Some(v.clone()),
                 2 => plutus_v3 = Some(v.clone()),
+                3 => plutus_v4 = Some(v.clone()),
                 _ => unknown.push((*k, v.clone())),
             }
         }
@@ -192,6 +197,7 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
             plutus_v1,
             plutus_v2,
             plutus_v3,
+            plutus_v4,
             unknown: unknown.into_iter().collect(),
         })
     }
