@@ -2549,7 +2549,9 @@ impl AsIPv6 for Nullable<Bytes> {
             Nullable::Some(b) => {
                 let data: [u8; 16] = b
                     .deref()
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .flat_map(|x| {
                         let mut y = x.to_vec();
                         y.reverse();
