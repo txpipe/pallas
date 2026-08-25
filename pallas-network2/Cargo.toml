@@ -24,7 +24,11 @@ byteorder.workspace = true
 socket2.workspace = true
 thiserror.workspace = true
 hex.workspace = true
-cddl = { version = "0.10", optional = true }
+# Pinned: cddl 0.10.7 regressed map entries whose key is a type-rule reference
+# (`bitmaps = { * word16 => word64 }` with `word16 = uint`), rejecting every key
+# as unexpected. Inline key types still validate, named ones do not. Still broken
+# on cddl master as of 2026-08-25. Relax once a release carries the fix.
+cddl = { version = "=0.10.6", optional = true }
 
 [features]
 emulation = ["tokio", "rand"]
