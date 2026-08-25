@@ -681,8 +681,8 @@ impl HaskellDisplay for ValidityInterval {
     fn to_haskell_str(&self) -> String {
         format!(
             "(ValidityInterval {{invalidBefore = {}, invalidHereafter = {}}})",
-            &self.invalid_before.as_slot_no(),
-            &self.invalid_hereafter.as_slot_no()
+            self.invalid_before.as_slot_no(),
+            self.invalid_hereafter.as_slot_no()
         )
     }
 }
@@ -2549,7 +2549,9 @@ impl AsIPv6 for Nullable<Bytes> {
             Nullable::Some(b) => {
                 let data: [u8; 16] = b
                     .deref()
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .flat_map(|x| {
                         let mut y = x.to_vec();
                         y.reverse();

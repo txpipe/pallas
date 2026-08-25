@@ -441,8 +441,8 @@ mod tests {
                 (&one - &threshold_b).to_string(),
                 expected_threshold_b,
                 "(1 - f) *** b failed to match! - (1 - f)={}, b={}",
-                &c,
-                &b
+                c,
+                b
             );
 
             // do Taylor approximation for
@@ -467,14 +467,14 @@ mod tests {
             if a < threshold && res.estimation != ExpOrdering::LT {
                 panic!(
                     "wrong result should be leader {} should be more like {}",
-                    &temp, threshold
+                    temp, threshold
                 );
             }
 
             if a >= threshold && res.estimation != ExpOrdering::GT {
                 panic!(
                     "wrong result should not be leader {} should be more like {}",
-                    &temp, threshold
+                    temp, threshold
                 );
             }
 
