@@ -133,6 +133,18 @@ pub type CertIdx = u64;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pointer(Slot, TxIdx, CertIdx);
 
+/// Errors produced by strict pointer parsing.
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum PointerStrictError {
+    /// A variable-length uint inside a pointer address failed strict decoding.
+    #[error("variable-length uint error: {0}")]
+    VarUintError(varuint::StrictError),
+
+    /// The three pointer components were valid, but extra bytes remained.
+    #[error("pointer payload has trailing bytes")]
+    TrailingBytes,
+}
+
 fn slice_to_hash(slice: &[u8]) -> Result<Hash<28>, Error> {
     if slice.len() == 28 {
         let mut sized = [0u8; 28];
@@ -155,6 +167,21 @@ impl Pointer {
         let a = varuint::read(&mut cursor).map_err(Error::VarUintError)?;
         let b = varuint::read(&mut cursor).map_err(Error::VarUintError)?;
         let c = varuint::read(&mut cursor).map_err(Error::VarUintError)?;
+
+        Ok(Pointer(a, b, c))
+    }
+
+    /// Parse a pointer from its variable-length byte encoding, requiring
+    /// canonical varuints and full input consumption.
+    pub fn parse_strict(bytes: &[u8]) -> Result<Self, PointerStrictError> {
+        let mut cursor = Cursor::new(bytes);
+        let a = varuint::read_strict(&mut cursor).map_err(PointerStrictError::VarUintError)?;
+        let b = varuint::read_strict(&mut cursor).map_err(PointerStrictError::VarUintError)?;
+        let c = varuint::read_strict(&mut cursor).map_err(PointerStrictError::VarUintError)?;
+
+        if cursor.position() != bytes.len() as u64 {
+            return Err(PointerStrictError::TrailingBytes);
+        }
 
         Ok(Pointer(a, b, c))
     }
@@ -1071,5 +1098,48 @@ mod tests {
             "015bad085057ac10ecc7060f7ac41edd6f63068d8963ef7d86ca58669e5ecf2d283418a60be5a848a2380eb721000da1e0bbf39733134beca4cb57afb0b35fc89c63061c9914e055001a518c7516",
         );
         assert!(matches!(addr, Ok(Address::Shelley(_))));
+    }
+
+    #[test]
+    fn pointer_parse_accepts_noncanonical_varuint_encoding() {
+        let noncanonical = [0x80, 0x00, 0x80, 0x00, 0x80, 0x00];
+
+        let parsed = Pointer::parse(&noncanonical).unwrap();
+
+        assert_eq!(parsed, Pointer::new(0, 0, 0));
+        assert_eq!(parsed.to_vec(), vec![0x00, 0x00, 0x00]);
+        assert_ne!(parsed.to_vec(), noncanonical);
+    }
+
+    #[test]
+    fn pointer_parse_strict_rejects_noncanonical_varuint_encoding() {
+        let noncanonical = [0x80, 0x00, 0x80, 0x00, 0x80, 0x00];
+
+        let parsed = Pointer::parse_strict(&noncanonical);
+
+        assert_eq!(
+            parsed,
+            Err(PointerStrictError::VarUintError(
+                varuint::StrictError::NonCanonical
+            ))
+        );
+    }
+
+    #[test]
+    fn pointer_parse_strict_accepts_canonical_encoding() {
+        let canonical = [0x00, 0x00, 0x00];
+
+        let parsed = Pointer::parse_strict(&canonical).unwrap();
+
+        assert_eq!(parsed, Pointer::new(0, 0, 0));
+    }
+
+    #[test]
+    fn pointer_parse_strict_rejects_trailing_bytes() {
+        let bytes = [0x00, 0x00, 0x00, 0x00];
+
+        let parsed = Pointer::parse_strict(&bytes);
+
+        assert_eq!(parsed, Err(PointerStrictError::TrailingBytes));
     }
 }
