@@ -529,6 +529,21 @@ impl InitiatorBehavior {
 
         self.move_discovered_into_promotion();
     }
+
+    /// Puts a queued leios-fetch request on the wire for `pid` straight away,
+    /// rather than waiting for the next housekeeping tick.
+    fn serve_leios_fetch(&mut self, pid: &PeerId) {
+        let Self {
+            leiosfetch,
+            peers,
+            outbound,
+            ..
+        } = self;
+
+        if let Some(state) = peers.get_mut(pid) {
+            leiosfetch.serve_next(pid, state, outbound);
+        }
+    }
 }
 
 impl Stream for InitiatorBehavior {
@@ -621,12 +636,16 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::FetchEb(pid, point) => {
                 tracing::debug!("fetch eb command");
                 self.leiosfetch
-                    .enqueue(pid, leiosfetch::FetchRequest::Block(point));
+                    .enqueue(pid.clone(), leiosfetch::FetchRequest::Block(point));
+                self.serve_leios_fetch(&pid);
             }
             InitiatorCommand::FetchEbTxs(pid, point, bitmaps) => {
                 tracing::debug!("fetch eb txs command");
-                self.leiosfetch
-                    .enqueue(pid, leiosfetch::FetchRequest::BlockTxs(point, bitmaps));
+                self.leiosfetch.enqueue(
+                    pid.clone(),
+                    leiosfetch::FetchRequest::BlockTxs(point, bitmaps),
+                );
+                self.serve_leios_fetch(&pid);
             }
         }
     }
@@ -1061,6 +1080,47 @@ mod tests {
         assert!(
             outputs.has_event(|e| matches!(e, InitiatorEvent::EbFetched(..))),
             "should surface the fetched EB body as an event"
+        );
+    }
+
+    #[tokio::test]
+    async fn fetch_command_sends_request_without_housekeeping() {
+        // Composition: a fetch command enqueues and serves in one step, so the
+        // request is sent without running the rest of housekeeping.
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(21);
+        let eb = Point::new(7, vec![0xCD; 32]);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+        complete_handshake_leios(&mut behavior, &pid);
+        drain_outputs(&mut behavior);
+
+        // Housekeeping drives the notify pull loop, so RequestNext marks a turn.
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let ticked = drain_outputs(&mut behavior);
+        assert!(
+            ticked.has_send(|m| matches!(m, AnyMessage::LeiosNotify(ln::Message::RequestNext))),
+            "should send RequestNext on a housekeeping tick"
+        );
+
+        // Issuing a fetch, with no tick of any kind.
+        behavior.execute(InitiatorCommand::FetchEb(pid.clone(), eb.clone()));
+        let issued = drain_outputs(&mut behavior);
+
+        assert!(
+            issued.has_send(|m| matches!(m, AnyMessage::LeiosFetch(lf::Message::BlockRequest(_)))),
+            "should send the leios-fetch request when it is issued"
+        );
+        assert!(
+            !issued.has_send(|m| matches!(m, AnyMessage::LeiosNotify(ln::Message::RequestNext))),
+            "should NOT drive the notify pull loop"
         );
     }
 }

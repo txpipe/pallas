@@ -33,6 +33,24 @@ impl LeiosFetchBehavior {
         tracing::info!(total = self.requests.len(), "new leios-fetch request");
     }
 
+    /// Sends the first queued request targeting `pid`, when that peer is ready
+    /// to take one. Does nothing if the peer is busy or has nothing queued.
+    pub(super) fn serve_next(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        if !peer_is_available(state) {
+            return;
+        }
+
+        if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid) {
+            let (_, request) = self.requests.remove(idx).expect("index just found");
+            self.send_request(pid, &request, outbound);
+        }
+    }
+
     /// Drops any queued requests targeting `pid`. Called when the peer goes away
     /// so requests don't leak or get re-sent to a later reconnection of the same
     /// `PeerId` (which may no longer hold the offered EB).
@@ -99,15 +117,7 @@ impl PeerVisitor for LeiosFetchBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        if !peer_is_available(state) {
-            return;
-        }
-
-        // Serve the first queued request targeting this peer.
-        if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid) {
-            let (_, request) = self.requests.remove(idx).expect("index just found");
-            self.send_request(pid, &request, outbound);
-        }
+        self.serve_next(pid, state, outbound);
     }
 
     fn visit_disconnected(
