@@ -18,6 +18,11 @@ impl MultiEraTx<'_> {
                 Nullable::Some(x) => x.raw_cbor().len() + 1,
                 _ => 2,
             },
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => match &x.auxiliary_data {
+                Nullable::Some(x) => x.raw_cbor().len() + 1,
+                _ => 2,
+            },
         }
     }
 
@@ -27,6 +32,8 @@ impl MultiEraTx<'_> {
             MultiEraTx::Babbage(x) => x.transaction_body.raw_cbor().len(),
             MultiEraTx::Byron(x) => x.transaction.raw_cbor().len(),
             MultiEraTx::Conway(x) => x.transaction_body.raw_cbor().len(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.raw_cbor().len(),
         }
     }
 
@@ -36,13 +43,21 @@ impl MultiEraTx<'_> {
             MultiEraTx::Babbage(x) => x.transaction_witness_set.raw_cbor().len(),
             MultiEraTx::Byron(x) => x.witness.raw_cbor().len(),
             MultiEraTx::Conway(x) => x.transaction_witness_set.raw_cbor().len(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_witness_set.raw_cbor().len(),
         }
     }
 
     pub fn size(&self) -> usize {
         match self {
             MultiEraTx::Byron(_) => self.body_size(),
-            _ => self.body_size() + self.witness_set_size() + self.aux_data_size(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(..) => {
+                self.body_size() + self.witness_set_size() + self.aux_data_size()
+            }
+            MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) | MultiEraTx::Conway(_) => {
+                self.body_size() + self.witness_set_size() + self.aux_data_size()
+            }
         }
     }
 }
@@ -57,6 +72,8 @@ impl MultiEraBlock<'_> {
             MultiEraBlock::EpochBoundary(_) => None,
             MultiEraBlock::Byron(_) => None,
             MultiEraBlock::Conway(x) => Some(x.header.header_body.block_body_size as usize),
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(x) => Some(x.header.header_body.block_body_size as usize),
         }
     }
 }
