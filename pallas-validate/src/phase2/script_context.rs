@@ -97,11 +97,13 @@ impl DataLookupTable {
             datum.insert(plutus_data.original_hash(), plutus_data.clone().unwrap());
         }
 
+        // `ScriptVersion::Native` holds the script type every era through Conway
+        // shares, and phase 2 evaluation covers those eras. A native script of any
+        // other shape does not reach the table.
         for script in tx.native_scripts() {
-            scripts.insert(
-                script.compute_hash(),
-                ScriptVersion::Native(script.clone().unwrap()),
-            );
+            if let Some(native) = script.as_alonzo_compatible() {
+                scripts.insert(script.hash(), ScriptVersion::Native(native.clone()));
+            }
         }
 
         for script in tx.plutus_v1_scripts() {
