@@ -49,24 +49,30 @@ macro_rules! impl_cardano_mapper_shared {
         }
 
         impl<C: $crate::LedgerContext> Mapper<C> {
-            pub fn map_purpose(
+            fn map_redeemer_purpose(
                 &self,
-                x: &pallas_primitives::conway::RedeemerTag,
+                x: &pallas_traverse::MultiEraRedeemer,
             ) -> u5c::RedeemerPurpose {
-                use pallas_primitives::conway;
-                match x {
-                    conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
-                    conway::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
-                    conway::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
-                    conway::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
-                    conway::RedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
-                    conway::RedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
+                use pallas_traverse::MultiEraRedeemerTag;
+
+                match x.tag() {
+                    MultiEraRedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
+                    MultiEraRedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
+                    MultiEraRedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
+                    MultiEraRedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
+                    MultiEraRedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
+                    MultiEraRedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
+                    #[cfg(feature = "unstable")]
+                    MultiEraRedeemerTag::Guarding => {
+                        unimplemented!("map_redeemer is not yet implemented for Dijkstra")
+                    }
+                    _ => unimplemented!("map_redeemer has no arm for this purpose"),
                 }
             }
 
             pub fn map_redeemer(&self, x: &pallas_traverse::MultiEraRedeemer) -> u5c::Redeemer {
                 u5c::Redeemer {
-                    purpose: self.map_purpose(&x.tag()).into(),
+                    purpose: self.map_redeemer_purpose(x).into(),
                     payload: self.map_plutus_datum(x.data()).into(),
                     index: x.index(),
                     ex_units: Some(u5c::ExUnits {
@@ -224,15 +230,31 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
+            fn map_any_native_script(
+                x: &pallas_traverse::MultiEraNativeScript,
+            ) -> u5c::NativeScript {
+                use pallas_traverse::MultiEraNativeScript;
+
+                match x {
+                    MultiEraNativeScript::AlonzoCompatible(x) => Self::map_native_script(x),
+                    #[cfg(feature = "unstable")]
+                    MultiEraNativeScript::Dijkstra(_) => {
+                        unimplemented!("collect_all_scripts is not yet implemented for Dijkstra")
+                    }
+                    _ => unimplemented!("collect_all_scripts has no arm for this native script"),
+                }
+            }
+
             fn collect_all_scripts(&self, tx: &pallas_traverse::MultiEraTx) -> Vec<u5c::Script> {
-                use std::ops::Deref;
                 let ns = tx
                     .native_scripts()
-                    .iter()
-                    .map(|x| Self::map_native_script(x.deref()))
+                    .into_iter()
+                    .map(|x| Self::map_any_native_script(&x))
                     .map(|x| u5c::Script {
                         script: u5c::script::Script::Native(x).into(),
-                    });
+                    })
+                    .collect::<Vec<_>>()
+                    .into_iter();
 
                 let p1 = tx
                     .plutus_v1_scripts()
@@ -350,6 +372,11 @@ macro_rules! impl_cardano_mapper_shared {
                 &self,
                 x: &pallas_traverse::MultiEraProposal,
             ) -> u5c::GovernanceActionProposal {
+                #[cfg(feature = "unstable")]
+                if x.as_dijkstra().is_some() {
+                    unimplemented!("map_gov_proposal is not yet implemented for Dijkstra");
+                }
+
                 u5c::GovernanceActionProposal {
                     deposit: u64_to_bigint(x.deposit()),
                     reward_account: x.reward_account().to_vec().into(),
@@ -413,11 +440,13 @@ macro_rules! impl_cardano_mapper_shared {
             ) -> Vec<u5c::Script> {
                 let ns = tx
                     .aux_native_scripts()
-                    .iter()
-                    .map(|x| Self::map_native_script(x))
+                    .into_iter()
+                    .map(|x| Self::map_any_native_script(&x))
                     .map(|x| u5c::Script {
                         script: u5c::script::Script::Native(x).into(),
-                    });
+                    })
+                    .collect::<Vec<_>>()
+                    .into_iter();
 
                 let p1 = tx
                     .aux_plutus_v1_scripts()
@@ -783,6 +812,10 @@ macro_rules! impl_cardano_mapper_shared {
                     }
                     pallas_traverse::MultiEraCert::Conway(x) => {
                         self.map_conway_cert(x, tx, order).into()
+                    }
+                    #[cfg(feature = "unstable")]
+                    pallas_traverse::MultiEraCert::Dijkstra(_) => {
+                        unimplemented!("map_cert is not yet implemented for Dijkstra")
                     }
                     _ => None,
                 }
