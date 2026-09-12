@@ -1,8 +1,8 @@
 // Material brought from `pallas-primitives`
 // TODO: Refactor in order to avoid repetition.
 use crate::miniprotocols::localstate::queries_v16::{
-    Anchor, AssetName, Coin, DRep, Epoch, PolicyId, PoolMetadata, Relay, RewardAccount, ScriptHash,
-    UnitInterval,
+    Anchor, AssetName, Coin, DRep, Epoch, FieldedRewardAccount, PolicyId, PoolMetadata, Relay,
+    ScriptHash, UnitInterval,
 };
 pub use pallas_codec::utils::KeyValuePairs;
 pub use pallas_crypto::hash::Hash;
@@ -23,12 +23,12 @@ pub type Mint = Multiasset<i64>;
 #[derive(Debug, Decode, Encode, Clone, Hash, PartialEq, Eq)]
 #[cbor(flat)]
 pub enum Credential {
-    /// Credential backed by a script hash.
-    #[n(0)]
-    ScriptHashObj(#[n(0)] ScriptHash),
     /// Credential backed by a verification-key hash.
-    #[n(1)]
+    #[n(0)]
     KeyHashObj(#[n(0)] AddrKeyhash),
+    /// Credential backed by a script hash.
+    #[n(1)]
+    ScriptHashObj(#[n(0)] ScriptHash),
 }
 
 /// On-chain certificate (Shelley + Conway era variants).
@@ -53,7 +53,7 @@ pub enum Certificate {
         /// Pool margin (rational in `[0, 1]`).
         margin: UnitInterval,
         /// Reward account that collects pool fees.
-        reward_account: RewardAccount,
+        reward_account: FieldedRewardAccount,
         /// Hashes of accounts that own the pool.
         pool_owners: Set<AddrKeyhash>,
         /// Declared relays serving the pool.
@@ -154,6 +154,8 @@ pub enum Language {
     /// Plutus V3.
     #[n(2)]
     PlutusV3,
+    #[n(3)]
+    PlutusV4,
 }
 
 /// Generic on-chain script: a native script or a Plutus script of any version.
