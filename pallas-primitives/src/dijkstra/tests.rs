@@ -62,6 +62,14 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
         "dijkstra13",
         include_str!("../../../test_data/dijkstra13.block"),
     ),
+    (
+        "dijkstra14",
+        include_str!("../../../test_data/dijkstra14.block"),
+    ),
+    (
+        "dijkstra15",
+        include_str!("../../../test_data/dijkstra15.block"),
+    ),
 ];
 
 /// Blocks from before the fork. Their bodies are the Conway five element
@@ -182,8 +190,8 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
 
     assert_eq!(
         (bodies, witness_sets, auxiliary_data),
-        (44, 44, 5),
-        "the fixtures should carry forty four transactions, each with a body and a witness set, five of them with auxiliary data"
+        (45, 45, 5),
+        "the fixtures should carry forty five transactions, each with a body and a witness set, five of them with auxiliary data"
     );
 }
 
@@ -845,6 +853,14 @@ const HEADER_HASHES: &[(&str, &str)] = &[
         "dijkstra13",
         "cf522686b27e452b3e261904058c7e323f3723e2f5c629e5a7542579b59474b4",
     ),
+    (
+        "dijkstra14",
+        "9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf",
+    ),
+    (
+        "dijkstra15",
+        "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
+    ),
 ];
 
 /// The hash is over the header CBOR span, so it also pins where the body begins.
@@ -975,6 +991,52 @@ fn a_certificate_travels_without_an_announcement() {
             .header_body
             .block_body_contains_leios_cert
     );
+}
+
+/// `eb_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
+/// dijkstra15 announces 71103 bytes, past what two bytes hold, so the size is
+/// written as a five byte uint where dijkstra8's 39495 is a three byte one.
+#[test]
+fn an_announced_size_reaches_the_five_byte_uint() {
+    assert!(
+        71103 > u32::from(u16::MAX),
+        "the wide case has to be past what a two byte uint holds"
+    );
+
+    for (name, size, head, payload) in [
+        ("dijkstra8", 39495u32, 0x19u8, 2usize),
+        ("dijkstra15", 71103, 0x1a, 4),
+    ] {
+        let block = block_of(name);
+        let header = header_of(name);
+
+        let crate::Nullable::Some(announcement) = &header.header_body.eb_announcement else {
+            panic!("{name} must carry an endorser block announcement");
+        };
+        assert_eq!(announcement.eb_size, size, "{name}: the announced size");
+        assert_eq!(
+            announcement.eb_hash.as_ref().len(),
+            32,
+            "{name}: the announced hash"
+        );
+
+        let encoded = minicbor::to_vec(announcement).unwrap();
+        assert_eq!(
+            encoded[35], head,
+            "{name}: the CBOR head byte the size re-encodes to"
+        );
+        assert_eq!(
+            encoded.len(),
+            36 + payload,
+            "{name}: the size head byte is followed by {payload} payload bytes"
+        );
+
+        let raw = block.header.raw_cbor();
+        assert!(
+            raw.windows(encoded.len()).any(|w| w == encoded),
+            "{name}: the announcement did not re-encode to a span of the header it was read from"
+        );
+    }
 }
 
 /// Transaction body key 3 is `ttl`, and dijkstra10 carries both output forms
@@ -1123,8 +1185,8 @@ fn a_set_re_encodes_the_arm_it_was_read_from() {
 
     assert_eq!(
         (tagged, bare),
-        (38, 6),
-        "the fixtures carry thirty eight tagged sets and six bare ones"
+        (38, 7),
+        "the fixtures carry thirty eight tagged input sets and seven bare ones"
     );
 
     // A type that normalised the arms would satisfy everything above and fail here.
@@ -1138,6 +1200,80 @@ fn a_set_re_encodes_the_arm_it_was_read_from() {
         hex::encode(minicbor::to_vec(&built).unwrap()),
         hex::encode(minicbor::to_vec(built.clone().with_arm(SetArm::Bare)).unwrap()),
         "the two arms must not encode alike"
+    );
+}
+
+/// `certificates : nonempty_set<certificate>` (`defs.cddl`). Every other
+/// fixture writes that set under tag 258, and dijkstra14 writes it bare, so
+/// both arms of the body's key 4 are read from real bytes rather than one.
+#[test]
+fn a_certificate_set_is_read_on_both_arms_from_the_chain() {
+    let mut tagged = Vec::new();
+    let mut bare = Vec::new();
+
+    for (name, _) in TEST_BLOCKS.iter() {
+        let block = block_of(name);
+
+        for tx in block.block_body.transactions.iter() {
+            let body = tx.transaction_body.clone().unwrap();
+            let Some(certificates) = body.certificates else {
+                continue;
+            };
+
+            let encoded = minicbor::to_vec(&certificates).unwrap();
+            match certificates.arm() {
+                SetArm::Tagged => {
+                    assert_eq!(
+                        encoded[0], 0xd9,
+                        "{name}: a tagged certificate set re-encodes under a two byte tag"
+                    );
+                    tagged.push(*name);
+                }
+                SetArm::Bare => {
+                    assert_eq!(
+                        encoded[0] >> 5,
+                        4,
+                        "{name}: a bare certificate set re-encodes as a plain array"
+                    );
+                    bare.push(*name);
+                }
+            }
+        }
+    }
+
+    assert_eq!(
+        bare,
+        vec!["dijkstra14"],
+        "dijkstra14 is the fixture whose transaction body writes its certificates bare"
+    );
+    assert_eq!(
+        tagged.len(),
+        10,
+        "every other certificate set in the fixtures is tagged, and found {tagged:?}"
+    );
+
+    let block = block_of("dijkstra14");
+    let tx = block
+        .block_body
+        .transactions
+        .iter()
+        .next()
+        .expect("dijkstra14 carries a transaction");
+    let body = tx.transaction_body.clone().unwrap();
+    let certificates = body
+        .certificates
+        .expect("dijkstra14 carries the certificates key");
+
+    assert_eq!(certificates.len(), 1);
+    assert!(
+        matches!(certificates[0], Certificate::PoolRegistration { .. }),
+        "dijkstra14 registers a pool, found {:?}",
+        certificates[0]
+    );
+    assert_eq!(
+        body.inputs.arm(),
+        SetArm::Bare,
+        "dijkstra14 writes its input set bare as well"
     );
 }
 
