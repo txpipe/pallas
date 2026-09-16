@@ -1232,7 +1232,7 @@ pub enum NativeScript {
     #[n(2)]
     ScriptAny(#[n(0)] Vec<NativeScript>),
     #[n(3)]
-    ScriptNOfK(#[n(0)] u32, #[n(1)] Vec<NativeScript>),
+    ScriptNOfK(#[n(0)] i64, #[n(1)] Vec<NativeScript>),
     #[n(4)]
     InvalidBefore(#[n(0)] u64),
     #[n(5)]
