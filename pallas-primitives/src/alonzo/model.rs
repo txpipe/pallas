@@ -323,21 +323,20 @@ pub struct VKeyWitness {
     pub signature: Bytes,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-#[cbor(flat)]
+/// A native script tree with stack-safe CBOR, clone, equality and drop operations.
+///
+/// This type implements `Drop` to dismantle deep trees iteratively. To consume
+/// a child list, match by mutable reference and use [`std::mem::take`]. This
+/// stack-safety guarantee does not cover Serde, debug formatting or downstream
+/// tree visitors.
+#[derive(Serialize, Deserialize, Debug, Eq)]
 pub enum NativeScript {
-    #[n(0)]
-    ScriptPubkey(#[n(0)] AddrKeyhash),
-    #[n(1)]
-    ScriptAll(#[n(0)] Vec<NativeScript>),
-    #[n(2)]
-    ScriptAny(#[n(0)] Vec<NativeScript>),
-    #[n(3)]
-    ScriptNOfK(#[n(0)] u32, #[n(1)] Vec<NativeScript>),
-    #[n(4)]
-    InvalidBefore(#[n(0)] u64),
-    #[n(5)]
-    InvalidHereafter(#[n(0)] u64),
+    ScriptPubkey(AddrKeyhash),
+    ScriptAll(Vec<NativeScript>),
+    ScriptAny(Vec<NativeScript>),
+    ScriptNOfK(u32, Vec<NativeScript>),
+    InvalidBefore(u64),
+    InvalidHereafter(u64),
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone, Copy)]
