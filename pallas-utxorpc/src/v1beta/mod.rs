@@ -55,7 +55,10 @@ impl<C: LedgerContext> Mapper<C> {
             }
             babbage::NativeScript::ScriptNOfK(n, k) => {
                 u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
-                    k: *n,
+                    // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
+                    // i64: clamp rather than cast, or a negative value wraps into
+                    // an unsatisfiable one instead of the satisfiable 0 it means.
+                    k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
                     scripts: k.iter().map(|x| Self::map_native_script(x)).collect(),
                 })
             }
@@ -479,5 +482,18 @@ mod tests {
 
             assert_eq!(expected, current)
         }
+    }
+
+    #[test]
+    fn negative_n_of_k_threshold_maps_to_zero() {
+        let mapped = Mapper::<NoLedger>::map_native_script(
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
+        );
+        assert!(matches!(
+            mapped.native_script,
+            Some(u5c::native_script::NativeScript::ScriptNOfK(
+                u5c::ScriptNOfK { k: 0, .. }
+            ))
+        ));
     }
 }

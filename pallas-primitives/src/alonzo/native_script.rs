@@ -125,7 +125,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
             0 => NativeScript::ScriptPubkey(d.decode_with(ctx)?),
             1 => NativeScript::ScriptAll(Vec::new()),
             2 => NativeScript::ScriptAny(Vec::new()),
-            3 => NativeScript::ScriptNOfK(d.u32()?, Vec::new()),
+            3 => NativeScript::ScriptNOfK(d.i64()?, Vec::new()),
             4 => NativeScript::InvalidBefore(d.u64()?),
             5 => NativeScript::InvalidHereafter(d.u64()?),
             _ => unreachable!(),
@@ -184,7 +184,7 @@ impl<C> Encode<C> for NativeScript {
                     e.array(2)?.u8(2)?.array(xs.len() as u64)?;
                 }
                 Self::ScriptNOfK(n, xs) => {
-                    e.array(3)?.u8(3)?.u32(*n)?.array(xs.len() as u64)?;
+                    e.array(3)?.u8(3)?.i64(*n)?.array(xs.len() as u64)?;
                 }
                 Self::InvalidBefore(x) => {
                     e.array(2)?.u8(4)?.u64(*x)?;
