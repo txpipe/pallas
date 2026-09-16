@@ -799,6 +799,26 @@ fn the_array_form_of_auxiliary_data_carries_this_eras_native_scripts() {
     );
 }
 
+/// `script_n_of_k`'s threshold is `int64` here just as in alonzo (`defs.cddl`
+/// carries the note in both); the extremes are where an unsigned regression
+/// would fail first.
+#[test]
+fn n_of_k_threshold_is_signed_at_the_extremes() {
+    for n in [i64::MIN, -1, 0, i64::MAX] {
+        let script = NativeScript::ScriptNOfK(n, vec![]);
+        let bytes = minicbor::to_vec(&script).unwrap();
+        let decoded: NativeScript = minicbor::decode(&bytes).unwrap();
+        assert_eq!(decoded, script, "round trip for n={n}");
+
+        let alonzo_bytes =
+            minicbor::to_vec(crate::alonzo::NativeScript::ScriptNOfK(n, vec![])).unwrap();
+        assert_eq!(
+            bytes, alonzo_bytes,
+            "wire bytes must match alonzo's for n={n}"
+        );
+    }
+}
+
 /// The header hash each fixture was cut against, from `test_data/dijkstra-fixtures.md`.
 const HEADER_HASHES: &[(&str, &str)] = &[
     (

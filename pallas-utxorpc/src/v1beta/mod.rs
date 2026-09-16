@@ -38,41 +38,11 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1beta::cardan
 // ---- v1beta-specific bodies for methods that diverge from v1alpha -----------
 
 impl<C: LedgerContext> Mapper<C> {
-    pub fn map_native_script(x: &pallas_primitives::alonzo::NativeScript) -> u5c::NativeScript {
-        let inner = match x {
-            babbage::NativeScript::ScriptPubkey(x) => {
-                u5c::native_script::NativeScript::ScriptPubkeyHash(x.to_vec().into())
-            }
-            babbage::NativeScript::ScriptAll(x) => {
-                u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::ScriptAny(x) => {
-                u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
-                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::ScriptNOfK(n, k) => {
-                u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
-                    // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
-                    // i64: clamp rather than cast, or a negative value wraps into
-                    // an unsatisfiable one instead of the satisfiable 0 it means.
-                    k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
-                    scripts: k.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::InvalidBefore(s) => {
-                u5c::native_script::NativeScript::InvalidBefore(*s)
-            }
-            babbage::NativeScript::InvalidHereafter(s) => {
-                u5c::native_script::NativeScript::InvalidHereafter(*s)
-            }
-        };
-
-        u5c::NativeScript {
-            native_script: inner.into(),
-        }
+    // v1beta names this variant ScriptPubkeyHash; v1alpha names it
+    // ScriptPubkey. The rest of map_native_script is identical between
+    // versions and lives in shared.rs.
+    fn map_native_script_pubkey(bytes: Vec<u8>) -> u5c::native_script::NativeScript {
+        u5c::native_script::NativeScript::ScriptPubkeyHash(bytes.into())
     }
 
     pub fn map_tx_datum(
@@ -493,6 +463,19 @@ mod tests {
             mapped.native_script,
             Some(u5c::native_script::NativeScript::ScriptNOfK(
                 u5c::ScriptNOfK { k: 0, .. }
+            ))
+        ));
+    }
+
+    #[test]
+    fn oversized_n_of_k_threshold_maps_to_u32_max() {
+        let mapped = Mapper::<NoLedger>::map_native_script(
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
+        );
+        assert!(matches!(
+            mapped.native_script,
+            Some(u5c::native_script::NativeScript::ScriptNOfK(
+                u5c::ScriptNOfK { k: u32::MAX, .. }
             ))
         ));
     }

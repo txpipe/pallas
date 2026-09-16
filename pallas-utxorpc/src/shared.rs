@@ -138,6 +138,47 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
+            pub fn map_native_script(
+                x: &pallas_primitives::alonzo::NativeScript,
+            ) -> u5c::NativeScript {
+                use pallas_primitives::babbage;
+
+                let inner = match x {
+                    babbage::NativeScript::ScriptPubkey(x) => {
+                        Self::map_native_script_pubkey(x.to_vec())
+                    }
+                    babbage::NativeScript::ScriptAll(x) => {
+                        u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
+                            items: x.iter().map(|x| Self::map_native_script(x)).collect(),
+                        })
+                    }
+                    babbage::NativeScript::ScriptAny(x) => {
+                        u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
+                            items: x.iter().map(|x| Self::map_native_script(x)).collect(),
+                        })
+                    }
+                    babbage::NativeScript::ScriptNOfK(n, k) => {
+                        u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
+                            // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
+                            // i64: clamp rather than cast, or a negative value wraps into
+                            // an unsatisfiable one instead of the satisfiable 0 it means.
+                            k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
+                            scripts: k.iter().map(|x| Self::map_native_script(x)).collect(),
+                        })
+                    }
+                    babbage::NativeScript::InvalidBefore(s) => {
+                        u5c::native_script::NativeScript::InvalidBefore(*s)
+                    }
+                    babbage::NativeScript::InvalidHereafter(s) => {
+                        u5c::native_script::NativeScript::InvalidHereafter(*s)
+                    }
+                };
+
+                u5c::NativeScript {
+                    native_script: inner.into(),
+                }
+            }
+
             pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {
                 use pallas_primitives::conway;
                 match x {
