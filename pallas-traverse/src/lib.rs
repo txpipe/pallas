@@ -39,9 +39,9 @@
 //! - [`MultiEraCert`], [`MultiEraRedeemer`], [`MultiEraRedeemerTag`],
 //!   [`MultiEraWithdrawals`], [`MultiEraSigners`], [`MultiEraMeta`],
 //!   [`MultiEraUpdate`], [`MultiEraProposal`], [`MultiEraGovAction`],
-//!   [`MultiEraParamUpdate`], [`MultiEraCostModels`], [`MultiEraScriptRef`],
-//!   [`MultiEraNativeScript`] are the rest of the tx surface, normalised
-//!   across eras.
+//!   [`MultiEraGovActionKind`], [`MultiEraParamUpdate`], [`MultiEraCostModels`],
+//!   [`MultiEraScriptRef`], [`MultiEraNativeScript`], [`MultiEraNativeClause`]
+//!   are the rest of the tx surface, normalised across eras.
 //! - [`Era`] and [`Feature`] — discriminators for "which era is this" and
 //!   "does this era support X" (multi-assets, smart contracts, CIP-1694, …).
 //! - Trait-driven hashing: [`ComputeHash`] and [`OriginalHash`] give a
@@ -408,6 +408,52 @@ pub enum MultiEraGovAction<'b> {
     Dijkstra(Box<Cow<'b, dijkstra::GovAction>>),
 }
 
+/// The payload a [`MultiEraGovAction`] proposes, normalized across eras.
+///
+/// In five variants the leading `Option<GovActionId>` names the most recently
+/// enacted action of the same kind, which a proposal leaves unset when there
+/// is none.
+///
+/// A committee update reports the credentials it removes as a slice, since
+/// the two eras encode that set in different types.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraGovActionKind<'b> {
+    /// A parameter change proposes the update it carries, under the guardrails
+    /// script it names.
+    ParameterChange(
+        Option<&'b conway::GovActionId>,
+        MultiEraParamUpdate<'b>,
+        Option<&'b conway::ScriptHash>,
+    ),
+    /// A hard fork initiation proposes the major and minor protocol version it
+    /// carries.
+    HardForkInitiation(Option<&'b conway::GovActionId>, &'b conway::ProtocolVersion),
+    /// A treasury withdrawal proposes paying each reward account the amount it
+    /// maps to, under the guardrails script it names.
+    TreasuryWithdrawals(
+        &'b BTreeMap<conway::RewardAccount, conway::Coin>,
+        Option<&'b conway::ScriptHash>,
+    ),
+    /// A no confidence action proposes no confidence in the committee.
+    NoConfidence(Option<&'b conway::GovActionId>),
+    /// A committee update proposes removing the credentials in the slice,
+    /// seating each credential in the map until the epoch it maps to, and
+    /// setting the committee threshold.
+    UpdateCommittee(
+        Option<&'b conway::GovActionId>,
+        &'b [conway::CommitteeColdCredential],
+        &'b BTreeMap<conway::CommitteeColdCredential, conway::Epoch>,
+        &'b conway::UnitInterval,
+    ),
+    /// A new constitution proposes the constitution it carries, an anchor and
+    /// the guardrails script hash that constitution may name.
+    NewConstitution(Option<&'b conway::GovActionId>, &'b conway::Constitution),
+    /// An information action proposes nothing. The proposal that holds it
+    /// carries the anchor.
+    Information,
+}
+
 /// Protocol parameter update proposed by a governance action, normalized
 /// across eras. Conway's rule stops at key 33, so each variant names its era.
 #[derive(Debug, Clone)]
@@ -488,6 +534,35 @@ pub enum MultiEraNativeScript<'b> {
     /// Native script from a Dijkstra transaction, which may require a guard.
     #[cfg(feature = "unstable")]
     Dijkstra(Cow<'b, KeepRaw<'b, dijkstra::NativeScript>>),
+}
+
+/// The clause at the root of a native script, normalized across eras.
+///
+/// Every era through Conway names at most the first six. The `unstable` build
+/// adds `RequireGuard`, the clause Dijkstra introduces.
+///
+/// A compound clause reports the scripts it holds in the same era variant as
+/// this one. Each arrives decoded, so it carries no bytes of its own and
+/// hashes its own re-encoding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MultiEraNativeClause<'b> {
+    /// A signature by the key with this hash satisfies the script.
+    Pubkey(&'b Hash<28>),
+    /// Every script held satisfies the script together.
+    All(Vec<MultiEraNativeScript<'b>>),
+    /// Any one of the scripts held satisfies the script.
+    Any(Vec<MultiEraNativeScript<'b>>),
+    /// Any this many of the scripts held satisfy the script. The ledger CDDL
+    /// types the threshold signed, not `uint`, so it may be negative.
+    NOfK(i64, Vec<MultiEraNativeScript<'b>>),
+    /// No slot before this one satisfies the script.
+    InvalidBefore(u64),
+    /// No slot from this one on satisfies the script.
+    InvalidHereafter(u64),
+    /// A guard on this credential satisfies the script, a clause new in Dijkstra.
+    #[cfg(feature = "unstable")]
+    RequireGuard(&'b dijkstra::StakeCredential),
 }
 
 /// The purpose a redeemer is supplied for, normalized across eras.
@@ -632,9 +707,11 @@ mod attribute_tests {
         ("MultiEraBlock", NonExhaustive::Always),
         ("MultiEraCert", NonExhaustive::Always),
         ("MultiEraGovAction", NonExhaustive::Always),
+        ("MultiEraGovActionKind", NonExhaustive::Always),
         ("MultiEraHeader", NonExhaustive::WithUnstable),
         ("MultiEraInput", NonExhaustive::Always),
         ("MultiEraMeta", NonExhaustive::Always),
+        ("MultiEraNativeClause", NonExhaustive::Always),
         ("MultiEraNativeScript", NonExhaustive::Always),
         ("MultiEraOutput", NonExhaustive::Always),
         ("MultiEraParamUpdate", NonExhaustive::Always),
