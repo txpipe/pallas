@@ -722,7 +722,7 @@ fn eval_native_script(
             let count = scripts
                 .iter()
                 .map(|scr| eval_native_script(vkey_wits, scr, low_bnd, upp_bnd))
-                .fold(0, |x, y| x + y as u32);
+                .fold(0i64, |x, y| x + y as i64);
             count >= *val
         }
         NativeScript::InvalidBefore(val) => {
@@ -775,6 +775,19 @@ mod tests {
         assert!(eval(&script, None, Some(200)), "ends exactly at the lock");
         assert!(!eval(&script, None, Some(250)), "ends after the lock");
         assert!(!eval(&script, None, None), "no upper bound");
+    }
+
+    #[test]
+    // A threshold <= 0 is satisfied by any witness count, including none: the
+    // ledger CDDL types it int64, not uint (see `ScriptNOfK`'s doc comment).
+    fn n_of_k_threshold() {
+        assert!(eval(&NativeScript::ScriptNOfK(-1, vec![]), None, None));
+        assert!(eval(&NativeScript::ScriptNOfK(0, vec![]), None, None));
+        assert!(!eval(
+            &NativeScript::ScriptNOfK(1, vec![NativeScript::InvalidBefore(100)]),
+            None,
+            None
+        ));
     }
 
     #[test]

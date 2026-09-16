@@ -334,7 +334,9 @@ pub enum NativeScript {
     ScriptPubkey(AddrKeyhash),
     ScriptAll(Vec<NativeScript>),
     ScriptAny(Vec<NativeScript>),
-    ScriptNOfK(u32, Vec<NativeScript>),
+    /// The ledger CDDL types this threshold signed (`int32` in Shelley,
+    /// widened to `int64` in Allegra), not `uint`; do not narrow it back.
+    ScriptNOfK(i64, Vec<NativeScript>),
     InvalidBefore(u64),
     InvalidHereafter(u64),
 }

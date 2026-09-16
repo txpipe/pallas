@@ -11,7 +11,16 @@ fn scripts() -> impl Strategy<Value = NativeScript> {
         prop_oneof![
             prop::collection::vec(inner.clone(), 0..5).prop_map(NativeScript::ScriptAll),
             prop::collection::vec(inner.clone(), 0..5).prop_map(NativeScript::ScriptAny),
-            (any::<u32>(), prop::collection::vec(inner, 0..5))
+            (
+                prop_oneof![
+                    Just(i64::MIN),
+                    Just(-1i64),
+                    Just(0i64),
+                    Just(i64::MAX),
+                    any::<i64>(),
+                ],
+                prop::collection::vec(inner, 0..5),
+            )
                 .prop_map(|(n, xs)| NativeScript::ScriptNOfK(n, xs)),
         ]
     })
@@ -162,6 +171,23 @@ fn preserves_permissive_array_decoding() {
             "{input}"
         );
     }
+}
+
+#[test]
+fn n_of_k_threshold_is_signed() {
+    // Preprod tx b1db2a411cb651a413840d3c8b112895a5bda2519a8ba6a372b8dd1ffc7746c2
+    // carries exactly this script, with a threshold of -1.
+    let bytes = hex::decode(
+        "830320828200581c3118644aa21ba172c82732ce80d1c94cdcb5f2e8891e1ad2645707188200581ce07caf4bf751495f75774ace30552441e4df84d141e5d1f5029cb04d",
+    )
+    .unwrap();
+    let script: NativeScript = minicbor::decode(&bytes).unwrap();
+    let NativeScript::ScriptNOfK(n, scripts) = &script else {
+        panic!("expected ScriptNOfK, got {script:?}");
+    };
+    assert_eq!(*n, -1);
+    assert_eq!(scripts.len(), 2);
+    assert_eq!(minicbor::to_vec(&script).unwrap(), bytes);
 }
 
 #[test]
