@@ -383,4 +383,42 @@ mod tests {
             ))
         ));
     }
+
+    #[test]
+    fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let mut script =
+                    pallas_primitives::alonzo::NativeScript::ScriptPubkey([0; 28].into());
+                for _ in 0..20_000 {
+                    script = pallas_primitives::alonzo::NativeScript::ScriptAll(vec![script]);
+                }
+
+                let mapped = Mapper::<NoLedger>::map_native_script(&script);
+
+                let mut depth = 0;
+                let mut cursor = &mapped;
+                while let Some(u5c::native_script::NativeScript::ScriptAll(list)) =
+                    &cursor.native_script
+                {
+                    depth += 1;
+                    cursor = &list.items[0];
+                }
+                assert_eq!(depth, 20_000);
+                assert!(matches!(
+                    cursor.native_script,
+                    Some(u5c::native_script::NativeScript::ScriptPubkey(_))
+                ));
+
+                // u5c's generated type has no custom Drop (unlike the source
+                // NativeScript, stack-safe since pallas#802): dropping a chain
+                // this deep here is a separate, unfixed gap. Sidestep it --
+                // this test is only about the mapping itself.
+                std::mem::forget(mapped);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
 }
