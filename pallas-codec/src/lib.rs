@@ -30,6 +30,8 @@
 //!   of truth for CBOR.
 //! - [`flat`] — Rust port of the Haskell [flat] reference implementation,
 //!   used for Plutus Core scripts.
+//! - [`tree`] — stack-safe decoding of recursive types via [`tree::TreeDecode`]
+//!   and [`tree::decode_tree`].
 //! - [`utils`] — round-trip-friendly helper types ([`utils::KeepRaw`],
 //!   [`utils::KeyValuePairs`], [`utils::MaybeIndefArray`],
 //!   [`utils::NonEmptySet`], [`utils::Nullable`], [`utils::PositiveCoin`],
@@ -53,6 +55,9 @@ pub mod flat;
 
 /// Shared re-export of `minicbor` across all Pallas crates.
 pub use minicbor;
+
+/// Stack-safe decoding of recursive CBOR structures.
+pub mod tree;
 
 /// Round-trip friendly common helper structs (`Bytes`, `Nullable`, `Set`, …).
 pub mod utils;

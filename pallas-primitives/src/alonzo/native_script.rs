@@ -2,7 +2,8 @@
 //! Use heap-backed work lists throughout their CBOR lifecycle: fixing only
 //! decoding would leave cloning, encoding or destruction able to overflow.
 
-use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder, data::Type};
+use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder};
+use pallas_codec::tree::{Arity, TreeDecode, decode_tree};
 
 use super::NativeScript;
 
@@ -84,15 +85,21 @@ impl PartialEq for NativeScript {
     }
 }
 
-struct Frame {
+// Private wrapper so the tree-decoding builder stays out of the public API.
+struct Node(NativeScript);
+
+struct Builder {
     script: NativeScript,
-    // None: leaf; Some(None): indefinite child array; Some(Some(n)): n children left.
-    children_left: Option<Option<u64>>,
     trailing_fields: u64,
 }
 
-impl Frame {
-    fn decode<'b, C>(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+impl<'b, C> TreeDecode<'b, C> for Node {
+    type Builder = Builder;
+
+    fn begin(
+        d: &mut Decoder<'b>,
+        ctx: &mut C,
+    ) -> Result<(Builder, Arity), minicbor::decode::Error> {
         let position = d.position();
         // Match the former #[cbor(flat)] codec, including its acceptance of
         // extra fields and indefinite child lists (but not indefinite variants).
@@ -123,56 +130,38 @@ impl Frame {
             5 => NativeScript::InvalidHereafter(d.u64()?),
             _ => unreachable!(),
         };
-        let children_left = if matches!(variant, 1..=3) {
-            Some(d.array()?)
+        let arity = if matches!(variant, 1..=3) {
+            d.array()?.into()
         } else {
-            None
+            Arity::Leaf
         };
-        // Do not reserve from an untrusted CBOR length. Memory grows only as
-        // actual nodes are consumed from the input.
-        Ok(Self {
+        let builder = Builder {
             script,
-            children_left,
             trailing_fields: len - required,
-        })
+        };
+        Ok((builder, arity))
     }
 
-    fn needs_child(&mut self, d: &mut Decoder<'_>) -> Result<bool, minicbor::decode::Error> {
-        match self.children_left {
-            None | Some(Some(0)) => Ok(false),
-            Some(Some(_)) => Ok(true),
-            Some(None) if d.datatype()? == Type::Break => {
-                d.skip()?;
-                self.children_left = None;
-                Ok(false)
-            }
-            Some(None) => Ok(true),
+    fn child(builder: &mut Builder, child: Node) -> Result<(), minicbor::decode::Error> {
+        builder.script.children_mut().unwrap().push(child.0);
+        Ok(())
+    }
+
+    fn end(
+        builder: Builder,
+        d: &mut Decoder<'b>,
+        _: &mut C,
+    ) -> Result<Node, minicbor::decode::Error> {
+        for _ in 0..builder.trailing_fields {
+            d.skip()?;
         }
+        Ok(Node(builder.script))
     }
 }
 
 impl<'b, C> Decode<'b, C> for NativeScript {
     fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let mut parents: Vec<Frame> = Vec::new();
-        let mut current = Frame::decode(d, ctx)?;
-        loop {
-            if current.needs_child(d)? {
-                parents.push(current);
-                current = Frame::decode(d, ctx)?;
-                continue;
-            }
-            for _ in 0..current.trailing_fields {
-                d.skip()?;
-            }
-            let Some(mut parent) = parents.pop() else {
-                return Ok(current.script);
-            };
-            parent.script.children_mut().unwrap().push(current.script);
-            if let Some(Some(remaining)) = &mut parent.children_left {
-                *remaining -= 1;
-            }
-            current = parent;
-        }
+        decode_tree::<C, Node>(d, ctx).map(|node| node.0)
     }
 }
 
