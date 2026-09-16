@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(network2)* Implement Leios mini-protocols (LeiosNotify, LeiosFetch) (#788)
+- *(addresses)* Add strict pointer and varuint parsing (#787)
+- *(primitives)* Introduce Dijkstra era ledger primitives as unstable (#799)
+
+### 🐛 Bug Fixes
+
+- *(ci)* Restore green CI under current stable clippy and cddl 0.10.7 (#795)
+- *(utxorpc)* Convert block timestamp from seconds to ms in u5c mapping (#793)
+- *(configs)* Support the "extra config" of the current alonzo genesis (#798)
+- *(primitives)* Prevent stack overflow on deeply nested native scripts (#802)
+- *(primitives)* [**breaking**] ScriptNOfK's threshold is the ledger's signed int64, not u32 (#803)
+
+### 📚 Documentation
+
+- *(examples)* Add tutorial-style README for leios-testnet (#790)
+
+### ⚡ Performance
+
+- *(network2)* Send a leios fetch when it is issued instead of waiting (#796)
+
+### 🧪 Testing
+
+- *(txbuilder)* Add a Conway build test harness (#781)
+
+### Example
+
+- Add a Leios TUI example (#791)
+
 ## [1.1.1] - 2026-06-19
 
 ### 🐛 Bug Fixes
@@ -15,6 +47,10 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - *(network2)* Fix flaky full_protocol_flow test by removing redundant Housekeeping (#780)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.1.1
 
 ## [1.1.0] - 2026-05-29
 
