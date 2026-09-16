@@ -143,7 +143,7 @@ pub fn native_script_pubkey(keyhash: u8) -> Vec<u8> {
     e.into_writer()
 }
 
-/// Builds an `invalid_before` clause, written canonically.
+/// Builds a `script_invalid_before` clause, written canonically.
 pub fn native_script_invalid_before(slot: u8) -> Vec<u8> {
     let mut e = minicbor::Encoder::new(Vec::new());
     e.array(2).unwrap();
@@ -164,6 +164,15 @@ pub fn native_script_invalid_before_long_form(slot: u8) -> Vec<u8> {
     e.into_writer()
 }
 
+/// Builds a `script_invalid_hereafter` clause, written canonically.
+pub fn native_script_invalid_hereafter(slot: u8) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(2).unwrap();
+    e.u8(5).unwrap();
+    e.u8(slot).unwrap();
+    e.into_writer()
+}
+
 /// Builds a `script_require_guard` clause, which no era before Dijkstra has.
 pub fn native_script_require_guard(keyhash: u8) -> Vec<u8> {
     let mut e = minicbor::Encoder::new(Vec::new());
@@ -172,6 +181,37 @@ pub fn native_script_require_guard(keyhash: u8) -> Vec<u8> {
     e.array(2).unwrap();
     e.u8(0).unwrap();
     e.bytes(&[keyhash; 28]).unwrap();
+    e.into_writer()
+}
+
+/// Builds a `script_all` clause over the scripts given.
+pub fn native_script_all(scripts: &[&[u8]]) -> Vec<u8> {
+    native_script_list(1, None, scripts)
+}
+
+/// Builds a `script_any` clause over the scripts given.
+pub fn native_script_any(scripts: &[&[u8]]) -> Vec<u8> {
+    native_script_list(2, None, scripts)
+}
+
+/// Builds a `script_n_of_k` clause requiring `k` of the scripts given.
+pub fn native_script_n_of_k(k: i64, scripts: &[&[u8]]) -> Vec<u8> {
+    native_script_list(3, Some(k), scripts)
+}
+
+/// Writes a clause holding a list of scripts. A `k` makes it the three element
+/// form `script_n_of_k` writes, where the count sits between tag and list.
+fn native_script_list(tag: u8, k: Option<i64>, scripts: &[&[u8]]) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(if k.is_some() { 3 } else { 2 }).unwrap();
+    e.u8(tag).unwrap();
+    if let Some(k) = k {
+        e.i64(k).unwrap();
+    }
+    e.array(scripts.len() as u64).unwrap();
+    for script in scripts {
+        e.writer_mut().extend_from_slice(script);
+    }
     e.into_writer()
 }
 

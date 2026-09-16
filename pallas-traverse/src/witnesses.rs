@@ -11,9 +11,31 @@ use pallas_primitives::{
 use pallas_primitives::dijkstra;
 
 use crate::{
-    ComputeHash as _, Era, MultiEraNativeScript, MultiEraRedeemer, MultiEraRedeemerTag, MultiEraTx,
-    OriginalHash as _,
+    ComputeHash as _, Era, MultiEraNativeClause, MultiEraNativeScript, MultiEraRedeemer,
+    MultiEraRedeemerTag, MultiEraTx, OriginalHash as _,
 };
+
+/// Reads the six clauses every era's native script type names, under the era
+/// module given, wrapping a held script list with the helper given. An era
+/// that names more clauses passes them as further arms, so each match stays
+/// exhaustive over its own type.
+macro_rules! shared_clauses {
+    ($script:expr, $era:ident, $wrap:ident $(, $pattern:pat => $clause:expr)* $(,)?) => {
+        match $script {
+            $era::NativeScript::ScriptPubkey(x) => MultiEraNativeClause::Pubkey(x),
+            $era::NativeScript::ScriptAll(x) => MultiEraNativeClause::All($wrap(x)),
+            $era::NativeScript::ScriptAny(x) => MultiEraNativeClause::Any($wrap(x)),
+            $era::NativeScript::ScriptNOfK(k, scripts) => {
+                MultiEraNativeClause::NOfK(*k, $wrap(scripts))
+            }
+            $era::NativeScript::InvalidBefore(slot) => MultiEraNativeClause::InvalidBefore(*slot),
+            $era::NativeScript::InvalidHereafter(slot) => {
+                MultiEraNativeClause::InvalidHereafter(*slot)
+            }
+            $($pattern => $clause,)*
+        }
+    };
+}
 
 impl<'b> MultiEraNativeScript<'b> {
     pub fn from_alonzo_compatible(script: &'b KeepRaw<'b, alonzo::NativeScript>) -> Self {
@@ -94,6 +116,41 @@ impl<'b> MultiEraNativeScript<'b> {
             }
         }
     }
+
+    /// Returns the clause at the root of this script, with any script it holds
+    /// reported in the same era variant as this one.
+    pub fn clause(&self) -> MultiEraNativeClause<'_> {
+        match self {
+            Self::AlonzoCompatible(x) => {
+                shared_clauses!(x.deref().deref(), alonzo, alonzo_compatible_scripts)
+            }
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(x) => shared_clauses!(
+                x.deref().deref(),
+                dijkstra,
+                dijkstra_scripts,
+                dijkstra::NativeScript::ScriptRequireGuard(credential) =>
+                    MultiEraNativeClause::RequireGuard(credential),
+            ),
+        }
+    }
+}
+
+fn alonzo_compatible_scripts<'a>(
+    scripts: &[alonzo::NativeScript],
+) -> Vec<MultiEraNativeScript<'a>> {
+    scripts
+        .iter()
+        .map(MultiEraNativeScript::from_decoded_alonzo_compatible)
+        .collect()
+}
+
+#[cfg(feature = "unstable")]
+fn dijkstra_scripts<'a>(scripts: &[dijkstra::NativeScript]) -> Vec<MultiEraNativeScript<'a>> {
+    scripts
+        .iter()
+        .map(MultiEraNativeScript::from_decoded_dijkstra)
+        .collect()
 }
 
 impl<'b> MultiEraTx<'b> {
@@ -378,7 +435,7 @@ impl<'b> MultiEraTx<'b> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Era, MultiEraTx, testing};
+    use crate::{Era, MultiEraNativeClause, MultiEraTx, testing};
     use pallas_crypto::hash::Hasher;
 
     #[test]
@@ -581,6 +638,160 @@ mod tests {
         assert!(tx.native_scripts().is_empty());
         assert!(tx.aux_native_scripts().is_empty());
     }
+
+    /// A script whose root clause holds one of every other clause the Alonzo
+    /// type names, the fourth of them written in the long form.
+    fn script_of_every_alonzo_clause() -> Vec<u8> {
+        let any = testing::native_script_any(&[&testing::native_script_pubkey(0x22)]);
+        let n_of_k = testing::native_script_n_of_k(1, &[&testing::native_script_pubkey(0x33)]);
+
+        testing::native_script_all(&[
+            &testing::native_script_pubkey(0x11),
+            &any,
+            &n_of_k,
+            &testing::native_script_invalid_before_long_form(7),
+            &testing::native_script_invalid_hereafter(9),
+        ])
+    }
+
+    #[test]
+    fn a_conway_native_script_reads_every_clause_it_can_hold() {
+        let script = script_of_every_alonzo_clause();
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let scripts = tx.native_scripts();
+        assert_eq!(scripts.len(), 1, "the witness set carries one script");
+
+        let items = match scripts[0].clause() {
+            MultiEraNativeClause::All(items) => items,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+        assert_eq!(items.len(), 5, "the root clause holds five scripts");
+        assert_eq!(
+            items[0].era(),
+            Era::Alonzo,
+            "a nested script is reported in the same era variant as its parent"
+        );
+
+        match items[0].clause() {
+            MultiEraNativeClause::Pubkey(h) => assert_eq!(h.as_ref(), [0x11; 28]),
+            other => panic!("the first clause is script_pubkey, found {other:?}"),
+        }
+
+        match items[1].clause() {
+            MultiEraNativeClause::Any(inner) => match inner[0].clause() {
+                MultiEraNativeClause::Pubkey(h) => assert_eq!(h.as_ref(), [0x22; 28]),
+                other => panic!("the clause under script_any is script_pubkey, found {other:?}"),
+            },
+            other => panic!("the second clause is script_any, found {other:?}"),
+        }
+
+        match items[2].clause() {
+            MultiEraNativeClause::NOfK(k, inner) => {
+                assert_eq!(k, 1, "one of the scripts listed satisfies the clause");
+                match inner[0].clause() {
+                    MultiEraNativeClause::Pubkey(h) => assert_eq!(h.as_ref(), [0x33; 28]),
+                    other => {
+                        panic!("the clause under script_n_of_k is script_pubkey, found {other:?}")
+                    }
+                }
+            }
+            other => panic!("the third clause is script_n_of_k, found {other:?}"),
+        }
+
+        assert_eq!(items[3].clause(), MultiEraNativeClause::InvalidBefore(7));
+        assert_ne!(
+            items[3].clause(),
+            MultiEraNativeClause::InvalidHereafter(7),
+            "the two slot clauses differ by one tag, so neither may read as the other"
+        );
+        assert_eq!(items[4].clause(), MultiEraNativeClause::InvalidHereafter(9));
+        assert_ne!(
+            items[4].clause(),
+            MultiEraNativeClause::InvalidBefore(9),
+            "the two slot clauses differ by one tag, so neither may read as the other"
+        );
+    }
+
+    #[test]
+    fn a_negative_n_of_k_threshold_reads_back_signed() {
+        let script = testing::native_script_n_of_k(-1, &[&testing::native_script_pubkey(0x44)]);
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let scripts = tx.native_scripts();
+        assert_eq!(scripts.len(), 1, "the witness set carries one script");
+
+        let (k, inner) = match scripts[0].clause() {
+            MultiEraNativeClause::NOfK(k, inner) => (k, inner),
+            other => panic!("the root clause is script_n_of_k, found {other:?}"),
+        };
+        assert_eq!(
+            k, -1,
+            "the ledger types the threshold signed, so a negative one reads back as itself"
+        );
+        match inner[0].clause() {
+            MultiEraNativeClause::Pubkey(h) => assert_eq!(h.as_ref(), [0x44; 28]),
+            other => panic!("the clause under script_n_of_k is script_pubkey, found {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_nested_script_carries_no_bytes_of_its_own() {
+        let script = script_of_every_alonzo_clause();
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let scripts = tx.native_scripts();
+        let items = match scripts[0].clause() {
+            MultiEraNativeClause::All(items) => items,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+
+        assert_eq!(
+            scripts[0].hash(),
+            Hasher::<224>::hash_tagged(&script, 0),
+            "the script read from the witness set hashes the bytes it arrived in"
+        );
+
+        let long_form = testing::native_script_invalid_before_long_form(7);
+        assert_eq!(
+            hex::encode(items[3].encode()),
+            hex::encode(testing::native_script_invalid_before(7)),
+            "a nested script re-encodes canonically"
+        );
+        assert_ne!(
+            hex::encode(items[3].encode()),
+            hex::encode(&long_form),
+            "and so not to the form it arrived in"
+        );
+        assert_ne!(
+            items[3].hash(),
+            Hasher::<224>::hash_tagged(&long_form, 0),
+            "so a nested script hashes its re-encoding rather than the bytes on the wire"
+        );
+        assert_eq!(
+            items[3].hash(),
+            Hasher::<224>::hash_tagged(&testing::native_script_invalid_before(7), 0),
+            "which is the hash of the canonical form"
+        );
+    }
 }
 
 #[cfg(all(test, feature = "unstable"))]
@@ -623,6 +834,58 @@ mod dijkstra_tests {
             hex::encode(&guard),
             "the script re-encodes to the bytes it was read from"
         );
+    }
+
+    #[test]
+    fn a_guard_clause_nested_in_a_script_all_is_read_as_a_guard() {
+        let guard = testing::native_script_require_guard(0x7a);
+        let script = testing::native_script_all(&[
+            &guard,
+            &testing::native_script_pubkey(0x44),
+            &testing::native_script_invalid_hereafter(9),
+        ]);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
+        let scripts = tx.native_scripts();
+        assert_eq!(scripts.len(), 1, "the witness set carries one script");
+
+        let items = match scripts[0].clause() {
+            MultiEraNativeClause::All(items) => items,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+        assert_eq!(items.len(), 3, "the root clause holds three scripts");
+        assert_eq!(
+            items[0].era(),
+            Era::Dijkstra,
+            "a nested script keeps its era"
+        );
+
+        match items[0].clause() {
+            MultiEraNativeClause::RequireGuard(
+                pallas_primitives::StakeCredential::AddrKeyhash(h),
+            ) => assert_eq!(h.as_ref(), [0x7a; 28]),
+            other => panic!("the first clause is script_require_guard, found {other:?}"),
+        }
+
+        let keyhash: Hash<28> = [0x7a; 28].into();
+        assert_ne!(
+            items[0].clause(),
+            MultiEraNativeClause::Pubkey(&keyhash),
+            "a guard on a key credential must not read as a pubkey clause"
+        );
+
+        match items[1].clause() {
+            MultiEraNativeClause::Pubkey(h) => assert_eq!(h.as_ref(), [0x44; 28]),
+            other => panic!("the second clause is script_pubkey, found {other:?}"),
+        }
+
+        assert_eq!(items[2].clause(), MultiEraNativeClause::InvalidHereafter(9));
     }
 
     #[test]
