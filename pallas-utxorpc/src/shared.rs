@@ -148,7 +148,9 @@ macro_rules! impl_cardano_mapper_shared {
                         babbage::NativeScript::ScriptAll(xs)
                         | babbage::NativeScript::ScriptAny(xs)
                         | babbage::NativeScript::ScriptNOfK(_, xs) => xs,
-                        _ => &[],
+                        babbage::NativeScript::ScriptPubkey(_)
+                        | babbage::NativeScript::InvalidBefore(_)
+                        | babbage::NativeScript::InvalidHereafter(_) => &[],
                     }
                 }
 
@@ -201,11 +203,9 @@ macro_rules! impl_cardano_mapper_shared {
                     }
                 };
 
-                // Heap-backed work list: a deeply nested script (thousands of
-                // levels, e.g. the preprod block that motivated pallas#802's
-                // stack-safe primitive codec) recursed here would overflow the
-                // stack just as it did before that fix -- this mapping was
-                // explicitly out of scope for #802's guarantee.
+                // Heap-backed work list: nesting depth here is chain-controlled
+                // and unbounded (see #802), so this must not recurse on the
+                // call stack.
                 let mut root = shallow(x);
                 let mut pending = vec![(x, &mut root)];
                 while let Some((source, target)) = pending.pop() {
@@ -216,7 +216,12 @@ macro_rules! impl_cardano_mapper_shared {
                         continue;
                     };
                     let source_kids = children(source);
-                    target_kids.extend(source_kids.iter().map(&shallow));
+                    // Assign, not extend: `target_kids` must be empty going in
+                    // for the zip below to pair positionally with `source_kids`.
+                    // `shallow` always starts a container variant with an empty
+                    // Vec, but assigning keeps that invariant local instead of
+                    // resting on a fact established 50 lines away.
+                    *target_kids = source_kids.iter().map(&shallow).collect();
                     pending.extend(source_kids.iter().zip(target_kids.iter_mut()));
                 }
                 root

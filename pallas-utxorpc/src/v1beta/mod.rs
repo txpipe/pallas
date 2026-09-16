@@ -482,6 +482,10 @@ mod tests {
 
     #[test]
     fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
+        // Depth and stack size are load-bearing, not just generous: both must
+        // stay far enough apart that the old recursive mapping (one call
+        // frame per level) would abort here, or this test stops proving
+        // anything the moment either constant drifts.
         std::thread::Builder::new()
             .stack_size(128 * 1024)
             .spawn(|| {
@@ -498,8 +502,8 @@ mod tests {
                 while let Some(u5c::native_script::NativeScript::ScriptAll(list)) =
                     &cursor.native_script
                 {
+                    cursor = list.items.first().expect("ScriptAll must carry a child");
                     depth += 1;
-                    cursor = &list.items[0];
                 }
                 assert_eq!(depth, 20_000);
                 assert!(matches!(
@@ -508,13 +512,82 @@ mod tests {
                 ));
 
                 // u5c's generated type has no custom Drop (unlike the source
-                // NativeScript, stack-safe since pallas#802): dropping a chain
-                // this deep here is a separate, unfixed gap. Sidestep it --
-                // this test is only about the mapping itself.
+                // NativeScript, stack-safe since pallas#802), so dropping a
+                // chain this deep would abort the same way the unfixed mapping
+                // did. Leak it deliberately: this test is only about the
+                // mapping, and the leak is a few MB, thread-local, test-only.
                 std::mem::forget(mapped);
             })
             .unwrap()
             .join()
             .unwrap();
+    }
+
+    #[test]
+    fn map_native_script_preserves_mixed_shape_trees() {
+        use pallas_primitives::alonzo::NativeScript;
+
+        // Width > 1 at more than one level: the iterative rewrite pairs
+        // mapped children with source children positionally, so a bug there
+        // would only show up once a node has more than one child.
+        let script = NativeScript::ScriptNOfK(
+            2,
+            vec![
+                NativeScript::ScriptPubkey([1; 28].into()),
+                NativeScript::ScriptAll(vec![
+                    NativeScript::ScriptPubkey([2; 28].into()),
+                    NativeScript::ScriptAny(vec![
+                        NativeScript::InvalidBefore(100),
+                        NativeScript::InvalidHereafter(200),
+                    ]),
+                ]),
+                NativeScript::ScriptPubkey([3; 28].into()),
+            ],
+        );
+
+        let mapped = Mapper::<NoLedger>::map_native_script(&script);
+        let Some(u5c::native_script::NativeScript::ScriptNOfK(n_of_k)) = &mapped.native_script
+        else {
+            panic!("expected ScriptNOfK, got {:?}", mapped.native_script);
+        };
+        assert_eq!(n_of_k.k, 2);
+        assert_eq!(n_of_k.scripts.len(), 3);
+
+        assert!(matches!(
+            n_of_k.scripts[0].native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkeyHash(ref b)) if b.as_ref() == [1; 28]
+        ));
+        assert!(matches!(
+            n_of_k.scripts[2].native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkeyHash(ref b)) if b.as_ref() == [3; 28]
+        ));
+
+        let Some(u5c::native_script::NativeScript::ScriptAll(all)) =
+            &n_of_k.scripts[1].native_script
+        else {
+            panic!(
+                "expected ScriptAll, got {:?}",
+                n_of_k.scripts[1].native_script
+            );
+        };
+        assert_eq!(all.items.len(), 2);
+        assert!(matches!(
+            all.items[0].native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkeyHash(ref b)) if b.as_ref() == [2; 28]
+        ));
+
+        let Some(u5c::native_script::NativeScript::ScriptAny(any)) = &all.items[1].native_script
+        else {
+            panic!("expected ScriptAny, got {:?}", all.items[1].native_script);
+        };
+        assert_eq!(any.items.len(), 2);
+        assert!(matches!(
+            any.items[0].native_script,
+            Some(u5c::native_script::NativeScript::InvalidBefore(100))
+        ));
+        assert!(matches!(
+            any.items[1].native_script,
+            Some(u5c::native_script::NativeScript::InvalidHereafter(200))
+        ));
     }
 }
