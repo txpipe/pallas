@@ -33,7 +33,7 @@
 //! - [`byron`], [`alonzo`], [`babbage`], [`conway`] — one module per era,
 //!   each exposing the era's `Block`, `Tx`, `TransactionInput`,
 //!   `TransactionOutput`, `Value`, `Certificate`, `Metadata`, witness sets,
-//!   and so on.
+//!   and so on. A fifth module, `dijkstra`, covers the Dijkstra era behind the `unstable` feature.
 //! - `plutus_data` — re-exported [`PlutusData`], [`BigInt`], and helpers
 //!   shared across eras.
 //! - `framework` — common type aliases and codec primitives
@@ -51,6 +51,7 @@
 //!
 //! - `relaxed` — relax some validation invariants applied during decoding;
 //!   useful for round-tripping non-canonical historical artifacts.
+//! - `unstable` — adds the `dijkstra` module. The era's schema is still moving, so its types are outside this crate's semver promise.
 //!
 //! # Usage as part of `pallas`
 //!
@@ -70,6 +71,9 @@ pub mod babbage;
 pub mod byron;
 /// Ledger primitives for the Conway era (governance).
 pub mod conway;
+/// Ledger primitives for the Dijkstra era (inline transactions, Leios).
+#[cfg(feature = "unstable")]
+pub mod dijkstra;
 pub use plutus_data::*;
 
 pub use framework::*;

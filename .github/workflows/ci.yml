@@ -74,6 +74,8 @@ jobs:
         run: cargo test --workspace
       - name: Test blueprint feature
         run: cargo test -p pallas-network -p pallas-network2 --features blueprint
+      - name: Test unstable feature
+        run: cargo test -p pallas-primitives --features unstable
 
   features:
     name: Features (${{ matrix.flags }})
