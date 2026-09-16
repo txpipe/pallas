@@ -138,6 +138,95 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
+            pub fn map_native_script(
+                x: &pallas_primitives::alonzo::NativeScript,
+            ) -> u5c::NativeScript {
+                use pallas_primitives::babbage;
+
+                fn children(x: &babbage::NativeScript) -> &[babbage::NativeScript] {
+                    match x {
+                        babbage::NativeScript::ScriptAll(xs)
+                        | babbage::NativeScript::ScriptAny(xs)
+                        | babbage::NativeScript::ScriptNOfK(_, xs) => xs,
+                        babbage::NativeScript::ScriptPubkey(_)
+                        | babbage::NativeScript::InvalidBefore(_)
+                        | babbage::NativeScript::InvalidHereafter(_) => &[],
+                    }
+                }
+
+                fn target_children(
+                    x: &mut u5c::native_script::NativeScript,
+                ) -> Option<&mut Vec<u5c::NativeScript>> {
+                    match x {
+                        u5c::native_script::NativeScript::ScriptAll(l)
+                        | u5c::native_script::NativeScript::ScriptAny(l) => Some(&mut l.items),
+                        u5c::native_script::NativeScript::ScriptNOfK(n) => Some(&mut n.scripts),
+                        _ => None,
+                    }
+                }
+
+                // Closure, not a nested fn, so `Self::map_native_script_pubkey`
+                // (the one thing that differs between u5c versions) resolves.
+                let shallow = |x: &babbage::NativeScript| -> u5c::NativeScript {
+                    let inner = match x {
+                        babbage::NativeScript::ScriptPubkey(x) => {
+                            Self::map_native_script_pubkey(x.to_vec())
+                        }
+                        babbage::NativeScript::ScriptAll(_) => {
+                            u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
+                                items: Vec::new(),
+                            })
+                        }
+                        babbage::NativeScript::ScriptAny(_) => {
+                            u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
+                                items: Vec::new(),
+                            })
+                        }
+                        babbage::NativeScript::ScriptNOfK(n, _) => {
+                            u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
+                                // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
+                                // i64: clamp rather than cast, or a negative value wraps into
+                                // an unsatisfiable one instead of the satisfiable 0 it means.
+                                k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
+                                scripts: Vec::new(),
+                            })
+                        }
+                        babbage::NativeScript::InvalidBefore(s) => {
+                            u5c::native_script::NativeScript::InvalidBefore(*s)
+                        }
+                        babbage::NativeScript::InvalidHereafter(s) => {
+                            u5c::native_script::NativeScript::InvalidHereafter(*s)
+                        }
+                    };
+                    u5c::NativeScript {
+                        native_script: Some(inner),
+                    }
+                };
+
+                // Heap-backed work list: nesting depth here is chain-controlled
+                // and unbounded (see #802), so this must not recurse on the
+                // call stack.
+                let mut root = shallow(x);
+                let mut pending = vec![(x, &mut root)];
+                while let Some((source, target)) = pending.pop() {
+                    let Some(inner) = target.native_script.as_mut() else {
+                        continue;
+                    };
+                    let Some(target_kids) = target_children(inner) else {
+                        continue;
+                    };
+                    let source_kids = children(source);
+                    // Assign, not extend: `target_kids` must be empty going in
+                    // for the zip below to pair positionally with `source_kids`.
+                    // `shallow` always starts a container variant with an empty
+                    // Vec, but assigning keeps that invariant local instead of
+                    // resting on a fact established 50 lines away.
+                    *target_kids = source_kids.iter().map(&shallow).collect();
+                    pending.extend(source_kids.iter().zip(target_kids.iter_mut()));
+                }
+                root
+            }
+
             pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {
                 use pallas_primitives::conway;
                 match x {

@@ -1231,6 +1231,7 @@ pub enum NativeScript {
     ScriptAll(#[n(0)] Vec<NativeScript>),
     #[n(2)]
     ScriptAny(#[n(0)] Vec<NativeScript>),
+    /// `script_n_of_k`'s threshold is `int64`, signed since Shelley (`defs.cddl`); do not narrow it back to unsigned.
     #[n(3)]
     ScriptNOfK(#[n(0)] i64, #[n(1)] Vec<NativeScript>),
     #[n(4)]

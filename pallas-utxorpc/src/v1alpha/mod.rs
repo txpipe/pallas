@@ -38,41 +38,11 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1alpha::carda
 // ---- v1alpha-specific bodies for methods that diverge from v1beta -----------
 
 impl<C: LedgerContext> Mapper<C> {
-    pub fn map_native_script(x: &pallas_primitives::alonzo::NativeScript) -> u5c::NativeScript {
-        let inner = match x {
-            babbage::NativeScript::ScriptPubkey(x) => {
-                u5c::native_script::NativeScript::ScriptPubkey(x.to_vec().into())
-            }
-            babbage::NativeScript::ScriptAll(x) => {
-                u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::ScriptAny(x) => {
-                u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
-                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::ScriptNOfK(n, k) => {
-                u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
-                    // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
-                    // i64: clamp rather than cast, or a negative value wraps into
-                    // an unsatisfiable one instead of the satisfiable 0 it means.
-                    k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
-                    scripts: k.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::InvalidBefore(s) => {
-                u5c::native_script::NativeScript::InvalidBefore(*s)
-            }
-            babbage::NativeScript::InvalidHereafter(s) => {
-                u5c::native_script::NativeScript::InvalidHereafter(*s)
-            }
-        };
-
-        u5c::NativeScript {
-            native_script: inner.into(),
-        }
+    // v1alpha names this variant by what it holds; v1beta names it
+    // ScriptPubkeyHash. The rest of map_native_script is identical between
+    // versions and lives in shared.rs.
+    fn map_native_script_pubkey(bytes: Vec<u8>) -> u5c::native_script::NativeScript {
+        u5c::native_script::NativeScript::ScriptPubkey(bytes.into())
     }
 
     pub fn map_tx_datum(
@@ -398,6 +368,130 @@ mod tests {
             Some(u5c::native_script::NativeScript::ScriptNOfK(
                 u5c::ScriptNOfK { k: 0, .. }
             ))
+        ));
+    }
+
+    #[test]
+    fn oversized_n_of_k_threshold_maps_to_u32_max() {
+        let mapped = Mapper::<NoLedger>::map_native_script(
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
+        );
+        assert!(matches!(
+            mapped.native_script,
+            Some(u5c::native_script::NativeScript::ScriptNOfK(
+                u5c::ScriptNOfK { k: u32::MAX, .. }
+            ))
+        ));
+    }
+
+    #[test]
+    fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
+        // Depth and stack size are load-bearing, not just generous: both must
+        // stay far enough apart that the old recursive mapping (one call
+        // frame per level) would abort here, or this test stops proving
+        // anything the moment either constant drifts.
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let mut script =
+                    pallas_primitives::alonzo::NativeScript::ScriptPubkey([0; 28].into());
+                for _ in 0..20_000 {
+                    script = pallas_primitives::alonzo::NativeScript::ScriptAll(vec![script]);
+                }
+
+                let mapped = Mapper::<NoLedger>::map_native_script(&script);
+
+                let mut depth = 0;
+                let mut cursor = &mapped;
+                while let Some(u5c::native_script::NativeScript::ScriptAll(list)) =
+                    &cursor.native_script
+                {
+                    cursor = list.items.first().expect("ScriptAll must carry a child");
+                    depth += 1;
+                }
+                assert_eq!(depth, 20_000);
+                assert!(matches!(
+                    cursor.native_script,
+                    Some(u5c::native_script::NativeScript::ScriptPubkey(_))
+                ));
+
+                // u5c's generated type has no custom Drop (unlike the source
+                // NativeScript, stack-safe since pallas#802), so dropping a
+                // chain this deep would abort the same way the unfixed mapping
+                // did. Leak it deliberately: this test is only about the
+                // mapping, and the leak is a few MB, thread-local, test-only.
+                std::mem::forget(mapped);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn map_native_script_preserves_mixed_shape_trees() {
+        use pallas_primitives::alonzo::NativeScript;
+
+        // Width > 1 at more than one level: the iterative rewrite pairs
+        // mapped children with source children positionally, so a bug there
+        // would only show up once a node has more than one child.
+        let script = NativeScript::ScriptNOfK(
+            2,
+            vec![
+                NativeScript::ScriptPubkey([1; 28].into()),
+                NativeScript::ScriptAll(vec![
+                    NativeScript::ScriptPubkey([2; 28].into()),
+                    NativeScript::ScriptAny(vec![
+                        NativeScript::InvalidBefore(100),
+                        NativeScript::InvalidHereafter(200),
+                    ]),
+                ]),
+                NativeScript::ScriptPubkey([3; 28].into()),
+            ],
+        );
+
+        let mapped = Mapper::<NoLedger>::map_native_script(&script);
+        let Some(u5c::native_script::NativeScript::ScriptNOfK(n_of_k)) = &mapped.native_script
+        else {
+            panic!("expected ScriptNOfK, got {:?}", mapped.native_script);
+        };
+        assert_eq!(n_of_k.k, 2);
+        assert_eq!(n_of_k.scripts.len(), 3);
+
+        assert!(matches!(
+            n_of_k.scripts[0].native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkey(ref b)) if b.as_ref() == [1; 28]
+        ));
+        assert!(matches!(
+            n_of_k.scripts[2].native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkey(ref b)) if b.as_ref() == [3; 28]
+        ));
+
+        let Some(u5c::native_script::NativeScript::ScriptAll(all)) =
+            &n_of_k.scripts[1].native_script
+        else {
+            panic!(
+                "expected ScriptAll, got {:?}",
+                n_of_k.scripts[1].native_script
+            );
+        };
+        assert_eq!(all.items.len(), 2);
+        assert!(matches!(
+            all.items[0].native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkey(ref b)) if b.as_ref() == [2; 28]
+        ));
+
+        let Some(u5c::native_script::NativeScript::ScriptAny(any)) = &all.items[1].native_script
+        else {
+            panic!("expected ScriptAny, got {:?}", all.items[1].native_script);
+        };
+        assert_eq!(any.items.len(), 2);
+        assert!(matches!(
+            any.items[0].native_script,
+            Some(u5c::native_script::NativeScript::InvalidBefore(100))
+        ));
+        assert!(matches!(
+            any.items[1].native_script,
+            Some(u5c::native_script::NativeScript::InvalidHereafter(200))
         ));
     }
 }
