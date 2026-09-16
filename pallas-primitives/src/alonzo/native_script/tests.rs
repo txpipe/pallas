@@ -1,48 +1,71 @@
 use super::*;
 use proptest::prelude::*;
 
-// Keep the old derived codec as an oracle for shallow trees and wire
-// compatibility, including permissive handling of extra variant fields.
-#[derive(Debug, Encode, Decode)]
-#[cbor(flat)]
-enum LegacyScript {
-    #[n(0)]
-    Pubkey(#[n(0)] crate::AddrKeyhash),
-    #[n(1)]
-    All(#[n(0)] Vec<LegacyScript>),
-    #[n(2)]
-    Any(#[n(0)] Vec<LegacyScript>),
-    #[n(3)]
-    NOfK(#[n(0)] u32, #[n(1)] Vec<LegacyScript>),
-    #[n(4)]
-    Before(#[n(0)] u64),
-    #[n(5)]
-    After(#[n(0)] u64),
-}
-
-fn legacy_scripts() -> impl Strategy<Value = LegacyScript> {
+fn scripts() -> impl Strategy<Value = NativeScript> {
     prop_oneof![
-        any::<[u8; 28]>().prop_map(|x| LegacyScript::Pubkey(x.into())),
-        any::<u64>().prop_map(LegacyScript::Before),
-        any::<u64>().prop_map(LegacyScript::After),
+        any::<[u8; 28]>().prop_map(|x| NativeScript::ScriptPubkey(x.into())),
+        any::<u64>().prop_map(NativeScript::InvalidBefore),
+        any::<u64>().prop_map(NativeScript::InvalidHereafter),
     ]
     .prop_recursive(4, 64, 8, |inner| {
         prop_oneof![
-            prop::collection::vec(inner.clone(), 0..5).prop_map(LegacyScript::All),
-            prop::collection::vec(inner.clone(), 0..5).prop_map(LegacyScript::Any),
+            prop::collection::vec(inner.clone(), 0..5).prop_map(NativeScript::ScriptAll),
+            prop::collection::vec(inner.clone(), 0..5).prop_map(NativeScript::ScriptAny),
             (any::<u32>(), prop::collection::vec(inner, 0..5))
-                .prop_map(|(n, xs)| LegacyScript::NOfK(n, xs)),
+                .prop_map(|(n, xs)| NativeScript::ScriptNOfK(n, xs)),
         ]
     })
 }
 
 proptest! {
     #[test]
-    fn matches_derived_codec(legacy in legacy_scripts()) {
-        let bytes = minicbor::to_vec(&legacy).unwrap();
-        let script: NativeScript = minicbor::decode(&bytes).unwrap();
-        prop_assert_eq!(minicbor::to_vec(&script).unwrap(), bytes);
-        prop_assert!(script == script.clone());
+    fn round_trips_through_cbor(script in scripts()) {
+        let bytes = minicbor::to_vec(&script).unwrap();
+        let decoded: NativeScript = minicbor::decode(&bytes).unwrap();
+        prop_assert!(decoded == script);
+        prop_assert_eq!(minicbor::to_vec(&decoded).unwrap(), bytes);
+        prop_assert!(script.clone() == script);
+    }
+}
+
+#[test]
+fn matches_ledger_cddl_wire_format() {
+    let key = [0xab; 28];
+    let key_hex = "ab".repeat(28);
+    let cases = [
+        (
+            NativeScript::ScriptPubkey(key.into()),
+            format!("8200581c{key_hex}"),
+        ),
+        (
+            NativeScript::ScriptAll(vec![
+                NativeScript::InvalidBefore(1),
+                NativeScript::InvalidHereafter(2),
+            ]),
+            "820182820401820502".to_string(),
+        ),
+        (NativeScript::ScriptAny(vec![]), "820280".to_string()),
+        (
+            NativeScript::ScriptNOfK(
+                2,
+                vec![
+                    NativeScript::ScriptPubkey(key.into()),
+                    NativeScript::ScriptAny(vec![NativeScript::InvalidBefore(0)]),
+                ],
+            ),
+            format!("830302828200581c{key_hex}820281820400"),
+        ),
+        (NativeScript::InvalidBefore(1000), "82041903e8".to_string()),
+        (
+            NativeScript::InvalidHereafter(1 << 32),
+            "82051b0000000100000000".to_string(),
+        ),
+    ];
+    for (script, hex) in cases {
+        let bytes = hex::decode(&hex).unwrap();
+        assert_eq!(minicbor::to_vec(&script).unwrap(), bytes, "{hex}");
+        let decoded: NativeScript = minicbor::decode(&bytes).unwrap();
+        assert!(decoded == script, "{hex}");
     }
 }
 
@@ -110,22 +133,33 @@ fn malformed_deep_script_cleans_up_completed_children() {
 
 #[test]
 fn preserves_permissive_array_decoding() {
-    for bytes in [
-        "820180",               // empty All
-        "82029fff",             // empty indefinite Any
-        "83030080",             // empty NOfK
-        "82019f820400820501ff", // indefinite child list
-        "830400f6",             // trailing field on a leaf
-        "830181830501f68100",   // trailing fields on a parent and its child
-    ] {
-        let bytes = hex::decode(bytes).unwrap();
-        let legacy: LegacyScript = minicbor::decode(&bytes).unwrap();
+    use NativeScript::*;
+    let cases = [
+        ("820180", ScriptAll(vec![]), "820180"),
+        ("82029fff", ScriptAny(vec![]), "820280"),
+        ("83030080", ScriptNOfK(0, vec![]), "83030080"),
+        (
+            "82019f820400820501ff",
+            ScriptAll(vec![InvalidBefore(0), InvalidHereafter(1)]),
+            "820182820400820501",
+        ),
+        ("830400f6", InvalidBefore(0), "820400"),
+        (
+            "830181830501f68100",
+            ScriptAll(vec![InvalidHereafter(1)]),
+            "820181820501",
+        ),
+    ];
+    for (input, expected, canonical) in cases {
+        let bytes = hex::decode(input).unwrap();
         let mut d = Decoder::new(&bytes);
         let script: NativeScript = d.decode().unwrap();
-        assert_eq!(d.position(), bytes.len());
+        assert_eq!(d.position(), bytes.len(), "{input}");
+        assert!(script == expected, "{input}");
         assert_eq!(
             minicbor::to_vec(&script).unwrap(),
-            minicbor::to_vec(legacy).unwrap()
+            hex::decode(canonical).unwrap(),
+            "{input}"
         );
     }
 }
@@ -144,7 +178,6 @@ fn malformed_arrays_are_rejected_without_reserving_claimed_length() {
         "830181820400",           // missing trailing field after a completed child
     ] {
         let bytes = hex::decode(bytes).unwrap();
-        assert!(minicbor::decode::<LegacyScript>(&bytes).is_err());
         assert!(minicbor::decode::<NativeScript>(&bytes).is_err());
     }
 }
