@@ -370,27 +370,47 @@ macro_rules! impl_cardano_mapper_shared {
                 x: &pallas_primitives::alonzo::PlutusData,
             ) -> u5c::PlutusData {
                 use pallas_primitives::babbage;
-                let inner = match x {
-                    babbage::PlutusData::Constr(x) => {
-                        u5c::plutus_data::PlutusData::Constr(self.map_plutus_constr(x))
-                    }
-                    babbage::PlutusData::Map(x) => {
-                        u5c::plutus_data::PlutusData::Map(self.map_plutus_map(x))
-                    }
-                    babbage::PlutusData::Array(x) => {
-                        u5c::plutus_data::PlutusData::Array(self.map_plutus_array(x))
-                    }
-                    babbage::PlutusData::BigInt(x) => {
-                        u5c::plutus_data::PlutusData::BigInt(self.map_plutus_bigint(x))
-                    }
-                    babbage::PlutusData::BoundedBytes(x) => {
-                        u5c::plutus_data::PlutusData::BoundedBytes(x.to_vec().into())
-                    }
-                };
 
-                u5c::PlutusData {
-                    plutus_data: inner.into(),
-                }
+                // Folded bottom-up rather than recursed: datums nest as deep
+                // as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::PlutusData>| {
+                    let inner = match x {
+                        babbage::PlutusData::Constr(x) => {
+                            u5c::plutus_data::PlutusData::Constr(u5c::Constr {
+                                tag: x.tag as u32,
+                                any_constructor: x.any_constructor.unwrap_or_default(),
+                                fields: children,
+                            })
+                        }
+                        babbage::PlutusData::Map(_) => {
+                            let mut children = children.into_iter();
+                            let mut pairs = Vec::with_capacity(children.len() / 2);
+                            while let (Some(key), Some(value)) = (children.next(), children.next())
+                            {
+                                pairs.push(u5c::PlutusDataPair {
+                                    key: key.into(),
+                                    value: value.into(),
+                                });
+                            }
+                            u5c::plutus_data::PlutusData::Map(u5c::PlutusDataMap { pairs })
+                        }
+                        babbage::PlutusData::Array(_) => {
+                            u5c::plutus_data::PlutusData::Array(u5c::PlutusDataArray {
+                                items: children,
+                            })
+                        }
+                        babbage::PlutusData::BigInt(x) => {
+                            u5c::plutus_data::PlutusData::BigInt(self.map_plutus_bigint(x))
+                        }
+                        babbage::PlutusData::BoundedBytes(x) => {
+                            u5c::plutus_data::PlutusData::BoundedBytes(x.to_vec().into())
+                        }
+                    };
+
+                    u5c::PlutusData {
+                        plutus_data: inner.into(),
+                    }
+                })
             }
 
             pub fn map_gov_action_id(

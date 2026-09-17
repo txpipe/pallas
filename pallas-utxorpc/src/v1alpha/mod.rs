@@ -440,6 +440,64 @@ mod tests {
     }
 
     #[test]
+    fn map_plutus_datum_handles_deeply_nested_data_on_a_small_stack() {
+        use pallas_primitives::alonzo::{BigInt, Constr, PlutusData};
+        use pallas_primitives::{Int, KeyValuePairs, MaybeIndefArray};
+
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let depth = 21_000;
+                let mut datum = PlutusData::BigInt(BigInt::Int(Int::from(0)));
+                for level in 0..depth {
+                    datum = match level % 3 {
+                        0 => PlutusData::Constr(Constr {
+                            tag: 121,
+                            any_constructor: None,
+                            fields: MaybeIndefArray::Def(vec![datum]),
+                        }),
+                        1 => PlutusData::Map(KeyValuePairs::Def(vec![(
+                            PlutusData::BigInt(BigInt::Int(Int::from(1))),
+                            datum,
+                        )])),
+                        _ => PlutusData::Array(MaybeIndefArray::Def(vec![datum])),
+                    };
+                }
+                // The source Drop still recurses; leak it like the result.
+                let datum = std::mem::ManuallyDrop::new(datum);
+
+                let mapped = Mapper::new(NoLedger).map_plutus_datum(&datum);
+
+                let mut seen = 0;
+                let mut cursor = &mapped;
+                loop {
+                    cursor = match cursor.plutus_data.as_ref().expect("mapped node") {
+                        u5c::plutus_data::PlutusData::Constr(c) => c.fields.first(),
+                        u5c::plutus_data::PlutusData::Map(m) => m
+                            .pairs
+                            .first()
+                            .expect("map carries its pair")
+                            .value
+                            .as_ref(),
+                        u5c::plutus_data::PlutusData::Array(a) => a.items.first(),
+                        u5c::plutus_data::PlutusData::BigInt(_) => break,
+                        other => panic!("unexpected node {other:?}"),
+                    }
+                    .expect("container carries a child");
+                    seen += 1;
+                }
+                assert_eq!(seen, depth);
+
+                // u5c's generated type has no custom Drop, so a chain this
+                // deep would abort on the way out. Leak it deliberately.
+                std::mem::forget(mapped);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
     fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
         // Depth and stack size are load-bearing, not just generous: both must
         // stay far enough apart that the old recursive mapping (one call
