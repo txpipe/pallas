@@ -61,6 +61,20 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
 
+## Transactions cut from the chain
+
+One file here is a single transaction rather than a whole block, read from the
+chain in the same way the blocks above were, and not hand built.
+
+| file | slot | block | transaction | what it carries |
+| --- | --- | --- | --- | --- |
+| `dijkstra-subtx.tx` | 853600 | `0c88b1e221beb608ed37dcfabed93a4a4e8f1ea0ec96f2d93b84c04816d5ddb4` | `74e2116ca6e0c809f156aa062a9d4ee8b156322618846f1bdea5d9ad7a206a12` | body keys 0, 1, 2, 13, 18, 23, where key 23 is `sub_transactions` and holds one sub transaction whose own body carries keys 0, 1, 11, 14, 18, so the file exercises `guards` at key 14 inside a sub transaction body |
+
+The file is the transaction as it sat in the block, 728 bytes in the four
+element `block_transaction` form, written as lowercase hex with no trailing
+newline. Blake2b-256 over the body alone gives the transaction hash in the
+table, and `pallas-traverse` asserts that.
+
 ## Fixtures built rather than cut
 
 Four files here are hand built CBOR, for shapes no block on this chain

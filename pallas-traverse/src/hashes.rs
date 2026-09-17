@@ -150,6 +150,20 @@ impl OriginalHash<32> for KeepRaw<'_, dijkstra::TransactionBody<'_>> {
 }
 
 #[cfg(feature = "unstable")]
+impl ComputeHash<32> for dijkstra::SubTransactionBody<'_> {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::SubTransactionBody<'_>> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
 impl ComputeHash<32> for dijkstra::AuxiliaryData {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
