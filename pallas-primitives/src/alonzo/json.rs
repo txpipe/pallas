@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
-use pallas_codec::tree::{IndexedNode, Visit, fold_tree, map_tree, walk_tree};
-use serde_json::json;
+use pallas_codec::tree::{IndexedNode, Visit, fold_tree, walk_tree};
+use serde_json::{Value, json};
 
 use crate::ToCanonicalJson;
 
@@ -14,6 +14,16 @@ impl<A> super::Constr<A> {
             _ => None,
         }
     }
+}
+
+/// An object whose values are moved in. `json!` would re-serialize them,
+/// which recurses through the whole subtree.
+fn object(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
+    let mut map = serde_json::Map::new();
+    for (key, value) in entries {
+        map.insert(key.to_string(), value);
+    }
+    Value::Object(map)
 }
 
 /// The JSON of a leaf datum, shared by both renderings.
@@ -48,19 +58,7 @@ impl ToCanonicalJson for super::PlutusData {
     /// so. Use [`to_json_string`](ToCanonicalJson::to_json_string) when the
     /// depth is not under your control.
     fn to_json(&self) -> serde_json::Value {
-        use serde_json::Value;
-
         use super::PlutusData;
-
-        // Moves the children in: `json!` would re-serialize them, which
-        // recurses through the whole subtree.
-        fn object(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value {
-            let mut map = serde_json::Map::new();
-            for (key, value) in entries {
-                map.insert(key.to_string(), value);
-            }
-            Value::Object(map)
-        }
 
         fold_tree(self, |node, children: Vec<Value>| match node {
             PlutusData::Constr(x) => object([
@@ -152,23 +150,21 @@ impl ToCanonicalJson for super::NativeScript {
     fn to_json(&self) -> serde_json::Value {
         use super::NativeScript;
 
-        fn shallow(x: &NativeScript) -> serde_json::Value {
-            match x {
-                NativeScript::ScriptPubkey(x) => json!({ "keyHash": x.to_string(), "type": "sig"}),
-                NativeScript::ScriptAll(_) => json!({ "type": "all", "scripts": []}),
-                NativeScript::ScriptAny(_) => json!({ "type": "any", "scripts": []}),
-                NativeScript::ScriptNOfK(n, _) => {
-                    json!({ "type": "atLeast", "required": n, "scripts": []})
-                }
-                NativeScript::InvalidBefore(slot) => json!({ "type": "after", "slot": slot }),
-                NativeScript::InvalidHereafter(slot) => json!({"type": "before", "slot": slot }),
+        fold_tree(self, |node, children: Vec<Value>| match node {
+            NativeScript::ScriptPubkey(x) => json!({ "keyHash": x.to_string(), "type": "sig"}),
+            NativeScript::ScriptAll(_) => {
+                object([("scripts", Value::Array(children)), ("type", json!("all"))])
             }
-        }
-
-        map_tree(self, shallow, |value: &mut serde_json::Value| {
-            value
-                .get_mut("scripts")
-                .and_then(serde_json::Value::as_array_mut)
+            NativeScript::ScriptAny(_) => {
+                object([("scripts", Value::Array(children)), ("type", json!("any"))])
+            }
+            NativeScript::ScriptNOfK(n, _) => object([
+                ("required", json!(n)),
+                ("scripts", Value::Array(children)),
+                ("type", json!("atLeast")),
+            ]),
+            NativeScript::InvalidBefore(slot) => json!({ "type": "after", "slot": slot }),
+            NativeScript::InvalidHereafter(slot) => json!({"type": "before", "slot": slot }),
         })
     }
 

@@ -4,7 +4,7 @@
 
 use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder};
 use pallas_codec::tree::{
-    Arity, TreeDecode, TreeNode, Visit, decode_tree, drop_children, eq_tree, map_tree, walk_tree,
+    Arity, TreeDecode, TreeNode, Visit, decode_tree, drop_children, eq_tree, fold_tree, walk_tree,
 };
 
 use super::NativeScript;
@@ -25,19 +25,6 @@ impl TreeNode for NativeScript {
     }
 }
 
-impl NativeScript {
-    fn shallow_clone(&self) -> Self {
-        match self {
-            Self::ScriptPubkey(x) => Self::ScriptPubkey(*x),
-            Self::ScriptAll(_) => Self::ScriptAll(Vec::new()),
-            Self::ScriptAny(_) => Self::ScriptAny(Vec::new()),
-            Self::ScriptNOfK(n, _) => Self::ScriptNOfK(*n, Vec::new()),
-            Self::InvalidBefore(x) => Self::InvalidBefore(*x),
-            Self::InvalidHereafter(x) => Self::InvalidHereafter(*x),
-        }
-    }
-}
-
 impl Drop for NativeScript {
     fn drop(&mut self) {
         drop_children(self);
@@ -46,7 +33,14 @@ impl Drop for NativeScript {
 
 impl Clone for NativeScript {
     fn clone(&self) -> Self {
-        map_tree(self, Self::shallow_clone, Self::children_mut)
+        fold_tree(self, |node, children| match node {
+            Self::ScriptPubkey(x) => Self::ScriptPubkey(*x),
+            Self::ScriptAll(_) => Self::ScriptAll(children),
+            Self::ScriptAny(_) => Self::ScriptAny(children),
+            Self::ScriptNOfK(n, _) => Self::ScriptNOfK(*n, children),
+            Self::InvalidBefore(x) => Self::InvalidBefore(*x),
+            Self::InvalidHereafter(x) => Self::InvalidHereafter(*x),
+        })
     }
 }
 
