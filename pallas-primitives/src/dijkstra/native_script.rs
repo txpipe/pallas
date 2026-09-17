@@ -1,7 +1,5 @@
-//! Native scripts may be arbitrarily deep even within a small transaction.
-//! The drivers in [`crate::native_script`] keep every step of their CBOR
-//! lifecycle on heap-backed work lists; this module only supplies the
-//! variant table.
+//! Dijkstra's native scripts share Alonzo's wire shape plus one leaf variant,
+//! and take the same stack-safe lifecycle from [`crate::native_script`].
 
 use pallas_codec::minicbor::{self, Decoder, Encoder};
 use pallas_codec::tree::TreeNode;
@@ -28,7 +26,7 @@ impl TreeNode for NativeScript {
 impl FlatScript for NativeScript {
     fn field_count(variant: i64) -> Option<u64> {
         match variant {
-            0 | 1 | 2 | 4 | 5 => Some(2),
+            0 | 1 | 2 | 4 | 5 | 6 => Some(2),
             3 => Some(3),
             _ => None,
         }
@@ -46,6 +44,7 @@ impl FlatScript for NativeScript {
             3 => Self::ScriptNOfK(d.i64()?, Vec::new()),
             4 => Self::InvalidBefore(d.u64()?),
             5 => Self::InvalidHereafter(d.u64()?),
+            6 => Self::ScriptRequireGuard(d.decode_with(ctx)?),
             _ => unreachable!("field_count rejects unknown variants"),
         })
     }
@@ -74,6 +73,9 @@ impl FlatScript for NativeScript {
             Self::InvalidHereafter(x) => {
                 e.array(2)?.u8(5)?.u64(*x)?;
             }
+            Self::ScriptRequireGuard(x) => {
+                e.array(2)?.u8(6)?.encode_with(x, ctx)?;
+            }
         }
         Ok(())
     }
@@ -86,6 +88,7 @@ impl FlatScript for NativeScript {
             Self::ScriptNOfK(n, _) => Self::ScriptNOfK(*n, children),
             Self::InvalidBefore(x) => Self::InvalidBefore(*x),
             Self::InvalidHereafter(x) => Self::InvalidHereafter(*x),
+            Self::ScriptRequireGuard(x) => Self::ScriptRequireGuard(x.clone()),
         }
     }
 
@@ -98,6 +101,7 @@ impl FlatScript for NativeScript {
             (Self::ScriptNOfK(a, _), Self::ScriptNOfK(b, _)) => a == b,
             (Self::InvalidBefore(a), Self::InvalidBefore(b))
             | (Self::InvalidHereafter(a), Self::InvalidHereafter(b)) => a == b,
+            (Self::ScriptRequireGuard(a), Self::ScriptRequireGuard(b)) => a == b,
             _ => false,
         }
     }

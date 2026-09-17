@@ -1222,26 +1222,25 @@ codec_by_datatype! {
 }
 
 /// `native_script` gains `script_require_guard = (6, credential)` (`defs.cddl`).
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-#[cbor(flat)]
+///
+/// A native script tree with stack-safe CBOR, clone, equality and drop
+/// operations, like [`crate::alonzo::NativeScript`]. This type implements
+/// `Drop` to dismantle deep trees iteratively. To consume a child list, match
+/// by mutable reference and use [`std::mem::take`]. This stack-safety
+/// guarantee does not cover Serde, debug formatting or downstream tree
+/// visitors.
+#[derive(Serialize, Deserialize, Debug, Eq)]
 pub enum NativeScript {
-    #[n(0)]
-    ScriptPubkey(#[n(0)] AddrKeyhash),
-    #[n(1)]
-    ScriptAll(#[n(0)] Vec<NativeScript>),
-    #[n(2)]
-    ScriptAny(#[n(0)] Vec<NativeScript>),
+    ScriptPubkey(AddrKeyhash),
+    ScriptAll(Vec<NativeScript>),
+    ScriptAny(Vec<NativeScript>),
     /// `script_n_of_k`'s threshold is `int64`, signed since Shelley (`defs.cddl`); do not narrow it back to unsigned.
-    #[n(3)]
-    ScriptNOfK(#[n(0)] i64, #[n(1)] Vec<NativeScript>),
-    #[n(4)]
-    InvalidBefore(#[n(0)] u64),
-    #[n(5)]
-    InvalidHereafter(#[n(0)] u64),
+    ScriptNOfK(i64, Vec<NativeScript>),
+    InvalidBefore(u64),
+    InvalidHereafter(u64),
 
     // -- NEW IN DIJKSTRA
-    #[n(6)]
-    ScriptRequireGuard(#[n(0)] StakeCredential),
+    ScriptRequireGuard(StakeCredential),
 }
 
 /// `redeemer_tag` gains tag 6, `guarding` (`defs.cddl`).
