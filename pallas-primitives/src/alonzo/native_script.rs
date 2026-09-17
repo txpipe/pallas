@@ -8,7 +8,7 @@ use pallas_codec::tree::{Arity, TreeDecode, decode_tree};
 use super::NativeScript;
 
 impl NativeScript {
-    fn children(&self) -> &[Self] {
+    pub(crate) fn children(&self) -> &[Self] {
         match self {
             Self::ScriptAll(xs) | Self::ScriptAny(xs) | Self::ScriptNOfK(_, xs) => xs,
             _ => &[],

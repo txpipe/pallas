@@ -26,4 +26,9 @@ where
 #[cfg(feature = "json")]
 pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;
+
+    /// The same document as [`to_json`](Self::to_json), serialized to text.
+    fn to_json_string(&self) -> String {
+        self.to_json().to_string()
+    }
 }
