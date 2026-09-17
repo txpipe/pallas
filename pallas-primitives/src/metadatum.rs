@@ -1,6 +1,8 @@
+use std::cmp::Ordering;
+
 use pallas_codec::minicbor::{self, data::Type};
 use pallas_codec::tree::{
-    Arity, IndexedNode, TreeDecode, Visit, decode_tree, fold_tree, walk_tree,
+    Arity, IndexedNode, TreeDecode, Visit, cmp_tree, decode_tree, fold_tree, walk_tree,
 };
 use pallas_codec::utils::KeyValuePairs;
 
@@ -45,6 +47,43 @@ fn map(indefinite: bool, pairs: Vec<(Metadatum, Metadatum)>) -> Metadatum {
     } else {
         KeyValuePairs::Def(pairs)
     })
+}
+
+impl Eq for Metadatum {}
+
+impl PartialEq for Metadatum {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl PartialOrd for Metadatum {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Orders as the derived `Ord` did: by variant, then by a node's own data
+/// (a definite map before an indefinite one), then by children.
+impl Ord for Metadatum {
+    fn cmp(&self, other: &Self) -> Ordering {
+        fn rank(x: &Metadatum) -> (u8, bool) {
+            match x {
+                Metadatum::Int(_) => (0, false),
+                Metadatum::Bytes(_) => (1, false),
+                Metadatum::Text(_) => (2, false),
+                Metadatum::Array(_) => (3, false),
+                Metadatum::Map(kvs) => (4, matches!(kvs, KeyValuePairs::Indef(_))),
+            }
+        }
+
+        cmp_tree(self, other, |left, right| match (left, right) {
+            (Self::Int(a), Self::Int(b)) => a.cmp(b),
+            (Self::Bytes(a), Self::Bytes(b)) => a.cmp(b),
+            (Self::Text(a), Self::Text(b)) => a.cmp(b),
+            _ => rank(left).cmp(&rank(right)),
+        })
+    }
 }
 
 /// Copies with a heap-backed stack: a derived clone recurses per nesting
@@ -426,6 +465,62 @@ mod tests {
                         minicbor::to_vec(&*copy).unwrap(),
                         minicbor::to_vec(&*datum).unwrap()
                     );
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn orders_like_the_derived_ord_did() {
+        let int = |n: i64| Metadatum::Int(Int::from(n));
+        let text = |s: &str| Metadatum::Text(s.to_string());
+        let def = |kvs: Vec<(Metadatum, Metadatum)>| Metadatum::Map(KeyValuePairs::Def(kvs));
+        let indef = |kvs: Vec<(Metadatum, Metadatum)>| Metadatum::Map(KeyValuePairs::Indef(kvs));
+
+        // Variant order, then payload, then children, then child count.
+        assert!(int(9) < Metadatum::Bytes(vec![].into()));
+        assert!(Metadatum::Bytes(vec![1].into()) < text(""));
+        assert!(text("b") < Metadatum::Array(vec![]));
+        assert!(Metadatum::Array(vec![int(1)]) < def(vec![]));
+        // `Int` keeps the wrapped CBOR integer's derived order (sign flag,
+        // then magnitude), as it always has; only the shape is under test.
+        assert!(int(1) < int(2));
+        assert!(text("a") < text("b"));
+        assert!(Metadatum::Array(vec![int(1)]) < Metadatum::Array(vec![int(2)]));
+        assert!(Metadatum::Array(vec![int(1)]) < Metadatum::Array(vec![int(1), int(0)]));
+        assert!(def(vec![(int(0), int(1))]) < def(vec![(int(0), int(2))]));
+        assert!(def(vec![(int(0), int(1))]) < def(vec![(int(1), int(0))]));
+        // Encoding distinguishes maps, as the derived impls did.
+        assert!(def(vec![(int(0), int(0))]) < indef(vec![]));
+        assert!(def(vec![]) != indef(vec![]));
+        assert!(def(vec![(int(0), int(0))]) == def(vec![(int(0), int(0))]));
+    }
+
+    #[test]
+    fn compares_deep_nesting_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                for (level, close) in SHAPES {
+                    let depth = 20_000;
+                    let same = nested(level, depth, &[0x00], close);
+                    let bigger = nested(level, depth, &[0x01], close);
+                    let deeper = nested(level, depth + 1, &[0x00], close);
+                    let decode = |bytes: &[u8]| {
+                        std::mem::ManuallyDrop::new(minicbor::decode::<Metadatum>(bytes).unwrap())
+                    };
+                    let (a, b, c, d) = (
+                        decode(&same),
+                        decode(&same),
+                        decode(&bigger),
+                        decode(&deeper),
+                    );
+                    assert!(*a == *b, "shape {level:02x?}");
+                    assert_eq!(a.cmp(&c), Ordering::Less, "shape {level:02x?}");
+                    assert_eq!(a.cmp(&d), Ordering::Less, "shape {level:02x?}");
+                    assert_eq!(d.cmp(&a), Ordering::Greater, "shape {level:02x?}");
                 }
             })
             .unwrap()

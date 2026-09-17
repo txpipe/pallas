@@ -1,5 +1,5 @@
 use pallas_codec::tree::{
-    Arity, IndexedNode, TreeDecode, Visit, decode_tree, fold_tree, walk_tree,
+    Arity, IndexedNode, TreeDecode, Visit, cmp_tree, decode_tree, fold_tree, walk_tree,
 };
 use pallas_codec::utils::{Int, KeyValuePairs};
 use pallas_codec::{
@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::{fmt, ops::Deref};
 
-/// The CBOR codec, `Clone` and the canonical JSON rendering never recurse per
-/// nesting level, so chain-deep datums decode, encode, copy and render on any
-/// stack, and [`pallas_codec::tree`] can traverse them through `IndexedNode`.
-/// `PartialEq`, `Ord`, `Debug` and `Drop` still recurse.
+/// The CBOR codec, `Clone`, `Ord` and the canonical JSON rendering never
+/// recurse per nesting level, so chain-deep datums decode, encode, copy,
+/// compare and render on any stack, and [`pallas_codec::tree`] can traverse
+/// them through `IndexedNode`. `Debug`, `Drop` and Serde still recurse.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
@@ -109,23 +109,26 @@ impl PartialOrd for PlutusData {
     }
 }
 
+/// Orders by variant, then by a node's own data, then by children; the
+/// container encoding (definite or indefinite) does not take part.
 impl Ord for PlutusData {
     fn cmp(&self, other: &Self) -> Ordering {
-        match (self, other) {
-            (Self::Constr(left), Self::Constr(right)) => left.cmp(right),
-            (Self::Constr(..), _) => Ordering::Less,
-            (_, Self::Constr(..)) => Ordering::Greater,
-            (Self::Map(left), Self::Map(right)) => left.deref().cmp(right.deref()),
-            (Self::Map(..), _) => Ordering::Less,
-            (_, Self::Map(..)) => Ordering::Greater,
-            (Self::Array(left), Self::Array(right)) => left.deref().cmp(right.deref()),
-            (Self::Array(..), _) => Ordering::Less,
-            (_, Self::Array(..)) => Ordering::Greater,
-            (Self::BigInt(left), Self::BigInt(right)) => left.cmp(right),
-            (Self::BigInt(..), _) => Ordering::Less,
-            (_, Self::BigInt(..)) => Ordering::Greater,
-            (Self::BoundedBytes(left), Self::BoundedBytes(right)) => left.cmp(right),
+        fn rank(x: &PlutusData) -> u8 {
+            match x {
+                PlutusData::Constr(_) => 0,
+                PlutusData::Map(_) => 1,
+                PlutusData::Array(_) => 2,
+                PlutusData::BigInt(_) => 3,
+                PlutusData::BoundedBytes(_) => 4,
+            }
         }
+
+        cmp_tree(self, other, |left, right| match (left, right) {
+            (Self::Constr(a), Self::Constr(b)) => a.constr_index().cmp(&b.constr_index()),
+            (Self::BigInt(a), Self::BigInt(b)) => a.cmp(b),
+            (Self::BoundedBytes(a), Self::BoundedBytes(b)) => a.cmp(b),
+            _ => rank(left).cmp(&rank(right)),
+        })
     }
 }
 
@@ -1118,6 +1121,39 @@ mod tests {
                         bytes,
                         "shape {level:02x?}"
                     );
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn compares_deep_nesting_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                for (level, close) in SHAPES {
+                    let depth = 20_000;
+                    let same = nested(level, depth, &[0x00], close);
+                    let bigger = nested(level, depth, &[0x01], close);
+                    let deeper = nested(level, depth + 1, &[0x00], close);
+                    let decode = |bytes: &[u8]| {
+                        std::mem::ManuallyDrop::new(minicbor::decode::<PlutusData>(bytes).unwrap())
+                    };
+                    let (a, b, c, d) = (
+                        decode(&same),
+                        decode(&same),
+                        decode(&bigger),
+                        decode(&deeper),
+                    );
+                    assert!(*a == *b, "shape {level:02x?}");
+                    assert_eq!(a.cmp(&c), Ordering::Less, "shape {level:02x?}");
+                    // Containers rank before integers, so at the depth where
+                    // one tree holds its leaf and the other a container, the
+                    // deeper tree is the smaller one.
+                    assert_eq!(a.cmp(&d), Ordering::Greater, "shape {level:02x?}");
+                    assert_eq!(d.cmp(&a), Ordering::Less, "shape {level:02x?}");
                 }
             })
             .unwrap()
