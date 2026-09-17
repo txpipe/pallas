@@ -1,8 +1,9 @@
+use pallas_codec::tree::{Arity, TreeDecode, decode_tree};
 use pallas_codec::utils::{Int, KeyValuePairs};
 use pallas_codec::{
     minicbor::{
         self, Encode,
-        data::{IanaTag, Tag},
+        data::{IanaTag, Tag, Type},
     },
     utils::MaybeIndefArray,
 };
@@ -53,56 +54,178 @@ impl Ord for PlutusData {
     }
 }
 
-impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let type_ = d.datatype()?;
+// Private wrapper so the tree-decoding builder stays out of the public API.
+struct Node(PlutusData);
 
-        match type_ {
-            minicbor::data::Type::Tag => {
-                let mut probe = d.probe();
-                let tag = probe.tag()?;
+enum Builder {
+    Leaf(PlutusData),
+    Array {
+        indefinite: bool,
+        items: Vec<PlutusData>,
+    },
+    /// Keys and values arrive alternately.
+    Map {
+        indefinite: bool,
+        items: Vec<PlutusData>,
+    },
+    Constr {
+        tag: u64,
+        any_constructor: Option<u64>,
+        indefinite: bool,
+        fields: Vec<PlutusData>,
+    },
+}
+
+impl<'b, C> TreeDecode<'b, C> for Node {
+    type Builder = Builder;
+
+    fn begin(
+        d: &mut minicbor::Decoder<'b>,
+        ctx: &mut C,
+    ) -> Result<(Builder, Arity), minicbor::decode::Error> {
+        let leaf = |x| Ok((Builder::Leaf(x), Arity::Leaf));
+
+        match d.datatype()? {
+            Type::Tag => {
+                let tag = d.probe().tag()?;
 
                 if tag == IanaTag::PosBignum.tag() || tag == IanaTag::NegBignum.tag() {
-                    Ok(Self::BigInt(d.decode_with(ctx)?))
-                } else {
-                    match tag.as_u64() {
-                        (121..=127) | (1280..=1400) | 102 => Ok(Self::Constr(d.decode_with(ctx)?)),
-                        _ => Err(minicbor::decode::Error::message(
-                            "unknown tag for plutus data tag",
-                        )),
-                    }
+                    return leaf(PlutusData::BigInt(d.decode_with(ctx)?));
                 }
+
+                let tag = d.tag()?.as_u64();
+                let any_constructor = match tag {
+                    121..=127 | 1280..=1400 => None,
+                    102 => {
+                        d.array()?;
+                        Some(d.u64()?)
+                    }
+                    _ => {
+                        return Err(minicbor::decode::Error::message(
+                            "unknown tag for plutus data tag",
+                        ));
+                    }
+                };
+                let len = d.array()?;
+                let builder = Builder::Constr {
+                    tag,
+                    any_constructor,
+                    indefinite: len.is_none(),
+                    fields: Vec::new(),
+                };
+                Ok((builder, len.into()))
             }
-            minicbor::data::Type::U8
-            | minicbor::data::Type::U16
-            | minicbor::data::Type::U32
-            | minicbor::data::Type::U64
-            | minicbor::data::Type::I8
-            | minicbor::data::Type::I16
-            | minicbor::data::Type::I32
-            | minicbor::data::Type::I64
-            | minicbor::data::Type::Int => Ok(Self::BigInt(d.decode_with(ctx)?)),
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Self::Map(d.decode_with(ctx)?))
+            Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::Int => leaf(PlutusData::BigInt(d.decode_with(ctx)?)),
+            Type::Map | Type::MapIndef => {
+                let len = d.map()?;
+                let arity = match len {
+                    Some(pairs) => Arity::Fixed(pairs.checked_mul(2).ok_or_else(|| {
+                        minicbor::decode::Error::message("plutus data map too long")
+                    })?),
+                    None => Arity::Indefinite,
+                };
+                let builder = Builder::Map {
+                    indefinite: len.is_none(),
+                    items: Vec::new(),
+                };
+                Ok((builder, arity))
             }
-            minicbor::data::Type::Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
-            minicbor::data::Type::BytesIndef => {
+            Type::Bytes => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
+            Type::BytesIndef => {
                 let mut full = Vec::new();
 
                 for slice in d.bytes_iter()? {
                     full.extend(slice?);
                 }
 
-                Ok(Self::BoundedBytes(BoundedBytes::from(full)))
+                leaf(PlutusData::BoundedBytes(BoundedBytes::from(full)))
             }
-            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(Self::Array(d.decode_with(ctx)?))
+            Type::Array | Type::ArrayIndef => {
+                let len = d.array()?;
+                let builder = Builder::Array {
+                    indefinite: len.is_none(),
+                    items: Vec::new(),
+                };
+                Ok((builder, len.into()))
             }
-
             any => Err(minicbor::decode::Error::message(format!(
                 "bad cbor data type ({any:?}) for plutus data"
             ))),
         }
+    }
+
+    fn child(builder: &mut Builder, child: Node) -> Result<(), minicbor::decode::Error> {
+        match builder {
+            Builder::Array { items, .. }
+            | Builder::Map { items, .. }
+            | Builder::Constr { fields: items, .. } => items.push(child.0),
+            Builder::Leaf(_) => unreachable!("leaves report Arity::Leaf"),
+        }
+        Ok(())
+    }
+
+    fn end(
+        builder: Builder,
+        _: &mut minicbor::Decoder<'b>,
+        _: &mut C,
+    ) -> Result<Node, minicbor::decode::Error> {
+        fn array<A>(indefinite: bool, items: Vec<A>) -> MaybeIndefArray<A> {
+            if indefinite {
+                MaybeIndefArray::Indef(items)
+            } else {
+                MaybeIndefArray::Def(items)
+            }
+        }
+
+        let data = match builder {
+            Builder::Leaf(x) => x,
+            Builder::Array { indefinite, items } => PlutusData::Array(array(indefinite, items)),
+            Builder::Map { indefinite, items } => {
+                if items.len() % 2 != 0 {
+                    return Err(minicbor::decode::Error::message(
+                        "plutus data map ended after a key",
+                    ));
+                }
+                let mut pairs = Vec::with_capacity(items.len() / 2);
+                let mut items = items.into_iter();
+                while let (Some(k), Some(v)) = (items.next(), items.next()) {
+                    pairs.push((k, v));
+                }
+                PlutusData::Map(if indefinite {
+                    KeyValuePairs::Indef(pairs)
+                } else {
+                    KeyValuePairs::Def(pairs)
+                })
+            }
+            Builder::Constr {
+                tag,
+                any_constructor,
+                indefinite,
+                fields,
+            } => PlutusData::Constr(Constr {
+                tag,
+                any_constructor,
+                fields: array(indefinite, fields),
+            }),
+        };
+        Ok(Node(data))
+    }
+}
+
+/// Decodes with a heap-backed stack: datums nest as deep as a transaction
+/// has bytes, and a decoder that recurses per level overflows the thread
+/// stack well before that.
+impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        decode_tree::<C, Node>(d, ctx).map(|node| node.0)
     }
 }
 
@@ -761,5 +884,95 @@ mod tests {
     #[test_case(constr_any(121, &[]), bytes(&[]) => Ordering::Less)]
     fn ordering(left: PlutusData, right: PlutusData) -> Ordering {
         left.cmp(&right)
+    }
+
+    fn nested(level: &[u8], depth: usize, leaf: &[u8], close: &[u8]) -> Vec<u8> {
+        let mut bytes = level.repeat(depth);
+        bytes.extend_from_slice(leaf);
+        bytes.extend(close.repeat(depth));
+        bytes
+    }
+
+    fn depth_of(data: &PlutusData) -> usize {
+        let mut depth = 0;
+        let mut cursor = data;
+        loop {
+            let next = match cursor {
+                PlutusData::Array(xs) => xs.first(),
+                PlutusData::Map(kvs) => kvs.first().map(|(_, v)| v),
+                PlutusData::Constr(c) => c.fields.first(),
+                _ => return depth,
+            };
+            let Some(next) = next else { return depth };
+            cursor = next;
+            depth += 1;
+        }
+    }
+
+    /// One level of nesting per shape: definite and indefinite arrays,
+    /// single-entry maps, and both constructor encodings.
+    const SHAPES: &[(&[u8], &[u8])] = &[
+        (&[0x81], &[]),
+        (&[0x9f], &[0xff]),
+        (&[0xa1, 0x00], &[]),
+        (&[0xd8, 0x79, 0x81], &[]),
+        (&[0xd8, 0x66, 0x82, 0x00, 0x81], &[]),
+    ];
+
+    #[test]
+    fn decodes_deep_nesting_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                for (level, close) in SHAPES {
+                    let depth = 20_000;
+                    let bytes = nested(level, depth, &[0x00], close);
+                    let data: PlutusData = minicbor::decode(&bytes).unwrap();
+                    // Drop still recurses; leak so only decoding is under test.
+                    let data = std::mem::ManuallyDrop::new(data);
+                    assert_eq!(depth_of(&data), depth, "shape {level:02x?}");
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn rejects_truncated_deep_nesting_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                for (level, close) in SHAPES {
+                    // Cut before the leaf: no subtree completes, so error
+                    // cleanup never drops a deep value on this stack.
+                    let mut bytes = nested(level, 20_000, &[0x00], close);
+                    bytes.truncate(level.len() * 20_000);
+                    assert!(
+                        minicbor::decode::<PlutusData>(&bytes).is_err(),
+                        "shape {level:02x?}"
+                    );
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn preserves_container_encodings_and_rejects_dangling_keys() {
+        for hex in [
+            "9f00ff",
+            "bf0001ff",
+            "a10001",
+            "d87981 00",
+            "d866 82 05 9f00ff",
+        ] {
+            let bytes = hex::decode(hex.replace(' ', "")).unwrap();
+            let data: PlutusData = minicbor::decode(&bytes).unwrap();
+            assert_eq!(minicbor::to_vec(&data).unwrap(), bytes, "{hex}");
+        }
+        assert!(minicbor::decode::<PlutusData>(&hex::decode("bf00ff").unwrap()).is_err());
+        assert!(minicbor::decode::<PlutusData>(&hex::decode("a100").unwrap()).is_err());
     }
 }
