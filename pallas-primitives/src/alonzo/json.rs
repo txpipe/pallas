@@ -56,6 +56,11 @@ impl ToCanonicalJson for super::PlutusData {
 }
 
 impl ToCanonicalJson for super::NativeScript {
+    /// Building the tree is stack-safe, but the returned `serde_json::Value`
+    /// is not: serializing, cloning, comparing and dropping it recurse per
+    /// nesting level, and a chain-deep script overflows a 2 MiB stack doing
+    /// so. Use [`to_json_string`](ToCanonicalJson::to_json_string) when the
+    /// depth is not under your control.
     fn to_json(&self) -> serde_json::Value {
         use super::NativeScript;
 
@@ -79,9 +84,8 @@ impl ToCanonicalJson for super::NativeScript {
         })
     }
 
-    /// Writes the JSON text directly, never building a `serde_json::Value`:
-    /// that tree drops, clones and compares recursively, and a chain-deep
-    /// script overflows a 2 MiB stack doing so.
+    /// Writes the JSON text directly, never building a `serde_json::Value`,
+    /// so no step of rendering a chain-deep script can overflow the stack.
     fn to_json_string(&self) -> String {
         use std::fmt::Write;
 
