@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- Follow-ups from ScriptNOfK thresholds (#805)
+- *(primitives)* Add stack-safe native script JSON via shared codec tree traversal (#806)
+- *(primitives)* Decode PlutusData without call-stack recursion (#807)
+
 ## [1.2.0] - 2026-09-16
 
 ### 🚀 Features
@@ -29,6 +37,10 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - *(txbuilder)* Add a Conway build test harness (#781)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.2.0
 
 ### Example
 
