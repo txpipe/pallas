@@ -111,16 +111,21 @@ impl<'b, C> TreeDecode<'b, C> for Node {
         _: &mut minicbor::Decoder<'b>,
         _: &mut C,
     ) -> Result<Node, minicbor::decode::Error> {
+        // Checked while the builder still owns the items, so a chain-deep
+        // dangling key is released iteratively by its drop.
+        if let Partial::Map { items, .. } = builder.partial()
+            && items.len() % 2 != 0
+        {
+            return Err(minicbor::decode::Error::message(
+                "metadatum map ended after a key",
+            ));
+        }
+
         let partial = builder.0.take().expect("taken only when the node ends");
         let datum = match partial {
             Partial::Leaf(x) => x,
             Partial::Array(items) => Metadatum::Array(items),
             Partial::Map { indefinite, items } => {
-                if items.len() % 2 != 0 {
-                    return Err(minicbor::decode::Error::message(
-                        "metadatum map ended after a key",
-                    ));
-                }
                 let mut pairs = Vec::with_capacity(items.len() / 2);
                 let mut items = items.into_iter();
                 while let (Some(k), Some(v)) = (items.next(), items.next()) {
@@ -327,6 +332,18 @@ mod tests {
                     bytes.extend(nested(&[0x81], 20_000, &[0x00], &[]));
                     bytes.extend_from_slice(tail);
                     assert!(minicbor::decode::<Metadatum>(&bytes).is_err());
+                }
+
+                // An indefinite map that breaks right after a complete, deep
+                // key: the dangling key is released during error cleanup.
+                for (level, close) in SHAPES {
+                    let mut bytes = vec![0xbf];
+                    bytes.extend(nested(level, 20_000, &[0x00], close));
+                    bytes.push(0xff);
+                    assert!(
+                        minicbor::decode::<Metadatum>(&bytes).is_err(),
+                        "dangling key of shape {level:02x?}"
+                    );
                 }
             })
             .unwrap()
