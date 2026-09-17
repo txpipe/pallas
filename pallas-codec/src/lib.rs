@@ -30,8 +30,8 @@
 //!   of truth for CBOR.
 //! - [`flat`] — Rust port of the Haskell [flat] reference implementation,
 //!   used for Plutus Core scripts.
-//! - [`tree`] — stack-safe decoding of recursive types via [`tree::TreeDecode`]
-//!   and [`tree::decode_tree`].
+//! - [`tree`] — stack-safe decoding and traversal of recursive types via
+//!   [`tree::TreeDecode`], [`tree::decode_tree`] and [`tree::TreeNode`].
 //! - [`utils`] — round-trip-friendly helper types ([`utils::KeepRaw`],
 //!   [`utils::KeyValuePairs`], [`utils::MaybeIndefArray`],
 //!   [`utils::NonEmptySet`], [`utils::Nullable`], [`utils::PositiveCoin`],
