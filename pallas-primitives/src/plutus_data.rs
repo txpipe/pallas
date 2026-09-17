@@ -57,7 +57,7 @@ impl Ord for PlutusData {
 // Private wrapper so the tree-decoding builder stays out of the public API.
 struct Node(PlutusData);
 
-enum Builder {
+enum Partial {
     Leaf(PlutusData),
     Array {
         indefinite: bool,
@@ -76,6 +76,51 @@ enum Builder {
     },
 }
 
+/// Holds a node's state while its children decode. When decoding fails the
+/// completed children it owns are released iteratively: `PlutusData` itself
+/// drops recursively, and a completed child can be as deep as the input.
+struct Builder(Option<Partial>);
+
+impl Builder {
+    fn new(partial: Partial) -> Self {
+        Self(Some(partial))
+    }
+
+    fn partial(&mut self) -> &mut Partial {
+        self.0.as_mut().expect("taken only when the node ends")
+    }
+}
+
+impl Drop for Builder {
+    fn drop(&mut self) {
+        let mut pending = match self.0.take() {
+            None | Some(Partial::Leaf(_)) => return,
+            Some(
+                Partial::Array { items, .. }
+                | Partial::Map { items, .. }
+                | Partial::Constr { fields: items, .. },
+            ) => items,
+        };
+        while let Some(data) = pending.pop() {
+            match data {
+                PlutusData::Array(MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs)) => {
+                    pending.extend(xs);
+                }
+                PlutusData::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
+                    for (k, v) in kvs {
+                        pending.push(k);
+                        pending.push(v);
+                    }
+                }
+                PlutusData::Constr(c) => match c.fields {
+                    MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs) => pending.extend(xs),
+                },
+                PlutusData::BigInt(_) | PlutusData::BoundedBytes(_) => {}
+            }
+        }
+    }
+}
+
 impl<'b, C> TreeDecode<'b, C> for Node {
     type Builder = Builder;
 
@@ -83,7 +128,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
         d: &mut minicbor::Decoder<'b>,
         ctx: &mut C,
     ) -> Result<(Builder, Arity), minicbor::decode::Error> {
-        let leaf = |x| Ok((Builder::Leaf(x), Arity::Leaf));
+        let leaf = |x| Ok((Builder::new(Partial::Leaf(x)), Arity::Leaf));
 
         match d.datatype()? {
             Type::Tag => {
@@ -107,13 +152,13 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                     }
                 };
                 let len = d.array()?;
-                let builder = Builder::Constr {
+                let partial = Partial::Constr {
                     tag,
                     any_constructor,
                     indefinite: len.is_none(),
                     fields: Vec::new(),
                 };
-                Ok((builder, len.into()))
+                Ok((Builder::new(partial), len.into()))
             }
             Type::U8
             | Type::U16
@@ -132,11 +177,11 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                     })?),
                     None => Arity::Indefinite,
                 };
-                let builder = Builder::Map {
+                let partial = Partial::Map {
                     indefinite: len.is_none(),
                     items: Vec::new(),
                 };
-                Ok((builder, arity))
+                Ok((Builder::new(partial), arity))
             }
             Type::Bytes => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
             Type::BytesIndef => {
@@ -150,11 +195,11 @@ impl<'b, C> TreeDecode<'b, C> for Node {
             }
             Type::Array | Type::ArrayIndef => {
                 let len = d.array()?;
-                let builder = Builder::Array {
+                let partial = Partial::Array {
                     indefinite: len.is_none(),
                     items: Vec::new(),
                 };
-                Ok((builder, len.into()))
+                Ok((Builder::new(partial), len.into()))
             }
             any => Err(minicbor::decode::Error::message(format!(
                 "bad cbor data type ({any:?}) for plutus data"
@@ -163,17 +208,17 @@ impl<'b, C> TreeDecode<'b, C> for Node {
     }
 
     fn child(builder: &mut Builder, child: Node) -> Result<(), minicbor::decode::Error> {
-        match builder {
-            Builder::Array { items, .. }
-            | Builder::Map { items, .. }
-            | Builder::Constr { fields: items, .. } => items.push(child.0),
-            Builder::Leaf(_) => unreachable!("leaves report Arity::Leaf"),
+        match builder.partial() {
+            Partial::Array { items, .. }
+            | Partial::Map { items, .. }
+            | Partial::Constr { fields: items, .. } => items.push(child.0),
+            Partial::Leaf(_) => unreachable!("leaves report Arity::Leaf"),
         }
         Ok(())
     }
 
     fn end(
-        builder: Builder,
+        mut builder: Builder,
         _: &mut minicbor::Decoder<'b>,
         _: &mut C,
     ) -> Result<Node, minicbor::decode::Error> {
@@ -185,10 +230,11 @@ impl<'b, C> TreeDecode<'b, C> for Node {
             }
         }
 
-        let data = match builder {
-            Builder::Leaf(x) => x,
-            Builder::Array { indefinite, items } => PlutusData::Array(array(indefinite, items)),
-            Builder::Map { indefinite, items } => {
+        let partial = builder.0.take().expect("taken only when the node ends");
+        let data = match partial {
+            Partial::Leaf(x) => x,
+            Partial::Array { indefinite, items } => PlutusData::Array(array(indefinite, items)),
+            Partial::Map { indefinite, items } => {
                 if items.len() % 2 != 0 {
                     return Err(minicbor::decode::Error::message(
                         "plutus data map ended after a key",
@@ -205,7 +251,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                     KeyValuePairs::Def(pairs)
                 })
             }
-            Builder::Constr {
+            Partial::Constr {
                 tag,
                 any_constructor,
                 indefinite,
@@ -939,19 +985,30 @@ mod tests {
     }
 
     #[test]
-    fn rejects_truncated_deep_nesting_on_a_small_stack() {
+    fn rejects_malformed_deep_nesting_and_cleans_up_on_a_small_stack() {
         std::thread::Builder::new()
             .stack_size(128 * 1024)
             .spawn(|| {
                 for (level, close) in SHAPES {
-                    // Cut before the leaf: no subtree completes, so error
-                    // cleanup never drops a deep value on this stack.
-                    let mut bytes = nested(level, 20_000, &[0x00], close);
-                    bytes.truncate(level.len() * 20_000);
-                    assert!(
-                        minicbor::decode::<PlutusData>(&bytes).is_err(),
-                        "shape {level:02x?}"
-                    );
+                    // Cut before the leaf, so no subtree completes, and cut
+                    // the last byte, which for indefinite shapes leaves a
+                    // completed deep child for error cleanup to release.
+                    let bytes = nested(level, 20_000, &[0x00], close);
+                    for cut in [level.len() * 20_000, bytes.len() - 1] {
+                        assert!(
+                            minicbor::decode::<PlutusData>(&bytes[..cut]).is_err(),
+                            "shape {level:02x?} cut at {cut}"
+                        );
+                    }
+                }
+
+                // A parent expecting two children: the first is complete and
+                // deep, the second is missing or malformed.
+                for tail in [&[][..], &[0xff][..]] {
+                    let mut bytes = vec![0x82];
+                    bytes.extend(nested(&[0x81], 20_000, &[0x00], &[]));
+                    bytes.extend_from_slice(tail);
+                    assert!(minicbor::decode::<PlutusData>(&bytes).is_err());
                 }
             })
             .unwrap()
