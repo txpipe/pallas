@@ -1,4 +1,6 @@
-use pallas_codec::tree::{Arity, IndexedNode, TreeDecode, decode_tree, fold_tree};
+use pallas_codec::tree::{
+    Arity, IndexedNode, TreeDecode, Visit, decode_tree, fold_tree, walk_tree,
+};
 use pallas_codec::utils::{Int, KeyValuePairs};
 use pallas_codec::{
     minicbor::{
@@ -334,29 +336,15 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for PlutusData {
     }
 }
 
-enum Step<'a> {
-    Node(&'a PlutusData),
-    /// Close an indefinite-length container.
-    Break,
-}
-
-/// Writes a container header and queues its items, last first so they pop
-/// in order.
-fn open_array<'a, W: minicbor::encode::Write>(
+/// Writes a definite or indefinite array header.
+fn array_header<W: minicbor::encode::Write>(
     e: &mut minicbor::Encoder<W>,
-    pending: &mut Vec<Step<'a>>,
-    items: &'a MaybeIndefArray<PlutusData>,
+    items: &MaybeIndefArray<PlutusData>,
 ) -> Result<(), minicbor::encode::Error<W::Error>> {
     match items {
-        MaybeIndefArray::Def(xs) => {
-            e.array(xs.len() as u64)?;
-        }
-        MaybeIndefArray::Indef(_) => {
-            e.begin_array()?;
-            pending.push(Step::Break);
-        }
-    }
-    pending.extend(items.iter().rev().map(Step::Node));
+        MaybeIndefArray::Def(xs) => e.array(xs.len() as u64)?,
+        MaybeIndefArray::Indef(_) => e.begin_array()?,
+    };
     Ok(())
 }
 
@@ -369,49 +357,43 @@ impl<C> minicbor::encode::Encode<C> for PlutusData {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        let mut pending = vec![Step::Node(self)];
-        while let Some(step) = pending.pop() {
-            let data = match step {
-                Step::Node(data) => data,
-                Step::Break => {
-                    e.end()?;
-                    continue;
-                }
-            };
-            match data {
-                Self::Constr(x) => {
+        walk_tree(self, |visit| {
+            match visit {
+                Visit::Enter(Self::Constr(x)) => {
                     e.tag(Tag::new(x.tag))?;
                     if x.tag == 102 {
                         e.array(2)?;
                         e.u64(x.any_constructor.unwrap_or_default())?;
                     }
-                    open_array(e, &mut pending, &x.fields)?;
+                    array_header(e, &x.fields)?;
                 }
-                Self::Map(kvs) => {
-                    match kvs {
-                        KeyValuePairs::Def(kvs) => {
-                            e.map(kvs.len() as u64)?;
-                        }
-                        KeyValuePairs::Indef(_) => {
-                            e.begin_map()?;
-                            pending.push(Step::Break);
-                        }
-                    }
-                    for (k, v) in kvs.iter().rev() {
-                        pending.push(Step::Node(v));
-                        pending.push(Step::Node(k));
-                    }
+                Visit::Enter(Self::Array(xs)) => array_header(e, xs)?,
+                Visit::Enter(Self::Map(KeyValuePairs::Def(kvs))) => {
+                    e.map(kvs.len() as u64)?;
                 }
-                Self::Array(xs) => open_array(e, &mut pending, xs)?,
-                Self::BigInt(x) => {
+                Visit::Enter(Self::Map(KeyValuePairs::Indef(_))) => {
+                    e.begin_map()?;
+                }
+                Visit::Enter(Self::BigInt(x)) => {
                     e.encode_with(x, ctx)?;
                 }
-                Self::BoundedBytes(x) => {
+                Visit::Enter(Self::BoundedBytes(x)) => {
                     e.encode_with(x, ctx)?;
                 }
+                Visit::Exit(
+                    Self::Constr(Constr {
+                        fields: MaybeIndefArray::Indef(_),
+                        ..
+                    })
+                    | Self::Array(MaybeIndefArray::Indef(_))
+                    | Self::Map(KeyValuePairs::Indef(_)),
+                ) => {
+                    e.end()?;
+                }
+                Visit::Between(_) | Visit::Exit(_) => {}
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 }
 

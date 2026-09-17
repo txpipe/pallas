@@ -143,32 +143,21 @@ macro_rules! impl_cardano_mapper_shared {
             ) -> u5c::NativeScript {
                 use pallas_primitives::babbage;
 
-                fn target_children(
-                    x: &mut u5c::NativeScript,
-                ) -> Option<&mut Vec<u5c::NativeScript>> {
-                    match x.native_script.as_mut()? {
-                        u5c::native_script::NativeScript::ScriptAll(l)
-                        | u5c::native_script::NativeScript::ScriptAny(l) => Some(&mut l.items),
-                        u5c::native_script::NativeScript::ScriptNOfK(n) => Some(&mut n.scripts),
-                        _ => None,
-                    }
-                }
-
-                // Closure, not a nested fn, so `Self::map_native_script_pubkey`
-                // (the one thing that differs between u5c versions) resolves.
-                let shallow = |x: &babbage::NativeScript| -> u5c::NativeScript {
+                // Folded bottom-up rather than recursed: scripts nest as deep
+                // as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::NativeScript>| {
                     let inner = match x {
                         babbage::NativeScript::ScriptPubkey(x) => {
                             Self::map_native_script_pubkey(x.to_vec())
                         }
                         babbage::NativeScript::ScriptAll(_) => {
                             u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                                items: Vec::new(),
+                                items: children,
                             })
                         }
                         babbage::NativeScript::ScriptAny(_) => {
                             u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
-                                items: Vec::new(),
+                                items: children,
                             })
                         }
                         babbage::NativeScript::ScriptNOfK(n, _) => {
@@ -177,7 +166,7 @@ macro_rules! impl_cardano_mapper_shared {
                                 // i64: clamp rather than cast, or a negative value wraps into
                                 // an unsatisfiable one instead of the satisfiable 0 it means.
                                 k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
-                                scripts: Vec::new(),
+                                scripts: children,
                             })
                         }
                         babbage::NativeScript::InvalidBefore(s) => {
@@ -190,9 +179,7 @@ macro_rules! impl_cardano_mapper_shared {
                     u5c::NativeScript {
                         native_script: Some(inner),
                     }
-                };
-
-                pallas_codec::tree::map_tree(x, shallow, target_children)
+                })
             }
 
             pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {

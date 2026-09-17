@@ -1,5 +1,7 @@
 use pallas_codec::minicbor::{self, data::Type};
-use pallas_codec::tree::{Arity, IndexedNode, TreeDecode, decode_tree, fold_tree};
+use pallas_codec::tree::{
+    Arity, IndexedNode, TreeDecode, Visit, decode_tree, fold_tree, walk_tree,
+};
 use pallas_codec::utils::KeyValuePairs;
 
 use crate::Metadatum;
@@ -195,12 +197,6 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for Metadatum {
     }
 }
 
-enum Step<'a> {
-    Node(&'a Metadatum),
-    /// Close an indefinite-length container.
-    Break,
-}
-
 /// Encodes with a heap-backed stack, for the same reason decoding does.
 impl<C> minicbor::encode::Encode<C> for Metadatum {
     fn encode<W: minicbor::encode::Write>(
@@ -208,47 +204,33 @@ impl<C> minicbor::encode::Encode<C> for Metadatum {
         e: &mut minicbor::Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        let mut pending = vec![Step::Node(self)];
-        while let Some(step) = pending.pop() {
-            let datum = match step {
-                Step::Node(datum) => datum,
-                Step::Break => {
-                    e.end()?;
-                    continue;
-                }
-            };
-            match datum {
-                Metadatum::Int(x) => {
+        walk_tree(self, |visit| {
+            match visit {
+                Visit::Enter(Self::Int(x)) => {
                     e.encode_with(x, ctx)?;
                 }
-                Metadatum::Bytes(x) => {
+                Visit::Enter(Self::Bytes(x)) => {
                     e.encode_with(x, ctx)?;
                 }
-                Metadatum::Text(x) => {
+                Visit::Enter(Self::Text(x)) => {
                     e.encode_with(x, ctx)?;
                 }
-                Metadatum::Array(xs) => {
+                Visit::Enter(Self::Array(xs)) => {
                     e.array(xs.len() as u64)?;
-                    pending.extend(xs.iter().rev().map(Step::Node));
                 }
-                Metadatum::Map(kvs) => {
-                    match kvs {
-                        KeyValuePairs::Def(kvs) => {
-                            e.map(kvs.len() as u64)?;
-                        }
-                        KeyValuePairs::Indef(_) => {
-                            e.begin_map()?;
-                            pending.push(Step::Break);
-                        }
-                    }
-                    for (k, v) in kvs.iter().rev() {
-                        pending.push(Step::Node(v));
-                        pending.push(Step::Node(k));
-                    }
+                Visit::Enter(Self::Map(KeyValuePairs::Def(kvs))) => {
+                    e.map(kvs.len() as u64)?;
                 }
+                Visit::Enter(Self::Map(KeyValuePairs::Indef(_))) => {
+                    e.begin_map()?;
+                }
+                Visit::Exit(Self::Map(KeyValuePairs::Indef(_))) => {
+                    e.end()?;
+                }
+                Visit::Between(_) | Visit::Exit(_) => {}
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 }
 
