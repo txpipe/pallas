@@ -182,6 +182,13 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
+                .transaction_witness_set
+                .vkeywitness
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
         }
     }
 
@@ -211,6 +218,14 @@ impl<'b> MultiEraTx<'b> {
                 .collect(),
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x) => x
+                .transaction_witness_set
+                .native_script
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(MultiEraNativeScript::from_dijkstra)
+                .collect(),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
                 .transaction_witness_set
                 .native_script
                 .iter()
@@ -248,6 +263,13 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
+                .transaction_witness_set
+                .bootstrap_witness
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
         }
     }
 
@@ -279,6 +301,13 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
+                .transaction_witness_set
+                .plutus_v1_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
         }
     }
 
@@ -305,6 +334,13 @@ impl<'b> MultiEraTx<'b> {
                 .unwrap_or(&[]),
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x) => x
+                .transaction_witness_set
+                .plutus_data
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
                 .transaction_witness_set
                 .plutus_data
                 .as_ref()
@@ -349,6 +385,14 @@ impl<'b> MultiEraTx<'b> {
             },
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x) => match x.transaction_witness_set.redeemer.as_deref() {
+                Some(x) => x
+                    .iter()
+                    .map(|(k, v)| MultiEraRedeemer::from_dijkstra(k, v))
+                    .collect(),
+                None => vec![],
+            },
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => match x.transaction_witness_set.redeemer.as_deref() {
                 Some(x) => x
                     .iter()
                     .map(|(k, v)| MultiEraRedeemer::from_dijkstra(k, v))
@@ -408,6 +452,13 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
+                .transaction_witness_set
+                .plutus_v2_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
         }
     }
 
@@ -424,6 +475,13 @@ impl<'b> MultiEraTx<'b> {
                 .unwrap_or(&[]),
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x) => x
+                .transaction_witness_set
+                .plutus_v3_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x) => x
                 .transaction_witness_set
                 .plutus_v3_script
                 .as_ref()

@@ -43,6 +43,11 @@ impl<'b> MultiEraTx<'b> {
         Self::Dijkstra(Box::new(Cow::Borrowed(tx)))
     }
 
+    #[cfg(feature = "unstable")]
+    pub fn from_dijkstra_sub(tx: &'b dijkstra::SubTransaction<'b>) -> Self {
+        Self::DijkstraSub(Box::new(Cow::Borrowed(tx)))
+    }
+
     pub fn encode(&self) -> Vec<u8> {
         // to_vec is infallible
         match self {
@@ -52,6 +57,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => minicbor::to_vec(x).unwrap(),
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => minicbor::to_vec(x).unwrap(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => minicbor::to_vec(x).unwrap(),
         }
     }
 
@@ -147,7 +154,7 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Byron(_) => Era::Byron,
             MultiEraTx::Conway(_) => Era::Conway,
             #[cfg(feature = "unstable")]
-            MultiEraTx::Dijkstra(..) => Era::Dijkstra,
+            MultiEraTx::Dijkstra(..) | MultiEraTx::DijkstraSub(..) => Era::Dijkstra,
         }
     }
 
@@ -159,6 +166,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.original_hash(),
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.original_hash(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.original_hash(),
         }
     }
 
@@ -196,6 +205,13 @@ impl<'b> MultiEraTx<'b> {
                 .iter()
                 .map(MultiEraOutput::from_dijkstra)
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
+                .outputs
+                .iter()
+                .map(MultiEraOutput::from_dijkstra)
+                .collect(),
         }
     }
 
@@ -225,6 +241,12 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x
                 .transaction_body
+                .outputs
+                .get(index)
+                .map(MultiEraOutput::from_dijkstra),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
                 .outputs
                 .get(index)
                 .map(MultiEraOutput::from_dijkstra),
@@ -263,6 +285,13 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x
                 .transaction_body
+                .inputs
+                .iter()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
                 .inputs
                 .iter()
                 .map(MultiEraInput::from_alonzo_compatible)
@@ -337,6 +366,14 @@ impl<'b> MultiEraTx<'b> {
                 .flatten()
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
             // No era before Babbage has a reference inputs field.
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => vec![],
         }
@@ -374,6 +411,14 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|c| c.iter())
                 .map(|c| MultiEraCert::Dijkstra(Box::new(Cow::Borrowed(c))))
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
+                .certificates
+                .iter()
+                .flat_map(|c| c.iter())
+                .map(|c| MultiEraCert::Dijkstra(Box::new(Cow::Borrowed(c))))
+                .collect(),
         }
     }
 
@@ -394,7 +439,7 @@ impl<'b> MultiEraTx<'b> {
             // body field.
             MultiEraTx::Conway(_) => None,
             #[cfg(feature = "unstable")]
-            MultiEraTx::Dijkstra(..) => None,
+            MultiEraTx::Dijkstra(..) | MultiEraTx::DijkstraSub(..) => None,
         }
     }
 
@@ -425,6 +470,14 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x
                 .transaction_body
+                .mint
+                .iter()
+                .flat_map(|x| x.iter())
+                .map(|(k, v)| MultiEraPolicyAssets::ConwayMint(k, v))
+                .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
                 .mint
                 .iter()
                 .flat_map(|x| x.iter())
@@ -469,6 +522,10 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
+            // A sub transaction body has no key 13. The enclosing body puts up
+            // the collateral for the whole transaction.
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => vec![],
         }
     }
 
@@ -490,6 +547,10 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return
                 .as_ref()
                 .map(MultiEraOutput::from_dijkstra),
+            // A sub transaction body has no key 16, since it puts up no
+            // collateral to return.
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => None,
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => None,
         }
     }
@@ -500,6 +561,10 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.total_collateral,
+            // A sub transaction body has no key 17, for the same reason it has
+            // no key 13.
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => None,
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => None,
         }
     }
@@ -516,6 +581,14 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x
                 .transaction_body
+                .proposal_procedures
+                .iter()
+                .flatten()
+                .map(MultiEraProposal::from_dijkstra)
+                .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
                 .proposal_procedures
                 .iter()
                 .flatten()
@@ -619,6 +692,11 @@ impl<'b> MultiEraTx<'b> {
                 Some(x) => MultiEraWithdrawals::Conway(x),
                 None => MultiEraWithdrawals::Empty,
             },
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => match &x.sub_transaction_body.withdrawals {
+                Some(x) => MultiEraWithdrawals::Conway(x),
+                None => MultiEraWithdrawals::Empty,
+            },
         }
     }
 
@@ -630,6 +708,10 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => Some(x.transaction_body.fee),
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => Some(x.transaction_body.fee),
+            // A sub transaction body has no key 2. The enclosing body carries
+            // the one fee the whole transaction pays.
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => None,
         }
     }
 
@@ -641,6 +723,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.ttl,
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.ttl,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.ttl,
         }
     }
 
@@ -648,7 +732,9 @@ impl<'b> MultiEraTx<'b> {
     ///
     /// If the fee is available as part of the tx data (post-byron), this
     /// function will return the existing value. For byron txs, this method
-    /// attempts to compute the value by using the linear fee policy.
+    /// attempts to compute the value by using the linear fee policy. A Dijkstra
+    /// sub transaction pays nothing of its own, so it reports zero and the fee
+    /// of the transaction carrying it is the one the ledger charges.
     #[cfg(feature = "unstable")]
     pub fn fee_or_compute(&self) -> u64 {
         match self {
@@ -658,6 +744,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.fee,
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.fee,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => 0,
         }
     }
 
@@ -679,26 +767,31 @@ impl<'b> MultiEraTx<'b> {
                 pallas_codec::utils::Nullable::Null => None,
                 pallas_codec::utils::Nullable::Undefined => None,
             },
+            // Both Dijkstra shapes carry this era's auxiliary data type, which
+            // `dijkstra_aux_data` reads.
             #[cfg(feature = "unstable")]
-            MultiEraTx::Dijkstra(..) => None,
+            MultiEraTx::Dijkstra(..) | MultiEraTx::DijkstraSub(..) => None,
         }
     }
 
     #[cfg(feature = "unstable")]
     pub(crate) fn dijkstra_aux_data(&self) -> Option<&KeepRaw<'_, dijkstra::AuxiliaryData>> {
-        match self {
-            MultiEraTx::Dijkstra(x) => match &x.auxiliary_data {
-                pallas_codec::utils::Nullable::Some(x) => Some(x),
-                pallas_codec::utils::Nullable::Null => None,
-                pallas_codec::utils::Nullable::Undefined => None,
-            },
-            _ => None,
+        let aux = match self {
+            MultiEraTx::Dijkstra(x) => &x.auxiliary_data,
+            MultiEraTx::DijkstraSub(x) => &x.auxiliary_data,
+            _ => return None,
+        };
+
+        match aux {
+            pallas_codec::utils::Nullable::Some(x) => Some(x),
+            pallas_codec::utils::Nullable::Null => None,
+            pallas_codec::utils::Nullable::Undefined => None,
         }
     }
 
     pub fn metadata(&self) -> MultiEraMeta<'_> {
         #[cfg(feature = "unstable")]
-        if let MultiEraTx::Dijkstra(..) = self {
+        if matches!(self, MultiEraTx::Dijkstra(..) | MultiEraTx::DijkstraSub(..)) {
             return match self.dijkstra_aux_data() {
                 Some(x) => match x.deref() {
                     dijkstra::AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
@@ -761,6 +854,13 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(MultiEraSigners::Dijkstra)
                 .unwrap_or_default(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x
+                .sub_transaction_body
+                .guards
+                .as_ref()
+                .map(MultiEraSigners::Dijkstra)
+                .unwrap_or_default(),
         }
     }
 
@@ -772,6 +872,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.validity_interval_start,
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.validity_interval_start,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.validity_interval_start,
         }
     }
 
@@ -783,9 +885,14 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.network_id,
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.network_id,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.network_id,
         }
     }
 
+    /// Returns the producer's verdict on the transaction. A sub transaction
+    /// carries no validity flag and reports true, and the transaction
+    /// carrying it decides whether any of it is applied.
     pub fn is_valid(&self) -> bool {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x.success,
@@ -794,6 +901,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.success,
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.success,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => true,
         }
     }
 
@@ -804,24 +913,33 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => x.transaction_body.voting_procedures.as_ref(),
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.voting_procedures.as_ref(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.voting_procedures.as_ref(),
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
                 None
             }
         }
     }
 
-    /// Returns the sub transactions at body key 23, empty for every era before
-    /// Dijkstra, none of which has the field.
+    /// Returns the sub transactions at body key 23, each read as a transaction
+    /// of its own. Empty for every era before Dijkstra, none of which has the
+    /// field, and empty for a sub transaction, whose own body has no key 23.
     #[cfg(feature = "unstable")]
-    pub fn sub_transactions(&self) -> Vec<&dijkstra::SubTransaction<'_>> {
+    pub fn sub_transactions(&self) -> Vec<MultiEraTx<'_>> {
         match self {
             MultiEraTx::Dijkstra(x) => x
                 .transaction_body
                 .sub_transactions
                 .iter()
                 .flat_map(|x| x.iter())
+                .map(MultiEraTx::from_dijkstra_sub)
                 .collect(),
-            _ => vec![],
+            // The rule admits no nesting, so a sub transaction carries none.
+            MultiEraTx::DijkstraSub(..) => vec![],
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => vec![],
         }
     }
 
@@ -860,12 +978,24 @@ impl<'b> MultiEraTx<'b> {
             _ => None,
         }
     }
+
+    /// A Dijkstra sub transaction reports the Dijkstra era but is not a
+    /// `BlockTransaction`, so `as_dijkstra` returns nothing for one and this
+    /// method is how a caller reaches it.
+    #[cfg(feature = "unstable")]
+    pub fn as_dijkstra_sub(&self) -> Option<&dijkstra::SubTransaction<'_>> {
+        match self {
+            MultiEraTx::DijkstraSub(x) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(all(test, feature = "unstable"))]
 mod tests {
     use super::*;
     use crate::{MultiEraBlock, probe::TxShape, testing};
+    use pallas_crypto::hash::Hasher;
 
     fn fixture_tx(block_str: &str) -> Vec<u8> {
         let cbor = hex::decode(block_str).unwrap();
@@ -1367,5 +1497,191 @@ mod tests {
 
         MultiEraUpdate::decode_for_era(Era::Dijkstra, &[0x80])
             .expect_err("an empty array is not an update");
+    }
+
+    fn chain_sub_transaction_tx() -> Vec<u8> {
+        hex::decode(include_str!("../../test_data/dijkstra-subtx.tx").trim()).expect("invalid hex")
+    }
+
+    #[test]
+    fn a_chain_transaction_carries_one_sub_transaction() {
+        let cbor = chain_sub_transaction_tx();
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+            .expect("the chain transaction must decode for its own era");
+
+        assert_eq!(tx.era(), Era::Dijkstra);
+        assert_eq!(
+            tx.hash().to_string(),
+            "74e2116ca6e0c809f156aa062a9d4ee8b156322618846f1bdea5d9ad7a206a12",
+            "the hash must be blake2b-256 over the body the chain carried"
+        );
+
+        let subs = tx.sub_transactions();
+        assert_eq!(
+            subs.len(),
+            1,
+            "this transaction's body key 23 holds one sub transaction"
+        );
+
+        let empty = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let empty = MultiEraTx::decode_for_era(Era::Dijkstra, &empty).unwrap();
+        assert!(
+            empty.sub_transactions().is_empty(),
+            "a body without key 23 must report no sub transaction"
+        );
+    }
+
+    /// The same accessors answer the sub transaction and the transaction
+    /// carrying it, and each reads its own body. Every field the sub body
+    /// lacks is asserted beside the outer body's value for it, so an accessor
+    /// that had stopped answering altogether would fail the outer assertion
+    /// rather than pass the inner one.
+    #[test]
+    fn a_sub_transaction_answers_the_accessors_from_its_own_body() {
+        let cbor = chain_sub_transaction_tx();
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+            .expect("the chain transaction must decode for its own era");
+
+        let subs = tx.sub_transactions();
+        assert_eq!(subs.len(), 1, "body key 23 holds one sub transaction");
+        let sub = subs.first().expect("one sub transaction");
+
+        assert_eq!(sub.era(), Era::Dijkstra);
+
+        let inputs: Vec<String> = sub
+            .inputs()
+            .iter()
+            .map(|i| format!("{}#{}", i.hash(), i.index()))
+            .collect();
+        assert_eq!(
+            inputs,
+            vec!["2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0".to_string()],
+            "the sub body's key 0 names the one input it spends"
+        );
+
+        let outputs: Vec<u64> = sub.outputs().iter().map(|o| o.value().coin()).collect();
+        assert_eq!(
+            outputs,
+            vec![3_000_000],
+            "the sub body's key 1 names the one output it produces"
+        );
+
+        let references: Vec<String> = sub
+            .reference_inputs()
+            .iter()
+            .map(|i| format!("{}#{}", i.hash(), i.index()))
+            .collect();
+        assert_eq!(
+            references,
+            vec!["c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0".to_string()],
+            "the sub body's key 18 is read, and it is not the key 18 of the outer body, which names two"
+        );
+        assert_eq!(
+            tx.reference_inputs().len(),
+            2,
+            "the outer body names two, so the sub did not answer with the outer's field"
+        );
+
+        let signers = sub.required_signers();
+        let hashes: Vec<String> = signers
+            .collect::<Vec<&Hash<28>>>()
+            .iter()
+            .map(|h| h.to_string())
+            .collect();
+        assert_eq!(
+            hashes,
+            vec!["81aa16380175bef2da792c64e694d92e76f0b6c56b333499ea2662df".to_string()],
+            "the sub body's key 14 reaches the multi era accessor"
+        );
+        assert!(
+            matches!(tx.required_signers(), MultiEraSigners::Empty),
+            "the outer body has no key 14, so the guards read above came from the sub body"
+        );
+
+        // Each of these three is a field the sub body has no key for. The
+        // outer value asserted beside it is what the same accessor returns
+        // when the field is there, so neither answer can be an accessor that
+        // returns nothing to everyone.
+        assert_eq!(sub.fee(), None, "a sub transaction body has no key 2");
+        assert_eq!(
+            tx.fee(),
+            Some(700_000),
+            "the outer body's key 2 is the fee the transaction pays"
+        );
+
+        assert!(
+            sub.collateral().is_empty(),
+            "a sub transaction body has no key 13"
+        );
+        assert_eq!(
+            tx.collateral().len(),
+            1,
+            "the outer body's key 13 puts up one collateral input"
+        );
+
+        assert!(
+            sub.sub_transactions().is_empty(),
+            "a sub transaction body has no key 23, so the rule admits no nesting"
+        );
+        assert_eq!(
+            tx.sub_transactions().len(),
+            1,
+            "the outer body's key 23 is what this test reads the sub from"
+        );
+
+        assert!(
+            sub.collateral_return().is_none(),
+            "a sub transaction body has no key 16"
+        );
+        assert_eq!(
+            sub.total_collateral(),
+            None,
+            "a sub transaction body has no key 17"
+        );
+    }
+
+    /// The hash of a sub transaction is blake2b-256 over the bytes its body
+    /// arrived in. The expected value is computed here from the primitives
+    /// `KeepRaw`, so the accessor is not its own oracle.
+    #[test]
+    fn a_sub_transaction_hashes_the_body_bytes_it_arrived_in() {
+        let cbor = chain_sub_transaction_tx();
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+            .expect("the chain transaction must decode for its own era");
+
+        let outer = tx
+            .as_dijkstra()
+            .expect("the fixture is a block transaction");
+        let raw = outer
+            .transaction_body
+            .sub_transactions
+            .as_ref()
+            .expect("the outer body carries key 23")
+            .iter()
+            .next()
+            .expect("one sub transaction")
+            .sub_transaction_body
+            .raw_cbor();
+
+        let expected = Hasher::<256>::hash(raw);
+
+        let subs = tx.sub_transactions();
+        let sub = subs.first().expect("one sub transaction");
+
+        assert_eq!(
+            sub.hash(),
+            expected,
+            "the sub transaction hashes its own body bytes"
+        );
+        assert_ne!(
+            sub.hash(),
+            tx.hash(),
+            "the sub body and the outer body are different bytes, so a shared hash would mean one of them was read for the other"
+        );
     }
 }
