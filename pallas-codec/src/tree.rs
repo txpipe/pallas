@@ -10,12 +10,13 @@
 //!   which splits decoding a node into a header, a sequence of children and
 //!   a footer.
 //! - [`map_tree`](crate::tree::map_tree), [`walk_tree`](crate::tree::walk_tree),
-//!   [`eq_tree`](crate::tree::eq_tree) and
-//!   [`drop_children`](crate::tree::drop_children) operate on an existing
+//!   [`fold_tree`](crate::tree::fold_tree), [`eq_tree`](crate::tree::eq_tree)
+//!   and [`drop_children`](crate::tree::drop_children) operate on an existing
 //!   value. A type opts in by implementing [`TreeNode`](crate::tree::TreeNode),
-//!   which exposes its child list; they cover copying into another tree
-//!   (clone, protobuf or JSON values), emitting a linear encoding, comparison
-//!   and destruction.
+//!   which exposes its child list, or [`IndexedNode`](crate::tree::IndexedNode)
+//!   when its children live elsewhere, such as in key-value pairs; they cover
+//!   copying into another tree (clone, protobuf or JSON values), emitting a
+//!   linear encoding, comparison and destruction.
 
 use minicbor::{Decoder, data::Type, decode::Error};
 
@@ -120,6 +121,27 @@ pub trait TreeNode: Sized {
     fn children_mut(&mut self) -> Option<&mut Vec<Self>>;
 }
 
+/// A recursive type whose children are reachable by index, wherever they
+/// are stored. Map-like nodes expose keys and values alternately.
+///
+/// Every [`TreeNode`] is an `IndexedNode`.
+pub trait IndexedNode: Sized {
+    fn child_count(&self) -> usize;
+
+    /// The child at `index`, which is below [`child_count`](Self::child_count).
+    fn child(&self, index: usize) -> &Self;
+}
+
+impl<T: TreeNode> IndexedNode for T {
+    fn child_count(&self) -> usize {
+        self.children().len()
+    }
+
+    fn child(&self, index: usize) -> &Self {
+        &self.children()[index]
+    }
+}
+
 /// Build a target tree from a source tree without recursion.
 ///
 /// `shallow` maps one node to its target with an empty child list, and
@@ -146,6 +168,48 @@ where
     target_root
 }
 
+/// Post-order fold without recursion. `finish` receives each node with the
+/// results of its children in order, an empty list for a leaf, and returns
+/// the node's own result.
+///
+/// Unlike [`map_tree`] this builds bottom-up, so it fits targets whose
+/// children are not a plain `Vec`, such as key-value pairs.
+pub fn fold_tree<S, T>(root: &S, mut finish: impl FnMut(&S, Vec<T>) -> T) -> T
+where
+    S: IndexedNode,
+{
+    struct Frame<'a, S, T> {
+        node: &'a S,
+        next: usize,
+        results: Vec<T>,
+    }
+
+    fn open<S: IndexedNode, T>(node: &S) -> Frame<'_, S, T> {
+        Frame {
+            node,
+            next: 0,
+            results: Vec::with_capacity(node.child_count()),
+        }
+    }
+
+    let mut stack = vec![open(root)];
+    loop {
+        let top = stack.last_mut().expect("the root frame is popped last");
+        if top.next < top.node.child_count() {
+            let child = top.node.child(top.next);
+            top.next += 1;
+            stack.push(open(child));
+            continue;
+        }
+        let frame = stack.pop().expect("just observed");
+        let result = finish(frame.node, frame.results);
+        match stack.last_mut() {
+            Some(parent) => parent.results.push(result),
+            None => return result,
+        }
+    }
+}
+
 /// One step of a [`walk_tree`] traversal.
 pub enum Visit<'a, S> {
     /// A node, before any of its children.
@@ -162,15 +226,15 @@ pub fn walk_tree<S, E>(
     mut visit: impl FnMut(Visit<'_, S>) -> Result<(), E>,
 ) -> Result<(), E>
 where
-    S: TreeNode,
+    S: IndexedNode,
 {
     let mut stack = vec![Visit::Enter(root)];
     while let Some(step) = stack.pop() {
         if let Visit::Enter(node) = step {
             visit(Visit::Enter(node))?;
             stack.push(Visit::Exit(node));
-            for (i, child) in node.children().iter().enumerate().rev() {
-                stack.push(Visit::Enter(child));
+            for i in (0..node.child_count()).rev() {
+                stack.push(Visit::Enter(node.child(i)));
                 if i > 0 {
                     stack.push(Visit::Between(node));
                 }
@@ -186,14 +250,15 @@ where
 /// own data, ignoring their children.
 pub fn eq_tree<S>(left: &S, right: &S, same_node: impl Fn(&S, &S) -> bool) -> bool
 where
-    S: TreeNode,
+    S: IndexedNode,
 {
     let mut pending = vec![(left, right)];
     while let Some((left, right)) = pending.pop() {
-        if !same_node(left, right) || left.children().len() != right.children().len() {
+        let count = left.child_count();
+        if !same_node(left, right) || count != right.child_count() {
             return false;
         }
-        pending.extend(left.children().iter().zip(right.children()));
+        pending.extend((0..count).map(|i| (left.child(i), right.child(i))));
     }
     true
 }
@@ -401,6 +466,100 @@ mod tests {
     }
 
     #[test]
+    fn folds_children_in_order() {
+        let total = fold_tree(&mixed(), |node, children: Vec<u64>| match node {
+            Node::Leaf(n) => *n,
+            Node::List(_) => children.iter().sum(),
+        });
+        assert_eq!(total, 6);
+
+        let copy = fold_tree(&mixed(), |node, children| match node {
+            Node::Leaf(n) => Node::Leaf(*n),
+            Node::List(_) => Node::List(children),
+        });
+        assert_eq!(copy, mixed());
+    }
+
+    /// Children held in pairs rather than a `Vec`, as a map-like type has.
+    #[derive(Debug, PartialEq)]
+    enum Kv {
+        Leaf(u64),
+        Map(Vec<(Kv, Kv)>),
+    }
+
+    impl IndexedNode for Kv {
+        fn child_count(&self) -> usize {
+            match self {
+                Kv::Leaf(_) => 0,
+                Kv::Map(pairs) => pairs.len() * 2,
+            }
+        }
+
+        fn child(&self, index: usize) -> &Self {
+            let Kv::Map(pairs) = self else {
+                unreachable!("leaves have no children")
+            };
+            let (k, v) = &pairs[index / 2];
+            if index.is_multiple_of(2) { k } else { v }
+        }
+    }
+
+    fn kv_chain(depth: usize) -> Kv {
+        let mut node = Kv::Leaf(0);
+        for _ in 0..depth {
+            node = Kv::Map(vec![(Kv::Leaf(1), node)]);
+        }
+        node
+    }
+
+    fn render_kv(node: &Kv) -> String {
+        let mut out = String::new();
+        walk_tree::<_, std::fmt::Error>(node, |visit| {
+            match visit {
+                Visit::Enter(Kv::Leaf(n)) => out.push_str(&n.to_string()),
+                Visit::Enter(Kv::Map(_)) => out.push('{'),
+                Visit::Between(_) => out.push(','),
+                Visit::Exit(Kv::Map(_)) => out.push('}'),
+                Visit::Exit(Kv::Leaf(_)) => {}
+            }
+            Ok(())
+        })
+        .unwrap();
+        out
+    }
+
+    #[test]
+    fn indexed_children_interleave_keys_and_values() {
+        let node = Kv::Map(vec![
+            (Kv::Leaf(1), Kv::Leaf(2)),
+            (Kv::Leaf(3), Kv::Map(vec![(Kv::Leaf(4), Kv::Leaf(5))])),
+        ]);
+        assert_eq!(render_kv(&node), "{1,2,3,{4,5}}");
+
+        let copy = fold_tree(&node, |node, children| match node {
+            Kv::Leaf(n) => Kv::Leaf(*n),
+            Kv::Map(_) => {
+                let mut children = children.into_iter();
+                let mut pairs = Vec::new();
+                while let (Some(k), Some(v)) = (children.next(), children.next()) {
+                    pairs.push((k, v));
+                }
+                Kv::Map(pairs)
+            }
+        });
+        assert_eq!(copy, node);
+
+        let same = |a: &Kv, b: &Kv| match (a, b) {
+            (Kv::Leaf(a), Kv::Leaf(b)) => a == b,
+            (Kv::Map(_), Kv::Map(_)) => true,
+            _ => false,
+        };
+        assert!(eq_tree(&node, &copy, same));
+        assert!(!eq_tree(&node, &Kv::Map(vec![]), same));
+        assert!(!eq_tree(&kv_chain(3), &kv_chain(4), same));
+    }
+
+    #[test]
     fn compares_structure_and_node_data() {
         let same = |a: &Node, b: &Node| match (a, b) {
             (Node::Leaf(a), Node::Leaf(b)) => a == b,
@@ -435,8 +594,28 @@ mod tests {
                     (a, b),
                     (Node::Leaf(_), Node::Leaf(_)) | (Node::List(_), Node::List(_))
                 )));
+                let folded = fold_tree(&node, |node, children| match node {
+                    Node::Leaf(n) => Node::Leaf(*n),
+                    Node::List(_) => Node::List(children),
+                });
+                assert!(eq_tree(&node, &folded, |_, _| true));
+                drop(folded);
                 drop(copy);
                 drop(node);
+
+                // Kv has no iterative Drop, so only the traversals are under
+                // test here; leak the values rather than unwind them.
+                let deep = std::mem::ManuallyDrop::new(kv_chain(depth));
+                let text = render_kv(&deep);
+                assert_eq!(
+                    text,
+                    format!("{}0{}", "{1,".repeat(depth), "}".repeat(depth))
+                );
+                let sum = fold_tree(&*deep, |node, children: Vec<u64>| match node {
+                    Kv::Leaf(n) => *n,
+                    Kv::Map(_) => children.iter().sum(),
+                });
+                assert_eq!(sum, depth as u64);
             })
             .unwrap()
             .join()
