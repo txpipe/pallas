@@ -1,6 +1,6 @@
 use hex::FromHex;
 use pallas_codec::utils::{
-    AnyCbor, AnyUInt, Bytes, CborWrap, KeyValuePairs, MaybeIndefArray, Nullable,
+    AnyCbor, AnyUInt, Bytes, CborWrap, KeyValuePairs, MaybeIndefArray, Nullable, TagWrap,
 };
 use pallas_crypto::hash::Hash;
 use pallas_network::miniprotocols::localmsgsubmission::DmqMsgRejectReason;
@@ -2091,6 +2091,183 @@ pub async fn local_message_submission_server_and_client_happy_path() {
         // client sends done to server
         client_msg.terminate_gracefully().await.unwrap();
         assert_eq!(*client_msg.state(), localtxsubmission::State::Done);
+    });
+
+    tokio::try_join!(client, server).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+pub async fn txmonitor_server_and_client_happy_path() {
+    use pallas_network::miniprotocols::txmonitor::{
+        self, ClientQueryRequest as TxMonitorRequest, MempoolMeasures, MempoolSizeAndCapacity,
+        SizeAndCapacity,
+    };
+
+    let expected_tx: txmonitor::Tx = (5, TagWrap::new(hex::decode("deadbeef").unwrap().into()));
+    let expected_id: txmonitor::TxId = (5, vec![0xab; 32].into());
+
+    let server = tokio::spawn({
+        let expected_tx = expected_tx.clone();
+        let expected_id = expected_id.clone();
+
+        async move {
+            // server setup
+            let socket_path = Path::new("node5.socket");
+
+            if socket_path.exists() {
+                fs::remove_file(socket_path).unwrap();
+            }
+
+            let listener = UnixListener::bind(socket_path).unwrap();
+
+            let mut server = pallas_network::facades::NodeServer::accept(&listener, 0)
+                .await
+                .unwrap();
+
+            // wait for acquire request from client
+
+            let maybe_acquire = server.txmonitor().recv_while_idle().await.unwrap();
+
+            assert!(maybe_acquire.is_some());
+            assert_eq!(*server.txmonitor().state(), txmonitor::State::Acquiring);
+
+            server.txmonitor().send_acquired(123).await.unwrap();
+
+            assert_eq!(*server.txmonitor().state(), txmonitor::State::Acquired);
+
+            // iterate the two-entry snapshot
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::NextTx => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            assert_eq!(*server.txmonitor().state(), txmonitor::State::Busy);
+
+            server
+                .txmonitor()
+                .send_next_tx(Some(expected_tx.clone()))
+                .await
+                .unwrap();
+
+            assert_eq!(*server.txmonitor().state(), txmonitor::State::Acquired);
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::NextTx => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            server.txmonitor().send_next_tx(None).await.unwrap();
+
+            // answer has-tx
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::HasTx(id) => assert_eq!(id, expected_id),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            server.txmonitor().send_has_tx(true).await.unwrap();
+
+            // answer get-sizes
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::GetSizes => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            server
+                .txmonitor()
+                .send_size_and_capacity(MempoolSizeAndCapacity {
+                    capacity_in_bytes: 178176,
+                    size_in_bytes: 1234,
+                    number_of_txs: 2,
+                })
+                .await
+                .unwrap();
+
+            // answer get-measures
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::GetMeasures => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            server
+                .txmonitor()
+                .send_measures(MempoolMeasures {
+                    tx_count: 2,
+                    measures: vec![(
+                        "transaction_bytes".to_string(),
+                        SizeAndCapacity {
+                            size: 1234,
+                            capacity: 178176,
+                        },
+                    )],
+                })
+                .await
+                .unwrap();
+
+            // client re-acquires (await-acquire shares the acquire wire label)
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::AwaitAcquire => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            assert_eq!(*server.txmonitor().state(), txmonitor::State::Acquiring);
+
+            server.txmonitor().send_acquired(124).await.unwrap();
+
+            // client releases and terminates
+
+            match server.txmonitor().recv_while_acquired().await.unwrap() {
+                TxMonitorRequest::Release => (),
+                x => panic!("unexpected message from client: {x:?}"),
+            }
+
+            assert_eq!(*server.txmonitor().state(), txmonitor::State::Idle);
+
+            let done = server.txmonitor().recv_while_idle().await.unwrap();
+            assert!(done.is_none());
+            assert!(server.txmonitor().is_done());
+        }
+    });
+
+    let client = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // client setup
+        let socket_path = "node5.socket";
+
+        let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
+
+        let slot = client.monitor().acquire().await.unwrap();
+        assert_eq!(slot, 123);
+
+        let tx = client.monitor().query_next_tx().await.unwrap();
+        assert_eq!(tx, Some(expected_tx));
+
+        let tx = client.monitor().query_next_tx().await.unwrap();
+        assert_eq!(tx, None);
+
+        let has = client.monitor().query_has_tx(expected_id).await.unwrap();
+        assert!(has);
+
+        let sizes = client.monitor().query_size_and_capacity().await.unwrap();
+        assert_eq!(sizes.capacity_in_bytes, 178176);
+        assert_eq!(sizes.size_in_bytes, 1234);
+        assert_eq!(sizes.number_of_txs, 2);
+
+        let measures = client.monitor().query_measures().await.unwrap();
+        assert_eq!(measures.tx_count, 2);
+        assert_eq!(measures.measures.len(), 1);
+
+        let slot = client.monitor().await_acquire().await.unwrap();
+        assert_eq!(slot, 124);
+
+        client.monitor().release().await.unwrap();
+        client.monitor().done().await.unwrap();
     });
 
     tokio::try_join!(client, server).unwrap();

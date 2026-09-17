@@ -6,7 +6,7 @@ use crate::multiplexer;
 
 /// Errors produced by the tx-monitor client agent.
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ClientError {
     /// Tried to receive while we hold agency.
     #[error("attempted to receive message while agency is ours")]
     AgencyIsOurs,
@@ -57,63 +57,69 @@ impl Client {
         }
     }
 
-    fn assert_agency_is_ours(&self) -> Result<(), Error> {
+    fn assert_agency_is_ours(&self) -> Result<(), ClientError> {
         if !self.has_agency() {
-            Err(Error::AgencyIsTheirs)
+            Err(ClientError::AgencyIsTheirs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_agency_is_theirs(&self) -> Result<(), Error> {
+    fn assert_agency_is_theirs(&self) -> Result<(), ClientError> {
         if self.has_agency() {
-            Err(Error::AgencyIsOurs)
+            Err(ClientError::AgencyIsOurs)
         } else {
             Ok(())
         }
     }
 
-    fn assert_outbound_state(&self, msg: &Message) -> Result<(), Error> {
+    fn assert_outbound_state(&self, msg: &Message) -> Result<(), ClientError> {
         match (&self.0, msg) {
             (State::Idle, Message::Acquire) => Ok(()),
             (State::Idle, Message::Done) => Ok(()),
-            (State::Acquired, Message::Acquire) => Ok(()),
+            (State::Acquired, Message::Acquire | Message::AwaitAcquire) => Ok(()),
             (State::Acquired, Message::RequestHasTx(..)) => Ok(()),
             (State::Acquired, Message::RequestNextTx) => Ok(()),
             (State::Acquired, Message::RequestSizeAndCapacity) => Ok(()),
-            _ => Err(Error::InvalidOutbound),
+            (State::Acquired, Message::RequestGetMeasures) => Ok(()),
+            (State::Acquired, Message::Release) => Ok(()),
+            _ => Err(ClientError::InvalidOutbound),
         }
     }
 
-    fn assert_inbound_state(&self, msg: &Message) -> Result<(), Error> {
+    fn assert_inbound_state(&self, msg: &Message) -> Result<(), ClientError> {
         match (&self.0, msg) {
             (State::Acquiring, Message::Acquired(..)) => Ok(()),
             (State::Busy, Message::ResponseHasTx(..)) => Ok(()),
             (State::Busy, Message::ResponseNextTx(..)) => Ok(()),
             (State::Busy, Message::ResponseSizeAndCapacity(..)) => Ok(()),
-            _ => Err(Error::InvalidInbound),
+            (State::Busy, Message::ResponseGetMeasures(..)) => Ok(()),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
     /// Low-level send.
-    pub async fn send_message(&mut self, msg: &Message) -> Result<(), Error> {
+    pub async fn send_message(&mut self, msg: &Message) -> Result<(), ClientError> {
         self.assert_agency_is_ours()?;
         self.assert_outbound_state(msg)?;
-        self.1.send_msg_chunks(msg).await.map_err(Error::Plexer)?;
+        self.1
+            .send_msg_chunks(msg)
+            .await
+            .map_err(ClientError::Plexer)?;
 
         Ok(())
     }
 
     /// Low-level receive.
-    pub async fn recv_message(&mut self) -> Result<Message, Error> {
+    pub async fn recv_message(&mut self) -> Result<Message, ClientError> {
         self.assert_agency_is_theirs()?;
-        let msg = self.1.recv_full_msg().await.map_err(Error::Plexer)?;
+        let msg = self.1.recv_full_msg().await.map_err(ClientError::Plexer)?;
         self.assert_inbound_state(&msg)?;
 
         Ok(msg)
     }
 
-    async fn send_acquire(&mut self) -> Result<(), Error> {
+    async fn send_acquire(&mut self) -> Result<(), ClientError> {
         let msg = Message::Acquire;
         self.send_message(&msg).await?;
         self.0 = State::Acquiring;
@@ -121,23 +127,38 @@ impl Client {
         Ok(())
     }
 
-    async fn recv_while_acquiring(&mut self) -> Result<Slot, Error> {
+    async fn recv_while_acquiring(&mut self) -> Result<Slot, ClientError> {
         match self.recv_message().await? {
             Message::Acquired(slot) => {
                 self.0 = State::Acquired;
                 Ok(slot)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
     /// Acquire a fresh mempool snapshot and return the slot it was taken at.
-    pub async fn acquire(&mut self) -> Result<Slot, Error> {
+    pub async fn acquire(&mut self) -> Result<Slot, ClientError> {
         self.send_acquire().await?;
         self.recv_while_acquiring().await
     }
 
-    async fn send_request_has_tx(&mut self, id: TxId) -> Result<(), Error> {
+    async fn send_await_acquire(&mut self) -> Result<(), ClientError> {
+        let msg = Message::AwaitAcquire;
+        self.send_message(&msg).await?;
+        self.0 = State::Acquiring;
+
+        Ok(())
+    }
+
+    /// Release the current snapshot and block until a changed one can be
+    /// acquired. Returns the slot the new snapshot was taken at.
+    pub async fn await_acquire(&mut self) -> Result<Slot, ClientError> {
+        self.send_await_acquire().await?;
+        self.recv_while_acquiring().await
+    }
+
+    async fn send_request_has_tx(&mut self, id: TxId) -> Result<(), ClientError> {
         let msg = Message::RequestHasTx(id);
         self.send_message(&msg).await?;
         self.0 = State::Busy;
@@ -145,23 +166,23 @@ impl Client {
         Ok(())
     }
 
-    async fn recv_while_requesting_has_tx(&mut self) -> Result<bool, Error> {
+    async fn recv_while_requesting_has_tx(&mut self) -> Result<bool, ClientError> {
         match self.recv_message().await? {
             Message::ResponseHasTx(x) => {
                 self.0 = State::Acquired;
                 Ok(x)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
     /// Ask whether a transaction with the given id is in the current snapshot.
-    pub async fn query_has_tx(&mut self, id: TxId) -> Result<bool, Error> {
+    pub async fn query_has_tx(&mut self, id: TxId) -> Result<bool, ClientError> {
         self.send_request_has_tx(id).await?;
         self.recv_while_requesting_has_tx().await
     }
 
-    async fn send_request_next_tx(&mut self) -> Result<(), Error> {
+    async fn send_request_next_tx(&mut self) -> Result<(), ClientError> {
         let msg = Message::RequestNextTx;
         self.send_message(&msg).await?;
         self.0 = State::Busy;
@@ -169,23 +190,23 @@ impl Client {
         Ok(())
     }
 
-    async fn recv_while_requesting_next_tx(&mut self) -> Result<Option<Tx>, Error> {
+    async fn recv_while_requesting_next_tx(&mut self) -> Result<Option<Tx>, ClientError> {
         match self.recv_message().await? {
             Message::ResponseNextTx(x) => {
                 self.0 = State::Acquired;
                 Ok(x)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
     /// Iterate to the next transaction in the snapshot.
-    pub async fn query_next_tx(&mut self) -> Result<Option<Tx>, Error> {
+    pub async fn query_next_tx(&mut self) -> Result<Option<Tx>, ClientError> {
         self.send_request_next_tx().await?;
         self.recv_while_requesting_next_tx().await
     }
 
-    async fn send_request_size_and_capacity(&mut self) -> Result<(), Error> {
+    async fn send_request_size_and_capacity(&mut self) -> Result<(), ClientError> {
         let msg = Message::RequestSizeAndCapacity;
         self.send_message(&msg).await?;
         self.0 = State::Busy;
@@ -195,27 +216,60 @@ impl Client {
 
     async fn recv_while_requesting_size_and_capacity(
         &mut self,
-    ) -> Result<MempoolSizeAndCapacity, Error> {
+    ) -> Result<MempoolSizeAndCapacity, ClientError> {
         match self.recv_message().await? {
             Message::ResponseSizeAndCapacity(x) => {
                 self.0 = State::Acquired;
                 Ok(x)
             }
-            _ => Err(Error::InvalidInbound),
+            _ => Err(ClientError::InvalidInbound),
         }
     }
 
     /// Ask for the mempool's current size and capacity.
-    pub async fn query_size_and_capacity(&mut self) -> Result<MempoolSizeAndCapacity, Error> {
+    pub async fn query_size_and_capacity(&mut self) -> Result<MempoolSizeAndCapacity, ClientError> {
         self.send_request_size_and_capacity().await?;
         self.recv_while_requesting_size_and_capacity().await
     }
 
+    async fn send_request_measures(&mut self) -> Result<(), ClientError> {
+        let msg = Message::RequestGetMeasures;
+        self.send_message(&msg).await?;
+        self.0 = State::Busy;
+
+        Ok(())
+    }
+
+    async fn recv_while_requesting_measures(&mut self) -> Result<MempoolMeasures, ClientError> {
+        match self.recv_message().await? {
+            Message::ResponseGetMeasures(x) => {
+                self.0 = State::Acquired;
+                Ok(x)
+            }
+            _ => Err(ClientError::InvalidInbound),
+        }
+    }
+
+    /// Ask for the mempool's current measures (node-to-client v20+).
+    pub async fn query_measures(&mut self) -> Result<MempoolMeasures, ClientError> {
+        self.send_request_measures().await?;
+        self.recv_while_requesting_measures().await
+    }
+
     /// Release the current snapshot and return to the idle state.
-    pub async fn release(&mut self) -> Result<(), Error> {
+    pub async fn release(&mut self) -> Result<(), ClientError> {
         let msg = Message::Release;
         self.send_message(&msg).await?;
         self.0 = State::Idle;
+
+        Ok(())
+    }
+
+    /// Terminate the protocol.
+    pub async fn done(&mut self) -> Result<(), ClientError> {
+        let msg = Message::Done;
+        self.send_message(&msg).await?;
+        self.0 = State::Done;
 
         Ok(())
     }
