@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(primitives)* Decode and encode Metadatum without call-stack recursion (#808)
+- *(primitives)* Release a dangling plutus data map key iteratively on decode error (#809)
+- *(primitives)* Clone and traverse Metadatum without call-stack recursion (#810)
+- *(primitives)* Clone, encode and render PlutusData without call-stack recursion (#811)
+- *(primitives)* Stack-safe Dijkstra native scripts via a shared flat-script driver (#813)
+- *(primitives)* Compare Metadatum and PlutusData without call-stack recursion (#814)
+
+### ⚙️ Miscellaneous Tasks
+
+- *(primitives)* Align stack-safe tree code on fold_tree and walk_tree (#812)
+
 ## [1.3.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
@@ -9,6 +24,10 @@ All notable changes to this project will be documented in this file.
 - Follow-ups from ScriptNOfK thresholds (#805)
 - *(primitives)* Add stack-safe native script JSON via shared codec tree traversal (#806)
 - *(primitives)* Decode PlutusData without call-stack recursion (#807)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.3.0
 
 ## [1.2.0] - 2026-09-16
 
