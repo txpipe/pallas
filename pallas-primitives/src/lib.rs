@@ -156,11 +156,11 @@ pub type Metadata = BTreeMap<MetadatumLabel, Metadatum>;
 
 /// Single metadata value of any supported CBOR shape.
 ///
-/// The CBOR codec and `Clone` never recurse per nesting level, so chain-deep
-/// metadata decodes, encodes and copies on any stack, and
-/// [`pallas_codec::tree`] can traverse it through `IndexedNode`. `PartialEq`,
-/// `Ord`, `Debug` and `Drop` are derived and still recurse.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// The CBOR codec, `Clone` and `Ord` never recurse per nesting level, so
+/// chain-deep metadata decodes, encodes, copies and compares on any stack,
+/// and [`pallas_codec::tree`] can traverse it through `IndexedNode`.
+/// `Debug`, `Drop` and Serde still recurse.
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Metadatum {
     /// Integer (signed or unsigned, up to 64 bits).
     Int(Int),

@@ -10,13 +10,16 @@
 //!   which splits decoding a node into a header, a sequence of children and
 //!   a footer.
 //! - [`map_tree`](crate::tree::map_tree), [`walk_tree`](crate::tree::walk_tree),
-//!   [`fold_tree`](crate::tree::fold_tree), [`eq_tree`](crate::tree::eq_tree)
-//!   and [`drop_children`](crate::tree::drop_children) operate on an existing
+//!   [`fold_tree`](crate::tree::fold_tree), [`eq_tree`](crate::tree::eq_tree),
+//!   [`cmp_tree`](crate::tree::cmp_tree) and
+//!   [`drop_children`](crate::tree::drop_children) operate on an existing
 //!   value. A type opts in by implementing [`TreeNode`](crate::tree::TreeNode),
 //!   which exposes its child list, or [`IndexedNode`](crate::tree::IndexedNode)
 //!   when its children live elsewhere, such as in key-value pairs; they cover
 //!   copying into another tree (clone, protobuf or JSON values), emitting a
 //!   linear encoding, comparison and destruction.
+
+use std::cmp::Ordering;
 
 use minicbor::{Decoder, data::Type, decode::Error};
 
@@ -261,6 +264,43 @@ where
         pending.extend((0..count).map(|i| (left.child(i), right.child(i))));
     }
     true
+}
+
+/// Lexicographic ordering without recursion, as a derived `Ord` over `Vec`
+/// children would produce: `cmp_node` compares two nodes' own data, then the
+/// children pairwise in order, then the child counts.
+pub fn cmp_tree<S>(left: &S, right: &S, cmp_node: impl Fn(&S, &S) -> Ordering) -> Ordering
+where
+    S: IndexedNode,
+{
+    enum Step<'a, S> {
+        Pair(&'a S, &'a S),
+        /// Child counts, decided once every shared child compared equal.
+        Counts(usize, usize),
+    }
+
+    let mut pending = vec![Step::Pair(left, right)];
+    while let Some(step) = pending.pop() {
+        let (left, right) = match step {
+            Step::Pair(left, right) => (left, right),
+            Step::Counts(left, right) => match left.cmp(&right) {
+                Ordering::Equal => continue,
+                ordering => return ordering,
+            },
+        };
+        match cmp_node(left, right) {
+            Ordering::Equal => {}
+            ordering => return ordering,
+        }
+        let counts = (left.child_count(), right.child_count());
+        pending.push(Step::Counts(counts.0, counts.1));
+        pending.extend(
+            (0..counts.0.min(counts.1))
+                .rev()
+                .map(|i| Step::Pair(left.child(i), right.child(i))),
+        );
+    }
+    Ordering::Equal
 }
 
 /// Detach and destroy a node's descendants without recursion. Call from a
@@ -560,6 +600,41 @@ mod tests {
     }
 
     #[test]
+    fn orders_like_a_derived_ord() {
+        let cmp = |a: &Node, b: &Node| match (a, b) {
+            (Node::Leaf(a), Node::Leaf(b)) => a.cmp(b),
+            (Node::Leaf(_), Node::List(_)) => Ordering::Less,
+            (Node::List(_), Node::Leaf(_)) => Ordering::Greater,
+            (Node::List(_), Node::List(_)) => Ordering::Equal,
+        };
+        let list = |xs: Vec<Node>| Node::List(xs);
+        let leaf = Node::Leaf;
+
+        assert_eq!(cmp_tree(&mixed(), &mixed(), cmp), Ordering::Equal);
+        assert_eq!(cmp_tree(&leaf(1), &leaf(2), cmp), Ordering::Less);
+        assert_eq!(cmp_tree(&leaf(1), &list(vec![]), cmp), Ordering::Less);
+        // A shared prefix decides before the length does.
+        assert_eq!(
+            cmp_tree(&list(vec![leaf(2)]), &list(vec![leaf(1), leaf(9)]), cmp),
+            Ordering::Greater
+        );
+        assert_eq!(
+            cmp_tree(&list(vec![leaf(1)]), &list(vec![leaf(1), leaf(0)]), cmp),
+            Ordering::Less
+        );
+        // A nested difference is found before a later sibling.
+        assert_eq!(
+            cmp_tree(
+                &list(vec![list(vec![leaf(1)]), leaf(9)]),
+                &list(vec![list(vec![leaf(2)]), leaf(0)]),
+                cmp
+            ),
+            Ordering::Less
+        );
+        assert_eq!(cmp_tree(&chain(3), &chain(4), cmp), Ordering::Less);
+    }
+
+    #[test]
     fn compares_structure_and_node_data() {
         let same = |a: &Node, b: &Node| match (a, b) {
             (Node::Leaf(a), Node::Leaf(b)) => a == b,
@@ -599,6 +674,14 @@ mod tests {
                     Node::List(_) => Node::List(children),
                 });
                 assert!(eq_tree(&node, &folded, |_, _| true));
+                assert_eq!(
+                    cmp_tree(&node, &folded, |_, _| Ordering::Equal),
+                    Ordering::Equal
+                );
+                assert_eq!(
+                    cmp_tree(&node, &chain(depth - 1), |_, _| Ordering::Equal),
+                    Ordering::Greater
+                );
                 drop(folded);
                 drop(copy);
                 drop(node);
