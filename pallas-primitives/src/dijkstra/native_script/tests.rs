@@ -1,6 +1,6 @@
 use super::*;
 use crate::StakeCredential;
-use pallas_codec::minicbor::Encoder;
+use pallas_codec::minicbor::{self, Encoder};
 use proptest::prelude::*;
 
 fn credentials() -> impl Strategy<Value = StakeCredential> {

@@ -1,4 +1,5 @@
 use super::*;
+use pallas_codec::minicbor::{self, Decoder, Encoder};
 use proptest::prelude::*;
 
 fn scripts() -> impl Strategy<Value = NativeScript> {
