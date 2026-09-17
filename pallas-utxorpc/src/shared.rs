@@ -422,35 +422,41 @@ macro_rules! impl_cardano_mapper_shared {
 
             pub fn map_metadatum(x: &pallas_primitives::alonzo::Metadatum) -> u5c::Metadatum {
                 use pallas_primitives::babbage;
-                let inner = match x {
-                    babbage::Metadatum::Int(x) => {
-                        u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64)
-                    }
-                    babbage::Metadatum::Bytes(x) => {
-                        u5c::metadatum::Metadatum::Bytes(Vec::<u8>::from(x.clone()).into())
-                    }
-                    babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
-                    babbage::Metadatum::Array(x) => {
-                        u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
-                            items: x.iter().map(|x| Self::map_metadatum(x)).collect(),
-                        })
-                    }
-                    babbage::Metadatum::Map(x) => {
-                        u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
-                            pairs: x
-                                .iter()
-                                .map(|(k, v)| u5c::MetadatumPair {
-                                    key: Self::map_metadatum(k).into(),
-                                    value: Self::map_metadatum(v).into(),
-                                })
-                                .collect(),
-                        })
-                    }
-                };
 
-                u5c::Metadatum {
-                    metadatum: inner.into(),
-                }
+                // Folded bottom-up rather than recursed: metadata nests as
+                // deep as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::Metadatum>| {
+                    let inner = match x {
+                        babbage::Metadatum::Int(x) => {
+                            u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64)
+                        }
+                        babbage::Metadatum::Bytes(x) => {
+                            u5c::metadatum::Metadatum::Bytes(Vec::<u8>::from(x.clone()).into())
+                        }
+                        babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
+                        babbage::Metadatum::Array(_) => {
+                            u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
+                                items: children,
+                            })
+                        }
+                        babbage::Metadatum::Map(_) => {
+                            let mut children = children.into_iter();
+                            let mut pairs = Vec::with_capacity(children.len() / 2);
+                            while let (Some(key), Some(value)) = (children.next(), children.next())
+                            {
+                                pairs.push(u5c::MetadatumPair {
+                                    key: key.into(),
+                                    value: value.into(),
+                                });
+                            }
+                            u5c::metadatum::Metadatum::Map(u5c::MetadatumMap { pairs })
+                        }
+                    };
+
+                    u5c::Metadatum {
+                        metadatum: inner.into(),
+                    }
+                })
             }
 
             pub fn map_metadata(

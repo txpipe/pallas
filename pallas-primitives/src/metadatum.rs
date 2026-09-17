@@ -1,8 +1,63 @@
 use pallas_codec::minicbor::{self, data::Type};
-use pallas_codec::tree::{Arity, TreeDecode, decode_tree};
+use pallas_codec::tree::{Arity, IndexedNode, TreeDecode, decode_tree, fold_tree};
 use pallas_codec::utils::KeyValuePairs;
 
 use crate::Metadatum;
+
+impl IndexedNode for Metadatum {
+    fn child_count(&self) -> usize {
+        match self {
+            Self::Array(xs) => xs.len(),
+            Self::Map(kvs) => kvs.len() * 2,
+            Self::Int(_) | Self::Bytes(_) | Self::Text(_) => 0,
+        }
+    }
+
+    fn child(&self, index: usize) -> &Self {
+        match self {
+            Self::Array(xs) => &xs[index],
+            Self::Map(kvs) => {
+                let (k, v) = &kvs[index / 2];
+                if index.is_multiple_of(2) { k } else { v }
+            }
+            Self::Int(_) | Self::Bytes(_) | Self::Text(_) => {
+                unreachable!("leaves have no children")
+            }
+        }
+    }
+}
+
+/// Pairs up an alternating key, value list.
+fn pairs(items: Vec<Metadatum>) -> Vec<(Metadatum, Metadatum)> {
+    let mut pairs = Vec::with_capacity(items.len() / 2);
+    let mut items = items.into_iter();
+    while let (Some(k), Some(v)) = (items.next(), items.next()) {
+        pairs.push((k, v));
+    }
+    pairs
+}
+
+fn map(indefinite: bool, pairs: Vec<(Metadatum, Metadatum)>) -> Metadatum {
+    Metadatum::Map(if indefinite {
+        KeyValuePairs::Indef(pairs)
+    } else {
+        KeyValuePairs::Def(pairs)
+    })
+}
+
+/// Copies with a heap-backed stack: a derived clone recurses per nesting
+/// level and overflows on chain-deep metadata.
+impl Clone for Metadatum {
+    fn clone(&self) -> Self {
+        fold_tree(self, |node, children| match node {
+            Self::Int(x) => Self::Int(*x),
+            Self::Bytes(x) => Self::Bytes(x.clone()),
+            Self::Text(x) => Self::Text(x.clone()),
+            Self::Array(_) => Self::Array(children),
+            Self::Map(kvs) => map(matches!(kvs, KeyValuePairs::Indef(_)), pairs(children)),
+        })
+    }
+}
 
 // Private wrapper so the tree-decoding builder stays out of the public API.
 struct Node(Metadatum);
@@ -125,18 +180,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
         let datum = match partial {
             Partial::Leaf(x) => x,
             Partial::Array(items) => Metadatum::Array(items),
-            Partial::Map { indefinite, items } => {
-                let mut pairs = Vec::with_capacity(items.len() / 2);
-                let mut items = items.into_iter();
-                while let (Some(k), Some(v)) = (items.next(), items.next()) {
-                    pairs.push((k, v));
-                }
-                Metadatum::Map(if indefinite {
-                    KeyValuePairs::Indef(pairs)
-                } else {
-                    KeyValuePairs::Def(pairs)
-                })
-            }
+            Partial::Map { indefinite, items } => map(indefinite, pairs(items)),
         };
         Ok(Node(datum))
     }
@@ -211,6 +255,7 @@ impl<C> minicbor::encode::Encode<C> for Metadatum {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pallas_codec::tree::{Visit, walk_tree};
     use pallas_codec::utils::Int;
 
     fn nested(level: &[u8], depth: usize, leaf: &[u8], close: &[u8]) -> Vec<u8> {
@@ -265,39 +310,16 @@ mod tests {
 
     #[test]
     fn encodes_deep_nesting_on_a_small_stack() {
-        fn wrap(depth: usize, level: impl Fn(Metadatum) -> Metadatum) -> Metadatum {
-            let mut datum = Metadatum::Int(Int::from(0));
-            for _ in 0..depth {
-                datum = level(datum);
-            }
-            datum
-        }
-
         std::thread::Builder::new()
             .stack_size(128 * 1024)
             .spawn(|| {
                 let depth = 20_000;
-                let key = || Metadatum::Int(Int::from(0));
-                let cases: [(Metadatum, &[u8], &[u8]); 3] = [
-                    (wrap(depth, |x| Metadatum::Array(vec![x])), &[0x81], &[]),
-                    (
-                        wrap(depth, |x| {
-                            Metadatum::Map(KeyValuePairs::Def(vec![(key(), x)]))
-                        }),
-                        &[0xa1, 0x00],
-                        &[],
-                    ),
-                    (
-                        wrap(depth, |x| {
-                            Metadatum::Map(KeyValuePairs::Indef(vec![(key(), x)]))
-                        }),
-                        &[0xbf, 0x00],
-                        &[0xff],
-                    ),
+                let encodings: [(&[u8], &[u8]); 3] = [
+                    (&[0x81], &[]),
+                    (&[0xa1, 0x00], &[]),
+                    (&[0xbf, 0x00], &[0xff]),
                 ];
-                for (datum, level, close) in cases {
-                    // Drop still recurses; leak so only encoding is under test.
-                    let datum = std::mem::ManuallyDrop::new(datum);
+                for (datum, (level, close)) in deep_shapes(depth).into_iter().zip(encodings) {
                     let bytes = minicbor::to_vec(&*datum).unwrap();
                     assert_eq!(bytes, nested(level, depth, &[0x00], close));
                 }
@@ -343,6 +365,84 @@ mod tests {
                     assert!(
                         minicbor::decode::<Metadatum>(&bytes).is_err(),
                         "dangling key of shape {level:02x?}"
+                    );
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    fn wrap(depth: usize, level: impl Fn(Metadatum) -> Metadatum) -> Metadatum {
+        let mut datum = Metadatum::Int(Int::from(0));
+        for _ in 0..depth {
+            datum = level(datum);
+        }
+        datum
+    }
+
+    fn key() -> Metadatum {
+        Metadatum::Int(Int::from(0))
+    }
+
+    /// Chain-deep values of every container shape, leaked because `Drop`
+    /// still recurses and only the operation under test should run.
+    fn deep_shapes(depth: usize) -> Vec<std::mem::ManuallyDrop<Metadatum>> {
+        [
+            wrap(depth, |x| Metadatum::Array(vec![x])),
+            wrap(depth, |x| {
+                Metadatum::Map(KeyValuePairs::Def(vec![(key(), x)]))
+            }),
+            wrap(depth, |x| {
+                Metadatum::Map(KeyValuePairs::Indef(vec![(key(), x)]))
+            }),
+        ]
+        .into_iter()
+        .map(std::mem::ManuallyDrop::new)
+        .collect()
+    }
+
+    fn render(datum: &Metadatum) -> String {
+        let mut out = String::new();
+        walk_tree::<_, std::fmt::Error>(datum, |visit| {
+            match visit {
+                Visit::Enter(Metadatum::Int(x)) => out.push_str(&x.to_string()),
+                Visit::Enter(Metadatum::Text(x)) => out.push_str(x),
+                Visit::Enter(Metadatum::Bytes(x)) => out.push_str(&hex::encode(x.as_slice())),
+                Visit::Enter(Metadatum::Array(_)) => out.push('['),
+                Visit::Enter(Metadatum::Map(_)) => out.push('{'),
+                Visit::Between(_) => out.push(','),
+                Visit::Exit(Metadatum::Array(_)) => out.push(']'),
+                Visit::Exit(Metadatum::Map(_)) => out.push('}'),
+                Visit::Exit(_) => {}
+            }
+            Ok(())
+        })
+        .unwrap();
+        out
+    }
+
+    #[test]
+    fn walks_keys_and_values_in_order() {
+        let bytes = hex::decode("a2018200430102036161bf20626162ff").unwrap();
+        let datum: Metadatum = minicbor::decode(&bytes).unwrap();
+        assert_eq!(render(&datum), "{1,[0,010203],a,{-1,ab}}");
+        assert_eq!(render(&datum.clone()), render(&datum));
+        assert_eq!(datum.clone(), datum);
+    }
+
+    #[test]
+    fn clones_deep_nesting_on_a_small_stack() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let depth = 20_000;
+                for datum in deep_shapes(depth) {
+                    let copy = std::mem::ManuallyDrop::new(Metadatum::clone(&datum));
+                    assert_eq!(depth_of(&copy), depth);
+                    assert_eq!(
+                        minicbor::to_vec(&*copy).unwrap(),
+                        minicbor::to_vec(&*datum).unwrap()
                     );
                 }
             })

@@ -385,6 +385,61 @@ mod tests {
     }
 
     #[test]
+    fn map_metadatum_handles_deeply_nested_metadata_on_a_small_stack() {
+        use pallas_primitives::alonzo::Metadatum;
+        use pallas_primitives::{Int, KeyValuePairs};
+
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let depth = 20_000;
+                let mut datum = Metadatum::Int(Int::from(0));
+                for level in 0..depth {
+                    datum = if level % 2 == 0 {
+                        Metadatum::Array(vec![datum])
+                    } else {
+                        Metadatum::Map(KeyValuePairs::Def(vec![(
+                            Metadatum::Int(Int::from(1)),
+                            datum,
+                        )]))
+                    };
+                }
+                // The source Drop still recurses; leak it like the result.
+                let datum = std::mem::ManuallyDrop::new(datum);
+
+                let mapped = Mapper::<NoLedger>::map_metadatum(&datum);
+
+                let mut seen = 0;
+                let mut cursor = &mapped;
+                loop {
+                    cursor = match cursor.metadatum.as_ref().expect("mapped node") {
+                        u5c::metadatum::Metadatum::Array(list) => list.items.first(),
+                        u5c::metadatum::Metadatum::Map(map) => {
+                            let pair = map.pairs.first().expect("map carries its pair");
+                            assert!(matches!(
+                                pair.key.as_ref().and_then(|k| k.metadatum.as_ref()),
+                                Some(u5c::metadatum::Metadatum::Int(1))
+                            ));
+                            pair.value.as_ref()
+                        }
+                        u5c::metadatum::Metadatum::Int(0) => break,
+                        other => panic!("unexpected node {other:?}"),
+                    }
+                    .expect("container carries a child");
+                    seen += 1;
+                }
+                assert_eq!(seen, depth);
+
+                // u5c's generated type has no custom Drop, so a chain this
+                // deep would abort on the way out. Leak it deliberately.
+                std::mem::forget(mapped);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
     fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
         // Depth and stack size are load-bearing, not just generous: both must
         // stay far enough apart that the old recursive mapping (one call
