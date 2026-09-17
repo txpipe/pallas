@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+use pallas_codec::tree::{Visit, map_tree, walk_tree};
 use serde_json::json;
 
 use crate::ToCanonicalJson;
@@ -71,22 +72,11 @@ impl ToCanonicalJson for super::NativeScript {
             }
         }
 
-        // Heap-backed work list: nesting depth is chain-controlled and
-        // unbounded (see #802), so this must not recurse on the call stack.
-        let mut root = shallow(self);
-        let mut pending = vec![(self, &mut root)];
-        while let Some((source, target)) = pending.pop() {
-            let Some(target_kids) = target
+        map_tree(self, shallow, |value: &mut serde_json::Value| {
+            value
                 .get_mut("scripts")
                 .and_then(serde_json::Value::as_array_mut)
-            else {
-                continue;
-            };
-            let source_kids = source.children();
-            *target_kids = source_kids.iter().map(shallow).collect();
-            pending.extend(source_kids.iter().zip(target_kids.iter_mut()));
-        }
-        root
+        })
     }
 
     /// Writes the JSON text directly, never building a `serde_json::Value`:
@@ -97,55 +87,30 @@ impl ToCanonicalJson for super::NativeScript {
 
         use super::NativeScript;
 
-        enum Step<'a> {
-            Open(&'a NativeScript),
-            Close(&'static str),
-            Comma,
-        }
-
-        fn push_children<'a>(
-            stack: &mut Vec<Step<'a>>,
-            xs: &'a [NativeScript],
-            close: &'static str,
-        ) {
-            stack.push(Step::Close(close));
-            for (i, x) in xs.iter().enumerate().rev() {
-                stack.push(Step::Open(x));
-                if i > 0 {
-                    stack.push(Step::Comma);
-                }
-            }
-        }
-
         let mut out = String::new();
-        let mut stack = vec![Step::Open(self)];
-        while let Some(step) = stack.pop() {
-            match step {
-                Step::Comma => out.push(','),
-                Step::Close(s) => out.push_str(s),
-                Step::Open(NativeScript::ScriptPubkey(x)) => {
-                    write!(out, r#"{{"keyHash":"{x}","type":"sig"}}"#).unwrap();
-                }
-                Step::Open(NativeScript::ScriptAll(xs)) => {
-                    out.push_str(r#"{"scripts":["#);
-                    push_children(&mut stack, xs, r#"],"type":"all"}"#);
-                }
-                Step::Open(NativeScript::ScriptAny(xs)) => {
-                    out.push_str(r#"{"scripts":["#);
-                    push_children(&mut stack, xs, r#"],"type":"any"}"#);
-                }
-                Step::Open(NativeScript::ScriptNOfK(n, xs)) => {
-                    write!(out, r#"{{"required":{n},"scripts":["#).unwrap();
-                    push_children(&mut stack, xs, r#"],"type":"atLeast"}"#);
-                }
-                Step::Open(NativeScript::InvalidBefore(slot)) => {
-                    write!(out, r#"{{"slot":{slot},"type":"after"}}"#).unwrap();
-                }
-                Step::Open(NativeScript::InvalidHereafter(slot)) => {
-                    write!(out, r#"{{"slot":{slot},"type":"before"}}"#).unwrap();
-                }
+        walk_tree::<_, std::fmt::Error>(self, |visit| match visit {
+            Visit::Enter(NativeScript::ScriptPubkey(x)) => {
+                write!(out, r#"{{"keyHash":"{x}","type":"sig"}}"#)
             }
-        }
+            Visit::Enter(NativeScript::ScriptAll(_) | NativeScript::ScriptAny(_)) => {
+                write!(out, r#"{{"scripts":["#)
+            }
+            Visit::Enter(NativeScript::ScriptNOfK(n, _)) => {
+                write!(out, r#"{{"required":{n},"scripts":["#)
+            }
+            Visit::Enter(NativeScript::InvalidBefore(slot)) => {
+                write!(out, r#"{{"slot":{slot},"type":"after"}}"#)
+            }
+            Visit::Enter(NativeScript::InvalidHereafter(slot)) => {
+                write!(out, r#"{{"slot":{slot},"type":"before"}}"#)
+            }
+            Visit::Between(_) => write!(out, ","),
+            Visit::Exit(NativeScript::ScriptAll(_)) => write!(out, r#"],"type":"all"}}"#),
+            Visit::Exit(NativeScript::ScriptAny(_)) => write!(out, r#"],"type":"any"}}"#),
+            Visit::Exit(NativeScript::ScriptNOfK(..)) => write!(out, r#"],"type":"atLeast"}}"#),
+            Visit::Exit(_) => Ok(()),
+        })
+        .expect("writing to a String cannot fail");
         out
     }
 }

@@ -3,12 +3,14 @@
 //! decoding would leave cloning, encoding or destruction able to overflow.
 
 use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder};
-use pallas_codec::tree::{Arity, TreeDecode, decode_tree};
+use pallas_codec::tree::{
+    Arity, TreeDecode, TreeNode, Visit, decode_tree, drop_children, eq_tree, map_tree, walk_tree,
+};
 
 use super::NativeScript;
 
-impl NativeScript {
-    pub(crate) fn children(&self) -> &[Self] {
+impl TreeNode for NativeScript {
+    fn children(&self) -> &[Self] {
         match self {
             Self::ScriptAll(xs) | Self::ScriptAny(xs) | Self::ScriptNOfK(_, xs) => xs,
             _ => &[],
@@ -21,7 +23,9 @@ impl NativeScript {
             _ => None,
         }
     }
+}
 
+impl NativeScript {
     fn shallow_clone(&self) -> Self {
         match self {
             Self::ScriptPubkey(x) => Self::ScriptPubkey(*x),
@@ -36,52 +40,28 @@ impl NativeScript {
 
 impl Drop for NativeScript {
     fn drop(&mut self) {
-        let Some(children) = self.children_mut() else {
-            return;
-        };
-        let mut pending = std::mem::take(children);
-        while let Some(mut script) = pending.pop() {
-            if let Some(children) = script.children_mut() {
-                pending.append(children);
-            }
-            // `script` now owns no descendants, so its Drop cannot recurse.
-        }
+        drop_children(self);
     }
 }
 
 impl Clone for NativeScript {
     fn clone(&self) -> Self {
-        let mut root = self.shallow_clone();
-        let mut pending = vec![(self, &mut root)];
-        while let Some((source, target)) = pending.pop() {
-            if let Some(children) = target.children_mut() {
-                children.extend(source.children().iter().map(Self::shallow_clone));
-                pending.extend(source.children().iter().zip(children.iter_mut()));
-            }
-        }
-        root
+        map_tree(self, Self::shallow_clone, Self::children_mut)
     }
 }
 
 impl PartialEq for NativeScript {
     fn eq(&self, other: &Self) -> bool {
-        let mut pending = vec![(self, other)];
-        while let Some((left, right)) = pending.pop() {
-            let equal = match (left, right) {
-                (Self::ScriptPubkey(a), Self::ScriptPubkey(b)) => a == b,
-                (Self::ScriptAll(_), Self::ScriptAll(_))
-                | (Self::ScriptAny(_), Self::ScriptAny(_)) => true,
-                (Self::ScriptNOfK(a, _), Self::ScriptNOfK(b, _)) => a == b,
-                (Self::InvalidBefore(a), Self::InvalidBefore(b))
-                | (Self::InvalidHereafter(a), Self::InvalidHereafter(b)) => a == b,
-                _ => false,
-            };
-            if !equal || left.children().len() != right.children().len() {
-                return false;
+        eq_tree(self, other, |left, right| match (left, right) {
+            (Self::ScriptPubkey(a), Self::ScriptPubkey(b)) => a == b,
+            (Self::ScriptAll(_), Self::ScriptAll(_)) | (Self::ScriptAny(_), Self::ScriptAny(_)) => {
+                true
             }
-            pending.extend(left.children().iter().zip(right.children()));
-        }
-        true
+            (Self::ScriptNOfK(a, _), Self::ScriptNOfK(b, _)) => a == b,
+            (Self::InvalidBefore(a), Self::InvalidBefore(b))
+            | (Self::InvalidHereafter(a), Self::InvalidHereafter(b)) => a == b,
+            _ => false,
+        })
     }
 }
 
@@ -171,8 +151,10 @@ impl<C> Encode<C> for NativeScript {
         e: &mut Encoder<W>,
         ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        let mut pending = vec![self];
-        while let Some(script) = pending.pop() {
+        walk_tree(self, |visit| {
+            let Visit::Enter(script) = visit else {
+                return Ok(());
+            };
             match script {
                 Self::ScriptPubkey(x) => {
                     e.array(2)?.u8(0)?.encode_with(x, ctx)?;
@@ -193,9 +175,8 @@ impl<C> Encode<C> for NativeScript {
                     e.array(2)?.u8(5)?.u64(*x)?;
                 }
             }
-            pending.extend(script.children().iter().rev());
-        }
-        Ok(())
+            Ok(())
+        })
     }
 }
 
