@@ -9,6 +9,12 @@ use pallas_primitives::{
     byron, conway,
 };
 
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
+
+#[cfg(feature = "unstable")]
+use crate::probe;
+
 use crate::{
     Era, Error, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
     MultiEraProposal, MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals,
@@ -39,6 +45,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => minicbor::to_vec(x).unwrap(),
             MultiEraTx::Byron(x) => minicbor::to_vec(x).unwrap(),
             MultiEraTx::Conway(x) => minicbor::to_vec(x).unwrap(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => minicbor::to_vec(x).unwrap(),
         }
     }
 
@@ -64,13 +72,51 @@ impl<'b> MultiEraTx<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(MultiEraTx::Conway(tx))
             }
+            // Two rules write a Dijkstra transaction. The block rule puts the
+            // flag last. The mempool rule takes three elements, or four with
+            // `true` third, the only value it allows.
+            #[cfg(feature = "unstable")]
+            Era::Dijkstra => match probe::tx_shape(cbor) {
+                probe::TxShape::DijkstraMempool | probe::TxShape::ValidityThird => {
+                    let tx: dijkstra::MempoolTransaction = minicbor::decode(cbor)?;
+                    Ok(MultiEraTx::Dijkstra(Box::new(Cow::Owned(
+                        dijkstra::BlockTransaction {
+                            transaction_body: tx.transaction_body,
+                            transaction_witness_set: tx.transaction_witness_set,
+                            auxiliary_data: tx.auxiliary_data,
+                            success: true,
+                        },
+                    ))))
+                }
+                probe::TxShape::DijkstraBlock | probe::TxShape::Other => {
+                    let tx = minicbor::decode(cbor)?;
+                    let tx = Box::new(Cow::Owned(tx));
+                    Ok(MultiEraTx::Dijkstra(tx))
+                }
+            },
         }
     }
 
     /// Try decode a transaction via every era's encoding format, starting with
     /// the most recent and returning on first success, or None if none are
     /// successful
+    ///
+    /// Dijkstra is recognised by its block form, four elements with the
+    /// validity flag last, which is the one shape no other era writes. Its
+    /// three element mempool form is the same shape a Shelley, Allegra or Mary
+    /// transaction takes, so this entry point does not distinguish it and
+    /// decodes it only when the caller names the era.
     pub fn decode(cbor: &'b [u8]) -> Result<Self, Error> {
+        #[cfg(feature = "unstable")]
+        match probe::tx_shape(cbor) {
+            probe::TxShape::DijkstraBlock => {
+                return Self::decode_for_era(Era::Dijkstra, cbor).map_err(Error::invalid_cbor);
+            }
+            probe::TxShape::DijkstraMempool
+            | probe::TxShape::ValidityThird
+            | probe::TxShape::Other => (),
+        }
+
         if let Ok(tx) = minicbor::decode(cbor) {
             return Ok(MultiEraTx::Conway(Box::new(Cow::Owned(tx))));
         }
@@ -100,6 +146,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(_) => Era::Babbage,
             MultiEraTx::Byron(_) => Era::Byron,
             MultiEraTx::Conway(_) => Era::Conway,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(..) => Era::Dijkstra,
         }
     }
 
@@ -109,6 +157,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.transaction_body.original_hash(),
             MultiEraTx::Byron(x) => x.transaction.original_hash(),
             MultiEraTx::Conway(x) => x.transaction_body.original_hash(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.original_hash(),
         }
     }
 
@@ -139,6 +189,10 @@ impl<'b> MultiEraTx<'b> {
                 .iter()
                 .map(MultiEraOutput::from_conway)
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("outputs is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -165,6 +219,10 @@ impl<'b> MultiEraTx<'b> {
                 .outputs
                 .get(index)
                 .map(MultiEraOutput::from_conway),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("output_at is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -197,6 +255,10 @@ impl<'b> MultiEraTx<'b> {
                 .iter()
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("inputs is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -259,7 +321,16 @@ impl<'b> MultiEraTx<'b> {
                 .flatten()
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
-            _ => vec![],
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x
+                .transaction_body
+                .reference_inputs
+                .iter()
+                .flatten()
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            // No era before Babbage has a reference inputs field.
+            MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => vec![],
         }
     }
 
@@ -287,6 +358,10 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|c| c.iter())
                 .map(|c| MultiEraCert::Conway(Box::new(Cow::Borrowed(c))))
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("certs is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -303,7 +378,11 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(MultiEraUpdate::from_babbage),
             MultiEraTx::Byron(_) => None,
+            // Conway and later carry parameter changes as governance actions, not as a
+            // body field.
             MultiEraTx::Conway(_) => None,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(..) => None,
         }
     }
 
@@ -331,6 +410,10 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(|(k, v)| MultiEraPolicyAssets::ConwayMint(k, v))
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("mints is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -362,6 +445,10 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("collateral is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -377,7 +464,11 @@ impl<'b> MultiEraTx<'b> {
                 .collateral_return
                 .as_ref()
                 .map(MultiEraOutput::from_conway),
-            _ => None,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("collateral_return is not yet implemented for Dijkstra")
+            }
+            MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => None,
         }
     }
 
@@ -385,7 +476,9 @@ impl<'b> MultiEraTx<'b> {
         match self {
             MultiEraTx::Babbage(x) => x.transaction_body.total_collateral,
             MultiEraTx::Conway(x) => x.transaction_body.total_collateral,
-            _ => None,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.total_collateral,
+            MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => None,
         }
     }
 
@@ -398,7 +491,13 @@ impl<'b> MultiEraTx<'b> {
                 .flatten()
                 .map(MultiEraProposal::from_conway)
                 .collect(),
-            _ => vec![],
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("gov_proposals is not yet implemented for Dijkstra")
+            }
+            MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
+                vec![]
+            }
         }
     }
 
@@ -488,6 +587,10 @@ impl<'b> MultiEraTx<'b> {
                 Some(x) => MultiEraWithdrawals::Conway(x),
                 None => MultiEraWithdrawals::Empty,
             },
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("withdrawals is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -497,6 +600,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => Some(x.transaction_body.fee),
             MultiEraTx::Byron(_) => None,
             MultiEraTx::Conway(x) => Some(x.transaction_body.fee),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => Some(x.transaction_body.fee),
         }
     }
 
@@ -506,6 +611,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.transaction_body.ttl,
             MultiEraTx::Byron(_) => None,
             MultiEraTx::Conway(x) => x.transaction_body.ttl,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.ttl,
         }
     }
 
@@ -521,6 +628,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.transaction_body.fee,
             MultiEraTx::Byron(x) => crate::fees::compute_byron_fee(x, None),
             MultiEraTx::Conway(x) => x.transaction_body.fee,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.fee,
         }
     }
 
@@ -542,10 +651,19 @@ impl<'b> MultiEraTx<'b> {
                 pallas_codec::utils::Nullable::Null => None,
                 pallas_codec::utils::Nullable::Undefined => None,
             },
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("aux_data is not yet implemented for Dijkstra")
+            }
         }
     }
 
     pub fn metadata(&self) -> MultiEraMeta<'_> {
+        #[cfg(feature = "unstable")]
+        if let MultiEraTx::Dijkstra(..) = self {
+            unimplemented!("metadata is not yet implemented for Dijkstra")
+        }
+
         match self.aux_data() {
             Some(x) => match x.deref() {
                 alonzo::AuxiliaryData::Shelley(x) => MultiEraMeta::AlonzoCompatible(x),
@@ -583,6 +701,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| MultiEraSigners::AlonzoCompatible(x.deref()))
                 .unwrap_or_default(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(_) => {
+                unimplemented!("required_signers is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -592,6 +714,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.transaction_body.validity_interval_start,
             MultiEraTx::Byron(_) => None,
             MultiEraTx::Conway(x) => x.transaction_body.validity_interval_start,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.validity_interval_start,
         }
     }
 
@@ -601,6 +725,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.transaction_body.network_id,
             MultiEraTx::Byron(_) => None,
             MultiEraTx::Conway(x) => x.transaction_body.network_id,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.network_id,
         }
     }
 
@@ -610,6 +736,8 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Babbage(x) => x.success,
             MultiEraTx::Byron(_) => true,
             MultiEraTx::Conway(x) => x.success,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.success,
         }
     }
 
@@ -639,5 +767,257 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Conway(x) => Some(x),
             _ => None,
         }
+    }
+}
+
+#[cfg(all(test, feature = "unstable"))]
+mod tests {
+    use super::*;
+    use crate::MultiEraBlock;
+
+    fn dijkstra_block_bytes() -> Vec<u8> {
+        hex::decode(include_str!("../../test_data/dijkstra3.block")).expect("invalid hex")
+    }
+
+    #[test]
+    fn a_dijkstra_transaction_decodes_through_the_era_agnostic_entry_point() {
+        let cbor = dijkstra_block_bytes();
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let from_block = block.txs();
+        let from_block = from_block.first().expect("dijkstra3 carries a transaction");
+
+        let bytes = from_block.encode();
+        let tx = MultiEraTx::decode(&bytes).expect("a Dijkstra transaction must decode");
+
+        assert_eq!(tx.era(), Era::Dijkstra);
+        assert_eq!(tx.hash(), from_block.hash());
+        assert!(tx.is_valid());
+    }
+
+    #[test]
+    fn an_earlier_era_transaction_answers_as_it_did_before() {
+        for (tx_str, era) in [
+            (include_str!("../../test_data/byron1.tx"), Era::Byron),
+            (include_str!("../../test_data/alonzo1.tx"), Era::Conway),
+            (include_str!("../../test_data/babbage2.tx"), Era::Conway),
+            (include_str!("../../test_data/conway1.tx"), Era::Conway),
+        ] {
+            let bytes = hex::decode(tx_str).expect("invalid hex");
+
+            assert_eq!(
+                MultiEraTx::decode(&bytes).expect("invalid cbor").era(),
+                era,
+                "{}",
+                &tx_str[..16]
+            );
+        }
+    }
+
+    /// Rebuild a four element fixture into the ledger's pre Alonzo three
+    /// element form, leaving the body and the witness set bytes untouched.
+    fn three_element_form(tx_str: &str) -> Vec<u8> {
+        let bytes = hex::decode(tx_str).expect("invalid hex");
+        let tx: alonzo::Tx = minicbor::decode(&bytes).expect("a four element transaction");
+
+        let mut three = vec![0x83];
+        three.extend_from_slice(tx.transaction_body.raw_cbor());
+        three.extend_from_slice(tx.transaction_witness_set.raw_cbor());
+
+        match &tx.auxiliary_data {
+            pallas_codec::utils::Nullable::Some(aux) => three.extend_from_slice(aux.raw_cbor()),
+            _ => three.push(0xf6),
+        }
+
+        three
+    }
+
+    /// Shelley, Allegra and Mary write `[body, witness_set, auxiliary_data/
+    /// nil]`, which is Dijkstra's three element mempool rule byte for byte.
+    /// The era agnostic entry point cannot tell them apart, so it decodes
+    /// neither and leaves the three element form to a caller that names the
+    /// era.
+    #[test]
+    fn a_three_element_transaction_is_not_guessed_as_dijkstra() {
+        for tx_str in [
+            include_str!("../../test_data/mary1.tx"),
+            include_str!("../../test_data/shelley1.tx"),
+        ] {
+            let four = hex::decode(tx_str).expect("invalid hex");
+            assert_eq!(four[0], 0x84, "the fixture is the four element form");
+            assert_eq!(
+                MultiEraTx::decode(&four).expect("invalid cbor").era(),
+                Era::Conway,
+                "the fixture itself still decodes"
+            );
+
+            let three = three_element_form(tx_str);
+            assert_eq!(three[0], 0x83, "the rebuild is three elements");
+
+            assert!(
+                MultiEraTx::decode(&three).is_err(),
+                "a pre Alonzo transaction must not be guessed as Dijkstra: {}",
+                &tx_str[..16]
+            );
+
+            let named = MultiEraTx::decode_for_era(Era::Dijkstra, &three)
+                .expect("a caller that names the era still gets the mempool form");
+            assert_eq!(named.era(), Era::Dijkstra);
+        }
+    }
+
+    #[test]
+    fn the_four_element_mempool_form_decodes_for_the_dijkstra_era() {
+        let cbor = dijkstra_block_bytes();
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let source = block
+            .as_dijkstra()
+            .expect("a Dijkstra block")
+            .block_body
+            .transactions
+            .first()
+            .expect("dijkstra3 carries a transaction")
+            .clone();
+
+        let mut mempool = source.to_mempool_transaction();
+        mempool.is_valid_supplied = true;
+        let four = minicbor::to_vec(&mempool).expect("to_vec is infallible");
+        assert_eq!(four[0], 0x84, "the tolerated mempool form is four elements");
+
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &four)
+            .expect("the four element mempool form is legal Dijkstra");
+        assert_eq!(tx.era(), Era::Dijkstra);
+        assert!(tx.is_valid());
+        assert_eq!(tx.hash(), source.transaction_body.original_hash());
+
+        let three = minicbor::to_vec(source.to_mempool_transaction()).expect("infallible");
+        assert_eq!(three[0], 0x83, "a mempool transaction is three elements");
+        let three = MultiEraTx::decode_for_era(Era::Dijkstra, &three)
+            .expect("the three element mempool form is legal Dijkstra");
+        assert_eq!(three.hash(), tx.hash());
+
+        // The rule allows `true` and nothing else in that position.
+        let flag_at = 1
+            + source.transaction_body.raw_cbor().len()
+            + source.transaction_witness_set.raw_cbor().len();
+        let mut with_false = four.clone();
+        assert_eq!(with_false[flag_at], 0xf5);
+        with_false[flag_at] = 0xf4;
+        assert!(MultiEraTx::decode_for_era(Era::Dijkstra, &with_false).is_err());
+    }
+
+    type Accessor = fn(&MultiEraTx);
+
+    const NOT_YET_IMPLEMENTED: [(&str, Accessor); 22] = [
+        ("outputs", |tx| {
+            let _ = tx.outputs();
+        }),
+        ("output_at", |tx| {
+            let _ = tx.output_at(0);
+        }),
+        ("inputs", |tx| {
+            let _ = tx.inputs();
+        }),
+        ("certs", |tx| {
+            let _ = tx.certs();
+        }),
+        ("mints", |tx| {
+            let _ = tx.mints();
+        }),
+        ("collateral", |tx| {
+            let _ = tx.collateral();
+        }),
+        ("collateral_return", |tx| {
+            let _ = tx.collateral_return();
+        }),
+        ("gov_proposals", |tx| {
+            let _ = tx.gov_proposals();
+        }),
+        ("withdrawals", |tx| {
+            let _ = tx.withdrawals();
+        }),
+        ("aux_data", |tx| {
+            let _ = tx.aux_data();
+        }),
+        ("metadata", |tx| {
+            let _ = tx.metadata();
+        }),
+        ("required_signers", |tx| {
+            let _ = tx.required_signers();
+        }),
+        ("aux_plutus_v1_scripts", |tx| {
+            let _ = tx.aux_plutus_v1_scripts();
+        }),
+        ("aux_native_scripts", |tx| {
+            let _ = tx.aux_native_scripts();
+        }),
+        ("vkey_witnesses", |tx| {
+            let _ = tx.vkey_witnesses();
+        }),
+        ("native_scripts", |tx| {
+            let _ = tx.native_scripts();
+        }),
+        ("bootstrap_witnesses", |tx| {
+            let _ = tx.bootstrap_witnesses();
+        }),
+        ("plutus_v1_scripts", |tx| {
+            let _ = tx.plutus_v1_scripts();
+        }),
+        ("plutus_data", |tx| {
+            let _ = tx.plutus_data();
+        }),
+        ("redeemers", |tx| {
+            let _ = tx.redeemers();
+        }),
+        ("plutus_v2_scripts", |tx| {
+            let _ = tx.plutus_v2_scripts();
+        }),
+        ("plutus_v3_scripts", |tx| {
+            let _ = tx.plutus_v3_scripts();
+        }),
+    ];
+
+    #[test]
+    fn every_accessor_not_yet_written_refuses_by_name() {
+        let cbor = dijkstra_block_bytes();
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let txs = block.txs();
+        let tx = txs.first().expect("dijkstra3 carries a transaction");
+
+        for (name, call) in NOT_YET_IMPLEMENTED {
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| call(tx)));
+            let payload = outcome
+                .err()
+                .unwrap_or_else(|| panic!("{name} answered a Dijkstra transaction"));
+
+            let message = payload
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| payload.downcast_ref::<&str>().map(|x| (*x).to_owned()))
+                .unwrap_or_default();
+
+            assert!(
+                message.contains(&format!("{name} is not yet implemented for Dijkstra")),
+                "{name} refused with {message:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_two_fallible_decoders_refuse_by_name_rather_than_panic() {
+        let err = crate::MultiEraOutput::decode(Era::Dijkstra, &[0x80])
+            .expect_err("the output decoder has no Dijkstra arm yet");
+        assert!(
+            err.to_string()
+                .contains("MultiEraOutput::decode is not yet implemented for Dijkstra"),
+            "{err}"
+        );
+
+        let err = MultiEraUpdate::decode_for_era(Era::Dijkstra, &[0x80])
+            .expect_err("the update decoder has no Dijkstra arm yet");
+        assert!(
+            err.to_string()
+                .contains("MultiEraUpdate::decode_for_era is not yet implemented for Dijkstra"),
+            "{err}"
+        );
     }
 }

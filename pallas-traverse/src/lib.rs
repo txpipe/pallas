@@ -3,7 +3,7 @@
 //! Where [`pallas-primitives`] exposes the raw typed CBOR per era, this crate
 //! hides the era split behind `MultiEra*` enums so a single piece of
 //! indexing or analysis code can run against everything from Byron to
-//! Conway.
+//! Conway, and to Dijkstra with the `unstable` feature.
 //!
 //! This is the read side of the ledger. For transaction construction see
 //! [`pallas-txbuilder`]; for ledger-rule validation see [`pallas-validate`].
@@ -53,7 +53,7 @@
 //! # Feature flags
 //!
 //! - `unstable` — exposes APIs that are not yet considered stable and may
-//!   change between minor releases.
+//!   change between minor releases. The Dijkstra era is behind this flag.
 //!
 //! # Usage as part of `pallas`
 //!
@@ -72,6 +72,9 @@ use thiserror::Error;
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron, conway};
+
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
 
 mod support;
 
@@ -125,6 +128,9 @@ pub mod witnesses;
 pub mod wellknown;
 
 /// The Cardano ledger eras in chronological order.
+///
+/// `has_feature` compares variants with `ge` in declaration order, so a new
+/// era is declared last.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Era {
@@ -142,6 +148,9 @@ pub enum Era {
     Babbage,
     /// Adds CIP-1694 on-chain governance.
     Conway,
+    /// Adds inline block transactions, sub transactions and the Leios fields.
+    #[cfg(feature = "unstable")]
+    Dijkstra,
 }
 
 /// Feature flags individual eras can be queried for.
@@ -168,6 +177,7 @@ pub enum Feature {
 
 /// A block header normalized across eras, keeping access to its raw CBOR.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum MultiEraHeader<'b> {
     /// Byron epoch-boundary block header.
     EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
@@ -177,6 +187,9 @@ pub enum MultiEraHeader<'b> {
     BabbageCompatible(Cow<'b, KeepRaw<'b, babbage::Header>>),
     /// Byron main block header.
     Byron(Cow<'b, KeepRaw<'b, byron::BlockHead>>),
+    /// Dijkstra header.
+    #[cfg(feature = "unstable")]
+    Dijkstra(Cow<'b, KeepRaw<'b, dijkstra::Header>>),
 }
 
 /// A block normalized across eras.
@@ -193,6 +206,9 @@ pub enum MultiEraBlock<'b> {
     Byron(Box<byron::Block<'b>>),
     /// Conway block.
     Conway(Box<conway::Block<'b>>),
+    /// Dijkstra block.
+    #[cfg(feature = "unstable")]
+    Dijkstra(Box<dijkstra::Block<'b>>),
 }
 
 /// A transaction normalized across eras.
@@ -207,6 +223,9 @@ pub enum MultiEraTx<'b> {
     Byron(Box<Cow<'b, byron::TxPayload<'b>>>),
     /// Conway transaction.
     Conway(Box<Cow<'b, conway::Tx<'b>>>),
+    /// Dijkstra transaction, whose `success` flag is written last.
+    #[cfg(feature = "unstable")]
+    Dijkstra(Box<Cow<'b, dijkstra::BlockTransaction<'b>>>),
 }
 
 /// Ada-plus-multi-asset value normalized across eras.
@@ -389,9 +408,13 @@ pub enum Error {
     #[error("Unknown CBOR structure: {0}")]
     UnknownCbor(String),
 
-    /// Era tag is not one this crate knows how to handle.
-    #[error("Unknown era tag: {0}")]
+    /// Block wrapper era tag is not one this crate knows how to handle.
+    #[error("Unknown block wrapper era tag: {0}")]
     UnknownEra(u16),
+
+    /// Chainsync header envelope tag is not one this crate knows how to handle.
+    #[error("Unknown chainsync header envelope tag: {0}")]
+    UnknownHeaderEnvelopeTag(u8),
 
     /// Operation requested in an era that does not support it.
     #[error("Invalid era for request: {0}")]
@@ -429,4 +452,95 @@ pub trait ComputeHash<const BYTES: usize> {
 pub trait OriginalHash<const BYTES: usize> {
     /// Return the hash as computed over the value's original CBOR bytes.
     fn original_hash(&self) -> pallas_crypto::hash::Hash<BYTES>;
+}
+
+#[cfg(test)]
+mod attribute_tests {
+    const THIS_FILE: &str = include_str!("lib.rs");
+
+    /// Every multi era enum this file defines, in sorted order.
+    const MULTI_ERA_ENUMS: &[&str] = &[
+        "MultiEraAsset",
+        "MultiEraBlock",
+        "MultiEraCert",
+        "MultiEraGovAction",
+        "MultiEraHeader",
+        "MultiEraInput",
+        "MultiEraMeta",
+        "MultiEraOutput",
+        "MultiEraPolicyAssets",
+        "MultiEraProposal",
+        "MultiEraRedeemer",
+        "MultiEraSigners",
+        "MultiEraTx",
+        "MultiEraUpdate",
+        "MultiEraValue",
+        "MultiEraWithdrawals",
+    ];
+
+    fn multi_era_enums(source: &str) -> Vec<(String, bool)> {
+        let lines: Vec<&str> = source.lines().collect();
+
+        lines
+            .iter()
+            .enumerate()
+            .filter_map(|(i, line)| {
+                let rest = line.trim().strip_prefix("pub enum MultiEra")?;
+                let name: String = std::iter::once("MultiEra")
+                    .chain(std::iter::once(
+                        rest.split(['<', ' ', '{']).next().unwrap_or_default(),
+                    ))
+                    .collect();
+                let marked = lines[..i]
+                    .iter()
+                    .rev()
+                    .take_while(|above| {
+                        let above = above.trim();
+                        above.starts_with("#[") || above.starts_with("//")
+                    })
+                    .any(|above| above.trim() == "#[non_exhaustive]");
+                Some((name, marked))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn every_multi_era_enum_is_non_exhaustive() {
+        let enums = multi_era_enums(THIS_FILE);
+
+        let mut found: Vec<&str> = enums.iter().map(|(name, _)| name.as_str()).collect();
+        found.sort_unstable();
+        assert_eq!(
+            found, MULTI_ERA_ENUMS,
+            "the scan found a different set of multi era enums than the one listed"
+        );
+
+        let unmarked: Vec<&str> = enums
+            .iter()
+            .filter(|(_, marked)| !marked)
+            .map(|(name, _)| name.as_str())
+            .collect();
+        assert!(
+            unmarked.is_empty(),
+            "{unmarked:?} lack #[non_exhaustive], so adding an era variant to one breaks every downstream exhaustive match"
+        );
+    }
+
+    #[test]
+    fn the_attribute_scan_reads_both_cases() {
+        let marked = multi_era_enums("#[non_exhaustive]\npub enum MultiEraThing<'b> {");
+        assert_eq!(marked, vec![("MultiEraThing".to_string(), true)]);
+
+        let reordered =
+            multi_era_enums("#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {");
+        assert_eq!(reordered, vec![("MultiEraThing".to_string(), true)]);
+
+        let documented = multi_era_enums(
+            "/// A thing.\n#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+        );
+        assert_eq!(documented, vec![("MultiEraThing".to_string(), true)]);
+
+        let bare = multi_era_enums("#[derive(Debug)]\npub enum MultiEraThing<'b> {");
+        assert_eq!(bare, vec![("MultiEraThing".to_string(), false)]);
+    }
 }
