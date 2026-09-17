@@ -62,6 +62,7 @@
 
 mod framework;
 mod metadatum;
+mod native_script;
 mod plutus_data;
 
 /// Ledger primitives for the Alonzo era (smart contracts).
