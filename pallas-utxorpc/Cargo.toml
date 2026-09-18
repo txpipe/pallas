@@ -30,7 +30,7 @@ pallas-traverse.workspace = true
 pallas-primitives.workspace = true
 pallas-codec.workspace = true
 pallas-crypto.workspace = true
-prost-types = "0.13.1"
+prost-types = "0.14.3"
 pallas-validate.workspace = true
 
 [features]
