@@ -6,6 +6,9 @@ use pallas_crypto::{
 };
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
+
 impl ComputeHash<32> for byron::EbbHead {
     fn compute_hash(&self) -> Hash<32> {
         // hash expects to have a prefix for the type of block
@@ -115,6 +118,76 @@ impl ComputeHash<32> for babbage::Header {
 impl OriginalHash<32> for KeepRaw<'_, babbage::Header> {
     fn original_hash(&self) -> pallas_crypto::hash::Hash<32> {
         Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ComputeHash<32> for dijkstra::Header {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::Header> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ComputeHash<32> for dijkstra::TransactionBody<'_> {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::TransactionBody<'_>> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ComputeHash<32> for dijkstra::SubTransactionBody<'_> {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::SubTransactionBody<'_>> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ComputeHash<32> for dijkstra::AuxiliaryData {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::AuxiliaryData> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ComputeHash<28> for dijkstra::NativeScript {
+    fn compute_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_tagged_cbor(self, 0)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<28> for KeepRaw<'_, dijkstra::NativeScript> {
+    fn original_hash(&self) -> Hash<28> {
+        Hasher::<224>::hash_tagged(self.raw_cbor(), 0)
     }
 }
 
@@ -400,5 +473,277 @@ mod tests {
             pk.compute_hash().to_vec(),
             hex::decode("2b6b3949d380fea6cb1c1cf88490ea40b2c1ce87717df7869cb1c38e").unwrap()
         )
+    }
+
+    #[test]
+    fn every_fixture_block_hashes_as_the_node_recorded_it() {
+        #[allow(unused_mut)]
+        let mut cases = vec![(
+            include_str!("../../test_data/conway5.block"),
+            "802112126cc600a6afc5193a0150aafd9f6563bec28207df7e6c20cc62e95f8e",
+            4254u64,
+            86373u64,
+            crate::Era::Conway,
+        )];
+
+        #[cfg(feature = "unstable")]
+        cases.extend([
+            (
+                include_str!("../../test_data/dijkstra1.block"),
+                "d0c2a26a0192baf397b75cd38137987d82036c269089362842888279f3e19daf",
+                4255,
+                86463,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra2.block"),
+                "adb23531ebb61891912e6a4bdabcbaaa053223d2de342eedbaa9b6af4fb526f3",
+                4277,
+                86855,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra3.block"),
+                "294b3df1e6758e6f17f2b5a09ed469c6ec37c2db4d274264c8ee5edabe31229a",
+                14094,
+                285530,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra4.block"),
+                "f8926da4333a3ce5fdb7b60a00d80eb23da0823c6962f06abfdee149b59dae41",
+                14212,
+                289441,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra5.block"),
+                "7b7c9f48ac331106e9f9ef03856090bc6275f09fca5bb4c789068d04c54b079a",
+                14534,
+                299514,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra6.block"),
+                "dec1d7087ff0191191fd3bac1559ae1b9c40b93ad33ec9cfba1f2e4722019a23",
+                14278,
+                291625,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra7.block"),
+                "920a4883bf663cd3640af8ee87292edd391ff9b99debef2ba556f2f8e9d5761d",
+                14936,
+                311104,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra8.block"),
+                "33a48eee693522320891dd4d1da8ee33c288c854eb25337802dbc4c912571d07",
+                17403,
+                371723,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra9.block"),
+                "112495349409ccaa7a57e810aa59b014337612438a3e07cd5ce1bb3126dfbbea",
+                17512,
+                374306,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra10.block"),
+                "917c72dcd2d2222df5cc82fcebea55c4f9135e5f1491afd66d79d48d52e42f60",
+                17297,
+                369030,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra11.block"),
+                "e45c1dc810ddfb36ffb9647eaf08861b4611fb4e872a227c00337dddf2680b8c",
+                16808,
+                354033,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra12.block"),
+                "3e0e56a9af0cb26e0641747ca835874135d02d35a29820a5e4de6beb37c17914",
+                17794,
+                380643,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra13.block"),
+                "cf522686b27e452b3e261904058c7e323f3723e2f5c629e5a7542579b59474b4",
+                14594,
+                301082,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra14.block"),
+                "9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf",
+                28687,
+                620349,
+                crate::Era::Dijkstra,
+            ),
+            (
+                include_str!("../../test_data/dijkstra15.block"),
+                "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
+                17406,
+                371916,
+                crate::Era::Dijkstra,
+            ),
+        ]);
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(cases.len(), 16, "one Conway fixture and fifteen Dijkstra");
+        #[cfg(not(feature = "unstable"))]
+        assert_eq!(cases.len(), 1, "the Conway fixture alone without the era");
+
+        for (block_str, hash, number, slot, era) in cases {
+            let cbor = hex::decode(block_str).expect("invalid hex");
+            let block = crate::MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+            assert_eq!(block.era(), era);
+            assert_eq!(block.hash().to_string(), hash, "block hash");
+            assert_eq!(block.header().hash().to_string(), hash, "header hash");
+            assert_eq!(block.number(), number, "block number");
+            assert_eq!(block.slot(), slot, "slot");
+        }
+    }
+
+    /// The header's body size and hash are the producer's, not this crate's encoder.
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn every_dijkstra_block_body_re_encodes_to_what_its_header_names() {
+        let fixtures = [
+            include_str!("../../test_data/dijkstra1.block"),
+            include_str!("../../test_data/dijkstra2.block"),
+            include_str!("../../test_data/dijkstra3.block"),
+            include_str!("../../test_data/dijkstra4.block"),
+            include_str!("../../test_data/dijkstra5.block"),
+            include_str!("../../test_data/dijkstra6.block"),
+            include_str!("../../test_data/dijkstra7.block"),
+            include_str!("../../test_data/dijkstra8.block"),
+            include_str!("../../test_data/dijkstra9.block"),
+            include_str!("../../test_data/dijkstra10.block"),
+            include_str!("../../test_data/dijkstra11.block"),
+            include_str!("../../test_data/dijkstra12.block"),
+            include_str!("../../test_data/dijkstra13.block"),
+            include_str!("../../test_data/dijkstra14.block"),
+            include_str!("../../test_data/dijkstra15.block"),
+        ];
+
+        assert_eq!(fixtures.len(), 15, "every Dijkstra fixture must be listed");
+
+        for (index, block_str) in fixtures.iter().enumerate() {
+            let name = format!("dijkstra{}.block", index + 1);
+            let cbor = hex::decode(block_str).expect("invalid hex");
+            let block = crate::MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let inner = block.as_dijkstra().expect("a Dijkstra fixture");
+
+            let body = minicbor::to_vec(&inner.block_body).expect("to_vec is infallible");
+
+            assert_eq!(
+                body.len() as u64,
+                inner.header.header_body.block_body_size,
+                "{name}: re-encoded body length against the size the header names"
+            );
+            assert_eq!(
+                pallas_crypto::hash::Hasher::<256>::hash(&body),
+                inner.header.header_body.block_body_hash,
+                "{name}: re-encoded body hash against the hash the header names"
+            );
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn the_first_dijkstra_block_names_the_last_conway_one() {
+        let conway = hex::decode(include_str!("../../test_data/conway5.block")).unwrap();
+        let conway = crate::MultiEraBlock::decode(&conway).unwrap();
+
+        let dijkstra = hex::decode(include_str!("../../test_data/dijkstra1.block")).unwrap();
+        let dijkstra = crate::MultiEraBlock::decode(&dijkstra).unwrap();
+
+        assert_eq!(dijkstra.number(), conway.number() + 1);
+        assert_eq!(
+            dijkstra.header().previous_hash(),
+            Some(conway.hash()),
+            "the fork does not break the hash chain"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_transaction_ids_match_the_node_utxo_keys() {
+        let cases = [
+            (
+                include_str!("../../test_data/dijkstra6.block"),
+                0usize,
+                "9a7baa76f41b4eb8eb1c63dfc12ad9ec8d88cf7db5e0e537e1a9fb8c8b325eb6",
+            ),
+            (
+                include_str!("../../test_data/dijkstra6.block"),
+                3,
+                "f32bfe9cdfd354f9f53c97bcdd122051955f9dcf84fdd304b6b103e3f21db2ff",
+            ),
+            (
+                include_str!("../../test_data/dijkstra7.block"),
+                0,
+                "89a03c4c22b12cf5916959b924f440f0c68ee4913f1036beb3f5fb49478716cd",
+            ),
+        ];
+
+        for (block_str, index, id) in cases {
+            let cbor = hex::decode(block_str).expect("invalid hex");
+            let block = crate::MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+
+            assert_eq!(txs[index].hash().to_string(), id, "transaction id");
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_auxiliary_data_hashes_as_the_body_declares() {
+        let cases = [
+            (include_str!("../../test_data/dijkstra4.block"), 1usize),
+            (include_str!("../../test_data/dijkstra5.block"), 1),
+            (include_str!("../../test_data/dijkstra6.block"), 2),
+        ];
+
+        let mut checked = 0usize;
+        for (block_str, declaring) in cases {
+            let cbor = hex::decode(block_str).expect("invalid hex");
+            let block = crate::MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+
+            let mut seen = 0usize;
+            for tx in txs.iter() {
+                let body = tx.as_dijkstra().expect("a Dijkstra transaction");
+                let Some(declared) = body.transaction_body.auxiliary_data_hash else {
+                    continue;
+                };
+                let aux = tx
+                    .dijkstra_aux_data()
+                    .expect("a body that declares the hash carries the data");
+
+                assert_eq!(
+                    aux.original_hash(),
+                    declared,
+                    "the auxiliary data hashes to what the body commits to"
+                );
+                seen += 1;
+                checked += 1;
+            }
+
+            assert_eq!(seen, declaring, "transactions declaring key 7");
+        }
+
+        assert_eq!(
+            checked, 4,
+            "the fixtures declare four auxiliary data hashes"
+        );
     }
 }

@@ -88,9 +88,20 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
             datum: self.map_tx_datum(x, tx).into(),
-            script: x.script_ref().map(|x| self.map_any_script(&x)),
+            script: self.map_output_script(x),
             original_cbor: Some(x.encode().into()),
         }
+    }
+
+    fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
+        x.script_ref().map(|x| match x {
+            trv::MultiEraScriptRef::Conway(x) => self.map_any_script(&x),
+            #[cfg(feature = "unstable")]
+            trv::MultiEraScriptRef::Dijkstra(_) => {
+                unimplemented!("map_output_script is not yet implemented for Dijkstra")
+            }
+            _ => unimplemented!("map_output_script has no arm for this reference script"),
+        })
     }
 
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
@@ -387,6 +398,11 @@ impl<C: LedgerContext> Mapper<C> {
 
     /// Maps the per-tx voting procedures (Conway only) into the v1beta `votes` field.
     pub fn map_votes(&self, tx: &trv::MultiEraTx) -> Vec<u5c::VoterVotes> {
+        #[cfg(feature = "unstable")]
+        if tx.era() == trv::Era::Dijkstra {
+            unimplemented!("map_votes is not yet implemented for Dijkstra")
+        }
+
         let Some(conway_tx) = tx.as_conway() else {
             return Vec::new();
         };

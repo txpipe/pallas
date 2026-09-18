@@ -37,6 +37,10 @@ with the block's CRC32 and the header's offset and size.
 | dijkstra14.block | 00574/21 | 620349 | 28687 | `9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf` | 1734 | 8 | 1 | a transaction body writing its certificate set as a bare array rather than under tag 258 |
 | dijkstra15.block | 00344/11 | 371916 | 17406 | `0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b` | 964 | 8 | 0 | an announced endorser block size of 71103, which needs the five byte uint |
 
+The `tag` column is the block wrapper tag. A Dijkstra header arriving on its
+own over chainsync carries envelope tag 7 rather than the wrapper tag 8, and
+that number was observed on a node rather than read from any file here.
+
 What each fixture's transactions carry. Every other key and shape the era
 models is exercised by no fixture and is modelled from the CDDL alone.
 
@@ -56,3 +60,35 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra13.block | 0, 1, 2, 4 | 0 | array | 7, 9 | tagged | 0 | nil | nil |
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
+
+## Transactions cut from the chain
+
+One file here is a single transaction rather than a whole block, read from the
+chain in the same way the blocks above were, and not hand built.
+
+| file | slot | block | transaction | what it carries |
+| --- | --- | --- | --- | --- |
+| `dijkstra-subtx.tx` | 853600 | `0c88b1e221beb608ed37dcfabed93a4a4e8f1ea0ec96f2d93b84c04816d5ddb4` | `74e2116ca6e0c809f156aa062a9d4ee8b156322618846f1bdea5d9ad7a206a12` | body keys 0, 1, 2, 13, 18, 23, where key 23 is `sub_transactions` and holds one sub transaction whose own body carries keys 0, 1, 11, 14, 18, so the file exercises `guards` at key 14 inside a sub transaction body |
+
+The file is the transaction as it sat in the block, 728 bytes in the four
+element `block_transaction` form, written as lowercase hex with no trailing
+newline. Blake2b-256 over the body alone gives the transaction hash in the
+table, and `pallas-traverse` asserts that.
+
+## Fixtures built rather than cut
+
+Four files here are hand built CBOR, for shapes no block on this chain
+reaches. Each is written by a builder in `pallas-traverse`, and a test there
+asserts the file is byte for byte what that builder writes, so the file and
+the builder cannot drift apart.
+
+| file | what it is |
+| --- | --- |
+| `proposal-param-change-key0.hex` | a `proposal_procedure` whose parameter change sets key 0, a key every era since Shelley has |
+| `proposal-param-change-key48.hex` | the same with key 48, `max_ref_script_size_per_endorser_block`, which only this era has |
+| `dijkstra-proposal.tx` | a `block_transaction` carrying the key 48 proposal at body key 20 |
+| `dijkstra-scripts.tx` | a `block_transaction` carrying a guard clause in its witness set, the same clause and a PlutusV4 script in its auxiliary data, and a PlutusV4 reference script on its output |
+
+The two proposal files are read by `pallas-primitives` and by
+`pallas-traverse`, and the two transaction files by `pallas-utxorpc`, so one
+set of bytes serves every crate that needs the shape.
