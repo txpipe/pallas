@@ -27,3 +27,5 @@ if let Some(staking) = config.staking {
   a `GenesisFile` (or equivalent) struct and a `from_file` helper.
 - `cost_models` — typed views over Plutus cost-model tables, shared across
   eras.
+- `injection` holds the `extraConfig` injection sources and the rule that picks
+  between an injected value and the top-level field it stands in for.
