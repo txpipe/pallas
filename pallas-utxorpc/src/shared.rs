@@ -48,6 +48,23 @@ macro_rules! impl_cardano_mapper_shared {
             }
         }
 
+        /// Map an anchor, whose type every era carrying one shares.
+        fn map_anchor(x: &pallas_primitives::conway::Anchor) -> u5c::Anchor {
+            u5c::Anchor {
+                url: x.url.clone(),
+                content_hash: x.content_hash.to_vec().into(),
+            }
+        }
+
+        /// Map the metadata a pool registration points at, whose type every era
+        /// carrying one shares.
+        fn map_pool_metadata(x: &pallas_primitives::PoolMetadata) -> u5c::PoolMetadata {
+            u5c::PoolMetadata {
+                url: x.url.clone(),
+                hash: x.hash.to_vec().into(),
+            }
+        }
+
         impl<C: $crate::LedgerContext> Mapper<C> {
             pub fn map_purpose(
                 &self,
@@ -420,10 +437,7 @@ macro_rules! impl_cardano_mapper_shared {
                     gov_action: x
                         .as_conway()
                         .map(|x| self.map_conway_gov_action(&x.gov_action)),
-                    anchor: Some(u5c::Anchor {
-                        url: x.anchor().url.clone(),
-                        content_hash: x.anchor().content_hash.to_vec().into(),
-                    }),
+                    anchor: Some(map_anchor(x.anchor())),
                 }
             }
 
@@ -551,105 +565,16 @@ macro_rules! impl_cardano_mapper_shared {
         // ---- certificates ----------------------------------------------------
 
         impl<C: $crate::LedgerContext> Mapper<C> {
-            pub fn map_alonzo_compatible_cert(
+            /// Close a mapped certificate over the redeemer the transaction
+            /// pairs with the certificate at this position.
+            fn certificate(
                 &self,
-                x: &pallas_primitives::alonzo::Certificate,
+                inner: Option<u5c::certificate::Certificate>,
                 tx: &pallas_traverse::MultiEraTx,
                 order: u32,
             ) -> u5c::Certificate {
-                use pallas_primitives::{alonzo, babbage};
-                let inner = match x {
-                    alonzo::Certificate::StakeRegistration(a) => {
-                        u5c::certificate::Certificate::StakeRegistration(
-                            self.map_stake_credential(a),
-                        )
-                    }
-                    alonzo::Certificate::StakeDeregistration(a) => {
-                        u5c::certificate::Certificate::StakeDeregistration(
-                            self.map_stake_credential(a),
-                        )
-                    }
-                    alonzo::Certificate::StakeDelegation(a, b) => {
-                        u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
-                            stake_credential: self.map_stake_credential(a).into(),
-                            pool_keyhash: b.to_vec().into(),
-                        })
-                    }
-                    alonzo::Certificate::PoolRegistration {
-                        operator,
-                        vrf_keyhash,
-                        pledge,
-                        cost,
-                        margin,
-                        reward_account,
-                        pool_owners,
-                        relays,
-                        pool_metadata,
-                    } => {
-                        u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
-                            operator: operator.to_vec().into(),
-                            vrf_keyhash: vrf_keyhash.to_vec().into(),
-                            pledge: u64_to_bigint(*pledge),
-                            cost: u64_to_bigint(*cost),
-                            margin: u5c::RationalNumber {
-                                numerator: margin.numerator as i32,
-                                denominator: margin.denominator as u32,
-                            }
-                            .into(),
-                            reward_account: reward_account.to_vec().into(),
-                            pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
-                            relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                            pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
-                                url: x.url.clone(),
-                                hash: x.hash.to_vec().into(),
-                            }),
-                        })
-                    }
-                    alonzo::Certificate::PoolRetirement(a, b) => {
-                        u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
-                            pool_keyhash: a.to_vec().into(),
-                            epoch: *b,
-                        })
-                    }
-                    alonzo::Certificate::GenesisKeyDelegation(a, b, c) => {
-                        u5c::certificate::Certificate::GenesisKeyDelegation(
-                            u5c::GenesisKeyDelegationCert {
-                                genesis_hash: a.to_vec().into(),
-                                genesis_delegate_hash: b.to_vec().into(),
-                                vrf_keyhash: c.to_vec().into(),
-                            },
-                        )
-                    }
-                    alonzo::Certificate::MoveInstantaneousRewardsCert(a) => {
-                        u5c::certificate::Certificate::MirCert(u5c::MirCert {
-                            from: match &a.source {
-                                babbage::InstantaneousRewardSource::Reserves => {
-                                    u5c::MirSource::Reserves.into()
-                                }
-                                babbage::InstantaneousRewardSource::Treasury => {
-                                    u5c::MirSource::Treasury.into()
-                                }
-                            },
-                            to: match &a.target {
-                                babbage::InstantaneousRewardTarget::StakeCredentials(x) => x
-                                    .iter()
-                                    .map(|(k, v)| u5c::MirTarget {
-                                        stake_credential: self.map_stake_credential(k).into(),
-                                        delta_coin: i64_to_bigint(*v),
-                                    })
-                                    .collect(),
-                                _ => Default::default(),
-                            },
-                            other_pot: match &a.target {
-                                babbage::InstantaneousRewardTarget::OtherAccountingPot(x) => *x,
-                                _ => Default::default(),
-                            },
-                        })
-                    }
-                };
-
                 u5c::Certificate {
-                    certificate: inner.into(),
+                    certificate: inner,
                     redeemer: tx
                         .find_certificate_redeemer(order)
                         .map(|r| self.map_redeemer(&r)),
@@ -672,106 +597,95 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            pub fn map_conway_cert(
+            /// Map what a certificate of any era certifies, read through the
+            /// era neutral certificate view. Returns None for a kind the u5c
+            /// schema names no message for.
+            pub fn map_cert_kind(
                 &self,
-                x: &pallas_primitives::conway::Certificate,
-                tx: &pallas_traverse::MultiEraTx,
-                order: u32,
-            ) -> u5c::Certificate {
-                use pallas_primitives::conway;
+                x: &pallas_traverse::MultiEraCertKind,
+            ) -> Option<u5c::certificate::Certificate> {
+                use pallas_primitives::alonzo;
+                use pallas_traverse::MultiEraCertKind;
                 let inner = match x {
-                    conway::Certificate::StakeRegistration(a) => {
+                    MultiEraCertKind::StakeRegistration(cred) => {
                         u5c::certificate::Certificate::StakeRegistration(
-                            self.map_stake_credential(a),
+                            self.map_stake_credential(cred),
                         )
                     }
-                    conway::Certificate::StakeDeregistration(a) => {
+                    MultiEraCertKind::StakeDeregistration(cred) => {
                         u5c::certificate::Certificate::StakeDeregistration(
-                            self.map_stake_credential(a),
+                            self.map_stake_credential(cred),
                         )
                     }
-                    conway::Certificate::StakeDelegation(a, b) => {
+                    MultiEraCertKind::StakeDelegation(cred, pool) => {
                         u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
-                            stake_credential: self.map_stake_credential(a).into(),
-                            pool_keyhash: b.to_vec().into(),
+                            stake_credential: self.map_stake_credential(cred).into(),
+                            pool_keyhash: pool.to_vec().into(),
                         })
                     }
-                    conway::Certificate::PoolRegistration {
-                        operator,
-                        vrf_keyhash,
-                        pledge,
-                        cost,
-                        margin,
-                        reward_account,
-                        pool_owners,
-                        relays,
-                        pool_metadata,
-                    } => {
+                    MultiEraCertKind::PoolRegistration(pool) => {
                         u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
-                            operator: operator.to_vec().into(),
-                            vrf_keyhash: vrf_keyhash.to_vec().into(),
-                            pledge: u64_to_bigint(*pledge),
-                            cost: u64_to_bigint(*cost),
-                            margin: u5c::RationalNumber {
-                                numerator: margin.numerator as i32,
-                                denominator: margin.denominator as u32,
-                            }
-                            .into(),
-                            reward_account: reward_account.to_vec().into(),
-                            pool_owners: pool_owners.iter().map(|x| x.to_vec().into()).collect(),
-                            relays: relays.iter().map(|x| self.map_relay(x)).collect(),
-                            pool_metadata: pool_metadata.clone().map(|x| u5c::PoolMetadata {
-                                url: x.url.clone(),
-                                hash: x.hash.to_vec().into(),
-                            }),
+                            operator: pool.operator.to_vec().into(),
+                            vrf_keyhash: pool.vrf_keyhash.to_vec().into(),
+                            pledge: u64_to_bigint(pool.pledge),
+                            cost: u64_to_bigint(pool.cost),
+                            margin: rational_number_to_u5c(pool.margin.clone()).into(),
+                            reward_account: pool.reward_account.to_vec().into(),
+                            pool_owners: pool
+                                .pool_owners
+                                .iter()
+                                .map(|x| x.to_vec().into())
+                                .collect(),
+                            relays: pool.relays.iter().map(|x| self.map_relay(x)).collect(),
+                            pool_metadata: pool.pool_metadata.map(map_pool_metadata),
                         })
                     }
-                    conway::Certificate::PoolRetirement(a, b) => {
+                    MultiEraCertKind::PoolRetirement(pool, epoch) => {
                         u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
-                            pool_keyhash: a.to_vec().into(),
-                            epoch: *b,
+                            pool_keyhash: pool.to_vec().into(),
+                            epoch: *epoch,
                         })
                     }
-                    conway::Certificate::Reg(cred, coin) => {
+                    MultiEraCertKind::Reg(cred, coin) => {
                         u5c::certificate::Certificate::RegCert(u5c::RegCert {
                             stake_credential: self.map_stake_credential(cred).into(),
                             coin: u64_to_bigint(*coin),
                         })
                     }
-                    conway::Certificate::UnReg(cred, coin) => {
+                    MultiEraCertKind::UnReg(cred, coin) => {
                         u5c::certificate::Certificate::UnregCert(u5c::UnRegCert {
                             stake_credential: self.map_stake_credential(cred).into(),
                             coin: u64_to_bigint(*coin),
                         })
                     }
-                    conway::Certificate::VoteDeleg(cred, drep) => {
+                    MultiEraCertKind::VoteDeleg(cred, drep) => {
                         u5c::certificate::Certificate::VoteDelegCert(u5c::VoteDelegCert {
                             stake_credential: self.map_stake_credential(cred).into(),
                             drep: self.map_drep(drep).into(),
                         })
                     }
-                    conway::Certificate::StakeVoteDeleg(stake_cred, pool_id, drep) => {
+                    MultiEraCertKind::StakeVoteDeleg(stake_cred, pool_id, drep) => {
                         u5c::certificate::Certificate::StakeVoteDelegCert(u5c::StakeVoteDelegCert {
                             stake_credential: self.map_stake_credential(stake_cred).into(),
                             pool_keyhash: pool_id.to_vec().into(),
                             drep: self.map_drep(drep).into(),
                         })
                     }
-                    conway::Certificate::StakeRegDeleg(stake_cred, pool_id, coin) => {
+                    MultiEraCertKind::StakeRegDeleg(stake_cred, pool_id, coin) => {
                         u5c::certificate::Certificate::StakeRegDelegCert(u5c::StakeRegDelegCert {
                             stake_credential: self.map_stake_credential(stake_cred).into(),
                             pool_keyhash: pool_id.to_vec().into(),
                             coin: u64_to_bigint(*coin),
                         })
                     }
-                    conway::Certificate::VoteRegDeleg(vote_cred, drep, coin) => {
+                    MultiEraCertKind::VoteRegDeleg(vote_cred, drep, coin) => {
                         u5c::certificate::Certificate::VoteRegDelegCert(u5c::VoteRegDelegCert {
                             stake_credential: self.map_stake_credential(vote_cred).into(),
                             drep: self.map_drep(drep).into(),
                             coin: u64_to_bigint(*coin),
                         })
                     }
-                    conway::Certificate::StakeVoteRegDeleg(stake_cred, pool_id, drep, coin) => {
+                    MultiEraCertKind::StakeVoteRegDeleg(stake_cred, pool_id, drep, coin) => {
                         u5c::certificate::Certificate::StakeVoteRegDelegCert(
                             u5c::StakeVoteRegDelegCert {
                                 stake_credential: self.map_stake_credential(stake_cred).into(),
@@ -781,7 +695,7 @@ macro_rules! impl_cardano_mapper_shared {
                             },
                         )
                     }
-                    conway::Certificate::AuthCommitteeHot(cold_cred, hot_cred) => {
+                    MultiEraCertKind::AuthCommitteeHot(cold_cred, hot_cred) => {
                         u5c::certificate::Certificate::AuthCommitteeHotCert(
                             u5c::AuthCommitteeHotCert {
                                 committee_cold_credential: self
@@ -793,52 +707,76 @@ macro_rules! impl_cardano_mapper_shared {
                             },
                         )
                     }
-                    conway::Certificate::ResignCommitteeCold(cold_cred, anchor) => {
+                    MultiEraCertKind::ResignCommitteeCold(cold_cred, anchor) => {
                         u5c::certificate::Certificate::ResignCommitteeColdCert(
                             u5c::ResignCommitteeColdCert {
                                 committee_cold_credential: self
                                     .map_stake_credential(cold_cred)
                                     .into(),
-                                anchor: anchor.clone().map(|a| u5c::Anchor {
-                                    url: a.url,
-                                    content_hash: a.content_hash.to_vec().into(),
-                                }),
+                                anchor: anchor.map(map_anchor),
                             },
                         )
                     }
-                    conway::Certificate::RegDRepCert(cred, coin, anchor) => {
+                    MultiEraCertKind::RegDRep(cred, coin, anchor) => {
                         u5c::certificate::Certificate::RegDrepCert(u5c::RegDRepCert {
                             drep_credential: self.map_stake_credential(cred).into(),
                             coin: u64_to_bigint(*coin),
-                            anchor: anchor.clone().map(|a| u5c::Anchor {
-                                url: a.url,
-                                content_hash: a.content_hash.to_vec().into(),
-                            }),
+                            anchor: anchor.map(map_anchor),
                         })
                     }
-                    conway::Certificate::UnRegDRepCert(cred, coin) => {
+                    MultiEraCertKind::UnRegDRep(cred, coin) => {
                         u5c::certificate::Certificate::UnregDrepCert(u5c::UnRegDRepCert {
                             drep_credential: self.map_stake_credential(cred).into(),
                             coin: u64_to_bigint(*coin),
                         })
                     }
-                    conway::Certificate::UpdateDRepCert(cred, anchor) => {
+                    MultiEraCertKind::UpdateDRep(cred, anchor) => {
                         u5c::certificate::Certificate::UpdateDrepCert(u5c::UpdateDRepCert {
                             drep_credential: self.map_stake_credential(cred).into(),
-                            anchor: anchor.clone().map(|a| u5c::Anchor {
-                                url: a.url,
-                                content_hash: a.content_hash.to_vec().into(),
-                            }),
+                            anchor: anchor.map(map_anchor),
                         })
                     }
+                    MultiEraCertKind::GenesisKeyDelegation(genesis, delegate, vrf) => {
+                        u5c::certificate::Certificate::GenesisKeyDelegation(
+                            u5c::GenesisKeyDelegationCert {
+                                genesis_hash: genesis.to_vec().into(),
+                                genesis_delegate_hash: delegate.to_vec().into(),
+                                vrf_keyhash: vrf.to_vec().into(),
+                            },
+                        )
+                    }
+                    MultiEraCertKind::MoveInstantaneousRewards(rewards) => {
+                        u5c::certificate::Certificate::MirCert(u5c::MirCert {
+                            from: match &rewards.source {
+                                alonzo::InstantaneousRewardSource::Reserves => {
+                                    u5c::MirSource::Reserves.into()
+                                }
+                                alonzo::InstantaneousRewardSource::Treasury => {
+                                    u5c::MirSource::Treasury.into()
+                                }
+                            },
+                            to: match &rewards.target {
+                                alonzo::InstantaneousRewardTarget::StakeCredentials(x) => x
+                                    .iter()
+                                    .map(|(k, v)| u5c::MirTarget {
+                                        stake_credential: self.map_stake_credential(k).into(),
+                                        delta_coin: i64_to_bigint(*v),
+                                    })
+                                    .collect(),
+                                _ => Default::default(),
+                            },
+                            other_pot: match &rewards.target {
+                                alonzo::InstantaneousRewardTarget::OtherAccountingPot(x) => *x,
+                                _ => Default::default(),
+                            },
+                        })
+                    }
+                    // The u5c schema names no message for a kind this mapper
+                    // does not name.
+                    _ => return None,
                 };
 
-                u5c::Certificate {
-                    certificate: inner.into(),
-                    redeemer: tx
-                        .find_certificate_redeemer(order)
-                        .map(|r| self.map_redeemer(&r)),
-                }
+                Some(inner)
             }
 
             pub fn map_cert(
@@ -847,15 +785,663 @@ macro_rules! impl_cardano_mapper_shared {
                 tx: &pallas_traverse::MultiEraTx,
                 order: u32,
             ) -> Option<u5c::Certificate> {
-                match x {
-                    pallas_traverse::MultiEraCert::AlonzoCompatible(x) => {
-                        self.map_alonzo_compatible_cert(x, tx, order).into()
-                    }
-                    pallas_traverse::MultiEraCert::Conway(x) => {
-                        self.map_conway_cert(x, tx, order).into()
-                    }
-                    _ => None,
+                let inner = self.map_cert_kind(&x.kind()?);
+                Some(self.certificate(inner, tx, order))
+            }
+        }
+
+        #[cfg(test)]
+        mod cert_tests {
+            use super::*;
+
+            use pallas_primitives::{alonzo, conway};
+            use pallas_traverse::{MultiEraBlock, MultiEraCert, MultiEraTx};
+            use pretty_assertions::assert_eq;
+            use std::borrow::Cow;
+            use std::collections::BTreeMap;
+
+            #[derive(Clone)]
+            struct NoLedger;
+
+            impl $crate::LedgerContext for NoLedger {
+                fn get_utxos(&self, _refs: &[$crate::TxoRef]) -> Option<$crate::UtxoMap> {
+                    None
                 }
+
+                fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+                    None
+                }
+            }
+
+            const CREDENTIAL: [u8; 28] = [0x01; 28];
+            const POOL: [u8; 28] = [0x02; 28];
+            const OWNER: [u8; 28] = [0x04; 28];
+            const VRF: [u8; 32] = [0x06; 32];
+            const HOT: [u8; 28] = [0x07; 28];
+            const GENESIS: [u8; 28] = [0x08; 28];
+            const DELEGATE: [u8; 28] = [0x09; 28];
+            const REWARD_ACCOUNT: [u8; 29] = [0xe0; 29];
+            const ANCHOR_HASH: [u8; 32] = [0x22; 32];
+            const METADATA_HASH: [u8; 32] = [0x33; 32];
+            const ANCHOR_URL: &str = "https://example.invalid/anchor";
+            const METADATA_URL: &str = "https://example.invalid/pool.json";
+            const RELAY_NAME: &str = "relay.example.invalid";
+            const PLEDGE: u64 = 500;
+            const COST: u64 = 340;
+            const DEPOSIT: u64 = 5;
+            const EPOCH: u64 = 9;
+            const REWARD: i64 = 7;
+
+            fn credential() -> conway::StakeCredential {
+                conway::StakeCredential::AddrKeyhash(CREDENTIAL.into())
+            }
+
+            fn hot_credential() -> conway::StakeCredential {
+                conway::StakeCredential::AddrKeyhash(HOT.into())
+            }
+
+            fn anchor() -> conway::Anchor {
+                conway::Anchor {
+                    url: ANCHOR_URL.into(),
+                    content_hash: ANCHOR_HASH.into(),
+                }
+            }
+
+            fn margin() -> pallas_primitives::RationalNumber {
+                pallas_primitives::RationalNumber {
+                    numerator: 1,
+                    denominator: 50,
+                }
+            }
+
+            fn relays() -> Vec<pallas_primitives::Relay> {
+                vec![pallas_primitives::Relay::MultiHostName(RELAY_NAME.into())]
+            }
+
+            fn metadata() -> pallas_primitives::PoolMetadata {
+                pallas_primitives::PoolMetadata {
+                    url: METADATA_URL.into(),
+                    hash: METADATA_HASH.to_vec().into(),
+                }
+            }
+
+            /// The u5c message for a credential holding the key hash given.
+            fn key_credential(hash: [u8; 28]) -> u5c::StakeCredential {
+                u5c::StakeCredential {
+                    stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
+                        hash.to_vec().into(),
+                    )),
+                }
+            }
+
+            /// The u5c message for a count that fits in a signed 64 bit field.
+            fn bigint(value: i64) -> Option<u5c::BigInt> {
+                Some(u5c::BigInt {
+                    big_int: Some(u5c::big_int::BigInt::Int(value)),
+                })
+            }
+
+            fn mapped_anchor() -> u5c::Anchor {
+                u5c::Anchor {
+                    url: ANCHOR_URL.to_string(),
+                    content_hash: ANCHOR_HASH.to_vec().into(),
+                }
+            }
+
+            fn abstain() -> Option<u5c::DRep> {
+                Some(u5c::DRep {
+                    drep: Some(u5c::d_rep::Drep::Abstain(true)),
+                })
+            }
+
+            fn no_confidence() -> Option<u5c::DRep> {
+                Some(u5c::DRep {
+                    drep: Some(u5c::d_rep::Drep::NoConfidence(true)),
+                })
+            }
+
+            /// A Conway transaction carrying the redeemers given and nothing
+            /// else, to stand as the transaction a certificate is read against.
+            fn tx_with_redeemers(redeemers: Vec<conway::Redeemer>) -> conway::Tx<'static> {
+                let body = conway::TransactionBody {
+                    inputs: Vec::new().into(),
+                    outputs: Vec::new(),
+                    fee: 0,
+                    ttl: None,
+                    certificates: None,
+                    withdrawals: None,
+                    auxiliary_data_hash: None,
+                    validity_interval_start: None,
+                    mint: None,
+                    script_data_hash: None,
+                    collateral: None,
+                    required_signers: None,
+                    network_id: None,
+                    collateral_return: None,
+                    total_collateral: None,
+                    reference_inputs: None,
+                    voting_procedures: None,
+                    proposal_procedures: None,
+                    treasury_value: None,
+                    donation: None,
+                };
+
+                let witness_set = conway::WitnessSet {
+                    vkeywitness: None,
+                    native_script: None,
+                    bootstrap_witness: None,
+                    plutus_v1_script: None,
+                    plutus_data: None,
+                    redeemer: Some(conway::Redeemers::List(redeemers).into()),
+                    plutus_v2_script: None,
+                    plutus_v3_script: None,
+                };
+
+                conway::Tx {
+                    transaction_body: body.into(),
+                    transaction_witness_set: witness_set.into(),
+                    success: true,
+                    auxiliary_data: pallas_primitives::Nullable::Null,
+                }
+            }
+
+            fn babbage10_block() -> Vec<u8> {
+                let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../test_data/babbage10.block");
+                let hex_str = std::fs::read_to_string(&path).expect("the fixture is readable");
+                hex::decode(hex_str.trim()).expect("the fixture holds hex")
+            }
+
+            #[test]
+            fn every_conway_certificate_maps_to_the_u5c_message_naming_it() {
+                let cases: Vec<(conway::Certificate, u5c::certificate::Certificate)> = vec![
+                    (
+                        conway::Certificate::StakeRegistration(credential()),
+                        u5c::certificate::Certificate::StakeRegistration(key_credential(
+                            CREDENTIAL,
+                        )),
+                    ),
+                    (
+                        conway::Certificate::StakeDeregistration(credential()),
+                        u5c::certificate::Certificate::StakeDeregistration(key_credential(
+                            CREDENTIAL,
+                        )),
+                    ),
+                    (
+                        conway::Certificate::StakeDelegation(credential(), POOL.into()),
+                        u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            pool_keyhash: POOL.to_vec().into(),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::PoolRegistration {
+                            operator: POOL.into(),
+                            vrf_keyhash: VRF.into(),
+                            pledge: PLEDGE,
+                            cost: COST,
+                            margin: margin(),
+                            reward_account: REWARD_ACCOUNT.to_vec().into(),
+                            pool_owners: vec![OWNER.into()].into(),
+                            relays: relays(),
+                            pool_metadata: Some(metadata()),
+                        },
+                        u5c::certificate::Certificate::PoolRegistration(
+                            u5c::PoolRegistrationCert {
+                                operator: POOL.to_vec().into(),
+                                vrf_keyhash: VRF.to_vec().into(),
+                                pledge: bigint(PLEDGE as i64),
+                                cost: bigint(COST as i64),
+                                margin: Some(u5c::RationalNumber {
+                                    numerator: 1,
+                                    denominator: 50,
+                                }),
+                                reward_account: REWARD_ACCOUNT.to_vec().into(),
+                                pool_owners: vec![OWNER.to_vec().into()],
+                                relays: vec![u5c::Relay {
+                                    ip_v4: Default::default(),
+                                    ip_v6: Default::default(),
+                                    dns_name: RELAY_NAME.to_string(),
+                                    port: 0,
+                                }],
+                                pool_metadata: Some(u5c::PoolMetadata {
+                                    url: METADATA_URL.to_string(),
+                                    hash: METADATA_HASH.to_vec().into(),
+                                }),
+                            },
+                        ),
+                    ),
+                    (
+                        conway::Certificate::PoolRetirement(POOL.into(), EPOCH),
+                        u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
+                            pool_keyhash: POOL.to_vec().into(),
+                            epoch: EPOCH,
+                        }),
+                    ),
+                    (
+                        conway::Certificate::Reg(credential(), DEPOSIT),
+                        u5c::certificate::Certificate::RegCert(u5c::RegCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            coin: bigint(DEPOSIT as i64),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::UnReg(credential(), DEPOSIT),
+                        u5c::certificate::Certificate::UnregCert(u5c::UnRegCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            coin: bigint(DEPOSIT as i64),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::VoteDeleg(credential(), conway::DRep::Abstain),
+                        u5c::certificate::Certificate::VoteDelegCert(u5c::VoteDelegCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            drep: abstain(),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::StakeVoteDeleg(
+                            credential(),
+                            POOL.into(),
+                            conway::DRep::NoConfidence,
+                        ),
+                        u5c::certificate::Certificate::StakeVoteDelegCert(
+                            u5c::StakeVoteDelegCert {
+                                stake_credential: Some(key_credential(CREDENTIAL)),
+                                pool_keyhash: POOL.to_vec().into(),
+                                drep: no_confidence(),
+                            },
+                        ),
+                    ),
+                    (
+                        conway::Certificate::StakeRegDeleg(credential(), POOL.into(), DEPOSIT),
+                        u5c::certificate::Certificate::StakeRegDelegCert(u5c::StakeRegDelegCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            pool_keyhash: POOL.to_vec().into(),
+                            coin: bigint(DEPOSIT as i64),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::VoteRegDeleg(
+                            credential(),
+                            conway::DRep::Abstain,
+                            DEPOSIT,
+                        ),
+                        u5c::certificate::Certificate::VoteRegDelegCert(u5c::VoteRegDelegCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            drep: abstain(),
+                            coin: bigint(DEPOSIT as i64),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::StakeVoteRegDeleg(
+                            credential(),
+                            POOL.into(),
+                            conway::DRep::Abstain,
+                            DEPOSIT,
+                        ),
+                        u5c::certificate::Certificate::StakeVoteRegDelegCert(
+                            u5c::StakeVoteRegDelegCert {
+                                stake_credential: Some(key_credential(CREDENTIAL)),
+                                pool_keyhash: POOL.to_vec().into(),
+                                drep: abstain(),
+                                coin: bigint(DEPOSIT as i64),
+                            },
+                        ),
+                    ),
+                    (
+                        conway::Certificate::AuthCommitteeHot(credential(), hot_credential()),
+                        u5c::certificate::Certificate::AuthCommitteeHotCert(
+                            u5c::AuthCommitteeHotCert {
+                                committee_cold_credential: Some(key_credential(CREDENTIAL)),
+                                committee_hot_credential: Some(key_credential(HOT)),
+                            },
+                        ),
+                    ),
+                    (
+                        conway::Certificate::ResignCommitteeCold(credential(), Some(anchor())),
+                        u5c::certificate::Certificate::ResignCommitteeColdCert(
+                            u5c::ResignCommitteeColdCert {
+                                committee_cold_credential: Some(key_credential(CREDENTIAL)),
+                                anchor: Some(mapped_anchor()),
+                            },
+                        ),
+                    ),
+                    (
+                        conway::Certificate::RegDRepCert(credential(), DEPOSIT, Some(anchor())),
+                        u5c::certificate::Certificate::RegDrepCert(u5c::RegDRepCert {
+                            drep_credential: Some(key_credential(CREDENTIAL)),
+                            coin: bigint(DEPOSIT as i64),
+                            anchor: Some(mapped_anchor()),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::UnRegDRepCert(credential(), DEPOSIT),
+                        u5c::certificate::Certificate::UnregDrepCert(u5c::UnRegDRepCert {
+                            drep_credential: Some(key_credential(CREDENTIAL)),
+                            coin: bigint(DEPOSIT as i64),
+                        }),
+                    ),
+                    (
+                        conway::Certificate::UpdateDRepCert(credential(), None),
+                        u5c::certificate::Certificate::UpdateDrepCert(u5c::UpdateDRepCert {
+                            drep_credential: Some(key_credential(CREDENTIAL)),
+                            anchor: None,
+                        }),
+                    ),
+                ];
+
+                assert_eq!(cases.len(), 17, "Conway's type names seventeen certificates");
+
+                let raw = tx_with_redeemers(Vec::new());
+                let tx = MultiEraTx::from_conway(&raw);
+                let mapper = Mapper::new(NoLedger);
+
+                for (order, (certificate, expected)) in cases.iter().enumerate() {
+                    let cert = MultiEraCert::Conway(Box::new(Cow::Borrowed(certificate)));
+                    let mapped = mapper
+                        .map_cert(&cert, &tx, order as u32)
+                        .expect("a Conway certificate maps");
+
+                    assert_eq!(
+                        mapped.certificate.as_ref(),
+                        Some(expected),
+                        "the Conway certificate at position {order}"
+                    );
+                    assert!(
+                        mapped.redeemer.is_none(),
+                        "position {order} pairs no redeemer, this transaction carries none"
+                    );
+                }
+            }
+
+            #[test]
+            fn every_alonzo_certificate_maps_to_the_u5c_message_naming_it() {
+                let cases: Vec<(alonzo::Certificate, u5c::certificate::Certificate)> = vec![
+                    (
+                        alonzo::Certificate::StakeRegistration(credential()),
+                        u5c::certificate::Certificate::StakeRegistration(key_credential(
+                            CREDENTIAL,
+                        )),
+                    ),
+                    (
+                        alonzo::Certificate::StakeDeregistration(credential()),
+                        u5c::certificate::Certificate::StakeDeregistration(key_credential(
+                            CREDENTIAL,
+                        )),
+                    ),
+                    (
+                        alonzo::Certificate::StakeDelegation(credential(), POOL.into()),
+                        u5c::certificate::Certificate::StakeDelegation(u5c::StakeDelegationCert {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            pool_keyhash: POOL.to_vec().into(),
+                        }),
+                    ),
+                    (
+                        alonzo::Certificate::PoolRegistration {
+                            operator: POOL.into(),
+                            vrf_keyhash: VRF.into(),
+                            pledge: PLEDGE,
+                            cost: COST,
+                            margin: margin(),
+                            reward_account: REWARD_ACCOUNT.to_vec().into(),
+                            pool_owners: vec![OWNER.into()],
+                            relays: relays(),
+                            pool_metadata: Some(metadata()),
+                        },
+                        u5c::certificate::Certificate::PoolRegistration(
+                            u5c::PoolRegistrationCert {
+                                operator: POOL.to_vec().into(),
+                                vrf_keyhash: VRF.to_vec().into(),
+                                pledge: bigint(PLEDGE as i64),
+                                cost: bigint(COST as i64),
+                                margin: Some(u5c::RationalNumber {
+                                    numerator: 1,
+                                    denominator: 50,
+                                }),
+                                reward_account: REWARD_ACCOUNT.to_vec().into(),
+                                pool_owners: vec![OWNER.to_vec().into()],
+                                relays: vec![u5c::Relay {
+                                    ip_v4: Default::default(),
+                                    ip_v6: Default::default(),
+                                    dns_name: RELAY_NAME.to_string(),
+                                    port: 0,
+                                }],
+                                pool_metadata: Some(u5c::PoolMetadata {
+                                    url: METADATA_URL.to_string(),
+                                    hash: METADATA_HASH.to_vec().into(),
+                                }),
+                            },
+                        ),
+                    ),
+                    (
+                        alonzo::Certificate::PoolRetirement(POOL.into(), EPOCH),
+                        u5c::certificate::Certificate::PoolRetirement(u5c::PoolRetirementCert {
+                            pool_keyhash: POOL.to_vec().into(),
+                            epoch: EPOCH,
+                        }),
+                    ),
+                    (
+                        alonzo::Certificate::GenesisKeyDelegation(
+                            GENESIS.to_vec().into(),
+                            DELEGATE.to_vec().into(),
+                            VRF.into(),
+                        ),
+                        u5c::certificate::Certificate::GenesisKeyDelegation(
+                            u5c::GenesisKeyDelegationCert {
+                                genesis_hash: GENESIS.to_vec().into(),
+                                genesis_delegate_hash: DELEGATE.to_vec().into(),
+                                vrf_keyhash: VRF.to_vec().into(),
+                            },
+                        ),
+                    ),
+                    (
+                        alonzo::Certificate::MoveInstantaneousRewardsCert(
+                            alonzo::MoveInstantaneousReward {
+                                source: alonzo::InstantaneousRewardSource::Reserves,
+                                target: alonzo::InstantaneousRewardTarget::OtherAccountingPot(
+                                    REWARD as u64,
+                                ),
+                            },
+                        ),
+                        u5c::certificate::Certificate::MirCert(u5c::MirCert {
+                            from: u5c::MirSource::Reserves as i32,
+                            to: Vec::new(),
+                            other_pot: REWARD as u64,
+                        }),
+                    ),
+                ];
+
+                assert_eq!(
+                    cases.len(),
+                    7,
+                    "the type serving Shelley through Babbage names seven certificates"
+                );
+
+                let raw = tx_with_redeemers(Vec::new());
+                let tx = MultiEraTx::from_conway(&raw);
+                let mapper = Mapper::new(NoLedger);
+
+                for (order, (certificate, expected)) in cases.iter().enumerate() {
+                    let cert = MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(certificate)));
+                    let mapped = mapper
+                        .map_cert(&cert, &tx, order as u32)
+                        .expect("an Alonzo certificate maps");
+
+                    assert_eq!(
+                        mapped.certificate.as_ref(),
+                        Some(expected),
+                        "the Alonzo certificate at position {order}"
+                    );
+                    assert!(
+                        mapped.redeemer.is_none(),
+                        "position {order} pairs no redeemer, this transaction carries none"
+                    );
+                }
+            }
+
+            #[test]
+            fn a_move_instantaneous_rewards_certificate_maps_the_pot_and_every_target() {
+                let certificate = alonzo::Certificate::MoveInstantaneousRewardsCert(
+                    alonzo::MoveInstantaneousReward {
+                        source: alonzo::InstantaneousRewardSource::Treasury,
+                        target: alonzo::InstantaneousRewardTarget::StakeCredentials(
+                            BTreeMap::from([(credential(), REWARD)]),
+                        ),
+                    },
+                );
+
+                let raw = tx_with_redeemers(Vec::new());
+                let tx = MultiEraTx::from_conway(&raw);
+                let mapper = Mapper::new(NoLedger);
+                let cert = MultiEraCert::AlonzoCompatible(Box::new(Cow::Borrowed(&certificate)));
+
+                let mapped = mapper
+                    .map_cert(&cert, &tx, 0)
+                    .expect("an Alonzo certificate maps");
+
+                assert_eq!(
+                    mapped.certificate,
+                    Some(u5c::certificate::Certificate::MirCert(u5c::MirCert {
+                        from: u5c::MirSource::Treasury as i32,
+                        to: vec![u5c::MirTarget {
+                            stake_credential: Some(key_credential(CREDENTIAL)),
+                            delta_coin: bigint(REWARD),
+                        }],
+                        other_pot: 0,
+                    }))
+                );
+            }
+
+            #[test]
+            fn a_pool_registration_read_from_a_block_maps_every_parameter() {
+                let cbor = babbage10_block();
+                let decoded = MultiEraBlock::decode(&cbor).expect("the fixture decodes");
+                let txs = decoded.txs();
+                let certs: Vec<_> = txs.iter().flat_map(|tx| tx.certs()).collect();
+                assert_eq!(certs.len(), 1, "this fixture writes one certificate");
+
+                let mapper = Mapper::new(NoLedger);
+                let mapped = mapper
+                    .map_cert(&certs[0], &txs[0], 0)
+                    .expect("a pool registration maps");
+
+                assert_eq!(
+                    mapped.certificate,
+                    Some(u5c::certificate::Certificate::PoolRegistration(
+                        u5c::PoolRegistrationCert {
+                            operator: hex::decode(
+                                "129a187287eb6c65e57af2a1ac5750113ecc1a1e658b960358fcaa59"
+                            )
+                            .unwrap()
+                            .into(),
+                            vrf_keyhash: hex::decode(
+                                "cf027ebfbfec5c3f964b05341519180003e2ed092829a402f775efec666d78e1"
+                            )
+                            .unwrap()
+                            .into(),
+                            // The pledge is above i64::MAX, which the schema
+                            // carries as unsigned big endian bytes.
+                            pledge: Some(u5c::BigInt {
+                                big_int: Some(u5c::big_int::BigInt::BigUInt(
+                                    hex::decode("8000000000000001").unwrap().into()
+                                )),
+                            }),
+                            cost: bigint(340_000_000),
+                            // The fixture's margin is 9223372036854775809 over
+                            // 10000000000000000000 and the schema's two fields
+                            // are 32 bits wide, so both arrive cut to their low
+                            // 32 bits.
+                            margin: Some(u5c::RationalNumber {
+                                numerator: 1,
+                                denominator: 2_313_682_944,
+                            }),
+                            reward_account: hex::decode(
+                                "e0b04dff59ee3b964a7d9f4fda04d98ef43de3abc832112cc37a35d138"
+                            )
+                            .unwrap()
+                            .into(),
+                            pool_owners: vec![
+                                hex::decode(
+                                    "b04dff59ee3b964a7d9f4fda04d98ef43de3abc832112cc37a35d138"
+                                )
+                                .unwrap()
+                                .into()
+                            ],
+                            relays: vec![
+                                u5c::Relay {
+                                    ip_v4: hex::decode("05a14bd4").unwrap().into(),
+                                    ip_v6: Default::default(),
+                                    dns_name: String::new(),
+                                    port: 5003,
+                                },
+                                u5c::Relay {
+                                    ip_v4: hex::decode("64646464").unwrap().into(),
+                                    ip_v6: Default::default(),
+                                    dns_name: String::new(),
+                                    port: 100,
+                                },
+                                u5c::Relay {
+                                    ip_v4: hex::decode("c8c8c8c8").unwrap().into(),
+                                    ip_v6: Default::default(),
+                                    dns_name: String::new(),
+                                    port: 200,
+                                },
+                            ],
+                            pool_metadata: Some(u5c::PoolMetadata {
+                                url: "https://raw.githubusercontent.com/stakelovelace/pub/main/s2.json"
+                                    .to_string(),
+                                hash: hex::decode(
+                                    "b3ac275b0568c3b7d63f889f896086fe4cb61d0f156cbfa18b5466a8480e012a"
+                                )
+                                .unwrap()
+                                .into(),
+                            }),
+                        }
+                    ))
+                );
+            }
+
+            #[test]
+            fn a_certificate_carries_the_redeemer_the_transaction_indexes_at_its_position() {
+                let raw = tx_with_redeemers(vec![conway::Redeemer {
+                    tag: conway::RedeemerTag::Cert,
+                    index: 1,
+                    data: pallas_primitives::PlutusData::BoundedBytes(vec![0x0f].into()),
+                    ex_units: pallas_primitives::ExUnits {
+                        mem: 11,
+                        steps: 22,
+                    },
+                }]);
+                let tx = MultiEraTx::from_conway(&raw);
+                let mapper = Mapper::new(NoLedger);
+                let certificate = conway::Certificate::StakeRegistration(credential());
+                let cert = MultiEraCert::Conway(Box::new(Cow::Borrowed(&certificate)));
+
+                let paired = mapper
+                    .map_cert(&cert, &tx, 1)
+                    .expect("a Conway certificate maps");
+                let redeemer = paired
+                    .redeemer
+                    .expect("position one is indexed by a certificate redeemer");
+
+                assert_eq!(redeemer.index, 1);
+                assert_eq!(redeemer.purpose, u5c::RedeemerPurpose::Cert as i32);
+                assert_eq!(
+                    redeemer.ex_units,
+                    Some(u5c::ExUnits {
+                        memory: 11,
+                        steps: 22,
+                    })
+                );
+
+                let unpaired = mapper
+                    .map_cert(&cert, &tx, 0)
+                    .expect("a Conway certificate maps");
+                assert!(
+                    unpaired.redeemer.is_none(),
+                    "position zero is indexed by no redeemer"
+                );
             }
         }
 
