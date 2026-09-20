@@ -28,6 +28,9 @@
 //!   helper.
 //! - [`cost_models`] — typed views over Plutus cost-model tables, shared
 //!   across eras.
+//! - [`injection`] holds the `extraConfig` injection sources and the rule that
+//!   picks between an injected value and the top-level field it stands in for,
+//!   shared across eras.
 
 /// Alonzo-era genesis parameters (cost models, prices, max collateral).
 pub mod alonzo;
@@ -37,5 +40,7 @@ pub mod byron;
 pub mod conway;
 /// Built-in Plutus V1/V2/V3 cost-model snapshots.
 pub mod cost_models;
+/// Genesis `extraConfig` injection sources, shared across eras.
+pub mod injection;
 /// Shelley-era genesis configuration (network start, system start, k, …).
 pub mod shelley;
