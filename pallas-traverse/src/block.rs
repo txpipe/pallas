@@ -545,7 +545,7 @@ mod tests {
                     "no output on this chain carries a datum"
                 );
                 assert!(
-                    output.script_ref().is_none(),
+                    output.multi_era_script_ref().is_none(),
                     "no output on this chain carries a reference script"
                 );
                 seen += 1;
@@ -584,7 +584,7 @@ mod tests {
                             output.datum().is_none(),
                             "the datum option is absent on this chain, and it is the map form that has one to be absent"
                         );
-                        assert!(output.script_ref().is_none());
+                        assert!(output.multi_era_script_ref().is_none());
                     }
                     TransactionOutput::Legacy(_) => array_form += 1,
                 }

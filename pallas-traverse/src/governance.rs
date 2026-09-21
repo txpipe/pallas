@@ -186,6 +186,7 @@ impl<'b> MultiEraGovAction<'b> {
 /// are different results.
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ParamRead<T> {
     NoSuchParameter,
     Unchanged,

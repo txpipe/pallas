@@ -192,7 +192,7 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    pub fn native_scripts(&self) -> Vec<MultiEraNativeScript<'_>> {
+    pub fn multi_era_native_scripts(&self) -> Vec<MultiEraNativeScript<'_>> {
         match self {
             Self::Byron(_) => vec![],
             Self::AlonzoCompatible(x, _) => x
@@ -232,6 +232,36 @@ impl<'b> MultiEraTx<'b> {
                 .flat_map(|x| x.iter())
                 .map(MultiEraNativeScript::from_dijkstra)
                 .collect(),
+        }
+    }
+
+    #[deprecated(
+        since = "1.5.0",
+        note = "use multi_era_native_scripts. This method cannot represent Dijkstra scripts"
+    )]
+    pub fn native_scripts(&self) -> &[KeepRaw<'b, alonzo::NativeScript>] {
+        match self {
+            Self::Byron(_) => &[],
+            Self::AlonzoCompatible(x, _) => x
+                .transaction_witness_set
+                .native_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            Self::Babbage(x) => x
+                .transaction_witness_set
+                .native_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            Self::Conway(x) => x
+                .transaction_witness_set
+                .native_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(..) | Self::DijkstraSub(..) => &[],
         }
     }
 
@@ -405,28 +435,28 @@ impl<'b> MultiEraTx<'b> {
     pub fn find_spend_redeemer(&self, input_order: u32) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers()
             .into_iter()
-            .find(|r| r.tag() == MultiEraRedeemerTag::Spend && r.index() == input_order)
+            .find(|r| r.multi_era_tag() == MultiEraRedeemerTag::Spend && r.index() == input_order)
     }
 
     pub fn find_mint_redeemer(&self, mint_order: u32) -> Option<MultiEraRedeemer<'_>> {
         self.redeemers()
             .into_iter()
-            .find(|r| r.tag() == MultiEraRedeemerTag::Mint && r.index() == mint_order)
+            .find(|r| r.multi_era_tag() == MultiEraRedeemerTag::Mint && r.index() == mint_order)
     }
 
     pub fn find_withdrawal_redeemer(&self, withdrawal_order: u32) -> Option<MultiEraRedeemer<'_>> {
-        self.redeemers()
-            .into_iter()
-            .find(|r| r.tag() == MultiEraRedeemerTag::Reward && r.index() == withdrawal_order)
+        self.redeemers().into_iter().find(|r| {
+            r.multi_era_tag() == MultiEraRedeemerTag::Reward && r.index() == withdrawal_order
+        })
     }
 
     pub fn find_certificate_redeemer(
         &self,
         certificate_order: u32,
     ) -> Option<MultiEraRedeemer<'_>> {
-        self.redeemers()
-            .into_iter()
-            .find(|r| r.tag() == MultiEraRedeemerTag::Cert && r.index() == certificate_order)
+        self.redeemers().into_iter().find(|r| {
+            r.multi_era_tag() == MultiEraRedeemerTag::Cert && r.index() == certificate_order
+        })
     }
 
     pub fn plutus_v2_scripts(&self) -> &[PlutusScript<2>] {
@@ -513,7 +543,7 @@ mod tests {
             true,
         );
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
         assert_eq!(scripts.len(), 1, "the witness set carries one script");
 
         assert_eq!(
@@ -540,7 +570,7 @@ mod tests {
             true,
         );
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.aux_native_scripts();
+        let scripts = tx.multi_era_aux_native_scripts();
         assert_eq!(scripts.len(), 1, "the auxiliary data carries one script");
 
         assert_eq!(
@@ -577,7 +607,7 @@ mod tests {
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
 
         assert_eq!(
-            tx.aux_native_scripts().len(),
+            tx.multi_era_aux_native_scripts().len(),
             1,
             "the auxiliary data this transaction carries is readable, so an empty answer below is about the key and not about the data"
         );
@@ -599,7 +629,7 @@ mod tests {
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
 
         assert_eq!(
-            tx.aux_native_scripts().len(),
+            tx.multi_era_aux_native_scripts().len(),
             1,
             "the same auxiliary data reaches this era too"
         );
@@ -643,7 +673,7 @@ mod tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
 
         assert_eq!(scripts.len(), 1, "the witness set carries one script");
         assert_eq!(scripts[0].era(), Era::Alonzo);
@@ -667,7 +697,7 @@ mod tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.aux_native_scripts();
+        let scripts = tx.multi_era_aux_native_scripts();
 
         assert_eq!(scripts.len(), 1, "the auxiliary data carries one script");
         assert_eq!(scripts[0].era(), Era::Alonzo);
@@ -678,7 +708,7 @@ mod tests {
             "the script re-encodes to the bytes it was read from"
         );
         assert!(
-            tx.native_scripts().is_empty(),
+            tx.multi_era_native_scripts().is_empty(),
             "a script in the auxiliary data is not a witness"
         );
     }
@@ -693,8 +723,8 @@ mod tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        assert!(tx.native_scripts().is_empty());
-        assert!(tx.aux_native_scripts().is_empty());
+        assert!(tx.multi_era_native_scripts().is_empty());
+        assert!(tx.multi_era_aux_native_scripts().is_empty());
     }
 
     /// A script whose root clause holds one of every other clause the Alonzo
@@ -723,7 +753,7 @@ mod tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
         assert_eq!(scripts.len(), 1, "the witness set carries one script");
 
         let items = match scripts[0].clause() {
@@ -788,7 +818,7 @@ mod tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
         assert_eq!(scripts.len(), 1, "the witness set carries one script");
 
         let (k, inner) = match scripts[0].clause() {
@@ -816,7 +846,7 @@ mod tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
         let items = match scripts[0].clause() {
             MultiEraNativeClause::All(items) => items,
             other => panic!("the root clause is script_all, found {other:?}"),
@@ -868,7 +898,7 @@ mod dijkstra_tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
 
         assert_eq!(scripts.len(), 1, "the witness set carries one script");
         assert_eq!(scripts[0].era(), Era::Dijkstra);
@@ -910,7 +940,7 @@ mod dijkstra_tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
         assert_eq!(scripts.len(), 1, "the witness set carries one script");
 
         let items = match scripts[0].clause() {
@@ -957,7 +987,7 @@ mod dijkstra_tests {
         );
 
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
-        let scripts = tx.native_scripts();
+        let scripts = tx.multi_era_native_scripts();
 
         assert_eq!(scripts.len(), 1);
         assert_eq!(scripts[0].era(), Era::Alonzo);
@@ -974,12 +1004,12 @@ mod dijkstra_tests {
             true,
         );
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
-        assert!(tx.native_scripts().is_empty());
+        assert!(tx.multi_era_native_scripts().is_empty());
 
         let cbor = hex::decode(include_str!("../../test_data/dijkstra3.block")).unwrap();
         let block = MultiEraBlock::decode(&cbor).unwrap();
         for tx in block.txs() {
-            assert!(tx.native_scripts().is_empty());
+            assert!(tx.multi_era_native_scripts().is_empty());
         }
     }
 
@@ -996,7 +1026,7 @@ mod dijkstra_tests {
         );
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
 
-        let scripts = tx.aux_native_scripts();
+        let scripts = tx.multi_era_aux_native_scripts();
         assert_eq!(scripts.len(), 1, "the auxiliary data carries one script");
         assert_eq!(scripts[0].era(), Era::Dijkstra);
         assert!(scripts[0].as_dijkstra().is_some());
@@ -1008,7 +1038,7 @@ mod dijkstra_tests {
         assert_eq!(tx.aux_plutus_v4_scripts().len(), 1, "and one V4 script");
         assert_eq!(tx.aux_plutus_v4_scripts()[0].0.as_ref(), [0xd8, 0x79, 0x80]);
 
-        assert!(tx.native_scripts().is_empty());
+        assert!(tx.multi_era_native_scripts().is_empty());
         assert!(tx.plutus_v1_scripts().is_empty());
     }
 
@@ -1025,9 +1055,37 @@ mod dijkstra_tests {
         );
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
 
-        assert_eq!(tx.aux_native_scripts().len(), 1);
+        assert_eq!(tx.multi_era_aux_native_scripts().len(), 1);
         assert!(tx.aux_plutus_v4_scripts().is_empty());
         assert!(tx.aux_plutus_v2_scripts().is_empty());
         assert!(tx.aux_plutus_v3_scripts().is_empty());
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn the_legacy_script_readers_answer_a_dijkstra_transaction_empty() {
+        let script = testing::native_script_pubkey(0x5c);
+        let guard = testing::native_script_require_guard(0x3b);
+        let aux = testing::post_alonzo_aux_data(&guard, None);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            Some(&aux),
+            true,
+        );
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
+
+        assert_eq!(
+            tx.multi_era_native_scripts().len(),
+            1,
+            "the witness set carries one script"
+        );
+        assert_eq!(
+            tx.multi_era_aux_native_scripts().len(),
+            1,
+            "the auxiliary data carries one script"
+        );
+        assert!(tx.native_scripts().is_empty());
+        assert!(tx.aux_native_scripts().is_empty());
     }
 }

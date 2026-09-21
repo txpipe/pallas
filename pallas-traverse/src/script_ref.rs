@@ -148,12 +148,14 @@ impl<'b> MultiEraScriptRef<'b> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum ScriptLanguage {
     Native,
     PlutusV1,
     PlutusV2,
     PlutusV3,
     /// Plutus V4, new in Dijkstra.
+    #[cfg(feature = "unstable")]
     PlutusV4,
 }
 
@@ -165,6 +167,7 @@ impl ScriptLanguage {
             Self::PlutusV1 => 1,
             Self::PlutusV2 => 2,
             Self::PlutusV3 => 3,
+            #[cfg(feature = "unstable")]
             Self::PlutusV4 => 4,
         }
     }
@@ -197,7 +200,7 @@ mod tests {
 
         let outputs = tx.outputs();
         let found = outputs[0]
-            .script_ref()
+            .multi_era_script_ref()
             .expect("a written reference script must be readable");
 
         assert_eq!(found.era(), Era::Conway);
@@ -229,7 +232,7 @@ mod tests {
         let cbor = conway_output_with_script(&script);
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
         let outputs = tx.outputs();
-        let found = outputs[0].script_ref().expect("readable");
+        let found = outputs[0].multi_era_script_ref().expect("readable");
 
         assert_eq!(found.language(), ScriptLanguage::Native);
         assert!(found.plutus_bytes().is_none());
@@ -256,7 +259,7 @@ mod tests {
         );
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
 
-        assert!(tx.outputs()[0].script_ref().is_none());
+        assert!(tx.outputs()[0].multi_era_script_ref().is_none());
     }
 }
 
@@ -286,7 +289,7 @@ mod dijkstra_tests {
 
         let output = &tx.outputs()[0];
         let script = output
-            .script_ref()
+            .multi_era_script_ref()
             .expect("a written reference script must be readable");
 
         assert_eq!(script.era(), Era::Dijkstra);
@@ -326,7 +329,7 @@ mod dijkstra_tests {
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
 
         let output = &tx.outputs()[0];
-        let script = output.script_ref().expect("readable");
+        let script = output.multi_era_script_ref().expect("readable");
 
         assert_eq!(script.language(), ScriptLanguage::Native);
         assert_eq!(script.language().tag(), 0);
@@ -360,9 +363,23 @@ mod dijkstra_tests {
         );
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
 
-        assert!(tx.outputs()[0].script_ref().is_none());
+        assert!(tx.outputs()[0].multi_era_script_ref().is_none());
         assert!(tx.outputs()[0].datum().is_none());
         assert_eq!(tx.outputs()[0].value().coin(), 2_000_000);
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn the_legacy_reader_answers_a_dijkstra_reference_script_none() {
+        let cbor = dijkstra_output_with_script(&testing::script_ref_plutus_v4(&V4_BYTES));
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
+
+        let output = &tx.outputs()[0];
+        assert!(
+            output.multi_era_script_ref().is_some(),
+            "the output carries a reference script"
+        );
+        assert!(output.script_ref().is_none());
     }
 
     #[test]

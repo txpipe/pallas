@@ -69,6 +69,7 @@ impl MultiEraCert<'_> {
 
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BlsKeySlot<'b> {
     NotAPoolRegistration,
     /// A pool registration with no BLS key slot, or one the transaction omitted.

@@ -9,12 +9,40 @@ use pallas_primitives::dijkstra;
 use crate::{MultiEraRedeemer, MultiEraRedeemerTag};
 
 impl<'b> MultiEraRedeemer<'b> {
-    pub fn tag(&self) -> MultiEraRedeemerTag {
+    pub fn multi_era_tag(&self) -> MultiEraRedeemerTag {
         match &self {
             Self::AlonzoCompatible(x) => x.tag.into(),
             Self::Conway(x, _) => x.tag.into(),
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x, _) => x.tag.into(),
+        }
+    }
+
+    #[deprecated(
+        since = "1.5.0",
+        note = "use multi_era_tag. This method cannot represent the Dijkstra Guarding tag"
+    )]
+    pub fn tag(&self) -> conway::RedeemerTag {
+        match &self {
+            Self::AlonzoCompatible(x) => match x.tag {
+                alonzo::RedeemerTag::Cert => conway::RedeemerTag::Cert,
+                alonzo::RedeemerTag::Spend => conway::RedeemerTag::Spend,
+                alonzo::RedeemerTag::Mint => conway::RedeemerTag::Mint,
+                alonzo::RedeemerTag::Reward => conway::RedeemerTag::Reward,
+            },
+            Self::Conway(x, _) => x.tag,
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(x, _) => match x.tag {
+                dijkstra::RedeemerTag::Cert => conway::RedeemerTag::Cert,
+                dijkstra::RedeemerTag::Spend => conway::RedeemerTag::Spend,
+                dijkstra::RedeemerTag::Mint => conway::RedeemerTag::Mint,
+                dijkstra::RedeemerTag::Reward => conway::RedeemerTag::Reward,
+                dijkstra::RedeemerTag::Vote => conway::RedeemerTag::Vote,
+                dijkstra::RedeemerTag::Propose => conway::RedeemerTag::Propose,
+                dijkstra::RedeemerTag::Guarding => {
+                    panic!("the Guarding tag has no Conway name, read it with multi_era_tag")
+                }
+            },
         }
     }
 
@@ -148,7 +176,7 @@ mod tests {
         let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
         let redeemers = tx.redeemers();
         assert_eq!(redeemers.len(), 1, "the witness set carries one redeemer");
-        redeemers[0].tag()
+        redeemers[0].multi_era_tag()
     }
 
     #[test]
@@ -196,7 +224,7 @@ mod dijkstra_tests {
     #[test]
     fn a_guarding_redeemer_is_named_in_the_shared_tag_space() {
         with_only_redeemer(6, |redeemer| {
-            assert_eq!(redeemer.tag(), MultiEraRedeemerTag::Guarding);
+            assert_eq!(redeemer.multi_era_tag(), MultiEraRedeemerTag::Guarding);
             assert_eq!(redeemer.index(), 0);
         });
     }
@@ -204,7 +232,7 @@ mod dijkstra_tests {
     #[test]
     fn a_dijkstra_spend_redeemer_is_named_under_the_spend_tag() {
         with_only_redeemer(0, |redeemer| {
-            assert_eq!(redeemer.tag(), MultiEraRedeemerTag::Spend);
+            assert_eq!(redeemer.multi_era_tag(), MultiEraRedeemerTag::Spend);
         });
     }
 
@@ -212,10 +240,28 @@ mod dijkstra_tests {
     fn a_dijkstra_purpose_the_redeemer_does_not_carry_is_not_reported() {
         with_only_redeemer(6, |redeemer| {
             assert_ne!(
-                redeemer.tag(),
+                redeemer.multi_era_tag(),
                 MultiEraRedeemerTag::Spend,
                 "a guarding redeemer must not be reported under the first tag in the space"
             );
         });
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn the_legacy_reader_answers_a_dijkstra_tag_conway_shares() {
+        with_only_redeemer(0, |redeemer| {
+            assert_eq!(redeemer.tag(), conway::RedeemerTag::Spend);
+        });
+        with_only_redeemer(4, |redeemer| {
+            assert_eq!(redeemer.tag(), conway::RedeemerTag::Vote);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "the Guarding tag has no Conway name")]
+    #[allow(deprecated)]
+    fn the_legacy_reader_refuses_the_guarding_tag() {
+        with_only_redeemer(6, |redeemer| redeemer.tag());
     }
 }

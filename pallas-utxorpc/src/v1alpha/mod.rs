@@ -93,7 +93,7 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.script_ref().map(|x| match x {
+        x.multi_era_script_ref().map(|x| match x {
             trv::MultiEraScriptRef::Conway(x) => self.map_any_script(&x),
             #[cfg(feature = "unstable")]
             trv::MultiEraScriptRef::Dijkstra(_) => {
@@ -380,6 +380,36 @@ mod tests {
                 u5c::ScriptNOfK { k: 0, .. }
             ))
         ));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn the_legacy_purpose_mapper_agrees_with_the_multi_era_one() {
+        use pallas_primitives::conway::RedeemerTag;
+        use pallas_traverse::MultiEraRedeemerTag;
+
+        let mapper = Mapper::new(NoLedger);
+        let tags = [
+            RedeemerTag::Spend,
+            RedeemerTag::Mint,
+            RedeemerTag::Cert,
+            RedeemerTag::Reward,
+            RedeemerTag::Vote,
+            RedeemerTag::Propose,
+        ];
+
+        let mut seen = Vec::new();
+        for tag in tags {
+            let legacy = mapper.map_purpose(&tag);
+            assert_eq!(
+                legacy,
+                mapper.map_multi_era_purpose(&MultiEraRedeemerTag::from(tag))
+            );
+            seen.push(legacy);
+        }
+
+        seen.dedup();
+        assert_eq!(seen.len(), 6, "each tag maps to a purpose of its own");
     }
 
     #[test]

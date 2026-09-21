@@ -1436,14 +1436,14 @@ mod tests {
         ("aux_plutus_v1_scripts", |tx| {
             let _ = tx.aux_plutus_v1_scripts();
         }),
-        ("aux_native_scripts", |tx| {
-            let _ = tx.aux_native_scripts();
+        ("multi_era_aux_native_scripts", |tx| {
+            let _ = tx.multi_era_aux_native_scripts();
         }),
         ("vkey_witnesses", |tx| {
             let _ = tx.vkey_witnesses();
         }),
-        ("native_scripts", |tx| {
-            let _ = tx.native_scripts();
+        ("multi_era_native_scripts", |tx| {
+            let _ = tx.multi_era_native_scripts();
         }),
         ("bootstrap_witnesses", |tx| {
             let _ = tx.bootstrap_witnesses();

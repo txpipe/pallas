@@ -63,7 +63,7 @@ impl<'b> MultiEraOutput<'b> {
         }
     }
 
-    pub fn script_ref(&self) -> Option<MultiEraScriptRef<'_>> {
+    pub fn multi_era_script_ref(&self) -> Option<MultiEraScriptRef<'_>> {
         match &self {
             MultiEraOutput::AlonzoCompatible(..) => None,
             MultiEraOutput::Babbage(x) => match x.deref().deref() {
@@ -89,6 +89,31 @@ impl<'b> MultiEraOutput<'b> {
                     .clone()
                     .map(|x| MultiEraScriptRef::Dijkstra(Cow::Owned(x.unwrap()))),
             },
+        }
+    }
+
+    #[deprecated(
+        since = "1.5.0",
+        note = "use multi_era_script_ref. This method cannot represent a Dijkstra reference script"
+    )]
+    pub fn script_ref(&self) -> Option<conway::ScriptRef<'_>> {
+        match &self {
+            MultiEraOutput::AlonzoCompatible(..) => None,
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(_) => None,
+                babbage::TransactionOutput::PostAlonzo(x) => {
+                    x.script_ref.clone().map(|x| x.unwrap().into())
+                }
+            },
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::TransactionOutput::Legacy(_) => None,
+                conway::TransactionOutput::PostAlonzo(x) => {
+                    x.script_ref.clone().map(|x| x.unwrap())
+                }
+            },
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => None,
         }
     }
 

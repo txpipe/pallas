@@ -71,7 +71,7 @@ impl MultiEraTx<'_> {
         &[]
     }
 
-    pub fn aux_native_scripts(&self) -> Vec<MultiEraNativeScript<'_>> {
+    pub fn multi_era_aux_native_scripts(&self) -> Vec<MultiEraNativeScript<'_>> {
         #[cfg(feature = "unstable")]
         if let Some(aux_data) = self.dijkstra_aux_data() {
             return match aux_data.deref() {
@@ -110,5 +110,29 @@ impl MultiEraTx<'_> {
         }
 
         vec![]
+    }
+
+    #[deprecated(
+        since = "1.5.0",
+        note = "use multi_era_aux_native_scripts. This method cannot represent Dijkstra scripts"
+    )]
+    pub fn aux_native_scripts(&self) -> &[alonzo::NativeScript] {
+        if let Some(aux_data) = self.aux_data() {
+            match aux_data.deref() {
+                alonzo::AuxiliaryData::PostAlonzo(x) => {
+                    if let Some(scripts) = &x.native_scripts {
+                        return scripts.as_ref();
+                    }
+                }
+                alonzo::AuxiliaryData::ShelleyMa(x) => {
+                    if let Some(scripts) = &x.auxiliary_scripts {
+                        return scripts.as_ref();
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        &[]
     }
 }
