@@ -177,7 +177,7 @@ pub enum Feature {
 
 /// A block header normalized across eras, keeping access to its raw CBOR.
 #[derive(Debug)]
-#[non_exhaustive]
+#[cfg_attr(feature = "unstable", non_exhaustive)]
 pub enum MultiEraHeader<'b> {
     /// Byron epoch-boundary block header.
     EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
@@ -408,13 +408,9 @@ pub enum Error {
     #[error("Unknown CBOR structure: {0}")]
     UnknownCbor(String),
 
-    /// Block wrapper era tag is not one this crate knows how to handle.
-    #[error("Unknown block wrapper era tag: {0}")]
+    /// Era tag is not one this crate knows how to handle.
+    #[error("Unknown era tag: {0}")]
     UnknownEra(u16),
-
-    /// Chainsync header envelope tag is not one this crate knows how to handle.
-    #[error("Unknown chainsync header envelope tag: {0}")]
-    UnknownHeaderEnvelopeTag(u8),
 
     /// Operation requested in an era that does not support it.
     #[error("Invalid era for request: {0}")]
@@ -458,27 +454,39 @@ pub trait OriginalHash<const BYTES: usize> {
 mod attribute_tests {
     const THIS_FILE: &str = include_str!("lib.rs");
 
-    /// Every multi era enum this file defines, in sorted order.
-    const MULTI_ERA_ENUMS: &[&str] = &[
-        "MultiEraAsset",
-        "MultiEraBlock",
-        "MultiEraCert",
-        "MultiEraGovAction",
-        "MultiEraHeader",
-        "MultiEraInput",
-        "MultiEraMeta",
-        "MultiEraOutput",
-        "MultiEraPolicyAssets",
-        "MultiEraProposal",
-        "MultiEraRedeemer",
-        "MultiEraSigners",
-        "MultiEraTx",
-        "MultiEraUpdate",
-        "MultiEraValue",
-        "MultiEraWithdrawals",
+    const ALWAYS: &str = "#[non_exhaustive]";
+    const WITH_UNSTABLE: &str = "#[cfg_attr(feature = \"unstable\", non_exhaustive)]";
+
+    /// Which builds apply `#[non_exhaustive]` to an enum.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum NonExhaustive {
+        Never,
+        WithUnstable,
+        Always,
+    }
+
+    /// Every multi era enum this file defines with the marking it is required
+    /// to carry, sorted by name.
+    const MULTI_ERA_ENUMS: &[(&str, NonExhaustive)] = &[
+        ("MultiEraAsset", NonExhaustive::Always),
+        ("MultiEraBlock", NonExhaustive::Always),
+        ("MultiEraCert", NonExhaustive::Always),
+        ("MultiEraGovAction", NonExhaustive::Always),
+        ("MultiEraHeader", NonExhaustive::WithUnstable),
+        ("MultiEraInput", NonExhaustive::Always),
+        ("MultiEraMeta", NonExhaustive::Always),
+        ("MultiEraOutput", NonExhaustive::Always),
+        ("MultiEraPolicyAssets", NonExhaustive::Always),
+        ("MultiEraProposal", NonExhaustive::Always),
+        ("MultiEraRedeemer", NonExhaustive::Always),
+        ("MultiEraSigners", NonExhaustive::Always),
+        ("MultiEraTx", NonExhaustive::Always),
+        ("MultiEraUpdate", NonExhaustive::Always),
+        ("MultiEraValue", NonExhaustive::Always),
+        ("MultiEraWithdrawals", NonExhaustive::Always),
     ];
 
-    fn multi_era_enums(source: &str) -> Vec<(String, bool)> {
+    fn multi_era_enums(source: &str) -> Vec<(String, NonExhaustive)> {
         let lines: Vec<&str> = source.lines().collect();
 
         lines
@@ -491,56 +499,202 @@ mod attribute_tests {
                         rest.split(['<', ' ', '{']).next().unwrap_or_default(),
                     ))
                     .collect();
-                let marked = lines[..i]
+                let attributes: Vec<&str> = lines[..i]
                     .iter()
                     .rev()
                     .take_while(|above| {
                         let above = above.trim();
                         above.starts_with("#[") || above.starts_with("//")
                     })
-                    .any(|above| above.trim() == "#[non_exhaustive]");
-                Some((name, marked))
+                    .map(|above| above.trim())
+                    .collect();
+                let marking = if attributes.contains(&ALWAYS) {
+                    NonExhaustive::Always
+                } else if attributes.contains(&WITH_UNSTABLE) {
+                    NonExhaustive::WithUnstable
+                } else {
+                    NonExhaustive::Never
+                };
+                Some((name, marking))
             })
             .collect()
     }
 
     #[test]
-    fn every_multi_era_enum_is_non_exhaustive() {
-        let enums = multi_era_enums(THIS_FILE);
+    fn every_multi_era_enum_carries_the_marking_it_is_listed_with() {
+        let mut found = multi_era_enums(THIS_FILE);
+        found.sort_by(|left, right| left.0.cmp(&right.0));
 
-        let mut found: Vec<&str> = enums.iter().map(|(name, _)| name.as_str()).collect();
-        found.sort_unstable();
-        assert_eq!(
-            found, MULTI_ERA_ENUMS,
-            "the scan found a different set of multi era enums than the one listed"
-        );
-
-        let unmarked: Vec<&str> = enums
+        let expected: Vec<(String, NonExhaustive)> = MULTI_ERA_ENUMS
             .iter()
-            .filter(|(_, marked)| !marked)
-            .map(|(name, _)| name.as_str())
+            .map(|(name, marking)| (name.to_string(), *marking))
             .collect();
-        assert!(
-            unmarked.is_empty(),
-            "{unmarked:?} lack #[non_exhaustive], so adding an era variant to one breaks every downstream exhaustive match"
+
+        assert_eq!(
+            found, expected,
+            "a multi era enum is missing, is one the list does not name, or carries a marking other than the one it is listed with"
         );
     }
 
     #[test]
-    fn the_attribute_scan_reads_both_cases() {
-        let marked = multi_era_enums("#[non_exhaustive]\npub enum MultiEraThing<'b> {");
-        assert_eq!(marked, vec![("MultiEraThing".to_string(), true)]);
+    fn the_attribute_scan_reads_all_three_markings() {
+        let cases = [
+            (
+                "#[non_exhaustive]\npub enum MultiEraThing<'b> {",
+                NonExhaustive::Always,
+            ),
+            (
+                "#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+                NonExhaustive::Always,
+            ),
+            (
+                "/// A thing.\n#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+                NonExhaustive::Always,
+            ),
+            (
+                "#[cfg_attr(feature = \"unstable\", non_exhaustive)]\npub enum MultiEraThing<'b> {",
+                NonExhaustive::WithUnstable,
+            ),
+            (
+                "/// A thing.\n#[derive(Debug)]\n#[cfg_attr(feature = \"unstable\", non_exhaustive)]\npub enum MultiEraThing<'b> {",
+                NonExhaustive::WithUnstable,
+            ),
+            (
+                "#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+                NonExhaustive::Never,
+            ),
+        ];
 
-        let reordered =
-            multi_era_enums("#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {");
-        assert_eq!(reordered, vec![("MultiEraThing".to_string(), true)]);
+        for (source, marking) in cases {
+            assert_eq!(
+                multi_era_enums(source),
+                vec![("MultiEraThing".to_string(), marking)],
+                "{source:?}"
+            );
+        }
+    }
 
-        let documented = multi_era_enums(
-            "/// A thing.\n#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
-        );
-        assert_eq!(documented, vec![("MultiEraThing".to_string(), true)]);
+    /// The variants each listed enum has without the `unstable` feature. A
+    /// variant added outside the gate makes one of these matches inexhaustive,
+    /// so a build without the feature stops compiling.
+    #[cfg(not(feature = "unstable"))]
+    mod stable_variants {
+        macro_rules! variants {
+            ($($enum:ident => [$($variant:pat),+ $(,)?]),+ $(,)?) => {
+                $(
+                    #[allow(non_snake_case)]
+                    fn $enum(value: &crate::$enum) {
+                        match value {
+                            $($variant => {}),+
+                        }
+                    }
+                )+
 
-        let bare = multi_era_enums("#[derive(Debug)]\npub enum MultiEraThing<'b> {");
-        assert_eq!(bare, vec![("MultiEraThing".to_string(), false)]);
+                #[test]
+                fn every_listed_enum_has_a_stable_variant_list() {
+                    $(let _: fn(&crate::$enum) = $enum;)+
+
+                    let mut covered = vec![$(stringify!($enum)),+];
+                    covered.sort_unstable();
+
+                    let mut listed: Vec<&str> = super::MULTI_ERA_ENUMS
+                        .iter()
+                        .map(|(name, _)| *name)
+                        .collect();
+                    listed.sort_unstable();
+
+                    assert_eq!(
+                        covered, listed,
+                        "an enum the marking list names has no variant list here, or this list names one the marking list does not"
+                    );
+                }
+            };
+        }
+
+        variants! {
+            MultiEraAsset => [
+                crate::MultiEraAsset::AlonzoCompatibleOutput(..),
+                crate::MultiEraAsset::AlonzoCompatibleMint(..),
+                crate::MultiEraAsset::ConwayOutput(..),
+                crate::MultiEraAsset::ConwayMint(..),
+            ],
+            MultiEraBlock => [
+                crate::MultiEraBlock::EpochBoundary(..),
+                crate::MultiEraBlock::AlonzoCompatible(..),
+                crate::MultiEraBlock::Babbage(..),
+                crate::MultiEraBlock::Byron(..),
+                crate::MultiEraBlock::Conway(..),
+            ],
+            MultiEraCert => [
+                crate::MultiEraCert::NotApplicable,
+                crate::MultiEraCert::AlonzoCompatible(..),
+                crate::MultiEraCert::Conway(..),
+            ],
+            MultiEraGovAction => [
+                crate::MultiEraGovAction::Conway(..),
+            ],
+            MultiEraHeader => [
+                crate::MultiEraHeader::EpochBoundary(..),
+                crate::MultiEraHeader::ShelleyCompatible(..),
+                crate::MultiEraHeader::BabbageCompatible(..),
+                crate::MultiEraHeader::Byron(..),
+            ],
+            MultiEraInput => [
+                crate::MultiEraInput::Byron(..),
+                crate::MultiEraInput::AlonzoCompatible(..),
+            ],
+            MultiEraMeta => [
+                crate::MultiEraMeta::Empty,
+                crate::MultiEraMeta::NotApplicable,
+                crate::MultiEraMeta::AlonzoCompatible(..),
+            ],
+            MultiEraOutput => [
+                crate::MultiEraOutput::AlonzoCompatible(..),
+                crate::MultiEraOutput::Babbage(..),
+                crate::MultiEraOutput::Conway(..),
+                crate::MultiEraOutput::Byron(..),
+            ],
+            MultiEraPolicyAssets => [
+                crate::MultiEraPolicyAssets::AlonzoCompatibleMint(..),
+                crate::MultiEraPolicyAssets::AlonzoCompatibleOutput(..),
+                crate::MultiEraPolicyAssets::ConwayMint(..),
+                crate::MultiEraPolicyAssets::ConwayOutput(..),
+            ],
+            MultiEraProposal => [
+                crate::MultiEraProposal::Conway(..),
+            ],
+            MultiEraRedeemer => [
+                crate::MultiEraRedeemer::AlonzoCompatible(..),
+                crate::MultiEraRedeemer::Conway(..),
+            ],
+            MultiEraSigners => [
+                crate::MultiEraSigners::NotApplicable,
+                crate::MultiEraSigners::Empty,
+                crate::MultiEraSigners::AlonzoCompatible(..),
+            ],
+            MultiEraTx => [
+                crate::MultiEraTx::AlonzoCompatible(..),
+                crate::MultiEraTx::Babbage(..),
+                crate::MultiEraTx::Byron(..),
+                crate::MultiEraTx::Conway(..),
+            ],
+            MultiEraUpdate => [
+                crate::MultiEraUpdate::Byron(..),
+                crate::MultiEraUpdate::AlonzoCompatible(..),
+                crate::MultiEraUpdate::Babbage(..),
+                crate::MultiEraUpdate::Conway(..),
+            ],
+            MultiEraValue => [
+                crate::MultiEraValue::Byron(..),
+                crate::MultiEraValue::AlonzoCompatible(..),
+                crate::MultiEraValue::Conway(..),
+            ],
+            MultiEraWithdrawals => [
+                crate::MultiEraWithdrawals::NotApplicable,
+                crate::MultiEraWithdrawals::Empty,
+                crate::MultiEraWithdrawals::AlonzoCompatible(..),
+                crate::MultiEraWithdrawals::Conway(..),
+            ],
+        }
     }
 }

@@ -31,6 +31,7 @@ impl<'b> MultiEraHeader<'b> {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
                 Ok(MultiEraHeader::ShelleyCompatible(Cow::Owned(header)))
             }
+            #[cfg(feature = "unstable")]
             5 | 6 => {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
                 Ok(MultiEraHeader::BabbageCompatible(Cow::Owned(header)))
@@ -40,7 +41,13 @@ impl<'b> MultiEraHeader<'b> {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
                 Ok(MultiEraHeader::Dijkstra(Cow::Owned(header)))
             }
-            unknown => Err(Error::UnknownHeaderEnvelopeTag(unknown)),
+            #[cfg(feature = "unstable")]
+            unknown => Err(Error::UnknownEra(unknown.into())),
+            #[cfg(not(feature = "unstable"))]
+            _ => {
+                let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
+                Ok(MultiEraHeader::BabbageCompatible(Cow::Owned(header)))
+            }
         }
     }
 
@@ -356,6 +363,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn unknown_envelope_tag_is_refused() {
         let raw = header_of(include_str!("../../test_data/conway1.block"));
@@ -364,7 +372,7 @@ mod tests {
             let err = MultiEraHeader::decode(tag, None, &raw)
                 .expect_err("an unknown envelope tag must be refused, not decoded as Babbage");
             assert!(
-                matches!(err, Error::UnknownHeaderEnvelopeTag(t) if t == tag),
+                matches!(err, Error::UnknownEra(t) if t == u16::from(tag)),
                 "envelope tag {tag} gave {err:?}"
             );
         }
@@ -372,12 +380,20 @@ mod tests {
 
     #[cfg(not(feature = "unstable"))]
     #[test]
-    fn envelope_tag_seven_is_refused_without_the_feature() {
+    fn an_unknown_envelope_tag_decodes_as_babbage_without_the_feature() {
         let raw = header_of(include_str!("../../test_data/conway1.block"));
 
-        let err = MultiEraHeader::decode(7, None, &raw)
-            .expect_err("envelope tag 7 must be refused when the Dijkstra era is not compiled in");
-        assert!(matches!(err, Error::UnknownHeaderEnvelopeTag(7)), "{err:?}");
+        for tag in [7u8, 8, 9, 200] {
+            let header = match MultiEraHeader::decode(tag, None, &raw) {
+                Ok(header) => header,
+                Err(err) => panic!("envelope tag {tag} gave {err:?}"),
+            };
+            assert!(
+                matches!(header, MultiEraHeader::BabbageCompatible(_)),
+                "envelope tag {tag} decoded as something other than Babbage"
+            );
+            assert_eq!(header.era(), Era::Babbage, "envelope tag {tag}");
+        }
     }
 
     #[test]
