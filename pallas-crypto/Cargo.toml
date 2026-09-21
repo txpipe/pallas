@@ -27,7 +27,7 @@ ed25519-dalek = { version = "2", features = ["serde"], optional = true }
 zeroize = { version = "1.8.1", optional = true }
 
 [dev-dependencies]
-criterion = "0.7"
+criterion = "0.8"
 itertools.workspace = true
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
