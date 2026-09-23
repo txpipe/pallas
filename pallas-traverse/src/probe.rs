@@ -40,7 +40,8 @@ pub(crate) fn tx_shape(cbor: &[u8]) -> TxShape {
     fn indefinite_len(mut d: minicbor::Decoder) -> Result<u64, minicbor::decode::Error> {
         let mut len = 0;
 
-        while d.datatype()? != Type::Break {
+        // Every count above four reads as Other, so the count stops at five.
+        while len < 5 && d.datatype()? != Type::Break {
             d.skip()?;
             len += 1;
         }
