@@ -905,6 +905,141 @@ mod tests {
         assert!(MultiEraTx::decode_for_era(Era::Dijkstra, &with_false).is_err());
     }
 
+    #[test]
+    fn an_indefinite_mempool_form_decodes_for_the_dijkstra_era() {
+        let cbor = dijkstra_block_bytes();
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let source = block
+            .as_dijkstra()
+            .expect("a Dijkstra block")
+            .block_body
+            .transactions
+            .first()
+            .expect("dijkstra3 carries a transaction")
+            .clone();
+
+        let definite = minicbor::to_vec(source.to_mempool_transaction()).expect("infallible");
+        let definite = MultiEraTx::decode_for_era(Era::Dijkstra, &definite)
+            .expect("the three element mempool form is legal Dijkstra");
+        let MultiEraTx::Dijkstra(definite_tx) = &definite else {
+            panic!("a Dijkstra transaction");
+        };
+
+        let body = source.transaction_body.raw_cbor();
+        let witnesses = source.transaction_witness_set.raw_cbor();
+        let aux: &[u8] = match &source.auxiliary_data {
+            pallas_codec::utils::Nullable::Some(aux) => aux.raw_cbor(),
+            _ => &[0xf6],
+        };
+
+        for items in [
+            vec![body, witnesses, aux],
+            vec![body, witnesses, &[0xf5], aux],
+        ] {
+            let indefinite = [&[0x9f][..], &items.concat(), &[0xff]].concat();
+
+            let decoded = MultiEraTx::decode_for_era(Era::Dijkstra, &indefinite)
+                .expect("an indefinite length mempool form is legal Dijkstra");
+            assert_eq!(decoded.hash(), definite.hash());
+
+            let MultiEraTx::Dijkstra(tx) = &decoded else {
+                panic!("a Dijkstra transaction");
+            };
+            assert_eq!(tx.transaction_body, definite_tx.transaction_body);
+            assert_eq!(
+                tx.transaction_witness_set,
+                definite_tx.transaction_witness_set
+            );
+            assert_eq!(tx.auxiliary_data, definite_tx.auxiliary_data);
+            assert!(tx.success);
+        }
+    }
+
+    /// Rebuild a one byte header definite array as an indefinite array of the same items.
+    fn indefinite_form(definite: &[u8]) -> Vec<u8> {
+        assert!(
+            (0x80..=0x97).contains(&definite[0]),
+            "a definite array with a one byte header"
+        );
+
+        [&[0x9f][..], &definite[1..], &[0xff]].concat()
+    }
+
+    #[test]
+    fn an_indefinite_earlier_era_transaction_decodes_as_its_definite_form() {
+        for tx_str in [
+            include_str!("../../test_data/alonzo1.tx"),
+            include_str!("../../test_data/babbage2.tx"),
+            include_str!("../../test_data/conway1.tx"),
+            include_str!("../../test_data/mary1.tx"),
+            include_str!("../../test_data/shelley1.tx"),
+        ] {
+            let bytes = hex::decode(tx_str).expect("invalid hex");
+            assert_eq!(bytes[0], 0x84, "the fixture is the four element form");
+            let definite = MultiEraTx::decode(&bytes).expect("invalid cbor");
+
+            let indefinite = indefinite_form(&bytes);
+            let decoded = MultiEraTx::decode(&indefinite)
+                .unwrap_or_else(|e| panic!("{}: {e}", &tx_str[..16]));
+
+            assert_eq!(decoded.era(), Era::Conway, "{}", &tx_str[..16]);
+            assert_eq!(decoded.era(), definite.era(), "{}", &tx_str[..16]);
+            assert_eq!(decoded.hash(), definite.hash(), "{}", &tx_str[..16]);
+        }
+    }
+
+    #[test]
+    fn an_indefinite_three_element_transaction_is_not_guessed_as_dijkstra() {
+        for tx_str in [
+            include_str!("../../test_data/mary1.tx"),
+            include_str!("../../test_data/shelley1.tx"),
+        ] {
+            let three = three_element_form(tx_str);
+            let indefinite = indefinite_form(&three);
+
+            let named = MultiEraTx::decode_for_era(Era::Dijkstra, &indefinite)
+                .expect("the bytes are a legal mempool form");
+            let definite_named =
+                MultiEraTx::decode_for_era(Era::Dijkstra, &three).expect("invalid cbor");
+            assert_eq!(named.hash(), definite_named.hash(), "{}", &tx_str[..16]);
+
+            let definite = MultiEraTx::decode(&three).expect_err("the definite form is refused");
+            let decoded = MultiEraTx::decode(&indefinite)
+                .expect_err("the indefinite form is refused like the definite one");
+            assert!(
+                matches!(decoded, Error::UnknownCbor(_)),
+                "{}: {decoded}",
+                &tx_str[..16]
+            );
+            assert_eq!(
+                std::mem::discriminant(&decoded),
+                std::mem::discriminant(&definite),
+                "{}",
+                &tx_str[..16]
+            );
+        }
+    }
+
+    #[test]
+    fn an_indefinite_block_form_decodes_through_the_era_agnostic_entry_point() {
+        let cbor = dijkstra_block_bytes();
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+        let from_block = block.txs();
+        let from_block = from_block.first().expect("dijkstra3 carries a transaction");
+
+        let definite = from_block.encode();
+        let indefinite = indefinite_form(&definite);
+
+        let definite = MultiEraTx::decode(&definite).expect("the definite block form decodes");
+        let tx = MultiEraTx::decode(&indefinite).expect("the indefinite block form decodes");
+
+        assert_eq!(tx.era(), Era::Dijkstra);
+        assert_eq!(tx.era(), definite.era());
+        assert_eq!(tx.hash(), definite.hash());
+        assert_eq!(tx.hash(), from_block.hash());
+        assert!(tx.is_valid());
+    }
+
     type Accessor = fn(&MultiEraTx);
 
     const NOT_YET_IMPLEMENTED: [(&str, Accessor); 22] = [
