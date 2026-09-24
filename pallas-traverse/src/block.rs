@@ -495,9 +495,176 @@ mod tests {
         let with = dijkstra_block(include_str!("../../test_data/dijkstra4.block"));
         let with = MultiEraBlock::decode(&with).expect("invalid cbor");
         assert!(with.has_aux_data(), "this fixture carries body key 7");
+        let txs = with.txs();
+        let meta = txs[0].metadata();
+        let labels = meta.collect::<Vec<_>>();
+        assert!(!labels.is_empty(), "and the metadata must be readable");
 
         let without = dijkstra_block(include_str!("../../test_data/dijkstra3.block"));
         let without = MultiEraBlock::decode(&without).expect("invalid cbor");
         assert!(!without.has_aux_data());
+        let txs = without.txs();
+        let meta = txs[0].metadata();
+        assert!(meta.collect::<Vec<_>>().is_empty());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_outputs_carry_an_address_and_a_value() {
+        let cases = [
+            (include_str!("../../test_data/dijkstra2.block"), 1usize),
+            (include_str!("../../test_data/dijkstra3.block"), 1),
+            (include_str!("../../test_data/dijkstra4.block"), 1),
+            (include_str!("../../test_data/dijkstra5.block"), 4),
+            (include_str!("../../test_data/dijkstra6.block"), 4),
+            (include_str!("../../test_data/dijkstra7.block"), 1),
+            (include_str!("../../test_data/dijkstra10.block"), 7),
+            (include_str!("../../test_data/dijkstra11.block"), 1),
+            (include_str!("../../test_data/dijkstra12.block"), 24),
+            (include_str!("../../test_data/dijkstra13.block"), 1),
+            (include_str!("../../test_data/dijkstra14.block"), 1),
+        ];
+
+        let mut seen = 0usize;
+        for (block_str, outputs) in cases {
+            let cbor = dijkstra_block(block_str);
+            let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+            let txs = block.txs();
+            let all: Vec<_> = txs.iter().flat_map(|tx| tx.outputs()).collect();
+            assert_eq!(all.len(), outputs, "output count");
+
+            for output in all.iter() {
+                assert_eq!(output.era(), Era::Dijkstra);
+                assert!(output.as_dijkstra().is_some());
+                output.address().expect("every output address must parse");
+                assert!(output.value().coin() > 0, "every output holds lovelace");
+                assert!(output.value().assets().is_empty());
+                assert!(
+                    output.datum().is_none(),
+                    "no output on this chain carries a datum"
+                );
+                assert!(
+                    output.multi_era_script_ref().is_none(),
+                    "no output on this chain carries a reference script"
+                );
+                seen += 1;
+            }
+        }
+
+        assert_eq!(seen, 46, "the fixtures hold forty six Dijkstra outputs");
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_map_form_output_is_read_through_the_multi_era_accessors() {
+        use pallas_primitives::dijkstra::TransactionOutput;
+
+        let mut map_form = 0usize;
+        let mut array_form = 0usize;
+
+        for block_str in [
+            include_str!("../../test_data/dijkstra10.block"),
+            include_str!("../../test_data/dijkstra11.block"),
+        ] {
+            let cbor = dijkstra_block(block_str);
+            let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+
+            for output in txs.iter().flat_map(|tx| tx.outputs()) {
+                match output.as_dijkstra().expect("a Dijkstra output") {
+                    TransactionOutput::PostAlonzo(_) => {
+                        map_form += 1;
+
+                        let address = output.address().expect("a map output has an address");
+                        assert!(!address.to_vec().is_empty());
+                        assert!(output.value().coin() > 0);
+                        assert!(output.value().assets().is_empty());
+                        assert!(
+                            output.datum().is_none(),
+                            "the datum option is absent on this chain, and it is the map form that has one to be absent"
+                        );
+                        assert!(output.multi_era_script_ref().is_none());
+                    }
+                    TransactionOutput::Legacy(_) => array_form += 1,
+                }
+            }
+        }
+
+        assert_eq!(
+            (map_form, array_form),
+            (6, 2),
+            "dijkstra10 carries five map outputs and two legacy ones, dijkstra11 one map output"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_blocks_yield_their_transactions() {
+        let cases = [
+            (include_str!("../../test_data/dijkstra3.block"), 1usize),
+            (include_str!("../../test_data/dijkstra5.block"), 3),
+            (include_str!("../../test_data/dijkstra6.block"), 4),
+        ];
+
+        let mut seen = 0usize;
+        for (block_str, tx_count) in cases.iter() {
+            let cbor = dijkstra_block(block_str);
+            let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+            assert_eq!(block.era(), Era::Dijkstra);
+            assert_eq!(block.tx_count(), *tx_count);
+            assert_eq!(block.txs().len(), *tx_count);
+
+            for tx in block.txs() {
+                assert!(tx.is_valid(), "every transaction on this chain is valid");
+                assert!(!tx.inputs().is_empty());
+                assert!(tx.fee().is_some());
+                seen += 1;
+            }
+        }
+
+        assert_eq!(seen, 8);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_plain_dijkstra_block_reports_no_redeemers_or_withdrawals() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra3.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert_eq!(block.tx_count(), 1);
+
+        for tx in block.txs() {
+            assert!(tx.redeemers().is_empty());
+            assert!(tx.withdrawals_sorted_set().is_empty());
+            assert!(tx.certs().is_empty());
+            assert!(tx.sub_transactions().is_empty());
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn the_same_accessors_find_what_is_there() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra2.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        let certs: usize = block.txs().iter().map(|tx| tx.certs().len()).sum();
+        assert!(
+            certs > 0,
+            "this fixture carries transaction body key 4, so certs() must find one"
+        );
+
+        let cbor = dijkstra_block(include_str!("../../test_data/babbage6.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Babbage);
+        let redeemers: usize = block.txs().iter().map(|tx| tx.redeemers().len()).sum();
+        assert!(
+            redeemers > 0,
+            "this fixture carries witness set key 5, so redeemers() must find one"
+        );
     }
 }
