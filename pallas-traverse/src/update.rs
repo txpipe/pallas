@@ -4,14 +4,31 @@ use std::{borrow::Cow, ops::Deref};
 
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
+
+// The second form takes a variant list compiled only with the `unstable`
+// feature. A variant cannot be gated inside the list itself.
 macro_rules! param_boilerplate {
     ($name:ident: $type_:ty, [$($variant:tt)*]) => {
+        param_boilerplate!($name: $type_, [$($variant)*], unstable []);
+    };
+
+    ($name:ident: $type_:ty, [$($variant:tt)*], unstable [$($gated:tt)*]) => {
         paste! {
             pub fn [<"first_proposed_" $name>](&self) -> Option<$type_> {
                 #[allow(unreachable_patterns)]
                 match self {
                     $(
                         MultiEraUpdate::$variant(x) => x
+                            .proposed_protocol_parameter_updates
+                            .values()
+                            .next()
+                            .and_then(|x| x.$name.clone()),
+                    )*
+                    $(
+                        #[cfg(feature = "unstable")]
+                        MultiEraUpdate::$gated(x) => x
                             .proposed_protocol_parameter_updates
                             .values()
                             .next()
@@ -35,6 +52,15 @@ macro_rules! param_boilerplate {
                             .flatten()
                             .collect::<Vec<_>>(),
                     )*
+                    $(
+                        #[cfg(feature = "unstable")]
+                        MultiEraUpdate::$gated(x) => x
+                            .proposed_protocol_parameter_updates
+                            .values()
+                            .map(|x| x.$name.clone())
+                            .flatten()
+                            .collect::<Vec<_>>(),
+                    )*
 
                     _ => vec![],
                 }
@@ -51,6 +77,8 @@ pub type ExUnits = alonzo::ExUnits;
 pub type AlonzoCostModels = alonzo::CostModels;
 pub type BabbageCostModels = babbage::CostModels;
 pub type ConwayCostModels = conway::CostModels;
+#[cfg(feature = "unstable")]
+pub type DijkstraCostModels = dijkstra::CostModels;
 pub type ProtocolVersion = alonzo::ProtocolVersion;
 pub type PoolVotingThresholds = conway::PoolVotingThresholds;
 pub type DRepVotingThresholds = conway::DRepVotingThresholds;
@@ -81,9 +109,11 @@ impl<'b> MultiEraUpdate<'b> {
                 Ok(MultiEraUpdate::Conway(up))
             }
             #[cfg(feature = "unstable")]
-            Era::Dijkstra => Err(minicbor::decode::Error::message(
-                "MultiEraUpdate::decode_for_era is not yet implemented for Dijkstra",
-            )),
+            Era::Dijkstra => {
+                let up = minicbor::decode(cbor)?;
+                let up = Box::new(Cow::Owned(up));
+                Ok(MultiEraUpdate::Dijkstra(up))
+            }
         }
     }
 
@@ -94,6 +124,8 @@ impl<'b> MultiEraUpdate<'b> {
             MultiEraUpdate::AlonzoCompatible(x) => minicbor::to_vec(x).unwrap(),
             MultiEraUpdate::Babbage(x) => minicbor::to_vec(x).unwrap(),
             MultiEraUpdate::Byron(a, b) => minicbor::to_vec((a, b)).unwrap(),
+            #[cfg(feature = "unstable")]
+            MultiEraUpdate::Dijkstra(x) => minicbor::to_vec(x).unwrap(),
         }
     }
 
@@ -111,6 +143,19 @@ impl<'b> MultiEraUpdate<'b> {
 
     pub fn from_conway(update: &'b conway::Update) -> Self {
         Self::Conway(Box::new(Cow::Borrowed(update)))
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn from_dijkstra(update: &'b dijkstra::Update) -> Self {
+        Self::Dijkstra(Box::new(Cow::Borrowed(update)))
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn as_dijkstra(&self) -> Option<&dijkstra::Update> {
+        match self {
+            Self::Dijkstra(x) => Some(x),
+            _ => None,
+        }
     }
 
     pub fn as_byron(&self) -> Option<&byron::UpProp> {
@@ -140,6 +185,8 @@ impl<'b> MultiEraUpdate<'b> {
             MultiEraUpdate::AlonzoCompatible(x) => x.epoch,
             MultiEraUpdate::Babbage(x) => x.epoch,
             MultiEraUpdate::Conway(x) => x.epoch,
+            #[cfg(feature = "unstable")]
+            MultiEraUpdate::Dijkstra(x) => x.epoch,
         }
     }
 
@@ -205,6 +252,22 @@ impl<'b> MultiEraUpdate<'b> {
         }
     }
 
+    /// Returns the Dijkstra cost models, which are their own type because the
+    /// map gains a named PlutusV4 key at index 3 that Conway folds into unknown.
+    #[cfg(feature = "unstable")]
+    pub fn dijkstra_first_proposed_cost_models_for_script_languages(
+        &self,
+    ) -> Option<DijkstraCostModels> {
+        match self {
+            MultiEraUpdate::Dijkstra(x) => x
+                .proposed_protocol_parameter_updates
+                .values()
+                .next()
+                .and_then(|x| x.cost_models_for_script_languages.clone()),
+            _ => None,
+        }
+    }
+
     // remaining params are mostly boilerplate code, so we can just generate them
 
     param_boilerplate!(minfee_a: u32, [AlonzoCompatible Babbage]);
@@ -253,21 +316,35 @@ impl<'b> MultiEraUpdate<'b> {
 
     param_boilerplate!(max_collateral_inputs: u32, [AlonzoCompatible Babbage]);
 
-    param_boilerplate!(pool_voting_thresholds: PoolVotingThresholds, [Conway]);
+    param_boilerplate!(pool_voting_thresholds: PoolVotingThresholds, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(drep_voting_thresholds: DRepVotingThresholds, [Conway]);
+    param_boilerplate!(drep_voting_thresholds: DRepVotingThresholds, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(min_committee_size: u64, [Conway]);
+    param_boilerplate!(min_committee_size: u64, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(committee_term_limit: u64, [Conway]);
+    param_boilerplate!(committee_term_limit: u64, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(governance_action_validity_period: u64, [Conway]);
+    param_boilerplate!(governance_action_validity_period: u64, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(governance_action_deposit: u64, [Conway]);
+    param_boilerplate!(governance_action_deposit: u64, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(drep_deposit: u64, [Conway]);
+    param_boilerplate!(drep_deposit: u64, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(drep_inactivity_period: u64, [Conway]);
+    param_boilerplate!(drep_inactivity_period: u64, [Conway], unstable [Dijkstra]);
 
-    param_boilerplate!(minfee_refscript_cost_per_byte: UnitInterval, [Conway]);
+    param_boilerplate!(minfee_refscript_cost_per_byte: UnitInterval, [Conway], unstable [Dijkstra]);
+
+    // -- NEW IN DIJKSTRA
+    // the four reference script parameters, keys 34 to 37
+    #[cfg(feature = "unstable")]
+    param_boilerplate!(max_ref_script_size_per_block: u64, [], unstable [Dijkstra]);
+
+    #[cfg(feature = "unstable")]
+    param_boilerplate!(max_ref_script_size_per_tx: u64, [], unstable [Dijkstra]);
+
+    #[cfg(feature = "unstable")]
+    param_boilerplate!(ref_script_cost_stride: u64, [], unstable [Dijkstra]);
+
+    #[cfg(feature = "unstable")]
+    param_boilerplate!(ref_script_cost_multiplier: RationalNumber, [], unstable [Dijkstra]);
 }

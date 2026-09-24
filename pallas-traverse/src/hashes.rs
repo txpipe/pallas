@@ -150,6 +150,20 @@ impl OriginalHash<32> for KeepRaw<'_, dijkstra::TransactionBody<'_>> {
 }
 
 #[cfg(feature = "unstable")]
+impl ComputeHash<32> for dijkstra::SubTransactionBody<'_> {
+    fn compute_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash_cbor(self)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::SubTransactionBody<'_>> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
+#[cfg(feature = "unstable")]
 impl ComputeHash<32> for dijkstra::AuxiliaryData {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
@@ -688,5 +702,48 @@ mod tests {
 
             assert_eq!(txs[index].hash().to_string(), id, "transaction id");
         }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_auxiliary_data_hashes_as_the_body_declares() {
+        let cases = [
+            (include_str!("../../test_data/dijkstra4.block"), 1usize),
+            (include_str!("../../test_data/dijkstra5.block"), 1),
+            (include_str!("../../test_data/dijkstra6.block"), 2),
+        ];
+
+        let mut checked = 0usize;
+        for (block_str, declaring) in cases {
+            let cbor = hex::decode(block_str).expect("invalid hex");
+            let block = crate::MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+
+            let mut seen = 0usize;
+            for tx in txs.iter() {
+                let body = tx.as_dijkstra().expect("a Dijkstra transaction");
+                let Some(declared) = body.transaction_body.auxiliary_data_hash else {
+                    continue;
+                };
+                let aux = tx
+                    .dijkstra_aux_data()
+                    .expect("a body that declares the hash carries the data");
+
+                assert_eq!(
+                    aux.original_hash(),
+                    declared,
+                    "the auxiliary data hashes to what the body commits to"
+                );
+                seen += 1;
+                checked += 1;
+            }
+
+            assert_eq!(seen, declaring, "transactions declaring key 7");
+        }
+
+        assert_eq!(
+            checked, 4,
+            "the fixtures declare four auxiliary data hashes"
+        );
     }
 }

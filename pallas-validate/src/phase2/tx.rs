@@ -112,7 +112,7 @@ fn execute_script(
     })
 }
 
-#[instrument(skip_all, fields(tag = ?redeemer.tag(), index = redeemer.index()))]
+#[instrument(skip_all, fields(tag = ?redeemer.multi_era_tag(), index = redeemer.index()))]
 pub fn eval_redeemer(
     redeemer: &MultiEraRedeemer,
     tx: &MultiEraTx,
