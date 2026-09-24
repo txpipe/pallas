@@ -71,6 +71,10 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
     ),
+    (
+        "dijkstra16",
+        include_str!("../../../test_data/dijkstra16.block"),
+    ),
 ];
 
 /// Blocks from before the fork. Their bodies are the Conway five element
@@ -973,6 +977,10 @@ const HEADER_HASHES: &[(&str, &str)] = &[
     (
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
+    ),
+    (
+        "dijkstra16",
+        "c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c",
     ),
 ];
 
