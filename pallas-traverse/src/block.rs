@@ -4,6 +4,9 @@ use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
+
 use crate::{
     Era, Error, MultiEraBlock, MultiEraHeader, MultiEraTx, MultiEraUpdate, probe, support,
 };
@@ -67,6 +70,14 @@ impl<'b> MultiEraBlock<'b> {
         Ok(Self::Conway(Box::new(block)))
     }
 
+    #[cfg(feature = "unstable")]
+    pub fn decode_dijkstra(cbor: &'b [u8]) -> Result<Self, Error> {
+        let (_, block): BlockWrapper<dijkstra::Block> =
+            minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
+
+        Ok(Self::Dijkstra(Box::new(block)))
+    }
+
     pub fn decode(cbor: &'b [u8]) -> Result<MultiEraBlock<'b>, Error> {
         match probe::block_era(cbor) {
             probe::Outcome::EpochBoundary => Self::decode_epoch_boundary(cbor),
@@ -78,6 +89,8 @@ impl<'b> MultiEraBlock<'b> {
                 Era::Alonzo => Self::decode_alonzo(cbor),
                 Era::Babbage => Self::decode_babbage(cbor),
                 Era::Conway => Self::decode_conway(cbor),
+                #[cfg(feature = "unstable")]
+                Era::Dijkstra => Self::decode_dijkstra(cbor),
             },
             probe::Outcome::Inconclusive => Err(Error::unknown_cbor(cbor)),
         }
@@ -96,6 +109,8 @@ impl<'b> MultiEraBlock<'b> {
                 MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header))
             }
             MultiEraBlock::Conway(x) => MultiEraHeader::BabbageCompatible(Cow::Borrowed(&x.header)),
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(x) => MultiEraHeader::Dijkstra(Cow::Borrowed(&x.header)),
         }
     }
 
@@ -111,6 +126,8 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::Babbage(_) => Era::Babbage,
             MultiEraBlock::Byron(_) => Era::Byron,
             MultiEraBlock::Conway(_) => Era::Conway,
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(_) => Era::Dijkstra,
         }
     }
 
@@ -141,6 +158,11 @@ impl<'b> MultiEraBlock<'b> {
                 .into_iter()
                 .map(|x| MultiEraTx::Conway(Box::new(Cow::Owned(x))))
                 .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(x) => support::clone_dijkstra_txs(x)
+                .into_iter()
+                .map(|x| MultiEraTx::Dijkstra(Box::new(Cow::Owned(x))))
+                .collect(),
             MultiEraBlock::EpochBoundary(_) => vec![],
         }
     }
@@ -153,6 +175,8 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::Babbage(x) => x.transaction_bodies.is_empty(),
             MultiEraBlock::Byron(x) => x.body.tx_payload.is_empty(),
             MultiEraBlock::Conway(x) => x.transaction_bodies.is_empty(),
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(x) => x.block_body.transactions.is_empty(),
         }
     }
 
@@ -164,6 +188,8 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::Babbage(x) => x.transaction_bodies.len(),
             MultiEraBlock::Byron(x) => x.body.tx_payload.len(),
             MultiEraBlock::Conway(x) => x.transaction_bodies.len(),
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(x) => x.block_body.transactions.len(),
         }
     }
 
@@ -175,6 +201,14 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::Babbage(x) => !x.auxiliary_data_set.is_empty(),
             MultiEraBlock::Byron(_) => false,
             MultiEraBlock::Conway(x) => !x.auxiliary_data_set.is_empty(),
+            // Dijkstra carries auxiliary data inline per transaction, so this asks
+            // whether any of them wrote one. A nil slot reads as absent.
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(x) => x
+                .block_body
+                .transactions
+                .iter()
+                .any(|tx| matches!(tx.auxiliary_data, pallas_primitives::Nullable::Some(_))),
         }
     }
 
@@ -224,6 +258,38 @@ impl<'b> MultiEraBlock<'b> {
         }
     }
 
+    #[cfg(feature = "unstable")]
+    pub fn as_dijkstra(&self) -> Option<&dijkstra::Block<'_>> {
+        match self {
+            MultiEraBlock::Dijkstra(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// The Leios certificate this block body carries. `None` before Dijkstra.
+    #[cfg(feature = "unstable")]
+    pub fn leios_certificate(&self) -> Option<&dijkstra::LeiosCertificate> {
+        match self {
+            MultiEraBlock::Dijkstra(x) => match &x.block_body.leios_certificate {
+                pallas_primitives::Nullable::Some(c) => Some(c),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// The Peras certificate this block body carries. `None` before Dijkstra.
+    #[cfg(feature = "unstable")]
+    pub fn peras_certificate(&self) -> Option<&dijkstra::PerasCertificate> {
+        match self {
+            MultiEraBlock::Dijkstra(x) => match &x.block_body.peras_certificate {
+                pallas_primitives::Nullable::Some(c) => Some(c),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     /// Return the size of the serialised block in bytes
     pub fn size(&self) -> usize {
         match self {
@@ -232,6 +298,8 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::AlonzoCompatible(b, _) => minicbor::to_vec(b).unwrap().len(),
             MultiEraBlock::Babbage(b) => minicbor::to_vec(b).unwrap().len(),
             MultiEraBlock::Conway(b) => minicbor::to_vec(b).unwrap().len(),
+            #[cfg(feature = "unstable")]
+            MultiEraBlock::Dijkstra(b) => minicbor::to_vec(b).unwrap().len(),
         }
     }
 }
@@ -255,5 +323,181 @@ mod tests {
             let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
             assert_eq!(block.txs().len(), tx_count);
         }
+    }
+
+    fn dijkstra_block(hex_str: &str) -> Vec<u8> {
+        hex::decode(hex_str).expect("invalid hex")
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    #[test]
+    fn a_dijkstra_block_is_refused_without_the_feature() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra1.block"));
+
+        let err = MultiEraBlock::decode(&cbor)
+            .expect_err("a Dijkstra block must not decode without the unstable feature");
+
+        assert!(
+            matches!(err, Error::UnknownCbor(_)),
+            "expected the unknown-cbor refusal, found {err:?}"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn dijkstra_block_decodes_as_dijkstra() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra1.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert!(block.as_dijkstra().is_some());
+        assert!(block.as_conway().is_none());
+        assert!(block.header().as_dijkstra().is_some());
+        assert!(block.header().as_babbage().is_none());
+
+        assert_eq!(block.tx_count(), 0);
+        assert!(block.is_empty());
+        assert_eq!(block.header().block_body_contains_leios_cert(), Some(false));
+        assert!(block.header().eb_announcement().is_none());
+        assert!(block.leios_certificate().is_none());
+        assert!(block.peras_certificate().is_none());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn the_block_before_the_fork_is_conway() {
+        let cbor = dijkstra_block(include_str!("../../test_data/conway5.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Conway);
+        assert!(block.as_conway().is_some());
+        assert!(block.as_dijkstra().is_none());
+
+        assert!(
+            MultiEraBlock::decode_dijkstra(&cbor).is_err(),
+            "a Conway block body must be refused by the Dijkstra type"
+        );
+
+        assert_eq!(block.header().block_body_contains_leios_cert(), None);
+        assert!(block.leios_certificate().is_none());
+    }
+
+    #[cfg(feature = "unstable")]
+    fn hand_built_block(leios: bool, peras: bool, valid: bool) -> Vec<u8> {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra3.block"));
+        let (_, mut block): (u16, dijkstra::Block) =
+            minicbor::decode(&cbor).expect("the fixture must decode");
+
+        if leios {
+            block.block_body.leios_certificate =
+                pallas_primitives::Nullable::Some(dijkstra::LeiosCertificate {
+                    signers: vec![0x0f; 4].into(),
+                    signature: vec![0x11; 48].into(),
+                });
+        }
+
+        if peras {
+            block.block_body.peras_certificate =
+                pallas_primitives::Nullable::Some(vec![0x22; 16].into());
+        }
+
+        let mut txs = block.block_body.transactions.to_vec();
+        for tx in txs.iter_mut() {
+            tx.success = valid;
+        }
+        block.block_body.transactions = pallas_codec::utils::MaybeIndefArray::Def(txs);
+
+        minicbor::to_vec((8u16, &block)).expect("to_vec is infallible")
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_block_body_that_carries_certificates_reports_them() {
+        let cbor = hand_built_block(true, true, false);
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+
+        let leios = block
+            .leios_certificate()
+            .expect("a written Leios certificate must be readable");
+        assert_eq!(leios.signature.len(), 48);
+        assert_eq!(leios.signers.as_ref(), [0x0f; 4]);
+
+        let peras = block
+            .peras_certificate()
+            .expect("a written Peras certificate must be readable");
+        assert_eq!(peras.len(), 16);
+
+        assert_eq!(block.tx_count(), 1);
+        for tx in block.txs() {
+            assert!(
+                !tx.is_valid(),
+                "the flag written as false must be read as false"
+            );
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_block_body_that_carries_no_certificates_reports_none() {
+        let cbor = hand_built_block(false, false, true);
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert!(block.leios_certificate().is_none());
+        assert!(block.peras_certificate().is_none());
+        for tx in block.txs() {
+            assert!(tx.is_valid());
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_block_that_carries_a_leios_certificate_reports_it() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra8.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert_eq!(block.header().block_body_contains_leios_cert(), Some(true));
+
+        let leios = block
+            .leios_certificate()
+            .expect("dijkstra8 carries a Leios certificate");
+        assert_eq!(
+            hex::encode(leios.signers.as_slice()),
+            "f218a17300000e08200200"
+        );
+        assert_eq!(
+            leios.signature.len(),
+            48,
+            "a BLS12-381 signature is 48 bytes"
+        );
+
+        assert!(block.peras_certificate().is_none());
+
+        let other = dijkstra_block(include_str!("../../test_data/dijkstra9.block"));
+        let other = MultiEraBlock::decode(&other).expect("invalid cbor");
+        let second = other
+            .leios_certificate()
+            .expect("dijkstra9 carries one too");
+        assert_ne!(second.signers, leios.signers);
+        assert_ne!(second.signature, leios.signature);
+
+        let plain = dijkstra_block(include_str!("../../test_data/dijkstra11.block"));
+        let plain = MultiEraBlock::decode(&plain).expect("invalid cbor");
+        assert_eq!(plain.header().block_body_contains_leios_cert(), Some(false));
+        assert!(plain.leios_certificate().is_none());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn auxiliary_data_is_reported_only_where_a_block_carries_it() {
+        let with = dijkstra_block(include_str!("../../test_data/dijkstra4.block"));
+        let with = MultiEraBlock::decode(&with).expect("invalid cbor");
+        assert!(with.has_aux_data(), "this fixture carries body key 7");
+
+        let without = dijkstra_block(include_str!("../../test_data/dijkstra3.block"));
+        let without = MultiEraBlock::decode(&without).expect("invalid cbor");
+        assert!(!without.has_aux_data());
     }
 }

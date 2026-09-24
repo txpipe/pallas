@@ -159,6 +159,10 @@ impl<'b> MultiEraOutput<'b> {
                 let tx = Box::new(Cow::Owned(tx));
                 Ok(Self::Conway(tx))
             }
+            #[cfg(feature = "unstable")]
+            Era::Dijkstra => Err(minicbor::decode::Error::message(
+                "MultiEraOutput::decode is not yet implemented for Dijkstra",
+            )),
         }
     }
 

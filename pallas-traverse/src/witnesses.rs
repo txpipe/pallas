@@ -29,6 +29,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("vkey_witnesses is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -53,6 +57,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("native_scripts is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -77,6 +85,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("bootstrap_witnesses is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -101,6 +113,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("plutus_v1_scripts is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -125,6 +141,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("plutus_data is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -162,6 +182,10 @@ impl<'b> MultiEraTx<'b> {
                     .collect(),
                 _ => vec![],
             },
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("redeemers is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -210,6 +234,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("plutus_v2_scripts is not yet implemented for Dijkstra")
+            }
         }
     }
 
@@ -224,6 +252,10 @@ impl<'b> MultiEraTx<'b> {
                 .as_ref()
                 .map(|x| x.as_ref())
                 .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(_) => {
+                unimplemented!("plutus_v3_scripts is not yet implemented for Dijkstra")
+            }
         }
     }
 }
