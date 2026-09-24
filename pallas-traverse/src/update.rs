@@ -80,6 +80,10 @@ impl<'b> MultiEraUpdate<'b> {
                 let up = Box::new(Cow::Owned(up));
                 Ok(MultiEraUpdate::Conway(up))
             }
+            #[cfg(feature = "unstable")]
+            Era::Dijkstra => Err(minicbor::decode::Error::message(
+                "MultiEraUpdate::decode_for_era is not yet implemented for Dijkstra",
+            )),
         }
     }
 

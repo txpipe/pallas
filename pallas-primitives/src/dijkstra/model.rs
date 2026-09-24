@@ -1470,6 +1470,17 @@ pub struct MempoolTransaction<'b> {
     pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
 }
 
+impl<'b> From<MempoolTransaction<'b>> for BlockTransaction<'b> {
+    fn from(tx: MempoolTransaction<'b>) -> Self {
+        BlockTransaction {
+            transaction_body: tx.transaction_body,
+            transaction_witness_set: tx.transaction_witness_set,
+            auxiliary_data: tx.auxiliary_data,
+            success: true,
+        }
+    }
+}
+
 impl<'b, C> minicbor::Decode<'b, C> for MempoolTransaction<'b> {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let len = d.array()?;

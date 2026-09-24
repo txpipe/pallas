@@ -37,6 +37,10 @@ with the block's CRC32 and the header's offset and size.
 | dijkstra14.block | 00574/21 | 620349 | 28687 | `9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf` | 1734 | 8 | 1 | a transaction body writing its certificate set as a bare array rather than under tag 258 |
 | dijkstra15.block | 00344/11 | 371916 | 17406 | `0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b` | 964 | 8 | 0 | an announced endorser block size of 71103, which needs the five byte uint |
 
+The `tag` column is the block wrapper tag. A Dijkstra header arriving on its
+own over chainsync carries envelope tag 7 rather than the wrapper tag 8, and
+that number was observed on a node rather than read from any file here.
+
 What each fixture's transactions carry. Every other key and shape the era
 models is exercised by no fixture and is modelled from the CDDL alone.
 
