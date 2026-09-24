@@ -4,7 +4,10 @@ use pallas_addresses::{Address, ByronAddress, Error as AddressError};
 use pallas_codec::minicbor;
 use pallas_primitives::{alonzo, babbage, byron, conway};
 
-use crate::{Era, MultiEraOutput, MultiEraPolicyAssets, MultiEraValue};
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
+
+use crate::{Era, MultiEraOutput, MultiEraPolicyAssets, MultiEraScriptRef, MultiEraValue};
 
 impl<'b> MultiEraOutput<'b> {
     pub fn from_byron(output: &'b byron::TxOut) -> Self {
@@ -21,6 +24,11 @@ impl<'b> MultiEraOutput<'b> {
 
     pub fn from_conway(output: &'b conway::TransactionOutput<'b>) -> Self {
         Self::Conway(Box::new(Cow::Borrowed(output)))
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn from_dijkstra(output: &'b dijkstra::TransactionOutput<'b>) -> Self {
+        Self::Dijkstra(Box::new(Cow::Borrowed(output)))
     }
 
     pub fn datum(&self) -> Option<conway::DatumOption<'_>> {
@@ -43,9 +51,51 @@ impl<'b> MultiEraOutput<'b> {
                     x.datum_option.clone().map(|y| y.unwrap())
                 }
             },
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(x) => match x.deref().deref() {
+                dijkstra::TransactionOutput::Legacy(x) => {
+                    x.datum_hash.map(babbage::DatumOption::Hash)
+                }
+                dijkstra::TransactionOutput::PostAlonzo(x) => {
+                    x.datum_option.clone().map(|y| y.unwrap())
+                }
+            },
         }
     }
 
+    pub fn multi_era_script_ref(&self) -> Option<MultiEraScriptRef<'_>> {
+        match &self {
+            MultiEraOutput::AlonzoCompatible(..) => None,
+            MultiEraOutput::Babbage(x) => match x.deref().deref() {
+                babbage::TransactionOutput::Legacy(_) => None,
+                babbage::TransactionOutput::PostAlonzo(x) => x
+                    .script_ref
+                    .clone()
+                    .map(|x| MultiEraScriptRef::Conway(Cow::Owned(x.unwrap().into()))),
+            },
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(x) => match x.deref().deref() {
+                conway::TransactionOutput::Legacy(_) => None,
+                conway::TransactionOutput::PostAlonzo(x) => x
+                    .script_ref
+                    .clone()
+                    .map(|x| MultiEraScriptRef::Conway(Cow::Owned(x.unwrap()))),
+            },
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(x) => match x.deref().deref() {
+                dijkstra::TransactionOutput::Legacy(_) => None,
+                dijkstra::TransactionOutput::PostAlonzo(x) => x
+                    .script_ref
+                    .clone()
+                    .map(|x| MultiEraScriptRef::Dijkstra(Cow::Owned(x.unwrap()))),
+            },
+        }
+    }
+
+    #[deprecated(
+        since = "1.5.0",
+        note = "use multi_era_script_ref. This method cannot represent a Dijkstra reference script"
+    )]
     pub fn script_ref(&self) -> Option<conway::ScriptRef<'_>> {
         match &self {
             MultiEraOutput::AlonzoCompatible(..) => None,
@@ -62,6 +112,8 @@ impl<'b> MultiEraOutput<'b> {
                     x.script_ref.clone().map(|x| x.unwrap())
                 }
             },
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => None,
         }
     }
 
@@ -79,6 +131,11 @@ impl<'b> MultiEraOutput<'b> {
                 conway::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
                 conway::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
             },
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(x) => match x.deref().deref() {
+                dijkstra::TransactionOutput::Legacy(x) => Address::from_bytes(&x.address),
+                dijkstra::TransactionOutput::PostAlonzo(x) => Address::from_bytes(&x.address),
+            },
         }
     }
 
@@ -88,6 +145,8 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(_) => None,
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => None,
         }
     }
 
@@ -97,6 +156,8 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Babbage(x) => Some(x),
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(_) => None,
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => None,
         }
     }
 
@@ -106,6 +167,8 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(x) => Some(x),
             MultiEraOutput::Conway(_) => None,
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => None,
         }
     }
 
@@ -115,6 +178,19 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Babbage(_) => None,
             MultiEraOutput::Byron(_) => None,
             MultiEraOutput::Conway(x) => Some(x),
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => None,
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn as_dijkstra(&self) -> Option<&dijkstra::TransactionOutput<'_>> {
+        match self {
+            MultiEraOutput::AlonzoCompatible(..) => None,
+            MultiEraOutput::Babbage(_) => None,
+            MultiEraOutput::Byron(_) => None,
+            MultiEraOutput::Conway(_) => None,
+            MultiEraOutput::Dijkstra(x) => Some(x),
         }
     }
 
@@ -124,6 +200,8 @@ impl<'b> MultiEraOutput<'b> {
             MultiEraOutput::Babbage(_) => Era::Babbage,
             MultiEraOutput::Conway(_) => Era::Conway,
             MultiEraOutput::Byron(_) => Era::Byron,
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(_) => Era::Dijkstra,
         }
     }
 
@@ -134,6 +212,8 @@ impl<'b> MultiEraOutput<'b> {
             Self::Babbage(x) => minicbor::to_vec(x).unwrap(),
             Self::Byron(x) => minicbor::to_vec(x).unwrap(),
             Self::Conway(x) => minicbor::to_vec(x).unwrap(),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(x) => minicbor::to_vec(x).unwrap(),
         }
     }
 
@@ -160,9 +240,11 @@ impl<'b> MultiEraOutput<'b> {
                 Ok(Self::Conway(tx))
             }
             #[cfg(feature = "unstable")]
-            Era::Dijkstra => Err(minicbor::decode::Error::message(
-                "MultiEraOutput::decode is not yet implemented for Dijkstra",
-            )),
+            Era::Dijkstra => {
+                let tx = minicbor::decode(cbor)?;
+                let tx = Box::new(Cow::Owned(tx));
+                Ok(Self::Dijkstra(tx))
+            }
         }
     }
 
@@ -185,6 +267,16 @@ impl<'b> MultiEraOutput<'b> {
                     MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.amount))
                 }
                 conway::TransactionOutput::PostAlonzo(x) => {
+                    MultiEraValue::Conway(Cow::Borrowed(&x.value))
+                }
+            },
+            // `dijkstra::Value` is a re-export of `conway::Value`.
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(x) => match x.deref().deref() {
+                dijkstra::TransactionOutput::Legacy(x) => {
+                    MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.amount))
+                }
+                dijkstra::TransactionOutput::PostAlonzo(x) => {
                     MultiEraValue::Conway(Cow::Borrowed(&x.value))
                 }
             },
@@ -234,6 +326,23 @@ impl<'b> MultiEraOutput<'b> {
                 conway::TransactionOutput::PostAlonzo(x) => match &x.value {
                     conway::Value::Coin(_) => vec![],
                     conway::Value::Multiasset(_, x) => x
+                        .iter()
+                        .map(|(k, v)| MultiEraPolicyAssets::ConwayOutput(k, v))
+                        .collect(),
+                },
+            },
+            #[cfg(feature = "unstable")]
+            MultiEraOutput::Dijkstra(x) => match x.deref().deref() {
+                dijkstra::TransactionOutput::Legacy(x) => match &x.amount {
+                    babbage::Value::Coin(_) => vec![],
+                    babbage::Value::Multiasset(_, x) => x
+                        .iter()
+                        .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
+                        .collect(),
+                },
+                dijkstra::TransactionOutput::PostAlonzo(x) => match &x.value {
+                    dijkstra::Value::Coin(_) => vec![],
+                    dijkstra::Value::Multiasset(_, x) => x
                         .iter()
                         .map(|(k, v)| MultiEraPolicyAssets::ConwayOutput(k, v))
                         .collect(),

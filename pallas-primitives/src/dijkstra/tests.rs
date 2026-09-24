@@ -669,33 +669,21 @@ fn conway_header_is_refused_as_dijkstra() {
 
 /// A `proposal_procedure` whose `gov_action` is a `parameter_change_action`
 /// setting one key. Hand built, because no fixture carries a proposal.
-fn proposal_setting(key: u64, value: u64) -> Vec<u8> {
-    let mut e = minicbor::Encoder::new(Vec::new());
+fn proposal_setting(key: u64) -> Vec<u8> {
+    let hex_str = match key {
+        0 => include_str!("../../../test_data/proposal-param-change-key0.hex"),
+        48 => include_str!("../../../test_data/proposal-param-change-key48.hex"),
+        other => panic!("no proposal fixture sets key {other}"),
+    };
 
-    e.array(4).unwrap();
-    e.u64(1_000_000).unwrap();
-    e.bytes(&[0xe0; 29]).unwrap();
-
-    e.array(4).unwrap();
-    e.u16(0).unwrap();
-    e.null().unwrap();
-    e.map(1).unwrap();
-    e.u64(key).unwrap();
-    e.u64(value).unwrap();
-    e.null().unwrap();
-
-    e.array(2).unwrap();
-    e.str("https://example.invalid/anchor").unwrap();
-    e.bytes(&[0x00; 32]).unwrap();
-
-    e.into_writer()
+    hex::decode(hex_str).expect("invalid hex")
 }
 
 /// A short type would turn a key 48 change into an update that changes nothing.
 #[test]
 fn a_proposal_keeps_the_dijkstra_parameter_keys() {
     // Key 0 exists in every era, so a failure here is about the proposal shape.
-    let shared_key = proposal_setting(0, 1_000);
+    let shared_key = proposal_setting(0);
     let decoded: ProposalProcedure =
         minicbor::decode(&shared_key).expect("a proposal setting key 0 must decode");
     assert_eq!(
@@ -704,7 +692,7 @@ fn a_proposal_keeps_the_dijkstra_parameter_keys() {
         "a proposal setting key 0 lost bytes on re-encode"
     );
 
-    let dijkstra_key = proposal_setting(48, 20_000);
+    let dijkstra_key = proposal_setting(48);
     let decoded: ProposalProcedure =
         minicbor::decode(&dijkstra_key).expect("a proposal setting key 48 must decode");
     assert_eq!(

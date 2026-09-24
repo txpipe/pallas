@@ -23,6 +23,11 @@ impl MultiEraTx<'_> {
                 Nullable::Some(x) => x.raw_cbor().len() + 1,
                 _ => 2,
             },
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => match &x.auxiliary_data {
+                Nullable::Some(x) => x.raw_cbor().len() + 1,
+                _ => 2,
+            },
         }
     }
 
@@ -34,6 +39,8 @@ impl MultiEraTx<'_> {
             MultiEraTx::Conway(x) => x.transaction_body.raw_cbor().len(),
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.raw_cbor().len(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.raw_cbor().len(),
         }
     }
 
@@ -45,6 +52,8 @@ impl MultiEraTx<'_> {
             MultiEraTx::Conway(x) => x.transaction_witness_set.raw_cbor().len(),
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_witness_set.raw_cbor().len(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x) => x.transaction_witness_set.raw_cbor().len(),
         }
     }
 
@@ -52,7 +61,7 @@ impl MultiEraTx<'_> {
         match self {
             MultiEraTx::Byron(_) => self.body_size(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::Dijkstra(..) => {
+            MultiEraTx::Dijkstra(..) | MultiEraTx::DijkstraSub(..) => {
                 self.body_size() + self.witness_set_size() + self.aux_data_size()
             }
             MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) | MultiEraTx::Conway(_) => {

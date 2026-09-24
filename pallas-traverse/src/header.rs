@@ -174,10 +174,11 @@ impl<'b> MultiEraHeader<'b> {
         }
     }
 
-    /// Whether this body carries a Leios certificate. `None` before Dijkstra.
-    #[cfg(feature = "unstable")]
+    /// Returns whether this body carries a Leios certificate, or None before
+    /// Dijkstra, the only era whose header body has the field.
     pub fn block_body_contains_leios_cert(&self) -> Option<bool> {
         match self {
+            #[cfg(feature = "unstable")]
             MultiEraHeader::Dijkstra(x) => Some(x.header_body.block_body_contains_leios_cert),
             _ => None,
         }
@@ -247,6 +248,23 @@ mod tests {
     #[cfg(feature = "unstable")]
     fn dijkstra_header_bytes() -> Vec<u8> {
         header_of(include_str!("../../test_data/dijkstra1.block"))
+    }
+
+    #[test]
+    fn a_babbage_header_carries_no_leios_certificate_flag() {
+        let raw = header_of(include_str!("../../test_data/babbage1.block"));
+        let header = MultiEraHeader::decode(5, None, &raw).unwrap();
+
+        assert_eq!(
+            header.era(),
+            Era::Babbage,
+            "the fixture must read as its own era, or the answer below is about the wrong header"
+        );
+        assert_eq!(
+            header.block_body_contains_leios_cert(),
+            None,
+            "only Dijkstra's header body has the field"
+        );
     }
 
     #[cfg(feature = "unstable")]
