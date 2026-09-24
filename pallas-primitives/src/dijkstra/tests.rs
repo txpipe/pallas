@@ -1,10 +1,11 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
     Certificate, CostModels, DRep, GovAction, Guards, Header, MempoolTransaction, NativeScript,
-    NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionOutput, Value,
+    NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
+    TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
-use pallas_codec::utils::KeepRaw;
+use pallas_codec::utils::{KeepRaw, Nullable};
 
 type BlockWrapper<'b> = (u16, Block<'b>);
 
@@ -328,6 +329,110 @@ fn a_block_transaction_is_not_a_mempool_transaction() {
     assert!(
         as_block.is_err(),
         "a mempool transaction must not decode as a block transaction"
+    );
+}
+
+/// A valid block transaction comes back byte for byte from a round trip through
+/// the mempool form.
+#[test]
+fn a_mempool_transaction_becomes_a_valid_block_transaction() {
+    let bytes = hex::decode(TEST_BLOCKS[WITH_TRANSACTIONS].1).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes).unwrap();
+
+    let tx = block
+        .block_body
+        .transactions
+        .first()
+        .expect("this fixture must carry at least one transaction");
+
+    let three = minicbor::to_vec(tx.to_mempool_transaction()).unwrap();
+    let mempool: MempoolTransaction = minicbor::decode(&three).unwrap();
+
+    let rebuilt = BlockTransaction::from(mempool.clone());
+    assert!(rebuilt.success, "the mempool form admits no other verdict");
+
+    let spelled_out = MempoolTransaction {
+        is_valid_supplied: true,
+        ..mempool
+    };
+    assert_eq!(
+        BlockTransaction::from(spelled_out),
+        rebuilt,
+        "a `true` written out means what the three element form means"
+    );
+    assert_eq!(&rebuilt, tx, "nothing but the flag was restored");
+    assert_eq!(
+        minicbor::to_vec(&rebuilt).unwrap(),
+        minicbor::to_vec(tx).unwrap(),
+        "the round trip is byte for byte"
+    );
+
+    let four = minicbor::to_vec(&rebuilt).unwrap();
+    let round: Result<MempoolTransaction, _> = minicbor::decode(&four);
+    assert!(
+        round.is_err(),
+        "the rebuilt transaction must no longer read as a mempool one"
+    );
+}
+
+/// Heap addresses of an input, a vkey witness and a metadata label, which a
+/// move leaves unchanged.
+fn heap_addresses(
+    body: &TransactionBody,
+    witnesses: &WitnessSet,
+    auxiliary_data: &Nullable<KeepRaw<AuxiliaryData>>,
+) -> [usize; 3] {
+    let input = body.inputs.first().expect("a transaction spends an input");
+    let vkey = witnesses
+        .vkeywitness
+        .as_ref()
+        .and_then(|w| w.first())
+        .expect("the fixture transaction is signed");
+    let label = match auxiliary_data {
+        Nullable::Some(aux) => match &**aux {
+            AuxiliaryData::PostAlonzo(aux) => aux.metadata.as_ref().and_then(|m| m.keys().next()),
+            _ => None,
+        },
+        _ => None,
+    }
+    .expect("the fixture transaction carries metadata");
+
+    [
+        input as *const _ as usize,
+        vkey as *const _ as usize,
+        label as *const _ as usize,
+    ]
+}
+
+#[test]
+fn a_mempool_transaction_is_moved_into_its_block_form() {
+    let bytes = hex::decode(block_named("dijkstra4")).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes).unwrap();
+
+    let tx = block
+        .block_body
+        .transactions
+        .first()
+        .expect("dijkstra4 carries a transaction");
+
+    let three = minicbor::to_vec(tx.to_mempool_transaction()).unwrap();
+    let mempool: MempoolTransaction = minicbor::decode(&three).unwrap();
+
+    let before = heap_addresses(
+        &mempool.transaction_body,
+        &mempool.transaction_witness_set,
+        &mempool.auxiliary_data,
+    );
+    let rebuilt = BlockTransaction::from(mempool);
+    let after = heap_addresses(
+        &rebuilt.transaction_body,
+        &rebuilt.transaction_witness_set,
+        &rebuilt.auxiliary_data,
+    );
+
+    assert_eq!(
+        after, before,
+        "the body, witness set and auxiliary data must keep their allocations"
     );
 }
 
