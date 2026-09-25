@@ -36,12 +36,13 @@
 //!   points with `decode` / `decode_for_era` constructors.
 //! - [`MultiEraInput`], [`MultiEraOutput`], [`MultiEraValue`],
 //!   [`MultiEraAsset`], [`MultiEraPolicyAssets`] — per-piece views.
-//! - [`MultiEraCert`], [`MultiEraRedeemer`], [`MultiEraRedeemerTag`],
-//!   [`MultiEraWithdrawals`], [`MultiEraSigners`], [`MultiEraMeta`],
-//!   [`MultiEraUpdate`], [`MultiEraProposal`], [`MultiEraGovAction`],
-//!   [`MultiEraGovActionKind`], [`MultiEraParamUpdate`], [`MultiEraCostModels`],
-//!   [`MultiEraScriptRef`], [`MultiEraNativeScript`], [`MultiEraNativeClause`]
-//!   are the rest of the tx surface, normalised across eras.
+//! - [`MultiEraCert`], [`MultiEraCertKind`], [`MultiEraPoolRegistration`],
+//!   [`MultiEraRedeemer`], [`MultiEraRedeemerTag`], [`MultiEraWithdrawals`],
+//!   [`MultiEraSigners`], [`MultiEraMeta`], [`MultiEraUpdate`],
+//!   [`MultiEraProposal`], [`MultiEraGovAction`], [`MultiEraGovActionKind`],
+//!   [`MultiEraParamUpdate`], [`MultiEraCostModels`], [`MultiEraScriptRef`],
+//!   [`MultiEraNativeScript`], [`MultiEraNativeClause`] are the rest of the tx
+//!   surface, normalised across eras.
 //! - [`Era`] and [`Feature`] — discriminators for "which era is this" and
 //!   "does this era support X" (multi-assets, smart contracts, CIP-1694, …).
 //! - Trait-driven hashing: [`ComputeHash`] and [`OriginalHash`] give a
@@ -73,7 +74,10 @@ use thiserror::Error;
 
 use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{alonzo, babbage, byron, conway};
+use pallas_primitives::{
+    AddrKeyhash, Coin, Epoch, GenesisDelegateHash, Genesishash, PoolKeyhash, PoolMetadata, Relay,
+    RewardAccount, StakeCredential, UnitInterval, VrfKeyhash, alonzo, babbage, byron, conway,
+};
 
 #[cfg(feature = "unstable")]
 use pallas_primitives::dijkstra;
@@ -290,6 +294,109 @@ pub enum MultiEraCert<'b> {
     /// Dijkstra certificate, whose pool registration may carry a `bls_key`.
     #[cfg(feature = "unstable")]
     Dijkstra(Box<Cow<'b, dijkstra::Certificate>>),
+}
+
+/// What a [`MultiEraCert`] certifies, normalized across eras.
+///
+/// Every kind corresponds to a variant of Conway's certificate type, of the
+/// type serving Shelley through Babbage, or of both.
+///
+/// Each payload is borrowed from the certificate, apart from the coin and
+/// epoch counts, which are copied.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum MultiEraCertKind<'b> {
+    /// A stake registration registers the credential it names, for the
+    /// deposit the protocol parameters set.
+    StakeRegistration(&'b StakeCredential),
+    /// A stake deregistration retires the credential it names and returns the
+    /// deposit the protocol parameters set at registration.
+    StakeDeregistration(&'b StakeCredential),
+    /// A stake delegation delegates the credential's stake to the pool it
+    /// names.
+    StakeDelegation(&'b StakeCredential, &'b PoolKeyhash),
+    /// A pool registration registers or updates the pool whose parameters it
+    /// carries.
+    PoolRegistration(MultiEraPoolRegistration<'b>),
+    /// A pool retirement retires the pool it names at the epoch it names.
+    PoolRetirement(&'b PoolKeyhash, Epoch),
+    /// A registration registers the credential it names for the deposit it
+    /// states.
+    Reg(&'b StakeCredential, Coin),
+    /// A deregistration retires the credential it names and returns the
+    /// deposit it states.
+    UnReg(&'b StakeCredential, Coin),
+    /// A vote delegation delegates the credential's vote to the drep it names.
+    VoteDeleg(&'b StakeCredential, &'b conway::DRep),
+    /// A stake and vote delegation delegates the credential's stake to the
+    /// pool it names and its vote to the drep it names.
+    StakeVoteDeleg(&'b StakeCredential, &'b PoolKeyhash, &'b conway::DRep),
+    /// A stake registration and delegation registers the credential for the
+    /// deposit it states and delegates its stake to the pool it names.
+    StakeRegDeleg(&'b StakeCredential, &'b PoolKeyhash, Coin),
+    /// A vote registration and delegation registers the credential for the
+    /// deposit it states and delegates its vote to the drep it names.
+    VoteRegDeleg(&'b StakeCredential, &'b conway::DRep, Coin),
+    /// A stake and vote registration and delegation registers the credential
+    /// for the deposit it states, delegates its stake to the pool it names
+    /// and its vote to the drep it names.
+    StakeVoteRegDeleg(&'b StakeCredential, &'b PoolKeyhash, &'b conway::DRep, Coin),
+    /// A committee hot key authorisation lets the hot credential vote for the
+    /// cold credential that names it.
+    AuthCommitteeHot(
+        &'b conway::CommitteeColdCredential,
+        &'b conway::CommitteeHotCredential,
+    ),
+    /// A committee resignation resigns the cold credential it names, under
+    /// the anchor it may name.
+    ResignCommitteeCold(
+        &'b conway::CommitteeColdCredential,
+        Option<&'b conway::Anchor>,
+    ),
+    /// A drep registration registers the credential it names for the deposit
+    /// it states, under the anchor it may name.
+    RegDRep(&'b conway::DRepCredential, Coin, Option<&'b conway::Anchor>),
+    /// A drep deregistration retires the credential it names and returns the
+    /// deposit it states.
+    UnRegDRep(&'b conway::DRepCredential, Coin),
+    /// A drep update sets the credential's anchor to the one it names, or
+    /// removes the anchor when it names none.
+    UpdateDRep(&'b conway::DRepCredential, Option<&'b conway::Anchor>),
+    /// A genesis key delegation delegates the genesis key it names to the
+    /// delegate key and the VRF key it names.
+    GenesisKeyDelegation(&'b Genesishash, &'b GenesisDelegateHash, &'b VrfKeyhash),
+    /// A move instantaneous rewards certificate moves the rewards it carries
+    /// out of the pot it names.
+    MoveInstantaneousRewards(&'b alonzo::MoveInstantaneousReward),
+}
+
+/// The parameters a pool registration certificate carries, normalized across
+/// eras.
+///
+/// Both the Alonzo and the Conway pool registration certificate name every
+/// field here.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct MultiEraPoolRegistration<'b> {
+    /// The pool being registered or updated.
+    pub operator: &'b PoolKeyhash,
+    /// The hash of the VRF verification key the pool proves its leader
+    /// election with.
+    pub vrf_keyhash: &'b VrfKeyhash,
+    /// The stake the operator pledges to the pool.
+    pub pledge: Coin,
+    /// The fixed fee the pool takes in an epoch it makes a block.
+    pub cost: Coin,
+    /// The share of the rewards left after the fixed fee that the pool takes.
+    pub margin: &'b UnitInterval,
+    /// The account the pool is paid into.
+    pub reward_account: &'b RewardAccount,
+    /// The keys whose own stake counts towards the pledge.
+    pub pool_owners: &'b [AddrKeyhash],
+    /// The addresses the pool is reachable at.
+    pub relays: &'b [Relay],
+    /// The off chain metadata the pool points at, which it may omit.
+    pub pool_metadata: Option<&'b PoolMetadata>,
 }
 
 /// Plutus redeemer normalized across eras.
@@ -728,6 +835,7 @@ mod attribute_tests {
         ("lib::MultiEraAsset", EveryBuild, Always),
         ("lib::MultiEraBlock", EveryBuild, Always),
         ("lib::MultiEraCert", EveryBuild, Always),
+        ("lib::MultiEraCertKind", EveryBuild, Always),
         ("lib::MultiEraGovAction", EveryBuild, Always),
         ("lib::MultiEraGovActionKind", EveryBuild, Always),
         ("lib::MultiEraHeader", EveryBuild, WithUnstable),
@@ -972,6 +1080,27 @@ mod attribute_tests {
                 crate::MultiEraCert::NotApplicable,
                 crate::MultiEraCert::AlonzoCompatible(..),
                 crate::MultiEraCert::Conway(..),
+            ],
+            MultiEraCertKind: crate::MultiEraCertKind => [
+                crate::MultiEraCertKind::StakeRegistration(..),
+                crate::MultiEraCertKind::StakeDeregistration(..),
+                crate::MultiEraCertKind::StakeDelegation(..),
+                crate::MultiEraCertKind::PoolRegistration(..),
+                crate::MultiEraCertKind::PoolRetirement(..),
+                crate::MultiEraCertKind::Reg(..),
+                crate::MultiEraCertKind::UnReg(..),
+                crate::MultiEraCertKind::VoteDeleg(..),
+                crate::MultiEraCertKind::StakeVoteDeleg(..),
+                crate::MultiEraCertKind::StakeRegDeleg(..),
+                crate::MultiEraCertKind::VoteRegDeleg(..),
+                crate::MultiEraCertKind::StakeVoteRegDeleg(..),
+                crate::MultiEraCertKind::AuthCommitteeHot(..),
+                crate::MultiEraCertKind::ResignCommitteeCold(..),
+                crate::MultiEraCertKind::RegDRep(..),
+                crate::MultiEraCertKind::UnRegDRep(..),
+                crate::MultiEraCertKind::UpdateDRep(..),
+                crate::MultiEraCertKind::GenesisKeyDelegation(..),
+                crate::MultiEraCertKind::MoveInstantaneousRewards(..),
             ],
             MultiEraGovAction: crate::MultiEraGovAction => [
                 crate::MultiEraGovAction::Conway(..),
