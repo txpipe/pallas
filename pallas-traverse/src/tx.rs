@@ -44,8 +44,8 @@ impl<'b> MultiEraTx<'b> {
     }
 
     #[cfg(feature = "unstable")]
-    pub fn from_dijkstra_sub(tx: &'b dijkstra::SubTransaction<'b>) -> Self {
-        Self::DijkstraSub(Box::new(Cow::Borrowed(tx)))
+    pub fn from_dijkstra_sub(tx: &'b dijkstra::SubTransaction<'b>, parent_success: bool) -> Self {
+        Self::DijkstraSub(Box::new(Cow::Borrowed(tx)), parent_success)
     }
 
     pub fn encode(&self) -> Vec<u8> {
@@ -58,7 +58,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => minicbor::to_vec(x).unwrap(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => minicbor::to_vec(x).unwrap(),
+            MultiEraTx::DijkstraSub(x, _) => minicbor::to_vec(x).unwrap(),
         }
     }
 
@@ -167,7 +167,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.original_hash(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.original_hash(),
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.original_hash(),
         }
     }
 
@@ -206,7 +206,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraOutput::from_dijkstra)
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .outputs
                 .iter()
@@ -245,7 +245,7 @@ impl<'b> MultiEraTx<'b> {
                 .get(index)
                 .map(MultiEraOutput::from_dijkstra),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .outputs
                 .get(index)
@@ -290,7 +290,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .inputs
                 .iter()
@@ -367,7 +367,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraInput::from_alonzo_compatible)
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .reference_inputs
                 .iter()
@@ -412,7 +412,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(|c| MultiEraCert::Dijkstra(Box::new(Cow::Borrowed(c))))
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .certificates
                 .iter()
@@ -476,7 +476,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(|(k, v)| MultiEraPolicyAssets::ConwayMint(k, v))
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .mint
                 .iter()
@@ -587,7 +587,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraProposal::from_dijkstra)
                 .collect(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .proposal_procedures
                 .iter()
@@ -693,7 +693,7 @@ impl<'b> MultiEraTx<'b> {
                 None => MultiEraWithdrawals::Empty,
             },
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => match &x.sub_transaction_body.withdrawals {
+            MultiEraTx::DijkstraSub(x, _) => match &x.sub_transaction_body.withdrawals {
                 Some(x) => MultiEraWithdrawals::Conway(x),
                 None => MultiEraWithdrawals::Empty,
             },
@@ -724,7 +724,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.ttl,
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.ttl,
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.ttl,
         }
     }
 
@@ -778,7 +778,7 @@ impl<'b> MultiEraTx<'b> {
     pub(crate) fn dijkstra_aux_data(&self) -> Option<&KeepRaw<'_, dijkstra::AuxiliaryData>> {
         let aux = match self {
             MultiEraTx::Dijkstra(x) => &x.auxiliary_data,
-            MultiEraTx::DijkstraSub(x) => &x.auxiliary_data,
+            MultiEraTx::DijkstraSub(x, _) => &x.auxiliary_data,
             _ => return None,
         };
 
@@ -855,7 +855,7 @@ impl<'b> MultiEraTx<'b> {
                 .map(MultiEraSigners::Dijkstra)
                 .unwrap_or_default(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x
+            MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .guards
                 .as_ref()
@@ -873,7 +873,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.validity_interval_start,
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.validity_interval_start,
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.validity_interval_start,
         }
     }
 
@@ -886,13 +886,12 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.network_id,
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.network_id,
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.network_id,
         }
     }
 
-    /// Returns the producer's verdict on the transaction. A sub transaction
-    /// carries no validity flag and reports true, and the transaction
-    /// carrying it decides whether any of it is applied.
+    /// Returns the producer's verdict on the transaction, which for a sub
+    /// transaction is the verdict on the transaction whose body lists it.
     pub fn is_valid(&self) -> bool {
         match self {
             MultiEraTx::AlonzoCompatible(x, _) => x.success,
@@ -902,7 +901,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.success,
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(..) => true,
+            MultiEraTx::DijkstraSub(_, success) => *success,
         }
     }
 
@@ -914,7 +913,7 @@ impl<'b> MultiEraTx<'b> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.voting_procedures.as_ref(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.voting_procedures.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.voting_procedures.as_ref(),
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
                 None
             }
@@ -931,8 +930,8 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .sub_transactions
                 .iter()
-                .flat_map(|x| x.iter())
-                .map(MultiEraTx::from_dijkstra_sub)
+                .flat_map(|subs| subs.iter())
+                .map(|sub| MultiEraTx::from_dijkstra_sub(sub, x.success))
                 .collect(),
             // The rule admits no nesting, so a sub transaction carries none.
             MultiEraTx::DijkstraSub(..) => vec![],
@@ -985,7 +984,7 @@ impl<'b> MultiEraTx<'b> {
     #[cfg(feature = "unstable")]
     pub fn as_dijkstra_sub(&self) -> Option<&dijkstra::SubTransaction<'_>> {
         match self {
-            MultiEraTx::DijkstraSub(x) => Some(x),
+            MultiEraTx::DijkstraSub(x, _) => Some(x),
             _ => None,
         }
     }
@@ -1683,5 +1682,43 @@ mod tests {
             tx.hash(),
             "the sub body and the outer body are different bytes, so a shared hash would mean one of them was read for the other"
         );
+    }
+
+    #[test]
+    fn a_sub_transaction_reports_the_verdict_on_its_parent() {
+        let cbor = chain_sub_transaction_tx();
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+            .expect("the chain transaction must decode for its own era");
+        let parent = tx
+            .as_dijkstra()
+            .expect("the fixture is a block transaction");
+
+        for (success, expected) in [(true, (1, 1)), (false, (0, 0))] {
+            let mut flagged = parent.clone();
+            flagged.success = success;
+            let tx = MultiEraTx::from_dijkstra(&flagged);
+
+            let subs = tx.sub_transactions();
+            assert_eq!(subs.len(), 1, "body key 23 holds one sub transaction");
+            let sub = subs.first().expect("one sub transaction");
+
+            assert_eq!(
+                sub.is_valid(),
+                success,
+                "a sub transaction is applied only when the transaction whose body lists it is"
+            );
+
+            assert_eq!(
+                (sub.consumes().len(), sub.produces().len()),
+                expected,
+                "a sub transaction of a phase 2 invalid transaction spends and creates nothing"
+            );
+
+            assert_eq!(
+                sub.produces_at(0).is_some(),
+                success,
+                "a sub transaction's first output is produced only when its parent is valid"
+            );
+        }
     }
 }
