@@ -1,9 +1,11 @@
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
+    BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage,
     protocol::txsubmission as txsubmission_proto,
 };
 
-use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
+use super::{
+    ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState, send_to_peer,
+};
 
 /// Configuration for the responder tx-submission sub-behavior.
 pub struct TxSubmissionResponderConfig {
@@ -38,7 +40,7 @@ impl TxSubmissionResponder {
     fn try_init(
         &self,
         pid: &PeerId,
-        state: &ResponderState,
+        state: &mut ResponderState,
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         if !state.is_initialized() {
@@ -51,16 +53,13 @@ impl TxSubmissionResponder {
 
         tracing::debug!("initializing tx submission");
         let msg = txsubmission_proto::Message::Init;
-        outbound.push_ready(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::TxSubmission(msg),
-        ));
+        send_to_peer(pid, state, AnyMessage::TxSubmission(msg), outbound);
     }
 
     fn try_request_tx_ids(
         &self,
         pid: &PeerId,
-        state: &ResponderState,
+        state: &mut ResponderState,
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         if !state.is_initialized() {
@@ -73,10 +72,7 @@ impl TxSubmissionResponder {
 
         tracing::debug!("requesting tx ids");
         let msg = txsubmission_proto::Message::RequestTxIds(true, 0, self.config.max_tx_request);
-        outbound.push_ready(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::TxSubmission(msg),
-        ));
+        send_to_peer(pid, state, AnyMessage::TxSubmission(msg), outbound);
     }
 
     fn try_extract_txs(
@@ -120,11 +116,11 @@ impl ResponderPeerVisitor for TxSubmissionResponder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::OutboundQueue;
     use crate::behavior::ConnectionState;
     use crate::protocol::MAINNET_MAGIC;
     use crate::protocol::handshake;
     use crate::protocol::txsubmission::{EraTxBody, State as TxState};
+    use crate::{InterfaceCommand, OutboundQueue};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<ResponderBehavior>,

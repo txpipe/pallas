@@ -333,6 +333,17 @@ pub enum ResponderEvent {
     EbTxsRequested(PeerId, proto::EbId, proto::leiosfetch::Bitmaps),
 }
 
+/// Applies `msg` to `state` and queues it as a send to `pid`.
+fn send_to_peer(
+    pid: &PeerId,
+    state: &mut ResponderState,
+    msg: AnyMessage,
+    outbound: &mut OutboundQueue<ResponderBehavior>,
+) {
+    state.apply_msg(&msg);
+    outbound.push_ready(InterfaceCommand::Send(pid.clone(), msg));
+}
+
 /// The main responder behavior that handles inbound Cardano connections.
 ///
 /// Manages peer lifecycle for connections accepted via a TCP listener and
@@ -455,15 +466,23 @@ impl ResponderBehavior {
         });
     }
 
-    #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
-    /// Processes a confirmed outbound message to a peer, updating state and
-    /// notifying visitors.
+    /// Applies a message the caller sent itself and notifies visitors.
+    #[deprecated(
+        since = "1.5.0",
+        note = "pass `InterfaceEvent::Sent` to `handle_io`, and call `ResponderState::apply_msg` before queueing a message of your own"
+    )]
     pub fn on_outbound_msg(&mut self, pid: &PeerId, msg: &AnyMessage) {
+        if let Some(state) = self.peers.get_mut(pid) {
+            state.apply_msg(msg);
+        }
+        self.on_sent(pid, msg);
+    }
+
+    #[tracing::instrument(skip_all, fields(pid = %pid, channel = %msg.channel()))]
+    fn on_sent(&mut self, pid: &PeerId, msg: &AnyMessage) {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 
         self.peers.entry(pid.clone()).and_modify(|state| {
-            state.apply_msg(msg);
-
             if state.violation {
                 return;
             }
@@ -529,11 +548,7 @@ impl ResponderBehavior {
         tip: proto::chainsync::Tip,
     ) {
         let msg = proto::chainsync::Message::IntersectFound(point, tip);
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                AnyMessage::ChainSync(msg),
-            )));
+        self.send_msg(pid, AnyMessage::ChainSync(msg));
     }
 
     fn provide_header(
@@ -543,63 +558,49 @@ impl ResponderBehavior {
         tip: proto::chainsync::Tip,
     ) {
         let msg = proto::chainsync::Message::RollForward(header, tip);
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                AnyMessage::ChainSync(msg),
-            )));
+        self.send_msg(pid, AnyMessage::ChainSync(msg));
     }
 
     fn provide_rollback(&mut self, pid: &PeerId, point: proto::Point, tip: proto::chainsync::Tip) {
         let msg = proto::chainsync::Message::RollBackward(point, tip);
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                AnyMessage::ChainSync(msg),
-            )));
+        self.send_msg(pid, AnyMessage::ChainSync(msg));
     }
 
     fn provide_blocks(&mut self, pid: &PeerId, blocks: Vec<proto::blockfetch::Body>) {
         // Send StartBatch
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                AnyMessage::BlockFetch(proto::blockfetch::Message::StartBatch),
-            )));
+        self.send_msg(
+            pid,
+            AnyMessage::BlockFetch(proto::blockfetch::Message::StartBatch),
+        );
 
         // Send each block
         for block in blocks {
-            self.outbound
-                .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                    pid.clone(),
-                    AnyMessage::BlockFetch(proto::blockfetch::Message::Block(block)),
-                )));
+            self.send_msg(
+                pid,
+                AnyMessage::BlockFetch(proto::blockfetch::Message::Block(block)),
+            );
         }
 
         // Send BatchDone
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                AnyMessage::BlockFetch(proto::blockfetch::Message::BatchDone),
-            )));
+        self.send_msg(
+            pid,
+            AnyMessage::BlockFetch(proto::blockfetch::Message::BatchDone),
+        );
     }
 
     fn provide_peers(&mut self, pid: &PeerId, peers: Vec<proto::peersharing::PeerAddress>) {
         let msg = proto::peersharing::Message::SharePeers(peers);
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                AnyMessage::PeerSharing(msg),
-            )));
+        self.send_msg(pid, AnyMessage::PeerSharing(msg));
     }
 
-    /// Pushes a single message to be sent to the given peer.
+    /// Applies `msg` to the state of `pid`, if tracked, and queues it as a send.
     fn send_msg(&mut self, pid: &PeerId, msg: AnyMessage) {
-        self.outbound
-            .push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                pid.clone(),
-                msg,
-            )));
+        match self.peers.get_mut(pid) {
+            Some(state) => send_to_peer(pid, state, msg, &mut self.outbound),
+            None => self
+                .outbound
+                .push_ready(InterfaceCommand::Send(pid.clone(), msg)),
+        }
     }
 
     fn ban_peer(&mut self, pid: &PeerId) {
@@ -659,7 +660,7 @@ impl Behavior for ResponderBehavior {
                 }
             }
             crate::InterfaceEvent::Sent(pid, msg) => {
-                self.on_outbound_msg(pid, msg);
+                self.on_sent(pid, msg);
             }
             crate::InterfaceEvent::Error(pid, _) => {
                 self.on_errored(pid);
@@ -970,6 +971,133 @@ mod tests {
         assert!(
             outputs.has_send(|m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
             "should send TxSubmission Init after handshake + housekeeping"
+        );
+    }
+
+    fn init_sends(outputs: &[BehaviorOutput<ResponderBehavior>]) -> usize {
+        outputs
+            .iter()
+            .filter(|o| {
+                matches!(
+                    o,
+                    BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                        _,
+                        AnyMessage::TxSubmission(txsub::Message::Init)
+                    ))
+                )
+            })
+            .count()
+    }
+
+    #[tokio::test]
+    async fn txsubmission_init_is_sent_and_applied_once() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(15);
+        connect_and_handshake(&mut behavior, &pid);
+
+        behavior.execute(ResponderCommand::Housekeeping);
+        let outputs = drain_outputs(&mut behavior);
+        assert_eq!(init_sends(&outputs), 1, "first pass sends one Init");
+
+        behavior.execute(ResponderCommand::Housekeeping);
+        let second = init_sends(&drain_outputs(&mut behavior));
+        assert_eq!(second, 0, "second pass before Sent sends no Init");
+
+        for output in outputs {
+            if let BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(p, msg)) = output {
+                behavior.handle_io(InterfaceEvent::Sent(p, msg));
+            }
+        }
+        assert!(
+            !behavior.peers[&pid].violation,
+            "Sent does not apply Init a second time"
+        );
+    }
+
+    #[tokio::test]
+    async fn next_keepalive_before_the_response_sent_is_answered() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(16);
+        connect_and_handshake(&mut behavior, &pid);
+
+        let first = AnyMessage::KeepAlive(keepalive::Message::KeepAlive(1));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![first]));
+        drain_outputs(&mut behavior);
+
+        let second = AnyMessage::KeepAlive(keepalive::Message::KeepAlive(2));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![second]));
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            !behavior.peers[&pid].violation,
+            "a keepalive after the response is emitted is valid"
+        );
+        assert!(
+            outputs.has_send(|m| matches!(
+                m,
+                AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(2))
+            )),
+            "the second keepalive is answered"
+        );
+    }
+
+    #[tokio::test]
+    async fn apply_msg_before_a_raw_send_accepts_the_reply() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(17);
+        connect_and_handshake(&mut behavior, &pid);
+
+        let init = AnyMessage::TxSubmission(txsub::Message::Init);
+        let request = AnyMessage::TxSubmission(txsub::Message::RequestTxIds(true, 0, 3));
+        for msg in [init, request] {
+            behavior.peers.get_mut(&pid).unwrap().apply_msg(&msg);
+            behavior
+                .outbound
+                .push_ready(InterfaceCommand::Send(pid.clone(), msg.clone()));
+            behavior.handle_io(InterfaceEvent::Sent(pid.clone(), msg));
+        }
+
+        let reply = AnyMessage::TxSubmission(txsub::Message::ReplyTxIds(vec![]));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![reply]));
+        drain_outputs(&mut behavior);
+
+        assert!(
+            !behavior.peers[&pid].violation,
+            "the reply to an applied request is valid"
+        );
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn on_outbound_msg_applies_a_raw_send() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(18);
+        connect_and_handshake(&mut behavior, &pid);
+
+        let init = AnyMessage::TxSubmission(txsub::Message::Init);
+        let request = AnyMessage::TxSubmission(txsub::Message::RequestTxIds(true, 0, 3));
+        for msg in [init, request] {
+            behavior
+                .outbound
+                .push_ready(InterfaceCommand::Send(pid.clone(), msg.clone()));
+            behavior.on_outbound_msg(&pid, &msg);
+        }
+
+        let reply = AnyMessage::TxSubmission(txsub::Message::ReplyTxIds(vec![]));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![reply]));
+        drain_outputs(&mut behavior);
+
+        assert!(
+            !behavior.peers[&pid].violation,
+            "the reply to a request recorded with on_outbound_msg is valid"
         );
     }
 }

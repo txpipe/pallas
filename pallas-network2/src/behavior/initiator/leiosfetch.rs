@@ -3,9 +3,9 @@ use std::collections::VecDeque;
 use crate::protocol::EbId;
 use crate::protocol::leiosfetch::{self as fetch_proto, Bitmaps};
 
-use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage};
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, send_to_peer};
 
 /// A pending leios-fetch request targeting a specific peer.
 #[derive(Debug, Clone)]
@@ -47,7 +47,7 @@ impl LeiosFetchBehavior {
 
         if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid) {
             let (_, request) = self.requests.remove(idx).expect("index just found");
-            self.send_request(pid, &request, outbound);
+            send_to_peer(pid, state, request_message(request), outbound);
         }
     }
 
@@ -56,25 +56,6 @@ impl LeiosFetchBehavior {
     /// `PeerId` (which may no longer hold the offered EB).
     fn purge(&mut self, pid: &PeerId) {
         self.requests.retain(|(p, _)| p != pid);
-    }
-
-    fn send_request(
-        &self,
-        pid: &PeerId,
-        request: &FetchRequest,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
-    ) {
-        let msg = match request {
-            FetchRequest::Block(point) => fetch_proto::Message::BlockRequest(point.clone()),
-            FetchRequest::BlockTxs(point, bitmaps) => {
-                fetch_proto::Message::BlockTxsRequest(point.clone(), bitmaps.clone())
-            }
-        };
-
-        outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::LeiosFetch(msg),
-        )));
     }
 
     /// Drains a pending response from the peer state and emits the corresponding
@@ -93,6 +74,17 @@ impl LeiosFetchBehavior {
             )));
         }
     }
+}
+
+fn request_message(request: FetchRequest) -> AnyMessage {
+    let msg = match request {
+        FetchRequest::Block(point) => fetch_proto::Message::BlockRequest(point),
+        FetchRequest::BlockTxs(point, bitmaps) => {
+            fetch_proto::Message::BlockTxsRequest(point, bitmaps)
+        }
+    };
+
+    AnyMessage::LeiosFetch(msg)
 }
 
 fn peer_is_available(state: &InitiatorState) -> bool {

@@ -1,9 +1,6 @@
-use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
-    protocol::MAINNET_MAGIC,
-};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage, protocol::MAINNET_MAGIC};
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, send_to_peer};
 
 /// Configuration for the handshake sub-behavior.
 pub struct Config {
@@ -49,20 +46,14 @@ impl HandshakeBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        assert!(matches!(
-            state.handshake,
-            crate::protocol::handshake::State::Propose
-        ));
+        if !matches!(state.handshake, crate::protocol::handshake::State::Propose) {
+            return;
+        }
 
         let msg =
             crate::protocol::handshake::Message::Propose(self.config.supported_version.clone());
 
-        let out = BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::Handshake(msg),
-        ));
-
-        outbound.push_ready(out);
+        send_to_peer(pid, state, AnyMessage::Handshake(msg), outbound);
     }
 
     fn check_confirmation(
@@ -118,9 +109,9 @@ impl PeerVisitor for HandshakeBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::OutboundQueue;
     use crate::behavior::ConnectionState;
     use crate::protocol::handshake;
+    use crate::{InterfaceCommand, OutboundQueue};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
