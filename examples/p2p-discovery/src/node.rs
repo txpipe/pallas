@@ -149,6 +149,9 @@ impl<I: Interface<AnyMessage>> MyNode<I> {
             InitiatorEvent::EbFetched(pid, _, _) => {
                 tracing::info!(%pid, "leios fetch received");
             }
+            // `InitiatorEvent` is non exhaustive under the pallas-network2 unstable feature.
+            #[allow(unreachable_patterns)]
+            _ => {}
         }
 
         self.enqueue_next_cmds();
