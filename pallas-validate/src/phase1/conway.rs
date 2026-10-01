@@ -661,6 +661,9 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
             .collect(),
         None => Vec::new(),
     };
+    // Script-presence checks need every reference script, native included: a
+    // native script supplied only by reference input still satisfies the
+    // spending and minting requirements.
     let reference_scripts: Vec<PolicyId> = get_reference_script_hashes(tx_body, utxos);
     check_needed_scripts(
         tx_body,
@@ -673,11 +676,15 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     )?;
     let plutus_data = tx_wits.plutus_data.clone();
     check_datums(tx_body, utxos, &plutus_data)?;
+    // Redeemer pointers are only built for phase-2 scripts, so the Plutus-only
+    // view of the reference inputs is what `check_redeemers` needs.
+    let plutus_reference_scripts: Vec<PolicyId> =
+        get_plutus_reference_script_hashes(tx_body, utxos);
     check_redeemers(
         &plutus_v1_scripts,
         &plutus_v2_scripts,
         &plutus_v3_scripts,
-        &reference_scripts,
+        &plutus_reference_scripts,
         tx_body,
         tx_wits,
         utxos,
@@ -772,12 +779,28 @@ fn check_needed_scripts(
     Ok(())
 }
 
+/// The reference-script hashes a tx supplies, in reference-input order.
+///
+/// Native and Plutus scripts alike: this list answers "is this script available
+/// to the tx", and a native script reached through a reference input is.
+fn get_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
+    let mut res: Vec<PolicyId> = Vec::new();
+    if let Some(reference_inputs) = &tx_body.reference_inputs {
+        for input in reference_inputs.iter() {
+            if let Some(script_hash) = get_script_hash_from_reference_input(input, utxos) {
+                res.push(script_hash)
+            }
+        }
+    }
+    res
+}
+
 /// The Plutus reference-script hashes a tx supplies, in reference-input order.
 ///
 /// Native reference scripts are skipped: `is_phase_2_script` matches on hash
 /// alone, so a native script in this list would be read as a phase-2 script
 /// and get a redeemer pointer it has no redeemer for.
-fn get_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
+fn get_plutus_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
     let mut res: Vec<PolicyId> = Vec::new();
     if let Some(reference_inputs) = &tx_body.reference_inputs {
         for input in reference_inputs.iter() {
