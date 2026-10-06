@@ -600,17 +600,10 @@ mod tests {
                 371916,
                 crate::Era::Dijkstra,
             ),
-            (
-                include_str!("../../test_data/dijkstra16.block"),
-                "c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c",
-                14935,
-                311025,
-                crate::Era::Dijkstra,
-            ),
         ]);
 
         #[cfg(feature = "unstable")]
-        assert_eq!(cases.len(), 17, "one Conway fixture and sixteen Dijkstra");
+        assert_eq!(cases.len(), 16, "one Conway fixture and fifteen Dijkstra");
         #[cfg(not(feature = "unstable"))]
         assert_eq!(cases.len(), 1, "the Conway fixture alone without the era");
 
@@ -646,10 +639,9 @@ mod tests {
             include_str!("../../test_data/dijkstra13.block"),
             include_str!("../../test_data/dijkstra14.block"),
             include_str!("../../test_data/dijkstra15.block"),
-            include_str!("../../test_data/dijkstra16.block"),
         ];
 
-        assert_eq!(fixtures.len(), 16, "every Dijkstra fixture must be listed");
+        assert_eq!(fixtures.len(), 15, "every Dijkstra fixture must be listed");
 
         for (index, block_str) in fixtures.iter().enumerate() {
             let name = format!("dijkstra{}.block", index + 1);
@@ -759,6 +751,20 @@ mod tests {
         assert_eq!(
             checked, 4,
             "the fixtures declare four auxiliary data hashes"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn an_endorser_block_hashes_as_its_announcement_names() {
+        let cbor = hex::decode(include_str!("../../test_data/dijkstra-17402.ebbody")).unwrap();
+        let block: pallas_codec::utils::KeepRaw<pallas_primitives::dijkstra::EndorserBlock> =
+            minicbor::decode(&cbor).unwrap();
+
+        assert_eq!(
+            block.original_hash().to_string(),
+            "29694e6d204e586f170a1f4f75da3703cb86289d08e7eaea2def826a6dcd7e90",
+            "the eb_hash block 17402 announces"
         );
     }
 }

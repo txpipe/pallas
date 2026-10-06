@@ -1,7 +1,7 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
-    Certificate, CostModels, DRep, GovAction, Guards, Header, MempoolTransaction, NativeScript,
-    NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
+    Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
+    NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
     TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
@@ -71,10 +71,6 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
     ),
-    (
-        "dijkstra16",
-        include_str!("../../../test_data/dijkstra16.block"),
-    ),
 ];
 
 /// Blocks from before the fork. Their bodies are the Conway five element
@@ -82,6 +78,25 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
 /// so the Dijkstra block type must refuse them on the body.
 const PRE_FORK_BLOCKS: &[(&str, &str)] =
     &[("conway5", include_str!("../../../test_data/conway5.block"))];
+
+/// Endorser block bodies and the number of transactions each names.
+const ENDORSER_BLOCKS: &[(&str, &str, usize)] = &[
+    (
+        "dijkstra-eb1",
+        include_str!("../../../test_data/dijkstra-eb1.ebbody"),
+        1,
+    ),
+    (
+        "dijkstra-eb2",
+        include_str!("../../../test_data/dijkstra-eb2.ebbody"),
+        30,
+    ),
+    (
+        "dijkstra-17402",
+        include_str!("../../../test_data/dijkstra-17402.ebbody"),
+        244,
+    ),
+];
 
 const WITH_TRANSACTIONS: usize = 1;
 
@@ -130,6 +145,23 @@ fn block_isomorphic_decoding_encoding() {
             bytes2.len(),
             hex::encode(&bytes[first_diff.saturating_sub(8)..(first_diff + 24).min(bytes.len())]),
             hex::encode(&bytes2[first_diff.saturating_sub(8)..(first_diff + 24).min(bytes2.len())]),
+        );
+    }
+}
+
+#[test]
+fn endorser_block_isomorphic_decoding_encoding() {
+    for (name, body_str, transactions) in ENDORSER_BLOCKS.iter() {
+        let bytes = hex::decode(body_str).unwrap_or_else(|_| panic!("bad body file {name}"));
+
+        let block: EndorserBlock = minicbor::decode(&bytes)
+            .unwrap_or_else(|e| panic!("error decoding cbor for file {name}: {e:?}"));
+        assert_eq!(block.len(), *transactions, "{name}: transaction count");
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&block).unwrap()),
+            hex::encode(&bytes),
+            "{name}: re-encoded bytes didn't match original"
         );
     }
 }
@@ -444,6 +476,14 @@ const DEFS_CDDL: &str = include_str!("defs.cddl");
 const MODEL_RS: &str = include_str!("model.rs");
 const TESTS_RS: &str = include_str!("tests.rs");
 
+/// The leios-fetch messages of the vendored cardano-blueprint, the second source this module cites.
+#[cfg(feature = "blueprint")]
+const LEIOS_FETCH_CDDL: &str =
+    include_str!("../../../cardano-blueprint/src/network/node-to-node/leios-fetch/messages.cddl");
+
+/// Rules this module cites that the leios-fetch messages define.
+const LEIOS_FETCH_RULES: &[&str] = &["endorser_block"];
+
 /// Rules the vendored revision does not define, because the ledger deleted or
 /// renamed each one. A resync that brings one back fails the test below.
 const ABSENT_RULES: &[&str] = &[
@@ -503,9 +543,9 @@ const NOT_RULES: &[&str] = &[
     "text",
 ];
 
-/// True when `defs.cddl` defines `name` as a rule, not merely mentions it.
-fn defines_rule(name: &str) -> bool {
-    DEFS_CDDL.lines().any(|line| {
+/// True when the CDDL `text` defines `name` as a rule, not merely mentions it.
+fn defines_rule(text: &str, name: &str) -> bool {
+    text.lines().any(|line| {
         line.strip_prefix(name).is_some_and(|rest| {
             let rest = rest.trim_start();
             // A plain rule is `name =`, a generic one is `name<a0> =`.
@@ -551,10 +591,11 @@ fn rule_citation(span: &str) -> Option<(String, &str)> {
     }
 }
 
-/// Every CDDL rule this module's doc comments cite. Both files are scanned,
-/// because a doc comment in either one can cite a rule.
-fn cited_rules() -> std::collections::BTreeSet<String> {
-    let mut cited = std::collections::BTreeSet::new();
+/// Every rule citation in this module's doc comments, as the rule name and
+/// the quoted text after its `=`. Both files are scanned, because a doc
+/// comment in either one can cite a rule.
+fn citations() -> Vec<(String, String)> {
+    let mut found = Vec::new();
 
     for line in MODEL_RS.lines().chain(TESTS_RS.lines()) {
         let line = line.trim_start();
@@ -572,17 +613,32 @@ fn cited_rules() -> std::collections::BTreeSet<String> {
                 continue;
             }
             if let Some((name, body)) = rule_citation(span) {
-                cited.insert(name);
-                cited.extend(snake_words(body));
+                found.push((name, body.to_string()));
             }
         }
+    }
+
+    found
+}
+
+/// Every CDDL rule this module's doc comments cite.
+fn cited_rules() -> std::collections::BTreeSet<String> {
+    let mut cited = std::collections::BTreeSet::new();
+
+    for (name, body) in citations() {
+        // A leios-fetch rule's body names leios-fetch rules, so only the rule's name is added.
+        if !LEIOS_FETCH_RULES.contains(&name.as_str()) {
+            cited.extend(snake_words(&body));
+        }
+        cited.insert(name);
     }
 
     cited
 }
 
-/// Every citation has to land in exactly one of three places: a rule the
-/// vendored file defines, a rule the ledger removed, or a name that is not one.
+/// Every citation has to land in exactly one of four places: a rule the
+/// vendored file defines, a rule on the leios-fetch list, a rule the ledger
+/// removed, or a name that is not one.
 #[test]
 fn every_cited_rule_matches_the_vendored_cddl() {
     let cited = cited_rules();
@@ -593,6 +649,7 @@ fn every_cited_rule_matches_the_vendored_cddl() {
         "block_body",
         "block_transaction",
         "certificate",
+        "endorser_block",
         "guards",
         "header_body",
         "protocol_param_update",
@@ -614,18 +671,31 @@ fn every_cited_rule_matches_the_vendored_cddl() {
         .iter()
         .map(String::as_str)
         .filter(|name| {
-            !defines_rule(name) && !ABSENT_RULES.contains(name) && !NOT_RULES.contains(name)
+            !defines_rule(DEFS_CDDL, name)
+                && !LEIOS_FETCH_RULES.contains(name)
+                && !ABSENT_RULES.contains(name)
+                && !NOT_RULES.contains(name)
         })
         .collect();
     assert!(
         unaccounted.is_empty(),
-        "a doc comment cites {unaccounted:?}, which defs.cddl does not define and neither list accounts for"
+        "a doc comment cites {unaccounted:?}, which defs.cddl does not define and no list accounts for"
+    );
+
+    let doubled: Vec<&str> = LEIOS_FETCH_RULES
+        .iter()
+        .copied()
+        .filter(|name| defines_rule(DEFS_CDDL, name))
+        .collect();
+    assert!(
+        doubled.is_empty(),
+        "defs.cddl defines {doubled:?}, so they belong to it rather than to the leios-fetch list"
     );
 
     let resurrected: Vec<&str> = ABSENT_RULES
         .iter()
         .copied()
-        .filter(|name| defines_rule(name))
+        .filter(|name| defines_rule(DEFS_CDDL, name))
         .collect();
     assert!(
         resurrected.is_empty(),
@@ -635,7 +705,7 @@ fn every_cited_rule_matches_the_vendored_cddl() {
     let parked: Vec<&str> = NOT_RULES
         .iter()
         .copied()
-        .filter(|name| defines_rule(name))
+        .filter(|name| defines_rule(DEFS_CDDL, name))
         .collect();
     assert!(
         parked.is_empty(),
@@ -644,18 +714,58 @@ fn every_cited_rule_matches_the_vendored_cddl() {
 
     let stale: Vec<&str> = NOT_RULES
         .iter()
+        .chain(LEIOS_FETCH_RULES)
         .copied()
         .filter(|name| !cited.contains(*name))
         .collect();
     assert!(
         stale.is_empty(),
-        "no doc comment names {stale:?} any more, so the not-a-rule list has entries nothing needs"
+        "no doc comment names {stale:?} any more, so a list has entries nothing needs"
     );
 
     // No list above can pass by the predicate always agreeing.
-    assert!(defines_rule("block_body"));
-    assert!(!defines_rule("block_bod"));
-    assert!(!defines_rule("no_such_rule_exists"));
+    assert!(defines_rule(DEFS_CDDL, "block_body"));
+    assert!(!defines_rule(DEFS_CDDL, "block_bod"));
+    assert!(!defines_rule(DEFS_CDDL, "no_such_rule_exists"));
+}
+
+#[cfg(feature = "blueprint")]
+#[test]
+fn every_leios_fetch_citation_matches_the_leios_fetch_messages() {
+    let unsourced: Vec<&str> = LEIOS_FETCH_RULES
+        .iter()
+        .copied()
+        .filter(|name| !defines_rule(LEIOS_FETCH_CDDL, name))
+        .collect();
+    assert!(
+        unsourced.is_empty(),
+        "the leios-fetch messages do not define {unsourced:?}, so they do not belong on its list"
+    );
+
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let quoted: Vec<String> = citations()
+        .into_iter()
+        .filter(|(name, body)| LEIOS_FETCH_RULES.contains(&name.as_str()) && !body.is_empty())
+        .map(|(name, body)| words(&format!("{name} ={body}")))
+        .collect();
+    for rule in LEIOS_FETCH_RULES {
+        assert!(
+            quoted
+                .iter()
+                .any(|quote| quote.starts_with(&format!("{rule} ="))),
+            "no doc comment quotes `{rule}`, so nothing checks its text against the leios-fetch messages"
+        );
+    }
+    for quote in &quoted {
+        assert!(
+            LEIOS_FETCH_CDDL.lines().any(|line| words(line) == *quote),
+            "a doc comment quotes `{quote}`, which is no line of the leios-fetch messages"
+        );
+    }
+
+    // The list cannot pass by the predicate always agreeing.
+    assert!(defines_rule(LEIOS_FETCH_CDDL, "endorser_block"));
+    assert!(!defines_rule(LEIOS_FETCH_CDDL, "block_body"));
 }
 
 #[test]
@@ -977,10 +1087,6 @@ const HEADER_HASHES: &[(&str, &str)] = &[
     (
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
-    ),
-    (
-        "dijkstra16",
-        "c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c",
     ),
 ];
 
