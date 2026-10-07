@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use crate::protocol::blockfetch as blockfetch_proto;
 
@@ -7,7 +7,9 @@ use crate::{
     behavior::{AnyMessage, BlockRange, ConnectionState},
 };
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+use super::{
+    InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, connection::needs_disconnect,
+};
 
 /// Configuration for the block-fetch sub-behavior (currently unused).
 pub type BlockFetchConfig = ();
@@ -19,6 +21,7 @@ pub type Request = BlockRange;
 pub struct BlockFetchBehavior {
     //config: BlockFetchConfig,
     requests: VecDeque<Request>,
+    sent: HashMap<PeerId, Request>,
 }
 
 impl Default for BlockFetchBehavior {
@@ -32,6 +35,7 @@ impl BlockFetchBehavior {
     pub fn new(_config: BlockFetchConfig) -> Self {
         Self {
             requests: VecDeque::new(),
+            sent: HashMap::new(),
         }
     }
 
@@ -56,6 +60,30 @@ impl BlockFetchBehavior {
         )));
     }
 
+    /// Sends the first queued range to `pid` when that peer is initialized,
+    /// idle, not due for a disconnect, and holds no unsent range request.
+    pub(super) fn serve_next(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+    ) {
+        if !peer_is_available(state) {
+            return;
+        }
+
+        if let Some(request) = self.requests.front()
+            && state.try_send_request(
+                pid,
+                AnyMessage::BlockFetch(blockfetch_proto::Message::RequestRange(request.clone())),
+                outbound,
+            )
+        {
+            tracing::debug!("granting request to peer");
+            self.requests.pop_front();
+        }
+    }
+
     /// Emits a [`BlockBodyReceived`](super::InitiatorEvent::BlockBodyReceived)
     /// event if the peer's block-fetch state contains a new block.
     pub fn dispatch_block(
@@ -75,6 +103,7 @@ impl BlockFetchBehavior {
 fn peer_is_available(state: &InitiatorState) -> bool {
     matches!(state.connection, ConnectionState::Initialized)
         && matches!(state.blockfetch, blockfetch_proto::State::Idle)
+        && !needs_disconnect(state)
 }
 
 impl PeerVisitor for BlockFetchBehavior {
@@ -85,6 +114,23 @@ impl PeerVisitor for BlockFetchBehavior {
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         self.dispatch_block(pid, state, outbound);
+
+        if matches!(state.blockfetch, blockfetch_proto::State::Idle) {
+            self.sent.remove(pid);
+        }
+
+        self.serve_next(pid, state, outbound);
+    }
+
+    fn visit_outbound_msg(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        _outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        if let blockfetch_proto::State::Busy(range) = &state.blockfetch {
+            self.sent.insert(pid.clone(), range.clone());
+        }
     }
 
     fn visit_housekeeping(
@@ -93,37 +139,19 @@ impl PeerVisitor for BlockFetchBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        if self.requests.is_empty() {
-            tracing::trace!("no requests pending");
-            return;
-        }
-
-        if peer_is_available(state) {
-            tracing::debug!("peer looks available");
-
-            if let Some(request) = self.requests.front()
-                && state.try_send_request(
-                    pid,
-                    AnyMessage::BlockFetch(blockfetch_proto::Message::RequestRange(
-                        request.clone(),
-                    )),
-                    outbound,
-                )
-            {
-                tracing::debug!("granting request to peer");
-                self.requests.pop_front();
-            }
-        } else {
-            tracing::warn!("no peer available");
-        }
+        self.serve_next(pid, state, outbound);
     }
 
     fn visit_disconnected(
         &mut self,
-        _pid: &PeerId,
+        pid: &PeerId,
         state: &mut InitiatorState,
         _outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
+        if let Some(range) = self.sent.remove(pid) {
+            self.requests.push_front(range);
+        }
+
         if let Some(range) = state.take_unsent_range() {
             self.requests.push_front(range);
         }
@@ -134,6 +162,7 @@ impl PeerVisitor for BlockFetchBehavior {
 mod tests {
     use super::*;
     use crate::OutboundQueue;
+    use crate::behavior::initiator::PromotionTag;
     use crate::protocol::{Point, blockfetch as bf};
 
     fn drain_outputs(
@@ -190,6 +219,26 @@ mod tests {
     }
 
     #[test]
+    fn inbound_while_busy_keeps_the_next_range_queued() {
+        let mut bf = BlockFetchBehavior::new(());
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.connection = ConnectionState::Initialized;
+        state.promotion = PromotionTag::Warm;
+        state.blockfetch = bf::State::Busy((Point::Origin, Point::Origin));
+        bf.enqueue((Point::Origin, Point::Origin));
+
+        bf.visit_inbound_msg(&pid, &mut state, &mut outbound);
+        assert!(
+            drain_outputs(&mut outbound).is_empty(),
+            "nothing is sent while Busy"
+        );
+        assert_eq!(bf.requests.len(), 1, "the range stays queued");
+    }
+
+    #[test]
     fn housekeeping_dispatches_request_for_available_peer() {
         let mut bf = BlockFetchBehavior::new(());
         let pid = PeerId::test(1);
@@ -199,8 +248,9 @@ mod tests {
         let range = (Point::Origin, Point::new(100, vec![0xAA; 32]));
         bf.enqueue(range);
 
-        // Peer must be Initialized + blockfetch Idle
+        // Peer must be Initialized, Warm or Hot, and blockfetch Idle
         state.connection = ConnectionState::Initialized;
+        state.promotion = PromotionTag::Warm;
         state.blockfetch = bf::State::Idle;
 
         bf.visit_housekeeping(&pid, &mut state, &mut outbound);

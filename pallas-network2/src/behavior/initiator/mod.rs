@@ -552,6 +552,20 @@ impl InitiatorBehavior {
             leiosfetch.serve_next(pid, state, outbound);
         }
     }
+
+    /// Sends one queued block range to each available peer while ranges remain.
+    fn serve_block_fetch(&mut self) {
+        let Self {
+            blockfetch,
+            peers,
+            outbound,
+            ..
+        } = self;
+
+        for (pid, state) in peers.iter_mut() {
+            blockfetch.serve_next(pid, state, outbound);
+        }
+    }
 }
 
 impl Stream for InitiatorBehavior {
@@ -625,6 +639,7 @@ impl Behavior for InitiatorBehavior {
             InitiatorCommand::RequestBlocks(range) => {
                 tracing::debug!("request blocks command");
                 self.blockfetch.enqueue(range);
+                self.serve_block_fetch();
             }
             InitiatorCommand::Housekeeping => {
                 tracing::debug!("housekeeping command");
@@ -684,7 +699,10 @@ mod tests {
         outputs
     }
 
-    fn complete_handshake(behavior: &mut InitiatorBehavior, pid: &PeerId) {
+    fn complete_handshake(
+        behavior: &mut InitiatorBehavior,
+        pid: &PeerId,
+    ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
         let version_data =
             handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
         let mut values = HashMap::new();
@@ -697,11 +715,14 @@ mod tests {
 
         let accept = AnyMessage::Handshake(handshake::Message::Accept(13, version_data));
         behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![accept]));
-        drain_outputs(behavior);
+        drain_outputs(behavior)
     }
 
     /// Completes a handshake negotiating a Leios-capable version (15).
-    fn complete_handshake_leios(behavior: &mut InitiatorBehavior, pid: &PeerId) {
+    fn complete_handshake_leios(
+        behavior: &mut InitiatorBehavior,
+        pid: &PeerId,
+    ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
         let version_data =
             handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
         let mut values = HashMap::new();
@@ -714,7 +735,7 @@ mod tests {
 
         let accept = AnyMessage::Handshake(handshake::Message::Accept(15, version_data));
         behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![accept]));
-        drain_outputs(behavior);
+        drain_outputs(behavior)
     }
 
     // ---- Kept: genuinely cross-cutting tests ----
@@ -1009,18 +1030,22 @@ mod tests {
             "should NOT send RequestRange before handshake"
         );
 
-        // Complete handshake → Initialized
-        complete_handshake(&mut behavior, &pid);
-
-        // Re-enqueue since housekeeping may have consumed nothing
-        // (the request is still in the queue since peer wasn't available)
-        // Housekeeping now — peer is Initialized + blockfetch Idle
-        behavior.execute(InitiatorCommand::Housekeeping);
-        let outputs = drain_outputs(&mut behavior);
-        assert!(
-            outputs.has_send(|m| matches!(m, AnyMessage::BlockFetch(bf::Message::RequestRange(_)))),
-            "should send RequestRange after handshake completes"
+        let accepted = complete_handshake(&mut behavior, &pid);
+        let sent: Vec<_> = accepted
+            .sends()
+            .filter(|&(p, m)| *p == pid && is_any_range(m))
+            .map(|(_, m)| m.clone())
+            .collect();
+        assert_eq!(
+            sent.len(),
+            1,
+            "should send RequestRange when the handshake completes"
         );
+        assert!(
+            is_range(&sent[0], &range),
+            "the queued range goes on the handshake, got {sent:?}"
+        );
+        assert!(!behavior.peers[&pid].violation, "no violation");
     }
 
     #[tokio::test]
@@ -1132,6 +1157,47 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn eb_request_queued_before_the_handshake_is_sent_on_accept() {
+        tokio::time::pause();
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(22);
+        let eb = Point::new(7, vec![0xEF; 32]);
+        include_and_connect(&mut behavior, &pid);
+
+        behavior.execute(InitiatorCommand::FetchEb(pid.clone(), eb.clone()));
+        let issued = sends_to(&drain_outputs(&mut behavior), &pid, is_eb_request);
+        assert_eq!(issued.len(), 0, "the fetch waits for the handshake");
+
+        let accepted = complete_handshake_leios(&mut behavior, &pid);
+        let sent = sends_to(&accepted, &pid, is_eb_request);
+        assert_eq!(sent.len(), 1, "one fetch when the handshake completes");
+        assert!(
+            matches!(
+                &sent[0],
+                AnyMessage::LeiosFetch(lf::Message::BlockRequest(p)) if *p == eb
+            ),
+            "the queued fetch goes on the handshake, got {sent:?}"
+        );
+        assert!(!behavior.peers[&pid].violation, "no violation");
+    }
+
+    fn sends_to(
+        outputs: &[BehaviorOutput<InitiatorBehavior>],
+        pid: &PeerId,
+        pred: fn(&AnyMessage) -> bool,
+    ) -> Vec<AnyMessage> {
+        outputs
+            .sends()
+            .filter(|&(p, m)| p == pid && pred(m))
+            .map(|(_, m)| m.clone())
+            .collect()
+    }
+
+    fn is_eb_request(m: &AnyMessage) -> bool {
+        matches!(m, AnyMessage::LeiosFetch(lf::Message::BlockRequest(_)))
+    }
+
     fn include_and_connect(behavior: &mut InitiatorBehavior, pid: &PeerId) {
         behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
         behavior.execute(InitiatorCommand::Housekeeping);
@@ -1179,12 +1245,12 @@ mod tests {
         behavior.blockfetch.enqueue(range(1));
         behavior.blockfetch.enqueue(range(3));
         include_and_connect(&mut behavior, &pid);
-        complete_handshake(&mut behavior, &pid);
-        let outputs = housekeep_twice(&mut behavior);
+        let mut outputs = complete_handshake(&mut behavior, &pid);
+        outputs.extend(housekeep_twice(&mut behavior));
         assert_eq!(
             outputs.sends().filter(|&(_, m)| is_any_range(m)).count(),
             1,
-            "RequestRange count over two passes"
+            "RequestRange count over the handshake and two passes"
         );
     }
 
@@ -1297,14 +1363,10 @@ mod tests {
     }
 
     fn ranges_requested_from(behavior: &mut InitiatorBehavior, peer: &PeerId) -> Vec<AnyMessage> {
-        complete_handshake(behavior, peer);
+        let mut outputs = complete_handshake(behavior, peer);
         behavior.execute(InitiatorCommand::Housekeeping);
-        let outputs = drain_outputs(behavior);
-        outputs
-            .sends()
-            .filter(|&(p, m)| p == peer && is_any_range(m))
-            .map(|(_, m)| m.clone())
-            .collect()
+        outputs.extend(drain_outputs(behavior));
+        sends_to(&outputs, peer, is_any_range)
     }
 
     #[tokio::test]
@@ -1370,6 +1432,285 @@ mod tests {
                 .map(|m| is_range(m, &range(1)))
                 .unwrap_or(false),
             "range 1 requeued, other got {requested:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn range_requests_go_one_to_each_idle_peer() {
+        tokio::time::pause();
+        let mut behavior = InitiatorBehavior::default();
+        let (a, b) = (PeerId::test(38), PeerId::test(39));
+        include_and_connect(&mut behavior, &a);
+        include_and_connect(&mut behavior, &b);
+        complete_handshake(&mut behavior, &a);
+        complete_handshake(&mut behavior, &b);
+
+        behavior.execute(InitiatorCommand::RequestBlocks(range(1)));
+        behavior.execute(InitiatorCommand::RequestBlocks(range(3)));
+        let outputs = drain_outputs(&mut behavior);
+        assert_eq!(
+            (
+                sends_to(&outputs, &a, is_any_range).len(),
+                sends_to(&outputs, &b, is_any_range).len()
+            ),
+            (1, 1),
+            "RequestRange counts to a and b"
+        );
+    }
+
+    #[tokio::test]
+    async fn held_range_request_is_sent_once_the_first_is_answered() {
+        tokio::time::pause();
+        let no_blocks = vec![AnyMessage::BlockFetch(bf::Message::NoBlocks)];
+        for reply in [no_blocks, full_batch()] {
+            let mut behavior = InitiatorBehavior::default();
+            let pid = PeerId::test(43);
+            send_first_of_two_ranges(&mut behavior, &pid);
+
+            let (last, streaming) = reply.split_last().expect("a reply has a message");
+            behavior.handle_io(InterfaceEvent::Recv(pid.clone(), streaming.to_vec()));
+            let during = sends_to(&drain_outputs(&mut behavior), &pid, is_any_range);
+            assert_eq!(
+                during.len(),
+                0,
+                "the held range waits while the reply streams, reply={reply:?}"
+            );
+
+            behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![last.clone()]));
+            let next = sends_to(&drain_outputs(&mut behavior), &pid, is_any_range);
+            assert_eq!(
+                next.len(),
+                1,
+                "one RequestRange once the first is answered, reply={reply:?}"
+            );
+            assert!(
+                is_range(&next[0], &range(3)),
+                "the held range goes once the first is answered, reply={reply:?}, got {next:?}"
+            );
+            assert!(
+                !behavior.peers[&pid].violation,
+                "no violation, reply={reply:?}"
+            );
+        }
+    }
+
+    fn full_batch() -> Vec<AnyMessage> {
+        vec![
+            AnyMessage::BlockFetch(bf::Message::StartBatch),
+            AnyMessage::BlockFetch(bf::Message::Block(vec![0xBE; 8])),
+            AnyMessage::BlockFetch(bf::Message::BatchDone),
+        ]
+    }
+
+    fn send_first_of_two_ranges(behavior: &mut InitiatorBehavior, pid: &PeerId) {
+        include_and_connect(behavior, pid);
+        complete_handshake(behavior, pid);
+        behavior.execute(InitiatorCommand::RequestBlocks(range(1)));
+        behavior.execute(InitiatorCommand::RequestBlocks(range(3)));
+        let first = sends_to(&drain_outputs(behavior), pid, is_any_range);
+        assert_eq!(
+            first.len(),
+            1,
+            "setup: one RequestRange for the first range"
+        );
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let waiting = sends_to(&drain_outputs(behavior), pid, is_any_range);
+        assert_eq!(
+            waiting.len(),
+            0,
+            "setup: the held range waits for the first"
+        );
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), first[0].clone()));
+    }
+
+    fn finish_batch_then_disconnect(
+        behavior: &mut InitiatorBehavior,
+        pid: &PeerId,
+        other: &PeerId,
+        dropping: Option<InitiatorCommand>,
+    ) -> (usize, Vec<AnyMessage>) {
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), full_batch()));
+        let mut to_pid = sends_to(&drain_outputs(behavior), pid, is_any_range);
+        // The interface writes a range pushed while the peer is still connected.
+        for m in &to_pid {
+            behavior.handle_io(InterfaceEvent::Sent(pid.clone(), m.clone()));
+        }
+        if let Some(command) = dropping {
+            behavior.execute(command);
+            drain_outputs(behavior);
+        }
+
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let outputs = drain_outputs(behavior);
+        assert!(outputs.has_disconnect_for(pid), "setup: pid disconnected");
+        to_pid.extend(sends_to(&outputs, pid, is_any_range));
+        behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+        drain_outputs(behavior);
+
+        include_and_connect(behavior, other);
+        (to_pid.len(), ranges_requested_from(behavior, other))
+    }
+
+    #[tokio::test]
+    async fn range_freed_by_a_dropped_peer_goes_to_another_peer() {
+        tokio::time::pause();
+        for dropped in [PromotionTag::Banned, PromotionTag::Cold] {
+            let mut behavior = InitiatorBehavior::default();
+            let (pid, other) = (PeerId::test(54), PeerId::test(55));
+            send_first_of_two_ranges(&mut behavior, &pid);
+
+            if dropped == PromotionTag::Banned {
+                let bad = AnyMessage::KeepAlive(keepalive::Message::ResponseKeepAlive(7));
+                behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![bad]));
+            } else {
+                behavior.execute(InitiatorCommand::DemotePeer(pid.clone()));
+            }
+            drain_outputs(&mut behavior);
+            assert_eq!(
+                behavior.peers[&pid].promotion, dropped,
+                "setup: pid dropped"
+            );
+
+            let (to_pid, requested) =
+                finish_batch_then_disconnect(&mut behavior, &pid, &other, None);
+            assert_eq!(
+                (to_pid, requested.iter().any(|m| is_range(m, &range(3)))),
+                (0, true),
+                "ranges sent to the {dropped:?} peer, and range 3 sent to the other peer"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn range_written_to_a_peer_dropped_after_its_batch_goes_to_another_peer() {
+        tokio::time::pause();
+        let (pid, other) = (PeerId::test(66), PeerId::test(67));
+        for dropping in [
+            InitiatorCommand::BanPeer(pid.clone()),
+            InitiatorCommand::DemotePeer(pid.clone()),
+        ] {
+            let label = format!("{dropping:?}");
+            let mut behavior = InitiatorBehavior::default();
+            send_first_of_two_ranges(&mut behavior, &pid);
+
+            let (to_pid, requested) =
+                finish_batch_then_disconnect(&mut behavior, &pid, &other, Some(dropping));
+            assert_eq!(
+                (
+                    to_pid,
+                    requested.first().is_some_and(|m| is_range(m, &range(3)))
+                ),
+                (1, true),
+                "ranges sent to pid, and range 3 first to the other peer, after {label}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn range_unanswered_at_disconnect_goes_to_another_peer() {
+        tokio::time::pause();
+        for received in [vec![], full_batch()[..2].to_vec()] {
+            let mut behavior = InitiatorBehavior::default();
+            let (pid, other) = (PeerId::test(70), PeerId::test(71));
+            send_first_of_two_ranges(&mut behavior, &pid);
+            behavior.handle_io(InterfaceEvent::Recv(pid.clone(), received.clone()));
+            drain_outputs(&mut behavior);
+
+            behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+            drain_outputs(&mut behavior);
+            include_and_connect(&mut behavior, &other);
+            let requested = ranges_requested_from(&mut behavior, &other);
+            assert!(
+                requested.first().is_some_and(|m| is_range(m, &range(1))),
+                "range 1 at queue front, received={received:?}, other got {requested:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn range_of_a_finished_batch_is_not_requested_again() {
+        tokio::time::pause();
+        let mut behavior = InitiatorBehavior::default();
+        let (pid, other) = (PeerId::test(74), PeerId::test(75));
+        include_and_connect(&mut behavior, &pid);
+        complete_handshake(&mut behavior, &pid);
+        behavior.execute(InitiatorCommand::RequestBlocks(range(1)));
+        let first = sends_to(&drain_outputs(&mut behavior), &pid, is_any_range);
+        assert_eq!(first.len(), 1, "setup: range 1 pushed to pid");
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), first[0].clone()));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), full_batch()));
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+        drain_outputs(&mut behavior);
+        behavior.execute(InitiatorCommand::RequestBlocks(range(3)));
+        drain_outputs(&mut behavior);
+        include_and_connect(&mut behavior, &other);
+        let requested = ranges_requested_from(&mut behavior, &other);
+        assert!(
+            requested.first().is_some_and(|m| is_range(m, &range(3))),
+            "range 3 at queue front, other got {requested:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn range_requeued_at_disconnect_goes_to_one_peer() {
+        tokio::time::pause();
+        for written in [false, true] {
+            let mut behavior = InitiatorBehavior::default();
+            let (pid, b, c) = (PeerId::test(76), PeerId::test(77), PeerId::test(78));
+            include_and_connect(&mut behavior, &pid);
+            complete_handshake(&mut behavior, &pid);
+            behavior.execute(InitiatorCommand::RequestBlocks(range(1)));
+            let first = sends_to(&drain_outputs(&mut behavior), &pid, is_any_range);
+            assert_eq!(first.len(), 1, "setup: range 1 pushed to pid");
+            if written {
+                behavior.handle_io(InterfaceEvent::Sent(pid.clone(), first[0].clone()));
+            }
+
+            behavior.handle_io(InterfaceEvent::Disconnected(pid.clone()));
+            drain_outputs(&mut behavior);
+            include_and_connect(&mut behavior, &b);
+            include_and_connect(&mut behavior, &c);
+            let mut outputs = complete_handshake(&mut behavior, &b);
+            outputs.extend(complete_handshake(&mut behavior, &c));
+            behavior.execute(InitiatorCommand::Housekeeping);
+            outputs.extend(drain_outputs(&mut behavior));
+            assert_eq!(
+                outputs
+                    .sends()
+                    .filter(|&(_, m)| is_range(m, &range(1)))
+                    .count(),
+                1,
+                "requests for range 1 after the disconnect, written={written}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn requested_ranges_skip_a_banned_peer() {
+        tokio::time::pause();
+        let mut behavior = InitiatorBehavior::default();
+        let (pid, other) = (PeerId::test(58), PeerId::test(59));
+        include_and_connect(&mut behavior, &pid);
+        include_and_connect(&mut behavior, &other);
+        complete_handshake(&mut behavior, &pid);
+        complete_handshake(&mut behavior, &other);
+
+        behavior.execute(InitiatorCommand::BanPeer(pid.clone()));
+        drain_outputs(&mut behavior);
+        behavior.execute(InitiatorCommand::RequestBlocks(range(1)));
+        behavior.execute(InitiatorCommand::RequestBlocks(range(3)));
+        let outputs = drain_outputs(&mut behavior);
+        assert_eq!(
+            (
+                sends_to(&outputs, &pid, is_any_range).len(),
+                sends_to(&outputs, &other, is_any_range)
+                    .iter()
+                    .any(|m| is_range(m, &range(1)))
+            ),
+            (0, true),
+            "ranges sent to the banned peer, and range 1 sent to the other peer"
         );
     }
 
@@ -1687,23 +2028,27 @@ mod tests {
             pid.clone(),
             AnyMessage::LeiosFetch(lf::Message::BlockRequest(first)),
         ));
+        let waiting = sends_to(&drain_outputs(&mut behavior), &pid, is_eb_request);
+        assert_eq!(waiting.len(), 0, "the queued fetch waits for the reply");
+
         let body = lf::Message::Block(AnyCbor::from_raw_bytes(vec![1]));
         behavior.handle_io(InterfaceEvent::Recv(
             pid.clone(),
             vec![AnyMessage::LeiosFetch(body)],
         ));
-        drain_outputs(&mut behavior);
-        behavior.execute(InitiatorCommand::Housekeeping);
-        let outputs = drain_outputs(&mut behavior);
-        let n = outputs
-            .sends()
-            .filter(|&(_, m)| {
-                matches!(m, AnyMessage::LeiosFetch(lf::Message::BlockRequest(p)) if *p == second)
-            })
-            .count();
+        let next = sends_to(&drain_outputs(&mut behavior), &pid, is_eb_request);
         assert_eq!(
-            n, 1,
-            "second BlockRequest after the first is sent and answered"
+            next.len(),
+            1,
+            "second BlockRequest when the first is answered"
         );
+        assert!(
+            matches!(
+                &next[0],
+                AnyMessage::LeiosFetch(lf::Message::BlockRequest(p)) if *p == second
+            ),
+            "the second fetch goes on the reply, got {next:?}"
+        );
+        assert!(!behavior.peers[&pid].violation, "no violation");
     }
 }
