@@ -37,3 +37,12 @@ The offline tests retain the original C corpus byte-for-byte and compare
 numerical values and election comparisons with pinned node-oracle fixtures.
 Recorded C numerical differences are checked against `oracle-divergences.json`;
 C comparator approximations and iteration counts are not consensus authorities.
+
+The fixtures were generated and independently checked with an external Haskell
+oracle using `non-integral` 1.0.0.0, `cardano-ledger-core` 1.21.0.0,
+`cardano-protocol` 0.1.0.0, `cardano-crypto-class` 2.5.1.0 and
+`cardano-crypto-praos` 2.2.4.0. Generation used Hackage index state
+`2026-08-14T13:38:07Z` and CHaP index state `2026-09-23T18:57:23Z`.
+This checkout contains the offline test fixtures, not the oracle source,
+generation scripts or Cabal project/freeze used to produce them. Rust tests do
+not require Haskell tooling.
