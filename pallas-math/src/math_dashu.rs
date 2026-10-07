@@ -458,20 +458,19 @@ fn div_qr(q: &mut IBig, r: &mut IBig, x: &IBig, y: &IBig) {
     (*q, *r) = x.div_rem(y);
 }
 
-/// Division
+/// Integer division rounded toward negative infinity, as in Data.Fixed.
+fn div_floor(numerator: &IBig, denominator: &IBig) -> IBig {
+    let (quotient, remainder) = numerator.div_rem(denominator);
+    if remainder != IBig::ZERO && numerator.sign() != denominator.sign() {
+        quotient - IBig::ONE
+    } else {
+        quotient
+    }
+}
+
+/// Fixed-point division with floor rounding.
 pub fn div(rop: &mut IBig, x: &IBig, y: &IBig) {
-    let mut temp_q = IBig::from(0);
-    let mut temp_r = IBig::from(0);
-    let mut temp: IBig;
-    div_qr(&mut temp_q, &mut temp_r, x, y);
-
-    temp = &temp_q * &*PRECISION;
-    temp_r = &temp_r * &*PRECISION;
-    let temp_r2 = temp_r.clone();
-    div_qr(&mut temp_q, &mut temp_r, &temp_r2, y);
-
-    temp += &temp_q;
-    *rop = temp;
+    *rop = div_floor(&(x * &*PRECISION), y);
 }
 
 /// Taylor / MacLaurin series approximation
@@ -480,7 +479,8 @@ fn mp_exp_taylor(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) -> i32 {
     let mut last_x = ONE.clone();
     rop.clone_from(&ONE);
     let mut n = 0;
-    while n < max_n {
+    // Node starts at term 1 and stops before term max_n.
+    while n < max_n - 1 {
         let mut next_x = x * &last_x;
         scale(&mut next_x);
         let next_x2 = next_x.clone();
@@ -564,7 +564,8 @@ fn mp_ln_n(rop: &mut IBig, max_n: i32, x: &IBig, epsilon: &IBig) {
 
     let mut curr_a = 1;
 
-    while n <= max_n + 2 {
+    // This one-based counter represents node convergent indices 0..=max_n.
+    while n <= max_n + 1 {
         let curr_a_2 = curr_a * curr_a;
         a = x * IBig::from(curr_a_2);
         if n > 1 && n % 2 == 1 {
@@ -654,7 +655,7 @@ fn ref_ln(rop: &mut IBig, x: &IBig) -> bool {
 
     *rop = IBig::from(n);
     *rop = &*rop * &*PRECISION;
-    ref_exp(&mut factor, rop);
+    ipow(&mut factor, &E, n);
 
     div(&mut x_, x, &factor);
 
@@ -714,10 +715,9 @@ fn ref_pow(rop: &mut IBig, base: &IBig, exponent: &IBig) {
 /// `bound_x` is the bound for exp in the interval x is chosen from
 /// `compare` the value to compare to
 ///
-/// if the result is GT, then the computed value is guaranteed to be greater, if
-/// the result is LT, the computed value is guaranteed to be less than
-/// `compare`. In the case of `UNKNOWN` no conclusion was possible for the
-/// selected precision.
+/// GT corresponds to node ABOVE (the comparison is at or above the upper bound),
+/// and LT to node BELOW (strictly below the lower bound). UNKNOWN means only that
+/// the caller-supplied iteration budget was exhausted.
 ///
 /// Lagrange remainder require knowledge of the maximum value to compute the
 /// maximal error of the remainder.
@@ -743,9 +743,6 @@ fn ref_exp_cmp(
     let mut estimate = ExpOrdering::UNKNOWN;
     while n < max_n {
         next_x = error.clone();
-        if (&next_x).abs() < (&*EPS).abs() {
-            break;
-        }
         divisor += &*ONE;
 
         // update error estimation, this is initially bound_x * x and in general
@@ -755,12 +752,12 @@ fn ref_exp_cmp(
         scale(&mut error);
         let e2 = error.clone();
         div(&mut error, &e2, &divisor);
-        error_term = &error * IBig::from(bound_x);
+        error_term = (&error * IBig::from(bound_x)).abs();
         *rop = &*rop + &next_x;
 
         /* compare is guaranteed to be above overall result */
         upper = &*rop + &error_term;
-        if compare > &upper {
+        if compare >= &upper {
             estimate = ExpOrdering::GT;
             n += 1;
             break;

@@ -70,8 +70,11 @@ pub trait FixedPrecision:
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpOrdering {
+    /// Node ABOVE: the comparison value is at or above the exponential upper bound.
     GT,
+    /// Node BELOW: the comparison value is strictly below the exponential lower bound.
     LT,
+    /// The caller-supplied iteration budget was exhausted without a decision.
     UNKNOWN,
 }
 
@@ -89,6 +92,7 @@ impl From<&str> for ExpOrdering {
 pub struct ExpCmpOrdering {
     pub iterations: u64,
     pub estimation: ExpOrdering,
+    /// Last Taylor accumulator, including when the iteration budget is exhausted.
     pub approx: FixedDecimal,
 }
 
@@ -99,7 +103,7 @@ mod tests {
     use proptest::prelude::Strategy;
     use proptest::proptest;
     use std::fs::File;
-    use std::io::BufRead;
+    use std::io::{BufRead, Read};
     use std::path::PathBuf;
 
     #[test]
@@ -386,102 +390,131 @@ mod tests {
 
     #[test]
     fn golden_tests() {
-        let mut data_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        data_path.push("tests/data/golden_tests.txt");
+        use flate2::read::GzDecoder;
+        use sha2::{Digest, Sha256};
 
-        // read each line of golden_tests.txt
-        let file = File::open(data_path).expect("golden_tests.txt: file not found");
-        let reader = std::io::BufReader::new(file);
-
-        // read each line of golden_tests_result.txt
-        let mut data_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        data_path.push("tests/data/golden_tests_result.txt");
-        let file = File::open(data_path).expect("golden_tests_result.txt: file not found");
-        let result_reader = std::io::BufReader::new(file);
-
-        let one: FixedDecimal = FixedDecimal::from(1u64);
-        let ten: FixedDecimal = FixedDecimal::from(10u64);
-        let f: FixedDecimal = &one / &ten;
-        assert_eq!(f.to_string(), "0.1000000000000000000000000000000000");
-
-        for (test_line, result_line) in reader.lines().zip(result_reader.lines()) {
-            let test_line = test_line.expect("failed to read line");
-            // println!("test_line: {}", test_line);
-            let mut parts = test_line.split_whitespace();
-            let x = FixedDecimal::from_str(parts.next().unwrap(), DEFAULT_PRECISION)
-                .expect("failed to parse x");
-            let a = FixedDecimal::from_str(parts.next().unwrap(), DEFAULT_PRECISION)
-                .expect("failed to parse a");
-            let b = FixedDecimal::from_str(parts.next().unwrap(), DEFAULT_PRECISION)
-                .expect("failed to parse b");
-            let result_line = result_line.expect("failed to read line");
-            // println!("result_line: {}", result_line);
-            let mut result_parts = result_line.split_whitespace();
-            let expected_exp_x = result_parts.next().expect("expected_exp_x not found");
-            let expected_ln_a = result_parts.next().expect("expected_ln_a not found");
-            let expected_threshold_b = result_parts.next().expect("expected_threshold_b not found");
-            let expected_approx_exp = result_parts.next().expect("expected_approx_exp not found");
-            let expected_estimation =
-                ExpOrdering::from(result_parts.next().expect("expected_estimation not found"));
-            let expected_iterations = result_parts.next().expect("expected_iterations not found");
-
-            // calculate exp' x
-            let exp_x = x.exp();
-            assert_eq!(exp_x.to_string(), expected_exp_x);
-
-            // calculate ln' a, print -ln' a
-            let ln_a = a.ln();
-            assert_eq!((-ln_a).to_string(), expected_ln_a);
-
-            // calculate (1 - f) *** b
-            let c = &one - &f;
-            assert_eq!(c.to_string(), "0.9000000000000000000000000000000000");
-            let threshold_b = c.pow(&b);
+        let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+        // Pin the untouched C authority, including every original byte.
+        for (name, expected) in [
+            (
+                "golden_tests.txt",
+                "54da107c827bf9d21484f88bbbe8dc140071d44aa2a6d665113a1dfd26dcad9a",
+            ),
+            (
+                "golden_tests_result.txt",
+                "1918c67d0043dc4b03a430eac7c989c5e753c405b7d7e2d4d7cac177da7b1a69",
+            ),
+        ] {
+            let mut file = File::open(data.join(name)).expect("original C corpus");
+            let mut hash = Sha256::new();
+            let mut buffer = [0u8; 8192];
+            let mut last_byte = None;
+            loop {
+                let count = file.read(&mut buffer).expect("read original C corpus");
+                if count == 0 {
+                    break;
+                }
+                hash.update(&buffer[..count]);
+                last_byte = Some(buffer[count - 1]);
+            }
+            assert_eq!(last_byte, Some(b'\n'), "{name}: truncated final row");
             assert_eq!(
-                (&one - &threshold_b).to_string(),
-                expected_threshold_b,
-                "(1 - f) *** b failed to match! - (1 - f)={}, b={}",
-                c,
-                b
+                format!("{:x}", hash.finalize()),
+                expected,
+                "{name}: SHA-256"
             );
-
-            // do Taylor approximation for
-            //  a < 1 - (1 - f) *** b <=> 1/(1-a) < exp(-b * ln' (1 - f))
-            // using Lagrange error term calculation
-            let c = &one - &f;
-            let temp = c.ln();
-            let alpha = &b * &temp;
-            let alpha = -alpha;
-            let q_ = &one - &a;
-            let q = &one / &q_;
-            let res = alpha.exp_cmp(1000, 3, &q);
-
-            // println!("alpha: {}", alpha);
-            // println!("q: {}", q);
-            // println!("res.approx: {}", res.approx);
-            // println!("res.estimation: {:?}", res.estimation);
-            // println!("res.iterations: {}", res.iterations);
-
-            // we compare 1/(1-p) < e^-(1-(1-f)^sigma)
-            let threshold = &one - &threshold_b;
-            if a < threshold && res.estimation != ExpOrdering::LT {
-                panic!(
-                    "wrong result should be leader {} should be more like {}",
-                    temp, threshold
-                );
-            }
-
-            if a >= threshold && res.estimation != ExpOrdering::GT {
-                panic!(
-                    "wrong result should not be leader {} should be more like {}",
-                    temp, threshold
-                );
-            }
-
-            assert_eq!(res.approx.to_string(), expected_approx_exp);
-            assert_eq!(res.estimation, expected_estimation);
-            assert_eq!(res.iterations.to_string(), expected_iterations);
         }
+
+        let mut inputs =
+            std::io::BufReader::new(File::open(data.join("golden_tests.txt")).expect("C inputs"))
+                .lines();
+        let mut c_outputs = std::io::BufReader::new(
+            File::open(data.join("golden_tests_result.txt")).expect("C outputs"),
+        )
+        .lines();
+        let mut node_reader = std::io::BufReader::new(GzDecoder::new(
+            File::open(data.join("node-arithmetic.tsv.gz")).expect("node arithmetic"),
+        ));
+        let expected_divergences: serde_json::Value = serde_json::from_reader(
+            File::open(data.join("oracle-divergences.json")).expect("oracle divergences"),
+        )
+        .expect("valid oracle divergences");
+        let mut observed_divergences = Vec::new();
+        let one = FixedDecimal::from(1u64);
+        let f = &one / &FixedDecimal::from(10u64);
+        let c = &one - &f;
+        let ln_c = c.ln();
+        let mut rows = 0;
+        let mut node_line = String::new();
+        loop {
+            node_line.clear();
+            let node_bytes = node_reader
+                .read_line(&mut node_line)
+                .expect("read node arithmetic");
+            match (inputs.next(), c_outputs.next(), node_bytes) {
+                (None, None, 0) => break,
+                (Some(input), Some(c_output), n) if n > 0 => {
+                    assert!(
+                        node_line.ends_with('\n'),
+                        "node row {rows}: truncated final row"
+                    );
+                    let input = input.expect("read C input");
+                    let c_output = c_output.expect("read C output");
+                    let args: Vec<_> = input.split_whitespace().collect();
+                    let c_fields: Vec<_> = c_output.split_whitespace().collect();
+                    let node: Vec<_> = node_line.split_whitespace().collect();
+                    assert_eq!(args.len(), 3, "input row {rows}");
+                    assert_eq!(c_fields.len(), 6, "C output row {rows}");
+                    assert_eq!(node.len(), 5, "node output row {rows}");
+                    let x = FixedDecimal::from_str(args[0], DEFAULT_PRECISION).unwrap();
+                    let a = FixedDecimal::from_str(args[1], DEFAULT_PRECISION).unwrap();
+                    let b = FixedDecimal::from_str(args[2], DEFAULT_PRECISION).unwrap();
+                    let actual = [
+                        x.exp().to_string(),
+                        (-a.ln()).to_string(),
+                        (&one - &c.pow(&b)).to_string(),
+                    ];
+                    for (field_index, field) in
+                        ["exp", "negativeLn", "threshold"].iter().enumerate()
+                    {
+                        assert_eq!(
+                            actual[field_index], node[field_index],
+                            "node row {rows}, {field}"
+                        );
+                        if c_fields[field_index] != node[field_index] {
+                            observed_divergences.push(serde_json::json!({
+                                "row": rows, "field": field, "input": args.join(" "),
+                                "cResult": c_fields[field_index], "nodeResult": node[field_index],
+                            }));
+                        }
+                    }
+                    let q = &one / &(&one - &a);
+                    // Node negates after the fixed-point multiplication.
+                    let x = -(&b * &ln_c);
+                    let comparison = x.exp_cmp(1000, 3, &q);
+                    let expected_ordering = match node[3] {
+                        "ABOVE" => ExpOrdering::GT,
+                        "BELOW" => ExpOrdering::LT,
+                        "MAX_REACHED" => ExpOrdering::UNKNOWN,
+                        other => panic!("node row {rows}: invalid ordering {other}"),
+                    };
+                    assert_eq!(comparison.estimation, expected_ordering, "node row {rows}");
+                    assert_eq!(
+                        comparison.iterations,
+                        node[4].parse::<u64>().unwrap(),
+                        "node row {rows}"
+                    );
+                    rows += 1;
+                }
+                _ => panic!("corpus EOF mismatch at zero-based row {rows}"),
+            }
+        }
+        assert_eq!(rows, 100_000, "exact corpus row count");
+        assert_eq!(
+            serde_json::Value::Array(observed_divergences),
+            expected_divergences,
+            "every C numerical difference must be recorded by the real oracle"
+        );
     }
 
     #[test]
