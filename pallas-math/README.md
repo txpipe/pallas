@@ -37,6 +37,8 @@ The offline tests retain the original C corpus byte-for-byte and compare
 numerical values and election comparisons with pinned node-oracle fixtures.
 Recorded C numerical differences are checked against `oracle-divergences.json`;
 C comparator approximations and iteration counts are not consensus authorities.
+Git attributes disable line-ending conversion for the two original C corpus
+files so their checksum-pinned bytes also survive Windows checkouts.
 
 The fixtures were generated and independently checked with an external Haskell
 oracle using `non-integral` 1.0.0.0, `cardano-ledger-core` 1.21.0.0,
