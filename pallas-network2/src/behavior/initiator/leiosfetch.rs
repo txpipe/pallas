@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::protocol::EbId;
 use crate::protocol::leiosfetch::{self as fetch_proto, Bitmaps};
 
-use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
@@ -19,8 +19,8 @@ pub enum FetchRequest {
 /// Sub-behavior that fetches EB bodies and transactions from peers.
 ///
 /// Requests are queued (each targeting the peer that should serve it) and sent
-/// one at a time per peer during housekeeping, when that peer is idle. Responses
-/// are surfaced as [`InitiatorEvent::EbFetched`].
+/// one at a time per peer, when that peer is idle. Responses are surfaced as
+/// [`InitiatorEvent::EbFetched`].
 #[derive(Default)]
 pub struct LeiosFetchBehavior {
     requests: VecDeque<(PeerId, FetchRequest)>,
@@ -45,9 +45,10 @@ impl LeiosFetchBehavior {
             return;
         }
 
-        if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid) {
-            let (_, request) = self.requests.remove(idx).expect("index just found");
-            self.send_request(pid, &request, outbound);
+        if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid)
+            && state.try_send_request(pid, request_msg(&self.requests[idx].1), outbound)
+        {
+            self.requests.remove(idx);
         }
     }
 
@@ -56,25 +57,6 @@ impl LeiosFetchBehavior {
     /// `PeerId` (which may no longer hold the offered EB).
     fn purge(&mut self, pid: &PeerId) {
         self.requests.retain(|(p, _)| p != pid);
-    }
-
-    fn send_request(
-        &self,
-        pid: &PeerId,
-        request: &FetchRequest,
-        outbound: &mut OutboundQueue<InitiatorBehavior>,
-    ) {
-        let msg = match request {
-            FetchRequest::Block(point) => fetch_proto::Message::BlockRequest(point.clone()),
-            FetchRequest::BlockTxs(point, bitmaps) => {
-                fetch_proto::Message::BlockTxsRequest(point.clone(), bitmaps.clone())
-            }
-        };
-
-        outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::LeiosFetch(msg),
-        )));
     }
 
     /// Drains a pending response from the peer state and emits the corresponding
@@ -95,6 +77,15 @@ impl LeiosFetchBehavior {
     }
 }
 
+fn request_msg(request: &FetchRequest) -> AnyMessage {
+    AnyMessage::LeiosFetch(match request {
+        FetchRequest::Block(point) => fetch_proto::Message::BlockRequest(point.clone()),
+        FetchRequest::BlockTxs(point, bitmaps) => {
+            fetch_proto::Message::BlockTxsRequest(point.clone(), bitmaps.clone())
+        }
+    })
+}
+
 fn peer_is_available(state: &InitiatorState) -> bool {
     state.is_initialized()
         && state.supports_leios()
@@ -109,6 +100,7 @@ impl PeerVisitor for LeiosFetchBehavior {
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         self.dispatch(pid, state, outbound);
+        self.serve_next(pid, state, outbound);
     }
 
     fn visit_housekeeping(
@@ -144,7 +136,7 @@ mod tests {
     use super::*;
     use crate::protocol::Point;
     use crate::protocol::leiosfetch::Response;
-    use crate::protocol::{AnyCbor, leiosfetch as lf};
+    use crate::protocol::{AnyCbor, MAINNET_MAGIC, handshake, leiosfetch as lf};
     use crate::{OutboundQueue, behavior::ConnectionState};
 
     fn drain_outputs(
@@ -189,6 +181,29 @@ mod tests {
         b.visit_housekeeping(&pid, &mut state, &mut outbound);
         assert!(drain_outputs(&mut outbound).is_empty());
         assert_eq!(b.requests.len(), 1);
+    }
+
+    #[test]
+    fn inbound_while_awaiting_keeps_the_next_request_queued() {
+        let mut b = LeiosFetchBehavior::default();
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        let mut state = InitiatorState::new();
+        state.connection = ConnectionState::Initialized;
+        state.handshake = handshake::State::Done(handshake::DoneState::Accepted(
+            handshake::n2n::LEIOS_MIN_VERSION,
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false)),
+        ));
+        state.leios_fetch = lf::State::AwaitingBlock(Point::Origin);
+        b.enqueue(pid.clone(), FetchRequest::Block(Point::Origin));
+
+        b.visit_inbound_msg(&pid, &mut state, &mut outbound);
+        assert!(
+            drain_outputs(&mut outbound).is_empty(),
+            "nothing is sent while a reply is awaited"
+        );
+        assert_eq!(b.requests.len(), 1, "the request stays queued");
     }
 
     #[test]

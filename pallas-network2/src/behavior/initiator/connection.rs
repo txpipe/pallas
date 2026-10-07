@@ -17,7 +17,7 @@ fn needs_connection(peer: &InitiatorState) -> bool {
     }
 }
 
-fn needs_disconnect(peer: &InitiatorState) -> bool {
+pub(super) fn needs_disconnect(peer: &InitiatorState) -> bool {
     match peer.connection {
         ConnectionState::Errored => true,
         ConnectionState::New => false,
