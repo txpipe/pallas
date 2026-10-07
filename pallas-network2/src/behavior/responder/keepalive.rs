@@ -1,6 +1,9 @@
-use crate::{OutboundQueue, PeerId, behavior::AnyMessage, protocol::keepalive as keepalive_proto};
+use crate::{
+    InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
+    protocol::keepalive as keepalive_proto,
+};
 
-use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState, send_to_peer};
+use super::{ResponderBehavior, ResponderPeerVisitor, ResponderState};
 
 /// Responder sub-behavior that automatically replies to keepalive requests.
 pub struct KeepaliveResponder {
@@ -27,7 +30,7 @@ impl KeepaliveResponder {
     fn try_respond(
         &self,
         pid: &PeerId,
-        state: &mut ResponderState,
+        state: &ResponderState,
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         if !state.is_initialized() {
@@ -39,7 +42,10 @@ impl KeepaliveResponder {
             self.keepalive_responses_counter.add(1, &[]);
 
             let msg = keepalive_proto::Message::ResponseKeepAlive(*cookie);
-            send_to_peer(pid, state, AnyMessage::KeepAlive(msg), outbound);
+            outbound.push_ready(InterfaceCommand::Send(
+                pid.clone(),
+                AnyMessage::KeepAlive(msg),
+            ));
         }
     }
 }

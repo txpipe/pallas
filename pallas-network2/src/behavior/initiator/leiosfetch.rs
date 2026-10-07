@@ -5,7 +5,7 @@ use crate::protocol::leiosfetch::{self as fetch_proto, Bitmaps};
 
 use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage};
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, send_to_peer};
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
 /// A pending leios-fetch request targeting a specific peer.
 #[derive(Debug, Clone)]
@@ -45,9 +45,10 @@ impl LeiosFetchBehavior {
             return;
         }
 
-        if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid) {
-            let (_, request) = self.requests.remove(idx).expect("index just found");
-            send_to_peer(pid, state, request_message(request), outbound);
+        if let Some(idx) = self.requests.iter().position(|(p, _)| p == pid)
+            && state.try_send_request(pid, request_msg(&self.requests[idx].1), outbound)
+        {
+            self.requests.remove(idx);
         }
     }
 
@@ -76,15 +77,13 @@ impl LeiosFetchBehavior {
     }
 }
 
-fn request_message(request: FetchRequest) -> AnyMessage {
-    let msg = match request {
-        FetchRequest::Block(point) => fetch_proto::Message::BlockRequest(point),
+fn request_msg(request: &FetchRequest) -> AnyMessage {
+    AnyMessage::LeiosFetch(match request {
+        FetchRequest::Block(point) => fetch_proto::Message::BlockRequest(point.clone()),
         FetchRequest::BlockTxs(point, bitmaps) => {
-            fetch_proto::Message::BlockTxsRequest(point, bitmaps)
+            fetch_proto::Message::BlockTxsRequest(point.clone(), bitmaps.clone())
         }
-    };
-
-    AnyMessage::LeiosFetch(msg)
+    })
 }
 
 fn peer_is_available(state: &InitiatorState) -> bool {

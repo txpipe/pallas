@@ -1,12 +1,10 @@
 use crate::{
-    BehaviorOutput, OutboundQueue, PeerId,
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{AnyMessage, ConnectionState},
     protocol::{MAINNET_MAGIC, handshake as handshake_proto},
 };
 
-use super::{
-    ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState, send_to_peer,
-};
+use super::{ResponderBehavior, ResponderEvent, ResponderPeerVisitor, ResponderState};
 
 /// Configuration for the responder handshake sub-behavior.
 pub struct HandshakeResponderConfig {
@@ -101,14 +99,20 @@ impl HandshakeResponder {
                             version,
                             "network magic mismatch".to_string(),
                         ));
-                    send_to_peer(pid, state, AnyMessage::Handshake(msg), outbound);
+                    outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                        pid.clone(),
+                        AnyMessage::Handshake(msg),
+                    )));
                     return;
                 }
 
                 tracing::info!(version, "accepting handshake");
 
                 let msg = handshake_proto::Message::Accept(version, our_data.clone());
-                send_to_peer(pid, state, AnyMessage::Handshake(msg), outbound);
+                outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    pid.clone(),
+                    AnyMessage::Handshake(msg),
+                )));
 
                 state.connection = ConnectionState::Initialized;
                 self.handshakes_completed_counter.add(1, &[]);
@@ -132,7 +136,10 @@ impl HandshakeResponder {
                 let msg = handshake_proto::Message::Refuse(
                     handshake_proto::RefuseReason::VersionMismatch(our_versions),
                 );
-                send_to_peer(pid, state, AnyMessage::Handshake(msg), outbound);
+                outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    pid.clone(),
+                    AnyMessage::Handshake(msg),
+                )));
             }
         }
     }
@@ -152,7 +159,7 @@ impl ResponderPeerVisitor for HandshakeResponder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{InterfaceCommand, OutboundQueue};
+    use crate::OutboundQueue;
     use std::collections::HashMap;
 
     fn drain_outputs(
