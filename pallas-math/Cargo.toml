@@ -20,3 +20,6 @@ thiserror.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+flate2 = "1"
+sha2 = "0.10"
+serde_json.workspace = true
