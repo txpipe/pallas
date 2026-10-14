@@ -26,3 +26,4 @@ test-case = "3.3.1"
 json = ["serde_json"]
 default = ["json"]
 relaxed = ["pallas-crypto/relaxed"]
+unstable = []

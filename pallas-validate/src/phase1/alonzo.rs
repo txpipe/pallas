@@ -909,7 +909,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx) -> ValidationResult {
                     None => Vec::new(),
                     Some(plutus_v1_script_wits) => plutus_v1_script_wits.clone(),
                 };
-            for (policy, _) in minted_value.iter() {
+            for policy in minted_value.keys() {
                 if native_script_wits
                     .iter()
                     .all(|native_script| compute_native_script_hash(native_script) != *policy)

@@ -183,8 +183,10 @@ pub enum NativeScript {
     ScriptAll(Vec<NativeScript>),
     /// Require any sub-script to be satisfied.
     ScriptAny(Vec<NativeScript>),
-    /// Require at least `n` of the listed sub-scripts to be satisfied.
-    ScriptNOfK(u32, Vec<NativeScript>),
+    /// Require at least `n` of the listed sub-scripts to be satisfied. The
+    /// ledger CDDL types `n` signed (`int32` in Shelley, `int64` from
+    /// Allegra), not `uint`.
+    ScriptNOfK(i64, Vec<NativeScript>),
     /// Valid only at or after the given slot.
     InvalidBefore(u64),
     /// Valid only before the given slot.

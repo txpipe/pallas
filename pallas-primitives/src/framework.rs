@@ -26,4 +26,14 @@ where
 #[cfg(feature = "json")]
 pub trait ToCanonicalJson {
     fn to_json(&self) -> serde_json::Value;
+
+    /// The same document as [`to_json`](Self::to_json), serialized to text.
+    ///
+    /// Recursive types override this to write the text directly: a
+    /// `serde_json::Value` is itself recursive to serialize or drop, so for
+    /// input whose depth is not under your control this is the safe entry
+    /// point.
+    fn to_json_string(&self) -> String {
+        self.to_json().to_string()
+    }
 }

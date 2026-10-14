@@ -2,6 +2,69 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- *(primitives)* Decode and encode Metadatum without call-stack recursion (#808)
+- *(primitives)* Release a dangling plutus data map key iteratively on decode error (#809)
+- *(primitives)* Clone and traverse Metadatum without call-stack recursion (#810)
+- *(primitives)* Clone, encode and render PlutusData without call-stack recursion (#811)
+- *(primitives)* Stack-safe Dijkstra native scripts via a shared flat-script driver (#813)
+- *(primitives)* Compare Metadatum and PlutusData without call-stack recursion (#814)
+
+### ⚙️ Miscellaneous Tasks
+
+- *(primitives)* Align stack-safe tree code on fold_tree and walk_tree (#812)
+
+## [1.3.0] - 2026-09-17
+
+### 🐛 Bug Fixes
+
+- Follow-ups from ScriptNOfK thresholds (#805)
+- *(primitives)* Add stack-safe native script JSON via shared codec tree traversal (#806)
+- *(primitives)* Decode PlutusData without call-stack recursion (#807)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.3.0
+
+## [1.2.0] - 2026-09-16
+
+### 🚀 Features
+
+- *(network2)* Implement Leios mini-protocols (LeiosNotify, LeiosFetch) (#788)
+- *(addresses)* Add strict pointer and varuint parsing (#787)
+- *(primitives)* Introduce Dijkstra era ledger primitives as unstable (#799)
+
+### 🐛 Bug Fixes
+
+- *(ci)* Restore green CI under current stable clippy and cddl 0.10.7 (#795)
+- *(utxorpc)* Convert block timestamp from seconds to ms in u5c mapping (#793)
+- *(configs)* Support the "extra config" of the current alonzo genesis (#798)
+- *(primitives)* Prevent stack overflow on deeply nested native scripts (#802)
+- *(primitives)* [**breaking**] ScriptNOfK's threshold is the ledger's signed int64, not u32 (#803)
+
+### 📚 Documentation
+
+- *(examples)* Add tutorial-style README for leios-testnet (#790)
+
+### ⚡ Performance
+
+- *(network2)* Send a leios fetch when it is issued instead of waiting (#796)
+
+### 🧪 Testing
+
+- *(txbuilder)* Add a Conway build test harness (#781)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.2.0
+
+### Example
+
+- Add a Leios TUI example (#791)
+
 ## [1.1.1] - 2026-06-19
 
 ### 🐛 Bug Fixes
@@ -15,6 +78,10 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - *(network2)* Fix flaky full_protocol_flow test by removing redundant Housekeeping (#780)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.1.1
 
 ## [1.1.0] - 2026-05-29
 

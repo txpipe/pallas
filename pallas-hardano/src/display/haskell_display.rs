@@ -681,8 +681,8 @@ impl HaskellDisplay for ValidityInterval {
     fn to_haskell_str(&self) -> String {
         format!(
             "(ValidityInterval {{invalidBefore = {}, invalidHereafter = {}}})",
-            &self.invalid_before.as_slot_no(),
-            &self.invalid_hereafter.as_slot_no()
+            self.invalid_before.as_slot_no(),
+            self.invalid_hereafter.as_slot_no()
         )
     }
 }
@@ -1772,7 +1772,9 @@ impl HaskellDisplay for NativeScript {
             }
             ScriptAll(vec) => format!("AllOf ({})", vec.as_strict_seq()),
             ScriptAny(vec) => format!("AnyOf ({})", vec.as_strict_seq()),
-            ScriptNOfK(m, vec) => format!("MOfN {} ({})", m, vec.as_strict_seq()),
+            ScriptNOfK(m, vec) => {
+                format!("MOfN {} ({})", m.to_haskell_str_p(), vec.as_strict_seq())
+            }
             InvalidBefore(slot_no) => format!("TimeStart ({})", slot_no.as_slot_no()),
             InvalidHereafter(slot_no) => format!("TimeExpire ({})", slot_no.as_slot_no()),
         };
@@ -2549,7 +2551,9 @@ impl AsIPv6 for Nullable<Bytes> {
             Nullable::Some(b) => {
                 let data: [u8; 16] = b
                     .deref()
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .flat_map(|x| {
                         let mut y = x.to_vec();
                         y.reverse();
@@ -2675,5 +2679,18 @@ impl HaskellDisplay for Network {
             Mainnet => "Mainnet".to_string(),
             Testnet => "Testnet".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod native_script_tests {
+    use super::*;
+
+    #[test]
+    fn negative_n_of_k_threshold_is_parenthesized() {
+        // Matches this file's convention for every other negative constructor
+        // argument: `MOfN -1 (...)` isn't valid Haskell constructor syntax.
+        let str = NativeScript::ScriptNOfK(-1, vec![]).to_haskell_str();
+        assert!(str.contains("MOfN (-1) ("), "{str}");
     }
 }
