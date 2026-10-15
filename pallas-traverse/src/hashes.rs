@@ -191,6 +191,13 @@ impl OriginalHash<28> for KeepRaw<'_, dijkstra::NativeScript> {
     }
 }
 
+#[cfg(feature = "unstable")]
+impl OriginalHash<32> for KeepRaw<'_, dijkstra::EndorserBlock> {
+    fn original_hash(&self) -> Hash<32> {
+        Hasher::<256>::hash(self.raw_cbor())
+    }
+}
+
 impl ComputeHash<32> for babbage::TransactionBody<'_> {
     fn compute_hash(&self) -> Hash<32> {
         Hasher::<256>::hash_cbor(self)
@@ -744,6 +751,20 @@ mod tests {
         assert_eq!(
             checked, 4,
             "the fixtures declare four auxiliary data hashes"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn an_endorser_block_hashes_as_its_announcement_names() {
+        let cbor = hex::decode(include_str!("../../test_data/dijkstra-17402.ebbody")).unwrap();
+        let block: pallas_codec::utils::KeepRaw<pallas_primitives::dijkstra::EndorserBlock> =
+            minicbor::decode(&cbor).unwrap();
+
+        assert_eq!(
+            block.original_hash().to_string(),
+            "29694e6d204e586f170a1f4f75da3703cb86289d08e7eaea2def826a6dcd7e90",
+            "the eb_hash block 17402 announces"
         );
     }
 }
