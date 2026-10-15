@@ -24,7 +24,7 @@ impl MultiEraTx<'_> {
                 _ => 2,
             },
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => match &x.auxiliary_data {
+            MultiEraTx::DijkstraSub(x, _) => match &x.auxiliary_data {
                 Nullable::Some(x) => x.raw_cbor().len() + 1,
                 _ => 2,
             },
@@ -40,7 +40,7 @@ impl MultiEraTx<'_> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_body.raw_cbor().len(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.sub_transaction_body.raw_cbor().len(),
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.raw_cbor().len(),
         }
     }
 
@@ -53,7 +53,7 @@ impl MultiEraTx<'_> {
             #[cfg(feature = "unstable")]
             MultiEraTx::Dijkstra(x) => x.transaction_witness_set.raw_cbor().len(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x) => x.transaction_witness_set.raw_cbor().len(),
+            MultiEraTx::DijkstraSub(x, _) => x.transaction_witness_set.raw_cbor().len(),
         }
     }
 
