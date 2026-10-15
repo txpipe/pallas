@@ -1,10 +1,7 @@
 use pallas_primitives::{alonzo, conway};
 
 #[cfg(feature = "unstable")]
-use std::ops::Deref;
-
-#[cfg(feature = "unstable")]
-use pallas_primitives::dijkstra;
+use pallas_primitives::{Nullable, dijkstra};
 
 use crate::{Era, MultiEraCert, MultiEraCertKind, MultiEraPoolRegistration};
 
@@ -28,6 +25,7 @@ macro_rules! shared_certs {
                 pool_owners,
                 relays,
                 pool_metadata,
+                ..
             } => MultiEraCertKind::PoolRegistration(MultiEraPoolRegistration {
                 operator,
                 vrf_keyhash,
@@ -142,6 +140,12 @@ fn conway_cert_kind(cert: &conway::Certificate) -> MultiEraCertKind<'_> {
     )
 }
 
+/// Reads every certificate the Dijkstra type names.
+#[cfg(feature = "unstable")]
+fn dijkstra_cert_kind(cert: &dijkstra::Certificate) -> MultiEraCertKind<'_> {
+    shared_certs!(cert, dijkstra)
+}
+
 impl MultiEraCert<'_> {
     pub fn as_alonzo(&self) -> Option<&alonzo::Certificate> {
         match self {
@@ -177,63 +181,28 @@ impl MultiEraCert<'_> {
         }
     }
 
+    /// Returns the BLS key of a Dijkstra pool registration that has one, or
+    /// None otherwise.
     #[cfg(feature = "unstable")]
-    pub fn bls_key(&self) -> BlsKeySlot<'_> {
-        match self {
-            MultiEraCert::Dijkstra(x) => match x.deref().deref() {
-                dijkstra::Certificate::PoolRegistration { bls_key, .. } => match bls_key {
-                    None => BlsKeySlot::NoSlot,
-                    Some(pallas_primitives::Nullable::Some(k)) => BlsKeySlot::Key(k),
-                    Some(_) => BlsKeySlot::Null,
-                },
-                _ => BlsKeySlot::NotAPoolRegistration,
-            },
-            MultiEraCert::AlonzoCompatible(x) => match x.deref().deref() {
-                alonzo::Certificate::PoolRegistration { .. } => BlsKeySlot::NoSlot,
-                _ => BlsKeySlot::NotAPoolRegistration,
-            },
-            MultiEraCert::Conway(x) => match x.deref().deref() {
-                conway::Certificate::PoolRegistration { .. } => BlsKeySlot::NoSlot,
-                _ => BlsKeySlot::NotAPoolRegistration,
-            },
-            MultiEraCert::NotApplicable => BlsKeySlot::NotAPoolRegistration,
+    pub fn bls_key(&self) -> Option<&dijkstra::BlsKey> {
+        match self.as_dijkstra()? {
+            dijkstra::Certificate::PoolRegistration {
+                bls_key: Some(Nullable::Some(key)),
+                ..
+            } => Some(key),
+            _ => None,
         }
     }
 
     /// Returns what this certificate certifies, with each payload in one type
-    /// serving both the Alonzo and the Conway certificate type, or None for an
-    /// era that carries no certificates at all.
+    /// for every era, or None for an era with no certificates.
     pub fn kind(&self) -> Option<MultiEraCertKind<'_>> {
         match self {
             MultiEraCert::NotApplicable => None,
             MultiEraCert::AlonzoCompatible(x) => Some(alonzo_cert_kind(x)),
             MultiEraCert::Conway(x) => Some(conway_cert_kind(x)),
             #[cfg(feature = "unstable")]
-            MultiEraCert::Dijkstra(_) => {
-                unimplemented!("map_cert is not yet implemented for Dijkstra")
-            }
-        }
-    }
-}
-
-#[cfg(feature = "unstable")]
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum BlsKeySlot<'b> {
-    NotAPoolRegistration,
-    /// A pool registration with no BLS key slot, or one the transaction omitted.
-    NoSlot,
-    /// A pool registration that wrote the slot as nil.
-    Null,
-    Key(&'b dijkstra::BlsKey),
-}
-
-#[cfg(feature = "unstable")]
-impl BlsKeySlot<'_> {
-    pub fn key(&self) -> Option<&dijkstra::BlsKey> {
-        match self {
-            BlsKeySlot::Key(k) => Some(k),
-            BlsKeySlot::NotAPoolRegistration | BlsKeySlot::NoSlot | BlsKeySlot::Null => None,
+            MultiEraCert::Dijkstra(x) => Some(dijkstra_cert_kind(x)),
         }
     }
 }
@@ -348,13 +317,35 @@ mod tests {
                 assert!(cert.as_conway().is_none());
                 assert!(cert.as_alonzo().is_none());
 
-                if let Some(key) = cert.bls_key().key() {
+                if let Some(key) = cert.bls_key() {
                     assert_eq!(key.bls_pubkey.len(), 96, "bls_pubkey is 96 bytes");
                     assert_eq!(
                         key.bls_possession_proof.len(),
                         48,
                         "bls_possession_proof is 48 bytes"
                     );
+                    let Some(dijkstra::Certificate::PoolRegistration {
+                        operator,
+                        vrf_keyhash,
+                        pledge,
+                        cost,
+                        reward_account,
+                        ..
+                    }) = cert.as_dijkstra()
+                    else {
+                        unreachable!()
+                    };
+                    let Some(MultiEraCertKind::PoolRegistration(view)) = cert.kind() else {
+                        panic!(
+                            "the view reads a pool registration, found {:?}",
+                            cert.kind()
+                        )
+                    };
+                    assert_eq!(
+                        (view.operator, view.vrf_keyhash, view.pledge, view.cost),
+                        (operator, vrf_keyhash, *pledge, *cost)
+                    );
+                    assert_eq!(view.reward_account, reward_account);
                     registrations_seen += 1;
                     with_key += 1;
                 }
@@ -394,7 +385,7 @@ mod tests {
         assert!(delegation.as_alonzo().is_none());
 
         assert!(
-            delegation.bls_key().key().is_none(),
+            delegation.bls_key().is_none(),
             "a vote delegation carries no pool parameters"
         );
 
@@ -410,12 +401,84 @@ mod tests {
             matches!(drep, dijkstra::DRep::Abstain),
             "this delegation is to the predefined abstain drep, found {drep:?}"
         );
+        assert!(
+            matches!(
+                delegation.kind(),
+                Some(MultiEraCertKind::VoteDeleg(_, DRep::Abstain))
+            ),
+            "the view reads a vote delegation to the abstain drep"
+        );
 
         assert!(
             all.iter()
                 .any(|c| matches!(c.as_dijkstra(), Some(dijkstra::Certificate::Reg(..)))),
             "the other certificate is a registration"
         );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_pool_registration_reads_its_bls_key_through_the_accessor() {
+        let key = dijkstra::BlsKey {
+            bls_pubkey: vec![0x71; 96].into(),
+            bls_possession_proof: vec![0x72; 48].into(),
+        };
+        let dijkstra_registration = |bls_key| {
+            dijkstra_cert(dijkstra::Certificate::PoolRegistration {
+                operator: [0x02; 28].into(),
+                vrf_keyhash: [0x06; 32].into(),
+                bls_key,
+                pledge: 500,
+                cost: 340,
+                margin: margin(),
+                reward_account: vec![0xe0; 29].into(),
+                pool_owners: vec![[0x04; 28].into()].into(),
+                relays: relays(),
+                pool_metadata: Some(metadata()),
+            })
+        };
+
+        let absent = dijkstra_registration(None);
+        let nil = dijkstra_registration(Some(pallas_primitives::Nullable::Null));
+        let populated = dijkstra_registration(Some(pallas_primitives::Nullable::Some(key.clone())));
+        let alonzo = alonzo_cert(alonzo::Certificate::PoolRegistration {
+            operator: [0x02; 28].into(),
+            vrf_keyhash: [0x06; 32].into(),
+            pledge: 500,
+            cost: 340,
+            margin: margin(),
+            reward_account: vec![0xe0; 29].into(),
+            pool_owners: vec![[0x04; 28].into()],
+            relays: relays(),
+            pool_metadata: Some(metadata()),
+        });
+        let conway = conway_cert(conway::Certificate::PoolRegistration {
+            operator: [0x02; 28].into(),
+            vrf_keyhash: [0x06; 32].into(),
+            pledge: 500,
+            cost: 340,
+            margin: margin(),
+            reward_account: vec![0xe0; 29].into(),
+            pool_owners: vec![[0x04; 28].into()].into(),
+            relays: relays(),
+            pool_metadata: Some(metadata()),
+        });
+
+        let cases = [
+            ("an absent Dijkstra", &absent, None),
+            ("a nil Dijkstra", &nil, None),
+            ("a populated Dijkstra", &populated, Some(&key)),
+            ("an Alonzo", &alonzo, None),
+            ("a Conway", &conway, None),
+        ];
+
+        for (name, cert, expected) in cases {
+            assert_eq!(
+                cert.bls_key(),
+                expected,
+                "{name} pool registration reads the expected bls_key"
+            );
+        }
     }
 
     #[test]
@@ -615,7 +678,7 @@ mod tests {
             assert!(cert.as_dijkstra().is_none());
             assert!(cert.as_conway().is_none());
             assert!(
-                cert.bls_key().key().is_none(),
+                cert.bls_key().is_none(),
                 "no era before Dijkstra has a BLS key slot"
             );
         }
@@ -818,6 +881,11 @@ mod tests {
 
     fn alonzo_cert(certificate: alonzo::Certificate) -> MultiEraCert<'static> {
         MultiEraCert::AlonzoCompatible(Box::new(Cow::Owned(certificate)))
+    }
+
+    #[cfg(feature = "unstable")]
+    fn dijkstra_cert(certificate: dijkstra::Certificate) -> MultiEraCert<'static> {
+        MultiEraCert::Dijkstra(Box::new(Cow::Owned(certificate)))
     }
 
     #[test]
