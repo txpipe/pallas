@@ -827,7 +827,6 @@ mod attribute_tests {
     /// path. A `Never` marking is an enum whose shape v1.4.0 already fixed,
     /// which a caller may match exhaustively until the next major release.
     const PUBLIC_ENUMS: &[(&str, Presence, NonExhaustive)] = &[
-        ("cert::BlsKeySlot", UnstableOnly, Always),
         ("governance::ParamRead", UnstableOnly, Always),
         ("lib::Era", EveryBuild, Always),
         ("lib::Error", EveryBuild, Never),
