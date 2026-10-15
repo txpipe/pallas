@@ -860,6 +860,78 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
+/// The longest cost model, or map of cost models, the ledger writes with a
+/// definite length.
+const DEFINITE_LENGTH_LIMIT: usize = 23;
+
+impl<Ctx> minicbor::Encode<Ctx> for CostModels {
+    fn encode<__W777>(
+        &self,
+        e: &mut minicbor::Encoder<__W777>,
+        _ctx: &mut Ctx,
+    ) -> Result<(), minicbor::encode::Error<__W777::Error>>
+    where
+        __W777: minicbor::encode::Write,
+    {
+        let named = [
+            (0u64, self.plutus_v1.as_ref()),
+            (1, self.plutus_v2.as_ref()),
+            (2, self.plutus_v3.as_ref()),
+        ];
+
+        let present =
+            named.iter().filter(|(_, model)| model.is_some()).count() + self.unknown.len();
+        let definite = present <= DEFINITE_LENGTH_LIMIT;
+
+        if definite {
+            e.map(present as u64)?;
+        } else {
+            e.begin_map()?;
+        }
+
+        for (key, model) in named.iter() {
+            if let Some(model) = model {
+                e.u64(*key)?;
+                encode_cost_model(e, model)?;
+            }
+        }
+
+        for (key, model) in self.unknown.iter() {
+            e.u64(*key)?;
+            encode_cost_model(e, model)?;
+        }
+
+        if !definite {
+            e.end()?;
+        }
+
+        Ok(())
+    }
+}
+
+fn encode_cost_model<W: minicbor::encode::Write>(
+    e: &mut minicbor::Encoder<W>,
+    model: &CostModel,
+) -> Result<(), minicbor::encode::Error<W::Error>> {
+    let definite = model.len() <= DEFINITE_LENGTH_LIMIT;
+
+    if definite {
+        e.array(model.len() as u64)?;
+    } else {
+        e.begin_array()?;
+    }
+
+    for cost in model {
+        e.i64(*cost)?;
+    }
+
+    if !definite {
+        e.end()?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 pub mod tests {
     use pallas_codec::minicbor;
@@ -916,6 +988,51 @@ pub mod tests {
                 }
                 _ => panic!("unexpected message type"),
             });
+        }
+    }
+
+    #[test]
+    fn cost_models_beyond_the_named_languages_round_trip() {
+        use crate::miniprotocols::localstate::queries_v16::CostModels;
+
+        // a map of five, keys 0, 1, 2, 3 and 9
+        let wire = hex::decode("a5008201020181030282200403810509820607").expect("hex");
+
+        let models: CostModels = minicbor::decode(&wire).expect("decode");
+        let carried: Vec<u64> = models.unknown.iter().map(|(key, _)| *key).collect();
+        assert_eq!(carried, vec![3, 9]);
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
+    }
+
+    #[test]
+    fn cost_models_switch_to_indefinite_length_above_23_items() {
+        use crate::miniprotocols::localstate::queries_v16::CostModels;
+
+        let values = |n: u8| (0..n).map(|i| format!("{i:02x}")).collect::<String>();
+        let empty_models = |n: u8| (0..n).map(|k| format!("{k:02x}80")).collect::<String>();
+
+        for wire in [
+            // a model of 24 values, an indefinite array
+            format!("a1009f{}ff", values(24)),
+            // a map of 24 models, an indefinite map
+            format!("bf{}ff", empty_models(24)),
+            // a model of 23 values, a definite array
+            format!("a10097{}", values(23)),
+            // a map of 23 models, a definite map
+            format!("b7{}", empty_models(23)),
+        ] {
+            let models: CostModels =
+                minicbor::decode(&hex::decode(&wire).expect("hex")).expect("decode");
+
+            assert_eq!(
+                hex::encode(minicbor::to_vec(&models).expect("encode")),
+                wire,
+                "{wire}"
+            );
         }
     }
 
