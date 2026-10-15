@@ -61,6 +61,40 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
 
+## Endorser block bodies
+
+Three files are endorser block bodies, each the `endorser_block` map from
+transaction hash to transaction size in bytes, as leios-fetch delivered it,
+written as lowercase hex with no trailing newline. Each body's blake2b-256 and
+length are the `eb_hash` and `eb_size` of the `eb_announcement` in the header of
+the block named beside it.
+
+`dijkstra-17402.ebbody` was fetched on 2026-09-22 over leios-fetch from a node
+of the chain above, cardano-node `afa091b4af2795d1d9c46e59145ed16127760f7b`, at
+the point of the announcing slot and the announced hash. Block 17402 (chunk and
+index 00344/7) announces it and `dijkstra8.block` certifies it.
+
+`dijkstra-eb1.ebbody` and `dijkstra-eb2.ebbody` come from an earlier Musashi
+chain, with network magic 164 like the chain above, under node release
+`prototype-2026w35`, whose node pins cardano-ledger
+`f3104f00f9819ba94de119c38bc3e0109982821f`. They were pulled over leios-fetch
+from that chain's relay.
+Their announcing headers were cut from the same chain's immutable database, at
+chunk and index 00397/47 and 00368/27, and each header hash equals what that
+node's own secondary index records for the block.
+
+The counts, first keys and first sizes were read with a standalone CBOR walker
+and Python's `hashlib.blake2b` rather than with pallas.
+
+| file | announced at slot | announcing block | announcing header hash | bytes | blake2b-256 | transactions | first key | first size | why |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra-eb1.ebbody | 429789 | 21507 | `abba50f39b31ca7ed67ebe72f588668073a66090a33504a76d9abbc1d6a9d3b5` | 37 | `f753a2b1e556780d36961a1cde7ba05ea3ff9a58047b03385d5242b5c4610b5c` | 1 | `a69f9fc581e5914a101a3e619f5ce64b6bce76721fd5eed0cbad0e0f6d411cc5` | 229 | the smallest body, one transaction |
+| dijkstra-eb2.ebbody | 397855 | 19847 | `779e95c2816db83f41528b1b8260034f68c8f817c4f32edadc05de0fc16f22fb` | 1082 | `8f21f4531c3d5e6cf6939821221d01bc6c4f33c6470de4b1a852dd99ea19883d` | 30 | `455a00b521f35f2c0a6ff0a59296c3316de6219af206c13d2e95870f66541fec` | 200 | thirty transactions whose keys are not in sorted order |
+| dijkstra-17402.ebbody | 371680 | 17402 | `b0e696b02f5c527b43eabf2149b71c7f9579b4e2db1dbe0c04fe67881cdb8aa9` | 8786 | `29694e6d204e586f170a1f4f75da3703cb86289d08e7eaea2def826a6dcd7e90` | 244 | `2bc50f5b4942ca304e39e7cd7f1c4261d85437ea5464b2d1a623f47790254a3d` | 201 | the body `dijkstra8.block` certifies, 244 transactions with keys not in sorted order |
+
+`pallas-primitives` decodes and re-encodes each body, and `pallas-traverse`
+asserts the blake2b-256 of `dijkstra-17402.ebbody`.
+
 ## Transactions cut from the chain
 
 One file here is a single transaction rather than a whole block, read from the
