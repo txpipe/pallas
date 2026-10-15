@@ -352,7 +352,15 @@ macro_rules! impl_cardano_mapper_shared {
                         script: u5c::script::Script::PlutusV2(x).into(),
                     });
 
-                ns.chain(p1).chain(p2).collect()
+                let p3 = tx
+                    .plutus_v3_scripts()
+                    .iter()
+                    .map(|x| x.0.to_vec().into())
+                    .map(|x| u5c::Script {
+                        script: u5c::script::Script::PlutusV3(x).into(),
+                    });
+
+                ns.chain(p1).chain(p2).chain(p3).collect()
             }
 
             pub fn map_plutus_constr(
