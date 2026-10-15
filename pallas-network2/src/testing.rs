@@ -43,6 +43,8 @@ pub(crate) trait BehaviorOutputExt<B: Behavior> {
     fn has_send<F>(&self, pred: F) -> bool
     where
         F: Fn(&B::Message) -> bool;
+    /// Returns the peer and message of each Send command.
+    fn sends(&self) -> impl Iterator<Item = (&PeerId, &B::Message)>;
     /// Returns true if any output is an external event matching the predicate.
     fn has_event<F>(&self, pred: F) -> bool
     where
@@ -66,9 +68,13 @@ impl<B: Behavior> BehaviorOutputExt<B> for [BehaviorOutput<B>] {
     where
         F: Fn(&B::Message) -> bool,
     {
-        self.iter().any(|o| match o {
-            BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(_, msg)) => pred(msg),
-            _ => false,
+        self.sends().any(|(_, msg)| pred(msg))
+    }
+
+    fn sends(&self) -> impl Iterator<Item = (&PeerId, &B::Message)> {
+        self.iter().filter_map(|o| match o {
+            BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(pid, msg)) => Some((pid, msg)),
+            _ => None,
         })
     }
 

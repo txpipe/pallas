@@ -1,6 +1,6 @@
 use crate::protocol::leiosnotify as notify_proto;
 
-use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
+use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 
@@ -9,18 +9,22 @@ use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
 ///
 /// `RequestNext` is issued during housekeeping whenever the peer is initialized,
 /// negotiated a Leios-capable version, and the protocol is idle with nothing
-/// pending — yielding a continuous notification loop paced by housekeeping.
+/// pending and no unsent `RequestNext`, yielding a continuous
+/// notification loop paced by housekeeping.
 #[derive(Default)]
 pub struct LeiosNotifyBehavior;
 
 impl LeiosNotifyBehavior {
-    fn request_next(&self, pid: &PeerId, outbound: &mut OutboundQueue<InitiatorBehavior>) {
+    fn request_next(
+        &self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
         tracing::debug!("requesting next leios notification");
 
-        outbound.push_ready(BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::LeiosNotify(notify_proto::Message::RequestNext),
-        )));
+        let msg = AnyMessage::LeiosNotify(notify_proto::Message::RequestNext);
+        state.try_send_request(pid, msg, outbound);
     }
 
     /// Drains a pending notification from the peer state and emits the
@@ -63,11 +67,8 @@ impl PeerVisitor for LeiosNotifyBehavior {
             return;
         }
 
-        // Only request when idle with nothing pending; the Sent event will move
-        // the protocol to Busy before the next housekeeping pass, avoiding
-        // duplicate requests.
         if matches!(state.leios_notify, notify_proto::State::Idle(None)) {
-            self.request_next(pid, outbound);
+            self.request_next(pid, state, outbound);
         }
     }
 }

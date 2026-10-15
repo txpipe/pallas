@@ -101,12 +101,31 @@ impl PeerVisitor for BlockFetchBehavior {
         if peer_is_available(state) {
             tracing::debug!("peer looks available");
 
-            if let Some(request) = self.requests.pop_front() {
+            if let Some(request) = self.requests.front()
+                && state.try_send_request(
+                    pid,
+                    AnyMessage::BlockFetch(blockfetch_proto::Message::RequestRange(
+                        request.clone(),
+                    )),
+                    outbound,
+                )
+            {
                 tracing::debug!("granting request to peer");
-                self.request_block_batch(pid, request, outbound);
+                self.requests.pop_front();
             }
         } else {
             tracing::warn!("no peer available");
+        }
+    }
+
+    fn visit_disconnected(
+        &mut self,
+        _pid: &PeerId,
+        state: &mut InitiatorState,
+        _outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        if let Some(range) = state.take_unsent_range() {
+            self.requests.push_front(range);
         }
     }
 }

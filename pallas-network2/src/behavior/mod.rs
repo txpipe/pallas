@@ -6,6 +6,7 @@ use crate::{Channel, Message, Payload, protocol as proto};
 
 pub mod initiator;
 pub mod responder;
+mod unsent;
 
 // Re-export initiator types for backward compatibility
 pub use initiator::*;
