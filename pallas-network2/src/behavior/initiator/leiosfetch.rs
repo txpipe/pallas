@@ -5,7 +5,9 @@ use crate::protocol::leiosfetch::{self as fetch_proto, Bitmaps};
 
 use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage};
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+use super::{
+    InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, connection::needs_disconnect,
+};
 
 /// A pending leios-fetch request targeting a specific peer.
 #[derive(Debug, Clone)]
@@ -90,6 +92,7 @@ fn peer_is_available(state: &InitiatorState) -> bool {
     state.is_initialized()
         && state.supports_leios()
         && matches!(state.leios_fetch, fetch_proto::State::Idle(None))
+        && !needs_disconnect(state)
 }
 
 impl PeerVisitor for LeiosFetchBehavior {

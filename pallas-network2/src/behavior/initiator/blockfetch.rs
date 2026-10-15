@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use crate::protocol::blockfetch as blockfetch_proto;
 
@@ -21,7 +21,6 @@ pub type Request = BlockRange;
 pub struct BlockFetchBehavior {
     //config: BlockFetchConfig,
     requests: VecDeque<Request>,
-    sent: HashMap<PeerId, Request>,
 }
 
 impl Default for BlockFetchBehavior {
@@ -35,7 +34,6 @@ impl BlockFetchBehavior {
     pub fn new(_config: BlockFetchConfig) -> Self {
         Self {
             requests: VecDeque::new(),
-            sent: HashMap::new(),
         }
     }
 
@@ -43,6 +41,11 @@ impl BlockFetchBehavior {
     pub fn enqueue(&mut self, request: Request) {
         self.requests.push_back(request);
         tracing::info!(total = self.requests.len(), "new request");
+    }
+
+    /// Returns true if a block range request is queued.
+    pub(super) fn has_requests(&self) -> bool {
+        !self.requests.is_empty()
     }
 
     /// Sends a block range request to the specified peer.
@@ -116,7 +119,7 @@ impl PeerVisitor for BlockFetchBehavior {
         self.dispatch_block(pid, state, outbound);
 
         if matches!(state.blockfetch, blockfetch_proto::State::Idle) {
-            self.sent.remove(pid);
+            state.in_flight = None;
         }
 
         self.serve_next(pid, state, outbound);
@@ -124,12 +127,14 @@ impl PeerVisitor for BlockFetchBehavior {
 
     fn visit_outbound_msg(
         &mut self,
-        pid: &PeerId,
+        _pid: &PeerId,
         state: &mut InitiatorState,
         _outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        if let blockfetch_proto::State::Busy(range) = &state.blockfetch {
-            self.sent.insert(pid.clone(), range.clone());
+        if let blockfetch_proto::State::Busy(range) = &state.blockfetch
+            && state.in_flight.is_none()
+        {
+            state.in_flight = Some(range.clone());
         }
     }
 
@@ -144,11 +149,11 @@ impl PeerVisitor for BlockFetchBehavior {
 
     fn visit_disconnected(
         &mut self,
-        pid: &PeerId,
+        _pid: &PeerId,
         state: &mut InitiatorState,
         _outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        if let Some(range) = self.sent.remove(pid) {
+        if let Some(range) = state.in_flight.take() {
             self.requests.push_front(range);
         }
 
