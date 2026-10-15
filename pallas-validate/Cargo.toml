@@ -29,3 +29,4 @@ amaru-uplc = { version = "0.1.0", optional = true }
 
 [features]
 phase2 = ["amaru-uplc"]
+unstable = ["pallas-traverse/unstable", "pallas-primitives/unstable"]
