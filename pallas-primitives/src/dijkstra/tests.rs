@@ -232,6 +232,72 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
     );
 }
 
+const INDEFINITE_BYTES_TXS: &[(&str, &str, &str, usize, &str, &str)] = &[
+    (
+        "dijkstra-indef-bytes1",
+        include_str!("../../../test_data/dijkstra-indef-bytes1.tx"),
+        "943a88c97f86522b2cda39d1d6bd076ea51a696e5ad41c41e4c6d38ce8f7dd50",
+        11,
+        "e040142528145d15aeea4834e948b87030a94ed33cdf3f7fff0364cf84a2408a",
+        "00b44447f25f59bf23280d29fdea97f4e341e0bcd1d407ce80a8f11ede1ec80930158084eb5c735fd9bfb1ec53b8b5001c4b39d32c116b4921",
+    ),
+    (
+        "dijkstra-indef-bytes2",
+        include_str!("../../../test_data/dijkstra-indef-bytes2.tx"),
+        "b026c42a9cf28aff7ce8624487f4d2b8f45df93454ac0ea2842408c1673cce5c",
+        7,
+        "943a88c97f86522b2cda39d1d6bd076ea51a696e5ad41c41e4c6d38ce8f7dd50",
+        "00b44447f25f59bf23280d29fdea97f4e341e0bcd1d407ce80a8f11ede1ec80930158084eb5c735fd9bfb1ec53b8b5001c4b39d32c116b4921",
+    ),
+];
+
+#[test]
+fn transactions_with_indefinite_length_byte_strings_decode_and_keep_their_ids() {
+    for (name, tx_hex, id, indefinite, input_id, address) in INDEFINITE_BYTES_TXS {
+        let bytes = hex::decode(tx_hex).unwrap();
+
+        let tx: MempoolTransaction = minicbor::decode(&bytes)
+            .unwrap_or_else(|e| panic!("{name} should decode as a mempool transaction: {e:?}"));
+
+        let input = tx.transaction_body.inputs.first().unwrap();
+        assert_eq!(
+            hex::encode(input.transaction_id),
+            *input_id,
+            "{name}: the first input id should be its chunks joined in order"
+        );
+
+        let Some(TransactionOutput::Legacy(output)) = tx.transaction_body.outputs.first() else {
+            panic!("{name}: the first output should be in the array form");
+        };
+        assert_eq!(
+            hex::encode(&*output.address),
+            *address,
+            "{name}: the first output address should be its chunks joined in order"
+        );
+
+        let body = tx.transaction_body.raw_cbor();
+        let begins = minicbor::decode::Tokenizer::new(body)
+            .filter(|token| matches!(token, Ok(minicbor::data::Token::BeginBytes)))
+            .count();
+        assert_eq!(
+            begins, *indefinite,
+            "{name}: the body should hold {indefinite} indefinite length byte strings"
+        );
+
+        assert_eq!(
+            hex::encode(pallas_crypto::hash::Hasher::<256>::hash(body)),
+            *id,
+            "{name}: the id is the hash of the body bytes as read"
+        );
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&tx).unwrap()),
+            *tx_hex,
+            "{name}: the transaction should re-encode to the bytes it was read from"
+        );
+    }
+}
+
 /// Run over an empty tail and a populated one, because an empty tail is two
 /// bytes and a length check could match that by accident.
 #[test]

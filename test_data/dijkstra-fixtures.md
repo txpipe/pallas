@@ -109,6 +109,20 @@ element `block_transaction` form, written as lowercase hex with no trailing
 newline. Blake2b-256 over the body alone gives the transaction hash in the
 table, and `pallas-traverse` asserts that.
 
+## Transactions with indefinite length byte strings
+
+Two transactions that write byte strings in the indefinite length form, from
+the chain with the network magic and shelley genesis hash above, read from a
+node running ouroboros-leios `prototype-2026w40a`. Each file is the three
+element mempool form (body, witness set, auxiliary data), written as lowercase
+hex with no trailing newline. Blake2b-256 over the body alone gives the
+transaction hash in the table, and `pallas-primitives` asserts that.
+
+| file | transaction | bytes | indefinite byte strings in the body | where | source |
+| --- | --- | --- | --- | --- | --- |
+| `dijkstra-indef-bytes1.tx` | `943a88c97f86522b2cda39d1d6bd076ea51a696e5ad41c41e4c6d38ce8f7dd50` | 751 | 11 | an input id, an output address, a guard key hash, a reference input id, two account keys, and in the sub transaction an input id, an output address, a guard key hash and two account keys | transaction index 137 of the ranking block at slot 3438997, `5b7dd1bd0349ff307d8fb13b826de4d8ab83ee7e41feb0d8d1c16cb0c208ee0f`, without its validity flag |
+| `dijkstra-indef-bytes2.tx` | `b026c42a9cf28aff7ce8624487f4d2b8f45df93454ac0ea2842408c1673cce5c` | 646 | 7 | an input id, two output addresses, a reference input id, and in the sub transaction an input id and two output addresses | transaction index 4825 of endorser block `4e4706aa2d7ad04581588af6efc4065f151bbe2e283f7b806c6661121b730dc4`, from the node's endorser block database |
+
 ## Fixtures built rather than cut
 
 Four files here are hand built CBOR, for shapes no block on this chain
