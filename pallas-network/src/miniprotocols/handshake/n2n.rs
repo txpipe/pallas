@@ -208,6 +208,42 @@ impl VersionData {
     }
 }
 
+/// Mirrors `acceptableVersion` for `NodeToNodeVersionData` in ouroboros-network:
+/// the network magic must match; the diffusion mode is initiator-only if either
+/// side asks for it; peer sharing is enabled only if both sides enable it; query
+/// mode is requested if either side requests it.
+impl super::protocol::NegotiateVersionData for VersionData {
+    fn negotiate(&self, proposed: &Self) -> Result<Self, String> {
+        if self.network_magic != proposed.network_magic {
+            return Err(format!(
+                "network magic mismatch: ours {}, proposed {}",
+                self.network_magic, proposed.network_magic
+            ));
+        }
+
+        let (peer_sharing, query) = match (
+            self.peer_sharing,
+            proposed.peer_sharing,
+            self.query,
+            proposed.query,
+        ) {
+            (Some(ours), Some(theirs), Some(our_query), Some(their_query)) => {
+                (Some(ours.min(theirs)), Some(our_query || their_query))
+            }
+            // Versions before 11 carry neither field.
+            _ => (None, None),
+        };
+
+        Ok(VersionData {
+            network_magic: self.network_magic,
+            initiator_only_diffusion_mode: self.initiator_only_diffusion_mode
+                || proposed.initiator_only_diffusion_mode,
+            peer_sharing,
+            query,
+        })
+    }
+}
+
 impl Encode<()> for VersionData {
     fn encode<W: encode::Write>(
         &self,
@@ -253,5 +289,80 @@ impl<'b> Decode<'b, ()> for VersionData {
             peer_sharing,
             query,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::protocol::NegotiateVersionData;
+    use super::*;
+
+    const MAINNET: u64 = 764824073;
+
+    #[test]
+    fn accepts_a_duplex_peer_sharing_node_as_initiator_only() {
+        // What cardano-node proposes for v14 on mainnet.
+        let node = VersionData::new(MAINNET, false, Some(1), Some(false));
+        let ours = VersionData::new(MAINNET, true, Some(PEER_SHARING_DISABLED), Some(false));
+
+        let accepted = ours.negotiate(&node).unwrap();
+
+        assert_eq!(
+            accepted,
+            VersionData::new(MAINNET, true, Some(PEER_SHARING_DISABLED), Some(false))
+        );
+    }
+
+    #[test]
+    fn keeps_duplex_and_peer_sharing_when_both_sides_offer_them() {
+        let node = VersionData::new(MAINNET, false, Some(1), Some(false));
+        let ours = VersionData::new(MAINNET, false, Some(1), Some(false));
+
+        assert_eq!(ours.negotiate(&node).unwrap(), node);
+    }
+
+    #[test]
+    fn initiator_only_if_either_side_asks() {
+        let ours = VersionData::new(MAINNET, false, Some(0), Some(false));
+        let theirs = VersionData::new(MAINNET, true, Some(0), Some(false));
+
+        assert!(
+            ours.negotiate(&theirs)
+                .unwrap()
+                .initiator_only_diffusion_mode
+        );
+        assert!(
+            theirs
+                .negotiate(&ours)
+                .unwrap()
+                .initiator_only_diffusion_mode
+        );
+    }
+
+    #[test]
+    fn query_if_either_side_asks() {
+        let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
+        let theirs = VersionData::new(MAINNET, true, Some(0), Some(true));
+
+        assert_eq!(ours.negotiate(&theirs).unwrap().query, Some(true));
+    }
+
+    #[test]
+    fn versions_before_11_carry_no_peer_sharing_or_query() {
+        let ours = VersionData::new(MAINNET, true, None, None);
+        let theirs = VersionData::new(MAINNET, false, None, None);
+
+        assert_eq!(
+            ours.negotiate(&theirs).unwrap(),
+            VersionData::new(MAINNET, true, None, None)
+        );
+    }
+
+    #[test]
+    fn refuses_a_different_network_magic() {
+        let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
+        let theirs = VersionData::new(1, false, Some(1), Some(false));
+
+        assert!(ours.negotiate(&theirs).is_err());
     }
 }

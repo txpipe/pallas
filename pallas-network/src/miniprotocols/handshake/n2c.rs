@@ -131,6 +131,27 @@ impl VersionData {
     }
 }
 
+/// Mirrors `acceptableVersion` for `NodeToClientVersionData` in ouroboros-network:
+/// the network magic must match and query mode is requested if either side
+/// requests it.
+impl super::protocol::NegotiateVersionData for VersionData {
+    fn negotiate(&self, proposed: &Self) -> Result<Self, String> {
+        if self.0 != proposed.0 {
+            return Err(format!(
+                "network magic mismatch: ours {}, proposed {}",
+                self.0, proposed.0
+            ));
+        }
+
+        let query = match (self.1, proposed.1) {
+            (Some(ours), Some(theirs)) => Some(ours || theirs),
+            (ours, theirs) => ours.or(theirs),
+        };
+
+        Ok(VersionData(self.0, query))
+    }
+}
+
 impl Encode<()> for VersionData {
     fn encode<W: encode::Write>(
         &self,
@@ -167,5 +188,42 @@ impl<'b> Decode<'b, ()> for VersionData {
             }
             _ => Err(decode::Error::message("unknown type for VersionData")),
         }
+    }
+}
+
+#[cfg(test)]
+mod negotiation_tests {
+    use super::super::protocol::NegotiateVersionData;
+    use super::*;
+
+    #[test]
+    fn query_if_either_side_asks() {
+        let ours = VersionData::new(2, Some(false));
+        let theirs = VersionData::new(2, Some(true));
+
+        assert_eq!(
+            ours.negotiate(&theirs).unwrap(),
+            VersionData::new(2, Some(true))
+        );
+        assert_eq!(
+            theirs.negotiate(&ours).unwrap(),
+            VersionData::new(2, Some(true))
+        );
+    }
+
+    #[test]
+    fn versions_without_query_stay_without_query() {
+        let ours = VersionData::new(2, None);
+
+        assert_eq!(ours.negotiate(&ours).unwrap(), ours);
+    }
+
+    #[test]
+    fn refuses_a_different_network_magic() {
+        assert!(
+            VersionData::new(2, Some(false))
+                .negotiate(&VersionData::new(1, Some(false)))
+                .is_err()
+        );
     }
 }

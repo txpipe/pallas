@@ -2095,3 +2095,91 @@ pub async fn local_message_submission_server_and_client_happy_path() {
 
     tokio::try_join!(client, server).unwrap();
 }
+
+/// What cardano-node proposes on mainnet: duplex diffusion, peer sharing on.
+fn cardano_node_proposal(magic: u64) -> handshake::n2n::VersionTable {
+    let node = VersionData::new(magic, false, Some(1), Some(false));
+
+    handshake::n2n::VersionTable {
+        values: [(13, node.clone()), (14, node)].into_iter().collect(),
+    }
+}
+
+#[tokio::test]
+pub async fn peer_server_accepts_a_duplex_peer_sharing_node() {
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30004))
+        .await
+        .unwrap();
+
+    let server = tokio::spawn(async move { PeerServer::accept(&listener, MAINNET_MAGIC).await });
+
+    let bearer = Bearer::connect_tcp("localhost:30004").await.unwrap();
+    let mut plexer = Plexer::new(bearer);
+    let mut client_hs = handshake::N2NClient::new(plexer.subscribe_client(0));
+    let plexer = plexer.spawn();
+
+    let confirmation = client_hs
+        .handshake(cardano_node_proposal(MAINNET_MAGIC))
+        .await
+        .unwrap();
+
+    // Highest common version, negotiated data: initiator-only (ours), peer sharing
+    // disabled (ours), query off (both).
+    let negotiated = VersionData::new(MAINNET_MAGIC, true, Some(0), Some(false));
+
+    match confirmation {
+        handshake::Confirmation::Accepted(version, data) => {
+            assert_eq!(version, 14);
+            assert_eq!(data, negotiated);
+        }
+        other => panic!("expected the node to be accepted, got {other:?}"),
+    }
+
+    let server = server.await.unwrap().unwrap();
+    assert_eq!(server.accepted_version(), Some(&(14, negotiated)));
+
+    plexer.abort().await;
+    server.abort().await;
+}
+
+#[tokio::test]
+pub async fn handshake_server_refuses_a_node_on_another_network() {
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30005))
+        .await
+        .unwrap();
+
+    let server = tokio::spawn(async move {
+        let (bearer, _) = Bearer::accept_tcp(&listener).await.unwrap();
+        let mut plexer = Plexer::new(bearer);
+        let mut server_hs = handshake::N2NServer::new(plexer.subscribe_server(0));
+        let plexer = plexer.spawn();
+
+        let accepted = server_hs
+            .handshake(handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC))
+            .await
+            .unwrap();
+
+        // keep the bearer open until the client has read the refusal
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        plexer.abort().await;
+        accepted
+    });
+
+    let bearer = Bearer::connect_tcp("localhost:30005").await.unwrap();
+    let mut plexer = Plexer::new(bearer);
+    let mut client_hs = handshake::N2NClient::new(plexer.subscribe_client(0));
+    let plexer = plexer.spawn();
+
+    let confirmation = client_hs.handshake(cardano_node_proposal(1)).await.unwrap();
+
+    assert!(
+        matches!(
+            confirmation,
+            handshake::Confirmation::Rejected(handshake::RefuseReason::Refused(14, _))
+        ),
+        "expected a refusal of version 14, got {confirmation:?}"
+    );
+    assert_eq!(server.await.unwrap(), None);
+
+    plexer.abort().await;
+}

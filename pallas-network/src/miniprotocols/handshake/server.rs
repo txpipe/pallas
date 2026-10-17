@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use pallas_codec::Fragment;
 use tracing::{debug, warn};
 
-use super::{Error, Message, RefuseReason, State, VersionNumber, VersionTable};
+use super::{
+    Error, Message, NegotiateVersionData, RefuseReason, State, VersionNumber, VersionTable,
+};
 use crate::multiplexer;
 
 /// Handshake server agent generic over the version-data payload type.
@@ -11,7 +13,7 @@ pub struct Server<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
 
 impl<D> Server<D>
 where
-    D: std::fmt::Debug + Clone + std::cmp::PartialEq,
+    D: std::fmt::Debug + Clone + std::cmp::PartialEq + NegotiateVersionData,
     Message<D>: Fragment,
 {
     /// Build a server over a freshly subscribed agent channel.
@@ -123,7 +125,10 @@ where
     /// Perform a handshake with the client
     ///
     /// Performs a full handshake with the client, where `versions` are the
-    /// acceptable versions supported by the server.
+    /// acceptable versions supported by the server. The highest version number
+    /// offered by both sides is selected, and its version data is negotiated
+    /// with [`NegotiateVersionData`] as the network specification describes;
+    /// the returned payload is the negotiated one sent in `MsgAcceptVersion`.
     pub async fn handshake(
         &mut self,
         versions: VersionTable<D>,
@@ -136,7 +141,7 @@ where
             .into_iter()
             .collect::<Vec<(u64, D)>>();
 
-        // find highest intersect with our version table (TODO: improve)
+        // find the highest version number offered by both sides
         let mut versions = versions.values.into_iter().collect::<Vec<(u64, D)>>();
 
         versions.sort_by_key(|v| std::cmp::Reverse(v.0));
@@ -144,27 +149,25 @@ where
         for (ver_num, ver_data) in versions.clone() {
             for (client_ver_num, client_ver_data) in client_versions.clone() {
                 if ver_num == client_ver_num {
-                    if ver_data == client_ver_data {
-                        // found a version number and extra data match
-                        debug!("accepting hs with ({}, {:?})", ver_num, ver_data);
+                    match ver_data.negotiate(&client_ver_data) {
+                        Ok(accepted) => {
+                            debug!("accepting hs with ({}, {:?})", ver_num, accepted);
 
-                        self.accept_version(ver_num, ver_data.clone()).await?;
+                            self.accept_version(ver_num, accepted.clone()).await?;
 
-                        return Ok(Some((ver_num, ver_data)));
-                    } else {
-                        warn!(
-                            "rejecting hs as params not acceptable - server: {:?}, client: {:?}",
-                            ver_data, client_ver_data
-                        );
+                            return Ok(Some((ver_num, accepted)));
+                        }
+                        Err(reason) => {
+                            warn!(
+                                "rejecting hs as params not acceptable - server: {:?}, client: {:?}: {}",
+                                ver_data, client_ver_data, reason
+                            );
 
-                        // found version number match but extra data not acceptable
-                        self.refuse(RefuseReason::Refused(
-                            ver_num,
-                            "Proposed extra params don't match".into(),
-                        ))
-                        .await?;
+                            // found version number match but extra data not acceptable
+                            self.refuse(RefuseReason::Refused(ver_num, reason)).await?;
 
-                        return Ok(None);
+                            return Ok(None);
+                        }
                     }
                 }
             }

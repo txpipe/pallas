@@ -29,6 +29,18 @@ pub enum Error {
     Plexer(multiplexer::Error),
 }
 
+/// Responder-side acceptance of a proposed version payload, as defined by the
+/// Ouroboros network specification.
+///
+/// Given the responder's own payload for a version and the initiator's proposal
+/// for the same version, return the payload to send back in `MsgAcceptVersion`,
+/// or a human-readable reason to refuse. Version data is negotiated field by
+/// field; it is not required to be identical on both sides.
+pub trait NegotiateVersionData: Sized {
+    /// Negotiate `self` (ours) against `proposed` (theirs).
+    fn negotiate(&self, proposed: &Self) -> Result<Self, String>;
+}
+
 /// Map of protocol version numbers to their version-specific payload.
 #[derive(Debug, Clone)]
 pub struct VersionTable<T>
