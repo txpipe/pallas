@@ -135,6 +135,7 @@ impl VersionData {
 /// the network magic must match and query mode is requested if either side
 /// requests it.
 impl super::protocol::NegotiateVersionData for VersionData {
+    /// Negotiate our payload against the proposed one, per the rules above.
     fn negotiate(&self, proposed: &Self) -> Result<Self, String> {
         if self.0 != proposed.0 {
             return Err(format!(
@@ -203,6 +204,7 @@ mod negotiation_tests {
     use super::super::protocol::NegotiateVersionData;
     use super::*;
 
+    /// Query mode is requested when either side requests it.
     #[test]
     fn query_if_either_side_asks() {
         let ours = VersionData::new(2, Some(false));
@@ -218,6 +220,7 @@ mod negotiation_tests {
         );
     }
 
+    /// Versions without a query flag negotiate to a payload without one.
     #[test]
     fn versions_without_query_stay_without_query() {
         let ours = VersionData::new(2, None);
@@ -225,6 +228,7 @@ mod negotiation_tests {
         assert_eq!(ours.negotiate(&ours).unwrap(), ours);
     }
 
+    /// A payload with a query flag and one without are refused for the same version.
     #[test]
     fn refuses_a_payload_of_another_shape() {
         let modern = VersionData::new(2, Some(false));
@@ -234,6 +238,7 @@ mod negotiation_tests {
         assert!(legacy.negotiate(&modern).is_err());
     }
 
+    /// Payloads for different networks are refused.
     #[test]
     fn refuses_a_different_network_magic() {
         assert!(

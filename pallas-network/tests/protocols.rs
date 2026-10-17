@@ -2107,6 +2107,7 @@ fn cardano_node_proposal(magic: u64) -> handshake::n2n::VersionTable {
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Bind a listener on an ephemeral localhost port.
 async fn local_listener() -> (TcpListener, std::net::SocketAddr) {
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
         .await
@@ -2144,6 +2145,7 @@ async fn propose_to_peer_server(
     (confirmation, server)
 }
 
+/// `PeerServer` accepts a node proposing duplex diffusion with peer sharing, at the highest common version.
 #[tokio::test]
 pub async fn peer_server_accepts_a_duplex_peer_sharing_node() {
     let (confirmation, server) = propose_to_peer_server(cardano_node_proposal(MAINNET_MAGIC)).await;
@@ -2165,6 +2167,7 @@ pub async fn peer_server_accepts_a_duplex_peer_sharing_node() {
     server.abort().await;
 }
 
+/// `PeerServer` accepts a duplex node that proposes only a legacy (pre-v11) version.
 #[tokio::test]
 pub async fn peer_server_accepts_a_duplex_node_on_a_legacy_version() {
     let legacy = handshake::n2n::VersionTable {
@@ -2238,6 +2241,7 @@ where
     (confirmation, accepted)
 }
 
+/// Assert that a confirmation is a refusal of `version`.
 fn assert_refused<D: std::fmt::Debug + Clone>(
     confirmation: &handshake::Confirmation<D>,
     version: u64,
@@ -2251,6 +2255,7 @@ fn assert_refused<D: std::fmt::Debug + Clone>(
     );
 }
 
+/// The low-level server refuses a proposal for another network.
 #[tokio::test]
 pub async fn handshake_server_refuses_a_node_on_another_network() {
     let (confirmation, accepted) = low_level_handshake(
@@ -2263,6 +2268,7 @@ pub async fn handshake_server_refuses_a_node_on_another_network() {
     assert_eq!(accepted, None);
 }
 
+/// The low-level server refuses a legacy payload proposed for a modern N2N version.
 #[tokio::test]
 pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2n_version() {
     let legacy_payload = handshake::n2n::VersionTable {
@@ -2281,6 +2287,7 @@ pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2n_version()
     assert_eq!(accepted, None);
 }
 
+/// The low-level server refuses a bare-magic payload proposed for a modern N2C version.
 #[tokio::test]
 pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2c_version() {
     use handshake::n2c;

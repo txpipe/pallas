@@ -213,6 +213,7 @@ impl VersionData {
 /// side asks for it; peer sharing is enabled only if both sides enable it; query
 /// mode is requested if either side requests it.
 impl super::protocol::NegotiateVersionData for VersionData {
+    /// Negotiate our payload against the proposed one, per the rules above.
     fn negotiate(&self, proposed: &Self) -> Result<Self, String> {
         if self.network_magic != proposed.network_magic {
             return Err(format!(
@@ -303,6 +304,7 @@ mod tests {
 
     const MAINNET: u64 = 764824073;
 
+    /// A mainnet cardano-node proposal is accepted as initiator-only with peer sharing disabled.
     #[test]
     fn accepts_a_duplex_peer_sharing_node_as_initiator_only() {
         // What cardano-node proposes for v14 on mainnet.
@@ -317,6 +319,7 @@ mod tests {
         );
     }
 
+    /// Duplex diffusion and peer sharing survive when both sides offer them.
     #[test]
     fn keeps_duplex_and_peer_sharing_when_both_sides_offer_them() {
         let node = VersionData::new(MAINNET, false, Some(1), Some(false));
@@ -325,6 +328,7 @@ mod tests {
         assert_eq!(ours.negotiate(&node).unwrap(), node);
     }
 
+    /// The connection is initiator-only when either side asks for it.
     #[test]
     fn initiator_only_if_either_side_asks() {
         let ours = VersionData::new(MAINNET, false, Some(0), Some(false));
@@ -343,6 +347,7 @@ mod tests {
         );
     }
 
+    /// Query mode is requested when either side requests it.
     #[test]
     fn query_if_either_side_asks() {
         let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
@@ -351,6 +356,7 @@ mod tests {
         assert_eq!(ours.negotiate(&theirs).unwrap().query, Some(true));
     }
 
+    /// Pre-v11 payloads carry neither peer sharing nor query and stay that way.
     #[test]
     fn versions_before_11_carry_no_peer_sharing_or_query() {
         let ours = VersionData::new(MAINNET, true, None, None);
@@ -362,6 +368,7 @@ mod tests {
         );
     }
 
+    /// A legacy payload for a modern version entry is refused in both directions.
     #[test]
     fn refuses_a_legacy_payload_for_a_modern_entry() {
         let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
@@ -371,6 +378,7 @@ mod tests {
         assert!(theirs.negotiate(&ours).is_err());
     }
 
+    /// A payload carrying only one of peer sharing and query is refused.
     #[test]
     fn refuses_a_partial_payload() {
         let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
@@ -380,6 +388,7 @@ mod tests {
         assert!(partial.negotiate(&partial).is_err());
     }
 
+    /// Payloads for different networks are refused.
     #[test]
     fn refuses_a_different_network_magic() {
         let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
