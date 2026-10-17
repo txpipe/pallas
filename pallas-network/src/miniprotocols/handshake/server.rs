@@ -13,7 +13,7 @@ pub struct Server<D>(State, multiplexer::ChannelBuffer, PhantomData<D>);
 
 impl<D> Server<D>
 where
-    D: std::fmt::Debug + Clone + std::cmp::PartialEq + NegotiateVersionData,
+    D: std::fmt::Debug + Clone + std::cmp::PartialEq,
     Message<D>: Fragment,
 {
     /// Build a server over a freshly subscribed agent channel.
@@ -132,7 +132,10 @@ where
     pub async fn handshake(
         &mut self,
         versions: VersionTable<D>,
-    ) -> Result<Option<(VersionNumber, D)>, Error> {
+    ) -> Result<Option<(VersionNumber, D)>, Error>
+    where
+        D: NegotiateVersionData,
+    {
         // receive proposed versions
         let client_versions = self
             .receive_proposed_versions()

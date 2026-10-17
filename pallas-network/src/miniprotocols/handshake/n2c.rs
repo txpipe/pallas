@@ -143,9 +143,16 @@ impl super::protocol::NegotiateVersionData for VersionData {
             ));
         }
 
+        // Versions 15 and up carry the query flag; earlier ones do not. The two
+        // sides must use the same payload shape for a version.
         let query = match (self.1, proposed.1) {
             (Some(ours), Some(theirs)) => Some(ours || theirs),
-            (ours, theirs) => ours.or(theirs),
+            (None, None) => None,
+            _ => {
+                return Err(format!(
+                    "version data shape mismatch: ours {self:?}, proposed {proposed:?}"
+                ));
+            }
         };
 
         Ok(VersionData(self.0, query))
@@ -216,6 +223,15 @@ mod negotiation_tests {
         let ours = VersionData::new(2, None);
 
         assert_eq!(ours.negotiate(&ours).unwrap(), ours);
+    }
+
+    #[test]
+    fn refuses_a_payload_of_another_shape() {
+        let modern = VersionData::new(2, Some(false));
+        let legacy = VersionData::new(2, None);
+
+        assert!(modern.negotiate(&legacy).is_err());
+        assert!(legacy.negotiate(&modern).is_err());
     }
 
     #[test]

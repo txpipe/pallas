@@ -221,17 +221,21 @@ impl super::protocol::NegotiateVersionData for VersionData {
             ));
         }
 
+        // Versions 11 and up carry both peer sharing and query; earlier ones carry
+        // neither. The two sides must use the same payload shape for a version.
         let (peer_sharing, query) = match (
-            self.peer_sharing,
-            proposed.peer_sharing,
-            self.query,
-            proposed.query,
+            (self.peer_sharing, self.query),
+            (proposed.peer_sharing, proposed.query),
         ) {
-            (Some(ours), Some(theirs), Some(our_query), Some(their_query)) => {
+            ((Some(ours), Some(our_query)), (Some(theirs), Some(their_query))) => {
                 (Some(ours.min(theirs)), Some(our_query || their_query))
             }
-            // Versions before 11 carry neither field.
-            _ => (None, None),
+            ((None, None), (None, None)) => (None, None),
+            _ => {
+                return Err(format!(
+                    "version data shape mismatch: ours {self:?}, proposed {proposed:?}"
+                ));
+            }
         };
 
         Ok(VersionData {
@@ -356,6 +360,24 @@ mod tests {
             ours.negotiate(&theirs).unwrap(),
             VersionData::new(MAINNET, true, None, None)
         );
+    }
+
+    #[test]
+    fn refuses_a_legacy_payload_for_a_modern_entry() {
+        let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
+        let theirs = VersionData::new(MAINNET, false, None, None);
+
+        assert!(ours.negotiate(&theirs).is_err());
+        assert!(theirs.negotiate(&ours).is_err());
+    }
+
+    #[test]
+    fn refuses_a_partial_payload() {
+        let ours = VersionData::new(MAINNET, true, Some(0), Some(false));
+        let partial = VersionData::new(MAINNET, false, Some(1), None);
+
+        assert!(ours.negotiate(&partial).is_err());
+        assert!(partial.negotiate(&partial).is_err());
     }
 
     #[test]

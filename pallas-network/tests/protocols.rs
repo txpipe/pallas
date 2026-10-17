@@ -2105,23 +2105,48 @@ fn cardano_node_proposal(magic: u64) -> handshake::n2n::VersionTable {
     }
 }
 
-#[tokio::test]
-pub async fn peer_server_accepts_a_duplex_peer_sharing_node() {
-    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30004))
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+
+async fn local_listener() -> (TcpListener, std::net::SocketAddr) {
+    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
         .await
         .unwrap();
+    let addr = listener.local_addr().unwrap();
 
+    (listener, addr)
+}
+
+/// Run a client handshake proposing `versions` against a [`PeerServer`].
+async fn propose_to_peer_server(
+    versions: handshake::n2n::VersionTable,
+) -> (
+    handshake::Confirmation<VersionData>,
+    Result<PeerServer, pallas_network::facades::Error>,
+) {
+    let (listener, addr) = local_listener().await;
     let server = tokio::spawn(async move { PeerServer::accept(&listener, MAINNET_MAGIC).await });
 
-    let bearer = Bearer::connect_tcp("localhost:30004").await.unwrap();
+    let bearer = Bearer::connect_tcp(addr).await.unwrap();
     let mut plexer = Plexer::new(bearer);
     let mut client_hs = handshake::N2NClient::new(plexer.subscribe_client(0));
     let plexer = plexer.spawn();
 
-    let confirmation = client_hs
-        .handshake(cardano_node_proposal(MAINNET_MAGIC))
+    let confirmation = tokio::time::timeout(HANDSHAKE_TIMEOUT, client_hs.handshake(versions))
         .await
+        .expect("handshake timed out")
         .unwrap();
+    let server = tokio::time::timeout(HANDSHAKE_TIMEOUT, server)
+        .await
+        .expect("server timed out")
+        .unwrap();
+
+    plexer.abort().await;
+    (confirmation, server)
+}
+
+#[tokio::test]
+pub async fn peer_server_accepts_a_duplex_peer_sharing_node() {
+    let (confirmation, server) = propose_to_peer_server(cardano_node_proposal(MAINNET_MAGIC)).await;
 
     // Highest common version, negotiated data: initiator-only (ours), peer sharing
     // disabled (ours), query off (both).
@@ -2135,51 +2160,144 @@ pub async fn peer_server_accepts_a_duplex_peer_sharing_node() {
         other => panic!("expected the node to be accepted, got {other:?}"),
     }
 
-    let server = server.await.unwrap().unwrap();
+    let server = server.unwrap();
     assert_eq!(server.accepted_version(), Some(&(14, negotiated)));
-
-    plexer.abort().await;
     server.abort().await;
 }
 
 #[tokio::test]
-pub async fn handshake_server_refuses_a_node_on_another_network() {
-    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30005))
-        .await
-        .unwrap();
+pub async fn peer_server_accepts_a_duplex_node_on_a_legacy_version() {
+    let legacy = handshake::n2n::VersionTable {
+        values: [(10, VersionData::new(MAINNET_MAGIC, false, None, None))]
+            .into_iter()
+            .collect(),
+    };
+
+    let (confirmation, server) = propose_to_peer_server(legacy).await;
+
+    let negotiated = VersionData::new(MAINNET_MAGIC, true, None, None);
+    match confirmation {
+        handshake::Confirmation::Accepted(10, data) => assert_eq!(data, negotiated),
+        other => panic!("expected version 10 to be accepted, got {other:?}"),
+    }
+
+    let server = server.unwrap();
+    assert_eq!(server.accepted_version(), Some(&(10, negotiated)));
+    server.abort().await;
+}
+
+/// Run a low-level [`handshake::Server`] against a client proposing `proposal`.
+/// The server's bearer stays open until the client has read the reply.
+async fn low_level_handshake<D>(
+    ours: handshake::VersionTable<D>,
+    proposal: handshake::VersionTable<D>,
+) -> (handshake::Confirmation<D>, Option<(u64, D)>)
+where
+    D: std::fmt::Debug
+        + Clone
+        + PartialEq
+        + handshake::NegotiateVersionData
+        + Send
+        + Sync
+        + 'static,
+    handshake::Message<D>: pallas_codec::Fragment,
+{
+    let (listener, addr) = local_listener().await;
+    let (read_tx, read_rx) = tokio::sync::oneshot::channel::<()>();
 
     let server = tokio::spawn(async move {
         let (bearer, _) = Bearer::accept_tcp(&listener).await.unwrap();
         let mut plexer = Plexer::new(bearer);
-        let mut server_hs = handshake::N2NServer::new(plexer.subscribe_server(0));
+        let mut server_hs = handshake::Server::<D>::new(plexer.subscribe_server(0));
         let plexer = plexer.spawn();
 
-        let accepted = server_hs
-            .handshake(handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC))
-            .await
-            .unwrap();
+        let accepted = server_hs.handshake(ours).await.unwrap();
 
-        // keep the bearer open until the client has read the refusal
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        let _ = read_rx.await;
         plexer.abort().await;
         accepted
     });
 
-    let bearer = Bearer::connect_tcp("localhost:30005").await.unwrap();
+    let bearer = Bearer::connect_tcp(addr).await.unwrap();
     let mut plexer = Plexer::new(bearer);
-    let mut client_hs = handshake::N2NClient::new(plexer.subscribe_client(0));
+    let mut client_hs = handshake::Client::<D>::new(plexer.subscribe_client(0));
     let plexer = plexer.spawn();
 
-    let confirmation = client_hs.handshake(cardano_node_proposal(1)).await.unwrap();
+    let confirmation = tokio::time::timeout(HANDSHAKE_TIMEOUT, client_hs.handshake(proposal))
+        .await
+        .expect("handshake timed out")
+        .unwrap();
+    read_tx.send(()).unwrap();
 
+    let accepted = tokio::time::timeout(HANDSHAKE_TIMEOUT, server)
+        .await
+        .expect("server timed out")
+        .unwrap();
+
+    plexer.abort().await;
+    (confirmation, accepted)
+}
+
+fn assert_refused<D: std::fmt::Debug + Clone>(
+    confirmation: &handshake::Confirmation<D>,
+    version: u64,
+) {
     assert!(
         matches!(
             confirmation,
-            handshake::Confirmation::Rejected(handshake::RefuseReason::Refused(14, _))
+            handshake::Confirmation::Rejected(handshake::RefuseReason::Refused(v, _)) if *v == version
         ),
-        "expected a refusal of version 14, got {confirmation:?}"
+        "expected a refusal of version {version}, got {confirmation:?}"
     );
-    assert_eq!(server.await.unwrap(), None);
+}
 
-    plexer.abort().await;
+#[tokio::test]
+pub async fn handshake_server_refuses_a_node_on_another_network() {
+    let (confirmation, accepted) = low_level_handshake(
+        handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC),
+        cardano_node_proposal(1),
+    )
+    .await;
+
+    assert_refused(&confirmation, 14);
+    assert_eq!(accepted, None);
+}
+
+#[tokio::test]
+pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2n_version() {
+    let legacy_payload = handshake::n2n::VersionTable {
+        values: [(14, VersionData::new(MAINNET_MAGIC, false, None, None))]
+            .into_iter()
+            .collect(),
+    };
+
+    let (confirmation, accepted) = low_level_handshake(
+        handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC),
+        legacy_payload,
+    )
+    .await;
+
+    assert_refused(&confirmation, 14);
+    assert_eq!(accepted, None);
+}
+
+#[tokio::test]
+pub async fn handshake_server_refuses_a_legacy_payload_on_a_modern_n2c_version() {
+    use handshake::n2c;
+
+    // N2C v16 (32784) carries a query flag; propose it without one.
+    let legacy_payload = n2c::VersionTable {
+        values: [(32784, n2c::VersionData::new(MAINNET_MAGIC, None))]
+            .into_iter()
+            .collect(),
+    };
+
+    let (confirmation, accepted) = low_level_handshake(
+        n2c::VersionTable::v10_and_above(MAINNET_MAGIC),
+        legacy_payload,
+    )
+    .await;
+
+    assert_refused(&confirmation, 32784);
+    assert_eq!(accepted, None);
 }
