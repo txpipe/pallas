@@ -93,17 +93,6 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.multi_era_script_ref().map(|x| match x {
-            trv::MultiEraScriptRef::Conway(x) => self.map_any_script(&x),
-            #[cfg(feature = "unstable")]
-            trv::MultiEraScriptRef::Dijkstra(_) => {
-                unimplemented!("map_output_script is not yet implemented for Dijkstra")
-            }
-            _ => unimplemented!("map_output_script has no arm for this reference script"),
-        })
-    }
-
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
         let quantity = if let Some(v) = x.output_coin() {
             u64_to_bigint(v)
@@ -396,18 +385,9 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    /// Maps the per-tx voting procedures (Conway only) into the v1beta `votes` field.
+    /// Maps the per-tx voting procedures into the v1beta `votes` field.
     pub fn map_votes(&self, tx: &trv::MultiEraTx) -> Vec<u5c::VoterVotes> {
-        #[cfg(feature = "unstable")]
-        if tx.era() == trv::Era::Dijkstra {
-            unimplemented!("map_votes is not yet implemented for Dijkstra")
-        }
-
-        let Some(conway_tx) = tx.as_conway() else {
-            return Vec::new();
-        };
-
-        let Some(procedures) = conway_tx.transaction_body.voting_procedures.as_ref() else {
+        let Some(procedures) = tx.voting_procedures() else {
             return Vec::new();
         };
 
@@ -635,5 +615,51 @@ mod tests {
             any.items[1].native_script,
             Some(u5c::native_script::NativeScript::InvalidHereafter(200))
         ));
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn dijkstra_votes_map_as_the_same_conway_votes_do() {
+        use pallas_primitives::{conway, dijkstra};
+
+        let procedures: conway::VotingProcedures = [(
+            conway::Voter::DRepKey([5; 28].into()),
+            [(
+                conway::GovActionId {
+                    transaction_id: [6; 32].into(),
+                    action_index: 0,
+                },
+                conway::VotingProcedure {
+                    vote: conway::Vote::Yes,
+                    anchor: None,
+                },
+            )]
+            .into_iter()
+            .collect(),
+        )]
+        .into_iter()
+        .collect();
+
+        let conway_cbor = hex::decode(include_str!("../../../test_data/conway1.tx")).unwrap();
+        let mut conway_tx: conway::Tx = pallas_codec::minicbor::decode(&conway_cbor).unwrap();
+        conway_tx.transaction_body.voting_procedures = Some(procedures.clone());
+
+        let block_cbor = hex::decode(include_str!("../../../test_data/dijkstra3.block")).unwrap();
+        let block = trv::MultiEraBlock::decode(&block_cbor).unwrap();
+        let txs = block.txs();
+        let mut dijkstra_tx: dijkstra::BlockTransaction = txs[0]
+            .as_dijkstra()
+            .expect("dijkstra3 carries a Dijkstra transaction")
+            .clone();
+        dijkstra_tx.transaction_body.voting_procedures = Some(procedures);
+
+        let mapper = Mapper::new(NoLedger);
+        let from_conway = mapper.map_votes(&trv::MultiEraTx::from_conway(&conway_tx));
+
+        assert_eq!(from_conway.len(), 1, "one voter casts one vote");
+        assert_eq!(
+            mapper.map_votes(&trv::MultiEraTx::from_dijkstra(&dijkstra_tx)),
+            from_conway
+        );
     }
 }
