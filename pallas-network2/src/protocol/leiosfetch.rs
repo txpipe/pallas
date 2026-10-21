@@ -372,7 +372,6 @@ mod tests {
             txs: vec![raw([8, 8, 8])],
         };
         let bytes = reencode(&msg);
-        // envelope is a 2-element array: [tag=4, txs]
         assert_eq!(bytes[..2], [0x82, 0x04]);
         let back: Message = minicbor::decode(&bytes).unwrap();
         assert!(matches!(back, Message::BlockTxs { .. }));
