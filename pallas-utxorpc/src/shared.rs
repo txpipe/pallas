@@ -61,6 +61,24 @@ macro_rules! impl_cardano_mapper_shared {
             }
         }
 
+        /// Maps a credential to its u5c message.
+        fn map_credential(x: &pallas_primitives::StakeCredential) -> u5c::StakeCredential {
+            use pallas_primitives::StakeCredential;
+
+            let inner = match x {
+                StakeCredential::AddrKeyhash(x) => {
+                    u5c::stake_credential::StakeCredential::AddrKeyHash(x.to_vec().into())
+                }
+                StakeCredential::ScriptHash(x) => {
+                    u5c::stake_credential::StakeCredential::ScriptHash(x.to_vec().into())
+                }
+            };
+
+            u5c::StakeCredential {
+                stake_credential: inner.into(),
+            }
+        }
+
         /// A native script clause without its children, for any era's script type.
         enum NativeClause<'a> {
             Pubkey(&'a pallas_crypto::hash::Hash<28>),
@@ -70,7 +88,7 @@ macro_rules! impl_cardano_mapper_shared {
             InvalidBefore(u64),
             InvalidHereafter(u64),
             #[cfg(feature = "unstable")]
-            RequireGuard,
+            RequireGuard(&'a pallas_primitives::StakeCredential),
         }
 
         impl<C: $crate::LedgerContext> Mapper<C> {
@@ -88,9 +106,7 @@ macro_rules! impl_cardano_mapper_shared {
                     MultiEraRedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
                     MultiEraRedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
                     #[cfg(feature = "unstable")]
-                    MultiEraRedeemerTag::Guarding => {
-                        unimplemented!("map_redeemer is not yet implemented for Dijkstra")
-                    }
+                    MultiEraRedeemerTag::Guarding => guarding_purpose(),
                     _ => unimplemented!("map_redeemer has no arm for this purpose"),
                 }
             }
@@ -203,7 +219,7 @@ macro_rules! impl_cardano_mapper_shared {
                         NativeScript::ScriptNOfK(n, _) => NativeClause::NOfK(*n),
                         NativeScript::InvalidBefore(s) => NativeClause::InvalidBefore(*s),
                         NativeScript::InvalidHereafter(s) => NativeClause::InvalidHereafter(*s),
-                        NativeScript::ScriptRequireGuard(_) => NativeClause::RequireGuard,
+                        NativeScript::ScriptRequireGuard(x) => NativeClause::RequireGuard(x),
                     };
                     Self::map_native_clause(clause, children)
                 })
@@ -240,11 +256,10 @@ macro_rules! impl_cardano_mapper_shared {
                     NativeClause::InvalidHereafter(s) => {
                         u5c::native_script::NativeScript::InvalidHereafter(s)
                     }
-                    // The u5c schema names no native script member for a guard.
                     #[cfg(feature = "unstable")]
-                    NativeClause::RequireGuard => {
+                    NativeClause::RequireGuard(x) => {
                         return u5c::NativeScript {
-                            native_script: None,
+                            native_script: native_script_guard(x),
                         };
                     }
                 };
@@ -297,19 +312,7 @@ macro_rules! impl_cardano_mapper_shared {
                 &self,
                 x: &pallas_primitives::babbage::StakeCredential,
             ) -> u5c::StakeCredential {
-                use pallas_primitives::babbage;
-                let inner = match x {
-                    babbage::StakeCredential::AddrKeyhash(x) => {
-                        u5c::stake_credential::StakeCredential::AddrKeyHash(x.to_vec().into())
-                    }
-                    babbage::StakeCredential::ScriptHash(x) => {
-                        u5c::stake_credential::StakeCredential::ScriptHash(x.to_vec().into())
-                    }
-                };
-
-                u5c::StakeCredential {
-                    stake_credential: inner.into(),
-                }
+                map_credential(x)
             }
 
             pub fn map_relay(&self, x: &pallas_primitives::alonzo::Relay) -> u5c::Relay {
@@ -630,16 +633,19 @@ macro_rules! impl_cardano_mapper_shared {
                 inputs.chain(collateral).chain(reference_inputs).collect()
             }
 
+            #[allow(clippy::needless_update)]
             pub fn map_block(&self, block: &pallas_traverse::MultiEraBlock) -> u5c::Block {
-                u5c::Block {
+                let mapped = u5c::Block {
                     header: u5c::BlockHeader {
                         slot: block.slot(),
                         hash: block.hash().to_vec().into(),
                         height: block.number(),
+                        ..Default::default()
                     }
                     .into(),
                     body: u5c::BlockBody {
                         tx: block.txs().iter().map(|x| self.map_tx(x)).collect(),
+                        ..Default::default()
                     }
                     .into(),
                     // The spec declares `Block.timestamp` as milliseconds;
@@ -650,7 +656,9 @@ macro_rules! impl_cardano_mapper_shared {
                         .and_then(|ledger| ledger.get_slot_timestamp(block.slot()))
                         .map(|seconds| seconds * 1000)
                         .unwrap_or(0),
-                }
+                };
+
+                with_leios_fields(mapped, block)
             }
 
             pub fn map_block_cbor(&self, raw: &[u8]) -> u5c::Block {
@@ -726,24 +734,12 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[cfg(feature = "unstable")]
-            fn fixture(name: &str) -> Vec<u8> {
+            pub(super) fn fixture(name: &str) -> Vec<u8> {
                 let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("../test_data")
                     .join(name);
                 let hex_str = std::fs::read_to_string(&path).expect("the fixture is readable");
                 hex::decode(hex_str.trim()).expect("the fixture holds hex")
-            }
-
-            #[cfg(feature = "unstable")]
-            fn native(x: u5c::NativeScript) -> u5c::Script {
-                u5c::Script {
-                    script: Some(u5c::script::Script::Native(x)),
-                }
-            }
-
-            #[cfg(feature = "unstable")]
-            fn unset() -> u5c::NativeScript {
-                u5c::NativeScript { native_script: None }
             }
 
             #[test]
@@ -764,7 +760,7 @@ macro_rules! impl_cardano_mapper_shared {
                         .expect("a mapped block has a body")
                         .tx
                         .iter()
-                        .map(|tx| tx.hash.to_vec())
+                        .map(|tx| common(tx).hash.to_vec())
                         .collect();
 
                     assert_eq!(mapped, expected, "dijkstra{n}.block");
@@ -787,17 +783,6 @@ macro_rules! impl_cardano_mapper_shared {
                         script: Some(u5c::script::Script::PlutusV4(vec![0xd8, 0x79, 0x80].into())),
                     })
                 );
-            }
-
-            #[test]
-            #[cfg(feature = "unstable")]
-            fn a_dijkstra_guard_clause_maps_to_an_unset_native_script() {
-                let cbor = fixture("dijkstra-scripts.tx");
-                let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("the fixture decodes");
-                let mapper = Mapper::new(NoLedger);
-
-                assert_eq!(mapper.collect_all_scripts(&tx), vec![native(unset())]);
-                assert_eq!(mapper.collect_all_aux_scripts(&tx), vec![native(unset())]);
             }
 
             #[test]
@@ -831,35 +816,6 @@ macro_rules! impl_cardano_mapper_shared {
                         &MultiEraNativeScript::from_decoded_dijkstra(&dijkstra)
                     ),
                     Mapper::<NoLedger>::map_native_script(&alonzo)
-                );
-            }
-
-            #[test]
-            #[cfg(feature = "unstable")]
-            fn a_nested_dijkstra_guard_clause_keeps_its_position() {
-                let script = dijkstra::NativeScript::ScriptAll(vec![
-                    dijkstra::NativeScript::ScriptRequireGuard(
-                        pallas_primitives::StakeCredential::AddrKeyhash([7; 28].into()),
-                    ),
-                    dijkstra::NativeScript::ScriptPubkey([1; 28].into()),
-                ]);
-
-                assert_eq!(
-                    Mapper::<NoLedger>::map_any_native_script(
-                        &MultiEraNativeScript::from_decoded_dijkstra(&script)
-                    ),
-                    u5c::NativeScript {
-                        native_script: Some(u5c::native_script::NativeScript::ScriptAll(
-                            u5c::NativeScriptList {
-                                items: vec![
-                                    unset(),
-                                    Mapper::<NoLedger>::map_native_script(
-                                        &alonzo::NativeScript::ScriptPubkey([1; 28].into())
-                                    ),
-                                ],
-                            }
-                        )),
-                    }
                 );
             }
         }
@@ -902,6 +858,7 @@ macro_rules! impl_cardano_mapper_shared {
             /// Map what a certificate of any era certifies, read through the
             /// era neutral certificate view. Returns None for a kind the u5c
             /// schema names no message for.
+            #[allow(clippy::needless_update)]
             pub fn map_cert_kind(
                 &self,
                 x: &pallas_traverse::MultiEraCertKind,
@@ -940,6 +897,7 @@ macro_rules! impl_cardano_mapper_shared {
                                 .collect(),
                             relays: pool.relays.iter().map(|x| self.map_relay(x)).collect(),
                             pool_metadata: pool.pool_metadata.map(map_pool_metadata),
+                            ..Default::default()
                         })
                     }
                     MultiEraCertKind::PoolRetirement(pool, epoch) => {
@@ -1088,6 +1046,8 @@ macro_rules! impl_cardano_mapper_shared {
                 order: u32,
             ) -> Option<u5c::Certificate> {
                 let inner = self.map_cert_kind(&x.kind()?);
+                #[cfg(feature = "unstable")]
+                let inner = with_pool_bls_key(inner, x.bls_key());
                 Some(self.certificate(inner, tx, order))
             }
         }
@@ -1255,6 +1215,7 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            #[allow(clippy::needless_update)]
             fn every_conway_certificate_maps_to_the_u5c_message_naming_it() {
                 let cases: Vec<(conway::Certificate, u5c::certificate::Certificate)> = vec![
                     (
@@ -1310,6 +1271,7 @@ macro_rules! impl_cardano_mapper_shared {
                                     url: METADATA_URL.to_string(),
                                     hash: METADATA_HASH.to_vec().into(),
                                 }),
+                                ..Default::default()
                             },
                         ),
                     ),
@@ -1458,6 +1420,7 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            #[allow(clippy::needless_update)]
             fn every_alonzo_certificate_maps_to_the_u5c_message_naming_it() {
                 let cases: Vec<(alonzo::Certificate, u5c::certificate::Certificate)> = vec![
                     (
@@ -1513,6 +1476,7 @@ macro_rules! impl_cardano_mapper_shared {
                                     url: METADATA_URL.to_string(),
                                     hash: METADATA_HASH.to_vec().into(),
                                 }),
+                                ..Default::default()
                             },
                         ),
                     ),
@@ -1616,6 +1580,7 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            #[allow(clippy::needless_update)]
             fn a_pool_registration_read_from_a_block_maps_every_parameter() {
                 let cbor = babbage10_block();
                 let decoded = MultiEraBlock::decode(&cbor).expect("the fixture decodes");
@@ -1699,6 +1664,7 @@ macro_rules! impl_cardano_mapper_shared {
                                 .unwrap()
                                 .into(),
                             }),
+                            ..Default::default()
                         }
                     ))
                 );
@@ -1989,26 +1955,25 @@ macro_rules! impl_cardano_mapper_shared {
             pub fn map_conway_pparams_update(
                 &self,
                 x: &pallas_primitives::conway::ProtocolParamUpdate,
-            ) -> u5c::PParams {
-                u5c::PParams {
+            ) -> ParamUpdate {
+                ParamUpdate {
                     coins_per_utxo_byte: x.ada_per_utxo_byte.and_then(u64_to_bigint),
-                    max_tx_size: x.max_transaction_size.unwrap_or_default(),
+                    max_tx_size: update_scalar(x.max_transaction_size),
                     min_fee_coefficient: x.minfee_a.and_then(u64_to_bigint),
                     min_fee_constant: x.minfee_b.and_then(u64_to_bigint),
-                    max_block_body_size: x.max_block_body_size.unwrap_or_default(),
-                    max_block_header_size: x.max_block_header_size.unwrap_or_default(),
+                    max_block_body_size: update_scalar(x.max_block_body_size),
+                    max_block_header_size: update_scalar(x.max_block_header_size),
                     stake_key_deposit: x.key_deposit.and_then(u64_to_bigint),
                     pool_deposit: x.pool_deposit.and_then(u64_to_bigint),
-                    pool_retirement_epoch_bound: x.maximum_epoch.unwrap_or_default(),
-                    desired_number_of_pools: x.desired_number_of_stake_pools.unwrap_or_default(),
+                    pool_retirement_epoch_bound: update_scalar(x.maximum_epoch),
+                    desired_number_of_pools: update_scalar(x.desired_number_of_stake_pools),
                     pool_influence: x.pool_pledge_influence.clone().map(rational_number_to_u5c),
                     monetary_expansion: x.expansion_rate.clone().map(rational_number_to_u5c),
                     treasury_expansion: x.treasury_growth_rate.clone().map(rational_number_to_u5c),
                     min_pool_cost: x.min_pool_cost.and_then(u64_to_bigint),
-                    protocol_version: None,
-                    max_value_size: x.max_value_size.unwrap_or_default(),
-                    collateral_percentage: x.collateral_percentage.unwrap_or_default(),
-                    max_collateral_inputs: x.max_collateral_inputs.unwrap_or_default(),
+                    max_value_size: update_scalar(x.max_value_size),
+                    collateral_percentage: update_scalar(x.collateral_percentage),
+                    max_collateral_inputs: update_scalar(x.max_collateral_inputs),
                     cost_models: x.cost_models_for_script_languages.clone().map(|cm| {
                         u5c::CostModels {
                             plutus_v1: cm.plutus_v1.map(|values| u5c::CostModel { values }),
@@ -2060,14 +2025,15 @@ macro_rules! impl_cardano_mapper_shared {
                             ],
                         }
                     }),
-                    min_committee_size: x.min_committee_size.unwrap_or_default() as u32,
-                    committee_term_limit: x.committee_term_limit.unwrap_or_default(),
-                    governance_action_validity_period: x
-                        .governance_action_validity_period
-                        .unwrap_or_default(),
+                    min_committee_size: update_scalar(x.min_committee_size.map(|x| x as u32)),
+                    committee_term_limit: update_scalar(x.committee_term_limit),
+                    governance_action_validity_period: update_scalar(
+                        x.governance_action_validity_period,
+                    ),
                     governance_action_deposit: x.governance_action_deposit.and_then(u64_to_bigint),
                     drep_deposit: x.drep_deposit.and_then(u64_to_bigint),
-                    drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default(),
+                    drep_inactivity_period: update_scalar(x.drep_inactivity_period),
+                    ..Default::default()
                 }
             }
         }

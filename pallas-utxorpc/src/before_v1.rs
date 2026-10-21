@@ -1,6 +1,51 @@
 /// Emits the parts of `Mapper<C>` that only the schemas before v1 keep.
 macro_rules! impl_cardano_mapper_before_v1 {
     () => {
+        /// The message this schema maps a protocol parameter update to.
+        type ParamUpdate = u5c::PParams;
+
+        /// The value this schema's update message holds for a scalar key, its proto3 zero when the update leaves the key unset.
+        fn update_scalar<T: Default>(value: Option<T>) -> T {
+            value.unwrap_or_default()
+        }
+
+        /// Returns the mapped block unchanged, as this schema has no Leios field.
+        fn with_leios_fields(
+            mapped: u5c::Block,
+            _block: &pallas_traverse::MultiEraBlock,
+        ) -> u5c::Block {
+            mapped
+        }
+
+        /// Panics on a guarding redeemer, for which this schema has no purpose.
+        #[cfg(feature = "unstable")]
+        fn guarding_purpose() -> u5c::RedeemerPurpose {
+            unimplemented!("map_redeemer is not yet implemented for Dijkstra")
+        }
+
+        /// Returns no clause for a guard clause, for which this schema has no member.
+        #[cfg(feature = "unstable")]
+        fn native_script_guard(
+            _: &pallas_primitives::StakeCredential,
+        ) -> Option<u5c::native_script::NativeScript> {
+            None
+        }
+
+        /// Returns the certificate unchanged, as this schema has no field for a pool BLS key.
+        #[cfg(feature = "unstable")]
+        fn with_pool_bls_key(
+            cert: Option<u5c::certificate::Certificate>,
+            _: Option<&pallas_primitives::dijkstra::BlsKey>,
+        ) -> Option<u5c::certificate::Certificate> {
+            cert
+        }
+
+        /// The fields a sub transaction shares, which this schema holds on the transaction itself.
+        #[cfg(all(test, feature = "unstable"))]
+        fn common(tx: &u5c::Tx) -> &u5c::Tx {
+            tx
+        }
+
         impl<C: $crate::LedgerContext> Mapper<C> {
             #[deprecated(
                 since = "1.5.0",
@@ -127,6 +172,61 @@ macro_rules! impl_cardano_mapper_before_v1 {
                         .map(|r| r.index),
                     Some(1),
                     "position one is indexed by a certificate redeemer"
+                );
+            }
+
+            #[cfg(feature = "unstable")]
+            fn native(x: u5c::NativeScript) -> u5c::Script {
+                u5c::Script {
+                    script: Some(u5c::script::Script::Native(x)),
+                }
+            }
+
+            #[cfg(feature = "unstable")]
+            fn unset() -> u5c::NativeScript {
+                u5c::NativeScript { native_script: None }
+            }
+
+            #[test]
+            #[cfg(feature = "unstable")]
+            fn a_dijkstra_guard_clause_maps_to_an_unset_native_script() {
+                let cbor = super::script_tests::fixture("dijkstra-scripts.tx");
+                let tx = MultiEraTx::decode_for_era(pallas_traverse::Era::Dijkstra, &cbor)
+                    .expect("the fixture decodes");
+                let mapper = Mapper::new(NoLedger);
+
+                assert_eq!(mapper.collect_all_scripts(&tx), vec![native(unset())]);
+                assert_eq!(mapper.collect_all_aux_scripts(&tx), vec![native(unset())]);
+            }
+
+            #[test]
+            #[cfg(feature = "unstable")]
+            fn a_nested_dijkstra_guard_clause_keeps_its_position() {
+                use pallas_primitives::dijkstra;
+
+                let script = dijkstra::NativeScript::ScriptAll(vec![
+                    dijkstra::NativeScript::ScriptRequireGuard(
+                        pallas_primitives::StakeCredential::AddrKeyhash([7; 28].into()),
+                    ),
+                    dijkstra::NativeScript::ScriptPubkey([1; 28].into()),
+                ]);
+
+                assert_eq!(
+                    Mapper::<NoLedger>::map_any_native_script(
+                        &pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script)
+                    ),
+                    u5c::NativeScript {
+                        native_script: Some(u5c::native_script::NativeScript::ScriptAll(
+                            u5c::NativeScriptList {
+                                items: vec![
+                                    unset(),
+                                    Mapper::<NoLedger>::map_native_script(
+                                        &alonzo::NativeScript::ScriptPubkey([1; 28].into())
+                                    ),
+                                ],
+                            }
+                        )),
+                    }
                 );
             }
         }
