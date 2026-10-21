@@ -1,8 +1,8 @@
 # Pallas UTxORPC
 
 Maps Pallas ledger types onto the [UTxORPC](https://utxorpc.org) Cardano
-protobuf schema. Both spec versions are always compiled in side by side, so a
-caller can choose `v1alpha` or `v1beta` per call site without juggling
+protobuf schema. All spec versions are always compiled in side by side, so a
+caller can choose `v1alpha`, `v1beta` or `v1` per call site without juggling
 features.
 
 ## Usage
@@ -11,6 +11,7 @@ features.
 use pallas_utxorpc::Mapper;          // default features: alias for v1alpha::Mapper
 use pallas_utxorpc::v1alpha::Mapper as V1Alpha;
 use pallas_utxorpc::v1beta::Mapper as V1Beta;
+use pallas_utxorpc::v1::Mapper as V1;
 ```
 
 For back-compat with pre-v1beta releases, the default `u5c-v1alpha-compat`
@@ -28,6 +29,8 @@ pallas-utxorpc = { version = "...", default-features = false }
 - `v1beta` — `Mapper` returning `utxorpc_spec::utxorpc::v1beta::cardano::*`,
   including the v1beta-only types (`BootstrapWitness`, `VoterVotes`,
   `VotingProcedure`, `Vote`).
+- `v1`: `Mapper` returning `utxorpc_spec::utxorpc::v1::cardano::*`, whose
+  `Tx` holds the fields a sub transaction shares in `TxCommon`.
 - Crate-root infrastructure (`LedgerContext`, `TxHash`, `TxoIndex`, `TxoRef`,
   `Cbor`, `EraCbor`, `UtxoMap`, `DatumMap`) is shared across versions and
   unaffected by the feature flag.
@@ -36,8 +39,8 @@ pallas-utxorpc = { version = "...", default-features = false }
 
 Each version has a snapshot test that decodes a fixed Babbage block and
 compares the mapper output against a JSON file under `test_data/`
-(`u5c_v1alpha.json`, `u5c_v1beta.json`). To overwrite both snapshots with
-the current mapper output:
+(`u5c_v1alpha.json`, `u5c_v1beta.json`, `u5c_v1.json`). To overwrite the
+snapshots with the current mapper output:
 
 ```sh
 REGENERATE_SNAPSHOTS=1 cargo test -p pallas-utxorpc
