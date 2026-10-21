@@ -69,6 +69,8 @@ use pallas_traverse as trv;
 
 #[macro_use]
 mod shared;
+mod before_v1;
+mod since_v1beta;
 
 /// Mappers and types for the `v1alpha` UTxO RPC schema.
 pub mod v1alpha;
