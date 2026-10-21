@@ -17,6 +17,10 @@ the CBOR of one message exactly as it crossed the wire, with no mux header.
 | notify-offer.cbor | 18 | 172.31.42.11 to .12 as responder | `[5, [353, a085f5ee..], 3665]` |
 | notify-txs-offer.cbor | 18 | 172.31.42.11 to .12 as responder | `[6, [353, a085f5ee..]]` |
 | notify-votes.cbor | 18 | 172.31.42.11 to .12 as responder | `[7, [[rb hash, 2, signature]]]`, one vote |
+| fetch-block-request.cbor | 19 | 172.31.42.14 to .11 as initiator | `[1, [529, 17c49772..]]`, an endorser block the chain certifies |
+| fetch-block.cbor | 19 | 172.31.42.11 to .14 as responder | `[2, eb]`, that endorser block, 67 references |
+| fetch-block-txs-request.cbor | 19 | 172.31.42.14 to .11 as initiator | `[3, [529, 17c49772..], bitmaps]`, all 67 transactions |
+| fetch-block-txs.cbor | 19 | 172.31.42.11 to .14 as responder | `[4, txs]`, the 67 transactions, 59 carrying a sub transaction with a Plutus V4 spend and 8 spending a Plutus V4 script directly |
 
 The devnet never sent Done `[0]`, Quit `[1]` or Canceled `[2]`, so those
 messages are built in the tests from the `leios-notify` CDDL of

@@ -142,12 +142,8 @@ fn reply_leios_fetch_ok(
                 proto::leiosfetch::Message::Block(proto::AnyCbor::from_raw_bytes(b"abc".to_vec()));
             queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(block), Duration::from_secs(0));
         }
-        proto::leiosfetch::Message::BlockTxsRequest(point, bitmaps) => {
-            let txs = proto::leiosfetch::Message::BlockTxs {
-                point,
-                bitmaps,
-                txs: vec![],
-            };
+        proto::leiosfetch::Message::BlockTxsRequest(..) => {
+            let txs = proto::leiosfetch::Message::BlockTxs { txs: vec![] };
             queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(txs), Duration::from_secs(0));
         }
         proto::leiosfetch::Message::Done => {}

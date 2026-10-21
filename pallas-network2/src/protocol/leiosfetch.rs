@@ -5,9 +5,9 @@
 //! [`super::leiosnotify`]. The client issues one request and the server replies
 //! with the matching response, returning to idle.
 //!
-//! Wire format and state machine follow the authoritative `leios-fetch` CDDL on
-//! the `leios-prototype` branch of cardano-blueprint (protocol id 19), which is
-//! the network spec of record while CIP-0164's network chapter stabilises.
+//! Wire format and state machine follow the authoritative `leios-fetch` CDDL of
+//! cardano-blueprint (protocol id 19), which is the network spec of record while
+//! CIP-0164's network chapter stabilises.
 
 use std::collections::BTreeMap;
 
@@ -103,24 +103,19 @@ impl<'b> Decode<'b, ()> for Bitmaps {
 /// A leios-fetch mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// Client terminates the protocol.
+    Done,
     /// Client requests a complete EB body.
     BlockRequest(EbId),
     /// Server delivers an EB body (raw CBOR).
     Block(EndorserBlockCbor),
     /// Client requests a subset of an EB's transactions, selected by bitmap.
     BlockTxsRequest(EbId, Bitmaps),
-    /// Server delivers transactions for an EB, echoing the request's point and
-    /// bitmaps: `[3, point, bitmaps, tx_list]`.
+    /// Server delivers the requested transactions of an EB: `[4, tx_list]`.
     BlockTxs {
-        /// Echoed EB point.
-        point: EbId,
-        /// Echoed bitmap selector.
-        bitmaps: Bitmaps,
         /// The requested transactions, as raw CBOR.
         txs: Vec<TxCbor>,
     },
-    /// Client terminates the protocol.
-    Done,
 }
 
 /// A response delivered by the server, retained (with the EB it answers) in the
@@ -129,8 +124,7 @@ pub enum Message {
 pub enum Response {
     /// An EB body (raw CBOR).
     Block(EndorserBlockCbor),
-    /// Transactions delivered for an EB. (The echoed point/bitmaps from the wire
-    /// are dropped — the EB is carried alongside the response by the state.)
+    /// Transactions delivered for an EB.
     BlockTxs {
         /// The delivered transactions.
         txs: Vec<TxCbor>,
@@ -177,9 +171,7 @@ impl State {
                 _ => Err(Error::InvalidInbound),
             },
             State::AwaitingBlockTxs(eb, _) => match msg {
-                // The wire form echoes point/bitmaps; we keep only the txs and pair
-                // them with the EB from our request state.
-                Message::BlockTxs { txs, .. } => Ok(State::Idle(Some((
+                Message::BlockTxs { txs } => Ok(State::Idle(Some((
                     eb.clone(),
                     Response::BlockTxs { txs: txs.clone() },
                 )))),
@@ -207,31 +199,25 @@ impl Encode<()> for Message {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
+            Message::Done => {
+                e.array(1)?.u16(0)?;
+            }
             Message::BlockRequest(point) => {
-                e.array(2)?.u16(0)?;
+                e.array(2)?.u16(1)?;
                 e.encode(point)?;
             }
             Message::Block(block) => {
-                e.array(2)?.u16(1)?;
+                e.array(2)?.u16(2)?;
                 e.encode(block)?;
             }
             Message::BlockTxsRequest(point, bitmaps) => {
-                e.array(3)?.u16(2)?;
+                e.array(3)?.u16(3)?;
                 e.encode(point)?;
                 e.encode(bitmaps)?;
             }
-            Message::BlockTxs {
-                point,
-                bitmaps,
-                txs,
-            } => {
-                e.array(4)?.u16(3)?;
-                e.encode(point)?;
-                e.encode(bitmaps)?;
+            Message::BlockTxs { txs } => {
+                e.array(2)?.u16(4)?;
                 e.encode(txs)?;
-            }
-            Message::Done => {
-                e.array(1)?.u16(9)?;
             }
         }
 
@@ -245,24 +231,15 @@ impl<'b> Decode<'b, ()> for Message {
         let label = d.u16()?;
 
         match label {
-            0 => Ok(Message::BlockRequest(d.decode()?)),
-            1 => Ok(Message::Block(d.decode()?)),
-            2 => {
+            0 => Ok(Message::Done),
+            1 => Ok(Message::BlockRequest(d.decode()?)),
+            2 => Ok(Message::Block(d.decode()?)),
+            3 => {
                 let point = d.decode()?;
                 let bitmaps = d.decode()?;
                 Ok(Message::BlockTxsRequest(point, bitmaps))
             }
-            3 => {
-                let point = d.decode()?;
-                let bitmaps = d.decode()?;
-                let txs = d.decode()?;
-                Ok(Message::BlockTxs {
-                    point,
-                    bitmaps,
-                    txs,
-                })
-            }
-            9 => Ok(Message::Done),
+            4 => Ok(Message::BlockTxs { txs: d.decode()? }),
             _ => Err(decode::Error::message(
                 "unknown variant for leiosfetch message",
             )),
@@ -312,23 +289,67 @@ mod tests {
         )));
         roundtrip_eq(&Message::BlockTxsRequest(point(), bitmaps()));
         roundtrip_eq(&Message::BlockTxs {
-            point: point(),
-            bitmaps: bitmaps(),
             txs: vec![raw([8, 8, 8])],
         });
         roundtrip_eq(&Message::Done);
+        assert_eq!(reencode(&Message::Done), [0x81, 0x00]);
+    }
+
+    fn decode_captured(bytes: &[u8]) -> Message {
+        let msg: Message = minicbor::decode(bytes).expect("captured message decodes");
+        assert_eq!(reencode(&msg), bytes, "re-encodes byte equal");
+        msg
+    }
+
+    fn captured_point() -> EbId {
+        Point::Specific(
+            529,
+            hex::decode("17c497727d273e8dbd0bc188752ef8a7334f5fac6dc077324424a5410cc77fc0")
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn captured_messages_decode_by_their_numbers() {
+        match decode_captured(include_bytes!(
+            "../../../test_data/leios-rc-2026w42/fetch-block-request.cbor"
+        )) {
+            Message::BlockRequest(point) => assert_eq!(point, captured_point()),
+            other => panic!("{other:?}"),
+        }
+
+        let block = include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
+        match decode_captured(block) {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &block[2..]),
+            other => panic!("{other:?}"),
+        }
+
+        match decode_captured(include_bytes!(
+            "../../../test_data/leios-rc-2026w42/fetch-block-txs-request.cbor"
+        )) {
+            Message::BlockTxsRequest(point, bitmaps) => {
+                assert_eq!(point, captured_point());
+                assert_eq!(bitmaps, Bitmaps::all(67));
+            }
+            other => panic!("{other:?}"),
+        }
+
+        match decode_captured(include_bytes!(
+            "../../../test_data/leios-rc-2026w42/fetch-block-txs.cbor"
+        )) {
+            Message::BlockTxs { txs, .. } => assert_eq!(txs.len(), 67),
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
     fn block_txs_roundtrip() {
         let msg = Message::BlockTxs {
-            point: point(),
-            bitmaps: bitmaps(),
             txs: vec![raw([8, 8, 8])],
         };
         let bytes = reencode(&msg);
-        // envelope is a 4-element array: [tag=3, point, bitmaps, txs]
-        assert_eq!(bytes[0], 0x84);
+        // envelope is a 2-element array: [tag=4, txs]
+        assert_eq!(bytes[..2], [0x82, 0x04]);
         let back: Message = minicbor::decode(&bytes).unwrap();
         assert!(matches!(back, Message::BlockTxs { .. }));
     }
@@ -432,18 +453,19 @@ mod tests {
 
     /// Turns the vendored leios-fetch CDDL into a schema cddl-rs can parse. On top
     /// of the shared preprocessing this relaxes the opaque sub-structures (the EB
-    /// body and `tx.tx`) to `any`, since they are raw CBOR in our codec.
+    /// body and the included Dijkstra `block_transaction`) to `any`, since the
+    /// codec holds them as raw CBOR.
     #[cfg(feature = "blueprint")]
     fn self_contained() -> String {
         let body = cddl::preprocess(include_str!(
             "../../../cardano-blueprint/src/network/node-to-node/leios-fetch/messages.cddl"
         ))
         .replace(
-            "endorser_block = { * hash => word32 }",
+            "endorser_block = { + hash => word32 }",
             "endorser_block = any",
         )
-        .replace("tx.tx", "tx_tx");
-        format!("{body}\n{}tx_tx = any\n", cddl::BASE_PRELUDE)
+        .replace("dijkstra.block_transaction", "block_transaction");
+        format!("{body}\n{}block_transaction = any\n", cddl::BASE_PRELUDE)
     }
 
     conforms!(
@@ -469,15 +491,20 @@ mod tests {
         self_contained,
         "msgLeiosBlockTxs",
         Message::BlockTxs {
-            point: point(),
-            bitmaps: Bitmaps::all(8),
-            txs: vec![raw([1, 2, 3])],
+            txs: vec![leios_tx()],
         }
     );
-    conforms!(
-        done_conforms,
-        self_contained,
-        "msgClientDone",
-        Message::Done
-    );
+    conforms!(done_conforms, self_contained, "msgDone", Message::Done);
+
+    /// A conformant `leios_tx = #6.24(bytes .cbor block_transaction)`.
+    #[cfg(feature = "blueprint")]
+    fn leios_tx() -> TxCbor {
+        let mut buf = Vec::new();
+        Encoder::new(&mut buf)
+            .tag(pallas_codec::minicbor::data::IanaTag::Cbor)
+            .unwrap()
+            .bytes(&minicbor::to_vec([1u8, 2, 3]).unwrap())
+            .unwrap();
+        AnyCbor::from_raw_bytes(buf)
+    }
 }
