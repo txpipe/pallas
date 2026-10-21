@@ -1,0 +1,25 @@
+[package]
+name = "conway-utxo-quint-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "EXPERIMENT: Quint de-risk spike for phase-1 validation (not part of the pallas workspace)"
+license = "Apache-2.0"
+
+# Deliberately its own workspace: this crate is experiment evidence, excluded
+# from the pallas workspace, its CI, and its publish surface.
+[workspace]
+
+[features]
+# Each feature seeds one deliberate defect into one rule of the slice so the
+# model-based tests can demonstrate mutation catching. See EVIDENCE.md.
+mutate-fee-floor = []
+mutate-size = []
+mutate-value = []
+mutate-collateral = []
+
+[dev-dependencies]
+# anyhow is referenced directly by quint-connect's switch! macro expansion
+anyhow = "1"
+quint-connect = "0.1.2"
+serde = { version = "1", features = ["derive"] }
