@@ -1,8 +1,4 @@
-/// Emits the version-agnostic body of `Mapper<C: LedgerContext>` for a given
-/// `utxorpc_spec::utxorpc::vXxxx::cardano` module path. Methods that diverge
-/// between v1alpha and v1beta (`map_tx_datum`, `map_tx_output`, `map_asset`,
-/// `map_policy_assets`, `map_conway_gov_action`, `map_tx`) are NOT emitted
-/// here — each version's `mod.rs` defines them in a separate impl block.
+/// Emits the parts of `Mapper<C>` that every schema version shares, for the schema module given.
 macro_rules! impl_cardano_mapper_shared {
     ($u5c:path) => {
         use $u5c as u5c;
@@ -78,25 +74,6 @@ macro_rules! impl_cardano_mapper_shared {
         }
 
         impl<C: $crate::LedgerContext> Mapper<C> {
-            #[deprecated(
-                since = "1.5.0",
-                note = "use map_multi_era_purpose. This method cannot represent the Dijkstra Guarding tag"
-            )]
-            pub fn map_purpose(
-                &self,
-                x: &pallas_primitives::conway::RedeemerTag,
-            ) -> u5c::RedeemerPurpose {
-                use pallas_primitives::conway;
-                match x {
-                    conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
-                    conway::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
-                    conway::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
-                    conway::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
-                    conway::RedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
-                    conway::RedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
-                }
-            }
-
             pub fn map_multi_era_purpose(
                 &self,
                 x: &pallas_traverse::MultiEraRedeemerTag,
@@ -1113,42 +1090,6 @@ macro_rules! impl_cardano_mapper_shared {
                 let inner = self.map_cert_kind(&x.kind()?);
                 Some(self.certificate(inner, tx, order))
             }
-
-            #[deprecated(
-                since = "1.5.0",
-                note = "use Mapper::map_cert or Mapper::map_cert_kind"
-            )]
-            pub fn map_alonzo_compatible_cert(
-                &self,
-                x: &pallas_primitives::alonzo::Certificate,
-                tx: &pallas_traverse::MultiEraTx,
-                order: u32,
-            ) -> u5c::Certificate {
-                let cert = pallas_traverse::MultiEraCert::AlonzoCompatible(Box::new(
-                    std::borrow::Cow::Borrowed(x),
-                ));
-
-                self.map_cert(&cert, tx, order)
-                    .expect("an Alonzo compatible certificate is always applicable")
-            }
-
-            #[deprecated(
-                since = "1.5.0",
-                note = "use Mapper::map_cert or Mapper::map_cert_kind"
-            )]
-            pub fn map_conway_cert(
-                &self,
-                x: &pallas_primitives::conway::Certificate,
-                tx: &pallas_traverse::MultiEraTx,
-                order: u32,
-            ) -> u5c::Certificate {
-                let cert = pallas_traverse::MultiEraCert::Conway(Box::new(
-                    std::borrow::Cow::Borrowed(x),
-                ));
-
-                self.map_cert(&cert, tx, order)
-                    .expect("a Conway certificate is always applicable")
-            }
         }
 
         #[cfg(test)]
@@ -1162,7 +1103,7 @@ macro_rules! impl_cardano_mapper_shared {
             use std::collections::BTreeMap;
 
             #[derive(Clone)]
-            struct NoLedger;
+            pub(super) struct NoLedger;
 
             impl $crate::LedgerContext for NoLedger {
                 fn get_utxos(&self, _refs: &[$crate::TxoRef]) -> Option<$crate::UtxoMap> {
@@ -1174,8 +1115,8 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            const CREDENTIAL: [u8; 28] = [0x01; 28];
-            const POOL: [u8; 28] = [0x02; 28];
+            pub(super) const CREDENTIAL: [u8; 28] = [0x01; 28];
+            pub(super) const POOL: [u8; 28] = [0x02; 28];
             const OWNER: [u8; 28] = [0x04; 28];
             const VRF: [u8; 32] = [0x06; 32];
             const HOT: [u8; 28] = [0x07; 28];
@@ -1190,10 +1131,10 @@ macro_rules! impl_cardano_mapper_shared {
             const PLEDGE: u64 = 500;
             const COST: u64 = 340;
             const DEPOSIT: u64 = 5;
-            const EPOCH: u64 = 9;
+            pub(super) const EPOCH: u64 = 9;
             const REWARD: i64 = 7;
 
-            fn credential() -> conway::StakeCredential {
+            pub(super) fn credential() -> conway::StakeCredential {
                 conway::StakeCredential::AddrKeyhash(CREDENTIAL.into())
             }
 
@@ -1227,7 +1168,7 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             /// The u5c message for a credential holding the key hash given.
-            fn key_credential(hash: [u8; 28]) -> u5c::StakeCredential {
+            pub(super) fn key_credential(hash: [u8; 28]) -> u5c::StakeCredential {
                 u5c::StakeCredential {
                     stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
                         hash.to_vec().into(),
@@ -1263,7 +1204,7 @@ macro_rules! impl_cardano_mapper_shared {
 
             /// A Conway transaction carrying the redeemers given and nothing
             /// else, to stand as the transaction a certificate is read against.
-            fn tx_with_redeemers(redeemers: Vec<conway::Redeemer>) -> conway::Tx<'static> {
+            pub(super) fn tx_with_redeemers(redeemers: Vec<conway::Redeemer>) -> conway::Tx<'static> {
                 let body = conway::TransactionBody {
                     inputs: Vec::new().into(),
                     outputs: Vec::new(),
@@ -1802,67 +1743,6 @@ macro_rules! impl_cardano_mapper_shared {
                 assert!(
                     unpaired.redeemer.is_none(),
                     "position zero is indexed by no redeemer"
-                );
-            }
-
-            #[test]
-            #[allow(deprecated)]
-            fn the_era_specific_mappers_map_through_the_certificate_view() {
-                let raw = tx_with_redeemers(vec![conway::Redeemer {
-                    tag: conway::RedeemerTag::Cert,
-                    index: 1,
-                    data: pallas_primitives::PlutusData::BoundedBytes(vec![0x0f].into()),
-                    ex_units: pallas_primitives::ExUnits {
-                        mem: 11,
-                        steps: 22,
-                    },
-                }]);
-                let tx = MultiEraTx::from_conway(&raw);
-                let mapper = Mapper::new(NoLedger);
-
-                let conway_certificate = conway::Certificate::StakeRegistration(credential());
-
-                assert_eq!(
-                    mapper.map_conway_cert(&conway_certificate, &tx, 0),
-                    u5c::Certificate {
-                        certificate: Some(
-                            u5c::certificate::Certificate::StakeRegistration(key_credential(
-                                CREDENTIAL
-                            ))
-                        ),
-                        redeemer: None,
-                    }
-                );
-                assert_eq!(
-                    mapper
-                        .map_conway_cert(&conway_certificate, &tx, 1)
-                        .redeemer
-                        .map(|r| r.index),
-                    Some(1),
-                    "position one is indexed by a certificate redeemer"
-                );
-
-                let alonzo_certificate = alonzo::Certificate::PoolRetirement(POOL.into(), EPOCH);
-
-                assert_eq!(
-                    mapper.map_alonzo_compatible_cert(&alonzo_certificate, &tx, 0),
-                    u5c::Certificate {
-                        certificate: Some(u5c::certificate::Certificate::PoolRetirement(
-                            u5c::PoolRetirementCert {
-                                pool_keyhash: POOL.to_vec().into(),
-                                epoch: EPOCH,
-                            }
-                        )),
-                        redeemer: None,
-                    }
-                );
-                assert_eq!(
-                    mapper
-                        .map_alonzo_compatible_cert(&alonzo_certificate, &tx, 1)
-                        .redeemer
-                        .map(|r| r.index),
-                    Some(1),
-                    "position one is indexed by a certificate redeemer"
                 );
             }
         }

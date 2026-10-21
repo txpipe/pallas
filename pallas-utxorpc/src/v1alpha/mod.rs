@@ -34,6 +34,7 @@ impl<C: LedgerContext> Mapper<C> {
 }
 
 crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1alpha::cardano);
+crate::before_v1::impl_cardano_mapper_before_v1!();
 
 // ---- v1alpha-specific bodies for methods that diverge from v1beta -----------
 
