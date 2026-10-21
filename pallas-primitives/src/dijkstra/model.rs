@@ -312,7 +312,7 @@ pub struct EbAnnouncement {
     pub eb_size: u32,
 }
 
-/// `endorser_block = { * base.hash => base.word32 }`
+/// `endorser_block = { + base.hash => base.word32 }`
 /// (leios-fetch `messages.cddl`), each key the blake2b-256 of a whole
 /// serialized transaction and each value its size in bytes.
 pub type EndorserBlock = KeyValuePairs<Hash<32>, u32>;
