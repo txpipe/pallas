@@ -743,7 +743,8 @@ mod tests {
     use super::*;
     use crate::InterfaceEvent;
     use crate::protocol::{
-        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, txsubmission as txsub,
+        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, leiosnotify as notify,
+        txsubmission as txsub,
     };
     use crate::testing::BehaviorOutputExt;
     use futures::StreamExt;
@@ -961,5 +962,70 @@ mod tests {
             outputs.has_send(|m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
             "should send TxSubmission Init after handshake + housekeeping"
         );
+    }
+
+    #[tokio::test]
+    async fn leios_notify_request_is_left_to_the_application() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(15);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        let request = AnyMessage::LeiosNotify(notify::Message::RequestNext);
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![request]));
+        let outputs = drain_outputs(&mut behavior);
+
+        assert!(
+            outputs.has_event(
+                |e| matches!(e, ResponderEvent::EbNotificationRequested(p) if *p == pid)
+            ),
+            "should emit EbNotificationRequested event"
+        );
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::LeiosNotify(_))),
+            "should leave the reply to the application"
+        );
+        assert_eq!(behavior.peers[&pid].leios_notify, notify::State::Busy);
+    }
+
+    #[tokio::test]
+    async fn leios_notify_quit_is_answered_with_done() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(16);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        let quit = AnyMessage::LeiosNotify(notify::Message::Quit);
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![quit]));
+        let outputs = drain_outputs(&mut behavior);
+
+        let dones = outputs
+            .iter()
+            .filter(|o| {
+                matches!(
+                    o,
+                    BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                        p,
+                        AnyMessage::LeiosNotify(notify::Message::Done)
+                    )) if *p == pid
+                )
+            })
+            .count();
+        assert_eq!(dones, 1, "should answer Quit with one Done");
+        assert!(
+            !outputs.has_event(|e| matches!(e, ResponderEvent::EbNotificationRequested(_))),
+            "should not ask the application for a notification"
+        );
+
+        let done = AnyMessage::LeiosNotify(notify::Message::Done);
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), done));
+
+        let state = &behavior.peers[&pid];
+        assert!(!state.violation);
+        assert_eq!(state.leios_notify, notify::State::Done);
     }
 }
