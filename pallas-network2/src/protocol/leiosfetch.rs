@@ -12,6 +12,7 @@
 use std::collections::BTreeMap;
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
+use pallas_codec::utils::CborWrap;
 
 use super::{AnyCbor, EbId, Error};
 
@@ -217,7 +218,10 @@ impl Encode<()> for Message {
             }
             Message::BlockTxs { txs } => {
                 e.array(2)?.u16(4)?;
-                e.encode(txs)?;
+                e.array(txs.len() as u64)?;
+                for tx in txs {
+                    e.encode(CborWrap(tx))?;
+                }
             }
         }
 
@@ -239,7 +243,11 @@ impl<'b> Decode<'b, ()> for Message {
                 let bitmaps = d.decode()?;
                 Ok(Message::BlockTxsRequest(point, bitmaps))
             }
-            4 => Ok(Message::BlockTxs { txs: d.decode()? }),
+            4 => {
+                let txs: Vec<CborWrap<TxCbor>> = d.decode()?;
+                let txs = txs.into_iter().map(CborWrap::unwrap).collect();
+                Ok(Message::BlockTxs { txs })
+            }
             _ => Err(decode::Error::message(
                 "unknown variant for leiosfetch message",
             )),
@@ -337,8 +345,24 @@ mod tests {
         match decode_captured(include_bytes!(
             "../../../test_data/leios-rc-2026w42/fetch-block-txs.cbor"
         )) {
-            Message::BlockTxs { txs, .. } => assert_eq!(txs.len(), 67),
+            Message::BlockTxs { txs } => assert_eq!(txs.len(), 67),
             other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn captured_block_txs_hold_block_transactions() {
+        let msg: Message = minicbor::decode(include_bytes!(
+            "../../../test_data/leios-rc-2026w42/fetch-block-txs.cbor"
+        ))
+        .unwrap();
+        let Message::BlockTxs { txs } = msg else {
+            panic!("{msg:?}");
+        };
+        for tx in &txs {
+            let bytes = tx.raw_bytes();
+            assert_eq!(bytes[0], 0x84, "a four element block transaction");
+            assert_eq!(bytes[bytes.len() - 1], 0xf5, "is_valid last");
         }
     }
 
@@ -491,20 +515,8 @@ mod tests {
         self_contained,
         "msgLeiosBlockTxs",
         Message::BlockTxs {
-            txs: vec![leios_tx()],
+            txs: vec![raw([1, 2, 3])],
         }
     );
     conforms!(done_conforms, self_contained, "msgDone", Message::Done);
-
-    /// A conformant `leios_tx = #6.24(bytes .cbor block_transaction)`.
-    #[cfg(feature = "blueprint")]
-    fn leios_tx() -> TxCbor {
-        let mut buf = Vec::new();
-        Encoder::new(&mut buf)
-            .tag(pallas_codec::minicbor::data::IanaTag::Cbor)
-            .unwrap()
-            .bytes(&minicbor::to_vec([1u8, 2, 3]).unwrap())
-            .unwrap();
-        AnyCbor::from_raw_bytes(buf)
-    }
 }
