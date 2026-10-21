@@ -890,6 +890,94 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Returns whether the transaction carries auxiliary data.
+    pub fn has_aux_data(&self) -> bool {
+        #[cfg(feature = "unstable")]
+        if matches!(self, MultiEraTx::Dijkstra(..) | MultiEraTx::DijkstraSub(..)) {
+            return self.dijkstra_aux_data().is_some();
+        }
+
+        self.aux_data().is_some()
+    }
+
+    /// Returns the auxiliary data hash at body key 7.
+    pub fn auxiliary_data_hash(&self) -> Option<&[u8]> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x
+                .transaction_body
+                .auxiliary_data_hash
+                .as_ref()
+                .map(|x| x.as_slice()),
+            MultiEraTx::Babbage(x) => x
+                .transaction_body
+                .auxiliary_data_hash
+                .as_ref()
+                .map(|x| x.as_slice()),
+            MultiEraTx::Byron(_) => None,
+            MultiEraTx::Conway(x) => x
+                .transaction_body
+                .auxiliary_data_hash
+                .as_ref()
+                .map(|x| x.as_slice()),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x
+                .transaction_body
+                .auxiliary_data_hash
+                .as_ref()
+                .map(|x| x.as_slice()),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x, _) => x
+                .sub_transaction_body
+                .auxiliary_data_hash
+                .as_ref()
+                .map(|x| x.as_slice()),
+        }
+    }
+
+    /// Returns the script data hash at body key 11.
+    pub fn script_data_hash(&self) -> Option<&Hash<32>> {
+        match self {
+            MultiEraTx::AlonzoCompatible(x, _) => x.transaction_body.script_data_hash.as_ref(),
+            MultiEraTx::Babbage(x) => x.transaction_body.script_data_hash.as_ref(),
+            MultiEraTx::Byron(_) => None,
+            MultiEraTx::Conway(x) => x.transaction_body.script_data_hash.as_ref(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.script_data_hash.as_ref(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.script_data_hash.as_ref(),
+        }
+    }
+
+    /// Returns the current treasury value at body key 21.
+    pub fn treasury_value(&self) -> Option<u64> {
+        match self {
+            MultiEraTx::Conway(x) => x.transaction_body.treasury_value,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.treasury_value,
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.treasury_value,
+            MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
+                None
+            }
+        }
+    }
+
+    /// Returns the treasury donation at body key 22.
+    pub fn donation(&self) -> Option<u64> {
+        match self {
+            MultiEraTx::Conway(x) => x.transaction_body.donation.as_ref().map(u64::from),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x.transaction_body.donation.as_ref().map(u64::from),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(x, _) => {
+                x.sub_transaction_body.donation.as_ref().map(u64::from)
+            }
+            MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
+                None
+            }
+        }
+    }
+
     /// Returns the producer's verdict on the transaction, which for a sub
     /// transaction is the verdict on the transaction whose body lists it.
     pub fn is_valid(&self) -> bool {
@@ -917,6 +1005,67 @@ impl<'b> MultiEraTx<'b> {
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
                 None
             }
+        }
+    }
+
+    /// Returns the guards required of the top level transaction at body key 24.
+    #[cfg(feature = "unstable")]
+    pub fn required_top_level_guards(&self) -> Option<&dijkstra::RequiredTopLevelGuards> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x.transaction_body.required_top_level_guards.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => {
+                x.sub_transaction_body.required_top_level_guards.as_ref()
+            }
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => None,
+        }
+    }
+
+    /// Returns the deposits into reward accounts at body key 25.
+    #[cfg(feature = "unstable")]
+    pub fn direct_deposits(&self) -> Option<&dijkstra::DirectDeposits> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x.transaction_body.direct_deposits.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.direct_deposits.as_ref(),
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => None,
+        }
+    }
+
+    /// Returns the reward account balance intervals at body key 26.
+    #[cfg(feature = "unstable")]
+    pub fn account_balance_intervals(&self) -> Option<&dijkstra::AccountBalanceIntervals> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x.transaction_body.account_balance_intervals.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => {
+                x.sub_transaction_body.account_balance_intervals.as_ref()
+            }
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => None,
+        }
+    }
+
+    /// Returns the starting reward account balance intervals at body key 27.
+    #[cfg(feature = "unstable")]
+    pub fn starting_account_balance_intervals(
+        &self,
+    ) -> Option<&dijkstra::StartingAccountBalanceIntervals> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x
+                .transaction_body
+                .starting_account_balance_intervals
+                .as_ref(),
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_)
+            | MultiEraTx::DijkstraSub(..) => None,
         }
     }
 
@@ -1141,6 +1290,205 @@ mod tests {
         );
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
         assert!(tx.voting_procedures().is_none());
+    }
+
+    #[test]
+    fn a_transaction_without_account_fields_reports_none() {
+        let dijkstra = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let conway = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+
+        for (era, cbor) in [(Era::Dijkstra, dijkstra), (Era::Conway, conway)] {
+            let tx = MultiEraTx::decode_for_era(era, &cbor).unwrap();
+            assert_eq!(
+                (tx.direct_deposits(), tx.account_balance_intervals()),
+                (None, None),
+                "a {era:?} body without keys 25 and 26 reports neither"
+            );
+            assert_eq!(
+                tx.starting_account_balance_intervals(),
+                None,
+                "a {era:?} body without key 27 reports no starting balance intervals"
+            );
+        }
+    }
+
+    #[test]
+    fn only_the_top_level_body_reports_starting_balance_intervals() {
+        let sub = testing::sub_body_with_account_fields(&[0xe2; 29], 12);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::body_with_starting_balance_interval(&[0xe1; 29], 27, &[&sub]),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
+
+        assert_eq!(
+            tx.starting_account_balance_intervals().cloned(),
+            Some(dijkstra::StartingAccountBalanceIntervals::from([(
+                [0xe1; 29].to_vec().into(),
+                dijkstra::AccountBalanceInterval::Exact(27),
+            )])),
+            "the transaction reports key 27 of its own body"
+        );
+
+        let subs = tx.sub_transactions();
+        let sub = subs.first().expect("body key 23 holds one sub transaction");
+        assert_eq!(
+            sub.starting_account_balance_intervals(),
+            None,
+            "a sub transaction body has no key 27, so the sub transaction reports none"
+        );
+    }
+
+    #[test]
+    fn each_transaction_reports_the_account_fields_of_its_own_body() {
+        let sub = testing::sub_body_with_account_fields(&[0xe2; 29], 12);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::body_with_account_fields(&[0xe1; 29], 7, &[&sub]),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
+        let subs = tx.sub_transactions();
+        let sub = subs.first().expect("body key 23 holds one sub transaction");
+
+        let read = |tx: &MultiEraTx| {
+            (
+                tx.direct_deposits().cloned(),
+                tx.account_balance_intervals().cloned(),
+            )
+        };
+        let written = |account: [u8; 29], coin: u64| {
+            (
+                Some(dijkstra::DirectDeposits::from([(
+                    account.to_vec().into(),
+                    coin,
+                )])),
+                Some(dijkstra::AccountBalanceIntervals::from([(
+                    account.to_vec().into(),
+                    dijkstra::AccountBalanceInterval::Exact(coin),
+                )])),
+            )
+        };
+
+        assert_eq!(
+            read(&tx),
+            written([0xe1; 29], 7),
+            "the transaction reports keys 25 and 26 of its own body"
+        );
+        assert_eq!(
+            read(sub),
+            written([0xe2; 29], 12),
+            "the sub transaction reports keys 25 and 26 of the sub body, not of the body carrying it"
+        );
+    }
+
+    /// Keys 7, 11, 21 and 22 of a transaction and whether it has auxiliary data.
+    type HashesAndTreasury = (
+        Option<Vec<u8>>,
+        Option<Vec<u8>>,
+        Option<u64>,
+        Option<u64>,
+        bool,
+    );
+
+    /// Reads keys 7, 11, 21 and 22 and the auxiliary data presence of a transaction.
+    fn read_hashes_and_treasury(tx: &MultiEraTx) -> HashesAndTreasury {
+        (
+            tx.auxiliary_data_hash().map(|x| x.to_vec()),
+            tx.script_data_hash().map(|x| x.to_vec()),
+            tx.treasury_value(),
+            tx.donation(),
+            tx.has_aux_data(),
+        )
+    }
+
+    #[test]
+    fn a_transaction_without_hashes_or_treasury_fields_reports_none() {
+        let dijkstra = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let conway = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+
+        for (era, cbor) in [(Era::Dijkstra, dijkstra), (Era::Conway, conway)] {
+            let tx = MultiEraTx::decode_for_era(era, &cbor).unwrap();
+            assert_eq!(
+                read_hashes_and_treasury(&tx),
+                (None, None, None, None, false),
+                "a {era:?} body without keys 7, 11, 21 and 22 and with nil auxiliary data reports none of them"
+            );
+        }
+    }
+
+    #[test]
+    fn each_transaction_reports_the_hashes_and_treasury_fields_of_its_own_body() {
+        let aux = testing::post_alonzo_aux_data(&testing::native_script_pubkey(1), None);
+        let sub = testing::sub_body_with_hashes_and_treasury(5);
+        let dijkstra = testing::dijkstra_block_tx(
+            &testing::body_with_hashes_and_treasury(3, &[&sub]),
+            &testing::empty_witness_set(),
+            Some(&aux),
+            true,
+        );
+        let conway = testing::conway_tx(
+            &testing::body_with_hashes_and_treasury(4, &[]),
+            &testing::empty_witness_set(),
+            Some(&aux),
+            true,
+        );
+
+        let written = |fill: u8, aux: bool| {
+            let (aux_hash, script_hash, treasury, donation) = testing::hashes_and_treasury(fill);
+            (
+                Some(aux_hash.to_vec()),
+                Some(script_hash.to_vec()),
+                Some(treasury),
+                Some(donation),
+                aux,
+            )
+        };
+
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &dijkstra).unwrap();
+        assert_eq!(
+            read_hashes_and_treasury(&tx),
+            written(3, true),
+            "a Dijkstra transaction reports keys 7, 11, 21 and 22 of its own body and its auxiliary data"
+        );
+
+        let subs = tx.sub_transactions();
+        let sub = subs.first().expect("body key 23 holds one sub transaction");
+        assert_eq!(
+            read_hashes_and_treasury(sub),
+            written(5, false),
+            "the sub transaction reports keys 7, 11, 21 and 22 of the sub body, and its own nil auxiliary data"
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &conway).unwrap();
+        assert_eq!(
+            read_hashes_and_treasury(&tx),
+            written(4, true),
+            "a Conway transaction reports keys 7, 11, 21 and 22 of its body and its auxiliary data"
+        );
     }
 
     fn dijkstra_block_bytes() -> Vec<u8> {
