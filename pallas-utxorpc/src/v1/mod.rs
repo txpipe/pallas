@@ -756,6 +756,67 @@ mod tests {
         );
     }
 
+    /// Reads the coin of the output each input given resolves to.
+    #[cfg(feature = "unstable")]
+    fn resolved_coins(inputs: &[u5c::TxInput]) -> Vec<Option<u5c::BigInt>> {
+        inputs
+            .iter()
+            .map(|x| x.as_output.as_ref().and_then(|x| x.coin.clone()))
+            .collect()
+    }
+
+    /// The output reference an input names.
+    #[cfg(feature = "unstable")]
+    fn input_ref(x: &trv::MultiEraInput) -> crate::TxoRef {
+        (*x.hash(), x.index() as u32)
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_sub_transaction_input_the_ledger_does_not_hold_maps_no_output() {
+        let tx = dijkstra_tx_with_guards();
+        let ledger = HeldOutputs(crate::UtxoMap::from([(
+            input_ref(&tx.inputs()[0]),
+            conway_output(1_000_000),
+        )]));
+        let mapped = Mapper::new(ledger).map_tx(&tx);
+
+        assert_eq!(
+            (
+                resolved_coins(&common(&mapped).inputs),
+                resolved_coins(&mapped.sub_transactions[0].inputs),
+            ),
+            (vec![u64_to_bigint(1_000_000)], vec![None]),
+            "the ledger holds the output of the outer input and not that of the sub transaction's input"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_sub_transaction_input_maps_the_output_the_ledger_resolves_for_it() {
+        let tx = dijkstra_tx_with_guards();
+        let ledger = HeldOutputs(crate::UtxoMap::from([
+            (input_ref(&tx.inputs()[0]), conway_output(1_000_000)),
+            (
+                input_ref(&tx.sub_transactions()[0].inputs()[0]),
+                conway_output(2_000_000),
+            ),
+        ]));
+        let mapped = Mapper::new(ledger).map_tx(&tx);
+
+        assert_eq!(
+            (
+                resolved_coins(&common(&mapped).inputs),
+                resolved_coins(&mapped.sub_transactions[0].inputs),
+            ),
+            (
+                vec![u64_to_bigint(1_000_000)],
+                vec![u64_to_bigint(2_000_000)]
+            ),
+            "each input maps the output the ledger holds for it, the sub transaction's input included"
+        );
+    }
+
     #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_transaction_maps_its_collateral_input_and_fee() {
