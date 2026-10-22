@@ -171,7 +171,7 @@ fn with_leios_fields(mut mapped: u5c::Block, block: &trv::MultiEraBlock) -> u5c:
     mapped
 }
 
-/// The fields a sub transaction shares, which this schema holds in `Tx.common`.
+/// The fields a sub transaction shares, which this schema defines as `Tx.common`.
 #[cfg(test)]
 fn common(tx: &u5c::Tx) -> &u5c::TxCommon {
     tx.common
@@ -346,7 +346,7 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    /// Maps the collateral fields of a transaction, absent when it writes none of keys 13, 16 and 17.
+    /// Maps the collateral fields of a transaction, absent when its body has none of keys 13, 16 and 17.
     fn map_collateral(
         &self,
         tx: &trv::MultiEraTx,
