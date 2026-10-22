@@ -29,8 +29,8 @@ pallas-utxorpc = { version = "...", default-features = false }
   including the v1beta-only types (`BootstrapWitness`, `VoterVotes`,
   `VotingProcedure`, `Vote`).
 - `v1`, under the `unstable` feature: `Mapper` returning
-  `utxorpc_spec::utxorpc::v1::cardano::*`, whose `Tx` holds the fields a sub
-  transaction shares in `TxCommon`.
+  `utxorpc_spec::utxorpc::v1::cardano::*`, whose `Tx` has a `TxCommon` with
+  the fields it shares with a sub transaction.
 - Crate-root infrastructure (`LedgerContext`, `TxHash`, `TxoIndex`, `TxoRef`,
   `Cbor`, `EraCbor`, `UtxoMap`, `DatumMap`) is shared across versions and
   unaffected by the feature flag.
@@ -39,7 +39,8 @@ pallas-utxorpc = { version = "...", default-features = false }
 
 Each version has a snapshot test that decodes a fixed Babbage block and
 compares the mapper output against a JSON file under `test_data/`
-(`u5c_v1alpha.json`, `u5c_v1beta.json`, `u5c_v1.json`). To overwrite the
+(`u5c_v1alpha.json`, `u5c_v1beta.json`, `u5c_v1.json`), and v1 has a second
+one, `u5c_v1_dijkstra.json`, from a Dijkstra block. To overwrite the
 snapshots with the current mapper output:
 
 ```sh

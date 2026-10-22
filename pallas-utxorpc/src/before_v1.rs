@@ -40,7 +40,7 @@ macro_rules! impl_cardano_mapper_before_v1 {
             cert
         }
 
-        /// The fields a sub transaction shares, which this schema holds on the transaction itself.
+        /// The fields a sub transaction shares, which this schema defines on the transaction itself.
         #[cfg(all(test, feature = "unstable"))]
         fn common(tx: &u5c::Tx) -> &u5c::Tx {
             tx

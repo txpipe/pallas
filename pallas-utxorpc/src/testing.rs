@@ -117,25 +117,25 @@ pub fn conway_tx_with_certificate_redeemers() -> trv::MultiEraTx<'static> {
 /// The ttl `conway_tx_with_optional_body_keys` writes at body key 3.
 pub const OPTIONAL_TTL: u64 = 900;
 
-/// The auxiliary data hash it writes at body key 7.
+/// The auxiliary data hash `conway_tx_with_optional_body_keys` writes at body key 7.
 pub const OPTIONAL_AUX_DATA_HASH: [u8; 32] = [0x21; 32];
 
-/// The validity start it writes at body key 8.
+/// The validity start `conway_tx_with_optional_body_keys` writes at body key 8.
 pub const OPTIONAL_VALIDITY_START: u64 = 100;
 
-/// The script data hash it writes at body key 11.
+/// The script data hash `conway_tx_with_optional_body_keys` writes at body key 11.
 pub const OPTIONAL_SCRIPT_DATA_HASH: [u8; 32] = [0x22; 32];
 
-/// The network id it writes at body key 15.
+/// The network id `conway_tx_with_optional_body_keys` writes at body key 15.
 pub const OPTIONAL_NETWORK_ID: u8 = 0;
 
-/// The total collateral it writes at body key 17.
+/// The total collateral `conway_tx_with_optional_body_keys` writes at body key 17.
 pub const OPTIONAL_TOTAL_COLLATERAL: u64 = 5_000;
 
-/// The treasury value it writes at body key 21.
+/// The treasury value `conway_tx_with_optional_body_keys` writes at body key 21.
 pub const OPTIONAL_TREASURY_VALUE: u64 = 7_000;
 
-/// The treasury donation it writes at body key 22.
+/// The treasury donation `conway_tx_with_optional_body_keys` writes at body key 22.
 pub const OPTIONAL_DONATION: u64 = 50;
 
 /// A Conway transaction whose body writes keys 3, 7, 8, 11, 13, 15, 17, 21 and 22 and whose auxiliary data is an empty metadata map.
@@ -231,7 +231,7 @@ const fn reward_account(fill: u8) -> [u8; 29] {
 /// The account `dijkstra_tx_with_account_fields` deposits into.
 pub const DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x21);
 
-/// The coin deposited into that account.
+/// The coin `dijkstra_tx_with_account_fields` deposits into `DEPOSIT_ACCOUNT`.
 pub const DEPOSIT_COIN: u64 = 4_000_000;
 
 /// The account whose interval has only a lower bound.
