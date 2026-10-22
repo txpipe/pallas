@@ -131,6 +131,35 @@ impl VersionData {
     }
 }
 
+/// Mirrors `acceptableVersion` for `NodeToClientVersionData` in ouroboros-network:
+/// the network magic must match and query mode is requested if either side
+/// requests it.
+impl super::protocol::NegotiateVersionData for VersionData {
+    /// Negotiate our payload against the proposed one, per the rules above.
+    fn negotiate(&self, proposed: &Self) -> Result<Self, String> {
+        if self.0 != proposed.0 {
+            return Err(format!(
+                "network magic mismatch: ours {}, proposed {}",
+                self.0, proposed.0
+            ));
+        }
+
+        // Versions 15 and up carry the query flag; earlier ones do not. The two
+        // sides must use the same payload shape for a version.
+        let query = match (self.1, proposed.1) {
+            (Some(ours), Some(theirs)) => Some(ours || theirs),
+            (None, None) => None,
+            _ => {
+                return Err(format!(
+                    "version data shape mismatch: ours {self:?}, proposed {proposed:?}"
+                ));
+            }
+        };
+
+        Ok(VersionData(self.0, query))
+    }
+}
+
 impl Encode<()> for VersionData {
     fn encode<W: encode::Write>(
         &self,
@@ -167,5 +196,55 @@ impl<'b> Decode<'b, ()> for VersionData {
             }
             _ => Err(decode::Error::message("unknown type for VersionData")),
         }
+    }
+}
+
+#[cfg(test)]
+mod negotiation_tests {
+    use super::super::protocol::NegotiateVersionData;
+    use super::*;
+
+    /// Query mode is requested when either side requests it.
+    #[test]
+    fn query_if_either_side_asks() {
+        let ours = VersionData::new(2, Some(false));
+        let theirs = VersionData::new(2, Some(true));
+
+        assert_eq!(
+            ours.negotiate(&theirs).unwrap(),
+            VersionData::new(2, Some(true))
+        );
+        assert_eq!(
+            theirs.negotiate(&ours).unwrap(),
+            VersionData::new(2, Some(true))
+        );
+    }
+
+    /// Versions without a query flag negotiate to a payload without one.
+    #[test]
+    fn versions_without_query_stay_without_query() {
+        let ours = VersionData::new(2, None);
+
+        assert_eq!(ours.negotiate(&ours).unwrap(), ours);
+    }
+
+    /// A payload with a query flag and one without are refused for the same version.
+    #[test]
+    fn refuses_a_payload_of_another_shape() {
+        let modern = VersionData::new(2, Some(false));
+        let legacy = VersionData::new(2, None);
+
+        assert!(modern.negotiate(&legacy).is_err());
+        assert!(legacy.negotiate(&modern).is_err());
+    }
+
+    /// Payloads for different networks are refused.
+    #[test]
+    fn refuses_a_different_network_magic() {
+        assert!(
+            VersionData::new(2, Some(false))
+                .negotiate(&VersionData::new(1, Some(false)))
+                .is_err()
+        );
     }
 }
