@@ -19,6 +19,41 @@ impl LedgerContext for NoLedger {
     }
 }
 
+/// A mapper context that resolves the outputs it holds and no others.
+#[cfg(feature = "unstable")]
+#[derive(Clone)]
+pub struct HeldOutputs(pub UtxoMap);
+
+#[cfg(feature = "unstable")]
+impl LedgerContext for HeldOutputs {
+    fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap> {
+        Some(
+            refs.iter()
+                .filter_map(|x| self.0.get_key_value(x))
+                .map(|(k, v)| (*k, v.clone()))
+                .collect(),
+        )
+    }
+
+    fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+        None
+    }
+}
+
+/// A Conway output that pays the coin given to an enterprise testnet address.
+#[cfg(feature = "unstable")]
+pub fn conway_output(coin: u64) -> crate::EraCbor {
+    let mut address = [0x41; 29];
+    address[0] = 0x60;
+
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(2).unwrap();
+    e.bytes(&address).unwrap();
+    e.u64(coin).unwrap();
+
+    (trv::Era::Conway, e.into_writer())
+}
+
 /// The Conway redeemer tag of a certificate's redeemer.
 const CERTIFICATE_REDEEMER_TAG: u8 = 2;
 
