@@ -18,7 +18,7 @@ rand = { workspace = true, optional = true }
 tokio = { version = "1.45.1", optional = true, features = ["full"] }
 pallas-codec.workspace = true
 chrono.workspace = true
-opentelemetry = "0.30.0"
+opentelemetry = "0.32.0"
 tracing.workspace = true
 byteorder.workspace = true
 socket2.workspace = true
