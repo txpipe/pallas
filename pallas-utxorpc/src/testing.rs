@@ -20,11 +20,9 @@ impl LedgerContext for NoLedger {
 }
 
 /// A mapper context that resolves the outputs it holds and no others.
-#[cfg(feature = "unstable")]
 #[derive(Clone)]
 pub struct HeldOutputs(pub UtxoMap);
 
-#[cfg(feature = "unstable")]
 impl LedgerContext for HeldOutputs {
     fn get_utxos(&self, refs: &[TxoRef]) -> Option<UtxoMap> {
         Some(
@@ -41,7 +39,6 @@ impl LedgerContext for HeldOutputs {
 }
 
 /// A Conway output that pays the coin given to an enterprise testnet address.
-#[cfg(feature = "unstable")]
 pub fn conway_output(coin: u64) -> crate::EraCbor {
     let mut address = [0x41; 29];
     address[0] = 0x60;
@@ -58,21 +55,18 @@ pub fn conway_output(coin: u64) -> crate::EraCbor {
 const CERTIFICATE_REDEEMER_TAG: u8 = 2;
 
 /// Decodes a hex encoded Conway transaction.
-#[cfg(feature = "unstable")]
 pub fn conway_tx(tx_str: &str) -> trv::MultiEraTx<'_> {
     let cbor: &'static [u8] = Box::leak(hex::decode(tx_str).unwrap().into_boxed_slice());
     trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
 }
 
 /// Decodes a hex encoded Dijkstra block.
-#[cfg(feature = "unstable")]
 pub fn dijkstra_block(block_str: &str) -> trv::MultiEraBlock<'_> {
     let cbor: &'static [u8] = Box::leak(hex::decode(block_str).unwrap().into_boxed_slice());
     trv::MultiEraBlock::decode(cbor).unwrap()
 }
 
 /// Decodes a hex encoded Dijkstra transaction.
-#[cfg(feature = "unstable")]
 pub fn dijkstra_tx(tx_str: &str) -> trv::MultiEraTx<'_> {
     let cbor: &'static [u8] = Box::leak(hex::decode(tx_str).unwrap().into_boxed_slice());
     trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
@@ -228,7 +222,6 @@ pub fn conway_tx_with_required_signers() -> trv::MultiEraTx<'static> {
 }
 
 /// A testnet key reward account whose 28 credential bytes are all the byte given.
-#[cfg(feature = "unstable")]
 const fn reward_account(fill: u8) -> [u8; 29] {
     let mut account = [fill; 29];
     account[0] = 0xe0;
@@ -236,43 +229,33 @@ const fn reward_account(fill: u8) -> [u8; 29] {
 }
 
 /// The account `dijkstra_tx_with_account_fields` deposits into.
-#[cfg(feature = "unstable")]
 pub const DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x21);
 
 /// The coin deposited into that account.
-#[cfg(feature = "unstable")]
 pub const DEPOSIT_COIN: u64 = 4_000_000;
 
 /// The account whose interval has only a lower bound.
-#[cfg(feature = "unstable")]
 pub const LOWER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x22);
 
 /// The account whose interval has only an upper bound.
-#[cfg(feature = "unstable")]
 pub const UPPER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x23);
 
 /// The account whose interval has both bounds.
-#[cfg(feature = "unstable")]
 pub const BOUNDED_ACCOUNT: [u8; 29] = reward_account(0x24);
 
 /// The account whose interval is a bare coin.
-#[cfg(feature = "unstable")]
 pub const COIN_ACCOUNT: [u8; 29] = reward_account(0x25);
 
 /// The account of the one starting interval, a lower bound.
-#[cfg(feature = "unstable")]
 pub const STARTING_ACCOUNT: [u8; 29] = reward_account(0x26);
 
 /// The account the sub transaction deposits into.
-#[cfg(feature = "unstable")]
 pub const SUB_DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x27);
 
 /// The account of the sub transaction's interval, an upper bound.
-#[cfg(feature = "unstable")]
 pub const SUB_INTERVAL_ACCOUNT: [u8; 29] = reward_account(0x28);
 
 /// Writes `[lower, upper]` with nil for a bound that is absent.
-#[cfg(feature = "unstable")]
 fn write_interval(e: &mut minicbor::Encoder<Vec<u8>>, lower: Option<u64>, upper: Option<u64>) {
     e.array(2).unwrap();
     for bound in [lower, upper] {
@@ -284,7 +267,6 @@ fn write_interval(e: &mut minicbor::Encoder<Vec<u8>>, lower: Option<u64>, upper:
 }
 
 /// A Dijkstra transaction with a direct deposit, an account balance interval of each of the four shapes, a starting interval, and one sub transaction with a deposit and an interval of its own.
-#[cfg(feature = "unstable")]
 pub fn dijkstra_tx_with_account_fields() -> trv::MultiEraTx<'static> {
     let mut e = minicbor::Encoder::new(Vec::new());
     e.array(4).unwrap();
@@ -356,19 +338,15 @@ pub fn dijkstra_tx_with_account_fields() -> trv::MultiEraTx<'static> {
 }
 
 /// The key credential of the top body's guards.
-#[cfg(feature = "unstable")]
 pub const GUARD_KEY_HASH: [u8; 28] = [0x31; 28];
 
 /// The script credential of the top body's guards.
-#[cfg(feature = "unstable")]
 pub const GUARD_SCRIPT_HASH: [u8; 28] = [0x32; 28];
 
 /// The key hash of the sub body's guards.
-#[cfg(feature = "unstable")]
 pub const SUB_GUARD_KEY_HASH: [u8; 28] = [0x33; 28];
 
 /// A Dijkstra transaction whose guards are a key and a script credential, and whose one sub transaction's guards are a bare key hash.
-#[cfg(feature = "unstable")]
 pub fn dijkstra_tx_with_guards() -> trv::MultiEraTx<'static> {
     let mut e = minicbor::Encoder::new(Vec::new());
     e.array(4).unwrap();
@@ -424,23 +402,18 @@ pub fn dijkstra_tx_with_guards() -> trv::MultiEraTx<'static> {
 }
 
 /// The key credential the top body requires of the top level guards, with a datum.
-#[cfg(feature = "unstable")]
 pub const TOP_LEVEL_GUARD_KEY_HASH: [u8; 28] = [0x34; 28];
 
 /// The integer datum the top body gives its key credential.
-#[cfg(feature = "unstable")]
 pub const TOP_LEVEL_GUARD_DATUM: i64 = 7;
 
 /// The script credential the top body requires of the top level guards, with no datum.
-#[cfg(feature = "unstable")]
 pub const TOP_LEVEL_GUARD_SCRIPT_HASH: [u8; 28] = [0x35; 28];
 
 /// The key credential the sub body requires of the top level guards.
-#[cfg(feature = "unstable")]
 pub const SUB_TOP_LEVEL_GUARD_KEY_HASH: [u8; 28] = [0x36; 28];
 
 /// A Dijkstra transaction whose body requires a key credential with an integer datum and a script credential with none, and whose one sub body requires a key credential with a constructor datum.
-#[cfg(feature = "unstable")]
 pub fn dijkstra_tx_with_required_top_level_guards() -> trv::MultiEraTx<'static> {
     let mut e = minicbor::Encoder::new(Vec::new());
     e.array(4).unwrap();
