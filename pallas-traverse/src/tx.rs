@@ -1491,6 +1491,45 @@ mod tests {
         );
     }
 
+    #[test]
+    fn an_alonzo_and_a_babbage_transaction_report_the_hashes_of_their_body() {
+        let hash = |x: &str| Some(hex::decode(x).unwrap());
+        let cases = [
+            (
+                include_str!("../../test_data/alonzo2.tx"),
+                Era::Alonzo,
+                (
+                    None,
+                    hash("9667ea60b8359b52724b91d312372d7b711143895c8221e8b42684aa349d73ad"),
+                    None,
+                    None,
+                    false,
+                ),
+            ),
+            (
+                include_str!("../../test_data/babbage5.tx"),
+                Era::Babbage,
+                (
+                    hash("ce6e3db1fe7397d6b3a423ada6ae73cbb5eb080436a61123cfa8b65f81b3b84d"),
+                    hash("5e005a7d39c61cf611c45b00bc8ba1a19b8a12263a5e0a4f3c153e54344e805d"),
+                    None,
+                    None,
+                    true,
+                ),
+            ),
+        ];
+
+        for (tx_str, era, expected) in cases {
+            let cbor = hex::decode(tx_str.trim()).expect("invalid hex");
+            let tx = MultiEraTx::decode_for_era(era, &cbor).unwrap();
+            assert_eq!(
+                read_hashes_and_treasury(&tx),
+                expected,
+                "the {era:?} transaction reports keys 7 and 11 of its body, and has no key 21 or 22"
+            );
+        }
+    }
+
     fn dijkstra_block_bytes() -> Vec<u8> {
         hex::decode(include_str!("../../test_data/dijkstra3.block")).expect("invalid hex")
     }
