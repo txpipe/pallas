@@ -174,7 +174,9 @@ fn with_leios_fields(mut mapped: u5c::Block, block: &trv::MultiEraBlock) -> u5c:
 /// The fields a sub transaction shares, which this schema defines as `Tx.common`.
 #[cfg(test)]
 fn common(tx: &u5c::Tx) -> &u5c::TxCommon {
-    tx.common.as_ref().expect("a mapped transaction has `common`")
+    tx.common
+        .as_ref()
+        .expect("a mapped transaction has `common`")
 }
 
 impl<C: LedgerContext> Mapper<C> {
