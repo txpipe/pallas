@@ -634,8 +634,8 @@ mod tests {
         let outer = common(&mapped);
 
         assert_eq!(
-            outer.hash.to_vec(),
-            tx.hash().to_vec(),
+            hex::encode(&outer.hash),
+            "74e2116ca6e0c809f156aa062a9d4ee8b156322618846f1bdea5d9ad7a206a12",
             "the common fields hold the id of the transaction itself"
         );
         assert_eq!(
@@ -678,13 +678,9 @@ mod tests {
         let sub = &mapped.sub_transactions[0];
 
         assert_eq!(
-            sub.hash.to_vec(),
-            tx.sub_transactions()[0].hash().to_vec(),
+            hex::encode(&sub.hash),
+            "63ac433eefaed71cf0fa2c7134f82ea38f3c6c338b3d5129c686c47b44162691",
             "the sub transaction's id is the hash of its own body"
-        );
-        assert_ne!(
-            sub.hash, outer.hash,
-            "and differs from the id of the transaction that holds it"
         );
         assert_eq!(
             (
@@ -693,6 +689,7 @@ mod tests {
                     .iter()
                     .map(|x| x.coin.clone())
                     .collect::<Vec<_>>(),
+                input_refs(&sub.reference_inputs),
             ),
             (
                 vec![(
@@ -700,8 +697,69 @@ mod tests {
                     0
                 )],
                 vec![u64_to_bigint(3_000_000)],
+                vec![(
+                    "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6".to_string(),
+                    0
+                )],
             ),
-            "the sub body's one input and one output map to the sub transaction"
+            "the sub body's one input, one output and one reference input map to the sub transaction"
+        );
+        assert_eq!(
+            (hex::encode(&sub.script_data_hash), sub.guards.clone()),
+            (
+                "860576d43755cdb611c2f5fdd10d38a91e11362cebe52b198e8beacd900d883e".to_string(),
+                vec![u5c::StakeCredential {
+                    stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
+                        hex::decode("81aa16380175bef2da792c64e694d92e76f0b6c56b333499ea2662df")
+                            .unwrap()
+                            .into()
+                    )),
+                }],
+            ),
+            "the sub body's script data hash and bare key hash guard map to the sub transaction"
+        );
+    }
+
+    #[test]
+    fn reference_inputs_map_the_outputs_the_ledger_resolves_for_them() {
+        let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-subtx.tx"));
+        let reference_inputs = tx.reference_inputs();
+        let ledger = HeldOutputs(crate::UtxoMap::from([
+            (input_ref(&reference_inputs[0]), conway_output(2_000_000)),
+            (input_ref(&reference_inputs[1]), conway_output(3_000_000)),
+        ]));
+        let mapped = Mapper::new(ledger).map_tx(&tx);
+
+        assert_eq!(
+            (
+                resolved_coins(&common(&mapped).reference_inputs),
+                resolved_coins(&mapped.sub_transactions[0].reference_inputs),
+            ),
+            (
+                vec![u64_to_bigint(2_000_000), u64_to_bigint(3_000_000)],
+                vec![u64_to_bigint(3_000_000)],
+            ),
+            "each reference input maps the output the ledger holds for it, the sub transaction's included"
+        );
+    }
+
+    #[test]
+    fn a_transaction_maps_the_validity_flag_its_block_sets() {
+        let valid = include_str!("../../../test_data/dijkstra-subtx.tx").trim();
+        let invalid = valid
+            .strip_suffix("f5")
+            .map(|body| format!("{body}f4"))
+            .expect("the fixture's last item is the flag, written as true");
+
+        assert_eq!(
+            (
+                Mapper::new(NoLedger).map_tx(&dijkstra_tx(valid)).successful,
+                Mapper::new(NoLedger)
+                    .map_tx(&dijkstra_tx(&invalid))
+                    .successful,
+            ),
+            (true, false),
+            "the flag the block producer writes maps to successful, false included"
         );
     }
 
@@ -770,14 +828,14 @@ mod tests {
         assert_eq!(
             (
                 input_refs(&mapped.collateral.as_ref().unwrap().collateral),
-                mapped.fee.is_some(),
+                mapped.fee,
             ),
             (
                 vec![(
                     "7727ec1dfb0f84f2ffeb51935f35850cf84cfabfca1957e8c74cf8fde871dd34".to_string(),
                     12
                 )],
-                true
+                u64_to_bigint(700_000)
             ),
             "the outer body's collateral input and fee map to the transaction"
         );
