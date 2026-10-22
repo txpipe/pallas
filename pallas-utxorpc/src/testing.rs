@@ -234,25 +234,25 @@ pub const DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x21);
 /// The coin `dijkstra_tx_with_account_fields` deposits into `DEPOSIT_ACCOUNT`.
 pub const DEPOSIT_COIN: u64 = 4_000_000;
 
-/// The account whose interval has only a lower bound.
+/// The account of `dijkstra_tx_with_account_fields` whose interval has only a lower bound.
 pub const LOWER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x22);
 
-/// The account whose interval has only an upper bound.
+/// The account of `dijkstra_tx_with_account_fields` whose interval has only an upper bound.
 pub const UPPER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x23);
 
-/// The account whose interval has both bounds.
+/// The account of `dijkstra_tx_with_account_fields` whose interval has both bounds.
 pub const BOUNDED_ACCOUNT: [u8; 29] = reward_account(0x24);
 
-/// The account whose interval is a bare coin.
+/// The account of `dijkstra_tx_with_account_fields` whose interval is a bare coin.
 pub const COIN_ACCOUNT: [u8; 29] = reward_account(0x25);
 
-/// The account of the one starting interval, a lower bound.
+/// The account of the one starting interval of `dijkstra_tx_with_account_fields`, a lower bound.
 pub const STARTING_ACCOUNT: [u8; 29] = reward_account(0x26);
 
-/// The account the sub transaction deposits into.
+/// The account the sub transaction of `dijkstra_tx_with_account_fields` deposits into.
 pub const SUB_DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x27);
 
-/// The account of the sub transaction's interval, an upper bound.
+/// The account of the interval of the sub transaction of `dijkstra_tx_with_account_fields`, an upper bound.
 pub const SUB_INTERVAL_ACCOUNT: [u8; 29] = reward_account(0x28);
 
 /// Writes `[lower, upper]` with nil for a bound that is absent.
