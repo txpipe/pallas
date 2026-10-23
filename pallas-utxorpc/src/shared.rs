@@ -1609,6 +1609,7 @@ macro_rules! impl_cardano_mapper_shared {
                         coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -1650,6 +1651,7 @@ macro_rules! impl_cardano_mapper_shared {
                         min_fee_constant: u64_to_bigint(params.minfee_b.into()),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -1672,6 +1674,7 @@ macro_rules! impl_cardano_mapper_shared {
                         coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -1714,6 +1717,7 @@ macro_rules! impl_cardano_mapper_shared {
                         max_block_header_size: params.max_header_size,
                         ..Default::default()
                     },
+                    #[allow(clippy::needless_update)]
                     MultiEraProtocolParameters::Conway(params) => u5c::PParams {
                         max_tx_size: params.max_transaction_size.into(),
                         max_block_body_size: params.max_block_body_size.into(),
@@ -1723,6 +1727,7 @@ macro_rules! impl_cardano_mapper_shared {
                         coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -1912,6 +1917,255 @@ macro_rules! impl_cardano_mapper_shared {
                     drep_deposit: x.drep_deposit.and_then(u64_to_bigint),
                     drep_inactivity_period: x.drep_inactivity_period.unwrap_or_default(),
                 }
+            }
+        }
+
+        #[cfg(test)]
+        mod pparams_tests {
+            use super::*;
+
+            use pallas_primitives::alonzo::{
+                ExUnitPrices, ExUnits, Nonce, NonceVariant, RationalNumber,
+            };
+            use pallas_primitives::{babbage, conway};
+            use pallas_validate::utils::{
+                AlonzoProtParams, BabbageProtParams, ConwayProtParams, MultiEraProtocolParameters,
+                ShelleyProtParams,
+            };
+            use pretty_assertions::assert_eq;
+
+            #[derive(Clone)]
+            struct NoLedger;
+
+            impl $crate::LedgerContext for NoLedger {
+                fn get_utxos(&self, _refs: &[$crate::TxoRef]) -> Option<$crate::UtxoMap> {
+                    None
+                }
+
+                fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+                    None
+                }
+            }
+
+            const MAXIMUM_EPOCH: u64 = 18;
+
+            fn ratio(numerator: u64, denominator: u64) -> RationalNumber {
+                RationalNumber {
+                    numerator,
+                    denominator,
+                }
+            }
+
+            fn neutral_nonce() -> Nonce {
+                Nonce {
+                    variant: NonceVariant::NeutralNonce,
+                    hash: None,
+                }
+            }
+
+            fn prices() -> ExUnitPrices {
+                ExUnitPrices {
+                    mem_price: ratio(577, 10_000),
+                    step_price: ratio(721, 10_000_000),
+                }
+            }
+
+            fn units() -> ExUnits {
+                ExUnits {
+                    mem: 14_000_000,
+                    steps: 10_000_000_000,
+                }
+            }
+
+            fn bound(pparams: MultiEraProtocolParameters) -> u64 {
+                Mapper::new(NoLedger)
+                    .map_pparams(pparams)
+                    .pool_retirement_epoch_bound
+            }
+
+            fn shelley() -> ShelleyProtParams {
+                ShelleyProtParams {
+                    system_start: "2017-09-23T21:44:51Z".parse().unwrap(),
+                    epoch_length: 432_000,
+                    slot_length: 1,
+                    minfee_a: 44,
+                    minfee_b: 155_381,
+                    max_block_body_size: 65_536,
+                    max_transaction_size: 16_384,
+                    max_block_header_size: 1_100,
+                    key_deposit: 2_000_000,
+                    pool_deposit: 500_000_000,
+                    desired_number_of_stake_pools: 150,
+                    protocol_version: (2, 0),
+                    min_utxo_value: 1_000_000,
+                    min_pool_cost: 340_000_000,
+                    expansion_rate: ratio(3, 1_000),
+                    treasury_growth_rate: ratio(1, 5),
+                    maximum_epoch: MAXIMUM_EPOCH,
+                    pool_pledge_influence: ratio(3, 10),
+                    decentralization_constant: ratio(1, 1),
+                    extra_entropy: neutral_nonce(),
+                }
+            }
+
+            fn alonzo() -> AlonzoProtParams {
+                AlonzoProtParams {
+                    system_start: "2017-09-23T21:44:51Z".parse().unwrap(),
+                    epoch_length: 432_000,
+                    slot_length: 1,
+                    minfee_a: 44,
+                    minfee_b: 155_381,
+                    max_block_body_size: 65_536,
+                    max_transaction_size: 16_384,
+                    max_block_header_size: 1_100,
+                    key_deposit: 2_000_000,
+                    pool_deposit: 500_000_000,
+                    desired_number_of_stake_pools: 500,
+                    protocol_version: (6, 0),
+                    min_pool_cost: 340_000_000,
+                    ada_per_utxo_byte: 34_482,
+                    cost_models_for_script_languages: Default::default(),
+                    execution_costs: prices(),
+                    max_tx_ex_units: units(),
+                    max_block_ex_units: units(),
+                    max_value_size: 5_000,
+                    collateral_percentage: 150,
+                    max_collateral_inputs: 3,
+                    expansion_rate: ratio(3, 1_000),
+                    treasury_growth_rate: ratio(1, 5),
+                    maximum_epoch: MAXIMUM_EPOCH,
+                    pool_pledge_influence: ratio(3, 10),
+                    decentralization_constant: ratio(0, 1),
+                    extra_entropy: neutral_nonce(),
+                }
+            }
+
+            fn babbage() -> BabbageProtParams {
+                BabbageProtParams {
+                    system_start: "2017-09-23T21:44:51Z".parse().unwrap(),
+                    epoch_length: 432_000,
+                    slot_length: 1,
+                    minfee_a: 44,
+                    minfee_b: 155_381,
+                    max_block_body_size: 90_112,
+                    max_transaction_size: 16_384,
+                    max_block_header_size: 1_100,
+                    key_deposit: 2_000_000,
+                    pool_deposit: 500_000_000,
+                    desired_number_of_stake_pools: 500,
+                    protocol_version: (7, 0),
+                    min_pool_cost: 340_000_000,
+                    ada_per_utxo_byte: 4_310,
+                    cost_models_for_script_languages: babbage::CostModels {
+                        plutus_v1: None,
+                        plutus_v2: None,
+                    },
+                    execution_costs: prices(),
+                    max_tx_ex_units: units(),
+                    max_block_ex_units: units(),
+                    max_value_size: 5_000,
+                    collateral_percentage: 150,
+                    max_collateral_inputs: 3,
+                    expansion_rate: ratio(3, 1_000),
+                    treasury_growth_rate: ratio(1, 5),
+                    maximum_epoch: MAXIMUM_EPOCH,
+                    pool_pledge_influence: ratio(3, 10),
+                    decentralization_constant: ratio(0, 1),
+                    extra_entropy: neutral_nonce(),
+                }
+            }
+
+            fn conway() -> ConwayProtParams {
+                ConwayProtParams {
+                    system_start: "2017-09-23T21:44:51Z".parse().unwrap(),
+                    epoch_length: 432_000,
+                    slot_length: 1,
+                    minfee_a: 44,
+                    minfee_b: 155_381,
+                    max_block_body_size: 90_112,
+                    max_transaction_size: 16_384,
+                    max_block_header_size: 1_100,
+                    key_deposit: 2_000_000,
+                    pool_deposit: 500_000_000,
+                    desired_number_of_stake_pools: 500,
+                    protocol_version: (9, 0),
+                    min_pool_cost: 170_000_000,
+                    ada_per_utxo_byte: 4_310,
+                    cost_models_for_script_languages: conway::CostModels {
+                        plutus_v1: None,
+                        plutus_v2: None,
+                        plutus_v3: None,
+                        unknown: Default::default(),
+                    },
+                    execution_costs: prices(),
+                    max_tx_ex_units: units(),
+                    max_block_ex_units: units(),
+                    max_value_size: 5_000,
+                    collateral_percentage: 150,
+                    max_collateral_inputs: 3,
+                    expansion_rate: ratio(3, 1_000),
+                    treasury_growth_rate: ratio(1, 5),
+                    maximum_epoch: MAXIMUM_EPOCH,
+                    pool_pledge_influence: ratio(3, 10),
+                    pool_voting_thresholds: conway::PoolVotingThresholds {
+                        motion_no_confidence: ratio(51, 100),
+                        committee_normal: ratio(51, 100),
+                        committee_no_confidence: ratio(51, 100),
+                        hard_fork_initiation: ratio(51, 100),
+                        security_voting_threshold: ratio(51, 100),
+                    },
+                    drep_voting_thresholds: conway::DRepVotingThresholds {
+                        motion_no_confidence: ratio(67, 100),
+                        committee_normal: ratio(67, 100),
+                        committee_no_confidence: ratio(3, 5),
+                        update_constitution: ratio(3, 4),
+                        hard_fork_initiation: ratio(3, 5),
+                        pp_network_group: ratio(67, 100),
+                        pp_economic_group: ratio(67, 100),
+                        pp_technical_group: ratio(67, 100),
+                        pp_governance_group: ratio(3, 4),
+                        treasury_withdrawal: ratio(67, 100),
+                    },
+                    min_committee_size: 7,
+                    committee_term_limit: 146,
+                    governance_action_validity_period: 6,
+                    governance_action_deposit: 100_000_000_000,
+                    drep_deposit: 500_000_000,
+                    drep_inactivity_period: 20,
+                    minfee_refscript_cost_per_byte: ratio(15, 1),
+                }
+            }
+
+            #[test]
+            fn a_shelley_parameter_set_maps_its_pool_retirement_bound() {
+                assert_eq!(
+                    bound(MultiEraProtocolParameters::Shelley(shelley())),
+                    MAXIMUM_EPOCH
+                );
+            }
+
+            #[test]
+            fn an_alonzo_parameter_set_maps_its_pool_retirement_bound() {
+                assert_eq!(
+                    bound(MultiEraProtocolParameters::Alonzo(alonzo())),
+                    MAXIMUM_EPOCH
+                );
+            }
+
+            #[test]
+            fn a_babbage_parameter_set_maps_its_pool_retirement_bound() {
+                assert_eq!(
+                    bound(MultiEraProtocolParameters::Babbage(babbage())),
+                    MAXIMUM_EPOCH
+                );
+            }
+
+            #[test]
+            fn a_conway_parameter_set_maps_its_pool_retirement_bound() {
+                assert_eq!(
+                    bound(MultiEraProtocolParameters::Conway(conway())),
+                    MAXIMUM_EPOCH
+                );
             }
         }
     };
