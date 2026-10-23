@@ -21,7 +21,7 @@
 /// using the schema produced by the `$schema` builder in scope at the call site.
 ///
 /// ```ignore
-/// conforms!(done_conforms, self_contained, "msgClientDone", Message::Done);
+/// conforms!(done_conforms, self_contained, "msgDone", Message::Done);
 /// ```
 macro_rules! conforms {
     ($name:ident, $schema:path, $rule:literal, $msg:expr) => {

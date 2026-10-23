@@ -121,7 +121,10 @@ fn reply_leios_notify_ok(
                 proto::leiosnotify::Message::BlockOffer(proto::Point::new(1, vec![0xAB; 32]), 3);
             queue.push_jittered_msg(pid, AnyMessage::LeiosNotify(offer), Duration::from_secs(0));
         }
-        proto::leiosnotify::Message::Done => {}
+        proto::leiosnotify::Message::Quit => {
+            let done = proto::leiosnotify::Message::Done;
+            queue.push_jittered_msg(pid, AnyMessage::LeiosNotify(done), Duration::from_secs(0));
+        }
         _ => queue.push_jittered_disconnect(pid, Duration::from_secs(0)),
     }
 }
@@ -139,12 +142,8 @@ fn reply_leios_fetch_ok(
                 proto::leiosfetch::Message::Block(proto::AnyCbor::from_raw_bytes(b"abc".to_vec()));
             queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(block), Duration::from_secs(0));
         }
-        proto::leiosfetch::Message::BlockTxsRequest(point, bitmaps) => {
-            let txs = proto::leiosfetch::Message::BlockTxs {
-                point,
-                bitmaps,
-                txs: vec![],
-            };
+        proto::leiosfetch::Message::BlockTxsRequest(..) => {
+            let txs = proto::leiosfetch::Message::BlockTxs { txs: vec![] };
             queue.push_jittered_msg(pid, AnyMessage::LeiosFetch(txs), Duration::from_secs(0));
         }
         proto::leiosfetch::Message::Done => {}
