@@ -1627,10 +1627,7 @@ macro_rules! impl_cardano_mapper_shared {
                 let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
 
                 Mapper::new(NoLedger)
-                    .map_tx(&tx)
-                    .witnesses
-                    .unwrap()
-                    .script
+                    .collect_all_scripts(&tx)
                     .into_iter()
                     .filter_map(|x| match x.script {
                         Some(u5c::script::Script::PlutusV3(bytes)) => Some(bytes.to_vec()),
