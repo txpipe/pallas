@@ -1598,6 +1598,64 @@ macro_rules! impl_cardano_mapper_shared {
             }
         }
 
+        #[cfg(test)]
+        mod witness_script_tests {
+            use super::*;
+
+            use pallas_traverse::{Era, MultiEraTx};
+            use pretty_assertions::assert_eq;
+
+            #[derive(Clone)]
+            struct NoLedger;
+
+            impl $crate::LedgerContext for NoLedger {
+                fn get_utxos(&self, _refs: &[$crate::TxoRef]) -> Option<$crate::UtxoMap> {
+                    None
+                }
+
+                fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+                    None
+                }
+            }
+
+            fn plutus_v3_witness_scripts(fixture: &str) -> Vec<Vec<u8>> {
+                let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../test_data")
+                    .join(fixture);
+                let hex_str = std::fs::read_to_string(&path).expect("the fixture is readable");
+                let cbor = hex::decode(hex_str.trim()).expect("the fixture holds hex");
+                let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+
+                Mapper::new(NoLedger)
+                    .map_tx(&tx)
+                    .witnesses
+                    .unwrap()
+                    .script
+                    .into_iter()
+                    .filter_map(|x| match x.script {
+                        Some(u5c::script::Script::PlutusV3(bytes)) => Some(bytes.to_vec()),
+                        _ => None,
+                    })
+                    .collect()
+            }
+
+            #[test]
+            fn a_conway_transaction_maps_its_plutus_v3_witness_script() {
+                assert_eq!(
+                    plutus_v3_witness_scripts("conway9.tx"),
+                    vec![hex::decode("450101002499").unwrap()]
+                );
+            }
+
+            #[test]
+            fn a_conway_transaction_without_a_v3_witness_script_maps_no_v3_script() {
+                assert_eq!(
+                    plutus_v3_witness_scripts("conway2.tx"),
+                    Vec::<Vec<u8>>::new()
+                );
+            }
+        }
+
         // ---- protocol parameters --------------------------------------------
 
         impl<C: $crate::LedgerContext> Mapper<C> {
