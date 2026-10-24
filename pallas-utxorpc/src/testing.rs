@@ -472,6 +472,64 @@ pub fn dijkstra_tx_with_required_top_level_guards() -> trv::MultiEraTx<'static> 
     trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
 }
 
+/// The PlutusV2, PlutusV3 and PlutusV4 scripts in the auxiliary data of `dijkstra_tx_with_aux_plutus_scripts`.
+pub const AUX_PLUTUS_SCRIPTS: [&[u8]; 3] = [&[0x42], &[0x43], &[0x44]];
+
+/// The PlutusV2, PlutusV3 and PlutusV4 scripts in the auxiliary data of the sub transaction of `dijkstra_tx_with_aux_plutus_scripts`.
+pub const SUB_AUX_PLUTUS_SCRIPTS: [&[u8]; 3] = [&[0x52], &[0x53], &[0x54]];
+
+/// Writes post Alonzo auxiliary data holding the scripts given at keys 3, 4 and 5, PlutusV2 to PlutusV4.
+fn write_aux_plutus_scripts(e: &mut minicbor::Encoder<Vec<u8>>, scripts: [&[u8]; 3]) {
+    e.tag(Tag::new(259)).unwrap();
+    e.map(3).unwrap();
+    for (key, script) in [3u8, 4, 5].into_iter().zip(scripts) {
+        e.u8(key).unwrap();
+        e.array(1).unwrap();
+        e.bytes(script).unwrap();
+    }
+}
+
+/// A Dijkstra transaction whose auxiliary data holds `AUX_PLUTUS_SCRIPTS`, and whose one sub transaction's auxiliary data holds `SUB_AUX_PLUTUS_SCRIPTS`.
+pub fn dijkstra_tx_with_aux_plutus_scripts() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x17; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(2).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x18; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.map(0).unwrap();
+    write_aux_plutus_scripts(&mut e, SUB_AUX_PLUTUS_SCRIPTS);
+
+    e.map(0).unwrap();
+    write_aux_plutus_scripts(&mut e, AUX_PLUTUS_SCRIPTS);
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
 /// A Conway parameter update read from the CBOR map given.
 pub fn conway_update(update_cbor: &[u8]) -> pallas_primitives::conway::ProtocolParamUpdate {
     minicbor::decode(update_cbor).expect("a parameter update map decodes")

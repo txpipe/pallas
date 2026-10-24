@@ -197,14 +197,23 @@ macro_rules! impl_cardano_mapper_before_v1 {
 
             #[test]
             #[cfg(feature = "unstable")]
-            fn a_dijkstra_guard_clause_maps_to_an_unset_native_script() {
+            fn a_dijkstra_guard_clause_maps_to_unset_beside_its_aux_plutus_v4_script() {
                 let cbor = super::script_tests::fixture("dijkstra-scripts.tx");
                 let tx = MultiEraTx::decode_for_era(pallas_traverse::Era::Dijkstra, &cbor)
                     .expect("the fixture decodes");
                 let mapper = Mapper::new(NoLedger);
 
                 assert_eq!(mapper.collect_all_scripts(&tx), vec![native(unset())]);
-                assert_eq!(mapper.collect_all_aux_scripts(&tx), vec![native(unset())]);
+                assert_eq!(
+                    mapper.collect_all_aux_scripts(&tx),
+                    vec![
+                        native(unset()),
+                        u5c::Script {
+                            script: u5c::script::Script::PlutusV4(vec![0xd8, 0x79, 0x80].into())
+                                .into(),
+                        },
+                    ]
+                );
             }
 
             #[test]

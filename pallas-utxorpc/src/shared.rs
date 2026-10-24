@@ -707,7 +707,31 @@ macro_rules! impl_cardano_mapper_shared {
                         script: u5c::script::Script::PlutusV1(x).into(),
                     });
 
-                ns.chain(p1).collect()
+                let p2 = tx
+                    .aux_plutus_v2_scripts()
+                    .iter()
+                    .map(|x| x.0.to_vec().into())
+                    .map(|x| u5c::Script {
+                        script: u5c::script::Script::PlutusV2(x).into(),
+                    });
+
+                let p3 = tx
+                    .aux_plutus_v3_scripts()
+                    .iter()
+                    .map(|x| x.0.to_vec().into())
+                    .map(|x| u5c::Script {
+                        script: u5c::script::Script::PlutusV3(x).into(),
+                    });
+
+                let p4 = tx
+                    .aux_plutus_v4_scripts()
+                    .iter()
+                    .map(|x| x.0.to_vec().into())
+                    .map(|x| u5c::Script {
+                        script: u5c::script::Script::PlutusV4(x).into(),
+                    });
+
+                ns.chain(p1).chain(p2).chain(p3).chain(p4).collect()
             }
 
             fn find_related_inputs(&self, tx: &pallas_traverse::MultiEraTx) -> Vec<$crate::TxoRef> {
@@ -878,6 +902,49 @@ macro_rules! impl_cardano_mapper_shared {
                     Some(u5c::Script {
                         script: Some(u5c::script::Script::PlutusV4(vec![0xd8, 0x79, 0x80].into())),
                     })
+                );
+            }
+
+            #[test]
+            #[cfg(feature = "unstable")]
+            fn a_dijkstra_transaction_and_its_sub_transaction_map_their_auxiliary_plutus_scripts() {
+                use $crate::testing::{
+                    AUX_PLUTUS_SCRIPTS, SUB_AUX_PLUTUS_SCRIPTS, dijkstra_tx_with_aux_plutus_scripts,
+                };
+
+                let plutus = |[v2, v3, v4]: [&[u8]; 3]| {
+                    [
+                        u5c::script::Script::PlutusV2(v2.to_vec().into()),
+                        u5c::script::Script::PlutusV3(v3.to_vec().into()),
+                        u5c::script::Script::PlutusV4(v4.to_vec().into()),
+                    ]
+                    .map(|x| u5c::Script { script: Some(x) })
+                    .to_vec()
+                };
+                let tx = dijkstra_tx_with_aux_plutus_scripts();
+                let mapper = Mapper::new(NoLedger);
+
+                assert_eq!(
+                    (
+                        mapper.collect_all_aux_scripts(&tx),
+                        mapper.collect_all_aux_scripts(&tx.sub_transactions()[0]),
+                    ),
+                    (plutus(AUX_PLUTUS_SCRIPTS), plutus(SUB_AUX_PLUTUS_SCRIPTS))
+                );
+            }
+
+            #[test]
+            #[cfg(feature = "unstable")]
+            fn a_dijkstra_transaction_without_auxiliary_data_maps_no_auxiliary_script() {
+                let tx = $crate::testing::dijkstra_tx_with_guards();
+                let mapper = Mapper::new(NoLedger);
+
+                assert_eq!(
+                    (
+                        mapper.collect_all_aux_scripts(&tx),
+                        mapper.collect_all_aux_scripts(&tx.sub_transactions()[0]),
+                    ),
+                    (vec![], vec![])
                 );
             }
 
