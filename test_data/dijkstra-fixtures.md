@@ -109,6 +109,24 @@ element `block_transaction` form, written as lowercase hex with no trailing
 newline. Blake2b-256 over the body alone gives the transaction hash in the
 table, and `pallas-traverse` asserts that.
 
+## Transactions with PlutusV4 witness scripts
+
+Two files are transactions cut from block 8 of a local network run from the
+`ghcr.io/input-output-hk/ouroboros-leios/cardano-node-testnet:rc-2026w42` image
+(cardano-node 11.2.0.164, network magic 164, every hard fork at epoch 0), at
+slot 353, header hash
+`f1524fe85164dbf31cc26f019a751e5598e439c1f67a35c59ca8e4f2f126767b`. Each is the
+transaction bytes exactly as the block holds them, in the four element `block_transaction`
+form, written as lowercase hex with no trailing newline.
+
+| file | index in block | transaction | bytes | witness keys | what it carries |
+| --- | --- | --- | --- | --- | --- |
+| `dijkstra-v4-witness.tx` | 0 | `931a78483ed17437655db1ad49b1920f4cef45b3c48c165acd42e6759933d358` | 380 | 0, 5, 8 | a spend from a PlutusV4 script, with the script at witness key 8 |
+| `dijkstra-v4-sub-witness.tx` | 1 | `a9e1e0c39a9d4536ad2cd75c6eac0aead02300adfb12e013147c21cdb8156ada` | 579 | 0 | two sub transactions, the first with witness key 0 and the second with keys 5 and 8, so the PlutusV4 script is only in a sub transaction |
+
+The script at key 8 is `450101002499` in both. The spans, witness keys and
+hashes were read with Python's `cbor2` and `hashlib` rather than with pallas.
+
 ## Fixtures built rather than cut
 
 Four files here are hand built CBOR, for shapes no block on this chain
