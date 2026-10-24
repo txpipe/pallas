@@ -524,19 +524,115 @@ macro_rules! impl_cardano_mapper_shared {
                 &self,
                 x: &pallas_traverse::MultiEraProposal,
             ) -> u5c::GovernanceActionProposal {
-                #[cfg(feature = "unstable")]
-                if x.as_dijkstra().is_some() {
-                    unimplemented!("map_gov_proposal is not yet implemented for Dijkstra");
-                }
-
                 u5c::GovernanceActionProposal {
                     deposit: u64_to_bigint(x.deposit()),
                     reward_account: x.reward_account().to_vec().into(),
-                    gov_action: x
-                        .as_conway()
-                        .map(|x| self.map_conway_gov_action(&x.gov_action)),
+                    gov_action: Some(self.map_gov_action(&x.gov_action())),
                     anchor: Some(map_anchor(x.anchor())),
                 }
+            }
+
+            pub fn map_gov_action(
+                &self,
+                x: &pallas_traverse::MultiEraGovAction,
+            ) -> u5c::GovernanceAction {
+                use pallas_traverse::MultiEraGovActionKind;
+
+                let script_hash = |x: Option<&pallas_primitives::conway::ScriptHash>| {
+                    x.map(|x| x.to_vec()).unwrap_or_default().into()
+                };
+
+                let inner = match x.kind() {
+                    MultiEraGovActionKind::ParameterChange(gov_id, params, script) => {
+                        u5c::governance_action::GovernanceAction::ParameterChangeAction(
+                            u5c::ParameterChangeAction {
+                                gov_action_id: self.map_gov_action_id(&gov_id.cloned()),
+                                protocol_param_update: Some(self.map_pparams_update(&params)),
+                                policy_hash: script_hash(script),
+                            },
+                        )
+                    }
+                    MultiEraGovActionKind::HardForkInitiation(gov_id, version) => {
+                        u5c::governance_action::GovernanceAction::HardForkInitiationAction(
+                            u5c::HardForkInitiationAction {
+                                gov_action_id: self.map_gov_action_id(&gov_id.cloned()),
+                                protocol_version: Some(u5c::ProtocolVersion {
+                                    major: version.0 as u32,
+                                    minor: version.1 as u32,
+                                }),
+                            },
+                        )
+                    }
+                    MultiEraGovActionKind::TreasuryWithdrawals(withdrawals, script) => {
+                        u5c::governance_action::GovernanceAction::TreasuryWithdrawalsAction(
+                            u5c::TreasuryWithdrawalsAction {
+                                withdrawals: withdrawals
+                                    .iter()
+                                    .map(|(k, v)| u5c::WithdrawalAmount {
+                                        reward_account: k.to_vec().into(),
+                                        coin: u64_to_bigint(*v),
+                                    })
+                                    .collect(),
+                                policy_hash: script_hash(script),
+                            },
+                        )
+                    }
+                    MultiEraGovActionKind::NoConfidence(gov_id) => {
+                        u5c::governance_action::GovernanceAction::NoConfidenceAction(
+                            u5c::NoConfidenceAction {
+                                gov_action_id: self.map_gov_action_id(&gov_id.cloned()),
+                            },
+                        )
+                    }
+                    MultiEraGovActionKind::UpdateCommittee(gov_id, remove, add, threshold) => {
+                        u5c::governance_action::GovernanceAction::UpdateCommitteeAction(
+                            u5c::UpdateCommitteeAction {
+                                gov_action_id: self.map_gov_action_id(&gov_id.cloned()),
+                                remove_committee_credentials: remove
+                                    .iter()
+                                    .map(|x| self.map_stake_credential(x))
+                                    .collect(),
+                                new_committee_credentials: add
+                                    .iter()
+                                    .map(|(cred, epoch)| u5c::NewCommitteeCredentials {
+                                        committee_cold_credential: Some(
+                                            self.map_stake_credential(cred),
+                                        ),
+                                        expires_epoch: *epoch as u32,
+                                    })
+                                    .collect(),
+                                new_committee_threshold: Some(rational_number_to_u5c(
+                                    threshold.clone(),
+                                )),
+                            },
+                        )
+                    }
+                    MultiEraGovActionKind::NewConstitution(gov_id, constitution) => {
+                        u5c::governance_action::GovernanceAction::NewConstitutionAction(
+                            u5c::NewConstitutionAction {
+                                gov_action_id: self.map_gov_action_id(&gov_id.cloned()),
+                                constitution: Some(u5c::Constitution {
+                                    anchor: Some(map_anchor(&constitution.anchor)),
+                                    hash: script_hash(constitution.guardrail_script.as_ref()),
+                                }),
+                            },
+                        )
+                    }
+                    MultiEraGovActionKind::Information => information_action(),
+                    _ => unimplemented!("map_gov_action has no arm for this governance action"),
+                };
+
+                u5c::GovernanceAction {
+                    governance_action: Some(inner),
+                }
+            }
+
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_gov_action")]
+            pub fn map_conway_gov_action(
+                &self,
+                x: &pallas_primitives::conway::GovAction,
+            ) -> u5c::GovernanceAction {
+                self.map_gov_action(&pallas_traverse::MultiEraGovAction::from_conway(x))
             }
 
             pub fn map_metadatum(x: &pallas_primitives::alonzo::Metadatum) -> u5c::Metadatum {
@@ -817,6 +913,193 @@ macro_rules! impl_cardano_mapper_shared {
                     ),
                     Mapper::<NoLedger>::map_native_script(&alonzo)
                 );
+            }
+        }
+
+        #[cfg(all(test, feature = "unstable"))]
+        mod gov_tests {
+            use super::*;
+
+            use super::cert_tests::{key_credential, NoLedger};
+            use super::script_tests::fixture;
+            use pallas_primitives::conway;
+            use pallas_traverse::{Era, MultiEraTx};
+            use pretty_assertions::assert_eq;
+            use std::collections::BTreeMap;
+
+            /// The proposals of a Dijkstra transaction fixture, mapped.
+            pub(super) fn mapped_proposals(name: &str) -> Vec<u5c::GovernanceActionProposal> {
+                let cbor = fixture(name);
+                let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+                    .expect("the fixture decodes");
+                common(&Mapper::new(NoLedger).map_tx(&tx)).proposals.clone()
+            }
+
+            #[test]
+            fn a_dijkstra_proposal_maps_its_deposit_account_action_and_anchor() {
+                let proposals = mapped_proposals("dijkstra-param-change.tx");
+                assert_eq!(proposals.len(), 1, "the fixture carries one proposal");
+                let proposal = &proposals[0];
+
+                assert_eq!(proposal.deposit, u64_to_bigint(100_000_000_000));
+                assert_eq!(
+                    proposal.reward_account.to_vec(),
+                    hex::decode("e017d6e5dbc905918d1e16b0b2df27029391ac73f13966cf183b8051a9")
+                        .unwrap()
+                );
+                assert_eq!(
+                    proposal.anchor,
+                    Some(u5c::Anchor {
+                        url: "ipfs://QmZz6G5DMHzMRQEVzU1LnaDJhMZS3gbmvRaxvDsBudUms5".into(),
+                        content_hash: hex::decode(
+                            "d766c3215498282d1927e8e81aafa949e193b3744af4b543657b7ee02311867c"
+                        )
+                        .unwrap()
+                        .into(),
+                    })
+                );
+
+                let Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(action)) =
+                    proposal
+                        .gov_action
+                        .as_ref()
+                        .and_then(|x| x.governance_action.as_ref())
+                else {
+                    panic!("the proposal maps to a parameter change");
+                };
+                assert_eq!(action.gov_action_id, None);
+                assert_eq!(
+                    action.policy_hash.to_vec(),
+                    hex::decode("e3172285605e502bde008a7efe2b2eec516958b7bae911947a5c9373")
+                        .unwrap()
+                );
+                assert!(action.protocol_param_update.is_some());
+            }
+
+            #[test]
+            fn a_conway_action_of_each_kind_maps_to_its_member() {
+                let id = conway::GovActionId {
+                    transaction_id: [0x11; 32].into(),
+                    action_index: 3,
+                };
+                let mapped_id = Some(u5c::GovernanceActionId {
+                    transaction_id: [0x11; 32].to_vec().into(),
+                    governance_action_index: 3,
+                });
+                let policy = [0x44; 28];
+                let threshold = pallas_primitives::RationalNumber {
+                    numerator: 2,
+                    denominator: 3,
+                };
+                let anchor = conway::Anchor {
+                    url: "https://example.invalid/constitution".into(),
+                    content_hash: [0x55; 32].into(),
+                };
+
+                // {3: 0}, a zero max transaction size.
+                let update = crate::testing::conway_update(&[0xa1, 0x03, 0x00]);
+                let mapped_update = ParamUpdate {
+                    max_tx_size: update_scalar(Some(0)),
+                    ..Default::default()
+                };
+
+                use u5c::governance_action::GovernanceAction as A;
+                let cases = vec![
+                    (
+                        conway::GovAction::ParameterChange(
+                            Some(id.clone()),
+                            Box::new(update),
+                            Some(policy.into()),
+                        ),
+                        A::ParameterChangeAction(u5c::ParameterChangeAction {
+                            gov_action_id: mapped_id.clone(),
+                            protocol_param_update: Some(mapped_update),
+                            policy_hash: policy.to_vec().into(),
+                        }),
+                    ),
+                    (
+                        conway::GovAction::HardForkInitiation(None, (10, 2)),
+                        A::HardForkInitiationAction(u5c::HardForkInitiationAction {
+                            gov_action_id: None,
+                            protocol_version: Some(u5c::ProtocolVersion {
+                                major: 10,
+                                minor: 2,
+                            }),
+                        }),
+                    ),
+                    (
+                        conway::GovAction::TreasuryWithdrawals(
+                            BTreeMap::from([(vec![0xe0; 29].into(), 7)]),
+                            None,
+                        ),
+                        A::TreasuryWithdrawalsAction(u5c::TreasuryWithdrawalsAction {
+                            withdrawals: vec![u5c::WithdrawalAmount {
+                                reward_account: vec![0xe0; 29].into(),
+                                coin: u64_to_bigint(7),
+                            }],
+                            policy_hash: Default::default(),
+                        }),
+                    ),
+                    (
+                        conway::GovAction::NoConfidence(Some(id.clone())),
+                        A::NoConfidenceAction(u5c::NoConfidenceAction {
+                            gov_action_id: mapped_id.clone(),
+                        }),
+                    ),
+                    (
+                        conway::GovAction::UpdateCommittee(
+                            None,
+                            vec![conway::StakeCredential::AddrKeyhash([0x01; 28].into())].into(),
+                            BTreeMap::from([(
+                                conway::StakeCredential::AddrKeyhash([0x02; 28].into()),
+                                90,
+                            )]),
+                            threshold,
+                        ),
+                        A::UpdateCommitteeAction(u5c::UpdateCommitteeAction {
+                            gov_action_id: None,
+                            remove_committee_credentials: vec![key_credential([0x01; 28])],
+                            new_committee_credentials: vec![u5c::NewCommitteeCredentials {
+                                committee_cold_credential: Some(key_credential([0x02; 28])),
+                                expires_epoch: 90,
+                            }],
+                            new_committee_threshold: Some(u5c::RationalNumber {
+                                numerator: 2,
+                                denominator: 3,
+                            }),
+                        }),
+                    ),
+                    (
+                        conway::GovAction::NewConstitution(
+                            Some(id),
+                            conway::Constitution {
+                                anchor,
+                                guardrail_script: Some(policy.into()),
+                            },
+                        ),
+                        A::NewConstitutionAction(u5c::NewConstitutionAction {
+                            gov_action_id: mapped_id,
+                            constitution: Some(u5c::Constitution {
+                                anchor: Some(u5c::Anchor {
+                                    url: "https://example.invalid/constitution".into(),
+                                    content_hash: [0x55; 32].to_vec().into(),
+                                }),
+                                hash: policy.to_vec().into(),
+                            }),
+                        }),
+                    ),
+                ];
+
+                for (action, expected) in cases {
+                    assert_eq!(
+                        Mapper::new(NoLedger)
+                            .map_gov_action(&pallas_traverse::MultiEraGovAction::from_conway(
+                                &action
+                            ))
+                            .governance_action,
+                        Some(expected)
+                    );
+                }
             }
         }
 
@@ -1952,53 +2235,64 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_pparams_update")]
             pub fn map_conway_pparams_update(
                 &self,
                 x: &pallas_primitives::conway::ProtocolParamUpdate,
             ) -> ParamUpdate {
-                ParamUpdate {
-                    coins_per_utxo_byte: x.ada_per_utxo_byte.and_then(u64_to_bigint),
-                    max_tx_size: update_scalar(x.max_transaction_size),
-                    min_fee_coefficient: x.minfee_a.and_then(u64_to_bigint),
-                    min_fee_constant: x.minfee_b.and_then(u64_to_bigint),
-                    max_block_body_size: update_scalar(x.max_block_body_size),
-                    max_block_header_size: update_scalar(x.max_block_header_size),
-                    stake_key_deposit: x.key_deposit.and_then(u64_to_bigint),
-                    pool_deposit: x.pool_deposit.and_then(u64_to_bigint),
-                    pool_retirement_epoch_bound: update_scalar(x.maximum_epoch),
-                    desired_number_of_pools: update_scalar(x.desired_number_of_stake_pools),
-                    pool_influence: x.pool_pledge_influence.clone().map(rational_number_to_u5c),
-                    monetary_expansion: x.expansion_rate.clone().map(rational_number_to_u5c),
-                    treasury_expansion: x.treasury_growth_rate.clone().map(rational_number_to_u5c),
-                    min_pool_cost: x.min_pool_cost.and_then(u64_to_bigint),
-                    max_value_size: update_scalar(x.max_value_size),
-                    collateral_percentage: update_scalar(x.collateral_percentage),
-                    max_collateral_inputs: update_scalar(x.max_collateral_inputs),
-                    cost_models: x.cost_models_for_script_languages.clone().map(|cm| {
+                self.map_pparams_update(&pallas_traverse::MultiEraParamUpdate::Conway(
+                    Box::new(std::borrow::Cow::Borrowed(x)),
+                ))
+            }
+
+            pub fn map_pparams_update(
+                &self,
+                x: &pallas_traverse::MultiEraParamUpdate,
+            ) -> ParamUpdate {
+                let update = ParamUpdate {
+                    coins_per_utxo_byte: x.ada_per_utxo_byte().and_then(u64_to_bigint),
+                    max_tx_size: update_scalar(x.max_transaction_size()),
+                    min_fee_coefficient: x.minfee_a().and_then(u64_to_bigint),
+                    min_fee_constant: x.minfee_b().and_then(u64_to_bigint),
+                    max_block_body_size: update_scalar(x.max_block_body_size()),
+                    max_block_header_size: update_scalar(x.max_block_header_size()),
+                    stake_key_deposit: x.key_deposit().and_then(u64_to_bigint),
+                    pool_deposit: x.pool_deposit().and_then(u64_to_bigint),
+                    pool_retirement_epoch_bound: update_scalar(x.maximum_epoch()),
+                    desired_number_of_pools: update_scalar(x.desired_number_of_stake_pools()),
+                    pool_influence: x.pool_pledge_influence().map(rational_number_to_u5c),
+                    monetary_expansion: x.expansion_rate().map(rational_number_to_u5c),
+                    treasury_expansion: x.treasury_growth_rate().map(rational_number_to_u5c),
+                    min_pool_cost: x.min_pool_cost().and_then(u64_to_bigint),
+                    max_value_size: update_scalar(x.max_value_size()),
+                    collateral_percentage: update_scalar(x.collateral_percentage()),
+                    max_collateral_inputs: update_scalar(x.max_collateral_inputs()),
+                    cost_models: x.cost_models_for_script_languages().map(|cm| {
                         u5c::CostModels {
                             plutus_v1: cm.plutus_v1.map(|values| u5c::CostModel { values }),
                             plutus_v2: cm.plutus_v2.map(|values| u5c::CostModel { values }),
                             plutus_v3: cm.plutus_v3.map(|values| u5c::CostModel { values }),
-                            ..Default::default()
+                            plutus_v4: cm.plutus_v4.map(|values| u5c::CostModel { values }),
                         }
                     }),
-                    prices: x.execution_costs.clone().map(|p| u5c::ExPrices {
+                    prices: x.execution_costs().map(|p| u5c::ExPrices {
                         memory: Some(rational_number_to_u5c(p.mem_price)),
                         steps: Some(rational_number_to_u5c(p.step_price)),
                     }),
-                    max_execution_units_per_transaction: x.max_tx_ex_units.map(|u| u5c::ExUnits {
-                        memory: u.mem,
-                        steps: u.steps,
+                    max_execution_units_per_transaction: x.max_tx_ex_units().map(|u| {
+                        u5c::ExUnits {
+                            memory: u.mem,
+                            steps: u.steps,
+                        }
                     }),
-                    max_execution_units_per_block: x.max_block_ex_units.map(|u| u5c::ExUnits {
+                    max_execution_units_per_block: x.max_block_ex_units().map(|u| u5c::ExUnits {
                         memory: u.mem,
                         steps: u.steps,
                     }),
                     min_fee_script_ref_cost_per_byte: x
-                        .minfee_refscript_cost_per_byte
-                        .clone()
+                        .minfee_refscript_cost_per_byte()
                         .map(rational_number_to_u5c),
-                    pool_voting_thresholds: x.pool_voting_thresholds.clone().map(|t| {
+                    pool_voting_thresholds: x.pool_voting_thresholds().map(|t| {
                         u5c::VotingThresholds {
                             thresholds: vec![
                                 rational_number_to_u5c(t.motion_no_confidence),
@@ -2009,7 +2303,7 @@ macro_rules! impl_cardano_mapper_shared {
                             ],
                         }
                     }),
-                    drep_voting_thresholds: x.drep_voting_thresholds.clone().map(|t| {
+                    drep_voting_thresholds: x.drep_voting_thresholds().map(|t| {
                         u5c::VotingThresholds {
                             thresholds: vec![
                                 rational_number_to_u5c(t.motion_no_confidence),
@@ -2025,16 +2319,20 @@ macro_rules! impl_cardano_mapper_shared {
                             ],
                         }
                     }),
-                    min_committee_size: update_scalar(x.min_committee_size.map(|x| x as u32)),
-                    committee_term_limit: update_scalar(x.committee_term_limit),
+                    min_committee_size: update_scalar(x.min_committee_size().map(|x| x as u32)),
+                    committee_term_limit: update_scalar(x.committee_term_limit()),
                     governance_action_validity_period: update_scalar(
-                        x.governance_action_validity_period,
+                        x.governance_action_validity_period(),
                     ),
-                    governance_action_deposit: x.governance_action_deposit.and_then(u64_to_bigint),
-                    drep_deposit: x.drep_deposit.and_then(u64_to_bigint),
-                    drep_inactivity_period: update_scalar(x.drep_inactivity_period),
+                    governance_action_deposit: x
+                        .governance_action_deposit()
+                        .and_then(u64_to_bigint),
+                    drep_deposit: x.drep_deposit().and_then(u64_to_bigint),
+                    drep_inactivity_period: update_scalar(x.drep_inactivity_period()),
                     ..Default::default()
-                }
+                };
+
+                with_dijkstra_update(update, x)
             }
         }
     };

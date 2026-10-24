@@ -17,6 +17,14 @@ macro_rules! impl_cardano_mapper_before_v1 {
             mapped
         }
 
+        /// Returns the update unchanged, as this schema has no field for a key after 33.
+        fn with_dijkstra_update(
+            update: ParamUpdate,
+            _: &pallas_traverse::MultiEraParamUpdate,
+        ) -> ParamUpdate {
+            update
+        }
+
         /// Panics on a guarding redeemer, for which this schema has no purpose.
         #[cfg(feature = "unstable")]
         fn guarding_purpose() -> u5c::RedeemerPurpose {
