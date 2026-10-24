@@ -519,6 +519,29 @@ impl<'b> MultiEraTx<'b> {
                 .unwrap_or(&[]),
         }
     }
+
+    pub fn plutus_v4_scripts(&self) -> &[PlutusScript<4>] {
+        match self {
+            Self::Byron(_) => &[],
+            Self::AlonzoCompatible(_, _) => &[],
+            Self::Babbage(_) => &[],
+            Self::Conway(_) => &[],
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(x) => x
+                .transaction_witness_set
+                .plutus_v4_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+            #[cfg(feature = "unstable")]
+            Self::DijkstraSub(x, _) => x
+                .transaction_witness_set
+                .plutus_v4_script
+                .as_ref()
+                .map(|x| x.as_ref())
+                .unwrap_or(&[]),
+        }
+    }
 }
 
 #[cfg(test)]

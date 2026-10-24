@@ -1308,8 +1308,9 @@ impl std::ops::Deref for Redeemers {
     }
 }
 
-/// `transaction_witness_set` (`defs.cddl`). The rule text is Conway's, but the
-/// `native_script` and `redeemers` it reaches both changed.
+/// `transaction_witness_set` (`defs.cddl`) with cardano-ledger `9df9f98c`'s
+/// `? 8 : nonempty_set<plutus_v4_script>`. Keys 0 to 7 are Conway's, but the
+/// `native_script` and `redeemers` they reach both changed.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct WitnessSet<'b> {
@@ -1336,6 +1337,9 @@ pub struct WitnessSet<'b> {
 
     #[n(7)]
     pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
+
+    #[n(8)]
+    pub plutus_v4_script: Option<NonEmptySet<PlutusScript<4>>>,
 }
 
 /// `auxiliary_data_map` gains `? 5 : [* plutus_v4_script]` (`defs.cddl`).

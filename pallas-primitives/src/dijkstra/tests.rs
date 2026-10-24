@@ -232,6 +232,70 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
     );
 }
 
+/// Transactions holding a PlutusV4 witness script, in their own witness set or a sub transaction's.
+const V4_WITNESS_TXS: &[(&str, &str)] = &[
+    (
+        "dijkstra-v4-witness",
+        include_str!("../../../test_data/dijkstra-v4-witness.tx"),
+    ),
+    (
+        "dijkstra-v4-sub-witness",
+        include_str!("../../../test_data/dijkstra-v4-sub-witness.tx"),
+    ),
+];
+
+/// The keys of a CBOR map, in ascending order.
+fn map_keys(cbor: &[u8]) -> Vec<u64> {
+    let mut d = minicbor::Decoder::new(cbor);
+    let n = d.map().unwrap().unwrap();
+    let mut keys: Vec<u64> = (0..n)
+        .map(|_| {
+            let key = d.u64().unwrap();
+            d.skip().unwrap();
+            key
+        })
+        .collect();
+    keys.sort();
+    keys
+}
+
+/// The node writes key 8 ahead of key 5, so the test compares keys.
+#[test]
+fn a_witness_set_holding_a_plutus_v4_script_keeps_every_key_on_reencode() {
+    let mut witness_sets = 0usize;
+    let mut mismatched = Vec::new();
+
+    for (name, tx_str) in V4_WITNESS_TXS {
+        let bytes = hex::decode(tx_str).unwrap();
+        let tx: BlockTransaction = minicbor::decode(&bytes).unwrap();
+        let subs = tx
+            .transaction_body
+            .sub_transactions
+            .iter()
+            .flat_map(|x| x.iter())
+            .map(|x| &x.transaction_witness_set);
+
+        for (i, wits) in std::iter::once(&tx.transaction_witness_set)
+            .chain(subs)
+            .enumerate()
+        {
+            let wire = map_keys(wits.raw_cbor());
+            let encoded = map_keys(&minicbor::to_vec(wits.clone().unwrap()).unwrap());
+            if encoded != wire {
+                mismatched.push((*name, i, wire, encoded));
+            }
+            witness_sets += 1;
+        }
+    }
+
+    assert_eq!(witness_sets, 4, "two transactions and two sub transactions");
+    assert_eq!(
+        mismatched,
+        vec![],
+        "these witness sets lost or gained a key on re-encode"
+    );
+}
+
 /// Run over an empty tail and a populated one, because an empty tail is two
 /// bytes and a length check could match that by accident.
 #[test]
