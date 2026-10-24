@@ -55,10 +55,27 @@ fn witnessed_datum_cbor(_: &[u8]) -> Option<Vec<u8>> {
 
 impl<C: LedgerContext> Mapper<C> {
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
+        self.map_tx_with_top(tx, None)
+    }
+
+    /// Maps the sub transaction `sub` of the top level transaction `top`.
+    #[cfg(feature = "unstable")]
+    pub fn map_sub_tx<'b>(&self, sub: &trv::MultiEraTx<'b>, top: &trv::MultiEraTx<'b>) -> u5c::Tx {
+        self.map_tx_with_top(sub, Some(top))
+    }
+
+    /// Maps a transaction, given its top level transaction when it is a sub transaction.
+    fn map_tx_with_top<'b>(
+        &self,
+        tx: &trv::MultiEraTx<'b>,
+        top: Option<&trv::MultiEraTx<'b>>,
+    ) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
             ctx.get_utxos(to_resolve.as_slice())
         });
+        // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
+        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
 
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
@@ -71,7 +88,7 @@ impl<C: LedgerContext> Mapper<C> {
             outputs: tx
                 .outputs()
                 .iter()
-                .map(|x| self.map_tx_output(x, Some(tx)))
+                .map(|x| self.map_tx_output_from(x, &datums))
                 .collect(),
             certificates: tx
                 .certs()
@@ -175,6 +192,20 @@ mod tests {
         fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
             None
         }
+    }
+
+    #[test]
+    fn an_information_action_maps_to_an_empty_info_action() {
+        let action = pallas_primitives::conway::GovAction::Information;
+        let mapped = Mapper::new(NoLedger)
+            .map_gov_action(&pallas_traverse::MultiEraGovAction::from_conway(&action));
+
+        assert_eq!(
+            mapped.governance_action,
+            Some(u5c::governance_action::GovernanceAction::InfoAction(
+                u5c::InfoAction {}
+            ))
+        );
     }
 
     #[test]
@@ -579,6 +610,58 @@ mod tests {
         assert_eq!(
             mapper.map_votes(&trv::MultiEraTx::from_dijkstra(&dijkstra_tx)),
             from_conway
+        );
+    }
+
+    /// The datum hash and the datum payload mapped on the first output of a transaction's first sub transaction.
+    #[cfg(feature = "unstable")]
+    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<u5c::PlutusData>) {
+        let tx = crate::testing::dijkstra_tx(cbor);
+        let sub = &tx.sub_transactions()[0];
+        let mapped = Mapper::new(NoLedger).map_sub_tx(sub, &tx);
+        let datum = mapped.outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+
+        (datum.hash.to_vec(), datum.payload)
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn a_sub_transaction_output_hash_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+
+        assert_eq!(
+            sub_output_datum(cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                Some(u5c::PlutusData {
+                    plutus_data: Some(u5c::plutus_data::PlutusData::BigInt(u5c::BigInt {
+                        big_int: Some(u5c::big_int::BigInt::Int(43)),
+                    })),
+                }),
+            ),
+            "the ledger accepts the datum for a sub transaction's output hash from the top level witnesses"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn a_sub_transaction_output_hash_the_batch_holds_no_datum_for_maps_the_hash_alone() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx")
+            .trim()
+            .replacen("04d9010281182b", "04d9010281182a", 1);
+
+        assert_eq!(
+            sub_output_datum(&cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                None,
+            ),
+            "with the top level datum changed from 43 to 42, no datum in the batch hashes to the output's hash"
         );
     }
 }

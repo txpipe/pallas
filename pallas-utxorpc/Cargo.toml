@@ -53,6 +53,7 @@ u5c-v1alpha-compat = []
 unstable = [
     "pallas-traverse/unstable",
     "pallas-primitives/unstable",
+    "pallas-validate/unstable",
     "dep:utxorpc-spec-v1",
 ]
 

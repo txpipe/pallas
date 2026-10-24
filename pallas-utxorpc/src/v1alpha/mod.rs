@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use prost_types::FieldMask;
 
-use pallas_primitives::{babbage, conway};
+use pallas_primitives::babbage;
 use pallas_traverse as trv;
 use trv::OriginalHash;
 
@@ -51,6 +51,11 @@ crate::before_v1::impl_cardano_mapper_before_v1!();
 
 // ---- v1alpha-specific bodies for methods that diverge from v1beta -----------
 
+/// The u5c member of an information action, which this schema holds as the uint32 placeholder 6.
+fn information_action() -> u5c::governance_action::GovernanceAction {
+    u5c::governance_action::GovernanceAction::InfoAction(6)
+}
+
 impl<C: LedgerContext> Mapper<C> {
     // v1alpha names this variant by what it holds; v1beta names it
     // ScriptPubkeyHash. The rest of map_native_script is identical between
@@ -74,6 +79,15 @@ impl<C: LedgerContext> Mapper<C> {
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
     ) -> Option<u5c::Datum> {
+        self.map_tx_datum_from(x, tx.as_slice())
+    }
+
+    /// Maps the datum of an output, looking a datum hash up in the witnesses of `txs`.
+    fn map_tx_datum_from(
+        &self,
+        x: &trv::MultiEraOutput,
+        txs: &[&trv::MultiEraTx],
+    ) -> Option<u5c::Datum> {
         Some(match x.datum()? {
             babbage::DatumOption::Data(x) => u5c::Datum {
                 hash: x.original_hash().to_vec().into(),
@@ -82,8 +96,9 @@ impl<C: LedgerContext> Mapper<C> {
             },
             babbage::DatumOption::Hash(x) => u5c::Datum {
                 hash: x.to_vec().into(),
-                payload: tx
-                    .and_then(|tx| tx.find_plutus_data(&x))
+                payload: txs
+                    .iter()
+                    .find_map(|tx| tx.find_plutus_data(&x))
                     .map(|d| self.map_plutus_datum(d)),
                 original_cbor: vec![].into(),
             },
@@ -95,6 +110,17 @@ impl<C: LedgerContext> Mapper<C> {
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
     ) -> u5c::TxOutput {
+        self.map_tx_output_from(x, tx.as_slice())
+    }
+
+    /// Maps an output, looking its datum hash up in the witnesses of `txs`.
+    fn map_tx_output_from(
+        &self,
+        x: &trv::MultiEraOutput,
+        txs: &[&trv::MultiEraTx],
+    ) -> u5c::TxOutput {
+        let datum = self.map_tx_datum_from(x, txs);
+
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
             coin: u64_to_bigint(x.value().coin()),
@@ -108,9 +134,9 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
             datum: if self.omit_absent_datums {
-                self.map_tx_datum_opt(x, tx)
+                datum
             } else {
-                Some(self.map_tx_datum(x, tx))
+                Some(datum.unwrap_or_default())
             },
             script: self.map_output_script(x),
         }
@@ -138,107 +164,28 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    pub fn map_conway_gov_action(&self, x: &conway::GovAction) -> u5c::GovernanceAction {
-        let inner = match x {
-            conway::GovAction::ParameterChange(gov_id, params, script) => {
-                u5c::governance_action::GovernanceAction::ParameterChangeAction(
-                    u5c::ParameterChangeAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        protocol_param_update: Some(self.map_conway_pparams_update(params)),
-                        policy_hash: match script {
-                            Some(x) => x.to_vec().into(),
-                            _ => Default::default(),
-                        },
-                    },
-                )
-            }
-            conway::GovAction::HardForkInitiation(gov_id, version) => {
-                u5c::governance_action::GovernanceAction::HardForkInitiationAction(
-                    u5c::HardForkInitiationAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        protocol_version: Some(u5c::ProtocolVersion {
-                            major: version.0 as u32,
-                            minor: version.1 as u32,
-                        }),
-                    },
-                )
-            }
-            conway::GovAction::TreasuryWithdrawals(withdrawals, script) => {
-                u5c::governance_action::GovernanceAction::TreasuryWithdrawalsAction(
-                    u5c::TreasuryWithdrawalsAction {
-                        withdrawals: withdrawals
-                            .iter()
-                            .map(|(k, v)| u5c::WithdrawalAmount {
-                                reward_account: k.to_vec().into(),
-                                coin: u64_to_bigint(*v),
-                            })
-                            .collect(),
-                        policy_hash: match script {
-                            Some(x) => x.to_vec().into(),
-                            _ => Default::default(),
-                        },
-                    },
-                )
-            }
-            conway::GovAction::NoConfidence(gov_id) => {
-                u5c::governance_action::GovernanceAction::NoConfidenceAction(
-                    u5c::NoConfidenceAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                    },
-                )
-            }
-            conway::GovAction::UpdateCommittee(gov_id, remove, add, threshold) => {
-                u5c::governance_action::GovernanceAction::UpdateCommitteeAction(
-                    u5c::UpdateCommitteeAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        remove_committee_credentials: remove
-                            .iter()
-                            .map(|x| self.map_stake_credential(x))
-                            .collect(),
-                        new_committee_credentials: add
-                            .iter()
-                            .map(|(cred, epoch)| u5c::NewCommitteeCredentials {
-                                committee_cold_credential: Some(self.map_stake_credential(cred)),
-                                expires_epoch: *epoch as u32,
-                            })
-                            .collect(),
-                        new_committee_threshold: Some(rational_number_to_u5c(threshold.clone())),
-                    },
-                )
-            }
-            conway::GovAction::NewConstitution(gov_id, constitution) => {
-                u5c::governance_action::GovernanceAction::NewConstitutionAction(
-                    u5c::NewConstitutionAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        constitution: Some(u5c::Constitution {
-                            anchor: Some(u5c::Anchor {
-                                url: constitution.anchor.url.clone(),
-                                content_hash: constitution.anchor.content_hash.to_vec().into(),
-                            }),
-                            hash: match constitution.guardrail_script {
-                                Some(x) => x.to_vec().into(),
-                                _ => Default::default(),
-                            },
-                        }),
-                    },
-                )
-            }
-            conway::GovAction::Information => {
-                // The 6 is just a placeholder; v1alpha encodes Information as a uint32.
-                u5c::governance_action::GovernanceAction::InfoAction(6)
-            }
-        };
-
-        u5c::GovernanceAction {
-            governance_action: Some(inner),
-        }
+    pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
+        self.map_tx_with_top(tx, None)
     }
 
-    pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
+    /// Maps the sub transaction `sub` of the top level transaction `top`.
+    #[cfg(feature = "unstable")]
+    pub fn map_sub_tx<'b>(&self, sub: &trv::MultiEraTx<'b>, top: &trv::MultiEraTx<'b>) -> u5c::Tx {
+        self.map_tx_with_top(sub, Some(top))
+    }
+
+    /// Maps a transaction, given its top level transaction when it is a sub transaction.
+    fn map_tx_with_top<'b>(
+        &self,
+        tx: &trv::MultiEraTx<'b>,
+        top: Option<&trv::MultiEraTx<'b>>,
+    ) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
             ctx.get_utxos(to_resolve.as_slice())
         });
+        // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
+        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
 
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
@@ -251,7 +198,7 @@ impl<C: LedgerContext> Mapper<C> {
             outputs: tx
                 .outputs()
                 .iter()
-                .map(|x| self.map_tx_output(x, Some(tx)))
+                .map(|x| self.map_tx_output_from(x, &datums))
                 .collect(),
             certificates: tx
                 .certs()
@@ -353,6 +300,18 @@ mod tests {
         fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
             None
         }
+    }
+
+    #[test]
+    fn an_information_action_maps_to_the_placeholder_6() {
+        let action = pallas_primitives::conway::GovAction::Information;
+        let mapped =
+            Mapper::new(NoLedger).map_gov_action(&trv::MultiEraGovAction::from_conway(&action));
+
+        assert_eq!(
+            mapped.governance_action,
+            Some(u5c::governance_action::GovernanceAction::InfoAction(6))
+        );
     }
 
     #[test]
@@ -825,5 +784,57 @@ mod tests {
             any.items[1].native_script,
             Some(u5c::native_script::NativeScript::InvalidHereafter(200))
         ));
+    }
+
+    /// The datum hash and the datum payload mapped on the first output of a transaction's first sub transaction.
+    #[cfg(feature = "unstable")]
+    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<u5c::PlutusData>) {
+        let tx = crate::testing::dijkstra_tx(cbor);
+        let sub = &tx.sub_transactions()[0];
+        let mapped = Mapper::new(NoLedger).map_sub_tx(sub, &tx);
+        let datum = mapped.outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+
+        (datum.hash.to_vec(), datum.payload)
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn a_sub_transaction_output_hash_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+
+        assert_eq!(
+            sub_output_datum(cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                Some(u5c::PlutusData {
+                    plutus_data: Some(u5c::plutus_data::PlutusData::BigInt(u5c::BigInt {
+                        big_int: Some(u5c::big_int::BigInt::Int(43)),
+                    })),
+                }),
+            ),
+            "the ledger accepts the datum for a sub transaction's output hash from the top level witnesses"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn a_sub_transaction_output_hash_the_batch_holds_no_datum_for_maps_the_hash_alone() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx")
+            .trim()
+            .replacen("04d9010281182b", "04d9010281182a", 1);
+
+        assert_eq!(
+            sub_output_datum(&cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                None,
+            ),
+            "with the top level datum changed from 43 to 42, no datum in the batch hashes to the output's hash"
+        );
     }
 }

@@ -30,10 +30,24 @@ macro_rules! impl_cardano_mapper_before_v1 {
             mapped
         }
 
-        /// Panics on a guarding redeemer, for which this schema has no purpose.
+        /// Returns the update unchanged, as this schema has no field for a key after 33.
+        fn with_dijkstra_update(
+            update: ParamUpdate,
+            _: &pallas_traverse::MultiEraParamUpdate,
+        ) -> ParamUpdate {
+            update
+        }
+
+        /// An empty parameter set, as this schema has no field after the DRep inactivity period.
+        #[cfg(feature = "unstable")]
+        fn dijkstra_pparams(_: &pallas_validate::utils::DijkstraProtParams) -> u5c::PParams {
+            u5c::PParams::default()
+        }
+
+        /// Returns the unspecified purpose for a guarding redeemer, for which this schema has no member.
         #[cfg(feature = "unstable")]
         fn guarding_purpose() -> u5c::RedeemerPurpose {
-            unimplemented!("map_redeemer is not yet implemented for Dijkstra")
+            u5c::RedeemerPurpose::Unspecified
         }
 
         /// Returns no clause for a guard clause, for which this schema has no member.
@@ -226,14 +240,23 @@ macro_rules! impl_cardano_mapper_before_v1 {
 
             #[test]
             #[cfg(feature = "unstable")]
-            fn a_dijkstra_guard_clause_maps_to_an_unset_native_script() {
+            fn a_dijkstra_guard_clause_maps_to_unset_beside_its_aux_plutus_v4_script() {
                 let cbor = super::script_tests::fixture("dijkstra-scripts.tx");
                 let tx = MultiEraTx::decode_for_era(pallas_traverse::Era::Dijkstra, &cbor)
                     .expect("the fixture decodes");
                 let mapper = Mapper::new(NoLedger);
 
                 assert_eq!(mapper.collect_all_scripts(&tx), vec![native(unset())]);
-                assert_eq!(mapper.collect_all_aux_scripts(&tx), vec![native(unset())]);
+                assert_eq!(
+                    mapper.collect_all_aux_scripts(&tx),
+                    vec![
+                        native(unset()),
+                        u5c::Script {
+                            script: u5c::script::Script::PlutusV4(vec![0xd8, 0x79, 0x80].into())
+                                .into(),
+                        },
+                    ]
+                );
             }
 
             #[test]
@@ -264,6 +287,48 @@ macro_rules! impl_cardano_mapper_before_v1 {
                             }
                         )),
                     }
+                );
+            }
+
+            #[test]
+            #[cfg(feature = "unstable")]
+            fn a_dijkstra_guarding_redeemer_maps_to_unspecified_beside_a_withdrawal_redeemer() {
+                let cbor = super::script_tests::fixture("dijkstra-guarding-redeemer.tx");
+                let tx = MultiEraTx::decode_for_era(pallas_traverse::Era::Dijkstra, &cbor)
+                    .expect("the fixture decodes");
+                let mapper = Mapper::new(NoLedger);
+
+                let mapped: Vec<_> = tx.redeemers().iter().map(|r| mapper.map_redeemer(r)).collect();
+
+                assert_eq!(
+                    mapped
+                        .iter()
+                        .map(|r| (r.purpose, r.index, r.ex_units.clone()))
+                        .collect::<Vec<_>>(),
+                    vec![
+                        (
+                            u5c::RedeemerPurpose::Reward as i32,
+                            2498742861,
+                            Some(u5c::ExUnits {
+                                memory: 7394972775039390592,
+                                steps: 4455026327047478000,
+                            }),
+                        ),
+                        (
+                            u5c::RedeemerPurpose::Unspecified as i32,
+                            3723616606,
+                            Some(u5c::ExUnits {
+                                memory: 7982482519345238718,
+                                steps: 8267307830042052150,
+                            }),
+                        ),
+                    ],
+                    "both redeemers the ledger reads map in place, the guarding one with no purpose"
+                );
+                assert_eq!(
+                    mapped[1].original_cbor.get(..3),
+                    Some(&[0x82, 0x82, 0x06][..]),
+                    "the guarding redeemer's own bytes hold its tag"
                 );
             }
         }

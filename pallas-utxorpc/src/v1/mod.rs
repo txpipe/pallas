@@ -127,6 +127,113 @@ fn with_pool_bls_key(
     }
 }
 
+/// Sets the fields of an update for the keys after 33 that the update proposes.
+fn with_dijkstra_update(
+    mut update: u5c::PParamsUpdate,
+    x: &trv::MultiEraParamUpdate,
+) -> u5c::PParamsUpdate {
+    use pallas_codec::utils::Nullable;
+    use u5c::max_pledge_leverage_update::Update;
+    use u5c::peras_bootstrap_round_update::Update as PerasBootstrapRound;
+
+    update.max_ref_script_size_per_block = x.max_ref_script_size_per_block().proposed();
+    update.max_ref_script_size_per_tx = x.max_ref_script_size_per_tx().proposed();
+    update.ref_script_cost_stride = x.ref_script_cost_stride().proposed();
+    update.ref_script_cost_multiplier = x
+        .ref_script_cost_multiplier()
+        .proposed()
+        .map(rational_number_to_u5c);
+    update.max_pledge_leverage = match x.max_pledge_leverage().proposed() {
+        Some(Nullable::Some(r)) => Some(Update::Leverage(rational_number_to_u5c(r))),
+        Some(Nullable::Null) => Some(Update::NoLimit(true)),
+        Some(Nullable::Undefined) | None => None,
+    }
+    .map(|x| u5c::MaxPledgeLeverageUpdate { update: Some(x) });
+    update.min_pool_margin = x.min_pool_margin().proposed().map(rational_number_to_u5c);
+    update.leios_announcement_period_length = x.leios_announcement_period_length().proposed();
+    update.leios_vote_period_length = x.leios_vote_period_length().proposed();
+    update.leios_diffusion_period_length = x.leios_diffusion_period_length().proposed();
+    update.leios_committee_size = x.leios_committee_size().proposed().map(|x| x as u32);
+    update.leios_quorum_stake_threshold = x
+        .leios_quorum_stake_threshold()
+        .proposed()
+        .map(rational_number_to_u5c);
+    update.max_endorser_block_references_size = x.max_endorser_block_references_size().proposed();
+    update.max_endorser_block_txs_size = x.max_endorser_block_txs_size().proposed();
+    update.max_endorser_block_execution_units = x
+        .max_endorser_block_execution_units()
+        .proposed()
+        .map(execution_units_to_u5c);
+    update.max_ref_script_size_per_endorser_block =
+        x.max_ref_script_size_per_endorser_block().proposed();
+    update.peras_min_candidate_block_age = x.peras_min_candidate_block_age().proposed();
+    update.peras_healing_factor = x
+        .peras_healing_factor()
+        .proposed()
+        .map(rational_number_to_u5c);
+    update.peras_cert_boost = x.peras_cert_boost().proposed().map(|x| x as u32);
+    update.peras_target_committee_size =
+        x.peras_target_committee_size().proposed().map(|x| x as u32);
+    update.peras_bootstrap_round = match x.peras_bootstrap_round().proposed() {
+        Some(Nullable::Some(round)) => Some(PerasBootstrapRound::Round(round)),
+        Some(Nullable::Null) => Some(PerasBootstrapRound::Unset(true)),
+        Some(Nullable::Undefined) | None => None,
+    }
+    .map(|x| u5c::PerasBootstrapRoundUpdate { update: Some(x) });
+    update.peras_quorum_threshold_safety_margin = x
+        .peras_quorum_threshold_safety_margin()
+        .proposed()
+        .map(rational_number_to_u5c);
+    update.ref_inputs_cost_per_multi_asset_policy = x
+        .ref_inputs_cost_per_multi_asset_policy()
+        .proposed()
+        .and_then(u64_to_bigint);
+    update.ref_inputs_cost_per_datum_byte = x
+        .ref_inputs_cost_per_datum_byte()
+        .proposed()
+        .and_then(u64_to_bigint);
+
+    update
+}
+
+/// The fields of a parameter set for the parameters after the DRep inactivity period.
+fn dijkstra_pparams(params: &pallas_validate::utils::DijkstraProtParams) -> u5c::PParams {
+    let r = |x: &pallas_primitives::RationalNumber| Some(rational_number_to_u5c(x.clone()));
+
+    u5c::PParams {
+        max_ref_script_size_per_block: Some(params.max_ref_script_size_per_block.into()),
+        max_ref_script_size_per_tx: Some(params.max_ref_script_size_per_tx.into()),
+        ref_script_cost_stride: Some(params.ref_script_cost_stride.into()),
+        ref_script_cost_multiplier: r(&params.ref_script_cost_multiplier),
+        max_pledge_leverage: params.max_pledge_leverage.as_ref().and_then(r),
+        min_pool_margin: r(&params.min_pool_margin),
+        leios_announcement_period_length: Some(params.leios_announcement_period_length.into()),
+        leios_vote_period_length: Some(params.leios_vote_period_length.into()),
+        leios_diffusion_period_length: Some(params.leios_diffusion_period_length.into()),
+        leios_committee_size: Some(params.leios_committee_size.into()),
+        leios_quorum_stake_threshold: r(&params.leios_quorum_stake_threshold),
+        max_endorser_block_references_size: Some(params.max_endorser_block_references_size.into()),
+        max_endorser_block_txs_size: Some(params.max_endorser_block_txs_size.into()),
+        max_endorser_block_execution_units: Some(execution_units_to_u5c(
+            params.max_endorser_block_ex_units,
+        )),
+        max_ref_script_size_per_endorser_block: Some(
+            params.max_ref_script_size_per_endorser_block.into(),
+        ),
+        peras_min_candidate_block_age: Some(params.peras_min_candidate_block_age.into()),
+        peras_healing_factor: r(&params.peras_healing_factor),
+        peras_cert_boost: Some(params.peras_cert_boost.into()),
+        peras_target_committee_size: Some(params.peras_target_committee_size.into()),
+        peras_bootstrap_round: params.peras_bootstrap_round.map(u64::from),
+        peras_quorum_threshold_safety_margin: r(&params.peras_quorum_threshold_safety_margin),
+        ref_inputs_cost_per_multi_asset_policy: u64_to_bigint(
+            params.ref_inputs_cost_per_multi_asset_policy,
+        ),
+        ref_inputs_cost_per_datum_byte: u64_to_bigint(params.ref_inputs_cost_per_datum_byte),
+        ..Default::default()
+    }
+}
+
 /// The deposit of one coin into one reward account.
 fn map_direct_deposit(
     (account, coin): (&pallas_primitives::RewardAccount, &pallas_primitives::Coin),
@@ -236,14 +343,14 @@ impl<C: LedgerContext> Mapper<C> {
         let resolved = self.resolve(tx);
 
         u5c::Tx {
-            common: Some(self.map_tx_common(tx, &resolved)),
+            common: Some(self.map_tx_common(tx, &resolved, None)),
             collateral: self.map_collateral(tx, &resolved),
             fee: tx.fee().and_then(u64_to_bigint),
             successful: tx.is_valid(),
             sub_transactions: tx
                 .sub_transactions()
                 .iter()
-                .map(|x| self.map_tx_common(x, &self.resolve(x)))
+                .map(|x| self.map_tx_common(x, &self.resolve(x), Some(tx)))
                 .collect(),
             starting_account_balance_intervals: tx
                 .starting_account_balance_intervals()
@@ -262,14 +369,17 @@ impl<C: LedgerContext> Mapper<C> {
         })
     }
 
-    /// Maps the fields a transaction shares with a sub transaction.
-    fn map_tx_common(
+    /// Maps the fields a transaction shares with a sub transaction, given its top level transaction when it is a sub transaction.
+    fn map_tx_common<'b>(
         &self,
-        tx: &trv::MultiEraTx,
+        tx: &trv::MultiEraTx<'b>,
         resolved: &Option<crate::UtxoMap>,
+        top: Option<&trv::MultiEraTx<'b>>,
     ) -> u5c::TxCommon {
         let start = tx.validity_start();
         let ttl = tx.ttl();
+        // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
+        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
 
         u5c::TxCommon {
             hash: tx.hash().to_vec().into(),
@@ -282,7 +392,7 @@ impl<C: LedgerContext> Mapper<C> {
             outputs: tx
                 .outputs()
                 .iter()
-                .map(|x| self.map_tx_output(x, Some(tx)))
+                .map(|x| self.map_tx_output_from(x, &datums))
                 .collect(),
             certificates: tx
                 .certs()
@@ -541,7 +651,8 @@ mod tests {
     fn an_update_maps_a_key_it_sets_to_zero_and_leaves_an_unset_key_absent() {
         // {3: 0, 4: 1100}, a zero max transaction size and a block header size.
         let update = conway_update(&[0xa2, 0x03, 0x00, 0x04, 0x19, 0x04, 0x4c]);
-        let mapped = Mapper::new(NoLedger).map_conway_pparams_update(&update);
+        let update = trv::MultiEraParamUpdate::Conway(Box::new(std::borrow::Cow::Owned(update)));
+        let mapped = Mapper::new(NoLedger).map_pparams_update(&update);
 
         assert_eq!(
             (
@@ -552,6 +663,232 @@ mod tests {
             ),
             (Some(0), Some(1_100), None, None),
             "a key the update sets is present even at zero, and a key it leaves unset is absent"
+        );
+    }
+
+    /// The parameter update of the one proposal in a Dijkstra transaction fixture, mapped.
+    fn proposed_update(name: &str) -> Option<u5c::PParamsUpdate> {
+        let proposals = gov_tests::mapped_proposals(name);
+        assert_eq!(proposals.len(), 1, "the fixture carries one proposal");
+
+        match proposals[0]
+            .gov_action
+            .clone()
+            .and_then(|x| x.governance_action)
+        {
+            Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(x)) => {
+                x.protocol_param_update
+            }
+            other => panic!("the proposal maps to a parameter change, not {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_dijkstra_parameter_change_maps_the_endorser_block_sizes_it_sets() {
+        assert_eq!(
+            proposed_update("dijkstra-param-change.tx"),
+            Some(u5c::PParamsUpdate {
+                max_endorser_block_references_size: Some(308_000),
+                max_endorser_block_txs_size: Some(2_000_000),
+                ..Default::default()
+            }),
+            "keys 45 and 46 map to their fields and every other field is absent"
+        );
+    }
+
+    #[test]
+    fn a_dijkstra_parameter_change_maps_the_endorser_block_reference_script_cap() {
+        assert_eq!(
+            proposed_update("dijkstra-proposal.tx"),
+            Some(u5c::PParamsUpdate {
+                max_ref_script_size_per_endorser_block: Some(20_000),
+                ..Default::default()
+            }),
+            "key 48 maps to its field and every other field is absent"
+        );
+    }
+
+    /// The key 38 member a Dijkstra update maps to, for the update CBOR given and an optional override of key 38.
+    fn mapped_leverage(
+        cbor: &[u8],
+        key_38: Option<Option<pallas_codec::utils::Nullable<pallas_primitives::RationalNumber>>>,
+    ) -> Option<u5c::max_pledge_leverage_update::Update> {
+        let mut update: pallas_primitives::dijkstra::ProtocolParamUpdate =
+            pallas_codec::minicbor::decode(cbor).expect("a parameter update map decodes");
+        if let Some(value) = key_38 {
+            update.max_pledge_leverage = value;
+        }
+
+        let update = trv::MultiEraParamUpdate::Dijkstra(Box::new(std::borrow::Cow::Owned(update)));
+        Mapper::new(NoLedger)
+            .map_pparams_update(&update)
+            .max_pledge_leverage
+            .and_then(|x| x.update)
+    }
+
+    #[test]
+    fn a_dijkstra_update_maps_key_38_to_a_leverage_or_to_no_limit() {
+        use pallas_codec::utils::Nullable;
+        use u5c::max_pledge_leverage_update::Update;
+
+        // {38: 1/2}
+        assert_eq!(
+            mapped_leverage(&[0xa1, 0x18, 0x26, 0xd8, 0x1e, 0x82, 0x01, 0x02], None),
+            Some(Update::Leverage(u5c::RationalNumber {
+                numerator: 1,
+                denominator: 2,
+            }))
+        );
+        assert_eq!(
+            mapped_leverage(&[0xa0], Some(Some(Nullable::Null))),
+            Some(Update::NoLimit(true)),
+            "a proposed nil lifts the cap"
+        );
+    }
+
+    #[test]
+    fn an_update_without_key_38_maps_no_leverage() {
+        assert_eq!(mapped_leverage(&[0xa0], None), None);
+
+        // {3: 0}
+        let update = conway_update(&[0xa1, 0x03, 0x00]);
+        let update = trv::MultiEraParamUpdate::Conway(Box::new(std::borrow::Cow::Owned(update)));
+        assert_eq!(
+            Mapper::new(NoLedger).map_pparams_update(&update),
+            u5c::PParamsUpdate {
+                max_tx_size: Some(0),
+                ..Default::default()
+            },
+            "a Conway update maps no field for a key after 33"
+        );
+    }
+
+    /// A Dijkstra update decoded from its CBOR and mapped.
+    fn mapped_dijkstra_update(cbor: &[u8]) -> u5c::PParamsUpdate {
+        let update: pallas_primitives::dijkstra::ProtocolParamUpdate =
+            pallas_codec::minicbor::decode(cbor).expect("a parameter update map decodes");
+        let update = trv::MultiEraParamUpdate::Dijkstra(Box::new(std::borrow::Cow::Owned(update)));
+        Mapper::new(NoLedger).map_pparams_update(&update)
+    }
+
+    #[test]
+    fn a_dijkstra_update_maps_keys_49_to_56() {
+        use u5c::peras_bootstrap_round_update::Update;
+
+        // {49: 113, 50: 7/3, 51: 114, 52: 115, 53: 116, 54: 1/9, 55: 117, 56: 118}
+        let cbor = hex::decode(
+            "a8183118711832d81e8207031833187218341873183518741836d81e8201091837187518381876",
+        )
+        .unwrap();
+
+        assert_eq!(
+            mapped_dijkstra_update(&cbor),
+            u5c::PParamsUpdate {
+                peras_min_candidate_block_age: Some(113),
+                peras_healing_factor: Some(u5c::RationalNumber {
+                    numerator: 7,
+                    denominator: 3,
+                }),
+                peras_cert_boost: Some(114),
+                peras_target_committee_size: Some(115),
+                peras_bootstrap_round: Some(u5c::PerasBootstrapRoundUpdate {
+                    update: Some(Update::Round(116)),
+                }),
+                peras_quorum_threshold_safety_margin: Some(u5c::RationalNumber {
+                    numerator: 1,
+                    denominator: 9,
+                }),
+                ref_inputs_cost_per_multi_asset_policy: u64_to_bigint(117),
+                ref_inputs_cost_per_datum_byte: u64_to_bigint(118),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn a_dijkstra_update_maps_a_nil_at_key_38_or_53_to_its_unset_member() {
+        // {38: nil, 53: nil}
+        let mapped = mapped_dijkstra_update(&[0xa2, 0x18, 0x26, 0xf6, 0x18, 0x35, 0xf6]);
+
+        assert_eq!(
+            (mapped.max_pledge_leverage, mapped.peras_bootstrap_round),
+            (
+                Some(u5c::MaxPledgeLeverageUpdate {
+                    update: Some(u5c::max_pledge_leverage_update::Update::NoLimit(true)),
+                }),
+                Some(u5c::PerasBootstrapRoundUpdate {
+                    update: Some(u5c::peras_bootstrap_round_update::Update::Unset(true)),
+                }),
+            )
+        );
+        assert_eq!(
+            mapped_dijkstra_update(&[0xa0]).peras_bootstrap_round,
+            None,
+            "an update without key 53 maps no bootstrap round"
+        );
+    }
+
+    #[test]
+    fn a_dijkstra_parameter_set_maps_the_fields_from_32_to_54() {
+        let r = |numerator, denominator| {
+            Some(u5c::RationalNumber {
+                numerator,
+                denominator,
+            })
+        };
+        let mapped = Mapper::new(NoLedger).map_pparams(
+            pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(
+                pparams_tests::dijkstra_param_set(),
+            ),
+        );
+
+        assert_eq!(
+            u5c::PParams {
+                max_ref_script_size_per_block: Some(1_048_576),
+                max_ref_script_size_per_tx: Some(204_800),
+                ref_script_cost_stride: Some(25_600),
+                ref_script_cost_multiplier: r(6, 5),
+                max_pledge_leverage: r(10, 1),
+                min_pool_margin: r(3, 200),
+                leios_announcement_period_length: Some(1_000),
+                leios_vote_period_length: Some(4_000),
+                leios_diffusion_period_length: Some(7_000),
+                leios_committee_size: Some(900),
+                leios_quorum_stake_threshold: r(3, 4),
+                max_endorser_block_references_size: Some(100_000),
+                max_endorser_block_txs_size: Some(1_000_000),
+                max_endorser_block_execution_units: Some(u5c::ExUnits {
+                    memory: 310_000_000,
+                    steps: 100_000_000_000,
+                }),
+                max_ref_script_size_per_endorser_block: Some(4_000_000),
+                peras_min_candidate_block_age: Some(30),
+                peras_healing_factor: r(3, 2),
+                peras_cert_boost: Some(5),
+                peras_target_committee_size: Some(400),
+                peras_bootstrap_round: Some(9),
+                peras_quorum_threshold_safety_margin: r(1, 10),
+                ref_inputs_cost_per_multi_asset_policy: u64_to_bigint(1_001),
+                ref_inputs_cost_per_datum_byte: u64_to_bigint(15),
+                ..mapped.clone()
+            },
+            mapped,
+            "each parameter after the DRep inactivity period maps to its field"
+        );
+    }
+
+    #[test]
+    fn a_dijkstra_parameter_set_without_a_leverage_cap_or_bootstrap_round_maps_neither() {
+        let mut params = pparams_tests::dijkstra_param_set();
+        params.max_pledge_leverage = None;
+        params.peras_bootstrap_round = None;
+
+        let mapped = Mapper::new(NoLedger)
+            .map_pparams(pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(params));
+
+        assert_eq!(
+            (mapped.max_pledge_leverage, mapped.peras_bootstrap_round),
+            (None, None)
         );
     }
 
@@ -869,6 +1206,50 @@ mod tests {
                 vec![u64_to_bigint(2_000_000)]
             ),
             "each input maps the output the ledger holds for it, the sub transaction's input included"
+        );
+    }
+
+    /// The datum hash and the datum bytes mapped on a sub transaction's first output.
+    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<Vec<u8>>) {
+        let tx = dijkstra_tx(cbor);
+        let mapped = Mapper::new(NoLedger).map_tx(&tx);
+        let datum = mapped.sub_transactions[0].outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+
+        (datum.hash.to_vec(), datum.original_cbor.map(|x| x.to_vec()))
+    }
+
+    #[test]
+    fn a_sub_transaction_output_hash_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+
+        assert_eq!(
+            sub_output_datum(cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                Some(vec![0x18, 0x2b]),
+            ),
+            "the ledger accepts the datum for a sub transaction's output hash from the top level witnesses"
+        );
+    }
+
+    #[test]
+    fn a_sub_transaction_output_hash_the_batch_holds_no_datum_for_maps_the_hash_alone() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx")
+            .trim()
+            .replacen("04d9010281182b", "04d9010281182a", 1);
+
+        assert_eq!(
+            sub_output_datum(&cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                None,
+            ),
+            "with the top level datum changed from 43 to 42, no datum in the batch hashes to the output's hash"
         );
     }
 
