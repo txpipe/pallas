@@ -176,3 +176,21 @@ trailing newline.
 
 The keys, values and hashes were read with Python's `cbor2` and `hashlib`
 rather than with pallas.
+
+## A guarding redeemer
+
+`dijkstra-guarding-redeemer.tx` is a transaction whose witness set was
+generated from the Dijkstra CDDL of cardano-ledger
+`9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c`, under a body with no inputs, no
+outputs and a zero fee and with null auxiliary data, written as lowercase hex
+with no trailing newline. The ledger at that commit decodes the transaction
+and reads two redeemers from witness key 5.
+
+| tag | purpose | index | memory | steps |
+| --- | --- | --- | --- | --- |
+| 3 | withdrawing | 2498742861 | 7394972775039390592 | 4455026327047478000 |
+| 6 | guarding | 3723616606 | 7982482519345238718 | 8267307830042052150 |
+
+The purposes, indexes and units are the ledger's own print of the decoded
+witness set, and the tags were read from the bytes with a standalone CBOR
+walker rather than with pallas.
