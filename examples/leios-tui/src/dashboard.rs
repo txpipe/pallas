@@ -246,6 +246,9 @@ impl Dashboard {
                     "intersection found"
                 );
             }
+            InitiatorEvent::IntersectNotFound(_, tip) => {
+                tracing::warn!(tip = tip.1, "intersection not found");
+            }
             InitiatorEvent::BlockHeaderReceived(pid, header, tip) => {
                 self.set_tip(tip);
                 self.chain.era = Some(header.variant);

@@ -128,6 +128,9 @@ impl<I: Interface<AnyMessage>> MyNode<I> {
                 tracing::info!(%pid, "intersection found");
                 self.network.execute(InitiatorCommand::ContinueSync(pid));
             }
+            InitiatorEvent::IntersectNotFound(pid, _) => {
+                tracing::warn!(%pid, "intersection not found");
+            }
             InitiatorEvent::BlockHeaderReceived(pid, x, _) => {
                 tracing::info!(tag = x.variant, %pid, "header received");
                 self.on_header_received(pid, x);

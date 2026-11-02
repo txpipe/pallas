@@ -372,6 +372,8 @@ pub enum InitiatorEvent {
     PeerInitialized(PeerId, AcceptedVersion),
     /// An intersection point was found during chain-sync.
     IntersectionFound(PeerId, proto::Point, proto::chainsync::Tip),
+    /// None of the requested points is on the peer's chain, whose tip is given.
+    IntersectNotFound(PeerId, proto::chainsync::Tip),
     /// A new block header was received via chain-sync.
     BlockHeaderReceived(
         PeerId,
