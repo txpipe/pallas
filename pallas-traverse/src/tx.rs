@@ -1110,14 +1110,14 @@ impl<'b> MultiEraTx<'b> {
     /// of its own. Empty for every era before Dijkstra, none of which has the
     /// field, and empty for a sub transaction, whose own body has no key 23.
     #[cfg(feature = "unstable")]
-    pub fn sub_transactions(&self) -> Vec<MultiEraTx<'_>> {
+    pub fn sub_transactions(&self) -> Vec<MultiEraTx<'b>> {
         match self {
             MultiEraTx::Dijkstra(x) => x
                 .transaction_body
                 .sub_transactions
                 .iter()
                 .flat_map(|subs| subs.iter())
-                .map(|sub| MultiEraTx::from_dijkstra_sub(sub, x.success))
+                .map(|sub| MultiEraTx::DijkstraSub(Box::new(Cow::Owned(sub.clone())), x.success))
                 .collect(),
             // The rule admits no nesting, so a sub transaction carries none.
             MultiEraTx::DijkstraSub(..) => vec![],
@@ -1386,6 +1386,26 @@ mod tests {
             None,
             "a sub transaction body has no key 27, so the sub transaction reports none"
         );
+    }
+
+    #[test]
+    fn sub_transactions_outlive_the_transaction_that_lists_them() {
+        let sub = testing::sub_body_with_account_fields(&[0xe2; 29], 12);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::body_with_account_fields(&[0xe1; 29], 7, &[&sub]),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let block_tx: dijkstra::BlockTransaction = minicbor::decode(&cbor).unwrap();
+        let owned = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+            .unwrap()
+            .sub_transactions();
+        let borrowed = MultiEraTx::from_dijkstra(&block_tx).sub_transactions();
+
+        let hashes = |subs: &[MultiEraTx]| subs.iter().map(|x| x.hash()).collect::<Vec<_>>();
+        assert_eq!(owned.len(), 1);
+        assert_eq!(hashes(&owned), hashes(&borrowed));
     }
 
     #[test]
