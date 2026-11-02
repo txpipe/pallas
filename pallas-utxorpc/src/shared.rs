@@ -397,8 +397,13 @@ macro_rules! impl_cardano_mapper_shared {
 
                 match x {
                     MultiEraNativeScript::AlonzoCompatible(x) => Self::map_native_script(x),
+                    MultiEraNativeScript::AlonzoCompatibleDecoded(x) => Self::map_native_script(x),
                     #[cfg(feature = "unstable")]
                     MultiEraNativeScript::Dijkstra(x) => Self::map_dijkstra_native_script(x),
+                    #[cfg(feature = "unstable")]
+                    MultiEraNativeScript::DijkstraDecoded(x) => {
+                        Self::map_dijkstra_native_script(x)
+                    }
                     _ => unimplemented!("collect_all_scripts has no arm for this native script"),
                 }
             }
