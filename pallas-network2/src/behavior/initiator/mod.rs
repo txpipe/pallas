@@ -157,6 +157,8 @@ pub struct InitiatorState {
     pub(crate) in_flight: Option<BlockRange>,
     /// When the handshake must have completed, set once the peer is connected.
     pub(crate) handshake_deadline: Option<tokio::time::Instant>,
+    /// When the peer must have answered the keepalive in flight, if any.
+    pub(crate) keepalive_deadline: Option<tokio::time::Instant>,
 }
 
 impl InitiatorState {
@@ -180,6 +182,7 @@ impl InitiatorState {
             unsent: UnsentRequests::default(),
             in_flight: None,
             handshake_deadline: None,
+            keepalive_deadline: None,
         }
     }
 
@@ -336,6 +339,7 @@ impl InitiatorState {
         self.unsent = UnsentRequests::default();
         self.in_flight = None;
         self.handshake_deadline = None;
+        self.keepalive_deadline = None;
     }
 }
 
