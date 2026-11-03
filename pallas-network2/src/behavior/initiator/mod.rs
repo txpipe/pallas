@@ -155,6 +155,8 @@ pub struct InitiatorState {
     pub(crate) sync_next_deferred: bool,
     pub(crate) unsent: UnsentRequests,
     pub(crate) in_flight: Option<BlockRange>,
+    /// When the handshake must have completed, set once the peer is connected.
+    pub(crate) handshake_deadline: Option<tokio::time::Instant>,
 }
 
 impl InitiatorState {
@@ -177,6 +179,7 @@ impl InitiatorState {
             sync_next_deferred: false,
             unsent: UnsentRequests::default(),
             in_flight: None,
+            handshake_deadline: None,
         }
     }
 
@@ -332,6 +335,7 @@ impl InitiatorState {
         self.violation = false;
         self.unsent = UnsentRequests::default();
         self.in_flight = None;
+        self.handshake_deadline = None;
     }
 }
 
