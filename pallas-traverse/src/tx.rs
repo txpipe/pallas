@@ -668,25 +668,44 @@ impl<'b> MultiEraTx<'b> {
     /// be fulfilled. This includes normal inputs, reference inputs and
     /// collateral, and then the inputs and reference inputs of each Dijkstra
     /// sub transaction.
+    ///
+    /// NOTE: It is possible for this to return duplicates, such as a spent
+    /// input that is also collateral, or an input that both a sub transaction
+    /// and its parent list.
     pub fn requires(&self) -> Vec<MultiEraInput<'_>> {
-        let required = [self.inputs(), self.reference_inputs(), self.collateral()].concat();
+        [
+            self.inputs(),
+            self.reference_inputs(),
+            self.collateral(),
+            self.sub_transaction_requires(),
+        ]
+        .concat()
+    }
 
-        #[cfg(feature = "unstable")]
-        if let Self::Dijkstra(tx) = self {
-            let mut required = required;
-            for sub in tx.transaction_body.sub_transactions.iter().flatten() {
-                let body = &sub.sub_transaction_body;
-                required.extend(
+    /// Inputs and reference inputs of each Dijkstra sub transaction.
+    fn sub_transaction_requires(&self) -> Vec<MultiEraInput<'_>> {
+        match self {
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x
+                .transaction_body
+                .sub_transactions
+                .iter()
+                .flatten()
+                .map(|sub| &sub.sub_transaction_body)
+                .flat_map(|body| {
                     body.inputs
                         .iter()
                         .chain(body.reference_inputs.iter().flatten())
-                        .map(MultiEraInput::from_alonzo_compatible),
-                );
-            }
-            return required;
+                })
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => vec![],
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => vec![],
         }
-
-        required
     }
 
     pub fn withdrawals(&self) -> MultiEraWithdrawals<'_> {
@@ -1767,7 +1786,6 @@ mod tests {
         second.sub_transaction_body.reference_inputs = None;
         subs.push(second);
         parent.transaction_body.sub_transactions = Some(subs.try_into().unwrap());
-        parent.transaction_body.reference_inputs = None;
 
         let required: Vec<String> = MultiEraTx::from_dijkstra(&parent)
             .requires()
@@ -1778,12 +1796,14 @@ mod tests {
             required,
             [
                 "737549420add1f19d144809aa02e2ae68a89b1761368e3294fbb30ee1467e3e4#12",
+                "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0",
+                "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0",
                 "7727ec1dfb0f84f2ffeb51935f35850cf84cfabfca1957e8c74cf8fde871dd34#12",
                 "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0",
                 "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0",
                 "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#1",
             ],
-            "the parent's input and collateral, then each sub transaction's inputs and reference inputs"
+            "the parent's inputs, reference inputs and collateral, then each sub transaction's inputs and reference inputs, with repeats kept"
         );
     }
 }
