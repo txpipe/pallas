@@ -1,4 +1,4 @@
-use pallas_codec::minicbor;
+use pallas_codec::{minicbor, utils::decode_bytes_def_or_indef};
 use std::{fmt, ops::Deref, str::FromStr};
 
 /// data that is a cryptographic [`struct@Hash`] of `BYTES` long.
@@ -87,14 +87,11 @@ impl<C, const BYTES: usize> minicbor::Encode<C> for Hash<BYTES> {
 
 impl<'a, C, const BYTES: usize> minicbor::Decode<'a, C> for Hash<BYTES> {
     #[cfg(not(feature = "relaxed"))]
-    fn decode(
-        d: &mut minicbor::Decoder<'a>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
-        let bytes = d.bytes()?;
+    fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let bytes = decode_bytes_def_or_indef(d, ctx)?;
         if bytes.len() == BYTES {
             let mut hash = [0; BYTES];
-            hash.copy_from_slice(bytes);
+            hash.copy_from_slice(&bytes);
             Ok(Self::new(hash))
         } else {
             // TODO: minicbor does not allow for expecting a specific size byte array
@@ -104,14 +101,11 @@ impl<'a, C, const BYTES: usize> minicbor::Decode<'a, C> for Hash<BYTES> {
     }
 
     #[cfg(feature = "relaxed")]
-    fn decode(
-        d: &mut minicbor::Decoder<'a>,
-        _ctx: &mut C,
-    ) -> Result<Self, minicbor::decode::Error> {
-        let bytes = d.bytes()?;
+    fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let bytes = decode_bytes_def_or_indef(d, ctx)?;
 
         if bytes.len() != BYTES {
-            dbg!(hex::encode(bytes));
+            dbg!(hex::encode(&bytes));
         }
 
         let mut hash = [0; BYTES];
@@ -145,5 +139,61 @@ mod tests {
     #[should_panic]
     fn from_str_fail_2() {
         let _digest: Hash<32> = "0d8d00cdd465".parse().unwrap();
+    }
+
+    fn two_chunks(bytes: &[u8], at: usize) -> Vec<u8> {
+        let mut e = minicbor::Encoder::new(Vec::new());
+        e.begin_bytes().unwrap();
+        e.bytes(&bytes[..at]).unwrap();
+        e.bytes(&bytes[at..]).unwrap();
+        e.end().unwrap();
+        e.into_writer()
+    }
+
+    #[test]
+    fn text_is_not_a_hash() {
+        let a = |n: usize| "61".repeat(n);
+        for hex in [
+            format!("781c{}", a(28)),
+            format!("7f71{}6b{}ff", a(17), a(11)),
+            "00".to_string(),
+        ] {
+            let bytes = hex::decode(&hex).unwrap();
+            assert!(minicbor::decode::<Hash<28>>(&bytes).is_err(), "{hex}");
+        }
+    }
+
+    #[test]
+    fn decodes_from_either_length_form() {
+        let short: Hash<28> = "276fd18711931e2c0e21430192dbeac0e458093cd9d1fcd7210f64b3"
+            .parse()
+            .unwrap();
+        let long: Hash<32> = "0d8d00cdd4657ac84d82f0a56067634a7adfdf43da41cb534bcaa45060973d21"
+            .parse()
+            .unwrap();
+
+        let definite: Hash<28> = minicbor::decode(&minicbor::to_vec(short).unwrap()).unwrap();
+        assert_eq!(definite, short);
+        let definite: Hash<32> = minicbor::decode(&minicbor::to_vec(long).unwrap()).unwrap();
+        assert_eq!(definite, long);
+
+        let indefinite: Hash<28> = minicbor::decode(&two_chunks(&short[..], 17)).unwrap();
+        assert_eq!(indefinite, short);
+        let indefinite: Hash<32> = minicbor::decode(&two_chunks(&long[..], 17)).unwrap();
+        assert_eq!(indefinite, long);
+    }
+
+    #[cfg(not(feature = "relaxed"))]
+    #[test]
+    fn checks_the_size_of_the_joined_chunks() {
+        let long: Hash<32> = "0d8d00cdd4657ac84d82f0a56067634a7adfdf43da41cb534bcaa45060973d21"
+            .parse()
+            .unwrap();
+
+        let err = minicbor::decode::<Hash<28>>(&two_chunks(&long[..], 17)).unwrap_err();
+        assert!(err.to_string().contains("Invalid hash size"), "{err}");
+
+        let err = minicbor::decode::<Hash<32>>(&two_chunks(&long[..31], 17)).unwrap_err();
+        assert!(err.to_string().contains("Invalid hash size"), "{err}");
     }
 }
