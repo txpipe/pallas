@@ -352,7 +352,23 @@ macro_rules! impl_cardano_mapper_shared {
                         script: u5c::script::Script::PlutusV2(x).into(),
                     });
 
-                ns.chain(p1).chain(p2).collect()
+                let p3 = tx
+                    .plutus_v3_scripts()
+                    .iter()
+                    .map(|x| x.0.to_vec().into())
+                    .map(|x| u5c::Script {
+                        script: u5c::script::Script::PlutusV3(x).into(),
+                    });
+
+                let p4 = tx
+                    .plutus_v4_scripts()
+                    .iter()
+                    .map(|x| x.0.to_vec().into())
+                    .map(|x| u5c::Script {
+                        script: u5c::script::Script::PlutusV4(x).into(),
+                    });
+
+                ns.chain(p1).chain(p2).chain(p3).chain(p4).collect()
             }
 
             pub fn map_plutus_constr(
@@ -1586,6 +1602,100 @@ macro_rules! impl_cardano_mapper_shared {
                         .map(|r| r.index),
                     Some(1),
                     "position one is indexed by a certificate redeemer"
+                );
+            }
+        }
+
+        #[cfg(test)]
+        mod witness_script_tests {
+            use super::*;
+
+            use pallas_traverse::{Era, MultiEraTx};
+            use pretty_assertions::assert_eq;
+
+            #[derive(Clone)]
+            struct NoLedger;
+
+            impl $crate::LedgerContext for NoLedger {
+                fn get_utxos(&self, _refs: &[$crate::TxoRef]) -> Option<$crate::UtxoMap> {
+                    None
+                }
+
+                fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+                    None
+                }
+            }
+
+            fn fixture_cbor(fixture: &str) -> Vec<u8> {
+                let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../test_data")
+                    .join(fixture);
+                let hex_str = std::fs::read_to_string(&path).expect("the fixture is readable");
+                hex::decode(hex_str.trim()).expect("the fixture holds hex")
+            }
+
+            fn plutus_scripts(tx: &MultiEraTx, version: u8) -> Vec<Vec<u8>> {
+                Mapper::new(NoLedger)
+                    .collect_all_scripts(tx)
+                    .into_iter()
+                    .filter_map(|x| match (version, x.script) {
+                        (3, Some(u5c::script::Script::PlutusV3(bytes))) => Some(bytes.to_vec()),
+                        (4, Some(u5c::script::Script::PlutusV4(bytes))) => Some(bytes.to_vec()),
+                        _ => None,
+                    })
+                    .collect()
+            }
+
+            fn plutus_v3_witness_scripts(fixture: &str) -> Vec<Vec<u8>> {
+                let cbor = fixture_cbor(fixture);
+                plutus_scripts(&MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap(), 3)
+            }
+
+            /// The PlutusV4 scripts of a Dijkstra transaction, then of each of its sub transactions.
+            #[cfg(feature = "unstable")]
+            fn plutus_v4_witness_scripts(fixture: &str) -> Vec<Vec<Vec<u8>>> {
+                let cbor = fixture_cbor(fixture);
+                let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
+                let subs = tx.sub_transactions();
+
+                std::iter::once(&tx)
+                    .chain(subs.iter())
+                    .map(|x| plutus_scripts(x, 4))
+                    .collect()
+            }
+
+            #[cfg(feature = "unstable")]
+            #[test]
+            fn a_dijkstra_transaction_maps_its_plutus_v4_witness_script() {
+                assert_eq!(
+                    plutus_v4_witness_scripts("dijkstra-v4-witness.tx"),
+                    vec![vec![hex::decode("450101002499").unwrap()]]
+                );
+            }
+
+            #[cfg(feature = "unstable")]
+            #[test]
+            fn a_dijkstra_sub_transaction_maps_its_plutus_v4_witness_script() {
+                assert_eq!(
+                    plutus_v4_witness_scripts("dijkstra-v4-sub-witness.tx"),
+                    vec![vec![], vec![], vec![hex::decode("450101002499").unwrap()]],
+                    "only the second sub transaction holds a PlutusV4 script"
+                );
+            }
+
+            #[test]
+            fn a_conway_transaction_maps_its_plutus_v3_witness_script() {
+                assert_eq!(
+                    plutus_v3_witness_scripts("conway9.tx"),
+                    vec![hex::decode("450101002499").unwrap()]
+                );
+            }
+
+            #[test]
+            fn a_conway_transaction_without_a_v3_witness_script_maps_no_v3_script() {
+                assert_eq!(
+                    plutus_v3_witness_scripts("conway2.tx"),
+                    Vec::<Vec<u8>>::new()
                 );
             }
         }
