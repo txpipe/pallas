@@ -34,7 +34,7 @@ pub type TxCbor = AnyCbor;
 /// **Wire note:** this *must* serialize as an indefinite-length CBOR map
 /// (`0xbf … 0xff`). The Leios prototype rejects a definite-length map and resets
 /// the connection. Decoding accepts either form (a [`BTreeMap`] keeps key order
-/// deterministic).
+/// deterministic), and a window that appears twice keeps its last bitmap.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Bitmaps(pub BTreeMap<u16, u64>);
 
@@ -95,8 +95,6 @@ impl Encode<()> for Bitmaps {
 
 impl<'b> Decode<'b, ()> for Bitmaps {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        // minicbor's `BTreeMap` decoder transparently handles both definite and
-        // indefinite-length maps.
         Ok(Bitmaps(d.decode()?))
     }
 }
@@ -464,6 +462,44 @@ mod tests {
         let definite = [0xa1u8, 0x00, 0x01];
         let back: Bitmaps = minicbor::decode(&definite).unwrap();
         assert_eq!(back.0.get(&0), Some(&1u64));
+    }
+
+    #[test]
+    fn bitmaps_with_distinct_windows_decode_in_either_length_form() {
+        let indefinite = [0xbfu8, 0x00, 0x01, 0x01, 0x02, 0xff];
+        let definite = [0xa2u8, 0x00, 0x01, 0x01, 0x02];
+        for bytes in [&indefinite[..], &definite[..]] {
+            let back: Bitmaps = minicbor::decode(bytes).unwrap();
+            assert_eq!(back.0.into_iter().collect::<Vec<_>>(), [(0, 1), (1, 2)]);
+        }
+    }
+
+    #[test]
+    fn a_request_naming_one_window_twice_keeps_its_last_bitmap() {
+        let captured =
+            include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block-txs-request.cbor");
+        assert_eq!(captured[51], 0x01, "the key of the second window");
+        let mut twice = captured.to_vec();
+        twice[51] = 0x00;
+
+        match minicbor::decode::<Message>(&twice).expect("the request decodes") {
+            Message::BlockTxsRequest(point, bitmaps) => {
+                assert_eq!(point, captured_point());
+                assert_eq!(
+                    bitmaps.0.into_iter().collect::<Vec<_>>(),
+                    [(0, 0xe000_0000_0000_0000)]
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+
+        for bytes in [
+            &[0xbfu8, 0x00, 0x01, 0x00, 0x02, 0xff][..],
+            &[0xa2u8, 0x00, 0x01, 0x00, 0x02],
+        ] {
+            let back: Bitmaps = minicbor::decode(bytes).expect("the bitmaps decode");
+            assert_eq!(back.0.into_iter().collect::<Vec<_>>(), [(0, 2)]);
+        }
     }
 
     // --- CBOR-vs-CDDL conformance (run with `--features blueprint`) ---
