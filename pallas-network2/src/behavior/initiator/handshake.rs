@@ -1,9 +1,18 @@
+use std::time::Duration;
+
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
+    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
+    behavior::{AnyMessage, ConnectionState},
     protocol::MAINNET_MAGIC,
 };
 
 use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+
+/// How long [`HandshakeBehavior::new`] lets a connected peer take to complete
+/// the handshake, with a safety margin over what the Haskell node allows for
+/// the peer's reply to a `Propose` (`shortWait` in ouroboros-network's
+/// `timeLimitsHandshake`).
+pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Configuration for the handshake sub-behavior.
 pub struct Config {
@@ -12,8 +21,14 @@ pub struct Config {
 }
 
 /// Sub-behavior that performs the handshake mini-protocol on new connections.
+///
+/// A peer that is still not initialized once the handshake timeout has
+/// elapsed since it connected is treated as an errored connection: its error
+/// count goes up and it is disconnected. The check runs on housekeeping, so the
+/// peer is dropped on the first housekeeping after the timeout.
 pub struct HandshakeBehavior {
     config: Config,
+    timeout: Duration,
 }
 
 impl Default for HandshakeBehavior {
@@ -38,9 +53,48 @@ impl Default for HandshakeBehavior {
 }
 
 impl HandshakeBehavior {
-    /// Creates a new handshake behavior with the given configuration.
+    /// Creates a new handshake behavior with the given configuration and
+    /// [`DEFAULT_HANDSHAKE_TIMEOUT`].
     pub fn new(config: Config) -> Self {
-        Self { config }
+        Self {
+            config,
+            timeout: DEFAULT_HANDSHAKE_TIMEOUT,
+        }
+    }
+
+    /// Sets how long a connected peer may take to complete the handshake.
+    pub fn with_timeout(self, timeout: Duration) -> Self {
+        Self { timeout, ..self }
+    }
+
+    fn drop_if_handshake_expired(
+        &self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+    ) {
+        if !matches!(state.connection, ConnectionState::Connected) {
+            return;
+        }
+
+        let Some(deadline) = state.handshake_deadline else {
+            return;
+        };
+
+        if tokio::time::Instant::now() < deadline {
+            return;
+        }
+
+        tracing::warn!(%pid, timeout = ?self.timeout, "handshake timed out");
+
+        state.handshake_deadline = None;
+        state.connection = ConnectionState::Errored;
+        state.error_count += 1;
+
+        // TODO: once `InitiatorEvent::PeerDisconnected` lands (txpipe/pallas#842),
+        // report this disconnect with a dedicated `DisconnectReason` (e.g.
+        // `HandshakeTimeout`), so the consumer can tell it from a plain close.
+        outbound.push_ready(InterfaceCommand::Disconnect(pid.clone()));
     }
 
     fn propose_handshake(
@@ -100,7 +154,17 @@ impl PeerVisitor for HandshakeBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
+        state.handshake_deadline = Some(tokio::time::Instant::now() + self.timeout);
         self.propose_handshake(pid, state, outbound);
+    }
+
+    fn visit_housekeeping(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<InitiatorBehavior>,
+    ) {
+        self.drop_if_handshake_expired(pid, state, outbound);
     }
 
     fn visit_inbound_msg(
@@ -185,6 +249,63 @@ mod tests {
             )
         });
         assert!(has_init_event, "should emit PeerInitialized event");
+    }
+
+    fn is_disconnect(output: &BehaviorOutput<InitiatorBehavior>, pid: &PeerId) -> bool {
+        matches!(
+            output,
+            BehaviorOutput::InterfaceCommand(InterfaceCommand::Disconnect(p)) if p == pid
+        )
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn unanswered_handshake_disconnects_after_the_timeout() {
+        let mut hs = HandshakeBehavior::default().with_timeout(Duration::from_secs(10));
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.connection = ConnectionState::Connected;
+        hs.visit_connected(&pid, &mut state, &mut outbound);
+        drain_outputs(&mut outbound);
+
+        tokio::time::advance(Duration::from_secs(9)).await;
+        hs.visit_housekeeping(&pid, &mut state, &mut outbound);
+        assert!(
+            drain_outputs(&mut outbound).is_empty(),
+            "should wait until the timeout"
+        );
+        assert_eq!(state.connection, ConnectionState::Connected);
+
+        tokio::time::advance(Duration::from_secs(1)).await;
+        hs.visit_housekeeping(&pid, &mut state, &mut outbound);
+        let outputs = drain_outputs(&mut outbound);
+        assert!(
+            outputs.iter().any(|o| is_disconnect(o, &pid)),
+            "should disconnect the peer once the timeout has elapsed"
+        );
+        assert_eq!(state.connection, ConnectionState::Errored);
+        assert_eq!(state.error_count, 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn initialized_peer_is_kept_after_the_timeout() {
+        let mut hs = HandshakeBehavior::default().with_timeout(Duration::from_secs(10));
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.connection = ConnectionState::Connected;
+        hs.visit_connected(&pid, &mut state, &mut outbound);
+        drain_outputs(&mut outbound);
+        state.connection = ConnectionState::Initialized;
+
+        tokio::time::advance(Duration::from_secs(60)).await;
+        hs.visit_housekeeping(&pid, &mut state, &mut outbound);
+
+        assert!(drain_outputs(&mut outbound).is_empty());
+        assert_eq!(state.connection, ConnectionState::Initialized);
+        assert_eq!(state.error_count, 0);
     }
 
     #[test]
