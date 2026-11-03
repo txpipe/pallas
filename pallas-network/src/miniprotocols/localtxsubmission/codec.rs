@@ -1,5 +1,6 @@
 use pallas_codec::minicbor::data::{IanaTag, Tag};
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
+use pallas_codec::utils::decode_bytes_def_or_indef;
 
 use crate::miniprotocols::localstate::queries_v16::{
     BigInt, BoundedBytes, Constr, DatumOption, PlutusData,
@@ -819,16 +820,7 @@ impl<'b, C> Decode<'b, C> for PlutusData {
                 Ok(Self::BigInt(d.decode_with(ctx)?))
             }
             Map | MapIndef => Ok(Self::Map(d.decode_with(ctx)?)),
-            Bytes => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
-            BytesIndef => {
-                let mut full = Vec::new();
-
-                for slice in d.bytes_iter()? {
-                    full.extend(slice?);
-                }
-
-                Ok(Self::BoundedBytes(BoundedBytes::from(full)))
-            }
+            Bytes | BytesIndef => Ok(Self::BoundedBytes(d.decode_with(ctx)?)),
             Array | ArrayIndef => Ok(Self::Array(d.decode_with(ctx)?)),
 
             any => Err(decode::Error::message(format!(
@@ -943,13 +935,8 @@ impl<C> Encode<C> for BoundedBytes {
 }
 
 impl<'b, C> Decode<'b, C> for BoundedBytes {
-    fn decode(d: &mut Decoder<'b>, _: &mut C) -> Result<Self, decode::Error> {
-        let mut res = Vec::new();
-        for chunk in d.bytes_iter()? {
-            let bs = chunk?;
-            res.extend_from_slice(bs);
-        }
-        Ok(BoundedBytes::from(res))
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        decode_bytes_def_or_indef(d, ctx).map(|bytes| BoundedBytes::from(bytes.into_owned()))
     }
 }
 

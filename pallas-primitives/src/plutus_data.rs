@@ -1,7 +1,7 @@
 use pallas_codec::tree::{
     Arity, IndexedNode, TreeDecode, Visit, cmp_tree, decode_tree, fold_tree, walk_tree,
 };
-use pallas_codec::utils::{Int, KeyValuePairs};
+use pallas_codec::utils::{Int, KeyValuePairs, decode_bytes_def_or_indef};
 use pallas_codec::{
     minicbor::{
         self, Encode,
@@ -261,16 +261,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 };
                 Ok((Builder::new(partial), arity))
             }
-            Type::Bytes => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
-            Type::BytesIndef => {
-                let mut full = Vec::new();
-
-                for slice in d.bytes_iter()? {
-                    full.extend(slice?);
-                }
-
-                leaf(PlutusData::BoundedBytes(BoundedBytes::from(full)))
-            }
+            Type::Bytes | Type::BytesIndef => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
             Type::Array | Type::ArrayIndef => {
                 let len = d.array()?;
                 let partial = Partial::Array {
@@ -708,13 +699,8 @@ impl<C> Encode<C> for BoundedBytes {
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for BoundedBytes {
-    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let mut res = Vec::new();
-        for chunk in d.bytes_iter()? {
-            let bs = chunk?;
-            res.extend_from_slice(bs);
-        }
-        Ok(BoundedBytes::from(res))
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        decode_bytes_def_or_indef(d, ctx).map(|bytes| BoundedBytes::from(bytes.into_owned()))
     }
 }
 
