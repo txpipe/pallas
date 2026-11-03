@@ -92,17 +92,6 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.multi_era_script_ref().map(|x| match x {
-            trv::MultiEraScriptRef::Conway(x) => self.map_any_script(&x),
-            #[cfg(feature = "unstable")]
-            trv::MultiEraScriptRef::Dijkstra(_) => {
-                unimplemented!("map_output_script is not yet implemented for Dijkstra")
-            }
-            _ => unimplemented!("map_output_script has no arm for this reference script"),
-        })
-    }
-
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
         let quantity = if let Some(v) = x.output_coin() {
             u64_to_bigint(v).map(u5c::asset::Quantity::OutputCoin)
