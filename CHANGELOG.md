@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-11-04
+
+### 🐛 Bug Fixes
+
+- *(configs)* Read the extraConfig block of a shelley genesis (#797)
+- *(math)* Align fixed-point arithmetic with Cardano node (#822)
+- *(network2)* Stop sending a request twice before the Sent event (#818)
+- *(primitives)* [**breaking**] Make metadata and Plutus data destruction stack-safe
+
+### 🔧 Continuous Integration
+
+- Publish with the org-level CRATES_IO_TOKEN (#834)
+
+### ⚡ Performance
+
+- *(network2)* Send queued fetch requests as soon as a peer is idle (#819)
+
 ## [1.4.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
