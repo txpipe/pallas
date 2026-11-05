@@ -34,6 +34,9 @@ cddl = { version = "=0.10.6", optional = true }
 emulation = ["tokio", "rand"]
 default = ["emulation"]
 blueprint = ["dep:cddl"]
+# Propose N2N v16 (Peras support flag, Leios mini-protocols) and read its
+# five-field version data. v16 is past the node's latest released version.
+unstable = []
 
 [dev-dependencies]
 tokio = { version = "1.45.1", features = ["full", "test-util"] }

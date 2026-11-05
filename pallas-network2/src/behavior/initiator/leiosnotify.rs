@@ -78,12 +78,36 @@ mod tests {
     use super::*;
     use crate::protocol::Point;
     use crate::protocol::leiosnotify::Notification;
-    use crate::{OutboundQueue, behavior::ConnectionState};
+    use crate::protocol::{MAINNET_MAGIC, handshake};
+    use crate::{InterfaceCommand, OutboundQueue, behavior::ConnectionState};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
         outbound.drain_ready()
+    }
+
+    /// Puts the peer state into a handshake accepted at `version`, with the
+    /// version data pallas proposes for it (shape depends on the version).
+    fn accept_version(state: &mut InitiatorState, version: u64) {
+        let data = handshake::n2n::VersionTable::v15_and_above(MAINNET_MAGIC)
+            .values
+            .get(&version)
+            .cloned()
+            .unwrap_or_else(|| panic!("pallas does not propose version {version}"));
+        state.handshake = handshake::State::Done(handshake::DoneState::Accepted(version, data));
+    }
+
+    fn did_send_leios_notify(outputs: &[BehaviorOutput<InitiatorBehavior>]) -> bool {
+        outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::LeiosNotify(_)
+                ))
+            )
+        })
     }
 
     #[test]
@@ -109,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn housekeeping_requests_next_only_when_ready_and_idle() {
+    fn housekeeping_requests_nothing_before_handshake() {
         let mut b = LeiosNotifyBehavior;
         let pid = PeerId::test(1);
         let mut outbound = OutboundQueue::new();
@@ -123,5 +147,48 @@ mod tests {
         state.connection = ConnectionState::Initialized;
         b.visit_housekeeping(&pid, &mut state, &mut outbound);
         assert!(drain_outputs(&mut outbound).is_empty());
+    }
+
+    #[test]
+    fn housekeeping_does_not_open_leios_notify_on_v15_peer() {
+        // v15 is mainline's SRV support: the peer has no leios-notify mini-protocol.
+        let mut b = LeiosNotifyBehavior;
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        let mut state = InitiatorState::new();
+        state.connection = ConnectionState::Initialized;
+        accept_version(&mut state, 15);
+        b.visit_housekeeping(&pid, &mut state, &mut outbound);
+        assert!(!did_send_leios_notify(&drain_outputs(&mut outbound)));
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn housekeeping_sends_leios_notify_request_on_v16_peer() {
+        let mut b = LeiosNotifyBehavior;
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        let mut state = InitiatorState::new();
+        state.connection = ConnectionState::Initialized;
+        accept_version(&mut state, 16);
+        b.visit_housekeeping(&pid, &mut state, &mut outbound);
+        assert!(did_send_leios_notify(&drain_outputs(&mut outbound)));
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn housekeeping_sends_no_leios_notify_request_while_busy() {
+        let mut b = LeiosNotifyBehavior;
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        let mut state = InitiatorState::new();
+        state.connection = ConnectionState::Initialized;
+        accept_version(&mut state, 16);
+        state.leios_notify = notify_proto::State::Busy;
+        b.visit_housekeeping(&pid, &mut state, &mut outbound);
+        assert!(!did_send_leios_notify(&drain_outputs(&mut outbound)));
     }
 }
