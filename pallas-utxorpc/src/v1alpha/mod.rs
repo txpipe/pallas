@@ -404,8 +404,6 @@ mod tests {
                         )]))
                     };
                 }
-                // The source Drop still recurses; leak it like the result.
-                let datum = std::mem::ManuallyDrop::new(datum);
 
                 let mapped = Mapper::<NoLedger>::map_metadatum(&datum);
 
@@ -463,8 +461,6 @@ mod tests {
                         _ => PlutusData::Array(MaybeIndefArray::Def(vec![datum])),
                     };
                 }
-                // The source Drop still recurses; leak it like the result.
-                let datum = std::mem::ManuallyDrop::new(datum);
 
                 let mapped = Mapper::new(NoLedger).map_plutus_datum(&datum);
 
