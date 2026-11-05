@@ -666,9 +666,46 @@ impl<'b> MultiEraTx<'b> {
     ///
     /// Helper method to yield all of the UTxO that the Tx requires in order to
     /// be fulfilled. This includes normal inputs, reference inputs and
-    /// collateral.
+    /// collateral, and then the inputs and reference inputs of each Dijkstra
+    /// sub transaction.
+    ///
+    /// NOTE: It is possible for this to return duplicates, such as a spent
+    /// input that is also collateral, or an input that both a sub transaction
+    /// and its parent list.
     pub fn requires(&self) -> Vec<MultiEraInput<'_>> {
-        [self.inputs(), self.reference_inputs(), self.collateral()].concat()
+        [
+            self.inputs(),
+            self.reference_inputs(),
+            self.collateral(),
+            self.sub_transaction_requires(),
+        ]
+        .concat()
+    }
+
+    /// Inputs and reference inputs of each Dijkstra sub transaction.
+    fn sub_transaction_requires(&self) -> Vec<MultiEraInput<'_>> {
+        match self {
+            #[cfg(feature = "unstable")]
+            MultiEraTx::Dijkstra(x) => x
+                .transaction_body
+                .sub_transactions
+                .iter()
+                .flatten()
+                .map(|sub| &sub.sub_transaction_body)
+                .flat_map(|body| {
+                    body.inputs
+                        .iter()
+                        .chain(body.reference_inputs.iter().flatten())
+                })
+                .map(MultiEraInput::from_alonzo_compatible)
+                .collect(),
+            #[cfg(feature = "unstable")]
+            MultiEraTx::DijkstraSub(..) => vec![],
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => vec![],
+        }
     }
 
     pub fn withdrawals(&self) -> MultiEraWithdrawals<'_> {
@@ -1720,5 +1757,53 @@ mod tests {
                 "a sub transaction's first output is produced only when its parent is valid"
             );
         }
+    }
+
+    #[test]
+    fn requires_adds_what_each_sub_transaction_spends_and_references() {
+        let cbor = chain_sub_transaction_tx();
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor)
+            .expect("the chain transaction must decode for its own era");
+        let mut parent = tx
+            .as_dijkstra()
+            .expect("the fixture is a block transaction")
+            .clone();
+
+        let mut subs = parent
+            .transaction_body
+            .sub_transactions
+            .take()
+            .expect("the outer body carries key 23")
+            .to_vec();
+        let mut second = subs[0].clone();
+        second.sub_transaction_body.inputs = vec![dijkstra::TransactionInput {
+            transaction_id: "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171"
+                .parse()
+                .unwrap(),
+            index: 1,
+        }]
+        .into();
+        second.sub_transaction_body.reference_inputs = None;
+        subs.push(second);
+        parent.transaction_body.sub_transactions = Some(subs.try_into().unwrap());
+
+        let required: Vec<String> = MultiEraTx::from_dijkstra(&parent)
+            .requires()
+            .iter()
+            .map(|i| format!("{}#{}", i.hash(), i.index()))
+            .collect();
+        assert_eq!(
+            required,
+            [
+                "737549420add1f19d144809aa02e2ae68a89b1761368e3294fbb30ee1467e3e4#12",
+                "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0",
+                "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0",
+                "7727ec1dfb0f84f2ffeb51935f35850cf84cfabfca1957e8c74cf8fde871dd34#12",
+                "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0",
+                "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0",
+                "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#1",
+            ],
+            "the parent's inputs, reference inputs and collateral, then each sub transaction's inputs and reference inputs, with repeats kept"
+        );
     }
 }
