@@ -137,15 +137,27 @@ impl PeerVisitor for LeiosFetchBehavior {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::behavior::initiator::PromotionTag;
     use crate::protocol::Point;
     use crate::protocol::leiosfetch::Response;
     use crate::protocol::{AnyCbor, MAINNET_MAGIC, handshake, leiosfetch as lf};
-    use crate::{OutboundQueue, behavior::ConnectionState};
+    use crate::{InterfaceCommand, OutboundQueue, behavior::ConnectionState};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
         outbound.drain_ready()
+    }
+
+    /// Puts the peer state into a handshake accepted at `version`, with the
+    /// version data pallas proposes for it (shape depends on the version).
+    fn accept_version(state: &mut InitiatorState, version: u64) {
+        let data = handshake::n2n::VersionTable::v15_and_above(MAINNET_MAGIC)
+            .values
+            .get(&version)
+            .cloned()
+            .unwrap_or_else(|| panic!("pallas does not propose version {version}"));
+        state.handshake = handshake::State::Done(handshake::DoneState::Accepted(version, data));
     }
 
     #[test]
@@ -171,7 +183,7 @@ mod tests {
     }
 
     #[test]
-    fn housekeeping_sends_request_for_available_peer() {
+    fn housekeeping_keeps_request_queued_before_handshake() {
         let mut b = LeiosFetchBehavior::default();
         let pid = PeerId::test(1);
         let mut outbound = OutboundQueue::new();
@@ -186,17 +198,74 @@ mod tests {
         assert_eq!(b.requests.len(), 1);
     }
 
+    fn did_send_leios_fetch(outputs: &[BehaviorOutput<InitiatorBehavior>]) -> bool {
+        outputs.iter().any(|o| {
+            matches!(
+                o,
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::LeiosFetch(_)
+                ))
+            )
+        })
+    }
+
+    #[test]
+    fn housekeeping_does_not_open_leios_fetch_on_v15_peer() {
+        let mut b = LeiosFetchBehavior::default();
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        b.enqueue(
+            pid.clone(),
+            FetchRequest::Block(Point::new(7, vec![0xAB; 32])),
+        );
+
+        let mut state = InitiatorState::new();
+        state.connection = ConnectionState::Initialized;
+        state.promotion = PromotionTag::Warm;
+        accept_version(&mut state, 15);
+        b.visit_housekeeping(&pid, &mut state, &mut outbound);
+        assert!(!did_send_leios_fetch(&drain_outputs(&mut outbound)));
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn housekeeping_sends_leios_fetch_request_on_v16_peer() {
+        let mut b = LeiosFetchBehavior::default();
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        b.enqueue(
+            pid.clone(),
+            FetchRequest::Block(Point::new(7, vec![0xAB; 32])),
+        );
+
+        let mut state = InitiatorState::new();
+        state.connection = ConnectionState::Initialized;
+        state.promotion = PromotionTag::Warm;
+        accept_version(&mut state, 16);
+        b.visit_housekeeping(&pid, &mut state, &mut outbound);
+        assert!(did_send_leios_fetch(&drain_outputs(&mut outbound)));
+        assert!(b.requests.is_empty());
+    }
+
     #[test]
     fn inbound_while_awaiting_keeps_the_next_request_queued() {
         let mut b = LeiosFetchBehavior::default();
         let pid = PeerId::test(1);
         let mut outbound = OutboundQueue::new();
 
+        let version_data =
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        #[cfg(feature = "unstable")]
+        let version_data = version_data.with_peras_support(false);
+
         let mut state = InitiatorState::new();
         state.connection = ConnectionState::Initialized;
         state.handshake = handshake::State::Done(handshake::DoneState::Accepted(
             handshake::n2n::LEIOS_MIN_VERSION,
-            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false)),
+            version_data,
         ));
         state.leios_fetch = lf::State::AwaitingBlock(Point::Origin);
         b.enqueue(pid.clone(), FetchRequest::Block(Point::Origin));
