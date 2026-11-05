@@ -88,15 +88,20 @@ impl BlockFetchBehavior {
     }
 
     /// Emits a [`BlockBodyReceived`](super::InitiatorEvent::BlockBodyReceived)
-    /// event if the peer's block-fetch state contains a new block.
+    /// event if the peer's block-fetch state holds a block not dispatched yet.
+    ///
+    /// The block is drained from the state: visitors run on every inbound
+    /// message of any mini-protocol, so leaving it in place would re-emit the
+    /// same body on each chainsync or keepalive message until the next
+    /// block-fetch message.
     pub fn dispatch_block(
         &self,
         pid: &PeerId,
-        state: &InitiatorState,
+        state: &mut InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        if let blockfetch_proto::State::Streaming(Some(block)) = &state.blockfetch {
-            let out = InitiatorEvent::BlockBodyReceived(pid.clone(), block.clone());
+        if let Some(block) = state.blockfetch.drain_block() {
+            let out = InitiatorEvent::BlockBodyReceived(pid.clone(), block);
 
             outbound.push_ready(BehaviorOutput::ExternalEvent(out));
         }
@@ -197,7 +202,7 @@ mod tests {
 
         state.blockfetch = bf::State::Streaming(Some(vec![0xBE; 64]));
 
-        bf.dispatch_block(&pid, &state, &mut outbound);
+        bf.dispatch_block(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
         let has_event = outputs.iter().any(|o| {
@@ -210,14 +215,30 @@ mod tests {
     }
 
     #[test]
+    fn dispatch_block_drains_the_block() {
+        let bf = BlockFetchBehavior::new(());
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.blockfetch = bf::State::Streaming(Some(vec![0xBE; 64]));
+
+        bf.dispatch_block(&pid, &mut state, &mut outbound);
+        bf.dispatch_block(&pid, &mut state, &mut outbound);
+
+        assert_eq!(drain_outputs(&mut outbound).len(), 1, "one event per block");
+        assert_eq!(state.blockfetch, bf::State::Streaming(None));
+    }
+
+    #[test]
     fn dispatch_block_noop_when_idle() {
         let bf = BlockFetchBehavior::new(());
         let pid = PeerId::test(1);
-        let state = InitiatorState::new();
+        let mut state = InitiatorState::new();
         let mut outbound = OutboundQueue::new();
 
         // Default state is Idle
-        bf.dispatch_block(&pid, &state, &mut outbound);
+        bf.dispatch_block(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
         assert!(outputs.is_empty());
