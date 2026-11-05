@@ -302,6 +302,137 @@ pub fn body_with_output(output: &[u8]) -> Vec<u8> {
     e.into_writer()
 }
 
+/// Builds a body with keys 25 and 26 on the account and a sub transaction per sub body.
+pub fn body_with_account_fields(account: &[u8], coin: u64, sub_bodies: &[&[u8]]) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(if sub_bodies.is_empty() { 5 } else { 6 }).unwrap();
+    write_mandatory_keys(&mut e);
+    write_sub_transactions(&mut e, sub_bodies);
+    write_account_fields(&mut e, account, coin);
+    e.into_writer()
+}
+
+/// Builds a body with key 27 on the account and a sub transaction per sub body.
+pub fn body_with_starting_balance_interval(
+    account: &[u8],
+    coin: u64,
+    sub_bodies: &[&[u8]],
+) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(if sub_bodies.is_empty() { 4 } else { 5 }).unwrap();
+    write_mandatory_keys(&mut e);
+    write_sub_transactions(&mut e, sub_bodies);
+
+    e.u8(27).unwrap();
+    e.map(1).unwrap();
+    e.bytes(account).unwrap();
+    e.u64(coin).unwrap();
+
+    e.into_writer()
+}
+
+/// Builds a body with keys 7, 11, 21 and 22 from the fill byte and a sub transaction per sub body.
+pub fn body_with_hashes_and_treasury(fill: u8, sub_bodies: &[&[u8]]) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(if sub_bodies.is_empty() { 7 } else { 8 }).unwrap();
+    write_mandatory_keys(&mut e);
+    write_hashes_and_treasury(&mut e, fill);
+    write_sub_transactions(&mut e, sub_bodies);
+    e.into_writer()
+}
+
+/// Builds a sub transaction body with keys 7, 11, 21 and 22 from the fill byte.
+pub fn sub_body_with_hashes_and_treasury(fill: u8) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(6).unwrap();
+
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+
+    write_hashes_and_treasury(&mut e, fill);
+    e.into_writer()
+}
+
+/// Returns the values written at keys 7, 11, 21 and 22 for the fill byte.
+pub fn hashes_and_treasury(fill: u8) -> ([u8; 32], [u8; 32], u64, u64) {
+    (
+        [fill; 32],
+        [fill.wrapping_add(1); 32],
+        u64::from(fill) * 1_000 + 21,
+        u64::from(fill) * 1_000 + 22,
+    )
+}
+
+fn write_hashes_and_treasury(e: &mut minicbor::Encoder<Vec<u8>>, fill: u8) {
+    let (aux_hash, script_hash, treasury, donation) = hashes_and_treasury(fill);
+
+    e.u8(7).unwrap();
+    e.bytes(&aux_hash).unwrap();
+
+    e.u8(11).unwrap();
+    e.bytes(&script_hash).unwrap();
+
+    e.u8(21).unwrap();
+    e.u64(treasury).unwrap();
+
+    e.u8(22).unwrap();
+    e.u64(donation).unwrap();
+}
+
+fn write_sub_transactions(e: &mut minicbor::Encoder<Vec<u8>>, sub_bodies: &[&[u8]]) {
+    if sub_bodies.is_empty() {
+        return;
+    }
+
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(sub_bodies.len() as u64).unwrap();
+    for body in sub_bodies {
+        e.array(3).unwrap();
+        e.writer_mut().extend_from_slice(body);
+        e.map(0).unwrap();
+        e.null().unwrap();
+    }
+}
+
+/// Builds a sub transaction body with keys 25 and 26 on the account given.
+pub fn sub_body_with_account_fields(account: &[u8], coin: u64) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(4).unwrap();
+
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+
+    write_account_fields(&mut e, account, coin);
+    e.into_writer()
+}
+
+fn write_account_fields(e: &mut minicbor::Encoder<Vec<u8>>, account: &[u8], coin: u64) {
+    e.u8(25).unwrap();
+    e.map(1).unwrap();
+    e.bytes(account).unwrap();
+    e.u64(coin).unwrap();
+
+    e.u8(26).unwrap();
+    e.map(1).unwrap();
+    e.bytes(account).unwrap();
+    e.u64(coin).unwrap();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

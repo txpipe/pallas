@@ -158,3 +158,39 @@ the builder cannot drift apart.
 The two proposal files are read by `pallas-primitives` and by
 `pallas-traverse`, and the two transaction files by `pallas-utxorpc`, so one
 set of bytes serves every crate that needs the shape.
+
+## A parameter change proposal
+
+`dijkstra-param-change.tx` is transaction 0 of block 22625 at slot 488445,
+header hash `89602eddedd1d817053e4f850c58bf663ffecf5a75d1e8d9911fd3999ee4a8a5`,
+of a network whose nodes run the ouroboros-leios `rc-2026w42` release, with
+network magic 164 and system start 2026-10-18. The block was fetched over
+utxorpc `FetchBlock`, and blake2b-256 of its header gives the hash above. The
+file is the transaction's 3072 bytes exactly as the block holds them, in the
+four element `block_transaction` form, written as lowercase hex with no
+trailing newline.
+
+| transaction | body keys | witness keys | what it carries |
+| --- | --- | --- | --- |
+| `a1f781c4c4bb5c380fd0331cfc3ca3b4a3740491e274dcf8e58b0fe459a0d479` | 0, 1, 2, 11, 13, 16, 17, 20 | 0, 5, 7 | one proposal at body key 20, a parameter change setting keys 45 and 46 to 308000 and 2000000 under guardrail script `e3172285605e502bde008a7efe2b2eec516958b7bae911947a5c9373`, with a deposit of 100000000000 |
+
+The keys, values and hashes were read with Python's `cbor2` and `hashlib`
+rather than with pallas.
+
+## A guarding redeemer
+
+`dijkstra-guarding-redeemer.tx` is a transaction whose witness set was
+generated from the Dijkstra CDDL of cardano-ledger
+`9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c`, under a body with no inputs, no
+outputs and a zero fee and with null auxiliary data, written as lowercase hex
+with no trailing newline. The ledger at that commit decodes the transaction
+and reads two redeemers from witness key 5.
+
+| tag | purpose | index | memory | steps |
+| --- | --- | --- | --- | --- |
+| 3 | withdrawing | 2498742861 | 7394972775039390592 | 4455026327047478000 |
+| 6 | guarding | 3723616606 | 7982482519345238718 | 8267307830042052150 |
+
+The purposes, indexes and units are the ledger's own print of the decoded
+witness set, and the tags were read from the bytes with a standalone CBOR
+walker rather than with pallas.

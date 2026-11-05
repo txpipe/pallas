@@ -68,3 +68,7 @@ pallas-validate = { version = "=1.4.0", path = "pallas-validate" }
 [workspace.metadata.release]
 push = false
 publish = false
+
+[patch.crates-io]
+# The v1 `Tx` with `TxCommon` is in no utxorpc-spec release.
+utxorpc-spec = { git = "https://github.com/SundaeSwap-finance/utxorpc-spec", rev = "4bef71401bae7e9fc80b9d24379be0f9078b0ff5" }
