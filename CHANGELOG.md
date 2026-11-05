@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0-rc.1] - 2026-11-05
+
+### 🚀 Features
+
+- *(traverse)* Support traverse of Dijkstra era structures (#800)
+- *(traverse)* Read a Dijkstra value through the accessors (#801)
+- *(traverse)* Introduce better multi-era certificate views (#815)
+- *(primitives)* Read leios endorser blocks (#816)
+- *(traverse)* Read Dijkstra certificates (#821)
+
+### 🐛 Bug Fixes
+
+- *(configs)* Read the extraConfig block of a shelley genesis (#797)
+- *(math)* Align fixed-point arithmetic with Cardano node (#822)
+- *(network2)* Stop sending a request twice before the Sent event (#818)
+- *(traverse)* Judge a sub tx validity by its parent (#817)
+- *(utxorpc)* Map PlutusV3 and PlutusV4 witness scripts (#838)
+- Read indefinite length byte and text strings (#831)
+- *(utxorpc)* Map Dijkstra scripts and votes (#833)
+- *(utxorpc)* Map the pool retirement epoch bound (#837)
+- *(network2)* Decode the leios-notify and leios-fetch messages of current nodes (#836)
+- *(traverse)* Include Dijkstra sub transaction inputs in requires (#830)
+- [**breaking**] Harden recursive data destruction and protocol codecs (#845)
+
+### 🔧 Continuous Integration
+
+- Publish with the org-level CRATES_IO_TOKEN (#834)
+
+### ⚡ Performance
+
+- *(network2)* Send queued fetch requests as soon as a peer is idle (#819)
+
 ## [1.4.0] - 2026-09-17
 
 ### 🐛 Bug Fixes
@@ -16,6 +48,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(primitives)* Align stack-safe tree code on fold_tree and walk_tree (#812)
+- Release v1.4.0
 
 ## [1.3.0] - 2026-09-17
 
@@ -962,22 +995,16 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Features
 
-- *(addresses)* Add hex and bech32 for Shelley parts (#181)
-
-## [0.13.2] - 2022-08-20
-
-### 🚀 Features
-
 - *(primitives)* Enable serde of ledger structs (#169)
 - Introduce Bech32 crate (#176)
 - Add magic constants for preview and preprod environments (#179)
 - *(traverse)* Introduce new MultiEraTx helpers (#184)
+- *(addresses)* Add hex and bech32 for Shelley parts (#181)
 
 ### 🐛 Bug Fixes
 
 - *(codec)* Make Int struct copy (#170)
 - Use correct prefix when hashing plutus v2 script (#182)
-- *(addresses)* Skip error on pointer address overflow (#178)
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -990,6 +1017,12 @@ All notable changes to this project will be documented in this file.
 
 - *(deps)* Update bech32 requirement from 0.8.1 to 0.9.1 (#177)
 - *(deps)* Update minicbor requirement from 0.17 to 0.18 (#134)
+
+## [0.13.2] - 2022-08-20
+
+### 🐛 Bug Fixes
+
+- *(addresses)* Skip error on pointer address overflow (#178)
 
 ## [0.13.1] - 2022-08-08
 
