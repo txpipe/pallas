@@ -25,4 +25,4 @@ itertools.workspace = true
 serde.workspace = true
 
 [features]
-unstable = []
+unstable = ["pallas-primitives/unstable"]

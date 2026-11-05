@@ -318,16 +318,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 };
                 Ok((Builder::new(partial), arity))
             }
-            Type::Bytes => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
-            Type::BytesIndef => {
-                let mut full = Vec::new();
-
-                for slice in d.bytes_iter()? {
-                    full.extend(slice?);
-                }
-
-                leaf(PlutusData::BoundedBytes(BoundedBytes::from(full)))
-            }
+            Type::Bytes | Type::BytesIndef => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
             Type::Array | Type::ArrayIndef => {
                 let len = d.array()?;
                 let partial = Partial::Array {

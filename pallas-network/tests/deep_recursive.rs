@@ -137,6 +137,12 @@ fn protocol_plutus_order_and_wire_semantics_are_preserved() {
     assert_eq!(c.tag, 102);
     assert_eq!(c.any_constructor, Some(0));
     assert!(matches!(decode("00").into_bigint(), Ok(BigInt::Int(_))));
+    // Both byte-string forms use the shared decoder introduced on main.
+    assert!(decode("43010203") == decode("5f4201024103ff"));
+    assert_eq!(
+        minicbor::to_vec(decode("5f4201024103ff")).unwrap(),
+        hex::decode("43010203").unwrap()
+    );
     // Native-script variants and signed thresholds retain their existing bytes.
     for wire in [
         "820400",

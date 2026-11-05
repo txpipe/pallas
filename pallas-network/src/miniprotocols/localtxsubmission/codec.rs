@@ -1,5 +1,6 @@
 use pallas_codec::minicbor::data::{IanaTag, Tag};
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
+use pallas_codec::utils::decode_bytes_def_or_indef;
 
 use crate::miniprotocols::localstate::queries_v16::{BigInt, BoundedBytes, Constr, DatumOption};
 use crate::miniprotocols::localtxsubmission::primitives::Voter;
@@ -864,13 +865,8 @@ impl<C> Encode<C> for BoundedBytes {
 }
 
 impl<'b, C> Decode<'b, C> for BoundedBytes {
-    fn decode(d: &mut Decoder<'b>, _: &mut C) -> Result<Self, decode::Error> {
-        let mut res = Vec::new();
-        for chunk in d.bytes_iter()? {
-            let bs = chunk?;
-            res.extend_from_slice(bs);
-        }
-        Ok(BoundedBytes::from(res))
+    fn decode(d: &mut Decoder<'b>, ctx: &mut C) -> Result<Self, decode::Error> {
+        decode_bytes_def_or_indef(d, ctx).map(|bytes| BoundedBytes::from(bytes.into_owned()))
     }
 }
 
