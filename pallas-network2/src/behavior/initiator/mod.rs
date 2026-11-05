@@ -733,22 +733,24 @@ mod tests {
         drain_outputs(behavior)
     }
 
-    /// Completes a handshake negotiating a Leios-capable version (15).
+    /// Completes a handshake negotiating a Leios-capable version (16).
     fn complete_handshake_leios(
         behavior: &mut InitiatorBehavior,
         pid: &PeerId,
     ) -> Vec<BehaviorOutput<InitiatorBehavior>> {
         let version_data =
             handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        #[cfg(feature = "unstable")]
+        let version_data = version_data.with_peras_support(false);
         let mut values = HashMap::new();
-        values.insert(15u64, version_data.clone());
+        values.insert(16u64, version_data.clone());
         let version_table = handshake::VersionTable { values };
 
         let propose = AnyMessage::Handshake(handshake::Message::Propose(version_table));
         behavior.handle_io(InterfaceEvent::Sent(pid.clone(), propose));
         drain_outputs(behavior);
 
-        let accept = AnyMessage::Handshake(handshake::Message::Accept(15, version_data));
+        let accept = AnyMessage::Handshake(handshake::Message::Accept(16, version_data));
         behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![accept]));
         drain_outputs(behavior)
     }
@@ -1065,7 +1067,7 @@ mod tests {
 
     #[tokio::test]
     async fn leios_notify_and_fetch_flow() {
-        // Composition: handshake negotiates v15 → supports_leios → notify pull
+        // Composition: handshake negotiates v16 → supports_leios → notify pull
         // loop surfaces an offer → fetch command pulls the EB body.
         tokio::time::pause();
 

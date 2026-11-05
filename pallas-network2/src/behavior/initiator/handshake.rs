@@ -28,6 +28,8 @@ impl Default for HandshakeBehavior {
                         peer_sharing: Some(1),
                         //peer_sharing: Some(0),
                         query: Some(false),
+                        #[cfg(feature = "unstable")]
+                        peras_support: None,
                     },
                 )]
                 .into_iter()
@@ -185,6 +187,34 @@ mod tests {
             )
         });
         assert!(has_init_event, "should emit PeerInitialized event");
+    }
+
+    #[test]
+    fn only_v16_and_above_supports_leios() {
+        let mut hs = HandshakeBehavior::default();
+        let pid = PeerId::test(1);
+        let mut outbound = OutboundQueue::new();
+
+        // Every version pallas proposes, with the version data it proposes for it.
+        let mut proposed: Vec<_> = handshake::n2n::VersionTable::v7_and_above(MAINNET_MAGIC)
+            .values
+            .into_iter()
+            .collect();
+        proposed.sort_by_key(|(version, _)| *version);
+
+        for (version, version_data) in proposed {
+            let mut state = InitiatorState::new();
+            state.handshake =
+                handshake::State::Done(handshake::DoneState::Accepted(version, version_data));
+            state.connection = ConnectionState::Connected;
+
+            hs.visit_inbound_msg(&pid, &mut state, &mut outbound);
+
+            assert_eq!(state.connection, ConnectionState::Initialized);
+            // The Haskell node runs the Leios mini-protocols from v16 only; v15 is
+            // mainline's SRV support.
+            assert_eq!(state.supports_leios(), version >= 16, "version {version}");
+        }
     }
 
     #[test]
