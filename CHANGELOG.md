@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.5.0] - 2026-11-04
+## [1.5.0] - 2026-11-05
 
 ### 🐛 Bug Fixes
 
@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - *(math)* Align fixed-point arithmetic with Cardano node (#822)
 - *(network2)* Stop sending a request twice before the Sent event (#818)
 - *(primitives)* [**breaking**] Make metadata and Plutus data destruction stack-safe
+- [**breaking**] Harden recursive protocol and flat-padding trees
 
 ### 🔧 Continuous Integration
 
