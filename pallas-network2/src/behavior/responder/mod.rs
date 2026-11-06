@@ -8,7 +8,7 @@ use crate::{
     protocol as proto,
 };
 
-use super::{AcceptedVersion, AnyMessage, BlockRange, ConnectionState};
+use super::{AcceptedVersion, AnyMessage, BlockRange, ConnectionState, unsent::UnsentRequests};
 
 pub mod blockfetch;
 pub mod chainsync;
@@ -100,6 +100,7 @@ pub struct ResponderState {
     pub(crate) violation: bool,
     pub(crate) error_count: u32,
     pub(crate) violations_counter: Option<opentelemetry::metrics::Counter<u64>>,
+    pub(crate) unsent: UnsentRequests,
 }
 
 impl ResponderState {
@@ -262,6 +263,7 @@ impl ResponderState {
         self.leios_notify = proto::leiosnotify::State::default();
         self.leios_fetch = proto::leiosfetch::State::default();
         self.violation = false;
+        self.unsent = UnsentRequests::default();
     }
 }
 
@@ -294,14 +296,8 @@ pub enum ResponderCommand {
     ProvideVotes(PeerId, Vec<proto::leiosnotify::VoteCbor>),
     /// Deliver an EB body to a peer via leios-fetch.
     ProvideEb(PeerId, proto::leiosfetch::EndorserBlockCbor),
-    /// Deliver EB transactions to a peer via leios-fetch, echoing the request's
-    /// point and bitmaps.
-    ProvideEbTxs(
-        PeerId,
-        proto::EbId,
-        proto::leiosfetch::Bitmaps,
-        Vec<proto::leiosfetch::TxCbor>,
-    ),
+    /// Deliver EB transactions to a peer via leios-fetch.
+    ProvideEbTxs(PeerId, Vec<proto::leiosfetch::TxCbor>),
     /// Ban a peer and disconnect them.
     BanPeer(PeerId),
     /// Disconnect a peer gracefully.
@@ -462,6 +458,7 @@ impl ResponderBehavior {
         tracing::debug!(channel = msg.channel(), "new outbound message");
 
         self.peers.entry(pid.clone()).and_modify(|state| {
+            state.clear_unsent(msg);
             state.apply_msg(msg);
 
             if state.violation {
@@ -726,14 +723,10 @@ impl Behavior for ResponderBehavior {
                     AnyMessage::LeiosFetch(proto::leiosfetch::Message::Block(block)),
                 );
             }
-            ResponderCommand::ProvideEbTxs(pid, point, bitmaps, txs) => {
+            ResponderCommand::ProvideEbTxs(pid, txs) => {
                 self.send_msg(
                     &pid,
-                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::BlockTxs {
-                        point,
-                        bitmaps,
-                        txs,
-                    }),
+                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::BlockTxs { txs }),
                 );
             }
             ResponderCommand::BanPeer(pid) => {
@@ -753,7 +746,8 @@ mod tests {
     use super::*;
     use crate::InterfaceEvent;
     use crate::protocol::{
-        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, txsubmission as txsub,
+        MAINNET_MAGIC, Point, chainsync as cs, handshake, keepalive, leiosnotify as notify,
+        txsubmission as txsub,
     };
     use crate::testing::BehaviorOutputExt;
     use futures::StreamExt;
@@ -953,23 +947,157 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn txsubmission_initialized_on_housekeeping_after_handshake() {
-        // Composition: handshake sets Initialized → housekeeping →
-        //              txsubmission detects Init state → sends Init message
+    async fn txsubmission_awaits_peer_init_after_handshake() {
+        tokio::time::pause();
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(14);
+        connect_and_handshake(&mut behavior, &pid);
+        behavior.execute(ResponderCommand::Housekeeping);
+        let mut outputs = drain_outputs(&mut behavior);
+        behavior.execute(ResponderCommand::Housekeeping);
+        outputs.extend(drain_outputs(&mut behavior));
+        assert_eq!(
+            outputs
+                .sends()
+                .filter(|&(_, m)| matches!(m, AnyMessage::TxSubmission(_)))
+                .count(),
+            0,
+            "tx submission sends before the peer's Init"
+        );
+    }
+
+    #[tokio::test]
+    async fn peer_init_after_housekeeping_requests_tx_ids_once() {
+        tokio::time::pause();
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(15);
+        connect_and_handshake(&mut behavior, &pid);
+        behavior.execute(ResponderCommand::Housekeeping);
+        let mut outputs = drain_outputs(&mut behavior);
+        behavior.handle_io(InterfaceEvent::Recv(
+            pid.clone(),
+            vec![AnyMessage::TxSubmission(txsub::Message::Init)],
+        ));
+        outputs.extend(drain_outputs(&mut behavior));
+        behavior.execute(ResponderCommand::Housekeeping);
+        outputs.extend(drain_outputs(&mut behavior));
+        let sent: Vec<_> = outputs
+            .sends()
+            .filter(|&(_, m)| matches!(m, AnyMessage::TxSubmission(_)))
+            .map(|(_, m)| m.clone())
+            .collect();
+        for msg in &sent {
+            behavior.handle_io(InterfaceEvent::Sent(pid.clone(), msg.clone()));
+        }
+        assert!(
+            !behavior.peers.get(&pid).unwrap().violation,
+            "the Sent events set no violation"
+        );
+        assert_eq!(sent.len(), 1, "tx submission sends");
+        assert!(
+            matches!(
+                sent[0],
+                AnyMessage::TxSubmission(txsub::Message::RequestTxIds(..))
+            ),
+            "the one send is RequestTxIds"
+        );
+    }
+
+    #[tokio::test]
+    async fn txsubmission_requests_tx_ids_once_until_sent() {
+        tokio::time::pause();
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(60);
+        connect_and_handshake(&mut behavior, &pid);
+        behavior.handle_io(InterfaceEvent::Recv(
+            pid.clone(),
+            vec![AnyMessage::TxSubmission(txsub::Message::Init)],
+        ));
+        drain_outputs(&mut behavior);
+        behavior.execute(ResponderCommand::Housekeeping);
+        let mut outputs = drain_outputs(&mut behavior);
+        behavior.execute(ResponderCommand::Housekeeping);
+        outputs.extend(drain_outputs(&mut behavior));
+        let ids: Vec<_> = outputs
+            .sends()
+            .filter(|&(_, m)| {
+                matches!(
+                    m,
+                    AnyMessage::TxSubmission(txsub::Message::RequestTxIds(..))
+                )
+            })
+            .map(|(_, m)| m.clone())
+            .collect();
+        assert_eq!(ids.len(), 1, "RequestTxIds count over two passes");
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), ids[0].clone()));
+        assert!(
+            !behavior.peers.get(&pid).unwrap().violation,
+            "its Sent sets no violation"
+        );
+    }
+
+    #[tokio::test]
+    async fn leios_notify_request_is_left_to_the_application() {
         tokio::time::pause();
 
         let mut behavior = ResponderBehavior::default();
-        let pid = PeerId::test(14);
+        let pid = PeerId::test(15);
 
         connect_and_handshake(&mut behavior, &pid);
 
-        // Housekeeping should trigger txsubmission Init
-        behavior.execute(ResponderCommand::Housekeeping);
+        let request = AnyMessage::LeiosNotify(notify::Message::RequestNext);
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![request]));
         let outputs = drain_outputs(&mut behavior);
 
         assert!(
-            outputs.has_send(|m| matches!(m, AnyMessage::TxSubmission(txsub::Message::Init))),
-            "should send TxSubmission Init after handshake + housekeeping"
+            outputs.has_event(
+                |e| matches!(e, ResponderEvent::EbNotificationRequested(p) if *p == pid)
+            ),
+            "should emit EbNotificationRequested event"
         );
+        assert!(
+            !outputs.has_send(|m| matches!(m, AnyMessage::LeiosNotify(_))),
+            "should leave the reply to the application"
+        );
+        assert_eq!(behavior.peers[&pid].leios_notify, notify::State::Busy);
+    }
+
+    #[tokio::test]
+    async fn leios_notify_quit_is_answered_with_done() {
+        tokio::time::pause();
+
+        let mut behavior = ResponderBehavior::default();
+        let pid = PeerId::test(16);
+
+        connect_and_handshake(&mut behavior, &pid);
+
+        let quit = AnyMessage::LeiosNotify(notify::Message::Quit);
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![quit]));
+        let outputs = drain_outputs(&mut behavior);
+
+        let dones = outputs
+            .iter()
+            .filter(|o| {
+                matches!(
+                    o,
+                    BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                        p,
+                        AnyMessage::LeiosNotify(notify::Message::Done)
+                    )) if *p == pid
+                )
+            })
+            .count();
+        assert_eq!(dones, 1, "should answer Quit with one Done");
+        assert!(
+            !outputs.has_event(|e| matches!(e, ResponderEvent::EbNotificationRequested(_))),
+            "should not ask the application for a notification"
+        );
+
+        let done = AnyMessage::LeiosNotify(notify::Message::Done);
+        behavior.handle_io(InterfaceEvent::Sent(pid.clone(), done));
+
+        let state = &behavior.peers[&pid];
+        assert!(!state.violation);
+        assert_eq!(state.leios_notify, notify::State::Done);
     }
 }

@@ -7,7 +7,12 @@ impl Encode<()> for BlockQuery {
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        match self {
+        let mut query = self;
+        while let BlockQuery::GetCBOR(inner) = query {
+            e.array(2)?.u16(9)?;
+            query = inner;
+        }
+        match query {
             BlockQuery::GetLedgerTip => {
                 e.array(1)?;
                 e.u16(0)?;
@@ -45,11 +50,7 @@ impl Encode<()> for BlockQuery {
                 e.array(1)?;
                 e.u16(8)?;
             }
-            BlockQuery::GetCBOR(x) => {
-                e.array(2)?;
-                e.u16(9)?;
-                e.encode(x)?;
-            }
+            BlockQuery::GetCBOR(_) => unreachable!("wrappers were peeled"),
             BlockQuery::GetFilteredDelegationsAndRewardAccounts(x) => {
                 e.array(2)?;
                 e.u16(10)?;
@@ -191,74 +192,84 @@ impl Encode<()> for BlockQuery {
 
 impl<'b> Decode<'b, ()> for BlockQuery {
     fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
-        let len = d.array()?;
-
-        match d.u16()? {
-            0 => Ok(Self::GetLedgerTip),
-            1 => Ok(Self::GetEpochNo),
-            2 => Ok(Self::GetNonMyopicMemberRewards(d.decode()?)),
-            3 => Ok(Self::GetCurrentPParams),
-            4 => Ok(Self::GetProposedPParamsUpdates),
-            5 => Ok(Self::GetStakeDistribution),
-            6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
-            7 => Ok(Self::GetUTxOWhole),
-            8 => Ok(Self::DebugEpochState),
-            9 => Ok(Self::GetCBOR(d.decode()?)),
-            10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(d.decode()?)),
-            11 => Ok(Self::GetGenesisConfig),
-            12 => Ok(Self::DebugNewEpochState),
-            13 => Ok(Self::DebugChainDepState),
-            14 => Ok(Self::GetRewardProvenance),
-            15 => Ok(Self::GetUTxOByTxIn(d.decode()?)),
-            16 => Ok(Self::GetStakePools),
-            17 => Ok(Self::GetStakePoolParams(d.decode()?)),
-            18 => Ok(Self::GetRewardInfoPools),
-            19 => Ok(Self::GetPoolState(d.decode()?)),
-            20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
-            21 => Ok(Self::GetPoolDistr(d.decode()?)),
-            22 => Ok(Self::GetStakeDelegDeposits(d.decode()?)),
-            23 => Ok(Self::GetConstitution),
-            24 => Ok(Self::GetGovState),
-            25 => Ok(Self::GetDRepState(d.decode()?)),
-            26 => Ok(Self::GetDRepStakeDistr(d.decode()?)),
-            27 => Ok(Self::GetCommitteeMembersState(
-                d.decode()?,
-                d.decode()?,
-                d.decode()?,
-            )),
-            28 => Ok(Self::GetFilteredVoteDelegatees(d.decode()?)),
-            29 => Ok(Self::GetAccountState),
-            30 => Ok(Self::GetSPOStakeDistr(d.decode()?)),
-            31 => Ok(Self::GetProposals(d.decode()?)),
-            32 => Ok(Self::GetRatifyState),
-            33 => Ok(Self::GetFuturePParams),
-            // Tag 34 is overloaded: legacy single-element form (v11–v14)
-            // returns the big peer snapshot only, while the v15+ form carries
-            // a peer-kind discriminator (0 = All, 1 = Big).
-            34 => match len {
-                Some(1) => Ok(Self::GetBigLedgerPeerSnapshot),
-                Some(2) => {
-                    let kind = match d.u8()? {
-                        0 => LedgerPeerSnapshotKind::All,
-                        1 => LedgerPeerSnapshotKind::Big,
-                        n => {
-                            return Err(decode::Error::message(format!(
-                                "unknown LedgerPeerSnapshot kind tag: {n}"
-                            )));
-                        }
-                    };
-                    Ok(Self::GetLedgerPeerSnapshot(kind))
-                }
-                _ => Err(decode::Error::message(
-                    "GetLedgerPeerSnapshot: unexpected array length",
+        let mut depth = 0;
+        loop {
+            let len = d.array()?;
+            let tag = d.u16()?;
+            if tag == 9 {
+                depth += 1;
+                continue;
+            }
+            let mut query = match tag {
+                0 => Ok(Self::GetLedgerTip),
+                1 => Ok(Self::GetEpochNo),
+                2 => Ok(Self::GetNonMyopicMemberRewards(d.decode()?)),
+                3 => Ok(Self::GetCurrentPParams),
+                4 => Ok(Self::GetProposedPParamsUpdates),
+                5 => Ok(Self::GetStakeDistribution),
+                6 => Ok(Self::GetUTxOByAddress(d.decode()?)),
+                7 => Ok(Self::GetUTxOWhole),
+                8 => Ok(Self::DebugEpochState),
+                10 => Ok(Self::GetFilteredDelegationsAndRewardAccounts(d.decode()?)),
+                11 => Ok(Self::GetGenesisConfig),
+                12 => Ok(Self::DebugNewEpochState),
+                13 => Ok(Self::DebugChainDepState),
+                14 => Ok(Self::GetRewardProvenance),
+                15 => Ok(Self::GetUTxOByTxIn(d.decode()?)),
+                16 => Ok(Self::GetStakePools),
+                17 => Ok(Self::GetStakePoolParams(d.decode()?)),
+                18 => Ok(Self::GetRewardInfoPools),
+                19 => Ok(Self::GetPoolState(d.decode()?)),
+                20 => Ok(Self::GetStakeSnapshots(d.decode()?)),
+                21 => Ok(Self::GetPoolDistr(d.decode()?)),
+                22 => Ok(Self::GetStakeDelegDeposits(d.decode()?)),
+                23 => Ok(Self::GetConstitution),
+                24 => Ok(Self::GetGovState),
+                25 => Ok(Self::GetDRepState(d.decode()?)),
+                26 => Ok(Self::GetDRepStakeDistr(d.decode()?)),
+                27 => Ok(Self::GetCommitteeMembersState(
+                    d.decode()?,
+                    d.decode()?,
+                    d.decode()?,
                 )),
-            },
-            36 => Ok(Self::GetPoolDistr2(d.decode()?)),
-            37 => Ok(Self::GetStakeDistribution2),
-            39 => Ok(Self::GetDRepsDelegations(d.decode()?)),
-            tag => Err(decode::Error::message(format!(
-                "unknown BlockQuery tag: {tag}"
-            ))),
+                28 => Ok(Self::GetFilteredVoteDelegatees(d.decode()?)),
+                29 => Ok(Self::GetAccountState),
+                30 => Ok(Self::GetSPOStakeDistr(d.decode()?)),
+                31 => Ok(Self::GetProposals(d.decode()?)),
+                32 => Ok(Self::GetRatifyState),
+                33 => Ok(Self::GetFuturePParams),
+                // Tag 34 is overloaded: legacy single-element form (v11–v14)
+                // returns the big peer snapshot only, while the v15+ form carries
+                // a peer-kind discriminator (0 = All, 1 = Big).
+                34 => match len {
+                    Some(1) => Ok(Self::GetBigLedgerPeerSnapshot),
+                    Some(2) => {
+                        let kind = match d.u8()? {
+                            0 => LedgerPeerSnapshotKind::All,
+                            1 => LedgerPeerSnapshotKind::Big,
+                            n => {
+                                return Err(decode::Error::message(format!(
+                                    "unknown LedgerPeerSnapshot kind tag: {n}"
+                                )));
+                            }
+                        };
+                        Ok(Self::GetLedgerPeerSnapshot(kind))
+                    }
+                    _ => Err(decode::Error::message(
+                        "GetLedgerPeerSnapshot: unexpected array length",
+                    )),
+                },
+                36 => Ok(Self::GetPoolDistr2(d.decode()?)),
+                37 => Ok(Self::GetStakeDistribution2),
+                39 => Ok(Self::GetDRepsDelegations(d.decode()?)),
+                tag => Err(decode::Error::message(format!(
+                    "unknown BlockQuery tag: {tag}"
+                ))),
+            }?;
+            for _ in 0..depth {
+                query = Self::GetCBOR(Box::new(query));
+            }
+            return Ok(query);
         }
     }
 }

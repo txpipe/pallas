@@ -124,6 +124,7 @@ impl PeerVisitor for ChainSyncBehavior {
         }
 
         self.drain_data(pid, state, outbound);
+        state.try_send_deferred_next(pid, outbound);
     }
 
     fn visit_tagged(
@@ -144,7 +145,12 @@ impl PeerVisitor for ChainSyncBehavior {
 
         if state.continue_sync {
             tracing::debug!("peer wants to continue sync");
-            self.request_next(pid, state, outbound);
+
+            let next = AnyMessage::ChainSync(chainsync_proto::Message::RequestNext);
+
+            if !state.try_send_request(pid, next, outbound) {
+                state.defer_sync_next();
+            }
         }
     }
 
@@ -171,7 +177,8 @@ impl PeerVisitor for ChainSyncBehavior {
 
         tracing::trace!("peer needs to sync");
 
-        self.request_intersection(pid, intersection, outbound);
+        let msg = chainsync_proto::Message::FindIntersect(intersection.clone());
+        state.try_send_request(pid, AnyMessage::ChainSync(msg), outbound);
     }
 }
 

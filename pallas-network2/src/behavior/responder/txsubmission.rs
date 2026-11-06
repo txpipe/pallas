@@ -1,5 +1,5 @@
 use crate::{
-    BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage,
+    BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage,
     protocol::txsubmission as txsubmission_proto,
 };
 
@@ -35,32 +35,10 @@ impl TxSubmissionResponder {
         Self { config }
     }
 
-    fn try_init(
-        &self,
-        pid: &PeerId,
-        state: &ResponderState,
-        outbound: &mut OutboundQueue<ResponderBehavior>,
-    ) {
-        if !state.is_initialized() {
-            return;
-        }
-
-        if !matches!(state.tx_submission, txsubmission_proto::State::Init) {
-            return;
-        }
-
-        tracing::debug!("initializing tx submission");
-        let msg = txsubmission_proto::Message::Init;
-        outbound.push_ready(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::TxSubmission(msg),
-        ));
-    }
-
     fn try_request_tx_ids(
         &self,
         pid: &PeerId,
-        state: &ResponderState,
+        state: &mut ResponderState,
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
         if !state.is_initialized() {
@@ -73,10 +51,7 @@ impl TxSubmissionResponder {
 
         tracing::debug!("requesting tx ids");
         let msg = txsubmission_proto::Message::RequestTxIds(true, 0, self.config.max_tx_request);
-        outbound.push_ready(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::TxSubmission(msg),
-        ));
+        state.try_send_request(pid, AnyMessage::TxSubmission(msg), outbound);
     }
 
     fn try_extract_txs(
@@ -103,7 +78,6 @@ impl ResponderPeerVisitor for TxSubmissionResponder {
         state: &mut ResponderState,
         outbound: &mut OutboundQueue<ResponderBehavior>,
     ) {
-        self.try_init(pid, state, outbound);
         self.try_request_tx_ids(pid, state, outbound);
     }
 
@@ -120,11 +94,11 @@ impl ResponderPeerVisitor for TxSubmissionResponder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::OutboundQueue;
     use crate::behavior::ConnectionState;
     use crate::protocol::MAINNET_MAGIC;
     use crate::protocol::handshake;
     use crate::protocol::txsubmission::{EraTxBody, State as TxState};
+    use crate::{InterfaceCommand, OutboundQueue};
 
     fn drain_outputs(
         outbound: &mut OutboundQueue<ResponderBehavior>,
@@ -141,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn init_sent_when_initialized_and_init_state() {
+    fn nothing_sent_when_initialized_and_init_state() {
         let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig::default());
         let pid = PeerId::test(1);
         let mut state = make_initialized_state();
@@ -152,16 +126,10 @@ mod tests {
         txsub.visit_housekeeping(&pid, &mut state, &mut outbound);
 
         let outputs = drain_outputs(&mut outbound);
-        let has_init = outputs.iter().any(|o| {
-            matches!(
-                o,
-                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-                    _,
-                    AnyMessage::TxSubmission(txsubmission_proto::Message::Init)
-                ))
-            )
-        });
-        assert!(has_init, "should send Init message");
+        assert!(
+            outputs.is_empty(),
+            "should send nothing before the peer's Init"
+        );
     }
 
     #[test]
@@ -222,24 +190,6 @@ mod tests {
             .collect();
 
         assert_eq!(tx_events.len(), 2, "should emit TxReceived for each tx");
-    }
-
-    #[test]
-    fn init_not_sent_when_not_initialized() {
-        let mut txsub = TxSubmissionResponder::new(TxSubmissionResponderConfig::default());
-        let pid = PeerId::test(1);
-        let mut state = ResponderState::new(); // NOT initialized
-        let mut outbound = OutboundQueue::new();
-
-        state.tx_submission = TxState::Init;
-
-        txsub.visit_housekeeping(&pid, &mut state, &mut outbound);
-
-        let outputs = drain_outputs(&mut outbound);
-        assert!(
-            outputs.is_empty(),
-            "should not send Init when not initialized"
-        );
     }
 
     #[test]

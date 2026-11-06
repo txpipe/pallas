@@ -1415,13 +1415,49 @@ where
     }
 }
 
-#[derive(
-    Serialize, Deserialize, Clone, Encode, Decode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+/// Decode a CBOR byte string written in either the definite or the indefinite length form.
+pub fn decode_bytes_def_or_indef<'b, C>(
+    d: &mut minicbor::Decoder<'b>,
+    _ctx: &mut C,
+) -> Result<Cow<'b, [u8]>, Error> {
+    if d.datatype()? == Type::BytesIndef {
+        let mut joined = Vec::new();
+        for chunk in d.bytes_iter()? {
+            joined.extend_from_slice(chunk?);
+        }
+        Ok(Cow::Owned(joined))
+    } else {
+        d.bytes().map(Cow::Borrowed)
+    }
+}
+
+/// Decode a CBOR text string written in either the definite or the indefinite length form.
+pub fn decode_text_def_or_indef<'b, C>(
+    d: &mut minicbor::Decoder<'b>,
+    _ctx: &mut C,
+) -> Result<String, Error> {
+    if d.datatype()? == Type::StringIndef {
+        let mut joined = String::new();
+        for chunk in d.str_iter()? {
+            joined.push_str(chunk?);
+        }
+        Ok(joined)
+    } else {
+        d.str().map(String::from)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cbor(transparent)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
 pub struct Bytes(#[n(0)] minicbor::bytes::ByteVec);
+
+impl<'b, C> minicbor::Decode<'b, C> for Bytes {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, Error> {
+        decode_bytes_def_or_indef(d, ctx).map(|bytes| Bytes::from(bytes.into_owned()))
+    }
+}
 
 impl From<Vec<u8>> for Bytes {
     fn from(xs: Vec<u8>) -> Self {
@@ -1573,5 +1609,67 @@ mod tests {
 
         assert_eq!(subject.inner, vec![1, 2, 3]);
         assert_eq!(encoded, hex::decode("83010203").unwrap());
+    }
+
+    #[test]
+    fn bytes_refuse_text_and_other_types() {
+        for hex in ["63616263", "7f6161626263ff", "03", "80"] {
+            let raw = hex::decode(hex).unwrap();
+            assert!(minicbor::decode::<Bytes>(&raw).is_err(), "{hex}");
+        }
+    }
+
+    #[test]
+    fn bytes_decode_from_either_length_form() {
+        for (hex, expected) in [
+            ("43010203", vec![1, 2, 3]),
+            ("5f4201024103ff", vec![1, 2, 3]),
+            ("5f43010203ff", vec![1, 2, 3]),
+            ("5fff", vec![]),
+        ] {
+            let raw = hex::decode(hex).unwrap();
+            let decoded: Bytes = minicbor::decode(&raw).unwrap();
+            assert_eq!(decoded, Bytes::from(expected), "{hex}");
+        }
+    }
+
+    #[test]
+    fn byte_string_reader_refuses_text_and_other_types() {
+        for hex in ["63616263", "7f6161626263ff", "03"] {
+            let raw = hex::decode(hex).unwrap();
+            let mut d = minicbor::Decoder::new(&raw);
+            assert!(decode_bytes_def_or_indef(&mut d, &mut ()).is_err(), "{hex}");
+        }
+    }
+
+    #[test]
+    fn text_string_reader_refuses_bytes_and_other_types() {
+        for hex in ["43616263", "5f4201024103ff", "03"] {
+            let raw = hex::decode(hex).unwrap();
+            let mut d = minicbor::Decoder::new(&raw);
+            assert!(decode_text_def_or_indef(&mut d, &mut ()).is_err(), "{hex}");
+        }
+    }
+
+    #[test]
+    fn length_form_readers_join_chunks() {
+        let raw = hex::decode("43010203").unwrap();
+        let mut d = minicbor::Decoder::new(&raw);
+        let bytes = decode_bytes_def_or_indef(&mut d, &mut ()).unwrap();
+        assert_eq!(*bytes, [1, 2, 3]);
+        assert_eq!(d.position(), raw.len());
+
+        let raw = hex::decode("5f4201024103ff00").unwrap();
+        let mut d = minicbor::Decoder::new(&raw);
+        let bytes = decode_bytes_def_or_indef(&mut d, &mut ()).unwrap();
+        assert_eq!(*bytes, [1, 2, 3]);
+        assert_eq!(d.u8().unwrap(), 0);
+
+        for hex in ["63616263", "7f6161626263ff", "7f63616263ff"] {
+            let raw = hex::decode(hex).unwrap();
+            let mut d = minicbor::Decoder::new(&raw);
+            assert_eq!(decode_text_def_or_indef(&mut d, &mut ()).unwrap(), "abc");
+            assert_eq!(d.position(), raw.len(), "{hex}");
+        }
     }
 }

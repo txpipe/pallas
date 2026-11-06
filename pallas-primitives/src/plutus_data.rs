@@ -1,7 +1,7 @@
 use pallas_codec::tree::{
     Arity, IndexedNode, TreeDecode, Visit, cmp_tree, decode_tree, fold_tree, walk_tree,
 };
-use pallas_codec::utils::{Int, KeyValuePairs};
+use pallas_codec::utils::{Int, KeyValuePairs, decode_bytes_def_or_indef};
 use pallas_codec::{
     minicbor::{
         self, Encode,
@@ -15,8 +15,11 @@ use std::{fmt, ops::Deref};
 
 /// The CBOR codec, `Clone`, `Ord` and the canonical JSON rendering never
 /// recurse per nesting level, so chain-deep datums decode, encode, copy,
-/// compare and render on any stack, and [`pallas_codec::tree`] can traverse
-/// them through `IndexedNode`. `Debug`, `Drop` and Serde still recurse.
+/// compare, render and drop on any stack, and [`pallas_codec::tree`] can traverse
+/// them through `IndexedNode`. `Debug` and Serde still recurse.
+///
+/// This type implements `Drop`. Match by reference and use [`std::mem::take`]
+/// or the consuming accessors to extract owned payloads.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PlutusData {
     Constr(Constr<PlutusData>),
@@ -24,6 +27,96 @@ pub enum PlutusData {
     Array(MaybeIndefArray<PlutusData>),
     BigInt(BigInt),
     BoundedBytes(BoundedBytes),
+}
+
+// Empty every node before its fields are dropped. The work list lives on the
+// heap, so destruction uses constant call-stack depth, including map keys.
+impl PlutusData {
+    fn detach_children(&mut self, pending: &mut Vec<Self>) {
+        match self {
+            Self::Array(MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs)) => {
+                pending.append(xs)
+            }
+            Self::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
+                for (k, v) in std::mem::take(kvs) {
+                    pending.push(k);
+                    pending.push(v);
+                }
+            }
+            Self::Constr(c) => match &mut c.fields {
+                MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs) => pending.append(xs),
+            },
+            _ => {}
+        }
+    }
+}
+impl Drop for PlutusData {
+    fn drop(&mut self) {
+        let mut pending = Vec::new();
+        self.detach_children(&mut pending);
+        while let Some(mut child) = pending.pop() {
+            child.detach_children(&mut pending);
+        }
+    }
+}
+
+impl PlutusData {
+    /// Extracts the `Constr` payload without cloning it.
+    ///
+    /// Returns the original value unchanged if it has a different variant.
+    pub fn into_constr(mut self) -> Result<Constr<Self>, Self> {
+        match &mut self {
+            Self::Constr(value) => Ok(std::mem::replace(
+                value,
+                Constr {
+                    tag: 121,
+                    any_constructor: None,
+                    fields: MaybeIndefArray::Def(Vec::new()),
+                },
+            )),
+            _ => Err(self),
+        }
+    }
+
+    /// Extracts the `Map` payload without cloning it.
+    ///
+    /// Returns the original value unchanged if it has a different variant.
+    pub fn into_map(mut self) -> Result<KeyValuePairs<Self, Self>, Self> {
+        match &mut self {
+            Self::Map(value) => Ok(std::mem::replace(value, KeyValuePairs::Def(Vec::new()))),
+            _ => Err(self),
+        }
+    }
+
+    /// Extracts the `Array` payload without cloning it.
+    ///
+    /// Returns the original value unchanged if it has a different variant.
+    pub fn into_array(mut self) -> Result<MaybeIndefArray<Self>, Self> {
+        match &mut self {
+            Self::Array(value) => Ok(std::mem::replace(value, MaybeIndefArray::Def(Vec::new()))),
+            _ => Err(self),
+        }
+    }
+
+    /// Extracts the `BigInt` payload without cloning it.
+    ///
+    /// Returns the original value unchanged if it has a different variant.
+    pub fn into_bigint(mut self) -> Result<BigInt, Self> {
+        match &mut self {
+            Self::BigInt(value) => Ok(std::mem::replace(value, BigInt::Int(Int::from(0)))),
+            _ => Err(self),
+        }
+    }
+
+    /// Extracts the `BoundedBytes` payload without cloning it.
+    ///
+    /// Returns the original value unchanged if it has a different variant.
+    pub fn into_bounded_bytes(mut self) -> Result<BoundedBytes, Self> {
+        match &mut self {
+            Self::BoundedBytes(value) => Ok(std::mem::replace(value, Vec::new().into())),
+            _ => Err(self),
+        }
+    }
 }
 
 impl IndexedNode for PlutusData {
@@ -154,9 +247,8 @@ enum Partial {
     },
 }
 
-/// Holds a node's state while its children decode. When decoding fails the
-/// completed children it owns are released iteratively: `PlutusData` itself
-/// drops recursively, and a completed child can be as deep as the input.
+/// Holds partial decoding state. Completed children use the node's
+/// stack-safe destructor, including when decoding fails.
 struct Builder(Option<Partial>);
 
 impl Builder {
@@ -166,36 +258,6 @@ impl Builder {
 
     fn partial(&mut self) -> &mut Partial {
         self.0.as_mut().expect("taken only when the node ends")
-    }
-}
-
-impl Drop for Builder {
-    fn drop(&mut self) {
-        let mut pending = match self.0.take() {
-            None | Some(Partial::Leaf(_)) => return,
-            Some(
-                Partial::Array { items, .. }
-                | Partial::Map { items, .. }
-                | Partial::Constr { fields: items, .. },
-            ) => items,
-        };
-        while let Some(data) = pending.pop() {
-            match data {
-                PlutusData::Array(MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs)) => {
-                    pending.extend(xs);
-                }
-                PlutusData::Map(KeyValuePairs::Def(kvs) | KeyValuePairs::Indef(kvs)) => {
-                    for (k, v) in kvs {
-                        pending.push(k);
-                        pending.push(v);
-                    }
-                }
-                PlutusData::Constr(c) => match c.fields {
-                    MaybeIndefArray::Def(xs) | MaybeIndefArray::Indef(xs) => pending.extend(xs),
-                },
-                PlutusData::BigInt(_) | PlutusData::BoundedBytes(_) => {}
-            }
-        }
     }
 }
 
@@ -261,16 +323,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 };
                 Ok((Builder::new(partial), arity))
             }
-            Type::Bytes => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
-            Type::BytesIndef => {
-                let mut full = Vec::new();
-
-                for slice in d.bytes_iter()? {
-                    full.extend(slice?);
-                }
-
-                leaf(PlutusData::BoundedBytes(BoundedBytes::from(full)))
-            }
+            Type::Bytes | Type::BytesIndef => leaf(PlutusData::BoundedBytes(d.decode_with(ctx)?)),
             Type::Array | Type::ArrayIndef => {
                 let len = d.array()?;
                 let partial = Partial::Array {
@@ -708,13 +761,8 @@ impl<C> Encode<C> for BoundedBytes {
 }
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for BoundedBytes {
-    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let mut res = Vec::new();
-        for chunk in d.bytes_iter()? {
-            let bs = chunk?;
-            res.extend_from_slice(bs);
-        }
-        Ok(BoundedBytes::from(res))
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        decode_bytes_def_or_indef(d, ctx).map(|bytes| BoundedBytes::from(bytes.into_owned()))
     }
 }
 
@@ -829,10 +877,24 @@ mod tests {
         }
     }
 
+    fn alter_array(
+        array: &mut MaybeIndefArray<PlutusData>,
+        depth: usize,
+        alter: impl FnOnce(Vec<PlutusData>) -> Vec<PlutusData>,
+    ) {
+        let old = std::mem::replace(array, MaybeIndefArray::Def(Vec::new()));
+        *array = match old {
+            MaybeIndefArray::Def(xs) if depth > 1 => MaybeIndefArray::Def(alter(xs)),
+            MaybeIndefArray::Def(xs) => MaybeIndefArray::Indef(xs),
+            MaybeIndefArray::Indef(xs) if depth > 1 => MaybeIndefArray::Indef(alter(xs)),
+            MaybeIndefArray::Indef(xs) => MaybeIndefArray::Def(xs),
+        };
+    }
+
     /// Swap some Def to Indef (or vice-versa), in an existing PlutusData. The
     /// 'depth' parameter is used to avoid always changing the outer-most
     /// layer, but also try to alter some nested element, if any.
-    fn alter_any_encoding(data: PlutusData, depth: usize) -> PlutusData {
+    fn alter_any_encoding(mut data: PlutusData, depth: usize) -> PlutusData {
         let alter_kvs = |kvs: Vec<(PlutusData, PlutusData)>| -> Vec<(PlutusData, PlutusData)> {
             kvs.into_iter()
                 .map(|(k, v)| {
@@ -850,38 +912,21 @@ mod tests {
                 .collect()
         };
 
-        match data {
-            PlutusData::BigInt(i) => PlutusData::BigInt(i),
-            PlutusData::BoundedBytes(bs) => PlutusData::BoundedBytes(bs),
-            PlutusData::Map(m) => PlutusData::Map(match m {
-                KeyValuePairs::Def(kvs) if depth > 1 => KeyValuePairs::Def(alter_kvs(kvs)),
-                KeyValuePairs::Def(kvs) => KeyValuePairs::Indef(kvs),
-                KeyValuePairs::Indef(kvs) if depth > 1 => KeyValuePairs::Indef(alter_kvs(kvs)),
-                KeyValuePairs::Indef(kvs) => KeyValuePairs::Def(kvs),
-            }),
-            PlutusData::Array(m) => PlutusData::Array(match m {
-                MaybeIndefArray::Def(xs) if depth > 1 => MaybeIndefArray::Def(alter_vec(xs)),
-                MaybeIndefArray::Def(xs) => MaybeIndefArray::Indef(xs),
-                MaybeIndefArray::Indef(xs) if depth > 1 => MaybeIndefArray::Indef(alter_vec(xs)),
-                MaybeIndefArray::Indef(xs) => MaybeIndefArray::Def(xs),
-            }),
-            PlutusData::Constr(Constr {
-                tag,
-                any_constructor,
-                fields,
-            }) => PlutusData::Constr(Constr {
-                tag,
-                any_constructor,
-                fields: match fields {
-                    MaybeIndefArray::Def(xs) if depth > 1 => MaybeIndefArray::Def(alter_vec(xs)),
-                    MaybeIndefArray::Def(xs) => MaybeIndefArray::Indef(xs),
-                    MaybeIndefArray::Indef(xs) if depth > 1 => {
-                        MaybeIndefArray::Indef(alter_vec(xs))
-                    }
-                    MaybeIndefArray::Indef(xs) => MaybeIndefArray::Def(xs),
-                },
-            }),
+        match &mut data {
+            PlutusData::BigInt(_) | PlutusData::BoundedBytes(_) => {}
+            PlutusData::Map(m) => {
+                let old = std::mem::replace(m, KeyValuePairs::Def(Vec::new()));
+                *m = match old {
+                    KeyValuePairs::Def(xs) if depth > 1 => KeyValuePairs::Def(alter_kvs(xs)),
+                    KeyValuePairs::Def(xs) => KeyValuePairs::Indef(xs),
+                    KeyValuePairs::Indef(xs) if depth > 1 => KeyValuePairs::Indef(alter_kvs(xs)),
+                    KeyValuePairs::Indef(xs) => KeyValuePairs::Def(xs),
+                };
+            }
+            PlutusData::Array(xs) => alter_array(xs, depth, alter_vec),
+            PlutusData::Constr(c) => alter_array(&mut c.fields, depth, alter_vec),
         }
+        data
     }
 
     proptest! {
@@ -1087,8 +1132,6 @@ mod tests {
                     let depth = 20_000;
                     let bytes = nested(level, depth, &[0x00], close);
                     let data: PlutusData = minicbor::decode(&bytes).unwrap();
-                    // Drop still recurses; leak so only decoding is under test.
-                    let data = std::mem::ManuallyDrop::new(data);
                     assert_eq!(depth_of(&data), depth, "shape {level:02x?}");
                 }
             })
@@ -1106,18 +1149,15 @@ mod tests {
                     let depth = 20_000;
                     let bytes = nested(level, depth, &[0x00], close);
                     let data: PlutusData = minicbor::decode(&bytes).unwrap();
-                    // Drop still recurses; leak so only the operations under
-                    // test run.
-                    let data = std::mem::ManuallyDrop::new(data);
                     assert_eq!(
-                        minicbor::to_vec(&*data).unwrap(),
+                        minicbor::to_vec(&data).unwrap(),
                         bytes,
                         "shape {level:02x?}"
                     );
-                    let copy = std::mem::ManuallyDrop::new(PlutusData::clone(&data));
+                    let copy = PlutusData::clone(&data);
                     assert_eq!(depth_of(&copy), depth, "shape {level:02x?}");
                     assert_eq!(
-                        minicbor::to_vec(&*copy).unwrap(),
+                        minicbor::to_vec(&copy).unwrap(),
                         bytes,
                         "shape {level:02x?}"
                     );
@@ -1138,16 +1178,14 @@ mod tests {
                     let same = nested(level, depth, &[0x00], close);
                     let bigger = nested(level, depth, &[0x01], close);
                     let deeper = nested(level, depth + 1, &[0x00], close);
-                    let decode = |bytes: &[u8]| {
-                        std::mem::ManuallyDrop::new(minicbor::decode::<PlutusData>(bytes).unwrap())
-                    };
+                    let decode = |bytes: &[u8]| minicbor::decode::<PlutusData>(bytes).unwrap();
                     let (a, b, c, d) = (
                         decode(&same),
                         decode(&same),
                         decode(&bigger),
                         decode(&deeper),
                     );
-                    assert!(*a == *b, "shape {level:02x?}");
+                    assert!(a == b, "shape {level:02x?}");
                     assert_eq!(a.cmp(&c), Ordering::Less, "shape {level:02x?}");
                     // Containers rank before integers, so at the depth where
                     // one tree holds its leaf and the other a container, the

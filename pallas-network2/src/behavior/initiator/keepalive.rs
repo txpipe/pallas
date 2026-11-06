@@ -42,6 +42,9 @@ impl PeerVisitor for KeepaliveBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        self.send_keepalive(pid, state, outbound);
+        if state.is_initialized() {
+            let msg = crate::protocol::keepalive::Message::KeepAlive(self.token);
+            state.try_send_request(pid, AnyMessage::KeepAlive(msg), outbound);
+        }
     }
 }

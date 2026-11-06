@@ -59,7 +59,7 @@ jobs:
           tool: cargo-release
       - name: Publish
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         # --isolated ignores [workspace.metadata.release], whose `publish = false`
         # (kept so local `cargo release <version>` only tags) would otherwise make
         # this a silent no-op.
