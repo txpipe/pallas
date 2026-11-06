@@ -169,18 +169,17 @@ impl<'b> Decoder<'b> {
     /// any more bits.
     #[cfg(feature = "num-bigint")]
     pub fn big_word(&mut self) -> Result<BigUint, Error> {
-        let mut leading_bit = 1;
-        let mut final_word: BigUint = (0_u8).into();
-        let mut shl: u128 = 0;
-        // continue looping if lead bit is 1 which is 128 as a u8 otherwise exit
-        while leading_bit > 0 {
+        // Collect the 7-bit groups, least significant first, and build the
+        // number once: or-ing each shifted group in is quadratic.
+        let mut groups = Vec::new();
+        loop {
             let word8 = self.bits8(8)?;
-            let word7 = word8 & 127;
-            final_word |= <u8 as Into<BigUint>>::into(word7) << shl;
-            shl += 7;
-            leading_bit = word8 & 128;
+            groups.push(word8 & 127);
+            if word8 & 128 == 0 {
+                break;
+            }
         }
-        Ok(final_word)
+        Ok(BigUint::from_radix_le(&groups, 128).expect("every group is below 128"))
     }
 
     /// Decode a list of items with a decoder function.
