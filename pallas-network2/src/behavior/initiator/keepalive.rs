@@ -6,7 +6,7 @@ use crate::{
     protocol::keepalive::State,
 };
 
-use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorState, PeerVisitor, handshake::Instant};
 
 /// How long [`KeepaliveBehavior::default`] lets a peer take to answer a
 /// keepalive, with a safety margin over what the Haskell node intends for that
@@ -73,7 +73,7 @@ impl KeepaliveBehavior {
             return;
         };
 
-        if tokio::time::Instant::now() < deadline {
+        if Instant::now() < deadline {
             return;
         }
 
@@ -100,7 +100,7 @@ impl PeerVisitor for KeepaliveBehavior {
         // The keepalive state turns to `Server` once our keepalive is sent: the
         // peer now has to answer it.
         if matches!(state.keepalive, State::Server(_)) && state.keepalive_deadline.is_none() {
-            state.keepalive_deadline = Some(tokio::time::Instant::now() + self.timeout);
+            state.keepalive_deadline = Some(Instant::now() + self.timeout);
         }
     }
 
@@ -130,7 +130,7 @@ impl PeerVisitor for KeepaliveBehavior {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio"))]
 mod tests {
     use super::*;
     use crate::BehaviorOutput;

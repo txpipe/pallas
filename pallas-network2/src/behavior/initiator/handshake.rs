@@ -1,5 +1,12 @@
 use std::time::Duration;
 
+// tokio's clock when tokio is compiled in, so tests can drive the timeout with
+// tokio::time::pause/advance; std's otherwise.
+#[cfg(not(feature = "tokio"))]
+pub(crate) use std::time::Instant;
+#[cfg(feature = "tokio")]
+pub(crate) use tokio::time::Instant;
+
 use crate::{
     BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId,
     behavior::{AnyMessage, ConnectionState},
@@ -81,7 +88,7 @@ impl HandshakeBehavior {
             return;
         };
 
-        if tokio::time::Instant::now() < deadline {
+        if Instant::now() < deadline {
             return;
         }
 
@@ -154,7 +161,7 @@ impl PeerVisitor for HandshakeBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        state.handshake_deadline = Some(tokio::time::Instant::now() + self.timeout);
+        state.handshake_deadline = Some(Instant::now() + self.timeout);
         self.propose_handshake(pid, state, outbound);
     }
 
@@ -251,6 +258,7 @@ mod tests {
         assert!(has_init_event, "should emit PeerInitialized event");
     }
 
+    #[cfg(feature = "tokio")]
     fn is_disconnect(output: &BehaviorOutput<InitiatorBehavior>, pid: &PeerId) -> bool {
         matches!(
             output,
@@ -258,6 +266,7 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test(start_paused = true)]
     async fn unanswered_handshake_disconnects_after_the_timeout() {
         let mut hs = HandshakeBehavior::default().with_timeout(Duration::from_secs(10));
@@ -288,6 +297,7 @@ mod tests {
         assert_eq!(state.error_count, 1);
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test(start_paused = true)]
     async fn initialized_peer_is_kept_after_the_timeout() {
         let mut hs = HandshakeBehavior::default().with_timeout(Duration::from_secs(10));
