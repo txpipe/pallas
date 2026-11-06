@@ -225,6 +225,30 @@ impl Ord for PlutusData {
     }
 }
 
+/// Reads the header of a tag 102 constr's list of the constructor index and
+/// the fields, which plutus-core (`decodeConstrExtended`) accepts definite
+/// with exactly two elements, or indefinite. Returns whether it is
+/// indefinite, in which case [`tag_102_pair_end`] must follow the fields.
+fn tag_102_pair(d: &mut minicbor::Decoder<'_>) -> Result<bool, minicbor::decode::Error> {
+    match d.array()? {
+        Some(2) => Ok(false),
+        None => Ok(true),
+        Some(_) => Err(minicbor::decode::Error::message(
+            "expected exactly two elements in a tag 102 constr",
+        )),
+    }
+}
+
+/// Consumes the break that ends an indefinite tag 102 pair.
+fn tag_102_pair_end(d: &mut minicbor::Decoder<'_>) -> Result<(), minicbor::decode::Error> {
+    if d.datatype()? != Type::Break {
+        return Err(minicbor::decode::Error::message(
+            "expected exactly two elements in a tag 102 constr",
+        ));
+    }
+    d.skip()
+}
+
 // Private wrapper so the tree-decoding builder stays out of the public API.
 struct Node(PlutusData);
 
@@ -242,6 +266,9 @@ enum Partial {
     Constr {
         tag: u64,
         any_constructor: Option<u64>,
+        /// A tag 102 pair written as an indefinite list, whose break follows
+        /// the fields.
+        indefinite_pair: bool,
         indefinite: bool,
         fields: Vec<PlutusData>,
     },
@@ -279,11 +306,11 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 }
 
                 let tag = d.tag()?.as_u64();
-                let any_constructor = match tag {
-                    121..=127 | 1280..=1400 => None,
+                let (any_constructor, indefinite_pair) = match tag {
+                    121..=127 | 1280..=1400 => (None, false),
                     102 => {
-                        d.array()?;
-                        Some(d.u64()?)
+                        let indefinite_pair = tag_102_pair(d)?;
+                        (Some(d.u64()?), indefinite_pair)
                     }
                     _ => {
                         return Err(minicbor::decode::Error::message(
@@ -295,6 +322,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 let partial = Partial::Constr {
                     tag,
                     any_constructor,
+                    indefinite_pair,
                     indefinite: len.is_none(),
                     fields: Vec::new(),
                 };
@@ -350,9 +378,17 @@ impl<'b, C> TreeDecode<'b, C> for Node {
 
     fn end(
         mut builder: Builder,
-        _: &mut minicbor::Decoder<'b>,
+        d: &mut minicbor::Decoder<'b>,
         _: &mut C,
     ) -> Result<Node, minicbor::decode::Error> {
+        if let Partial::Constr {
+            indefinite_pair: true,
+            ..
+        } = builder.partial()
+        {
+            tag_102_pair_end(d)?;
+        }
+
         // Checked while the builder still owns the items, so a chain-deep
         // dangling key is released iteratively by its drop.
         if let Partial::Map { items, .. } = builder.partial()
@@ -373,6 +409,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 any_constructor,
                 indefinite,
                 fields,
+                ..
             } => PlutusData::Constr(Constr {
                 tag,
                 any_constructor,
@@ -647,13 +684,16 @@ where
                 any_constructor: None,
             }),
             102 => {
-                d.array()?;
-
-                Ok(Constr {
+                let indefinite_pair = tag_102_pair(d)?;
+                let constr = Constr {
                     tag: x,
                     any_constructor: Some(d.decode_with(ctx)?),
                     fields: d.decode_with(ctx)?,
-                })
+                };
+                if indefinite_pair {
+                    tag_102_pair_end(d)?;
+                }
+                Ok(constr)
             }
             _ => Err(minicbor::decode::Error::message(
                 "bad tag code for plutus data",
@@ -984,6 +1024,80 @@ mod tests {
             any_constructor: Some(any_constructor),
             fields: MaybeIndefArray::Def(fields.to_vec()),
         })
+    }
+
+    fn decode_hex(cbor: &str) -> Result<PlutusData, minicbor::decode::Error> {
+        minicbor::decode(&hex::decode(cbor).unwrap())
+    }
+
+    fn assert_same_encoding(cbor: &str, expected: PlutusData) {
+        let decoded = decode_hex(cbor).unwrap();
+        assert_eq!(decoded, expected);
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&decoded).unwrap()),
+            hex::encode(minicbor::to_vec(&expected).unwrap())
+        );
+    }
+
+    #[test]
+    fn tag_102_definite_pair() {
+        // 102([128, []])
+        assert_same_encoding("d86682188080", constr_any(128, &[]));
+    }
+
+    #[test]
+    fn tag_102_indefinite_pair() {
+        // 102([_ 128, [1]])
+        assert_same_encoding("d8669f18808101ff", constr_any(128, &[int(1)]));
+    }
+
+    #[test]
+    fn tag_102_indefinite_pair_followed_by_a_sibling() {
+        // [_ 102([_ 128, []]), 5]
+        assert_same_encoding(
+            "9fd8669f188080ff05ff",
+            array_indef(&[constr_any(128, &[]), int(5)]),
+        );
+        // [102([_ 128, []]), 5]
+        assert_same_encoding(
+            "82d8669f188080ff05",
+            array_def(&[constr_any(128, &[]), int(5)]),
+        );
+        // {102([_ 128, []]): 5}
+        assert_same_encoding(
+            "a1d8669f188080ff05",
+            map_def(&[(constr_any(128, &[]), int(5))]),
+        );
+    }
+
+    #[test]
+    fn tag_102_indefinite_pair_without_a_break() {
+        // At the end of the input.
+        assert!(decode_hex("d8669f188080").is_err());
+        // Followed by a sibling.
+        assert!(decode_hex("9fd8669f18808005ff").is_err());
+    }
+
+    #[test]
+    fn tag_102_constr_on_its_own() {
+        let decode =
+            |cbor: &str| minicbor::decode::<Constr<PlutusData>>(&hex::decode(cbor).unwrap());
+        assert_eq!(decode("d8669f18808101ff").unwrap().fields.len(), 1);
+        assert!(decode("d8669f188080").is_err());
+        assert!(decode("d8669f18808001ff").is_err());
+        assert!(decode("d8668318808001").is_err());
+    }
+
+    #[test]
+    fn tag_102_indefinite_list_of_three() {
+        assert!(decode_hex("d8669f18808001ff").is_err());
+    }
+
+    #[test]
+    fn tag_102_definite_list_of_other_lengths() {
+        assert!(decode_hex("d86680").is_err());
+        assert!(decode_hex("d866811880").is_err());
+        assert!(decode_hex("d8668318808001").is_err());
     }
 
     // Bytes <-> ...
