@@ -381,7 +381,7 @@ impl<M: Message> Stream for TcpListenerInterface<M> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio"))]
 mod tests {
     use super::*;
     use crate::behavior::AnyMessage;
