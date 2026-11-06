@@ -68,6 +68,15 @@ impl State {
             Self::Done => Err(Error::InvalidOutbound),
         }
     }
+
+    /// Takes the last received block body out of a `Streaming` state, leaving
+    /// `Streaming(None)`, so that each body is handed out only once.
+    pub fn drain_block(&mut self) -> Option<Body> {
+        match self {
+            Self::Streaming(body) => body.take(),
+            _ => None,
+        }
+    }
 }
 
 impl Encode<()> for Message {
