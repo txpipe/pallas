@@ -15,7 +15,7 @@ use crate::utils::{
 use pallas_addresses::{
     Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress, StakePayload,
 };
-use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
+use pallas_codec::utils::{Bytes, CborWrap, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, TransactionInput, babbage,
     conway::{
@@ -928,7 +928,7 @@ fn get_script_kind_from_reference_input(
                     ScriptKind::Plutus(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash))
                 }
                 ScriptRef::PlutusV3Script(plutus_v3_script) => {
-                    // First, the PlutusV2Script header.
+                    // First, the PlutusV3Script header.
                     let mut val_to_hash: Vec<u8> = vec![3];
                     // Then, the CBOR content.
                     val_to_hash.extend_from_slice(plutus_v3_script.as_ref());
@@ -1745,4 +1745,109 @@ fn cost_model_for_tx(
         map.insert(lang.clone() as u8, costs);
     }
     Some(LanguageViews(map))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pallas_codec::minicbor;
+    use pallas_codec::utils::Set;
+    use pallas_primitives::alonzo::NativeScript;
+    use std::collections::HashMap;
+
+    fn ref_input(byte: u8, index: u64) -> TransactionInput {
+        TransactionInput {
+            transaction_id: Hash::from([byte; 32]),
+            index,
+        }
+    }
+
+    fn ref_output(script_ref: ScriptRef) -> Vec<u8> {
+        let output = pallas_primitives::conway::PostAlonzoTransactionOutput {
+            address: Bytes::from(vec![0x61; 29]),
+            value: Value::Coin(2_000_000),
+            datum_option: None,
+            script_ref: Some(CborWrap(script_ref)),
+        };
+        let mut buf = Vec::new();
+        minicbor::encode(&output, &mut buf).expect("output encodes");
+        buf
+    }
+
+    fn decode_output(bytes: &[u8]) -> TransactionOutput<'_> {
+        minicbor::decode(bytes).expect("output decodes")
+    }
+
+    // A native script reached only through a reference input must stay out
+    // of the Plutus-only list (no redeemer pointer for it) while remaining
+    // in the full list answered by `get_reference_script_hashes`.
+    #[test]
+    fn plutus_reference_scripts_skip_native() {
+        let native_script = NativeScript::ScriptPubkey(AddrKeyhash::from([0x11; 28]));
+        let mut native_bytes = Vec::new();
+        minicbor::encode(&native_script, &mut native_bytes).expect("native encodes");
+        let native_ref: ScriptRef =
+            ScriptRef::NativeScript(minicbor::decode(&native_bytes).expect("native decodes"));
+
+        let plutus_script = PlutusScript::<1>(Bytes::from(vec![0x01, 0x02]));
+        let plutus_ref = ScriptRef::PlutusV1Script(plutus_script.clone());
+
+        let native_out_bytes = ref_output(native_ref);
+        let plutus_out_bytes = ref_output(plutus_ref);
+        let native_out = decode_output(&native_out_bytes);
+        let plutus_out = decode_output(&plutus_out_bytes);
+
+        let native_input = ref_input(0xAA, 0);
+        let plutus_input = ref_input(0xBB, 0);
+
+        let mut utxos: UTxOs = HashMap::new();
+        utxos.insert(
+            MultiEraInput::from_alonzo_compatible(&native_input),
+            MultiEraOutput::from_conway(&native_out),
+        );
+        utxos.insert(
+            MultiEraInput::from_alonzo_compatible(&plutus_input),
+            MultiEraOutput::from_conway(&plutus_out),
+        );
+
+        let body = TransactionBody {
+            inputs: Set::from(vec![]),
+            outputs: vec![],
+            fee: 0,
+            ttl: None,
+            certificates: None,
+            withdrawals: None,
+            auxiliary_data_hash: None,
+            validity_interval_start: None,
+            mint: None,
+            script_data_hash: None,
+            collateral: None,
+            required_signers: None,
+            network_id: None,
+            collateral_return: None,
+            total_collateral: None,
+            reference_inputs: Some(
+                NonEmptySet::try_from(vec![native_input.clone(), plutus_input.clone()])
+                    .expect("non-empty"),
+            ),
+            voting_procedures: None,
+            proposal_procedures: None,
+            treasury_value: None,
+            donation: None,
+        };
+
+        let expected_plutus = compute_plutus_v1_script_hash(&plutus_script);
+        assert_eq!(
+            get_plutus_reference_script_hashes(&body, &utxos),
+            vec![expected_plutus],
+            "only the Plutus reference script is listed",
+        );
+
+        let expected_native = compute_native_script_hash(&native_script);
+        assert_eq!(
+            get_reference_script_hashes(&body, &utxos),
+            vec![expected_native, expected_plutus],
+            "the full list keeps both, in reference-input order",
+        );
+    }
 }
